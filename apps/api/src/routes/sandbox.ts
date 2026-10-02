@@ -1,0 +1,419 @@
+import type { Prisma } from '@prisma/client';
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import WebSocket from 'ws';
+
+import { env, proxmoxMock, sandboxEnabled } from '../env';
+import { isAnalyst, loadUser, requireUser } from '../lib/auth';
+import { attachMockVnc } from '../lib/mock-vnc';
+import { prisma } from '../lib/prisma';
+import {
+  createVncProxy,
+  pve,
+  pveAuth,
+  pveConsoleWsUrl,
+  pveNode,
+  pveOrigin,
+  pveRaw,
+  pveStorageSupportsIso,
+  pveTemplateExists,
+  pveVerifyTls,
+  pveVersion,
+  waitTask,
+} from '../lib/proxmox';
+import {
+  activeSessionForEntry,
+  createSession,
+  dispose,
+  getSession,
+  listSessions,
+} from '../lib/sandbox';
+
+const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
+
+function msg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function notEnabled(reply: FastifyReply) {
+  return reply
+    .code(503)
+    .send({ error: 'O sandbox nao esta habilitado neste servidor (SANDBOX_ENABLED).' });
+}
+
+/** Carrega a sessao garantindo que o usuario pode ver/operar (dono ou admin). */
+async function loadOwned(
+  id: string,
+  user: { id: string; role: string },
+  reply: FastifyReply,
+): Promise<Awaited<ReturnType<typeof getSession>> | null> {
+  const session = await getSession(id);
+  if (!session) {
+    reply.code(404).send({ error: 'Ambiente nao encontrado.' });
+    return null;
+  }
+  if (session.analystId !== user.id && user.role !== 'ADMIN') {
+    reply.code(403).send({ error: 'Este ambiente pertence a outro analista.' });
+    return null;
+  }
+  return session;
+}
+
+/** Estado atual da VM no Proxmox (best effort: nunca derruba a resposta). */
+async function liveVmStatus(session: { vmid: number | null; node: string }): Promise<string | null> {
+  if (!session.vmid) return null;
+  try {
+    const data = await pve<{ status?: string }>(
+      `/nodes/${session.node}/qemu/${session.vmid}/status/current`,
+    );
+    return data?.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function sandboxRoutes(app: FastifyInstance) {
+  // ---- Diagnostico da integracao (admin) ----
+  app.get('/api/sandbox/health', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (user.role !== 'ADMIN') {
+      return reply.code(403).send({ error: 'Acesso restrito a administradores.' });
+    }
+
+    const checks: { name: string; ok: boolean; detail: string }[] = [];
+    const add = (name: string, ok: boolean, detail: string) => checks.push({ name, ok, detail });
+
+    add(
+      'sandbox-habilitado',
+      sandboxEnabled,
+      sandboxEnabled ? 'SANDBOX_ENABLED=true' : 'SANDBOX_ENABLED=false (feature inerte)',
+    );
+    add(
+      'modo-mock',
+      proxmoxMock,
+      proxmoxMock ? 'PROXMOX_MOCK=true (nao fala com o PVE real)' : 'usando o PVE real',
+    );
+
+    if (sandboxEnabled) {
+      if (proxmoxMock) {
+        add('pve-acessivel', true, 'simulado em memoria');
+      } else {
+        try {
+          add('pve-acessivel', true, await pveVersion());
+        } catch (err) {
+          add('pve-acessivel', false, msg(err));
+        }
+      }
+
+      try {
+        const ok = await pveTemplateExists(env.PROXMOX_TEMPLATE_VMID);
+        add('template', ok, `vmid ${env.PROXMOX_TEMPLATE_VMID} no node ${pveNode()}`);
+      } catch (err) {
+        add('template', false, msg(err));
+      }
+
+      try {
+        const ok = await pveStorageSupportsIso(env.PROXMOX_ISO_STORAGE);
+        add('storage-iso', ok, `storage ${env.PROXMOX_ISO_STORAGE} aceita content iso`);
+      } catch (err) {
+        add('storage-iso', false, msg(err));
+      }
+
+      add(
+        'usuario-console',
+        proxmoxMock || (Boolean(env.PROXMOX_USER) && Boolean(env.PROXMOX_PASSWORD)),
+        proxmoxMock
+          ? 'modo mock: nao precisa de usuario do PVE'
+          : 'console exige usuario/senha do PVE (API token nao serve)',
+      );
+    }
+
+    const activeSessions = await prisma.sandboxSession.count({
+      where: { status: { in: [...ACTIVE] } },
+    });
+
+    return reply.send({
+      enabled: sandboxEnabled,
+      mock: proxmoxMock,
+      node: pveNode(),
+      templateVmid: env.PROXMOX_TEMPLATE_VMID,
+      isoStorage: env.PROXMOX_ISO_STORAGE,
+      ttlMinutes: env.SANDBOX_TTL_MINUTES,
+      maxActive: env.SANDBOX_MAX_ACTIVE,
+      maxPerUser: env.SANDBOX_MAX_PER_USER,
+      consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
+      activeSessions,
+      checks,
+    });
+  });
+
+  // ---- Sessao ativa de uma amostra (painel do analista) ----
+  app.get('/api/entries/:id/sandbox', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await activeSessionForEntry(id);
+    return reply.send({
+      enabled: sandboxEnabled,
+      consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
+      session: session ?? null,
+    });
+  });
+
+  // ---- Abre o ambiente para uma amostra ----
+  app.post('/api/entries/:id/sandbox', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas podem abrir um ambiente.' });
+    }
+    if (!sandboxEnabled) return notEnabled(reply);
+
+    const { id } = req.params as { id: string };
+    const entry = await prisma.entry.findUnique({ where: { id } });
+    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+
+    const result = await createSession(entry, user.id);
+    if (!result.ok) return reply.code(result.code).send({ error: result.error });
+
+    return reply.code(201).send({ session: result.session });
+  });
+
+  // ---- Lista de ambientes (analista ve os seus; admin pode ver todos) ----
+  app.get('/api/sandbox', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const query = req.query as { scope?: string; active?: string };
+    const where: Prisma.SandboxSessionWhereInput = {};
+    if (user.role !== 'ADMIN' || query.scope !== 'all') where.analystId = user.id;
+    if (query.active === 'true') where.status = { in: [...ACTIVE] };
+
+    const sessions = await listSessions(where);
+    return reply.send({ sessions });
+  });
+
+  // ---- Detalhe (usado no polling do painel) ----
+  app.get('/api/sandbox/:id', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+
+    const vmStatus = session.status === 'RUNNING' ? await liveVmStatus(session) : null;
+    return reply.send({ session, vmStatus });
+  });
+
+  // ---- Estende o tempo de vida ----
+  app.post('/api/sandbox/:id/extend', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+    if (!ACTIVE.includes(session.status as (typeof ACTIVE)[number])) {
+      return reply.code(409).send({ error: 'Este ambiente ja foi encerrado.' });
+    }
+
+    const requested = Number((req.body as { minutes?: number } | null)?.minutes);
+    const minutes = Number.isFinite(requested) && requested > 0 ? requested : env.SANDBOX_TTL_MINUTES;
+    const base = Math.max(session.expiresAt.getTime(), Date.now());
+
+    const updated = await prisma.sandboxSession.update({
+      where: { id },
+      data: { expiresAt: new Date(base + minutes * 60_000) },
+    });
+    return reply.send({ session: updated });
+  });
+
+  // ---- Liga/desliga a VM sem destruir o ambiente ----
+  app.post('/api/sandbox/:id/power', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!sandboxEnabled) return notEnabled(reply);
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
+
+    const action = (req.body as { action?: string } | null)?.action;
+    if (action !== 'on' && action !== 'off') {
+      return reply.code(400).send({ error: 'Acao invalida (use "on" ou "off").' });
+    }
+
+    try {
+      const upid = await pve<string>(
+        `/nodes/${session.node}/qemu/${session.vmid}/status/${action === 'on' ? 'start' : 'shutdown'}`,
+        { method: 'POST' },
+      );
+      await waitTask(upid, 120_000);
+    } catch (err) {
+      return reply.code(502).send({ error: msg(err) });
+    }
+
+    return reply.send({ ok: true, vmStatus: await liveVmStatus(session) });
+  });
+
+  // ---- Descarta o ambiente (destroi a VM e apaga o ISO da amostra) ----
+  app.delete('/api/sandbox/:id', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+
+    await dispose(id, 'STOPPED');
+    return reply.send({ ok: true });
+  });
+
+  // ---- Captura de tela da VM (evidencia para o relatorio) ----
+  app.get('/api/sandbox/:id/screenshot', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
+
+    const shot = await pveRaw(`/nodes/${session.node}/qemu/${session.vmid}/screenshot`, {
+      method: 'POST',
+    });
+    if (shot.status >= 400) {
+      return reply.code(502).send({ error: 'Nao foi possivel capturar a tela da VM.' });
+    }
+    reply.header('Content-Type', 'image/png');
+    reply.header('Cache-Control', 'no-store');
+    return reply.send(shot.body);
+  });
+
+  // ---- Console: o front so recebe o caminho do websocket (ticket fica aqui) ----
+  app.get('/api/sandbox/:id/console', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+    if (env.SANDBOX_CONSOLE_ENABLED !== 'true') {
+      return reply.code(503).send({ error: 'O console esta desabilitado (SANDBOX_CONSOLE_ENABLED).' });
+    }
+    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
+
+    return reply.send({ wsPath: `/api/sandbox/${session.id}/console/ws` });
+  });
+
+  // ---- WebSocket do console: proxy autenticado para o vncwebsocket do PVE ----
+  // O navegador nunca ve o ticket do Proxmox: ele fica so no backend.
+  app.get('/api/sandbox/:id/console/ws', { websocket: true }, (socket, req) => {
+    void (async () => {
+      const fail = (code: number, reason: string) => {
+        try {
+          socket.close(code, reason.slice(0, 120));
+        } catch {
+          /* socket ja fechado */
+        }
+      };
+
+      const user = await loadUser(req);
+      if (!user) return fail(4401, 'nao autenticado');
+      if (!sandboxEnabled) return fail(4403, 'sandbox desabilitado');
+      if (env.SANDBOX_CONSOLE_ENABLED !== 'true') return fail(4403, 'console desabilitado');
+
+      const { id } = req.params as { id: string };
+      const session = await getSession(id);
+      if (!session) return fail(4404, 'ambiente nao encontrado');
+      if (session.analystId !== user.id && user.role !== 'ADMIN') {
+        return fail(4403, 'sem permissao para este ambiente');
+      }
+      if (!session.vmid) return fail(4409, 'a VM ainda nao existe');
+
+      let upstream: WebSocket;
+      try {
+        if (proxmoxMock && !env.SANDBOX_MOCK_VNC_URL) {
+          // Sem um VNC de teste no modo mock: responde o RFB por aqui mesmo.
+          return attachMockVnc(socket);
+        }
+        if (proxmoxMock) {
+          upstream = new WebSocket(env.SANDBOX_MOCK_VNC_URL, ['binary'], {
+            perMessageDeflate: false,
+            handshakeTimeout: 15_000,
+          });
+        } else {
+          const proxy = await createVncProxy(session.vmid);
+          const auth = await pveAuth();
+          upstream = new WebSocket(
+            pveConsoleWsUrl(session.vmid, proxy.port, proxy.ticket),
+            ['binary'],
+            {
+              headers: {
+                Cookie: auth.cookie,
+                CSRFPreventionToken: auth.csrf,
+                Origin: pveOrigin(),
+              },
+              rejectUnauthorized: pveVerifyTls(),
+              perMessageDeflate: false,
+              handshakeTimeout: 15_000,
+            },
+          );
+        }
+      } catch (err) {
+        return fail(4502, msg(err));
+      }
+
+      // O noVNC so fala depois do handshake do servidor, mas guardamos o que
+      // chegar antes do upstream abrir para nao perder nada.
+      const pending: { data: WebSocket.RawData; binary: boolean }[] = [];
+      let upstreamOpen = false;
+
+      socket.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
+        if (!upstreamOpen) {
+          pending.push({ data, binary: isBinary });
+          return;
+        }
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+      });
+
+      upstream.on('open', () => {
+        upstreamOpen = true;
+        for (const item of pending) upstream.send(item.data, { binary: item.binary });
+        pending.length = 0;
+      });
+
+      upstream.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(data, { binary: isBinary });
+      });
+
+      let ping: NodeJS.Timeout | null = null;
+      const shutdown = (code: number, reason: string) => {
+        if (ping) clearInterval(ping);
+        ping = null;
+        try {
+          if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) {
+            upstream.close();
+          }
+        } catch {
+          /* noop */
+        }
+        fail(code, reason);
+      };
+
+      // Ping periodico para manter o tunel (browser -> nginx -> API -> PVE) vivo.
+      ping = setInterval(() => {
+        if (upstream.readyState === WebSocket.OPEN) upstream.ping();
+      }, 30_000);
+      ping.unref();
+
+      socket.on('close', () => shutdown(1000, ''));
+      socket.on('error', () => shutdown(1011, 'erro no console'));
+      upstream.on('close', () => shutdown(1000, ''));
+      upstream.on('error', (err: Error) => shutdown(1011, msg(err)));
+    })();
+  });
+}

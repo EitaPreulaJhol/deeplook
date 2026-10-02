@@ -75,3 +75,57 @@ export interface ActivationKey {
   createdBy?: { id: string; displayName: string };
   usedBy?: { id: string; displayName: string; email: string }[];
 }
+
+export type SandboxStatus =
+  | 'REQUESTED'
+  | 'PROVISIONING'
+  | 'RUNNING'
+  | 'STOPPING'
+  | 'STOPPED'
+  | 'EXPIRED'
+  | 'FAILED';
+
+export interface SandboxEntryRef {
+  id: string;
+  title: string;
+  sha256?: string | null;
+  originalFilename?: string | null;
+  fileSize?: number | null;
+  owner?: { id: string; displayName: string };
+}
+
+export interface SandboxSession {
+  id: string;
+  entryId: string;
+  analystId: string;
+  node: string;
+  vmid?: number | null;
+  name: string;
+  status: SandboxStatus;
+  phase?: string | null;
+  isoVolume?: string | null;
+  upid?: string | null;
+  ip?: string | null;
+  lastError?: string | null;
+  expiresAt: string;
+  startedAt?: string | null;
+  stoppedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  analyst?: { id: string; displayName: string };
+  entry?: SandboxEntryRef;
+}
+
+export interface SandboxHealth {
+  enabled: boolean;
+  mock: boolean;
+  node: string;
+  templateVmid: number;
+  isoStorage: string;
+  ttlMinutes: number;
+  maxActive: number;
+  maxPerUser: number;
+  consoleEnabled: boolean;
+  activeSessions: number;
+  checks: { name: string; ok: boolean; detail: string }[];
+}

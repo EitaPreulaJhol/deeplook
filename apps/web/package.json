@@ -16,6 +16,7 @@
     "@carbon/icons-react": "^11.51.0",
     "@carbon/react": "^1.71.0",
     "@ibm/plex": "^6.4.1",
+    "@novnc/novnc": "^1.7.0",
     "@tanstack/react-query": "^5.59.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

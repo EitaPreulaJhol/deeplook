@@ -19,6 +19,7 @@ import { api } from '../api/client';
 import type { Entry, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
+import { SandboxPanel } from '../components/SandboxPanel';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 
 function fmtDate(iso?: string | null): string {
@@ -203,6 +204,8 @@ export function EntryDetailPage() {
           </div>
         </Tile>
       )}
+
+      {canTriage && entry.type === 'FILE' && <SandboxPanel entryId={entry.id} />}
 
       <h3 className="dl-mb-md">Relatórios ({reports.length})</h3>
       {reports.length === 0 && <div className="dl-empty">Nenhum relatório publicado ainda.</div>}

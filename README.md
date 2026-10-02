@@ -139,6 +139,19 @@ COOKIE_SECURE=true
 | `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` | Bucket usado pela API | `http://minio:9000` |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Credenciais S3 da API | = MinIO root |
 | `WEB_PORT` | Porta publicada no host | `8080` |
+| `SANDBOX_ENABLED` | Liga o sandbox (VM isolada no Proxmox) | `false` |
+| `SANDBOX_CONSOLE_ENABLED` | Mostra o console noVNC no painel do analista | `true` |
+| `PROXMOX_MOCK` | Simula o Proxmox em memória (sem PVE real) | `false` |
+| `PROXMOX_API_URL` | URL da API do PVE (ex.: `https://192.168.0.10:8006`) | — |
+| `PROXMOX_NODE` | Node do cluster onde as VMs são criadas | `pve` |
+| `PROXMOX_USER` / `PROXMOX_PASSWORD` | Usuário dedicado do PVE (o console não aceita API token) | — |
+| `PROXMOX_TEMPLATE_VMID` | VMID do template com `qemu-guest-agent` e rede isolada | `0` |
+| `PROXMOX_ISO_STORAGE` | Storage que aceita `content iso` (onde a amostra vira ISO) | `local` |
+| `PROXMOX_VERIFY_TLS` | `true` somente se o certificado do PVE for confiável | `false` |
+| `SANDBOX_TAG` | Etiqueta das VMs do DeepLook (usada na limpeza) | `deeplook-sandbox` |
+| `SANDBOX_TTL_MINUTES` | Tempo de vida do ambiente antes do descarte automático | `60` |
+| `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` | Limite de ambientes ativos (total / por analista) | `4` / `2` |
+| `SANDBOX_MOCK_VNC_URL` | (modo mock) VNC de teste para validar o console | — |
 
 Console do MinIO (administração, apenas no loopback): http://localhost:9001
 
@@ -231,6 +244,92 @@ Classes de estrutura usadas pelas páginas: `PageHeader`
 
 ---
 
+## Sandbox de análise (Proxmox VE)
+
+Analistas podem abrir uma **VM isolada por amostra**: um clone do template é criado
+no Proxmox, recebe a amostra como **CD-ROM somente leitura** (uma ISO9660 gerada na
+hora, com o arquivo, o SHA-256 e um LEIA-ME) e é acessado pelo **console noVNC
+embutido** na página da amostra. Ao encerrar — ou quando o prazo vence — a VM é
+desligada, destruída e a ISO é apagada.
+
+```
+Analista -> POST /api/entries/:id/sandbox
+              │
+              ├─ 1. MinIO: baixa a amostra
+              ├─ 2. genisoimage: monta a ISO (amostra + SHA256.txt + LEIA-ME.txt)
+              ├─ 3. PVE: upload da ISO no storage (streaming multipart)
+              ├─ 4. PVE: clone do template (linked clone; cai para cópia cheia se falhar)
+              ├─ 5. PVE: config (tags + ide2=<iso>,media=cdrom,ro=1)
+              └─ 6. PVE: start -> status RUNNING (console liberado)
+```
+
+### Por que ISO (e não upload do arquivo)?
+
+A API do Proxmox não tem endpoint para "colocar um arquivo dentro do guest": o
+caminho oficial é montar um volume com `content=iso` e anexá-lo como CD-ROM. Um
+`.exe` renomeado para `.iso` **não** monta — por isso a API gera uma ISO9660 de
+verdade com o `genisoimage` (já instalado na imagem da API).
+
+### Console: por que um usuário/senha do PVE?
+
+Os endpoints de console (`vncproxy`/`vncwebsocket`) **não aceitam API token**, só
+ticket de usuário. A API então:
+
+1. autentica com `PROXMOX_USER`/`PROXMOX_PASSWORD` (`POST /access/ticket`);
+2. guarda o ticket em cache (~2h, renovado sozinho);
+3. abre o `vncwebsocket` com cookie + `CSRFPreventionToken` **no backend**;
+4. expõe ao navegador apenas `/api/sandbox/<id>/console/ws`, um WebSocket nosso
+   (no nginx há um `location /api/sandbox/` com `Upgrade`/`Connection`).
+
+O ticket nunca chega ao front. Como o ticket do PVE é preso ao IP, o proxy precisa
+sair do **mesmo container** que pediu o ticket.
+
+### Preparando o template no Proxmox
+
+1. Crie uma VM (Windows/Linux) com `qemu-guest-agent`, **rede isolada** (bridge sem
+   rota para a LAN) e sem credenciais corporativas.
+2. Instale as ferramentas de análise que você usa.
+3. **Crie um snapshot** (o linked clone usa esse estado como base; sem snapshot o
+   DeepLook cai automaticamente para uma cópia cheia, mais lenta).
+4. Converta em template (`qm template <vmid>`).
+5. Crie um usuário dedicado (`deeplook@pve`) com `PVEAuditor` + `PVEVMAdmin`
+   (`/vms/<vmid do template>` para clonar e `/vms` para gerenciar os clones).
+6. Preencha os `PROXMOX_*` no `.env` e ligue com `SANDBOX_ENABLED=true`.
+
+### Modo mock (desenvolvimento sem PVE)
+
+Com `PROXMOX_MOCK=true` a API simula o Proxmox em memória (clone, start, tasks,
+vncproxy, screenshot): o fluxo completo — provisionar, console, descartar — roda
+sem um PVE real. Valide com `scripts/smoke-sandbox.ps1`.
+
+### Limites, TTL e limpeza
+
+- `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limitam quantos ambientes existem.
+- `SANDBOX_TTL_MINUTES` define o prazo; o **reaper** roda a cada minuto e encerra o
+  que venceu.
+- No boot a API marca provisionamentos interrompidos como falha, remove VMs com a
+  etiqueta `SANDBOX_TAG` sem sessão ativa e ISOs `deeplook-*` órfãos.
+- `GET /api/sandbox/health` (admin) mostra o diagnóstico: PVE acessível, template,
+  storage com `content iso`, usuário do console e limites configurados.
+
+### Endpoints
+
+| Método | Rota | Função |
+|---|---|---|
+| GET | `/api/sandbox/health` | Diagnóstico da integração (admin) |
+| GET | `/api/entries/:id/sandbox` | Sessão ativa da amostra (usada no painel) |
+| POST | `/api/entries/:id/sandbox` | Abre o ambiente (analista) |
+| GET | `/api/sandbox` | Lista ambientes (`?active=true`, `?scope=all` p/ admin) |
+| GET | `/api/sandbox/:id` | Detalhe + estado atual da VM (polling do painel) |
+| POST | `/api/sandbox/:id/extend` | Estende o prazo |
+| POST | `/api/sandbox/:id/power` | Liga/desliga a VM (`{"action":"on"\|"off"}`) |
+| DELETE | `/api/sandbox/:id` | Descarta (destrói a VM e apaga o ISO) |
+| GET | `/api/sandbox/:id/console` | Caminho do WebSocket do console |
+| GET | `/api/sandbox/:id/console/ws` | WebSocket (proxy autenticado para o PVE) |
+| GET | `/api/sandbox/:id/screenshot` | Captura de tela (PNG) para o relatório |
+
+---
+
 ## Smoke test (com a stack no ar)
 
 Depois de `docker compose up`, rode o teste de ponta a ponta (usa as credenciais
@@ -244,6 +343,20 @@ Ele valida: frontend (SPA), health, login do admin, geração de chaves de ativa
 cadastro por chave (usuário e analista), envio de arquivo/link (MinIO),
 listagens e busca (inclusive por tag), bloqueios de permissão (403/401),
 criação de relatório, atualização de veredito/status e download autenticado.
+
+Para o sandbox (com `SANDBOX_ENABLED=true`), o teste específico abre um ambiente,
+acompanha o provisionamento, confere console/screenshot, valida o WebSocket do
+console, estende o prazo e descarta a VM:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke-sandbox.ps1
+```
+
+Checagem visual (screenshot de uma página autenticada via CDP, sem dependências):
+
+```powershell
+node scripts/ui-shot.mjs "http://localhost:8080/entries/<id>" data/ui.png "<cookie dl_session>"
+```
 
 ---
 

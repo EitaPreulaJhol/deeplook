@@ -38,6 +38,16 @@ enum Verdict {
   MALICIOUS
 }
 
+enum SandboxStatus {
+  REQUESTED
+  PROVISIONING
+  RUNNING
+  STOPPING
+  STOPPED
+  EXPIRED
+  FAILED
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -51,6 +61,7 @@ model User {
   sessions    Session[]
   entries     Entry[]
   reports     Report[]
+  sandboxSessions SandboxSession[]
   createdKeys ActivationKey[] @relation("KeyCreator")
   usedKeys    ActivationKey[] @relation("KeyUser")
 }
@@ -105,6 +116,7 @@ model Entry {
 
   reports Report[]
   tags    Tag[]
+  sandboxSessions SandboxSession[]
 
   @@index([ownerId])
   @@index([sha256])
@@ -132,4 +144,36 @@ model Report {
   updatedAt DateTime @updatedAt
 
   @@index([entryId])
+}
+
+/// VM isolada (clone do template no Proxmox) usada para analisar uma amostra.
+model SandboxSession {
+  id        String        @id @default(cuid())
+  entryId   String
+  entry     Entry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  analystId String
+  analyst   User          @relation(fields: [analystId], references: [id], onDelete: Cascade)
+
+  node      String
+  vmid      Int?
+  name      String
+  status    SandboxStatus @default(REQUESTED)
+  /// Etapa atual do provisionamento (texto curto mostrado na UI).
+  phase     String?
+  /// Volume do ISO gerado com a amostra (para limpar depois).
+  isoVolume String?
+  /// UPID da task do Proxmox em andamento (clone/start/upload).
+  upid      String?
+  ip        String?
+  lastError String?
+
+  expiresAt DateTime
+  startedAt DateTime?
+  stoppedAt DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([entryId])
+  @@index([analystId])
 }

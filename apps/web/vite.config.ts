@@ -16,11 +16,15 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        // O console do sandbox usa WebSocket (noVNC).
+        ws: true,
       },
     },
   },
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // O noVNC (decoder H264) usa top-level await, indisponivel no alvo padrao.
+    target: 'es2022',
   },
 });

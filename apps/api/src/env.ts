@@ -17,6 +17,48 @@ const EnvSchema = z.object({
   S3_SECRET_KEY: z.string().default('deeplook123'),
   S3_BUCKET: z.string().default('deeplook-samples'),
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('true'),
+
+  // ---- Sandbox (VM isolada no Proxmox VE) ----
+  SANDBOX_ENABLED: z.enum(['true', 'false']).default('false'),
+  SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
+  PROXMOX_MOCK: z.enum(['true', 'false']).default('false'),
+  PROXMOX_API_URL: z.string().default(''),
+  PROXMOX_NODE: z.string().default('pve'),
+  PROXMOX_USER: z.string().default(''),
+  PROXMOX_PASSWORD: z.string().default(''),
+  PROXMOX_TEMPLATE_VMID: z.coerce.number().default(0),
+  PROXMOX_ISO_STORAGE: z.string().default('local'),
+  PROXMOX_VERIFY_TLS: z.enum(['true', 'false']).default('false'),
+  SANDBOX_TAG: z.string().default('deeplook-sandbox'),
+  SANDBOX_TTL_MINUTES: z.coerce.number().min(5).max(1440).default(60),
+  SANDBOX_MAX_ACTIVE: z.coerce.number().min(1).default(4),
+  SANDBOX_MAX_PER_USER: z.coerce.number().min(1).default(2),
+  SANDBOX_MOCK_VNC_URL: z.string().default(''),
+}).superRefine((value, ctx) => {
+  // Sem sandbox ligado (ou em modo mock) nao exigimos nada do Proxmox.
+  if (value.SANDBOX_ENABLED !== 'true' || value.PROXMOX_MOCK === 'true') return;
+
+  const required: [string, string][] = [
+    ['PROXMOX_API_URL', value.PROXMOX_API_URL],
+    ['PROXMOX_USER', value.PROXMOX_USER],
+    ['PROXMOX_PASSWORD', value.PROXMOX_PASSWORD],
+  ];
+  for (const [name, val] of required) {
+    if (!val) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [name],
+        message: `${name} e obrigatoria quando SANDBOX_ENABLED=true sem PROXMOX_MOCK`,
+      });
+    }
+  }
+  if (!value.PROXMOX_TEMPLATE_VMID) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['PROXMOX_TEMPLATE_VMID'],
+      message: 'PROXMOX_TEMPLATE_VMID e obrigatorio quando SANDBOX_ENABLED=true sem PROXMOX_MOCK',
+    });
+  }
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -30,3 +72,9 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+
+/** Sandbox ligado? (precisa ser explicito: SANDBOX_ENABLED=true) */
+export const sandboxEnabled = env.SANDBOX_ENABLED === 'true';
+
+/** Modo simulado: nao fala com o Proxmox real (desenvolvimento/testes). */
+export const proxmoxMock = env.PROXMOX_MOCK === 'true';
