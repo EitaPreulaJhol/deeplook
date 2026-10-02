@@ -1,0 +1,21 @@
+﻿# deps / build
+node_modules/
+dist/
+build/
+
+# env & secrets
+.env
+.env.local
+
+# runtime data (volumes)
+data/
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

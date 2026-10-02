@@ -1,0 +1,208 @@
+// Estilos globais do DeepLook sobre o Carbon Design System
+@use '@carbon/react';
+@use './tokens';
+@use './auth';
+@use './fluent';
+
+/* O app inteiro usa o tema escuro (g100). O Carbon define color-scheme somente
+   dentro do <Theme>, então o <html> — que é o dono da scrollbar da página —
+   ficava em "light" e a scrollbar aparecia branca. Forçamos dark na raiz. */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+/* Espaco para o header fixo do Carbon (3rem) */
+.dl-content {
+  padding-top: 4rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-bottom: 4rem;
+  min-height: 100vh;
+  max-width: var(--dl-content-max);
+  margin: 0 auto;
+}
+
+/* Alinha o conteudo do header do Carbon a largura do conteudo da pagina:
+   mesmo max-width (1200px) + padding lateral (2rem) do .dl-content. */
+.cds--header {
+  padding-inline: max(1rem, calc((100% - var(--dl-content-max)) / 2 + 2rem));
+}
+
+/* O .cds--header__name tem padding-inline-start de 16px no Carbon; zeramos
+   para o logo alinhar exatamente com o inicio do conteudo. */
+.cds--header a.cds--header__name {
+  padding-inline-start: 0;
+}
+
+/* As telas de login/cadastro (.dl-auth*) vivem em src/styles/auth.scss. */
+
+/* Icone principal do app (apps/web/public/deeplook.svg).
+   O SVG foi recortado para um viewBox quadrado do icone. */
+.dl-logo {
+  width: 1.5em;
+  height: 1.5em;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* O Carbon envolve os filhos do HeaderName em um <span> (inline), o que
+   faz um <img> com display:block quebrar a linha. Este wrapper inline-flex
+   mantem o icone e o texto alinhados e espacados. */
+.dl-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* As classes de estrutura das paginas (.dl-page-*, .dl-toolbar, .dl-panel,
+   .dl-mono, .dl-empty...) e o skin dos componentes do Carbon vivem em
+   src/styles/fluent.scss. */
+
+/* --- Home / landing (publica) --- */
+.dl-home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--cds-background);
+}
+
+/* O conteudo cresce e empurra o rodape para o fim da tela. */
+.dl-home main {
+  flex: 1;
+}
+
+.dl-home__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  /* Mesma altura do header do Carbon, para padronizar o topo. */
+  block-size: 3rem;
+  border-block-end: 1px solid var(--dl-border);
+  background: var(--cds-background);
+}
+
+/* Centraliza o conteudo do header na mesma largura do conteudo da pagina. */
+.dl-home__topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  block-size: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: 2rem;
+}
+
+.dl-home__actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Botoes do header com o mesmo tamanho (largura) entre si.
+   O Carbon usa padding-inline ASSIMETRICO por padrao (direita ~3x, pensado
+   para "virar" o espacamento num ButtonSet). Igualamos os dois lados e
+   fixamos 7rem, deixando o rotulo centralizado. */
+.dl-home__actions .cds--btn {
+  padding-inline: 1rem;
+  min-inline-size: 7rem;
+  justify-content: center;
+}
+
+.dl-home__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Igual ao .cds--header__name do Carbon (body-compact-01). */
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+/* Conteudo da landing: coluna centralizada, na mesma largura do header/footer. */
+.dl-home__hero {
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: 2rem;
+  padding-block: 3.5rem 0.5rem;
+}
+
+.dl-home__title {
+  font-size: clamp(2.25rem, 4vw, 3.25rem);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 1rem;
+}
+
+.dl-home__lead {
+  font-size: 1.125rem;
+  color: var(--dl-text-muted);
+  max-width: 70ch;
+  margin: 0 0 0.5rem;
+}
+
+/* Rodape padrao (compartilhado entre o app e a home publica). */
+.dl-footer {
+  margin-top: 3rem;
+  border-top: 1px solid var(--dl-border);
+}
+
+.dl-footer__inner {
+  max-width: var(--dl-content-max);
+  margin: 0 auto;
+  padding: 1.5rem 2rem;
+  color: var(--dl-text-muted);
+  font-size: 0.8125rem;
+}
+
+.dl-home .dl-footer__inner {
+  max-width: 1120px;
+}
+
+/* --- Scrollbar no estilo do Carbon -------------------------------------
+   ATENCAO: no Chromium/Edge, definir `scrollbar-width`/`scrollbar-color`
+   faz o navegador IGNORAR os pseudo-elementos ::-webkit-scrollbar — ou
+   seja, ele volta para a scrollbar NATIVA. Por isso as propriedades
+   padrao ficam restritas ao Firefox (via @supports), e o Chromium/Safari
+   usam a scrollbar customizada abaixo. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--cds-layer-01, #262626);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--cds-border-strong-01, #6f6f6f);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--cds-icon-secondary, #a8a8a8);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--cds-layer-01, #262626);
+}
+
+/* Firefox (nao suporta ::-webkit-scrollbar) */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #6f6f6f #262626;
+  }
+}

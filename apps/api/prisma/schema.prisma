@@ -1,0 +1,135 @@
+// DeepLook - Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ANALYST
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum EntryType {
+  FILE
+  URL
+}
+
+enum EntryStatus {
+  PENDING
+  IN_REVIEW
+  COMPLETED
+}
+
+enum Verdict {
+  UNKNOWN
+  CLEAN
+  SUSPICIOUS
+  MALICIOUS
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  displayName  String
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  sessions    Session[]
+  entries     Entry[]
+  reports     Report[]
+  createdKeys ActivationKey[] @relation("KeyCreator")
+  usedKeys    ActivationKey[] @relation("KeyUser")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ActivationKey {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  role      Role     @default(USER)
+  maxUses   Int      @default(1)
+  usesUsed  Int      @default(0)
+  expiresAt DateTime?
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  createdById String
+  createdBy   User   @relation("KeyCreator", fields: [createdById], references: [id])
+  usedBy      User[] @relation("KeyUser")
+}
+
+model Entry {
+  id          String      @id @default(cuid())
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type        EntryType
+  title       String
+  description String?
+  status      EntryStatus @default(PENDING)
+  verdict     Verdict     @default(UNKNOWN)
+
+  originalFilename String?
+  storageKey       String?
+  bucket           String?
+  fileSize         Int?
+  mimeType         String?
+  sha256           String?
+
+  url       String?
+  urlDomain String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reports Report[]
+  tags    Tag[]
+
+  @@index([ownerId])
+  @@index([sha256])
+  @@index([createdAt])
+}
+
+model Tag {
+  id      String  @id @default(cuid())
+  name    String  @unique
+  entries Entry[]
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  entryId   String
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  analystId String
+  analyst   User     @relation(fields: [analystId], references: [id])
+  summary   String
+  findings  String?
+  iocs      String?
+  verdict   Verdict  @default(UNKNOWN)
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entryId])
+}

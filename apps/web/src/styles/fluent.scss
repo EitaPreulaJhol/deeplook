@@ -1,0 +1,418 @@
+/* ==========================================================================
+   Skin Fluent do app (tudo que NAO e tela de login/cadastro).
+   Mesmo desenho das telas de auth, aplicado em tres camadas:
+
+     1. tokens do Carbon (--cds-*) realinhados com a paleta Fluent;
+     2. ajustes estruturais que tokens nao expressam (fonte, cards, abas,
+        campos sublinhados, tabelas, barra do topo, avisos);
+     3. classes .dl-* de estrutura das paginas.
+   ========================================================================== */
+
+/* --- 1. Tokens do Carbon -> paleta Fluent -------------------------------- */
+.cds--g100 {
+  /* Acento: foco, indicador do item/aba atual e controles marcados. */
+  --cds-focus: var(--dl-accent);
+  --cds-focus-inset: var(--dl-bg);
+  --cds-border-interactive: var(--dl-accent);
+  --cds-interactive: var(--dl-accent);
+  --cds-icon-interactive: var(--dl-accent);
+
+  /* Links */
+  --cds-link-primary: var(--dl-link);
+  --cds-link-primary-hover: var(--dl-link-hover);
+  --cds-link-secondary: var(--dl-link-hover);
+
+  /* Botoes primario e terciario */
+  --cds-button-primary: var(--dl-primary);
+  --cds-button-primary-hover: var(--dl-primary-hover);
+  --cds-button-primary-active: var(--dl-primary-active);
+  --cds-button-tertiary: var(--dl-link);
+  --cds-button-tertiary-hover: var(--dl-link-hover);
+  --cds-button-tertiary-active: var(--dl-link-hover);
+
+  /* Superficies: cards, tiles e linhas de tabela um tom abaixo do Carbon. */
+  --cds-layer-01: var(--dl-surface);
+  --cds-layer-hover-01: var(--dl-surface-hover);
+  --cds-layer-selected-01: var(--dl-surface-active);
+  --cds-background-hover: rgba(255, 255, 255, 0.06);
+  --cds-background-selected: rgba(255, 255, 255, 0.1);
+}
+
+/* --- 2. Base -------------------------------------------------------------
+   O Carbon aplica IBM Plex Sans no <body>; o produto inteiro usa Segoe UI
+   (a mesma fonte das telas de auth). */
+body,
+input[type='number'],
+.cds--number input[type='number'],
+.cds--number input[type='text'] {
+  font-family: var(--dl-font-sans);
+}
+
+/* Titulos com o mesmo peso das telas de auth. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Rotulos e texto auxiliar no mesmo tom dos campos de auth. */
+.cds--label,
+.cds--form__helper-text {
+  color: var(--dl-text-muted);
+}
+
+/* --- 3. Barra do topo ---------------------------------------------------- */
+.cds--header {
+  background-color: var(--dl-bg);
+  border-block-end: 1px solid var(--dl-border);
+}
+
+a.cds--header__menu-item {
+  font-size: 0.875rem;
+}
+
+/* Usuario logado (nome + papel) ao lado da acao de sair. */
+.dl-header__user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 1rem;
+  color: var(--dl-text-muted);
+  font-size: 0.8125rem;
+}
+
+.dl-header__user-name {
+  color: var(--dl-text);
+  font-weight: 600;
+}
+
+@media (max-width: 42rem) {
+  .dl-header__user {
+    display: none;
+  }
+}
+
+/* --- 4. Botoes ----------------------------------------------------------- */
+.cds--btn {
+  border-radius: var(--dl-radius);
+  font-family: var(--dl-font-sans);
+  letter-spacing: 0;
+}
+
+/* Botoes de acao dentro de tabelas/linhas ficam compactos. */
+.cds--data-table .cds--btn {
+  padding-inline: 1rem;
+}
+
+/* --- 5. Campos (sublinhado, igual as telas de auth) ---------------------- */
+.cds--text-input,
+.cds--text-area,
+.cds--select-input,
+.cds--number input[type='number'] {
+  background-color: transparent;
+  border-block-end: 1px solid var(--dl-field-border);
+  border-radius: var(--dl-radius);
+}
+
+.cds--text-input:hover,
+.cds--text-area:hover,
+.cds--select-input:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Foco: 1px de borda + 1px de sombra interna = 2px de acento, sem "pular"
+   o conteudo (mesma tecnica do .dl-field__input). */
+.cds--text-input:focus,
+.cds--text-input:active,
+.cds--text-area:focus,
+.cds--text-area:active,
+.cds--select-input:focus,
+.cds--select-input:active {
+  outline: none;
+  border-block-end-color: var(--dl-accent);
+  box-shadow: inset 0 -1px 0 0 var(--dl-accent);
+}
+
+.cds--text-input::placeholder,
+.cds--text-area::placeholder {
+  color: var(--dl-placeholder);
+}
+
+.cds--text-input__field-wrapper,
+.cds--text-input-wrapper,
+.cds--select {
+  min-width: 12rem;
+}
+
+/* Campo de arquivo (Enviar Amostra) */
+.cds--file__selected-file {
+  background-color: transparent;
+  border: 1px solid var(--dl-border);
+  border-radius: var(--dl-radius);
+}
+
+.cds--file-browse-btn {
+  color: var(--dl-link);
+}
+
+.cds--file--label,
+.cds--label-description {
+  color: var(--dl-text-muted);
+}
+
+/* --- 6. Abas ------------------------------------------------------------- */
+.cds--tabs .cds--tabs__nav-link {
+  color: var(--dl-text-muted);
+  font-size: 0.875rem;
+}
+
+.cds--tabs .cds--tabs__nav-item--selected .cds--tabs__nav-link {
+  color: var(--dl-text);
+  font-weight: 600;
+}
+
+.cds--tabs__nav {
+  border-block-end-color: var(--dl-border);
+}
+
+/* O conteudo da aba alinha com o resto da pagina. */
+.cds--tab-content {
+  padding: 1.5rem 0 0;
+}
+
+/* --- 7. Tabelas (lista no estilo Fluent) --------------------------------- */
+.cds--data-table-container {
+  background-color: var(--dl-surface);
+  border: 1px solid var(--dl-border);
+  border-radius: var(--dl-radius);
+}
+
+.cds--data-table {
+  background-color: var(--dl-surface);
+  border-radius: var(--dl-radius);
+}
+
+.cds--data-table thead {
+  background-color: transparent;
+}
+
+.cds--data-table th {
+  border-block-end: 1px solid var(--dl-border);
+  color: var(--dl-text-muted);
+  font-weight: 600;
+}
+
+.cds--data-table td {
+  border-block-end: 1px solid var(--dl-border);
+}
+
+/* --- 8. Cards (tiles) ---------------------------------------------------- */
+.cds--tile {
+  background-color: var(--dl-surface);
+  border: 1px solid var(--dl-border);
+  border-radius: var(--dl-radius);
+  box-shadow: var(--dl-shadow-raised);
+}
+
+/* --- 9. Avisos (mesmo desenho do feedback das telas de auth) ------------- */
+.cds--inline-notification--low-contrast,
+.cds--toast-notification--low-contrast {
+  border-radius: var(--dl-radius);
+  border-style: solid;
+  border-width: 1px;
+  border-inline-start-width: 3px;
+}
+
+.cds--inline-notification--low-contrast.cds--inline-notification--error,
+.cds--toast-notification--low-contrast.cds--toast-notification--error {
+  background-color: var(--dl-error-bg);
+  border-color: var(--dl-error-border);
+}
+
+.cds--inline-notification--low-contrast.cds--inline-notification--info,
+.cds--toast-notification--low-contrast.cds--toast-notification--info {
+  background-color: var(--dl-info-bg);
+  border-color: var(--dl-info-border);
+}
+
+.cds--inline-notification--low-contrast.cds--inline-notification--success,
+.cds--toast-notification--low-contrast.cds--toast-notification--success {
+  background-color: var(--dl-success-bg);
+  border-color: var(--dl-success-border);
+}
+
+.cds--inline-notification--low-contrast.cds--inline-notification--warning,
+.cds--toast-notification--low-contrast.cds--toast-notification--warning {
+  background-color: var(--dl-warning-bg);
+  border-color: var(--dl-warning-border);
+}
+
+/* --- 10. Etiquetas e estado vazio ---------------------------------------- */
+.cds--tag {
+  border-radius: var(--dl-radius);
+  font-family: var(--dl-font-sans);
+}
+
+/* --- 11. Estrutura das paginas ------------------------------------------- */
+/* Cabecalho padrao: titulo + subtitulo + (opcional) acoes. */
+.dl-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-block-end: 1px solid var(--dl-border);
+}
+
+.dl-page-header {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.dl-page-subtitle {
+  margin: 0.375rem 0 0;
+  color: var(--dl-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.dl-page-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Barra de filtros/acoes (campos + botoes). */
+.dl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.dl-toolbar > * {
+  flex: 0 0 auto;
+}
+
+/* Card generico (mesmo desenho dos cards de auth). */
+.dl-panel {
+  padding: 1.5rem;
+  border: 1px solid var(--dl-border);
+  border-radius: var(--dl-radius);
+  background-color: var(--dl-surface);
+}
+
+/* Linha rotulo/valor (ficha da amostra). */
+.dl-detail-row {
+  display: flex;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  border-block-end: 1px solid var(--dl-border);
+}
+
+.dl-detail-row:last-child {
+  border-block-end: 0;
+}
+
+.dl-detail-row__label {
+  min-width: 9rem;
+  color: var(--dl-text-muted);
+}
+
+.dl-detail-row__value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Linha de controles compactos. */
+.dl-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Coluna de formulario. */
+.dl-form-col {
+  max-width: 40rem;
+}
+
+/* Estado vazio. */
+.dl-empty {
+  padding: 3rem 1rem;
+  border: 1px dashed var(--dl-border-strong);
+  border-radius: var(--dl-radius);
+  color: var(--dl-text-muted);
+  text-align: center;
+}
+
+/* Hash/identificador em fonte monoespacada. */
+.dl-mono {
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+/* Lista de etiquetas dentro de celulas/linhas. */
+.dl-taglist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+/* Espacamentos pontuais (evitam style inline nas paginas). */
+.dl-mb-md {
+  margin-bottom: 1rem;
+}
+
+.dl-mb-lg {
+  margin-bottom: 1.5rem;
+}
+
+.dl-mt-lg {
+  margin-top: 1.5rem;
+}
+
+.dl-mt-md {
+  margin-top: 1rem;
+}
+
+.dl-pre {
+  white-space: pre-wrap;
+}
+
+/* Aviso ocupando toda a largura do container (o Carbon limita por padrao). */
+.dl-note {
+  max-inline-size: 100%;
+}
+
+/* Cabecalho de um relatorio: autor a esquerda, etiquetas a direita. */
+.dl-report__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dl-report__author {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dl-report__meta {
+  margin-inline-start: 0.5rem;
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+}

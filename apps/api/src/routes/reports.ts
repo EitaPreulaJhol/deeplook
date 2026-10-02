@@ -1,0 +1,133 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+
+import { isAnalyst, requireUser } from '../lib/auth';
+import { prisma } from '../lib/prisma';
+
+const ReportSchema = z.object({
+  summary: z.string().min(3).max(4000),
+  findings: z.string().max(20000).optional(),
+  iocs: z.string().max(20000).optional(),
+  verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).default('UNKNOWN'),
+  published: z.boolean().default(false),
+});
+
+export async function reportRoutes(app: FastifyInstance) {
+  // Lista de relatorios de uma amostra (qualquer usuario autenticado)
+  app.get('/api/entries/:id/reports', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const reports = await prisma.report.findMany({
+      where: { entryId: id },
+      orderBy: { createdAt: 'desc' },
+      include: { analyst: { select: { id: true, displayName: true, role: true } } },
+    });
+    return reply.send({ reports });
+  });
+
+  // Cria relatorio (somente analista/admin)
+  app.post('/api/entries/:id/reports', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas podem criar relatorios.' });
+    }
+
+    const { id } = req.params as { id: string };
+    const entry = await prisma.entry.findUnique({ where: { id } });
+    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+
+    const parsed = ReportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'Dados invalidos.', details: parsed.error.flatten().fieldErrors });
+    }
+    const { summary, findings, iocs, verdict, published } = parsed.data;
+
+    const report = await prisma.$transaction(async (tx) => {
+      const created = await tx.report.create({
+        data: {
+          entryId: id,
+          analystId: user.id,
+          summary,
+          findings: findings || null,
+          iocs: iocs || null,
+          verdict,
+          published,
+        },
+        include: { analyst: { select: { id: true, displayName: true, role: true } } },
+      });
+      if (published) {
+        await tx.entry.update({ where: { id }, data: { verdict, status: 'COMPLETED' } });
+      }
+      return created;
+    });
+
+    return reply.code(201).send({ report });
+  });
+
+  // Edita relatorio (autor ou admin)
+  app.patch('/api/reports/:id', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas podem editar relatorios.' });
+    }
+
+    const { id } = req.params as { id: string };
+    const report = await prisma.report.findUnique({ where: { id } });
+    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (report.analystId !== user.id && user.role !== 'ADMIN') {
+      return reply.code(403).send({ error: 'Acesso negado.' });
+    }
+
+    const parsed = ReportSchema.partial().safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    const data = parsed.data;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const r = await tx.report.update({
+        where: { id },
+        data: {
+          summary: data.summary,
+          findings: data.findings,
+          iocs: data.iocs,
+          verdict: data.verdict,
+          published: data.published,
+        },
+        include: { analyst: { select: { id: true, displayName: true, role: true } } },
+      });
+      if (data.published === true) {
+        await tx.entry.update({
+          where: { id: report.entryId },
+          data: { verdict: r.verdict, status: 'COMPLETED' },
+        });
+      }
+      return r;
+    });
+
+    return reply.send({ report: updated });
+  });
+
+  // Remove relatorio (autor ou admin)
+  app.delete('/api/reports/:id', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas podem remover relatorios.' });
+    }
+
+    const { id } = req.params as { id: string };
+    const report = await prisma.report.findUnique({ where: { id } });
+    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (report.analystId !== user.id && user.role !== 'ADMIN') {
+      return reply.code(403).send({ error: 'Acesso negado.' });
+    }
+
+    await prisma.report.delete({ where: { id } });
+    return reply.send({ ok: true });
+  });
+}
