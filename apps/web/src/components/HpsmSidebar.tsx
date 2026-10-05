@@ -1,13 +1,5 @@
 import type { CarbonIconType } from '@carbon/icons-react';
-import {
-  Catalog,
-  ChevronLeft,
-  Folder,
-  Password,
-  Settings,
-  Upload,
-  UserMultiple,
-} from '@carbon/icons-react';
+import { Catalog, ChevronLeft, Folder, Password, Settings, UserMultiple } from '@carbon/icons-react';
 import type { MouseEvent } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -31,7 +23,6 @@ interface NavLeaf {
 const PRIMARY: NavLeaf[] = [
   { to: '/history', label: 'Histórico Global', icon: Catalog },
   { to: '/me', label: 'Meus Uploads', icon: Folder },
-  { to: '/submit', label: 'Enviar Amostra', icon: Upload },
 ];
 
 /* Sub-itens da Administração (so ADMIN). */
@@ -61,19 +52,6 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   return (
     <aside className={classes} aria-label="Navegação principal">
       <div className="hpsm-sidebar__bar">
-        {isAdmin ? (
-          <button
-            type="button"
-            className="hpsm-sidebar__bar-btn hpsm-sidebar__gear"
-            aria-label="Administração"
-            title="Administração"
-            onClick={go('/admin')}
-          >
-            <Settings size={16} />
-          </button>
-        ) : (
-          <span className="hpsm-sidebar__gear" />
-        )}
         <button
           type="button"
           className="hpsm-sidebar__bar-btn hpsm-sidebar__collapse"

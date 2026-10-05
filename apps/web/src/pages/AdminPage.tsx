@@ -5,7 +5,6 @@ import {
   InlineNotification,
   Select,
   SelectItem,
-  Tab,
   Table,
   TableBody,
   TableCell,
@@ -13,10 +12,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
   Tag,
   TextInput,
   Tile,
@@ -26,6 +21,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
+import { HpsmTabs } from '../components/HpsmTabs';
 import { PageHeader } from '../components/PageHeader';
 import { RoleTag } from '../components/tags';
 
@@ -52,6 +48,7 @@ export function AdminPage() {
   const [keyDays, setKeyDays] = useState('30');
   const [creating, setCreating] = useState(false);
   const [lastKey, setLastKey] = useState<string | null>(null);
+  const [tab, setTab] = useState('users');
 
   const updateUser = async (id: string, patch: Record<string, unknown>) => {
     setError(null);
@@ -105,13 +102,19 @@ export function AdminPage() {
         />
       )}
 
-      <Tabs>
-        <TabList aria-label="Administração">
-          <Tab>Usuários</Tab>
-          <Tab>Chaves de ativação</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel>
+      <HpsmTabs
+        ariaLabel="Administração"
+        active={tab}
+        onChange={setTab}
+        items={[
+          { id: 'users', label: 'Usuários' },
+          { id: 'keys', label: 'Chaves de ativação' },
+        ]}
+      />
+
+      <div className="hpsm-tabpanel">
+        {tab === 'users' ? (
+          <>
             {usersQuery.isLoading && <InlineLoading description="Carregando usuários..." />}
             {usersQuery.data && (
               <DataTable
@@ -189,8 +192,9 @@ export function AdminPage() {
                 )}
               </DataTable>
             )}
-          </TabPanel>
-          <TabPanel>
+          </>
+        ) : (
+          <>
             <Tile className="dl-mb-lg">
               <h3 className="dl-mb-md">Gerar nova chave</h3>
               <div className="dl-toolbar">
@@ -313,9 +317,9 @@ export function AdminPage() {
                 )}
               </DataTable>
             )}
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+          </>
+        )}
+      </div>
     </>
   );
 }

@@ -56,6 +56,8 @@
   --dl-tab-border: #c8c8c8;
   --dl-table-head: #dbe9f6; /* linha de cabecalho da tabela */
   --dl-table-border: #d9e6f2;
+  --dl-table-row-alt: #f4f9fd; /* zebra: linhas alternadas */
+  --dl-table-row-hover: #e2effb; /* realce da linha sob o cursor */
 
   /* --- feedback (avisos) --- */
   --dl-error-bg: #fdecea;
@@ -76,7 +78,7 @@
   --dl-control-h: 2rem;
   --dl-content-max: 100%;
   --dl-sidebar-width: 240px;
-  --dl-topbar-h: 3rem;
+  --dl-topbar-h: 2.75rem;
   --dl-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.12);
   --dl-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.08);
   --dl-transition: 0.12s ease-in-out;

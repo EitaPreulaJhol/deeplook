@@ -4,11 +4,6 @@ import {
   InlineLoading,
   InlineNotification,
   Stack,
-  Tab,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Tabs,
   TextArea,
   TextInput,
 } from '@carbon/react';
@@ -17,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
+import { HpsmTabs } from '../components/HpsmTabs';
 import { PageHeader } from '../components/PageHeader';
 
 export function SubmitPage() {
@@ -33,6 +29,7 @@ export function SubmitPage() {
   const [urlTitle, setUrlTitle] = useState('');
   const [urlDescription, setUrlDescription] = useState('');
   const [urlTags, setUrlTags] = useState('');
+  const [tab, setTab] = useState('file');
 
   const submitFile = async () => {
     setError(null);
@@ -103,102 +100,104 @@ export function SubmitPage() {
         />
       )}
 
-      <Tabs>
-        <TabList aria-label="Tipo de amostra">
-          <Tab>Arquivo</Tab>
-          <Tab>Link</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel>
-            <div className="dl-form-col dl-panel">
-              <FileUploader
-                labelTitle="Arquivo da amostra"
-                labelDescription="Tamanho máximo conforme configurado no servidor."
-                buttonLabel="Selecionar arquivo"
-                filenameStatus="edit"
-                iconDescription="Limpar"
-                accept={['*']}
-                multiple={false}
-                onChange={(evt) => {
-                  const f = (evt.target as HTMLInputElement).files;
-                  setFile(f && f.length ? f[0] : null);
-                }}
-                onDelete={() => setFile(null)}
-              />
-              <div className="dl-mt-lg">
-                <Stack gap={6}>
-                  <TextInput
-                    id="file-title"
-                    labelText="Título"
-                    placeholder="Ex.: instalador_suspeito.exe"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                  <TextArea
-                    id="file-description"
-                    labelText="Descrição"
-                    placeholder="Onde encontrou, o que chamou a atenção..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                  />
-                  <TextInput
-                    id="file-tags"
-                    labelText="Tags (separadas por vírgula)"
-                    placeholder="phishing, malware, ransomware"
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                  />
-                  <Button onClick={submitFile} disabled={loading}>
-                    {loading ? 'Enviando...' : 'Enviar arquivo'}
-                  </Button>
-                  {loading && <InlineLoading description="Fazendo upload seguro..." />}
-                </Stack>
-              </div>
-            </div>
-          </TabPanel>
+      <HpsmTabs
+        ariaLabel="Tipo de amostra"
+        active={tab}
+        onChange={setTab}
+        items={[
+          { id: 'file', label: 'Arquivo' },
+          { id: 'url', label: 'Link' },
+        ]}
+      />
 
-          <TabPanel>
-            <div className="dl-form-col dl-panel">
+      <div className="hpsm-tabpanel">
+        {tab === 'file' ? (
+          <div className="dl-form-col dl-panel">
+            <FileUploader
+              labelTitle="Arquivo da amostra"
+              labelDescription="Tamanho máximo conforme configurado no servidor."
+              buttonLabel="Selecionar arquivo"
+              filenameStatus="edit"
+              iconDescription="Limpar"
+              accept={['*']}
+              multiple={false}
+              onChange={(evt) => {
+                const f = (evt.target as HTMLInputElement).files;
+                setFile(f && f.length ? f[0] : null);
+              }}
+              onDelete={() => setFile(null)}
+            />
+            <div className="dl-mt-lg">
               <Stack gap={6}>
                 <TextInput
-                  id="url"
-                  labelText="URL suspeita"
-                  placeholder="https://exemplo-suspeito.com/login"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                />
-                <TextInput
-                  id="url-title"
+                  id="file-title"
                   labelText="Título"
-                  placeholder="Ex.: página de phishing falsa"
-                  value={urlTitle}
-                  onChange={(e) => setUrlTitle(e.target.value)}
+                  placeholder="Ex.: instalador_suspeito.exe"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                 />
                 <TextArea
-                  id="url-description"
+                  id="file-description"
                   labelText="Descrição"
-                  placeholder="Como chegou até esse link, contexto, remetente..."
-                  value={urlDescription}
-                  onChange={(e) => setUrlDescription(e.target.value)}
+                  placeholder="Onde encontrou, o que chamou a atenção..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                 />
                 <TextInput
-                  id="url-tags"
+                  id="file-tags"
                   labelText="Tags (separadas por vírgula)"
-                  placeholder="phishing, scam"
-                  value={urlTags}
-                  onChange={(e) => setUrlTags(e.target.value)}
+                  placeholder="phishing, malware, ransomware"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
                 />
-                <Button onClick={submitUrl} disabled={loading}>
-                  {loading ? 'Enviando...' : 'Enviar link'}
+                <Button onClick={submitFile} disabled={loading}>
+                  {loading ? 'Enviando...' : 'Enviar arquivo'}
                 </Button>
-                {loading && <InlineLoading description="Registrando link..." />}
+                {loading && <InlineLoading description="Fazendo upload seguro..." />}
               </Stack>
             </div>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+          </div>
+        ) : (
+          <div className="dl-form-col dl-panel">
+            <Stack gap={6}>
+              <TextInput
+                id="url"
+                labelText="URL suspeita"
+                placeholder="https://exemplo-suspeito.com/login"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+              <TextInput
+                id="url-title"
+                labelText="Título"
+                placeholder="Ex.: página de phishing falsa"
+                value={urlTitle}
+                onChange={(e) => setUrlTitle(e.target.value)}
+              />
+              <TextArea
+                id="url-description"
+                labelText="Descrição"
+                placeholder="Como chegou até esse link, contexto, remetente..."
+                value={urlDescription}
+                onChange={(e) => setUrlDescription(e.target.value)}
+                rows={4}
+              />
+              <TextInput
+                id="url-tags"
+                labelText="Tags (separadas por vírgula)"
+                placeholder="phishing, scam"
+                value={urlTags}
+                onChange={(e) => setUrlTags(e.target.value)}
+              />
+              <Button onClick={submitUrl} disabled={loading}>
+                {loading ? 'Enviando...' : 'Enviar link'}
+              </Button>
+              {loading && <InlineLoading description="Registrando link..." />}
+            </Stack>
+          </div>
+        )}
+      </div>
     </>
   );
 }
