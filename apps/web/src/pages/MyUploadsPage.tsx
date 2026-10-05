@@ -97,7 +97,7 @@ export function MyUploadsPage() {
         <div className="dl-empty">Você ainda não enviou nenhuma amostra.</div>
       )}
       {query.data && query.data.items.length > 0 && (
-        <EntriesTable entries={query.data.items} showOwner={false} />
+        <EntriesTable entries={query.data.items} showOwner={false} total={query.data.total} />
       )}
     </>
   );

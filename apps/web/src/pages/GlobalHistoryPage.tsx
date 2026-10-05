@@ -8,6 +8,7 @@ import {
 } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
@@ -15,8 +16,10 @@ import { EntriesTable } from '../components/EntriesTable';
 import { PageHeader } from '../components/PageHeader';
 
 export function GlobalHistoryPage() {
-  const [draftQ, setDraftQ] = useState('');
-  const [q, setQ] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialQ = searchParams.get('q') ?? '';
+  const [draftQ, setDraftQ] = useState(initialQ);
+  const [q, setQ] = useState(initialQ);
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
   const [verdict, setVerdict] = useState('');
@@ -95,7 +98,9 @@ export function GlobalHistoryPage() {
       {query.data && query.data.items.length === 0 && (
         <div className="dl-empty">Nenhuma amostra encontrada.</div>
       )}
-      {query.data && query.data.items.length > 0 && <EntriesTable entries={query.data.items} />}
+      {query.data && query.data.items.length > 0 && (
+        <EntriesTable entries={query.data.items} total={query.data.total} />
+      )}
     </>
   );
 }

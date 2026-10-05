@@ -70,10 +70,10 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   letter-spacing: 0.1px;
-  color: #f4f4f4;
+  color: #1a3d5c;
 }
 
 /* --- Card --- */
@@ -81,6 +81,7 @@
   width: 100%;
   background: var(--dl-auth-card-bg);
   border: 1px solid var(--dl-auth-card-border);
+  border-block-start: 3px solid var(--dl-auth-primary);
   border-radius: var(--dl-auth-radius-card);
   padding: var(--dl-auth-card-pad);
   box-shadow: var(--dl-shadow-card);
@@ -88,10 +89,10 @@
 
 .dl-auth__title {
   margin: 0 0 0.5rem;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   line-height: 1.25;
-  font-weight: 600;
-  color: #ffffff;
+  font-weight: 700;
+  color: #1a3d5c;
 }
 
 .dl-auth__subtitle {
@@ -184,7 +185,7 @@
 }
 
 .dl-field__toggle:hover {
-  color: #ffffff;
+  color: #1a6fb5;
 }
 
 .dl-field__toggle:focus-visible {
@@ -230,13 +231,13 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem 1rem;
-  border: 0;
+  border: 1px solid var(--dl-topbar-border);
   border-radius: var(--dl-auth-radius-control);
-  background: var(--dl-auth-primary);
+  background: linear-gradient(180deg, var(--dl-auth-primary) 0%, var(--dl-primary-2) 100%);
   color: #ffffff;
   font: inherit;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   transition:

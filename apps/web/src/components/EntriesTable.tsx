@@ -20,12 +20,16 @@ function fmtDate(iso: string): string {
 export function EntriesTable({
   entries,
   showOwner = true,
+  total,
 }: {
   entries: Entry[];
   showOwner?: boolean;
+  /** Total de registros no servidor (para o rodape "N registros exibidos"). */
+  total?: number;
 }) {
   const navigate = useNavigate();
   const byId = new Map(entries.map((e) => [e.id, e]));
+  const count = total ?? entries.length;
 
   const headers = [
     { key: 'title', header: 'Amostra' },
@@ -40,51 +44,58 @@ export function EntriesTable({
   const rows = entries.map((e) => ({ id: e.id }));
 
   return (
-    <DataTable rows={rows} headers={headers}>
-      {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-        <TableContainer>
-          <Table {...getTableProps()} size="lg">
-            <TableHead>
-              <TableRow>
-                {headers.map((header) => (
-                  <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                    {header.header}
-                  </TableHeader>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => {
-                const entry = byId.get(row.id) as Entry;
-                return (
-                  <TableRow
-                    {...getRowProps({ row })}
-                    key={row.id}
-                    onClick={() => navigate(`/entries/${entry.id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <TableCell>{entry.title}</TableCell>
-                    <TableCell>
-                      <TypeTag type={entry.type} />
-                    </TableCell>
-                    {showOwner && <TableCell>{entry.owner.displayName}</TableCell>}
-                    <TableCell>
-                      <StatusTag status={entry.status} />
-                    </TableCell>
-                    <TableCell>
-                      <VerdictTag verdict={entry.verdict} />
-                    </TableCell>
-                    <TableCell>
-                      {entry._count ? entry._count.reports : (entry.reports?.length ?? 0)}
-                    </TableCell>
-                    <TableCell>{fmtDate(entry.createdAt)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </DataTable>
+    <>
+      <DataTable rows={rows} headers={headers}>
+        {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
+          <TableContainer>
+            <Table {...getTableProps()} size="lg">
+              <TableHead>
+                <TableRow>
+                  {headers.map((header) => (
+                    <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                      {header.header}
+                    </TableHeader>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => {
+                  const entry = byId.get(row.id) as Entry;
+                  return (
+                    <TableRow
+                      {...getRowProps({ row })}
+                      key={row.id}
+                      onClick={() => navigate(`/entries/${entry.id}`)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>{entry.title}</TableCell>
+                      <TableCell>
+                        <TypeTag type={entry.type} />
+                      </TableCell>
+                      {showOwner && <TableCell>{entry.owner.displayName}</TableCell>}
+                      <TableCell>
+                        <StatusTag status={entry.status} />
+                      </TableCell>
+                      <TableCell>
+                        <VerdictTag verdict={entry.verdict} />
+                      </TableCell>
+                      <TableCell>
+                        {entry._count ? entry._count.reports : (entry.reports?.length ?? 0)}
+                      </TableCell>
+                      <TableCell>{fmtDate(entry.createdAt)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </DataTable>
+      <div className="dl-table-foot">
+        <span>
+          {count} registro{count === 1 ? '' : 's'} exibido{count === 1 ? '' : 's'}.
+        </span>
+      </div>
+    </>
   );
 }

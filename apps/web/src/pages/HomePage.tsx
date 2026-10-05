@@ -7,7 +7,7 @@ export function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <Theme theme="g100">
+    <Theme theme="g10">
       <div className="dl-home">
         <header className="dl-home__topbar">
           <div className="dl-home__topbar-inner">
@@ -31,9 +31,9 @@ export function HomePage() {
             <h1 className="dl-home__title">Olhe mais a fundo antes de confiar.</h1>
             <p className="dl-home__lead">
               O <strong>DeepLook</strong> é uma plataforma voltada para análise e verificação de
-              executáveis inseguros e desconhecidos. Disponibilizamos ambientes de teste, ferramentas 
-              e recursos para que você possa analisar arquivos suspeitos com segurança e compartilhar 
-              suas descobertas com a comunidade.
+              executáveis inseguros e desconhecidos. Disponibilizamos ambientes de teste,
+              ferramentas e recursos para que você possa analisar arquivos suspeitos com segurança e
+              compartilhar suas descobertas com a comunidade.
             </p>
           </section>
         </main>

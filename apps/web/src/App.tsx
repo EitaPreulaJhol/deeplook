@@ -14,7 +14,7 @@ import { SubmitPage } from './pages/SubmitPage';
 
 function FullScreenLoader() {
   return (
-    <Theme theme="g100">
+    <Theme theme="g10">
       <div className="dl-auth">
         <div className="dl-auth__main" style={{ alignItems: 'center' }}>
           <InlineLoading description="Carregando DeepLook..." />
