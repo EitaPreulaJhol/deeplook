@@ -90,7 +90,7 @@ export function AdminPage() {
 
   return (
     <>
-      <PageHeader title="Administração" subtitle="Gerencie usuários e chaves de ativação." />
+      <PageHeader title="Administração" subtitle="Gerencie o funcionamento da aplicação." />
 
       {error && (
         <InlineNotification

@@ -1,4 +1,3 @@
-import { Add } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
@@ -9,7 +8,6 @@ import {
 } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
@@ -19,7 +17,6 @@ import { PageHeader } from '../components/PageHeader';
 
 export function MyUploadsPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [draftQ, setDraftQ] = useState('');
   const [status, setStatus] = useState('');
@@ -79,9 +76,6 @@ export function MyUploadsPage() {
           <SelectItem value="MALICIOUS" text="Malicioso" />
         </Select>
         <Button onClick={() => setQ(draftQ)}>Filtrar</Button>
-        <Button kind="tertiary" renderIcon={Add} onClick={() => navigate('/submit')}>
-          Enviar amostra
-        </Button>
       </div>
 
       {query.isLoading && <InlineLoading description="Carregando seus uploads..." />}

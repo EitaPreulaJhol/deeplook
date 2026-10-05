@@ -82,14 +82,6 @@ export function SubmitPage() {
         subtitle="Envie um arquivo suspeito ou um link para que os analistas possam investigar."
       />
 
-      <InlineNotification
-        kind="warning"
-        lowContrast
-        title="Cuidado com amostras maliciosas"
-        subtitle="O DeepLook apenas armazena e organiza as amostras para triagem. Nada é executado aqui."
-        className="dl-note dl-mb-lg"
-      />
-
       {error && (
         <InlineNotification
           kind="error"

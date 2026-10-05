@@ -1,5 +1,5 @@
 import type { CarbonIconType } from '@carbon/icons-react';
-import { Catalog, ChevronLeft, Folder, Password, Settings, UserMultiple } from '@carbon/icons-react';
+import { Catalog, ChevronLeft, Folder, Settings } from '@carbon/icons-react';
 import type { MouseEvent } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -23,12 +23,6 @@ interface NavLeaf {
 const PRIMARY: NavLeaf[] = [
   { to: '/history', label: 'Histórico Global', icon: Catalog },
   { to: '/me', label: 'Meus Uploads', icon: Folder },
-];
-
-/* Sub-itens da Administração (so ADMIN). */
-const ADMIN_SUB: NavLeaf[] = [
-  { to: '/admin', label: 'Usuários', icon: UserMultiple },
-  { to: '/admin', label: 'Chaves de ativação', icon: Password },
 ];
 
 export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
@@ -98,22 +92,6 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
                   </span>
                   <span className="hpsm-nav__label">Administração</span>
                 </a>
-                <ul className="hpsm-nav__sub">
-                  {ADMIN_SUB.map((item) => (
-                    <li key={item.label}>
-                      <a
-                        href={item.to}
-                        className={`hpsm-nav__subitem${pathname.startsWith('/admin') ? ' is-active' : ''}`}
-                        onClick={go(item.to)}
-                      >
-                        <span className="hpsm-nav__caret" aria-hidden="true">
-                          ▸
-                        </span>
-                        {item.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
               </li>
             </ul>
           </>

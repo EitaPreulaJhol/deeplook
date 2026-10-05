@@ -41,7 +41,7 @@ export function GlobalHistoryPage() {
     <>
       <PageHeader
         title="Histórico Global"
-        subtitle="Todas as amostras enviadas pela comunidade DeepLook."
+        subtitle="Todas as amostras enviadas pela comunidade."
       />
 
       <div className="dl-toolbar">

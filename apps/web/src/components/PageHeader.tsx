@@ -1,4 +1,3 @@
-import { Close, Renew, Settings } from '@carbon/icons-react';
 import type { ReactNode } from 'react';
 
 interface PageHeaderProps {
@@ -17,12 +16,6 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
       </div>
       <div className="dl-page-head__right">
         {actions && <div className="dl-page-head__actions">{actions}</div>}
-        {/* Controles de painel do HPSM (decorativos, nao clicaveis). */}
-        <span className="dl-panel-controls" aria-hidden="true">
-          <Renew size={14} />
-          <Settings size={14} />
-          <Close size={14} />
-        </span>
       </div>
     </header>
   );
