@@ -14,7 +14,6 @@ import {
   TableRow,
   Tag,
   TextInput,
-  Tile,
 } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -90,7 +89,45 @@ export function AdminPage() {
 
   return (
     <>
-      <PageHeader title="Administração" subtitle="Gerencie o funcionamento da aplicação." />
+      <PageHeader
+        title="Administração"
+        subtitle="Gerencie o funcionamento da aplicação."
+        popover={{
+          icon: <span className="dl-key-icon" aria-hidden="true" />,
+          label: 'Gerar nova chave',
+          content: (
+            <>
+              <Select
+                id="key-role"
+                labelText="Papel concedido"
+                value={keyRole}
+                onChange={(e) => setKeyRole(e.target.value as Role)}
+              >
+                <SelectItem value="USER" text="Usuário" />
+                <SelectItem value="ANALYST" text="Analista" />
+                <SelectItem value="ADMIN" text="Admin" />
+              </Select>
+              <TextInput
+                id="key-maxuses"
+                labelText="Máximo de usos"
+                type="number"
+                value={keyMaxUses}
+                onChange={(e) => setKeyMaxUses(e.target.value)}
+              />
+              <TextInput
+                id="key-days"
+                labelText="Validade (dias)"
+                type="number"
+                value={keyDays}
+                onChange={(e) => setKeyDays(e.target.value)}
+              />
+              <Button onClick={createKey} disabled={creating}>
+                {creating ? 'Gerando...' : 'Gerar chave'}
+              </Button>
+            </>
+          ),
+        }}
+      />
 
       {error && (
         <InlineNotification
@@ -195,47 +232,15 @@ export function AdminPage() {
           </>
         ) : (
           <>
-            <Tile className="dl-mb-lg">
-              <h3 className="dl-mb-md">Gerar nova chave</h3>
-              <div className="dl-toolbar">
-                <Select
-                  id="key-role"
-                  labelText="Papel concedido"
-                  value={keyRole}
-                  onChange={(e) => setKeyRole(e.target.value as Role)}
-                >
-                  <SelectItem value="USER" text="Usuário" />
-                  <SelectItem value="ANALYST" text="Analista" />
-                  <SelectItem value="ADMIN" text="Admin" />
-                </Select>
-                <TextInput
-                  id="key-maxuses"
-                  labelText="Máximo de usos"
-                  type="number"
-                  value={keyMaxUses}
-                  onChange={(e) => setKeyMaxUses(e.target.value)}
-                />
-                <TextInput
-                  id="key-days"
-                  labelText="Validade (dias)"
-                  type="number"
-                  value={keyDays}
-                  onChange={(e) => setKeyDays(e.target.value)}
-                />
-                <Button onClick={createKey} disabled={creating}>
-                  {creating ? 'Gerando...' : 'Gerar chave'}
-                </Button>
-              </div>
-              {lastKey && (
-                <InlineNotification
-                  kind="success"
-                  lowContrast
-                  title="Chave criada"
-                  subtitle={lastKey}
-                  className="dl-note"
-                />
-              )}
-            </Tile>
+            {lastKey && (
+              <InlineNotification
+                kind="success"
+                lowContrast
+                title="Chave criada"
+                subtitle={lastKey}
+                className="dl-note dl-mb-lg"
+              />
+            )}
 
             {keysQuery.isLoading && <InlineLoading description="Carregando chaves..." />}
             {keysQuery.data && keysQuery.data.keys.length === 0 && (

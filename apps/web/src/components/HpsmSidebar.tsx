@@ -1,7 +1,6 @@
 import type { CarbonIconType } from '@carbon/icons-react';
-import { Catalog, ChevronLeft, Folder, Settings } from '@carbon/icons-react';
+import { Catalog, Folder, Settings } from '@carbon/icons-react';
 import type { MouseEvent } from 'react';
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
@@ -29,7 +28,6 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN';
 
@@ -39,24 +37,10 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     onNavigate?.();
   };
 
-  const classes = ['hpsm-sidebar', collapsed ? 'is-collapsed' : '', open ? 'is-open' : '']
-    .filter(Boolean)
-    .join(' ');
+  const classes = ['hpsm-sidebar', open ? 'is-open' : ''].filter(Boolean).join(' ');
 
   return (
     <aside className={classes} aria-label="Navegação principal">
-      <div className="hpsm-sidebar__bar">
-        <button
-          type="button"
-          className="hpsm-sidebar__bar-btn hpsm-sidebar__collapse"
-          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          aria-pressed={collapsed}
-          onClick={() => setCollapsed((value) => !value)}
-        >
-          <ChevronLeft size={16} />
-        </button>
-      </div>
-
       <nav className="hpsm-nav">
         <div className="hpsm-nav__group-label">Amostras</div>
         <ul className="hpsm-nav__list">
