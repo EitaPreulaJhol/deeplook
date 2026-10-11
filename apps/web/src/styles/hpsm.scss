@@ -1049,6 +1049,54 @@ h6 {
   min-height: 420px;
 }
 
+/* --- 16. Janela dedicada do console do sandbox (popup) ------------------ */
+
+.dl-console-window {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100vh;
+  padding: 0.75rem;
+  background: var(--dl-bg);
+}
+
+.dl-console-window__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dl-console-window__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dl-console-window__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* O console ocupa todo o espaco restante da janela. */
+.dl-console-window__body .dl-sandbox-console {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 0;
+}
+
+.dl-console-window__body .dl-sandbox-console__screen {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
 .dl-sandbox-console__screen canvas {
   outline: none;
 }

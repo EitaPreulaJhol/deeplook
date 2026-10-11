@@ -8,24 +8,19 @@ import {
   Tile,
 } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { Entry, SandboxSession, SandboxStatus } from '../api/types';
+import type { Entry, SandboxSession } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
 import { IconArrowLeft, IconDownload } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
-import { type SandboxConsoleHandle } from '../components/SandboxConsole';
 import { SandboxPanel } from '../components/SandboxPanel';
+import { isSandboxActive, isSandboxWorking } from '../components/sandboxStatus';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
-
-/** Sessoes consideradas "ativas" (indicador da aba Analise). */
-const SANDBOX_ACTIVE: SandboxStatus[] = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'];
-/** Provisionamento em andamento (polling do painel). */
-const SANDBOX_WORKING: SandboxStatus[] = ['REQUESTED', 'PROVISIONING', 'STOPPING'];
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -73,20 +68,16 @@ export function EntryDetailPage() {
         `/entries/${id}/sandbox`,
       ),
     enabled: canTriage,
-    refetchInterval: (q) => {
-      const status = q.state.data?.session?.status;
-      return status && SANDBOX_WORKING.includes(status) ? 2500 : false;
-    },
+    refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
+    refetchOnWindowFocus: true,
   });
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const consoleRef = useRef<SandboxConsoleHandle | null>(null);
 
   const entry = query.data?.entry;
   const sandboxSession = sandboxQuery.data?.session ?? null;
-  const sandboxActive = !!sandboxSession && SANDBOX_ACTIVE.includes(sandboxSession.status);
-  const canCaptureConsole = sandboxSession?.status === 'RUNNING';
+  const sandboxActive = isSandboxActive(sandboxSession?.status);
 
   const reload = () => queryClient.invalidateQueries({ queryKey: ['entry', id] });
 
@@ -246,7 +237,7 @@ export function EntryDetailPage() {
             </div>
           </Tile>
 
-          {entry.type === 'FILE' && <SandboxPanel entryId={entry.id} consoleRef={consoleRef} />}
+          {entry.type === 'FILE' && <SandboxPanel entryId={entry.id} />}
         </div>
       )}
 
@@ -257,8 +248,6 @@ export function EntryDetailPage() {
             reports={reports}
             canTriage={canTriage}
             onCreated={reload}
-            consoleRef={consoleRef}
-            canCapture={canCaptureConsole}
           />
         </div>
       )}

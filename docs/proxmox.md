@@ -67,9 +67,9 @@ continua só no backend.
 
 ### Captura de tela (screenshot)
 
-O botão **"Capturar tela"** do painel lê os pixels do **canvas do noVNC** direto
-no navegador e abre o PNG numa nova aba. Isso é proposital: o PVE **removeu o
-endpoint server-side de screenshot** (no PVE 9 a rota
+O botão **"Capturar tela"** da toolbar da janela do console lê os pixels do
+**canvas do noVNC** direto no navegador e abre o PNG numa nova aba. Isso é
+proposital: o PVE **removeu o endpoint server-side de screenshot** (no PVE 9 a rota
 `/nodes/{node}/qemu/{vmid}/screenshot` responde `501 Not implemented`), então a
 captura client-side funciona em qualquer versão do PVE. (O endpoint
 `GET /api/sandbox/:id/screenshot` do DeepLook continua existindo para PVE ≤ 8.)
@@ -207,7 +207,7 @@ Validação:
 | Variável | Descrição | Padrão |
 |---|---|---|
 | `SANDBOX_ENABLED` | Liga o sandbox (VM isolada no Proxmox) | `false` |
-| `SANDBOX_CONSOLE_ENABLED` | Mostra o console noVNC no painel do analista | `true` |
+| `SANDBOX_CONSOLE_ENABLED` | Habilita o console noVNC (janela dedicada) para o analista | `true` |
 | `PROXMOX_MOCK` | Simula o Proxmox em memória (sem PVE real) | `false` |
 | `PROXMOX_API_URL` | URL da API do PVE (ex.: `https://192.168.0.10:8006`) | — |
 | `PROXMOX_NODE` | Node do cluster onde as VMs são criadas | `pve` |

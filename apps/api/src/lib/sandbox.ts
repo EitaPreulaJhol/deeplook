@@ -36,7 +36,10 @@ export function isActive(status: SandboxSession['status']): boolean {
 
 /** Nome da VM no Proxmox (precisa ser "DNS-like": letras, digitos e hifen). */
 function vmName(entry: Entry): string {
-  const stamp = (entry.sha256 ?? entry.id).replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
+  const stamp = (entry.sha256 ?? entry.id)
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(0, 8)
+    .toLowerCase();
   const rand = Math.random().toString(36).slice(2, 6);
   return `${env.SANDBOX_TAG}-${stamp}-${rand}`;
 }
@@ -50,12 +53,17 @@ function isoTarget(sessionId: string): { filename: string; volume: string } {
 /** Nome seguro para o arquivo dentro do ISO (mantem a extensao). */
 function sampleFileName(entry: Entry): string {
   const raw = entry.originalFilename || 'amostra.bin';
-  const cleaned = raw.replace(/[^\w.\- ]+/g, '_').replace(/\s+/g, ' ').trim();
+  const cleaned = raw
+    .replace(/[^\w.\- ]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
   return cleaned || 'amostra.bin';
 }
 
 async function setPhase(sessionId: string, phase: string): Promise<void> {
-  await prisma.sandboxSession.update({ where: { id: sessionId }, data: { phase } }).catch(() => undefined);
+  await prisma.sandboxSession
+    .update({ where: { id: sessionId }, data: { phase } })
+    .catch(() => undefined);
 }
 
 async function failSession(sessionId: string, message: string): Promise<void> {
@@ -72,11 +80,17 @@ export async function activeSessionForEntry(entryId: string) {
   return prisma.sandboxSession.findFirst({
     where: { entryId, status: { in: ACTIVE_STATUSES } },
     orderBy: { createdAt: 'desc' },
-    include: { analyst: { select: { id: true, displayName: true } } },
+    include: {
+      analyst: { select: { id: true, displayName: true } },
+      entry: { select: { id: true, title: true } },
+    },
   });
 }
 
-export async function countActive(): Promise<{ total: number; perAnalyst: (id: string) => Promise<number> }> {
+export async function countActive(): Promise<{
+  total: number;
+  perAnalyst: (id: string) => Promise<number>;
+}> {
   const total = await prisma.sandboxSession.count({ where: { status: { in: ACTIVE_STATUSES } } });
   return {
     total,
@@ -88,14 +102,10 @@ export async function countActive(): Promise<{ total: number; perAnalyst: (id: s
 }
 
 export type CreateSessionResult =
-  | { ok: true; session: SandboxSession }
-  | { ok: false; code: number; error: string };
+  { ok: true; session: SandboxSession } | { ok: false; code: number; error: string };
 
 /** Cria a sessao de sandbox e dispara o provisionamento em background. */
-export async function createSession(
-  entry: Entry,
-  analystId: string,
-): Promise<CreateSessionResult> {
+export async function createSession(entry: Entry, analystId: string): Promise<CreateSessionResult> {
   if (entry.type !== 'FILE' || !entry.storageKey) {
     return { ok: false, code: 400, error: 'Somente amostras de arquivo podem ir para o sandbox.' };
   }
@@ -267,9 +277,10 @@ async function cloneTemplate(vmid: number, name: string): Promise<void> {
     return;
   } catch {
     // Sem snapshot no template o linked clone falha: limpa e tenta copia cheia.
-    await pve(`/nodes/${pveNode()}/qemu/${vmid}`, { method: 'DELETE', body: { purge: true } }).catch(
-      () => undefined,
-    );
+    await pve(`/nodes/${pveNode()}/qemu/${vmid}`, {
+      method: 'DELETE',
+      body: { purge: true },
+    }).catch(() => undefined);
     const upid = await pve<string>(path, { method: 'POST', body: { ...base, full: true } });
     await waitTask(upid);
   }
@@ -325,8 +336,7 @@ export async function provision(sessionId: string): Promise<void> {
       method: 'PUT',
       body: {
         name: session.name,
-        description:
-          `DeepLook sandbox | amostra ${entry.id} | sha256 ${entry.sha256 ?? '-'} | sessao ${session.id}`,
+        description: `DeepLook sandbox | amostra ${entry.id} | sha256 ${entry.sha256 ?? '-'} | sessao ${session.id}`,
         tags: env.SANDBOX_TAG,
         // media=cdrom ja cria um CD-ROM somente leitura no QEMU. O barramento IDE
         // (ide2) NAO aceita o sub-campo ro=1 (so o SCSI aceita); manda-lo faz o PVE
@@ -463,7 +473,9 @@ export async function reapExpired(): Promise<number> {
 
   for (const item of expired) {
     await dispose(item.id, 'EXPIRED').catch((err: unknown) => {
-      console.warn(`[sandbox] falha ao expirar ${item.id}: ${err instanceof Error ? err.message : err}`);
+      console.warn(
+        `[sandbox] falha ao expirar ${item.id}: ${err instanceof Error ? err.message : err}`,
+      );
     });
   }
 
@@ -500,7 +512,10 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
     active.map((s) => s.vmid).filter((v): v is number => typeof v === 'number'),
   );
   const activeIsos = new Set(
-    active.map((s) => s.isoVolume).filter((v): v is string => Boolean(v)).map(baseName),
+    active
+      .map((s) => s.isoVolume)
+      .filter((v): v is string => Boolean(v))
+      .map(baseName),
   );
 
   let vms = 0;
@@ -526,7 +541,9 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
       }
     }
   } catch (err) {
-    console.warn(`[sandbox] nao foi possivel listar VMs: ${err instanceof Error ? err.message : err}`);
+    console.warn(
+      `[sandbox] nao foi possivel listar VMs: ${err instanceof Error ? err.message : err}`,
+    );
   }
 
   try {
@@ -540,7 +557,9 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
       isos += 1;
     }
   } catch (err) {
-    console.warn(`[sandbox] nao foi possivel listar ISOs: ${err instanceof Error ? err.message : err}`);
+    console.warn(
+      `[sandbox] nao foi possivel listar ISOs: ${err instanceof Error ? err.message : err}`,
+    );
   }
 
   if (vms || isos) {
@@ -558,4 +577,3 @@ export function startSandboxReaper(): void {
   }, 60_000);
   timer.unref();
 }
-

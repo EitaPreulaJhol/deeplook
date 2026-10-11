@@ -140,7 +140,7 @@ COOKIE_SECURE=true
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Credenciais S3 da API | = MinIO root |
 | `WEB_PORT` | Porta publicada no host | `8080` |
 | `SANDBOX_ENABLED` | Liga o sandbox (VM isolada no Proxmox) | `false` |
-| `SANDBOX_CONSOLE_ENABLED` | Mostra o console noVNC no painel do analista | `true` |
+| `SANDBOX_CONSOLE_ENABLED` | Habilita o console noVNC (janela dedicada) para o analista | `true` |
 | `PROXMOX_MOCK` | Simula o Proxmox em memória (sem PVE real) | `false` |
 | `PROXMOX_API_URL` | URL da API do PVE (ex.: `https://192.168.0.10:8006`) | — |
 | `PROXMOX_NODE` | Node do cluster onde as VMs são criadas | `pve` |
@@ -248,9 +248,9 @@ Classes de estrutura usadas pelas páginas: `PageHeader`
 
 Analistas podem abrir uma **VM isolada por amostra**: um clone do template é criado
 no Proxmox, recebe a amostra como **CD-ROM somente leitura** (uma ISO9660 gerada na
-hora, com o arquivo, o SHA-256 e um LEIA-ME) e é acessado pelo **console noVNC
-embutido** na página da amostra. Ao encerrar — ou quando o prazo vence — a VM é
-desligada, destruída e a ISO é apagada.
+hora, com o arquivo, o SHA-256 e um LEIA-ME) e é acessado por um **console noVNC em
+janela dedicada** (popup com a toolbar de controle da VM). Ao encerrar — ou quando o
+prazo vence — a VM é desligada, destruída e a ISO é apagada.
 
 ```
 Analista -> POST /api/entries/:id/sandbox
@@ -288,9 +288,17 @@ sair do **mesmo container** que pediu o ticket.
 `vncwebsocket` exige auth VNC (a senha nunca vai ao front antes da hora: o noVNC a
 busca em `GET /api/sandbox/:id/console/credentials` no handshake).
 
-**Captura de tela:** o botão "Capturar tela" lê o **canvas do noVNC** no próprio
-navegador (o PVE removeu o endpoint server-side de screenshot no PVE 9, que agora
-responde `501`).
+**Janela do console:** a aba *Análise* só gerencia o ambiente; o console abre em uma
+**janela separada** (`/sandbox/entry/:id/console`, via `window.open`) que traz a
+**toolbar de controle da VM**: estender prazo, capturar tela e descartar ambiente. A
+janela é reaproveitada pelo nome (clicar de novo foca a mesma janela) e, como o
+provisionamento leva alguns segundos, ela já abre mostrando as fases e entra no
+console sozinha quando a VM sobe. Se o navegador bloquear o pop-up, o painel avisa
+como liberar.
+
+**Captura de tela:** o botão "Capturar tela" (na toolbar da janela do console) lê o
+**canvas do noVNC** no próprio navegador e abre o PNG numa nova aba — o PVE removeu o
+endpoint server-side de screenshot no PVE 9, que agora responde `501`.
 
 ### Preparando o template no Proxmox
 

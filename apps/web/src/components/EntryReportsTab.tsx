@@ -8,12 +8,10 @@ import {
   TextArea,
   Tile,
 } from '@carbon/react';
-import { type RefObject, useState } from 'react';
+import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { Report, Verdict } from '../api/types';
-import { IconScreen } from './icons';
-import { type SandboxConsoleHandle } from './SandboxConsole';
 import { VerdictTag } from './tags';
 
 function fmtDate(iso?: string | null): string {
@@ -26,24 +24,14 @@ interface Props {
   canTriage: boolean;
   /** Chamado apos publicar um relatorio (o pai recarrega a amostra). */
   onCreated: () => void;
-  /** Ref do console noVNC (para capturar a tela da VM). */
-  consoleRef: RefObject<SandboxConsoleHandle>;
-  /** Ha uma VM em execucao (console disponivel para captura)? */
-  canCapture: boolean;
 }
 
 /**
  * Aba "Relatorios": lista os relatorios da amostra e, para analistas/admin,
- * o formulario de novo relatorio (+ captura de tela do console).
+ * o formulario de novo relatorio. A captura de tela da VM fica na janela do
+ * console (toolbar de controle da VM).
  */
-export function EntryReportsTab({
-  entryId,
-  reports,
-  canTriage,
-  onCreated,
-  consoleRef,
-  canCapture,
-}: Props) {
+export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Props) {
   const [summary, setSummary] = useState('');
   const [findings, setFindings] = useState('');
   const [iocs, setIocs] = useState('');
@@ -51,19 +39,6 @@ export function EntryReportsTab({
   const [published, setPublished] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [captureMsg, setCaptureMsg] = useState<string | null>(null);
-
-  const captureScreen = () => {
-    setCaptureMsg(null);
-    const handle = consoleRef.current;
-    if (!handle) {
-      setCaptureMsg('Nenhum console ativo. Abra o ambiente na aba "Análise".');
-      return;
-    }
-    void handle.captureScreen().then((ok) => {
-      if (!ok) setCaptureMsg('Não foi possível capturar a tela (o console ainda não renderizou).');
-    });
-  };
 
   const createReport = async () => {
     setError(null);
@@ -93,34 +68,6 @@ export function EntryReportsTab({
 
   return (
     <>
-      {canTriage && (
-        <div className="dl-toolbar dl-mb-lg">
-          <Button
-            size="sm"
-            kind="ghost"
-            renderIcon={IconScreen}
-            disabled={!canCapture}
-            onClick={captureScreen}
-          >
-            Capturar tela do console
-          </Button>
-          <span className="dl-page-subtitle">
-            {canCapture
-              ? 'Abre a imagem atual da VM numa nova aba (evidência para o laudo).'
-              : 'Ligue um ambiente na aba "Análise" para capturar a tela.'}
-          </span>
-        </div>
-      )}
-      {captureMsg && (
-        <InlineNotification
-          kind="error"
-          title="Erro"
-          subtitle={captureMsg}
-          lowContrast
-          className="dl-note dl-mb-md"
-        />
-      )}
-
       {reports.length === 0 && (
         <div className="dl-empty dl-mb-lg">Nenhum relatório publicado ainda.</div>
       )}

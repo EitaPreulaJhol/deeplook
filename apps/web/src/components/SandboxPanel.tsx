@@ -1,79 +1,41 @@
 import { Button, InlineLoading, InlineNotification, Tag, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type RefObject, useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { api } from '../api/client';
-import type { SandboxSession, SandboxStatus } from '../api/types';
+import type { SandboxSession } from '../api/types';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
-import { SandboxConsole, type SandboxConsoleHandle } from './SandboxConsole';
+import {
+  isSandboxWorking,
+  SANDBOX_PHASE_LABELS,
+  SANDBOX_STATUS_LABELS,
+  useSandboxCountdown,
+} from './sandboxStatus';
 
-const PHASE_LABELS: Record<string, string> = {
-  'na-fila': 'na fila do Proxmox',
-  'gerando-iso': 'gerando a ISO com a amostra',
-  'enviando-iso': 'enviando a ISO para o Proxmox',
-  clonando: 'clonando o template da VM',
-  configurando: 'configurando a VM isolada',
-  iniciando: 'ligando a VM',
-  encerrando: 'encerrando o ambiente',
-};
-
-const STATUS_LABELS: Record<SandboxStatus, string> = {
-  REQUESTED: 'solicitado',
-  PROVISIONING: 'provisionando',
-  RUNNING: 'em execução',
-  STOPPING: 'encerrando',
-  STOPPED: 'encerrado',
-  EXPIRED: 'expirado',
-  FAILED: 'falhou',
-};
-
-function isWorking(status: SandboxStatus): boolean {
-  return status === 'REQUESTED' || status === 'PROVISIONING' || status === 'STOPPING';
+/** Abre a janela dedicada do console (popup). Retorna false se foi bloqueada. */
+function openConsoleWindow(entryId: string): boolean {
+  const win = window.open(
+    `/sandbox/entry/${entryId}/console`,
+    `deeplook-console-${entryId}`,
+    'popup=yes,width=1280,height=900',
+  );
+  return !!win;
 }
 
-/** Contador do tempo restante do ambiente (atualiza a cada segundo). */
-function useCountdown(expiresAt?: string): string {
-  const [left, setLeft] = useState('');
-
-  useEffect(() => {
-    if (!expiresAt) {
-      setLeft('');
-      return;
-    }
-    const tick = () => {
-      const ms = new Date(expiresAt).getTime() - Date.now();
-      if (ms <= 0) {
-        setLeft('expirado');
-        return;
-      }
-      const total = Math.floor(ms / 1000);
-      const h = Math.floor(total / 3600);
-      const m = Math.floor((total % 3600) / 60);
-      const s = total % 60;
-      setLeft(h > 0 ? `${h}h ${m}min` : `${m}min ${String(s).padStart(2, '0')}s`);
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [expiresAt]);
-
-  return left;
+interface Props {
+  entryId: string;
 }
 
 /**
  * Painel do ambiente isolado no Proxmox: abre o clone do template com a
- * amostra dentro (ISO read-only), mostra o console e cuida do descarte.
+ * amostra dentro (ISO read-only). O console noVNC roda numa janela dedicada
+ * (com a toolbar de controle da VM), nao mais embutido na pagina.
  */
-interface Props {
-  entryId: string;
-  /** Ref do console noVNC (compartilhado com a aba de relatórios p/ captura). */
-  consoleRef: RefObject<SandboxConsoleHandle>;
-}
-
-export function SandboxPanel({ entryId, consoleRef }: Props) {
+export function SandboxPanel({ entryId }: Props) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
 
   const query = useQuery({
     queryKey: ['sandbox', 'entry', entryId],
@@ -81,15 +43,15 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
       api.get<{ enabled: boolean; consoleEnabled: boolean; session: SandboxSession | null }>(
         `/entries/${entryId}/sandbox`,
       ),
-    refetchInterval: (q) => {
-      const status = q.state.data?.session?.status;
-      return status && isWorking(status) ? 2500 : false;
-    },
+    refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
+    // A janela do console tem cache proprio: ao voltar o foco para esta aba, o
+    // painel revalida (ex.: ambiente descartado na outra janela).
+    refetchOnWindowFocus: true,
   });
 
   const enabled = query.data?.enabled ?? false;
   const session = query.data?.session ?? null;
-  const countdown = useCountdown(session?.expiresAt);
+  const countdown = useSandboxCountdown(session?.expiresAt);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['sandbox', 'entry', entryId] });
@@ -107,6 +69,22 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
     } finally {
       setBusy(null);
     }
+  };
+
+  /** Abre (ou foca) a janela do console desta amostra. */
+  const openConsole = () => {
+    setPopupBlocked(false);
+    if (!openConsoleWindow(entryId)) setPopupBlocked(true);
+  };
+
+  /** Cria o ambiente e ja abre a janela do console (no mesmo gesto do clique). */
+  const openEnvironment = () => {
+    setPopupBlocked(false);
+    const opened = openConsoleWindow(entryId);
+    void run('open', async () => {
+      await api.post(`/entries/${entryId}/sandbox`);
+      if (!opened) setPopupBlocked(true);
+    });
   };
 
   if (query.isLoading) return <InlineLoading description="Consultando o ambiente..." />;
@@ -136,7 +114,7 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
         </div>
         <p className="dl-page-subtitle">
           Cria um clone do template no Proxmox com a amostra dentro (CD-ROM somente leitura) e abre
-          o console no navegador. O ambiente é destruído automaticamente no fim do prazo.
+          o console em uma janela dedicada. O ambiente é destruído automaticamente no fim do prazo.
         </p>
         {error && (
           <InlineNotification
@@ -147,11 +125,16 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
             className="dl-note dl-mb-md"
           />
         )}
-        <Button
-          renderIcon={IconScreen}
-          disabled={busy !== null}
-          onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
-        >
+        {popupBlocked && (
+          <InlineNotification
+            kind="warning"
+            title="Pop-up bloqueado"
+            subtitle="Permita pop-ups para este site e clique em “Abrir ambiente isolado” novamente."
+            lowContrast
+            className="dl-note dl-mb-md"
+          />
+        )}
+        <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
           {busy === 'open' ? 'Abrindo...' : 'Abrir ambiente isolado'}
         </Button>
       </Tile>
@@ -165,7 +148,7 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
           <Tag type="warm-gray" size="sm">
-            {STATUS_LABELS.STOPPING}
+            {SANDBOX_STATUS_LABELS.STOPPING}
           </Tag>
         </div>
         <InlineLoading description="Desligando a VM e apagando a ISO da amostra..." />
@@ -174,7 +157,7 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
   }
 
   // ---- Provisionando ----
-  if (isWorking(session.status)) {
+  if (isSandboxWorking(session.status)) {
     const steps = ['gerando-iso', 'enviando-iso', 'clonando', 'configurando', 'iniciando'];
     const current = steps.indexOf(session.phase ?? '');
 
@@ -183,11 +166,11 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
           <Tag type="blue" size="sm">
-            {STATUS_LABELS[session.status]}
+            {SANDBOX_STATUS_LABELS[session.status]}
           </Tag>
         </div>
         <p className="dl-page-subtitle">
-          {PHASE_LABELS[session.phase ?? ''] ?? 'preparando o ambiente'}...
+          {SANDBOX_PHASE_LABELS[session.phase ?? ''] ?? 'preparando o ambiente'}...
         </p>
         <ol className="dl-sandbox__steps">
           {steps.map((step, index) => (
@@ -195,7 +178,7 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
               key={step}
               className={index < current ? 'is-done' : index === current ? 'is-current' : ''}
             >
-              {PHASE_LABELS[step]}
+              {SANDBOX_PHASE_LABELS[step]}
             </li>
           ))}
         </ol>
@@ -215,7 +198,7 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
           <h3>Ambiente isolado</h3>
           <div className="dl-taglist">
             <Tag type="green" size="sm">
-              {STATUS_LABELS.RUNNING}
+              {SANDBOX_STATUS_LABELS.RUNNING}
             </Tag>
             <Tag type="outline" size="sm">
               VM {session.vmid} · {session.node}
@@ -228,8 +211,9 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
           </div>
         </div>
         <p className="dl-page-subtitle">
-          A amostra está no CD-ROM da VM (somente leitura), junto com o SHA-256 e um LEIA-ME. Não
-          exponha esta VM à rede.
+          A amostra está no CD-ROM da VM (somente leitura), junto com o SHA-256 e um LEIA-ME. O
+          console abre em uma janela dedicada (com a toolbar de controle da VM). Não exponha esta VM
+          à rede.
         </p>
         {error && (
           <InlineNotification
@@ -240,7 +224,24 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
             className="dl-note dl-mb-md"
           />
         )}
+        {popupBlocked && (
+          <InlineNotification
+            kind="warning"
+            title="Pop-up bloqueado"
+            subtitle="Permita pop-ups para este site e clique em “Abrir console” novamente."
+            lowContrast
+            className="dl-note dl-mb-md"
+          />
+        )}
         <div className="dl-toolbar dl-mb-md">
+          <Button
+            size="sm"
+            renderIcon={IconScreen}
+            disabled={busy !== null || !consoleEnabled}
+            onClick={openConsole}
+          >
+            Abrir console (nova janela)
+          </Button>
           <Button
             size="sm"
             kind="ghost"
@@ -260,16 +261,6 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
             Descartar ambiente
           </Button>
         </div>
-        {consoleEnabled ? (
-          <SandboxConsole
-            ref={consoleRef}
-            sessionId={session.id}
-            wsPath={`/api/sandbox/${session.id}/console/ws`}
-            onDisconnected={refresh}
-          />
-        ) : (
-          <p className="dl-page-subtitle">O console está desabilitado neste servidor.</p>
-        )}
       </Tile>
     );
   }
@@ -282,7 +273,7 @@ export function SandboxPanel({ entryId, consoleRef }: Props) {
       <div className="dl-sandbox__head">
         <h3>Ambiente isolado</h3>
         <Tag type={failed ? 'red' : 'warm-gray'} size="sm">
-          {STATUS_LABELS[session.status]}
+          {SANDBOX_STATUS_LABELS[session.status]}
         </Tag>
       </div>
       {session.lastError && (

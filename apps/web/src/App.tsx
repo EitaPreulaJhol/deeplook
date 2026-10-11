@@ -1,5 +1,5 @@
 import { InlineLoading, Theme } from '@carbon/react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthContext';
 import { AppShell } from './components/AppShell';
@@ -10,6 +10,7 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { MyUploadsPage } from './pages/MyUploadsPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SandboxConsoleWindowPage } from './pages/SandboxConsoleWindowPage';
 import { SubmitPage } from './pages/SubmitPage';
 
 function FullScreenLoader() {
@@ -21,6 +22,15 @@ function FullScreenLoader() {
         </div>
       </div>
     </Theme>
+  );
+}
+
+/** Shell da aplicacao (topbar/sidebar/rodape) usado pelas rotas internas. */
+function ShellLayout() {
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
   );
 }
 
@@ -41,8 +51,11 @@ export default function App() {
   }
 
   return (
-    <AppShell>
-      <Routes>
+    <Routes>
+      {/* Janela dedicada do console do sandbox (aberta via window.open, sem o shell). */}
+      <Route path="/sandbox/entry/:entryId/console" element={<SandboxConsoleWindowPage />} />
+
+      <Route element={<ShellLayout />}>
         <Route path="/" element={<Navigate to="/history" replace />} />
         <Route path="/history" element={<GlobalHistoryPage />} />
         <Route path="/me" element={<MyUploadsPage />} />
@@ -53,7 +66,7 @@ export default function App() {
           element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/history" replace />}
         />
         <Route path="*" element={<Navigate to="/history" replace />} />
-      </Routes>
-    </AppShell>
+      </Route>
+    </Routes>
   );
 }
