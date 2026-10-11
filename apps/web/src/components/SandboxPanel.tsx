@@ -1,11 +1,11 @@
 import { Button, InlineLoading, InlineNotification, Tag, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession, SandboxStatus } from '../api/types';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
-import { SandboxConsole } from './SandboxConsole';
+import { SandboxConsole, type SandboxConsoleHandle } from './SandboxConsole';
 
 const PHASE_LABELS: Record<string, string> = {
   'na-fila': 'na fila do Proxmox',
@@ -68,6 +68,7 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const consoleRef = useRef<SandboxConsoleHandle | null>(null);
 
   const query = useQuery({
     queryKey: ['sandbox', 'entry', entryId],
@@ -103,21 +104,14 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
     }
   };
 
-  const openScreenshot = async () => {
-    if (!session) return;
+  const openScreenshot = () => {
     setError(null);
-    setBusy('screenshot');
-    try {
-      const res = await fetch(`/api/sandbox/${session.id}/screenshot`, { credentials: 'include' });
-      if (!res.ok) throw new Error(`Não foi possível capturar a tela (HTTP ${res.status}).`);
-      const url = URL.createObjectURL(await res.blob());
-      window.open(url, '_blank', 'noopener');
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(null);
+    const handle = consoleRef.current;
+    if (!handle) {
+      setError('O console precisa estar aberto para capturar a tela.');
+      return;
     }
+    handle.captureScreen();
   };
 
   if (query.isLoading) return <InlineLoading description="Consultando o ambiente..." />;
@@ -282,6 +276,8 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
         </div>
         {consoleEnabled ? (
           <SandboxConsole
+            ref={consoleRef}
+            sessionId={session.id}
             wsPath={`/api/sandbox/${session.id}/console/ws`}
             onDisconnected={refresh}
           />

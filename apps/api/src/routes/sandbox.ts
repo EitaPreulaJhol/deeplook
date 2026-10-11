@@ -30,6 +30,9 @@ import {
 
 const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
 
+/** Senha efemera do console por sessao (o noVNC busca sob demanda no handshake). */
+const consoleAuth = new Map<string, { password: string; expiresAt: number }>();
+
 function msg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -309,6 +312,25 @@ export async function sandboxRoutes(app: FastifyInstance) {
     return reply.send({ wsPath: `/api/sandbox/${session.id}/console/ws` });
   });
 
+  // ---- Senha VNC do console (o noVNC busca aqui no handshake) ----
+  // O PVE exige auth VNC (vncproxy -> vncwebsocket). O ticket continua so no
+  // backend; ao navegador entregamos apenas a senha efemera do console.
+  app.get('/api/sandbox/:id/console/credentials', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const session = await loadOwned(id, user, reply);
+    if (!session) return;
+
+    const entry = consoleAuth.get(session.id);
+    if (!entry || entry.expiresAt < Date.now()) {
+      return reply.code(409).send({ error: 'O console ainda nao foi conectado.' });
+    }
+    reply.header('Cache-Control', 'no-store');
+    return reply.send({ password: entry.password });
+  });
+
   // ---- WebSocket do console: proxy autenticado para o vncwebsocket do PVE ----
   // O navegador nunca ve o ticket do Proxmox: ele fica so no backend.
   app.get('/api/sandbox/:id/console/ws', { websocket: true }, (socket, req) => {
@@ -348,6 +370,12 @@ export async function sandboxRoutes(app: FastifyInstance) {
         } else {
           const proxy = await createVncProxy(session.vmid);
           const auth = await pveAuth();
+          // Guarda a senha para o noVNC buscar em /console/credentials e
+          // completar a auth VNC (o ticket permanece so no backend).
+          consoleAuth.set(session.id, {
+            password: proxy.password,
+            expiresAt: Date.now() + 10 * 60_000,
+          });
           upstream = new WebSocket(
             pveConsoleWsUrl(session.vmid, proxy.port, proxy.ticket),
             ['binary'],

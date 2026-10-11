@@ -328,7 +328,10 @@ export async function provision(sessionId: string): Promise<void> {
         description:
           `DeepLook sandbox | amostra ${entry.id} | sha256 ${entry.sha256 ?? '-'} | sessao ${session.id}`,
         tags: env.SANDBOX_TAG,
-        ide2: `${volume},media=cdrom,ro=1`,
+        // media=cdrom ja cria um CD-ROM somente leitura no QEMU. O barramento IDE
+        // (ide2) NAO aceita o sub-campo ro=1 (so o SCSI aceita); manda-lo faz o PVE
+        // responder "ide2.ro: property is not defined in schema".
+        ide2: `${volume},media=cdrom`,
       },
     });
 

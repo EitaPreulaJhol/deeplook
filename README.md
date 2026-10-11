@@ -259,7 +259,7 @@ Analista -> POST /api/entries/:id/sandbox
               ├─ 2. genisoimage: monta a ISO (amostra + SHA256.txt + LEIA-ME.txt)
               ├─ 3. PVE: upload da ISO no storage (streaming multipart)
               ├─ 4. PVE: clone do template (linked clone; cai para cópia cheia se falhar)
-              ├─ 5. PVE: config (tags + ide2=<iso>,media=cdrom,ro=1)
+              ├─ 5. PVE: config (tags + ide2=<iso>,media=cdrom)  # cdrom ja e somente leitura
               └─ 6. PVE: start -> status RUNNING (console liberado)
 ```
 
@@ -284,6 +284,14 @@ ticket de usuário. A API então:
 O ticket nunca chega ao front. Como o ticket do PVE é preso ao IP, o proxy precisa
 sair do **mesmo container** que pediu o ticket.
 
+**Auth VNC:** o `vncproxy` também devolve uma **senha** de console; o
+`vncwebsocket` exige auth VNC (a senha nunca vai ao front antes da hora: o noVNC a
+busca em `GET /api/sandbox/:id/console/credentials` no handshake).
+
+**Captura de tela:** o botão "Capturar tela" lê o **canvas do noVNC** no próprio
+navegador (o PVE removeu o endpoint server-side de screenshot no PVE 9, que agora
+responde `501`).
+
 ### Preparando o template no Proxmox
 
 1. Crie uma VM (Windows/Linux) com `qemu-guest-agent`, **rede isolada** (bridge sem
@@ -295,6 +303,10 @@ sair do **mesmo container** que pediu o ticket.
 5. Crie um usuário dedicado (`deeplook@pve`) com `PVEAuditor` + `PVEVMAdmin`
    (`/vms/<vmid do template>` para clonar e `/vms` para gerenciar os clones).
 6. Preencha os `PROXMOX_*` no `.env` e ligue com `SANDBOX_ENABLED=true`.
+
+> 📖 Passo a passo completo — template, permissões (incluindo **Datastore** para o
+> upload da ISO), `.env`, rede Docker→PVE, validação e troubleshooting:
+> **[`docs/proxmox.md`](docs/proxmox.md)**.
 
 ### Modo mock (desenvolvimento sem PVE)
 
@@ -325,8 +337,9 @@ sem um PVE real. Valide com `scripts/smoke-sandbox.ps1`.
 | POST | `/api/sandbox/:id/power` | Liga/desliga a VM (`{"action":"on"\|"off"}`) |
 | DELETE | `/api/sandbox/:id` | Descarta (destrói a VM e apaga o ISO) |
 | GET | `/api/sandbox/:id/console` | Caminho do WebSocket do console |
+| GET | `/api/sandbox/:id/console/credentials` | Senha efêmera do console (auth VNC no handshake) |
 | GET | `/api/sandbox/:id/console/ws` | WebSocket (proxy autenticado para o PVE) |
-| GET | `/api/sandbox/:id/screenshot` | Captura de tela (PNG) para o relatório |
+| GET | `/api/sandbox/:id/screenshot` | Captura de tela (PNG) — removido no PVE 9; o painel captura no navegador |
 
 ---
 

@@ -54,12 +54,16 @@ if ($d.session.status -ne 'RUNNING') {
 }
 Say "AMBIENTE PRONTO: vmid=$($d.session.vmid) iso=$($d.session.isoVolume) vmStatus=$($d.vmStatus)"
 
-# 6. Console + captura de tela
+# 6. Console (a captura de tela no painel e feita no navegador, pelo canvas do noVNC)
 $c = Invoke-RestMethod -Uri "$base/sandbox/$sid/console" -Method Get -WebSession $analyst
 Say "CONSOLE: wsPath=$($c.wsPath)"
 $png = Join-Path $env:TEMP 'deeplook_sandbox.png'
-Invoke-WebRequest -Uri "$base/sandbox/$sid/screenshot" -Method Get -WebSession $analyst -OutFile $png -UseBasicParsing
-Say "SCREENSHOT: bytes=$((Get-Item $png).Length)"
+try {
+  Invoke-WebRequest -Uri "$base/sandbox/$sid/screenshot" -Method Get -WebSession $analyst -OutFile $png -UseBasicParsing 2>$null
+  Say "SCREENSHOT (endpoint server-side): bytes=$((Get-Item $png).Length)"
+} catch {
+  Say "SCREENSHOT (endpoint server-side): indisponivel neste PVE (no painel a captura e feita no navegador)"
+}
 
 # 7. Estende o prazo do ambiente
 $ext = Invoke-RestMethod -Uri "$base/sandbox/$sid/extend" -Method Post -WebSession $analyst -ContentType 'application/json' -Body '{"minutes":10}'

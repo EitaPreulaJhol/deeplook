@@ -188,11 +188,18 @@ export async function pve<T>(path: string, opts: PveRequestOptions = {}): Promis
       Accept: 'application/json',
       Cookie: ticket.cookie,
     };
+    // O PVE exige o CSRFPreventionToken em TODA requisicao que muda estado
+    // (POST/PUT/DELETE), mesmo quando nao ha corpo. Sem ele, responde 401.
+    if (method !== 'GET') headers.CSRFPreventionToken = ticket.csrf;
+
     let body: string | undefined;
     if (opts.body) {
       headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      headers.CSRFPreventionToken = ticket.csrf;
       body = formEncode(opts.body);
+    } else if (method !== 'GET') {
+      // Garante Content-Length: 0 em POST/PUT/DELETE sem corpo.
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      body = '';
     }
 
     const res = await httpRequest(method, `/api2/json${path}`, headers, body, opts.timeoutMs);
@@ -219,15 +226,20 @@ export async function pveRaw(
     return { status: 200, body: pveMockScreenshot(), contentType: 'image/png' };
   }
 
+  const method = opts.method ?? 'GET';
   const ticket = await getTicket();
   const headers: Record<string, string> = { Cookie: ticket.cookie };
+  // CSRF obrigatorio em POST/PUT/DELETE, mesmo sem corpo (senao o PVE responde 401).
+  if (method !== 'GET') headers.CSRFPreventionToken = ticket.csrf;
   let body: string | undefined;
   if (opts.body) {
     headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    headers.CSRFPreventionToken = ticket.csrf;
     body = formEncode(opts.body);
+  } else if (method !== 'GET') {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    body = '';
   }
-  const res = await httpRequest(opts.method ?? 'GET', `/api2/json${path}`, headers, body);
+  const res = await httpRequest(method, `/api2/json${path}`, headers, body);
   return { status: res.status, body: res.body, contentType: 'image/png' };
 }
 
@@ -303,16 +315,24 @@ export async function waitTask(upid: string, timeoutMs = 10 * 60_000): Promise<v
   }
 }
 
-/** Cria o proxy VNC da VM e devolve a porta + ticket do console. */
-export async function createVncProxy(vmid: number): Promise<{ port: number; ticket: string }> {
-  const data = await pve<{ port?: number; ticket?: string }>(
+/**
+ * Cria o proxy VNC da VM e devolve porta, ticket e a senha do console.
+ * O PVE exige auth VNC (tipo 2) no vncwebsocket: a senha vem do proprio
+ * vncproxy e e usada pelo noVNC no handshake (RFB.genDES).
+ */
+export async function createVncProxy(
+  vmid: number,
+): Promise<{ port: number; ticket: string; password: string }> {
+  const data = await pve<{ port?: number; ticket?: string; password?: string }>(
     `/nodes/${pveNode()}/qemu/${vmid}/vncproxy`,
     { method: 'POST', body: { websocket: true } },
   );
   if (!data?.port || !data?.ticket) {
     throw new ProxmoxError('Proxmox nao retornou porta/ticket do console.');
   }
-  return { port: data.port, ticket: data.ticket };
+  // Sem senha explicita o PVE usa o inicio do ticket (VNC limita a 8 chars).
+  const password = data.password || data.ticket.slice(0, 8);
+  return { port: data.port, ticket: data.ticket, password };
 }
 
 /** URL do websocket do console (usada apenas no backend). */
