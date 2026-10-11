@@ -1,6 +1,10 @@
 export interface HpsmTabItem {
   id: string;
   label: string;
+  /** Bolinha de destaque apos o rotulo (ex.: ambiente isolado ativo). */
+  dot?: boolean;
+  /** Texto de ajuda do indicador `dot`. */
+  dotLabel?: string;
 }
 
 interface HpsmTabsProps {
@@ -27,6 +31,7 @@ export function HpsmTabs({ items, active, onChange, ariaLabel }: HpsmTabsProps) 
             onClick={() => onChange(item.id)}
           >
             <span className="hpsm-tab__label">{item.label}</span>
+            {item.dot && <span className="hpsm-tab__dot" title={item.dotLabel} />}
           </button>
         );
       })}

@@ -15,8 +15,8 @@ interface Props {
 
 /** Metodos imperativos que o painel pode chamar no console. */
 export interface SandboxConsoleHandle {
-  /** Captura a tela atual (canvas do noVNC) e abre o PNG numa nova aba. */
-  captureScreen: () => void;
+  /** Captura a tela atual e abre o PNG numa nova aba. `false` se falhou. */
+  captureScreen: () => Promise<boolean>;
 }
 
 function wsUrl(path: string): string {
@@ -115,25 +115,29 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
   const connected = status === 'connected';
 
   /**
-   * Captura a tela do console. O noVNC desenha num <canvas> 2D dentro do holder,
-   * entao lemos os pixels direto no navegador — isso independe do Proxmox (que
-   * removeu o endpoint server-side de screenshot no PVE 9).
+   * Captura a tela do console. O noVNC desenha num <canvas> 2D; lemos os pixels
+   * direto no navegador — isso independe do Proxmox (que removeu o endpoint
+   * server-side de screenshot no PVE 9). Preferimos o buffer interno do noVNC
+   * (tamanho real do framebuffer), que segue valido mesmo com o painel oculto.
    */
-  const captureScreen = () => {
-    const canvas = holderRef.current?.querySelector('canvas') ?? null;
+  const captureScreen = async (): Promise<boolean> => {
+    const priv = rfbRef.current as unknown as {
+      _screen?: { _backbuffer?: HTMLCanvasElement };
+    } | null;
+    const canvas = priv?._screen?._backbuffer ?? holderRef.current?.querySelector('canvas') ?? null;
     if (!canvas || canvas.width === 0 || canvas.height === 0) {
       setMessage('Ainda não há imagem no console para capturar.');
-      return;
+      return false;
     }
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        setMessage('Não foi possível capturar a tela do console.');
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    }, 'image/png');
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      setMessage('Não foi possível capturar a tela do console.');
+      return false;
+    }
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return true;
   };
 
   useImperativeHandle(ref, () => ({ captureScreen }));

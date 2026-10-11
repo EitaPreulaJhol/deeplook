@@ -361,6 +361,14 @@ h6 {
   white-space: nowrap;
 }
 
+.hpsm-tab__dot {
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--dl-success-text);
+}
+
 .hpsm-tab.is-active {
   background: var(--dl-tab-active-bg);
   color: #1a1a1a;

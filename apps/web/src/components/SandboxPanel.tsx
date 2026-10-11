@@ -1,6 +1,6 @@
 import { Button, InlineLoading, InlineNotification, Tag, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession, SandboxStatus } from '../api/types';
@@ -64,11 +64,16 @@ function useCountdown(expiresAt?: string): string {
  * Painel do ambiente isolado no Proxmox: abre o clone do template com a
  * amostra dentro (ISO read-only), mostra o console e cuida do descarte.
  */
-export function SandboxPanel({ entryId }: { entryId: string }) {
+interface Props {
+  entryId: string;
+  /** Ref do console noVNC (compartilhado com a aba de relatórios p/ captura). */
+  consoleRef: RefObject<SandboxConsoleHandle>;
+}
+
+export function SandboxPanel({ entryId, consoleRef }: Props) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const consoleRef = useRef<SandboxConsoleHandle | null>(null);
 
   const query = useQuery({
     queryKey: ['sandbox', 'entry', entryId],
@@ -104,16 +109,6 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
     }
   };
 
-  const openScreenshot = () => {
-    setError(null);
-    const handle = consoleRef.current;
-    if (!handle) {
-      setError('O console precisa estar aberto para capturar a tela.');
-      return;
-    }
-    handle.captureScreen();
-  };
-
   if (query.isLoading) return <InlineLoading description="Consultando o ambiente..." />;
 
   if (!enabled) {
@@ -140,8 +135,8 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           </Tag>
         </div>
         <p className="dl-page-subtitle">
-          Cria um clone do template no Proxmox com a amostra dentro (CD-ROM somente leitura) e abre o
-          console no navegador. O ambiente é destruído automaticamente no fim do prazo.
+          Cria um clone do template no Proxmox com a amostra dentro (CD-ROM somente leitura) e abre
+          o console no navegador. O ambiente é destruído automaticamente no fim do prazo.
         </p>
         {error && (
           <InlineNotification
@@ -257,15 +252,6 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           </Button>
           <Button
             size="sm"
-            kind="ghost"
-            renderIcon={IconScreen}
-            disabled={busy !== null}
-            onClick={openScreenshot}
-          >
-            Capturar tela
-          </Button>
-          <Button
-            size="sm"
             kind="danger--ghost"
             renderIcon={IconTrash}
             disabled={busy !== null}
@@ -332,4 +318,3 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
     </Tile>
   );
 }
-
