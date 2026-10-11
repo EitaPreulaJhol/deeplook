@@ -1,10 +1,10 @@
-import { Renew, Screen, TrashCan } from '@carbon/icons-react';
 import { Button, InlineLoading, InlineNotification, Tag, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession, SandboxStatus } from '../api/types';
+import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { SandboxConsole } from './SandboxConsole';
 
 const PHASE_LABELS: Record<string, string> = {
@@ -159,7 +159,7 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           />
         )}
         <Button
-          renderIcon={Screen}
+          renderIcon={IconScreen}
           disabled={busy !== null}
           onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
         >
@@ -255,7 +255,7 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           <Button
             size="sm"
             kind="ghost"
-            renderIcon={Renew}
+            renderIcon={IconRefresh}
             disabled={busy !== null}
             onClick={() => run('extend', () => api.post(`/sandbox/${session.id}/extend`))}
           >
@@ -264,7 +264,7 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           <Button
             size="sm"
             kind="ghost"
-            renderIcon={Screen}
+            renderIcon={IconScreen}
             disabled={busy !== null}
             onClick={openScreenshot}
           >
@@ -273,7 +273,7 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           <Button
             size="sm"
             kind="danger--ghost"
-            renderIcon={TrashCan}
+            renderIcon={IconTrash}
             disabled={busy !== null}
             onClick={() => run('dispose', () => api.del(`/sandbox/${session.id}`))}
           >
@@ -327,7 +327,7 @@ export function SandboxPanel({ entryId }: { entryId: string }) {
           : 'Ambiente encerrado: a VM e a ISO da amostra foram removidas.'}
       </p>
       <Button
-        renderIcon={Screen}
+        renderIcon={IconScreen}
         disabled={busy !== null}
         onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
       >

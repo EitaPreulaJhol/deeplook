@@ -1,5 +1,6 @@
-import { View, ViewOff } from '@carbon/icons-react';
 import { useState } from 'react';
+
+import { IconEye, IconEyeOff } from './icons';
 
 type FieldType = 'text' | 'email' | 'password';
 
@@ -65,7 +66,7 @@ export function AuthField({
             aria-pressed={revealed}
             onClick={() => setRevealed((previous) => !previous)}
           >
-            {revealed ? <ViewOff size={20} /> : <View size={20} />}
+            {revealed ? <IconEyeOff size={20} /> : <IconEye size={20} />}
           </button>
         )}
       </div>

@@ -1,8 +1,8 @@
-import { Add, Logout, Menu } from '@carbon/icons-react';
 import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { IconAdd, IconLogout, IconMenu } from './icons';
 import { RoleTag } from './tags';
 
 interface TopBarProps {
@@ -32,7 +32,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
         aria-label="Abrir navegação"
         onClick={onToggleSidebar}
       >
-        <Menu size={18} />
+        <IconMenu size={18} />
       </button>
 
       <a className="hpsm-topbar__brand" href="/history" onClick={goHome}>
@@ -51,7 +51,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
         )}
 
         <button type="button" className="hpsm-topbar__iconbtn" onClick={() => navigate('/submit')}>
-          <Add size={16} />
+          <IconAdd size={16} />
           <span>Enviar amostra</span>
         </button>
 
@@ -61,7 +61,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
           aria-label={`Sair (${user?.displayName ?? ''})`}
           onClick={handleLogout}
         >
-          <Logout size={16} />
+          <IconLogout size={16} />
           <span>Sair</span>
         </button>
       </div>

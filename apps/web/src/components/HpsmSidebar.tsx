@@ -1,9 +1,9 @@
-import type { CarbonIconType } from '@carbon/icons-react';
-import { Catalog, Folder, Settings } from '@carbon/icons-react';
 import type { MouseEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import type { IconComponent } from './icons';
+import { IconFolder, IconHistory, IconSettings } from './icons';
 
 interface SidebarProps {
   /** Controle do drawer no mobile (a sidebar fica off-canvas). */
@@ -15,13 +15,13 @@ interface SidebarProps {
 interface NavLeaf {
   to: string;
   label: string;
-  icon: CarbonIconType;
+  icon: IconComponent;
 }
 
 /* Menu principal: amostras (todas as contas). */
 const PRIMARY: NavLeaf[] = [
-  { to: '/history', label: 'Histórico Global', icon: Catalog },
-  { to: '/me', label: 'Meus Uploads', icon: Folder },
+  { to: '/history', label: 'Histórico Global', icon: IconHistory },
+  { to: '/me', label: 'Meus Uploads', icon: IconFolder },
 ];
 
 export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
@@ -72,7 +72,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
                   onClick={go('/admin')}
                 >
                   <span className="hpsm-nav__icon">
-                    <Settings size={16} />
+                    <IconSettings size={16} />
                   </span>
                   <span className="hpsm-nav__label">Administração</span>
                 </a>

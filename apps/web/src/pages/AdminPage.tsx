@@ -21,6 +21,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
 import { HpsmTabs } from '../components/HpsmTabs';
+import { IconKey } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { RoleTag } from '../components/tags';
 
@@ -93,7 +94,7 @@ export function AdminPage() {
         title="Administração"
         subtitle="Gerencie o funcionamento da aplicação."
         popover={{
-          icon: <span className="dl-key-icon" aria-hidden="true" />,
+          icon: <IconKey size={16} />,
           label: 'Gerar nova chave',
           content: (
             <>

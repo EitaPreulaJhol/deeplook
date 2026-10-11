@@ -1,4 +1,3 @@
-import { Filter } from '@carbon/icons-react';
 import { InlineLoading, InlineNotification, Select, SelectItem, TextInput } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -7,6 +6,7 @@ import { api } from '../api/client';
 import type { Entry } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntriesTable } from '../components/EntriesTable';
+import { IconFilter } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 
 export function MyUploadsPage() {
@@ -40,7 +40,7 @@ export function MyUploadsPage() {
         title="Meus Uploads"
         subtitle="Acompanhe o controle das amostras que você enviou."
         popover={{
-          icon: <Filter size={16} />,
+          icon: <IconFilter size={16} />,
           label: 'Filtros',
           content: (
             <>

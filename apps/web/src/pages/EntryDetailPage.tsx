@@ -1,4 +1,3 @@
-import { ArrowLeft, Download } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
@@ -18,6 +17,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Entry, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { IconArrowLeft, IconDownload } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
@@ -118,7 +118,7 @@ export function EntryDetailPage() {
       <Button
         kind="ghost"
         size="sm"
-        renderIcon={ArrowLeft}
+        renderIcon={IconArrowLeft}
         onClick={() => navigate(-1)}
         className="dl-mb-md"
       >
@@ -164,7 +164,7 @@ export function EntryDetailPage() {
       {entry.type === 'FILE' && (
         <div className="dl-mb-lg">
           <Button
-            renderIcon={Download}
+            renderIcon={IconDownload}
             href={`/api/entries/${entry.id}/download`}
             disabled={!entry.storageKey}
           >
