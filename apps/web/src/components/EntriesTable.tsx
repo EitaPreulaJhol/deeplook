@@ -1,5 +1,4 @@
 import {
-  DataTable,
   Table,
   TableBody,
   TableCell,
@@ -17,84 +16,186 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR');
 }
 
+/** Colunas ordenaveis (mesmos nomes do parametro `sort` de GET /api/entries). */
+export type EntrySortKey =
+  'title' | 'type' | 'owner' | 'status' | 'verdict' | 'reports' | 'createdAt';
+
+export interface EntrySort {
+  key: EntrySortKey;
+  dir: 'asc' | 'desc';
+}
+
+/** Ordem padrao das listas: mais recentes primeiro. */
+export const DEFAULT_ENTRY_SORT: EntrySort = { key: 'createdAt', dir: 'desc' };
+
+/** Parametros de ordenacao/paginacao para a query de GET /api/entries. */
+export function entryListParams(
+  params: URLSearchParams,
+  sort: EntrySort,
+  offset: number,
+  limit: number,
+) {
+  params.set('sort', sort.key);
+  params.set('dir', sort.dir);
+  params.set('offset', String(offset));
+  params.set('limit', String(limit));
+}
+
+interface EntriesTableProps {
+  entries: Entry[];
+  showOwner?: boolean;
+  /** Total de registros no servidor (todas as paginas). */
+  total: number;
+  /** Indice do primeiro registro exibido. */
+  offset: number;
+  pageSize: number;
+  sort: EntrySort;
+  onSortChange: (sort: EntrySort) => void;
+  onPageChange: (offset: number) => void;
+}
+
+/** Lista de registros no estilo "Record List" do HP Service Manager. */
 export function EntriesTable({
   entries,
   showOwner = true,
   total,
-}: {
-  entries: Entry[];
-  showOwner?: boolean;
-  /** Total de registros no servidor (para o rodape "N registros exibidos"). */
-  total?: number;
-}) {
+  offset,
+  pageSize,
+  sort,
+  onSortChange,
+  onPageChange,
+}: EntriesTableProps) {
   const navigate = useNavigate();
-  const byId = new Map(entries.map((e) => [e.id, e]));
-  const count = total ?? entries.length;
 
-  const headers = [
+  const headers: { key: EntrySortKey; header: string }[] = [
     { key: 'title', header: 'Amostra' },
     { key: 'type', header: 'Tipo' },
-    ...(showOwner ? [{ key: 'owner', header: 'Enviado por' }] : []),
+    ...(showOwner ? [{ key: 'owner' as const, header: 'Enviado por' }] : []),
     { key: 'status', header: 'Status' },
     { key: 'verdict', header: 'Veredito' },
     { key: 'reports', header: 'Relatórios' },
     { key: 'createdAt', header: 'Data' },
   ];
 
-  const rows = entries.map((e) => ({ id: e.id }));
+  // Clicar na coluna ativa inverte a ordem; outra coluna comeca em ascendente.
+  const toggleSort = (key: EntrySortKey) => {
+    onSortChange(
+      sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' },
+    );
+  };
+
+  const first = total === 0 ? 0 : offset + 1;
+  const last = Math.min(offset + entries.length, total);
+  const lastOffset = Math.max(0, Math.floor((total - 1) / pageSize) * pageSize);
+  const atStart = offset <= 0;
+  const atEnd = offset >= lastOffset;
 
   return (
     <>
-      <DataTable rows={rows} headers={headers}>
-        {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-          <TableContainer>
-            <Table {...getTableProps()} size="lg">
-              <TableHead>
-                <TableRow>
-                  {headers.map((header) => (
-                    <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                      {header.header}
-                    </TableHeader>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row) => {
-                  const entry = byId.get(row.id) as Entry;
-                  return (
-                    <TableRow
-                      {...getRowProps({ row })}
-                      key={row.id}
-                      onClick={() => navigate(`/entries/${entry.id}`)}
-                      style={{ cursor: 'pointer' }}
+      {/* Sem o <DataTable> do Carbon: ele guarda as linhas em estado interno e
+          so sincroniza um render depois, entao ao trocar o filtro ainda entregava
+          ids antigos (entry undefined -> tela branca). As linhas vem direto de
+          `entries`; ordenacao e paginacao ja sao controladas aqui. */}
+      <TableContainer>
+        <Table size="xs">
+          <TableHead>
+            <TableRow>
+              {headers.map((header) => {
+                const active = sort.key === header.key;
+                return (
+                  <TableHeader
+                    key={header.key}
+                    scope="col"
+                    aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <button
+                      type="button"
+                      className={`hpsm-sort${active ? ' is-active' : ''}`}
+                      onClick={() => toggleSort(header.key)}
                     >
-                      <TableCell>{entry.title}</TableCell>
-                      <TableCell>
-                        <TypeTag type={entry.type} />
-                      </TableCell>
-                      {showOwner && <TableCell>{entry.owner.displayName}</TableCell>}
-                      <TableCell>
-                        <StatusTag status={entry.status} />
-                      </TableCell>
-                      <TableCell>
-                        <VerdictTag verdict={entry.verdict} />
-                      </TableCell>
-                      <TableCell>
-                        {entry._count ? entry._count.reports : (entry.reports?.length ?? 0)}
-                      </TableCell>
-                      <TableCell>{fmtDate(entry.createdAt)}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </DataTable>
+                      {header.header}
+                      <span className="hpsm-sort__arrow" aria-hidden="true">
+                        {active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}
+                      </span>
+                    </button>
+                  </TableHeader>
+                );
+              })}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {entries.map((entry) => (
+              <TableRow
+                key={entry.id}
+                onClick={() => navigate(`/entries/${entry.id}`)}
+                style={{ cursor: 'pointer' }}
+              >
+                <TableCell>{entry.title}</TableCell>
+                <TableCell>
+                  <TypeTag type={entry.type} />
+                </TableCell>
+                {showOwner && <TableCell>{entry.owner.displayName}</TableCell>}
+                <TableCell>
+                  <StatusTag status={entry.status} />
+                </TableCell>
+                <TableCell>
+                  <VerdictTag verdict={entry.verdict} />
+                </TableCell>
+                <TableCell>
+                  {entry._count ? entry._count.reports : (entry.reports?.length ?? 0)}
+                </TableCell>
+                <TableCell>{fmtDate(entry.createdAt)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
       <div className="dl-table-foot">
         <span>
-          {count} registro{count === 1 ? '' : 's'} exibido{count === 1 ? '' : 's'}.
+          Exibindo registros {first} a {last} de {total}
         </span>
+        <div className="hpsm-pager" role="group" aria-label="Paginação">
+          <button
+            type="button"
+            className="hpsm-pager__btn"
+            title="Primeira página"
+            aria-label="Primeira página"
+            disabled={atStart}
+            onClick={() => onPageChange(0)}
+          >
+            «
+          </button>
+          <button
+            type="button"
+            className="hpsm-pager__btn"
+            title="Página anterior"
+            aria-label="Página anterior"
+            disabled={atStart}
+            onClick={() => onPageChange(Math.max(0, offset - pageSize))}
+          >
+            ‹ Anterior
+          </button>
+          <button
+            type="button"
+            className="hpsm-pager__btn"
+            title="Próxima página"
+            aria-label="Próxima página"
+            disabled={atEnd}
+            onClick={() => onPageChange(offset + pageSize)}
+          >
+            Próxima ›
+          </button>
+          <button
+            type="button"
+            className="hpsm-pager__btn"
+            title="Última página"
+            aria-label="Última página"
+            disabled={atEnd}
+            onClick={() => onPageChange(lastOffset)}
+          >
+            »
+          </button>
+        </div>
       </div>
     </>
   );

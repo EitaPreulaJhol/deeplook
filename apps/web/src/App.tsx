@@ -1,8 +1,8 @@
-import { InlineLoading, Theme } from '@carbon/react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthContext';
 import { AppShell } from './components/AppShell';
+import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
 import { GlobalHistoryPage } from './pages/GlobalHistoryPage';
@@ -15,13 +15,11 @@ import { SubmitPage } from './pages/SubmitPage';
 
 function FullScreenLoader() {
   return (
-    <Theme theme="g10">
-      <div className="dl-auth">
-        <div className="dl-auth__main" style={{ alignItems: 'center' }}>
-          <InlineLoading description="Carregando DeepLook..." />
-        </div>
+    <div className="dl-public">
+      <div className="dl-public__main">
+        <HpsmLoading text="Carregando DeepLook..." />
       </div>
-    </Theme>
+    </div>
   );
 }
 

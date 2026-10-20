@@ -44,8 +44,12 @@ body {
 .dl-content {
   flex: 1;
   min-width: 0;
-  padding: 0.5rem;
   background: var(--dl-bg);
+}
+
+/* Conteudo da aba ativa, abaixo da faixa de abas de documento. */
+.dl-content__body {
+  padding: 0.5rem;
 }
 
 /* Icone principal do app (apps/web/public/deeplook.svg). */
@@ -55,157 +59,4 @@ body {
   object-fit: contain;
   display: block;
   flex: 0 0 auto;
-}
-
-/* --- Home / landing (publica) ------------------------------------------- */
-
-.dl-home {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: var(--dl-bg);
-}
-
-.dl-home main {
-  flex: 1;
-}
-
-/* Barra do topo azul, igual a barra do app logado. */
-.dl-home__topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  block-size: var(--dl-topbar-h);
-  background: linear-gradient(180deg, var(--dl-topbar-1) 0%, var(--dl-topbar-2) 100%);
-  border-block-end: 1px solid var(--dl-topbar-border);
-}
-
-.dl-home__topbar-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  block-size: 100%;
-  padding-inline: 1rem;
-}
-
-.dl-home__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Botoes do header com o mesmo tamanho (largura) entre si. */
-.dl-home__actions .cds--btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0 1.25rem;
-  block-size: 2rem;
-  min-inline-size: 7rem;
-  line-height: 1;
-}
-
-/* Sobre a barra azul: botoes brancos (como no HPSM). */
-.dl-home__actions .cds--btn--ghost {
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-}
-
-.dl-home__actions .cds--btn--ghost:hover {
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
-}
-
-.dl-home__actions .cds--btn--primary {
-  border: 1px solid #ffffff;
-  background: #ffffff;
-  color: #0d5a9e;
-}
-
-.dl-home__actions .cds--btn--primary:hover {
-  background: #eaf3fb;
-  color: #0d5a9e;
-}
-
-.dl-home__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #ffffff;
-  font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
-
-.dl-home__hero {
-  max-width: 1120px;
-  margin-inline: auto;
-  padding-inline: 2rem;
-  padding-block: 3.5rem 0.5rem;
-}
-
-.dl-home__title {
-  font-size: clamp(2.25rem, 4vw, 3.25rem);
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #1a3d5c;
-  margin: 0 0 1rem;
-}
-
-.dl-home__lead {
-  font-size: 1.0625rem;
-  color: var(--dl-text-muted);
-  max-width: 70ch;
-  margin: 0 0 0.5rem;
-}
-
-/* --- Rodape padrao ------------------------------------------------------- */
-
-.dl-footer {
-  margin-top: 1.5rem;
-  border-top: 1px solid var(--dl-border);
-  background: var(--dl-surface-alt);
-}
-
-.dl-footer__inner {
-  max-width: var(--dl-content-max);
-  margin: 0 auto;
-  padding: 1rem 1.5rem;
-  color: var(--dl-text-muted);
-  font-size: 0.75rem;
-}
-
-/* --- Scrollbar no estilo claro do HPSM ---------------------------------- */
-
-*::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-*::-webkit-scrollbar-track {
-  background: #eef1f4;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: #b6c4d2;
-  border: 2px solid #eef1f4;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: #93a8bc;
-}
-
-*::-webkit-scrollbar-corner {
-  background: #eef1f4;
-}
-
-@supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #b6c4d2 #eef1f4;
-  }
 }

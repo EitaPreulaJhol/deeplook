@@ -1,8 +1,6 @@
 import {
   Button,
   DataTable,
-  InlineLoading,
-  InlineNotification,
   Select,
   SelectItem,
   Table,
@@ -12,18 +10,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Tag,
   TextInput,
 } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
+import { HpsmField, HpsmForm, HpsmSection } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
+import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey } from '../components/icons';
+import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
-import { RoleTag } from '../components/tags';
+import { RoleTag, StatusText } from '../components/tags';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -48,7 +49,15 @@ export function AdminPage() {
   const [keyDays, setKeyDays] = useState('30');
   const [creating, setCreating] = useState(false);
   const [lastKey, setLastKey] = useState<string | null>(null);
-  const [tab, setTab] = useState('users');
+  // A aba fica na URL: o navegador lateral aponta direto para cada uma.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'keys' ? 'keys' : 'users';
+  const setTab = (next: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'users') params.delete('tab');
+    else params.set('tab', next);
+    setSearchParams(params, { replace: true });
+  };
 
   const updateUser = async (id: string, patch: Record<string, unknown>) => {
     setError(null);
@@ -90,55 +99,9 @@ export function AdminPage() {
 
   return (
     <>
-      <PageHeader
-        title="Administração"
-        subtitle="Gerencie o funcionamento da aplicação."
-        popover={{
-          icon: <IconKey size={16} />,
-          label: 'Gerar nova chave',
-          content: (
-            <>
-              <Select
-                id="key-role"
-                labelText="Papel concedido"
-                value={keyRole}
-                onChange={(e) => setKeyRole(e.target.value as Role)}
-              >
-                <SelectItem value="USER" text="Usuário" />
-                <SelectItem value="ANALYST" text="Analista" />
-                <SelectItem value="ADMIN" text="Admin" />
-              </Select>
-              <TextInput
-                id="key-maxuses"
-                labelText="Máximo de usos"
-                type="number"
-                value={keyMaxUses}
-                onChange={(e) => setKeyMaxUses(e.target.value)}
-              />
-              <TextInput
-                id="key-days"
-                labelText="Validade (dias)"
-                type="number"
-                value={keyDays}
-                onChange={(e) => setKeyDays(e.target.value)}
-              />
-              <Button onClick={createKey} disabled={creating}>
-                {creating ? 'Gerando...' : 'Gerar chave'}
-              </Button>
-            </>
-          ),
-        }}
-      />
+      <PageHeader title="Administração" subtitle="Gerencie o funcionamento da aplicação." />
 
-      {error && (
-        <InlineNotification
-          kind="error"
-          title="Erro"
-          subtitle={error}
-          lowContrast
-          className="dl-note dl-mb-lg"
-        />
-      )}
+      {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
 
       <HpsmTabs
         ariaLabel="Administração"
@@ -153,7 +116,7 @@ export function AdminPage() {
       <div className="hpsm-tabpanel">
         {tab === 'users' ? (
           <>
-            {usersQuery.isLoading && <InlineLoading description="Carregando usuários..." />}
+            {usersQuery.isLoading && <HpsmLoading text="Carregando usuários..." />}
             {usersQuery.data && (
               <DataTable
                 rows={usersQuery.data.users.map((u) => ({ id: u.id }))}
@@ -168,7 +131,7 @@ export function AdminPage() {
               >
                 {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
                   <TableContainer>
-                    <Table {...getTableProps()} size="lg">
+                    <Table {...getTableProps()} size="xs">
                       <TableHead>
                         <TableRow>
                           {headers.map((header) => (
@@ -180,7 +143,9 @@ export function AdminPage() {
                       </TableHead>
                       <TableBody>
                         {rows.map((row) => {
-                          const u = usersQuery.data!.users.find((x) => x.id === row.id) as User;
+                          const u = usersQuery.data!.users.find((x) => x.id === row.id);
+                          // O DataTable sincroniza as linhas um render depois: pula id antigo.
+                          if (!u) return null;
                           return (
                             <TableRow {...getRowProps({ row })} key={row.id}>
                               <TableCell>{u.displayName}</TableCell>
@@ -189,9 +154,9 @@ export function AdminPage() {
                                 <RoleTag role={u.role} />
                               </TableCell>
                               <TableCell>
-                                <Tag type={u.status === 'ACTIVE' ? 'green' : 'red'} size="sm">
+                                <StatusText tone={u.status === 'ACTIVE' ? 'green' : 'red'}>
                                   {u.status === 'ACTIVE' ? 'Ativo' : 'Suspenso'}
-                                </Tag>
+                                </StatusText>
                               </TableCell>
                               <TableCell>{u._count ? u._count.entries : 0}</TableCell>
                               <TableCell>
@@ -234,18 +199,60 @@ export function AdminPage() {
         ) : (
           <>
             {lastKey && (
-              <InlineNotification
-                kind="success"
-                lowContrast
-                title="Chave criada"
-                subtitle={lastKey}
-                className="dl-note dl-mb-lg"
-              />
+              <HpsmMessage kind="success">
+                Chave criada: <span className="dl-mono">{lastKey}</span>
+              </HpsmMessage>
             )}
 
-            {keysQuery.isLoading && <InlineLoading description="Carregando chaves..." />}
+            <HpsmSection title="Gerar nova chave">
+              <HpsmToolbar label="Ações da chave">
+                <HpsmToolbarButton
+                  label={creating ? 'Gerando...' : 'Gerar chave'}
+                  icon={IconKey}
+                  disabled={creating}
+                  onClick={createKey}
+                />
+              </HpsmToolbar>
+              <HpsmForm columns={2}>
+                <HpsmField label="Papel concedido" htmlFor="key-role">
+                  <Select
+                    id="key-role"
+                    labelText="Papel concedido"
+                    hideLabel
+                    value={keyRole}
+                    onChange={(e) => setKeyRole(e.target.value as Role)}
+                  >
+                    <SelectItem value="USER" text="Usuário" />
+                    <SelectItem value="ANALYST" text="Analista" />
+                    <SelectItem value="ADMIN" text="Admin" />
+                  </Select>
+                </HpsmField>
+                <HpsmField label="Máximo de usos" htmlFor="key-maxuses">
+                  <TextInput
+                    id="key-maxuses"
+                    labelText="Máximo de usos"
+                    hideLabel
+                    type="number"
+                    value={keyMaxUses}
+                    onChange={(e) => setKeyMaxUses(e.target.value)}
+                  />
+                </HpsmField>
+                <HpsmField label="Validade (dias)" htmlFor="key-days">
+                  <TextInput
+                    id="key-days"
+                    labelText="Validade (dias)"
+                    hideLabel
+                    type="number"
+                    value={keyDays}
+                    onChange={(e) => setKeyDays(e.target.value)}
+                  />
+                </HpsmField>
+              </HpsmForm>
+            </HpsmSection>
+
+            {keysQuery.isLoading && <HpsmLoading text="Carregando chaves..." />}
             {keysQuery.data && keysQuery.data.keys.length === 0 && (
-              <div className="dl-empty">Nenhuma chave gerada ainda.</div>
+              <HpsmMessage kind="info">Nenhuma chave gerada ainda.</HpsmMessage>
             )}
             {keysQuery.data && keysQuery.data.keys.length > 0 && (
               <DataTable
@@ -261,7 +268,7 @@ export function AdminPage() {
               >
                 {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
                   <TableContainer>
-                    <Table {...getTableProps()} size="lg">
+                    <Table {...getTableProps()} size="xs">
                       <TableHead>
                         <TableRow>
                           {headers.map((header) => (
@@ -273,9 +280,9 @@ export function AdminPage() {
                       </TableHead>
                       <TableBody>
                         {rows.map((row) => {
-                          const k = keysQuery.data!.keys.find(
-                            (x) => x.id === row.id,
-                          ) as ActivationKey;
+                          const k = keysQuery.data!.keys.find((x) => x.id === row.id);
+                          // O DataTable sincroniza as linhas um render depois: pula id antigo.
+                          if (!k) return null;
                           const exhausted = k.usesUsed >= k.maxUses;
                           return (
                             <TableRow {...getRowProps({ row })} key={row.id}>
@@ -291,17 +298,11 @@ export function AdminPage() {
                               <TableCell>{fmtDate(k.expiresAt)}</TableCell>
                               <TableCell>
                                 {k.revoked ? (
-                                  <Tag type="red" size="sm">
-                                    Revogada
-                                  </Tag>
+                                  <StatusText tone="red">Revogada</StatusText>
                                 ) : exhausted ? (
-                                  <Tag type="warm-gray" size="sm">
-                                    Esgotada
-                                  </Tag>
+                                  <StatusText tone="gray">Esgotada</StatusText>
                                 ) : (
-                                  <Tag type="green" size="sm">
-                                    Ativa
-                                  </Tag>
+                                  <StatusText tone="green">Ativa</StatusText>
                                 )}
                               </TableCell>
                               <TableCell>

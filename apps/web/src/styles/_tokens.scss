@@ -6,8 +6,9 @@
    ========================================================================== */
 
 :root {
-  /* --- tipografia (HPSM usa Arial/Helvetica) --- */
-  --dl-font-sans: Arial, 'Helvetica Neue', Helvetica, 'Segoe UI', sans-serif;
+  /* --- tipografia (web client do HPSM 9: Tahoma/Arial, corpo pequeno) --- */
+  --dl-font-sans: Tahoma, Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  --dl-font-size: 0.75rem; /* corpo do app (12px) */
   --dl-font-mono: Consolas, Menlo, 'Courier New', monospace;
 
   /* --- superficies --- */
@@ -33,8 +34,6 @@
   --dl-primary: #2a7fc9; /* botao primario (gradiente) */
   --dl-primary-hover: #1f6db3;
   --dl-primary-active: #0d5a9e;
-  --dl-primary-2: #1a6fb5; /* fundo do gradiente do botao */
-  --dl-accent-number: #2ba3da; /* numeros grandes dos paineis */
   --dl-field-border: #a9c0d6;
 
   /* --- barra do topo (azul HPSM) --- */
@@ -43,12 +42,19 @@
   --dl-topbar-border: #0a4c86;
 
   /* --- sidebar de navegacao --- */
-  --dl-sidebar-bg: #f3f3f3;
-  --dl-sidebar-border: #d5d5d5;
+  --dl-sidebar-bg: #ffffff; /* painel do navegador (fundo branco da arvore) */
   --dl-sidebar-text: #333333;
-  --dl-sidebar-hover: #e3edf7;
-  --dl-sidebar-active-bg: #cfe3f5;
+  --dl-sidebar-hover: #eef3fa;
+  --dl-sidebar-active-bg: #dfe8f6;
   --dl-sidebar-active-text: #0d4f86;
+  --dl-tree-selected-border: #a3bae9;
+  --dl-tree-guide: #a0a0a0; /* guia pontilhada da arvore */
+
+  /* --- abas de documento (registros abertos) --- */
+  --dl-doctabs-bg-1: #e3ebf5;
+  --dl-doctabs-bg-2: #d3e0ef;
+  --dl-doctab-1: #f3f7fb;
+  --dl-doctab-2: #dde7f2;
 
   /* --- abas / tabelas --- */
   --dl-tab-bg: #f7f7f7;
@@ -58,6 +64,39 @@
   --dl-table-border: #d9e6f2;
   --dl-table-row-alt: #f4f9fd; /* zebra: linhas alternadas */
   --dl-table-row-hover: #e2effb; /* realce da linha sob o cursor */
+  --dl-grid-head-1: #f9f9f9; /* cabecalho da grade (gradiente cinza) */
+  --dl-grid-head-2: #e3e4e6;
+  --dl-grid-head-border: #c5c5c5; /* divisorias do cabecalho */
+  --dl-grid-line: #e6e6e6; /* divisorias verticais das celulas */
+  --dl-grid-text: #222222;
+
+  /* --- marcadores de status (texto + bolinha, sem "pilula") --- */
+  --dl-status-green: #3c9a2e;
+  --dl-status-red: #d42a1f;
+  --dl-status-orange: #e8890c;
+  --dl-status-blue: #2a7fc9;
+  --dl-status-gray: #9a9a9a;
+  --dl-loading-dot: #3a6ea5; /* giro do "Carregando..." */
+
+  /* --- secoes e campos de formulario --- */
+  --dl-section-head-1: #f7fafd;
+  --dl-section-head-2: #e3edf8;
+  --dl-section-title: #15428b;
+  --dl-section-toggle-border: #7f9db9;
+  --dl-field-label-w: 9rem;
+  --dl-auth-width: 26rem; /* caixa de login/cadastro */
+  --dl-auth-label-w: 7.5rem;
+  --dl-readonly-bg: #f0f0f0;
+  --dl-readonly-border: #c9c9c9;
+
+  /* --- botoes pequenos (paginador) --- */
+  --dl-btn-border: #b5b8c8;
+  --dl-btn-primary-border: #7f9db9; /* acao padrao do form */
+  --dl-btn-1: #ffffff;
+  --dl-btn-2: #e4e4e4;
+  --dl-btn-hover-border: #99bbe8;
+  --dl-btn-hover-1: #f6fbff;
+  --dl-btn-hover-2: #d9e8fb;
 
   /* --- feedback (avisos) --- */
   --dl-error-bg: #fdecea;
@@ -75,11 +114,9 @@
 
   /* --- formas, sombras e medidas --- */
   --dl-radius: 0;
-  --dl-control-h: 2rem;
-  --dl-content-max: 100%;
+  --dl-control-h: 1.5rem; /* campos/botoes compactos (24px) */
   --dl-sidebar-width: 240px;
   --dl-topbar-h: 2.75rem;
   --dl-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --dl-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.08);
   --dl-transition: 0.12s ease-in-out;
 }

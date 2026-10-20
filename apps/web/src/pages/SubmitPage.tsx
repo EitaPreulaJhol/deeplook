@@ -1,18 +1,14 @@
-import {
-  Button,
-  FileUploader,
-  InlineLoading,
-  InlineNotification,
-  Stack,
-  TextArea,
-  TextInput,
-} from '@carbon/react';
+import { FileUploader, TextArea, TextInput } from '@carbon/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
+import { HpsmField, HpsmForm, HpsmSection } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
+import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
+import { IconAdd, IconArrowLeft } from '../components/icons';
+import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 
 export function SubmitPage() {
@@ -82,15 +78,28 @@ export function SubmitPage() {
         subtitle="Envie um arquivo suspeito ou um link para que os analistas possam investigar."
       />
 
-      {error && (
-        <InlineNotification
-          kind="error"
-          title="Erro"
-          subtitle={error}
-          lowContrast
-          className="dl-note dl-mb-lg"
+      <HpsmToolbar label="Ações do envio">
+        <HpsmToolbarButton
+          label={loading ? 'Enviando...' : tab === 'file' ? 'Enviar arquivo' : 'Enviar link'}
+          icon={IconAdd}
+          disabled={loading}
+          onClick={tab === 'file' ? submitFile : submitUrl}
         />
-      )}
+        <HpsmToolbarButton
+          label="Cancelar"
+          icon={IconArrowLeft}
+          disabled={loading}
+          onClick={() => navigate(-1)}
+        />
+        {loading && (
+          <HpsmLoading
+            className="hpsm-toolbar__loading"
+            text={tab === 'file' ? 'Fazendo upload seguro...' : 'Registrando link...'}
+          />
+        )}
+      </HpsmToolbar>
+
+      {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
 
       <HpsmTabs
         ariaLabel="Tipo de amostra"
@@ -104,90 +113,108 @@ export function SubmitPage() {
 
       <div className="hpsm-tabpanel">
         {tab === 'file' ? (
-          <div className="dl-form-col dl-panel">
-            <FileUploader
-              labelTitle="Arquivo da amostra"
-              labelDescription="Tamanho máximo conforme configurado no servidor."
-              buttonLabel="Selecionar arquivo"
-              filenameStatus="edit"
-              iconDescription="Limpar"
-              accept={['*']}
-              multiple={false}
-              onChange={(evt) => {
-                const f = (evt.target as HTMLInputElement).files;
-                setFile(f && f.length ? f[0] : null);
-              }}
-              onDelete={() => setFile(null)}
-            />
-            <div className="dl-mt-lg">
-              <Stack gap={6}>
+          <HpsmSection title="Dados do arquivo" className="dl-form-col">
+            <HpsmForm>
+              <HpsmField
+                label="Arquivo"
+                required
+                top
+                help="Tamanho máximo conforme configurado no servidor."
+              >
+                <FileUploader
+                  buttonLabel="Selecionar arquivo"
+                  buttonKind="tertiary"
+                  size="sm"
+                  filenameStatus="edit"
+                  iconDescription="Limpar"
+                  accept={['*']}
+                  multiple={false}
+                  onChange={(evt) => {
+                    const f = (evt.target as HTMLInputElement).files;
+                    setFile(f && f.length ? f[0] : null);
+                  }}
+                  onDelete={() => setFile(null)}
+                />
+              </HpsmField>
+              <HpsmField label="Título" htmlFor="file-title">
                 <TextInput
                   id="file-title"
                   labelText="Título"
+                  hideLabel
                   placeholder="Ex.: instalador_suspeito.exe"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
+              </HpsmField>
+              <HpsmField label="Descrição" htmlFor="file-description" top>
                 <TextArea
                   id="file-description"
                   labelText="Descrição"
+                  hideLabel
                   placeholder="Onde encontrou, o que chamou a atenção..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                 />
+              </HpsmField>
+              <HpsmField label="Tags" htmlFor="file-tags" help="Separadas por vírgula.">
                 <TextInput
                   id="file-tags"
-                  labelText="Tags (separadas por vírgula)"
+                  labelText="Tags"
+                  hideLabel
                   placeholder="phishing, malware, ransomware"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                 />
-                <Button onClick={submitFile} disabled={loading}>
-                  {loading ? 'Enviando...' : 'Enviar arquivo'}
-                </Button>
-                {loading && <InlineLoading description="Fazendo upload seguro..." />}
-              </Stack>
-            </div>
-          </div>
+              </HpsmField>
+            </HpsmForm>
+          </HpsmSection>
         ) : (
-          <div className="dl-form-col dl-panel">
-            <Stack gap={6}>
-              <TextInput
-                id="url"
-                labelText="URL suspeita"
-                placeholder="https://exemplo-suspeito.com/login"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-              />
-              <TextInput
-                id="url-title"
-                labelText="Título"
-                placeholder="Ex.: página de phishing falsa"
-                value={urlTitle}
-                onChange={(e) => setUrlTitle(e.target.value)}
-              />
-              <TextArea
-                id="url-description"
-                labelText="Descrição"
-                placeholder="Como chegou até esse link, contexto, remetente..."
-                value={urlDescription}
-                onChange={(e) => setUrlDescription(e.target.value)}
-                rows={4}
-              />
-              <TextInput
-                id="url-tags"
-                labelText="Tags (separadas por vírgula)"
-                placeholder="phishing, scam"
-                value={urlTags}
-                onChange={(e) => setUrlTags(e.target.value)}
-              />
-              <Button onClick={submitUrl} disabled={loading}>
-                {loading ? 'Enviando...' : 'Enviar link'}
-              </Button>
-              {loading && <InlineLoading description="Registrando link..." />}
-            </Stack>
-          </div>
+          <HpsmSection title="Dados do link" className="dl-form-col">
+            <HpsmForm>
+              <HpsmField label="URL suspeita" htmlFor="url" required>
+                <TextInput
+                  id="url"
+                  labelText="URL suspeita"
+                  hideLabel
+                  placeholder="https://exemplo-suspeito.com/login"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              </HpsmField>
+              <HpsmField label="Título" htmlFor="url-title">
+                <TextInput
+                  id="url-title"
+                  labelText="Título"
+                  hideLabel
+                  placeholder="Ex.: página de phishing falsa"
+                  value={urlTitle}
+                  onChange={(e) => setUrlTitle(e.target.value)}
+                />
+              </HpsmField>
+              <HpsmField label="Descrição" htmlFor="url-description" top>
+                <TextArea
+                  id="url-description"
+                  labelText="Descrição"
+                  hideLabel
+                  placeholder="Como chegou até esse link, contexto, remetente..."
+                  value={urlDescription}
+                  onChange={(e) => setUrlDescription(e.target.value)}
+                  rows={4}
+                />
+              </HpsmField>
+              <HpsmField label="Tags" htmlFor="url-tags" help="Separadas por vírgula.">
+                <TextInput
+                  id="url-tags"
+                  labelText="Tags"
+                  hideLabel
+                  placeholder="phishing, scam"
+                  value={urlTags}
+                  onChange={(e) => setUrlTags(e.target.value)}
+                />
+              </HpsmField>
+            </HpsmForm>
+          </HpsmSection>
         )}
       </div>
     </>

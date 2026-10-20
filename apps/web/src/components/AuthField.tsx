@@ -17,7 +17,7 @@ interface AuthFieldProps {
   uppercase?: boolean;
 }
 
-/** Controle de formulario padronizado (label + input sublinhado + toggle de senha). */
+/** Linha rotulo/campo da tela de login (rotulo a esquerda, campo em caixa, toggle de senha). */
 export function AuthField({
   id,
   label,
@@ -45,32 +45,34 @@ export function AuthField({
   return (
     <div className="dl-field">
       <label className="dl-field__label" htmlFor={id}>
-        {label}
+        {label}:{required && <span className="dl-field__req">*</span>}
       </label>
-      <div className="dl-field__control">
-        <input
-          id={id}
-          className={inputClass}
-          type={inputType}
-          value={value}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          required={required}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        {isPassword && (
-          <button
-            type="button"
-            className="dl-field__toggle"
-            aria-label={revealed ? 'Ocultar senha' : 'Mostrar senha'}
-            aria-pressed={revealed}
-            onClick={() => setRevealed((previous) => !previous)}
-          >
-            {revealed ? <IconEyeOff size={20} /> : <IconEye size={20} />}
-          </button>
-        )}
+      <div className="dl-field__body">
+        <div className="dl-field__control">
+          <input
+            id={id}
+            className={inputClass}
+            type={inputType}
+            value={value}
+            placeholder={placeholder}
+            autoComplete={autoComplete}
+            required={required}
+            onChange={(event) => onChange(event.target.value)}
+          />
+          {isPassword && (
+            <button
+              type="button"
+              className="dl-field__toggle"
+              aria-label={revealed ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-pressed={revealed}
+              onClick={() => setRevealed((previous) => !previous)}
+            >
+              {revealed ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+            </button>
+          )}
+        </div>
+        {helperText && <span className="dl-field__help">{helperText}</span>}
       </div>
-      {helperText && <span className="dl-field__help">{helperText}</span>}
     </div>
   );
 }

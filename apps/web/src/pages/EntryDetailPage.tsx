@@ -1,26 +1,22 @@
-import {
-  Button,
-  InlineLoading,
-  InlineNotification,
-  Select,
-  SelectItem,
-  Tag,
-  Tile,
-} from '@carbon/react';
+import { Select, SelectItem } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry, SandboxSession } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntryReportsTab } from '../components/EntryReportsTab';
+import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
-import { IconArrowLeft, IconDownload } from '../components/icons';
+import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../components/HpsmToolbar';
+import { IconArrowLeft, IconDownload, IconRefresh } from '../components/icons';
+import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking } from '../components/sandboxStatus';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
+import { useWorkspaceTitle } from '../components/workspace';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -36,15 +32,6 @@ function fmtSize(n?: number | null): string {
     i++;
   }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="dl-detail-row">
-      <div className="dl-detail-row__label">{label}</div>
-      <div className="dl-detail-row__value">{children}</div>
-    </div>
-  );
 }
 
 export function EntryDetailPage() {
@@ -79,6 +66,8 @@ export function EntryDetailPage() {
   const sandboxSession = sandboxQuery.data?.session ?? null;
   const sandboxActive = isSandboxActive(sandboxSession?.status);
 
+  useWorkspaceTitle(entry?.title);
+
   const reload = () => queryClient.invalidateQueries({ queryKey: ['entry', id] });
 
   const quickUpdate = async (patch: Record<string, unknown>) => {
@@ -98,16 +87,9 @@ export function EntryDetailPage() {
     setSearchParams(params, { replace: true });
   };
 
-  if (query.isLoading) return <InlineLoading description="Carregando amostra..." />;
+  if (query.isLoading) return <HpsmLoading text="Carregando amostra..." />;
   if (query.isError || !entry) {
-    return (
-      <InlineNotification
-        kind="error"
-        title="Erro"
-        subtitle="Amostra não encontrada."
-        lowContrast
-      />
-    );
+    return <HpsmMessage kind="error">Amostra não encontrada.</HpsmMessage>;
   }
 
   const reports = entry.reports ?? [];
@@ -131,111 +113,137 @@ export function EntryDetailPage() {
 
   return (
     <>
-      <Button
-        kind="ghost"
-        size="sm"
-        renderIcon={IconArrowLeft}
-        onClick={() => navigate(-1)}
-        className="dl-mb-md"
-      >
-        Voltar
-      </Button>
+      <HpsmToolbar label="Ações da amostra">
+        <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
+        <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={reload} />
+        {entry.type === 'FILE' && (
+          <>
+            <HpsmToolbarDivider />
+            <HpsmToolbarButton
+              label="Baixar amostra"
+              icon={IconDownload}
+              href={`/api/entries/${entry.id}/download`}
+              disabled={!entry.storageKey}
+              title="Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado."
+            />
+          </>
+        )}
+      </HpsmToolbar>
 
       <PageHeader title={entry.title} />
-      <div className="dl-taglist dl-mb-lg">
-        <TypeTag type={entry.type} />
-        <StatusTag status={entry.status} />
-        <VerdictTag verdict={entry.verdict} />
-        {entry.tags.map((t) => (
-          <Tag key={t.id} type="outline" size="sm">
-            {t.name}
-          </Tag>
-        ))}
+      <div className="dl-summary dl-mb-lg">
+        <span>
+          <span className="dl-summary__label">Tipo:</span> <TypeTag type={entry.type} />
+        </span>
+        <span>
+          <span className="dl-summary__label">Status:</span> <StatusTag status={entry.status} />
+        </span>
+        <span>
+          <span className="dl-summary__label">Veredito:</span>{' '}
+          <VerdictTag verdict={entry.verdict} />
+        </span>
+        {entry.tags.length > 0 && (
+          <span>
+            <span className="dl-summary__label">Tags:</span>{' '}
+            {entry.tags.map((t) => t.name).join(', ')}
+          </span>
+        )}
       </div>
 
       <HpsmTabs ariaLabel="Amostra" active={activeTab} onChange={changeTab} items={tabs} />
 
       {activeTab === 'detalhes' && (
         <div className="hpsm-tabpanel">
-          <Tile className="dl-mb-lg">
-            <h3 className="dl-mb-md">Detalhes</h3>
-            <DetailRow label="Enviado por">
-              {entry.owner.displayName} ({entry.owner.email})
-            </DetailRow>
-            {entry.type === 'FILE' ? (
-              <>
-                <DetailRow label="Arquivo">{entry.originalFilename || '—'}</DetailRow>
-                <DetailRow label="Tamanho">{fmtSize(entry.fileSize)}</DetailRow>
-                <DetailRow label="Tipo MIME">{entry.mimeType || '—'}</DetailRow>
-                <DetailRow label="SHA-256">
-                  <span className="dl-mono">{entry.sha256 || '—'}</span>
-                </DetailRow>
-              </>
-            ) : (
-              <DetailRow label="URL">
-                <span className="dl-mono">{entry.url}</span>
-              </DetailRow>
-            )}
-            <DetailRow label="Enviado em">{fmtDate(entry.createdAt)}</DetailRow>
-            <DetailRow label="Atualizado em">{fmtDate(entry.updatedAt)}</DetailRow>
-            {entry.description && <DetailRow label="Descrição">{entry.description}</DetailRow>}
-          </Tile>
+          <HpsmSection title="Envio">
+            <HpsmForm columns={2}>
+              <HpsmField label="Enviado por">
+                <HpsmReadonly>
+                  {entry.owner.displayName} ({entry.owner.email})
+                </HpsmReadonly>
+              </HpsmField>
+              <HpsmField label="Tipo">
+                <HpsmReadonly>{entry.type === 'FILE' ? 'Arquivo' : 'Link'}</HpsmReadonly>
+              </HpsmField>
+              <HpsmField label="Enviado em">
+                <HpsmReadonly>{fmtDate(entry.createdAt)}</HpsmReadonly>
+              </HpsmField>
+              <HpsmField label="Atualizado em">
+                <HpsmReadonly>{fmtDate(entry.updatedAt)}</HpsmReadonly>
+              </HpsmField>
+              <HpsmField label="Descrição" wide top>
+                <HpsmReadonly multiline>{entry.description || '—'}</HpsmReadonly>
+              </HpsmField>
+            </HpsmForm>
+          </HpsmSection>
 
-          {entry.type === 'FILE' && (
-            <div className="dl-mb-lg">
-              <Button
-                renderIcon={IconDownload}
-                href={`/api/entries/${entry.id}/download`}
-                disabled={!entry.storageKey}
-              >
-                Baixar amostra
-              </Button>
-              <p className="dl-page-subtitle">
-                Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado.
-              </p>
-            </div>
+          {entry.type === 'FILE' ? (
+            <HpsmSection title="Arquivo">
+              <HpsmForm columns={2}>
+                <HpsmField label="Nome do arquivo">
+                  <HpsmReadonly>{entry.originalFilename || '—'}</HpsmReadonly>
+                </HpsmField>
+                <HpsmField label="Tamanho">
+                  <HpsmReadonly>{fmtSize(entry.fileSize)}</HpsmReadonly>
+                </HpsmField>
+                <HpsmField label="Tipo MIME">
+                  <HpsmReadonly>{entry.mimeType || '—'}</HpsmReadonly>
+                </HpsmField>
+                <HpsmField
+                  label="SHA-256"
+                  wide
+                  help="Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado."
+                >
+                  <HpsmReadonly mono>{entry.sha256 || '—'}</HpsmReadonly>
+                </HpsmField>
+              </HpsmForm>
+            </HpsmSection>
+          ) : (
+            <HpsmSection title="Link">
+              <HpsmForm>
+                <HpsmField label="URL">
+                  <HpsmReadonly mono>{entry.url}</HpsmReadonly>
+                </HpsmField>
+              </HpsmForm>
+            </HpsmSection>
           )}
         </div>
       )}
 
       {canTriage && (
         <div className="hpsm-tabpanel" hidden={activeTab !== 'analise'}>
-          {error && (
-            <InlineNotification
-              kind="error"
-              title="Erro"
-              subtitle={error}
-              lowContrast
-              className="dl-note dl-mb-lg"
-            />
-          )}
+          {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
 
-          <Tile className="dl-mb-lg">
-            <h3 className="dl-mb-md">Ações de triagem</h3>
-            <div className="dl-toolbar">
-              <Select
-                id="triage-status"
-                labelText="Status"
-                value={entry.status}
-                onChange={(e) => quickUpdate({ status: e.target.value })}
-              >
-                <SelectItem value="PENDING" text="Pendente" />
-                <SelectItem value="IN_REVIEW" text="Em análise" />
-                <SelectItem value="COMPLETED" text="Concluído" />
-              </Select>
-              <Select
-                id="triage-verdict"
-                labelText="Veredito"
-                value={entry.verdict}
-                onChange={(e) => quickUpdate({ verdict: e.target.value })}
-              >
-                <SelectItem value="UNKNOWN" text="Desconhecido" />
-                <SelectItem value="CLEAN" text="Limpo" />
-                <SelectItem value="SUSPICIOUS" text="Suspeito" />
-                <SelectItem value="MALICIOUS" text="Malicioso" />
-              </Select>
-            </div>
-          </Tile>
+          <HpsmSection title="Triagem">
+            <HpsmForm columns={2}>
+              <HpsmField label="Status" htmlFor="triage-status">
+                <Select
+                  id="triage-status"
+                  labelText="Status"
+                  hideLabel
+                  value={entry.status}
+                  onChange={(e) => quickUpdate({ status: e.target.value })}
+                >
+                  <SelectItem value="PENDING" text="Pendente" />
+                  <SelectItem value="IN_REVIEW" text="Em análise" />
+                  <SelectItem value="COMPLETED" text="Concluído" />
+                </Select>
+              </HpsmField>
+              <HpsmField label="Veredito" htmlFor="triage-verdict">
+                <Select
+                  id="triage-verdict"
+                  labelText="Veredito"
+                  hideLabel
+                  value={entry.verdict}
+                  onChange={(e) => quickUpdate({ verdict: e.target.value })}
+                >
+                  <SelectItem value="UNKNOWN" text="Desconhecido" />
+                  <SelectItem value="CLEAN" text="Limpo" />
+                  <SelectItem value="SUSPICIOUS" text="Suspeito" />
+                  <SelectItem value="MALICIOUS" text="Malicioso" />
+                </Select>
+              </HpsmField>
+            </HpsmForm>
+          </HpsmSection>
 
           {entry.type === 'FILE' && <SandboxPanel entryId={entry.id} />}
         </div>

@@ -2,8 +2,9 @@ import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
-import { IconAdd, IconLogout, IconMenu } from './icons';
-import { RoleTag } from './tags';
+import { IconMenu } from './icons';
+import { roleLabel } from './tags';
+import { clearWorkspaceTabs } from './workspace';
 
 interface TopBarProps {
   /** Abre/fecha o drawer da navegação no mobile. */
@@ -21,6 +22,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
 
   const handleLogout = async () => {
     await logout();
+    clearWorkspaceTabs();
     navigate('/login');
   };
 
@@ -42,27 +44,21 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
 
       <span className="hpsm-topbar__spacer" />
 
-      <div className="hpsm-topbar__tools">
+      {/* Links de texto separados por "|", como no masthead do HPSM. */}
+      <div className="hpsm-topbar__links">
         {user && (
-          <div className="hpsm-topbar__user">
-            <span className="hpsm-topbar__user-name">{user.displayName}</span>
-            <RoleTag role={user.role} />
-          </div>
+          <>
+            <span className="hpsm-topbar__user">
+              <span className="hpsm-topbar__user-name">{user.displayName}</span> (
+              {roleLabel(user.role)})
+            </span>
+            <span className="hpsm-topbar__pipe" aria-hidden="true">
+              |
+            </span>
+          </>
         )}
-
-        <button type="button" className="hpsm-topbar__iconbtn" onClick={() => navigate('/submit')}>
-          <IconAdd size={16} />
-          <span>Enviar amostra</span>
-        </button>
-
-        <button
-          type="button"
-          className="hpsm-topbar__iconbtn"
-          aria-label={`Sair (${user?.displayName ?? ''})`}
-          onClick={handleLogout}
-        >
-          <IconLogout size={16} />
-          <span>Sair</span>
+        <button type="button" className="hpsm-topbar__link" onClick={handleLogout}>
+          Sair
         </button>
       </div>
     </header>

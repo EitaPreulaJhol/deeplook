@@ -1,16 +1,18 @@
-import { Button, InlineLoading, InlineNotification, Tag, Tile } from '@carbon/react';
+import { Button, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession } from '../api/types';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
+import { HpsmLoading, HpsmMessage } from './messages';
 import {
   isSandboxWorking,
   SANDBOX_PHASE_LABELS,
   SANDBOX_STATUS_LABELS,
   useSandboxCountdown,
 } from './sandboxStatus';
+import { StatusText } from './tags';
 
 /** Abre a janela dedicada do console (popup). Retorna false se foi bloqueada. */
 function openConsoleWindow(entryId: string): boolean {
@@ -87,7 +89,7 @@ export function SandboxPanel({ entryId }: Props) {
     });
   };
 
-  if (query.isLoading) return <InlineLoading description="Consultando o ambiente..." />;
+  if (query.isLoading) return <HpsmLoading text="Consultando o ambiente..." />;
 
   if (!enabled) {
     return (
@@ -108,31 +110,18 @@ export function SandboxPanel({ entryId }: Props) {
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
-          <Tag type="outline" size="sm">
-            nenhum ambiente ativo
-          </Tag>
+          <StatusText>nenhum ambiente ativo</StatusText>
         </div>
         <p className="dl-page-subtitle">
           Cria um clone do template no Proxmox com a amostra dentro (CD-ROM somente leitura) e abre
           o console em uma janela dedicada. O ambiente é destruído automaticamente no fim do prazo.
         </p>
-        {error && (
-          <InlineNotification
-            kind="error"
-            title="Erro"
-            subtitle={error}
-            lowContrast
-            className="dl-note dl-mb-md"
-          />
-        )}
+        {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {popupBlocked && (
-          <InlineNotification
-            kind="warning"
-            title="Pop-up bloqueado"
-            subtitle="Permita pop-ups para este site e clique em “Abrir ambiente isolado” novamente."
-            lowContrast
-            className="dl-note dl-mb-md"
-          />
+          <HpsmMessage kind="warning">
+            Pop-up bloqueado. Permita pop-ups para este site e clique em “Abrir ambiente isolado”
+            novamente.
+          </HpsmMessage>
         )}
         <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
           {busy === 'open' ? 'Abrindo...' : 'Abrir ambiente isolado'}
@@ -147,11 +136,9 @@ export function SandboxPanel({ entryId }: Props) {
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
-          <Tag type="warm-gray" size="sm">
-            {SANDBOX_STATUS_LABELS.STOPPING}
-          </Tag>
+          <StatusText tone="gray">{SANDBOX_STATUS_LABELS.STOPPING}</StatusText>
         </div>
-        <InlineLoading description="Desligando a VM e apagando a ISO da amostra..." />
+        <HpsmLoading text="Desligando a VM e apagando a ISO da amostra..." />
       </Tile>
     );
   }
@@ -165,9 +152,7 @@ export function SandboxPanel({ entryId }: Props) {
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
-          <Tag type="blue" size="sm">
-            {SANDBOX_STATUS_LABELS[session.status]}
-          </Tag>
+          <StatusText tone="blue">{SANDBOX_STATUS_LABELS[session.status]}</StatusText>
         </div>
         <p className="dl-page-subtitle">
           {SANDBOX_PHASE_LABELS[session.phase ?? ''] ?? 'preparando o ambiente'}...
@@ -182,7 +167,7 @@ export function SandboxPanel({ entryId }: Props) {
             </li>
           ))}
         </ol>
-        <InlineLoading description="Isso leva alguns instantes." />
+        <HpsmLoading text="Isso leva alguns instantes." />
         {session.status === 'REQUESTED' && (
           <p className="dl-page-subtitle">Aguardando uma vaga na fila de provisionamento.</p>
         )}
@@ -197,17 +182,11 @@ export function SandboxPanel({ entryId }: Props) {
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
           <div className="dl-taglist">
-            <Tag type="green" size="sm">
-              {SANDBOX_STATUS_LABELS.RUNNING}
-            </Tag>
-            <Tag type="outline" size="sm">
+            <StatusText tone="green">{SANDBOX_STATUS_LABELS.RUNNING}</StatusText>
+            <StatusText>
               VM {session.vmid} · {session.node}
-            </Tag>
-            {countdown && (
-              <Tag type="cool-gray" size="sm">
-                expira em {countdown}
-              </Tag>
-            )}
+            </StatusText>
+            {countdown && <StatusText>expira em {countdown}</StatusText>}
           </div>
         </div>
         <p className="dl-page-subtitle">
@@ -215,23 +194,11 @@ export function SandboxPanel({ entryId }: Props) {
           console abre em uma janela dedicada (com a toolbar de controle da VM). Não exponha esta VM
           à rede.
         </p>
-        {error && (
-          <InlineNotification
-            kind="error"
-            title="Erro"
-            subtitle={error}
-            lowContrast
-            className="dl-note dl-mb-md"
-          />
-        )}
+        {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {popupBlocked && (
-          <InlineNotification
-            kind="warning"
-            title="Pop-up bloqueado"
-            subtitle="Permita pop-ups para este site e clique em “Abrir console” novamente."
-            lowContrast
-            className="dl-note dl-mb-md"
-          />
+          <HpsmMessage kind="warning">
+            Pop-up bloqueado. Permita pop-ups para este site e clique em “Abrir console” novamente.
+          </HpsmMessage>
         )}
         <div className="dl-toolbar dl-mb-md">
           <Button
@@ -272,28 +239,14 @@ export function SandboxPanel({ entryId }: Props) {
     <Tile className="dl-mb-lg">
       <div className="dl-sandbox__head">
         <h3>Ambiente isolado</h3>
-        <Tag type={failed ? 'red' : 'warm-gray'} size="sm">
+        <StatusText tone={failed ? 'red' : 'gray'}>
           {SANDBOX_STATUS_LABELS[session.status]}
-        </Tag>
+        </StatusText>
       </div>
       {session.lastError && (
-        <InlineNotification
-          kind="error"
-          title="Falha no ambiente"
-          subtitle={session.lastError}
-          lowContrast
-          className="dl-note dl-mb-md"
-        />
+        <HpsmMessage kind="error">Falha no ambiente: {session.lastError}</HpsmMessage>
       )}
-      {error && (
-        <InlineNotification
-          kind="error"
-          title="Erro"
-          subtitle={error}
-          lowContrast
-          className="dl-note dl-mb-md"
-        />
-      )}
+      {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <p className="dl-page-subtitle">
         {session.status === 'EXPIRED'
           ? 'O prazo do ambiente terminou e a VM foi destruída.'

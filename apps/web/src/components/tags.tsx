@@ -1,71 +1,60 @@
-import { Tag } from '@carbon/react';
+import type { ReactNode } from 'react';
 
 import type { EntryStatus, EntryType, Role, Verdict } from '../api/types';
 
-type TagType =
-  | 'red'
-  | 'magenta'
-  | 'purple'
-  | 'blue'
-  | 'cyan'
-  | 'teal'
-  | 'green'
-  | 'gray'
-  | 'cool-gray'
-  | 'warm-gray'
-  | 'high-contrast'
-  | 'outline';
+/**
+ * Cor do marcador ao lado do texto. `none` = texto puro (sem marcador).
+ * No HP Service Manager status/prioridade aparecem como texto na celula,
+ * no maximo com um pequeno indicador colorido - nunca como "pilula".
+ */
+export type StatusTone = 'green' | 'red' | 'orange' | 'blue' | 'gray' | 'none';
 
-const VERDICT_MAP: Record<Verdict, { label: string; type: TagType }> = {
-  UNKNOWN: { label: 'Desconhecido', type: 'gray' },
-  CLEAN: { label: 'Limpo', type: 'green' },
-  SUSPICIOUS: { label: 'Suspeito', type: 'magenta' },
-  MALICIOUS: { label: 'Malicioso', type: 'red' },
+export function StatusText({ tone = 'none', children }: { tone?: StatusTone; children: ReactNode }) {
+  return (
+    <span className={`hpsm-status hpsm-status--${tone}`}>
+      {tone !== 'none' && <span className="hpsm-status__bullet" aria-hidden="true" />}
+      {children}
+    </span>
+  );
+}
+
+const VERDICT_MAP: Record<Verdict, { label: string; tone: StatusTone }> = {
+  UNKNOWN: { label: 'Desconhecido', tone: 'gray' },
+  CLEAN: { label: 'Limpo', tone: 'green' },
+  SUSPICIOUS: { label: 'Suspeito', tone: 'orange' },
+  MALICIOUS: { label: 'Malicioso', tone: 'red' },
 };
 
-const STATUS_MAP: Record<EntryStatus, { label: string; type: TagType }> = {
-  PENDING: { label: 'Pendente', type: 'warm-gray' },
-  IN_REVIEW: { label: 'Em análise', type: 'blue' },
-  COMPLETED: { label: 'Concluído', type: 'green' },
+const STATUS_MAP: Record<EntryStatus, { label: string; tone: StatusTone }> = {
+  PENDING: { label: 'Pendente', tone: 'gray' },
+  IN_REVIEW: { label: 'Em análise', tone: 'blue' },
+  COMPLETED: { label: 'Concluído', tone: 'green' },
 };
 
-const ROLE_MAP: Record<Role, { label: string; type: TagType }> = {
-  USER: { label: 'Usuário', type: 'cool-gray' },
-  ANALYST: { label: 'Analista', type: 'purple' },
-  ADMIN: { label: 'Admin', type: 'red' },
+const ROLE_LABELS: Record<Role, string> = {
+  USER: 'Usuário',
+  ANALYST: 'Analista',
+  ADMIN: 'Admin',
 };
+
+export function roleLabel(role: Role): string {
+  return ROLE_LABELS[role] ?? ROLE_LABELS.USER;
+}
 
 export function VerdictTag({ verdict }: { verdict: Verdict }) {
   const v = VERDICT_MAP[verdict] ?? VERDICT_MAP.UNKNOWN;
-  return (
-    <Tag type={v.type} size="sm">
-      {v.label}
-    </Tag>
-  );
+  return <StatusText tone={v.tone}>{v.label}</StatusText>;
 }
 
 export function StatusTag({ status }: { status: EntryStatus }) {
   const s = STATUS_MAP[status] ?? STATUS_MAP.PENDING;
-  return (
-    <Tag type={s.type} size="sm">
-      {s.label}
-    </Tag>
-  );
+  return <StatusText tone={s.tone}>{s.label}</StatusText>;
 }
 
 export function TypeTag({ type }: { type: EntryType }) {
-  return (
-    <Tag type={type === 'FILE' ? 'cool-gray' : 'cyan'} size="sm">
-      {type === 'FILE' ? 'Arquivo' : 'Link'}
-    </Tag>
-  );
+  return <StatusText>{type === 'FILE' ? 'Arquivo' : 'Link'}</StatusText>;
 }
 
 export function RoleTag({ role }: { role: Role }) {
-  const r = ROLE_MAP[role] ?? ROLE_MAP.USER;
-  return (
-    <Tag type={r.type} size="sm">
-      {r.label}
-    </Tag>
-  );
+  return <StatusText>{roleLabel(role)}</StatusText>;
 }

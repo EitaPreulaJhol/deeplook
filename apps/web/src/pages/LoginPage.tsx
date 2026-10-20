@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
+import { HpsmMessage } from '../components/messages';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -37,8 +38,8 @@ export function LoginPage() {
   return (
     <AuthLayout title="Entrar">
       <form className="dl-auth__form" onSubmit={submit}>
-        {error && <div className="dl-auth__feedback dl-auth__feedback--error">{error}</div>}
-        {notice && <div className="dl-auth__feedback dl-auth__feedback--info">{notice}</div>}
+        {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+        {notice && <HpsmMessage kind="info">{notice}</HpsmMessage>}
 
         <AuthField
           id="email"
@@ -67,7 +68,7 @@ export function LoginPage() {
           </a>
         </div>
 
-        <button type="submit" className="dl-auth__submit" disabled={loading}>
+        <button type="submit" className="dl-btn dl-btn--primary dl-auth__submit" disabled={loading}>
           {loading ? 'Entrando...' : 'Entrar'}
         </button>
 

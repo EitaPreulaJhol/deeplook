@@ -112,6 +112,64 @@ h6 {
   color: var(--dl-text-muted);
 }
 
+/* Corpo compacto do app (o login/home mantem o tamanho proprio). */
+.dl-shell,
+.dl-console-window {
+  font-size: var(--dl-font-size);
+}
+
+/* Controles do Carbon na altura compacta do HPSM. O Carbon deriva altura e
+   padding-block de --cds-layout-size-height-local (inclusive nos tamanhos
+   sm/md), entao redefinir esse token alinha todos os controles de uma vez. */
+.dl-shell .cds--btn,
+.dl-shell .cds--text-input,
+.dl-shell .cds--select-input,
+.dl-console-window .cds--btn,
+.dl-console-window .cds--text-input,
+.dl-console-window .cds--select-input {
+  --cds-layout-size-height-local: var(--dl-control-h);
+}
+
+.dl-shell .cds--text-input,
+.dl-shell .cds--select-input,
+.dl-console-window .cds--text-input,
+.dl-console-window .cds--select-input {
+  block-size: var(--dl-control-h);
+}
+
+.dl-shell .cds--text-input,
+.dl-shell .cds--text-area,
+.dl-shell .cds--select-input,
+.dl-console-window .cds--text-input,
+.dl-console-window .cds--select-input {
+  font-size: var(--dl-font-size);
+}
+
+/* O Carbon fixa 14px no ::placeholder e sobra padding-block nos campos de
+   24px (o texto do select subia); aqui tudo segue o corpo compacto. */
+.dl-shell .cds--text-input::placeholder,
+.dl-shell .cds--text-area::placeholder {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.dl-shell .cds--text-input,
+.dl-shell .cds--select-input,
+.dl-console-window .cds--text-input,
+.dl-console-window .cds--select-input {
+  padding-block: 0;
+}
+
+.dl-shell .cds--text-area {
+  padding: 0.3rem 0.4rem;
+  line-height: 1.4;
+}
+
+.dl-shell .cds--checkbox-label,
+.dl-shell .cds--checkbox-label-text {
+  font-size: var(--dl-font-size);
+}
+
 /* --- 3. Barra do topo azul (HPSM) --------------------------------------- */
 .hpsm-topbar {
   position: sticky;
@@ -148,10 +206,37 @@ h6 {
   flex: 1;
 }
 
-.hpsm-topbar__tools {
+/* Links de texto do masthead ("Nome (Papel) | Sair"). */
+.hpsm-topbar__links {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: #eaf3fb;
+  font-size: var(--dl-font-size);
+  white-space: nowrap;
+}
+
+.hpsm-topbar__pipe {
+  opacity: 0.6;
+}
+
+.hpsm-topbar__link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.hpsm-topbar__link:hover {
+  text-decoration: underline;
+}
+
+.hpsm-topbar__link:focus-visible {
+  outline: 1px dotted #ffffff;
+  outline-offset: 2px;
 }
 
 /* Botoes de icone da barra do topo. */
@@ -165,7 +250,7 @@ h6 {
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--dl-transition);
@@ -181,13 +266,7 @@ h6 {
 }
 
 .hpsm-topbar__user {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-inline: 0.5rem;
   color: #eaf3fb;
-  font-size: 0.8125rem;
-  white-space: nowrap;
 }
 
 .hpsm-topbar__user-name {
@@ -196,88 +275,184 @@ h6 {
 }
 
 @media (max-width: 52rem) {
-  .hpsm-topbar__user {
+  .hpsm-topbar__user,
+  .hpsm-topbar__pipe {
     display: none;
   }
 }
 
-/* --- 4. Sidebar de navegacao (HPSM) ------------------------------------- */
+/* --- 4. Navegador do Sistema (sidebar em arvore, HPSM) ----------------- */
 .hpsm-sidebar {
   position: sticky;
   top: var(--dl-topbar-h);
+  display: flex;
+  flex-direction: column;
   flex: 0 0 var(--dl-sidebar-width);
   width: var(--dl-sidebar-width);
   block-size: calc(100vh - var(--dl-topbar-h));
-  overflow-y: auto;
   background: var(--dl-sidebar-bg);
-  border-inline-end: 1px solid var(--dl-sidebar-border);
+  border-inline-end: 1px solid var(--dl-panel-border);
 }
 
-.hpsm-nav__list {
+/* Cabecalho do painel: titulo + botao de recolher. */
+.hpsm-sidebar__head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0.2rem 0.25rem 0.2rem 0.5rem;
+  background: linear-gradient(180deg, var(--dl-section-head-1) 0%, var(--dl-section-head-2) 100%);
+  border-block-end: 1px solid var(--dl-panel-border);
+}
+
+.hpsm-sidebar__title {
+  overflow: hidden;
+  color: var(--dl-section-title);
+  font-size: var(--dl-font-size);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hpsm-sidebar__collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 1rem;
+  block-size: 1rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dl-section-title);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpsm-sidebar__collapse:hover {
+  border-color: var(--dl-btn-hover-border);
+  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+}
+
+.hpsm-sidebar__collapse:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+/* Recolhido (so desktop): faixa estreita com o botao de expandir. */
+@media (min-width: 52.0625rem) {
+  .hpsm-sidebar.is-collapsed {
+    flex-basis: 1.5rem;
+    width: 1.5rem;
+  }
+
+  .hpsm-sidebar.is-collapsed .hpsm-sidebar__head {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .hpsm-sidebar.is-collapsed .hpsm-sidebar__title,
+  .hpsm-sidebar.is-collapsed .hpsm-tree {
+    display: none;
+  }
+}
+
+/* No drawer do mobile o botao de recolher nao se aplica. */
+@media (max-width: 52rem) {
+  .hpsm-sidebar__collapse {
+    display: none;
+  }
+}
+
+/* Arvore: pastas com +/-, folhas indentadas com guia pontilhada. */
+.hpsm-tree {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.25rem 0;
+}
+
+.hpsm-tree__list,
+.hpsm-tree__children {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.hpsm-nav__item {
+.hpsm-tree__children {
+  margin-inline-start: 0.84rem;
+  padding-inline-start: 0.6rem;
+  border-inline-start: 1px dotted var(--dl-tree-guide);
+}
+
+.hpsm-tree__row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  min-height: 1.9rem;
-  padding: 0.25rem 0.75rem;
+  gap: 0.3rem;
+  inline-size: calc(100% - 0.5rem);
+  min-block-size: 1.25rem;
+  margin-inline: 0.25rem;
+  padding: 1px 0.25rem;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--dl-sidebar-text);
-  font-size: 0.8125rem;
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+  text-align: start;
   text-decoration: none;
-  cursor: pointer;
   white-space: nowrap;
-  border-inline-start: 3px solid transparent;
+  cursor: pointer;
 }
 
-.hpsm-nav__item:hover {
-  background: var(--dl-sidebar-hover);
-  color: var(--dl-sidebar-active-text);
+.hpsm-tree__children .hpsm-tree__row {
+  inline-size: calc(100% - 0.25rem);
+  margin-inline-start: 0;
 }
 
-.hpsm-nav__item.is-active {
-  background: var(--dl-sidebar-active-bg);
-  color: var(--dl-sidebar-active-text);
-  font-weight: 700;
-  border-inline-start-color: var(--dl-accent);
-}
-
-.hpsm-nav__item svg {
+.hpsm-tree__row img {
+  display: block;
   flex: 0 0 auto;
-  color: #6f7d8a;
 }
 
-.hpsm-nav__item.is-active svg {
-  color: var(--dl-accent);
+.hpsm-tree__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.hpsm-nav__icon {
+.hpsm-tree__row:hover {
+  background: var(--dl-sidebar-hover);
+  color: var(--dl-sidebar-text);
+}
+
+.hpsm-tree__leaf.is-active {
+  background: var(--dl-sidebar-active-bg);
+  border-color: var(--dl-tree-selected-border);
+  color: var(--dl-sidebar-active-text);
+}
+
+.hpsm-tree__row:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: -2px;
+}
+
+/* Caixinha +/- da pasta (mesmo desenho das secoes do form). */
+.hpsm-tree__toggle {
   display: inline-flex;
-  width: 1rem;
+  align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 0.6875rem;
+  block-size: 0.6875rem;
+  border: 1px solid var(--dl-section-toggle-border);
+  background: var(--dl-surface);
+  color: var(--dl-grid-text);
+  font-size: 0.625rem;
+  line-height: 1;
 }
 
-/* Rotulo de grupo da navegacao (Amostras, Administracao). */
-.hpsm-nav__group-label {
-  padding: 0.4rem 0.75rem 0.2rem;
-  color: var(--dl-text-help);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.hpsm-nav__divider {
-  height: 1px;
-  margin: 0.375rem 0;
-  background: var(--dl-sidebar-border);
-}
-
-/* Foco visivel na navegacao e nas abas (padrao HPSM). */
-.hpsm-nav__item:focus-visible,
+/* Foco visivel nas abas internas das paginas. */
 .hpsm-tab:focus-visible {
   outline: 2px solid var(--dl-accent);
   outline-offset: -2px;
@@ -321,6 +496,87 @@ h6 {
     z-index: 35;
     background: rgba(0, 0, 0, 0.35);
   }
+}
+
+/* --- 4b. Abas de documento da area de trabalho (registros abertos) ----- */
+.hpsm-doctabs {
+  position: sticky;
+  top: var(--dl-topbar-h);
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 0.3rem 0.5rem 0;
+  background: linear-gradient(180deg, var(--dl-doctabs-bg-1) 0%, var(--dl-doctabs-bg-2) 100%);
+  border-block-end: 1px solid var(--dl-panel-border);
+  scrollbar-width: thin;
+}
+
+.hpsm-doctab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.15rem;
+  max-inline-size: 14rem;
+  block-size: 1.375rem;
+  margin-block-end: -1px;
+  padding-inline: 0.6rem 0.2rem;
+  border: 1px solid var(--dl-panel-border);
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--dl-doctab-1) 0%, var(--dl-doctab-2) 100%);
+}
+
+.hpsm-doctab:hover {
+  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+}
+
+/* Aba ativa "funde" com a area de trabalho abaixo. */
+.hpsm-doctab.is-active {
+  background: linear-gradient(180deg, #ffffff 0%, var(--dl-bg) 100%);
+  border-block-end-color: var(--dl-bg);
+}
+
+.hpsm-doctab__link {
+  overflow: hidden;
+  color: var(--dl-section-title);
+  font-size: var(--dl-font-size);
+  line-height: 1.5;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hpsm-doctab.is-active .hpsm-doctab__link {
+  font-weight: 700;
+}
+
+.hpsm-doctab__link:focus-visible,
+.hpsm-doctab__close:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+.hpsm-doctab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dl-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpsm-doctab__close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--dl-status-red);
 }
 
 /* --- 5. Abas no estilo HPSM (usadas pelas paginas) ---------------------- */
@@ -382,37 +638,218 @@ h6 {
 }
 
 /* --- 6. Barra de ferramentas dos painéis -------------------------------- */
+/* Acoes do registro (Voltar, Salvar, Cancelar...) logo acima do form. */
 .hpsm-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--dl-surface);
+  gap: 2px;
+  margin-bottom: 0.5rem;
+  padding: 2px 0.25rem;
+  background: linear-gradient(180deg, var(--dl-grid-head-1) 0%, var(--dl-grid-head-2) 100%);
   border: 1px solid var(--dl-panel-border);
-  border-block-end: 0;
 }
 
 .hpsm-toolbar__action {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.25rem 0.5rem;
-  border: 0;
+  block-size: 1.375rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 2px;
   background: transparent;
-  color: #444444;
-  font-size: 0.75rem;
+  color: var(--dl-grid-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.hpsm-toolbar__action:hover {
-  background: var(--dl-surface-hover);
-  color: var(--dl-sidebar-active-text);
+.hpsm-toolbar__action:hover:not(:disabled) {
+  border-color: var(--dl-btn-hover-border);
+  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+  color: var(--dl-grid-text);
 }
 
-.hpsm-toolbar__sep {
-  flex: 1;
+.hpsm-toolbar__action:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: -3px;
+}
+
+.hpsm-toolbar__action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.hpsm-toolbar__action img {
+  display: block;
+}
+
+.hpsm-toolbar__divider {
+  inline-size: 1px;
+  block-size: 1rem;
+  margin-inline: 0.25rem;
+  background: var(--dl-grid-head-border);
+}
+
+.hpsm-toolbar__loading {
+  margin-inline-start: 0.5rem;
+}
+
+/* Toolbar dentro de uma secao: encostada no topo do corpo. */
+.hpsm-section__body > .hpsm-toolbar {
+  margin: -0.5rem -0.75rem 0.5rem;
+  border-width: 0 0 1px;
+}
+
+/* --- 6b. Secoes e campos de formulario (forms do HPSM) ------------------ */
+.hpsm-section {
+  margin-bottom: 0.5rem;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+}
+
+.hpsm-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  inline-size: 100%;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-block-end: 1px solid var(--dl-panel-border);
+  background: linear-gradient(180deg, var(--dl-section-head-1) 0%, var(--dl-section-head-2) 100%);
+  color: var(--dl-section-title);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.hpsm-section__head[aria-expanded='false'] {
+  border-block-end: 0;
+}
+
+.hpsm-section__head:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: -3px;
+}
+
+/* Caixinha +/- de recolher. */
+.hpsm-section__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 0.6875rem;
+  block-size: 0.6875rem;
+  border: 1px solid var(--dl-section-toggle-border);
+  background: var(--dl-surface);
+  color: var(--dl-grid-text);
+  font-size: 0.625rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.hpsm-section__body {
+  padding: 0.5rem 0.75rem;
+}
+
+/* Grade de campos: 1 coluna, ou 2 em telas largas. */
+.hpsm-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.3rem 1.5rem;
+}
+
+@media (min-width: 64rem) {
+  .hpsm-form--2col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Rotulo a esquerda (alinhado a direita, com ":") e controle ao lado. */
+.hpsm-field {
+  display: grid;
+  grid-template-columns: var(--dl-field-label-w) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.5rem;
+}
+
+.hpsm-field--wide {
+  grid-column: 1 / -1;
+}
+
+.hpsm-field--top {
+  align-items: start;
+}
+
+.hpsm-field--top .hpsm-field__label {
+  padding-block-start: 0.25rem;
+}
+
+.hpsm-field__label {
+  color: var(--dl-text);
+  font-size: var(--dl-font-size);
+  text-align: end;
+}
+
+.hpsm-field__req {
+  margin-inline-start: 2px;
+  color: var(--dl-status-red);
+  font-weight: 700;
+}
+
+.hpsm-field__control {
+  min-inline-size: 0;
+}
+
+.hpsm-field__control .cds--text-input__field-wrapper,
+.hpsm-field__control .cds--text-input-wrapper,
+.hpsm-field__control .cds--select {
+  min-inline-size: 0;
+}
+
+.hpsm-field__help {
+  margin-block-start: 0.15rem;
+  color: var(--dl-text-help);
+  font-size: 0.6875rem;
+}
+
+/* O FileUploader nao precisa do espaco vertical proprio dentro do campo. */
+.hpsm-field__control .cds--file__container,
+.hpsm-field__control .cds--file {
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  .hpsm-field {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.15rem;
+  }
+
+  .hpsm-field__label {
+    text-align: start;
+  }
+}
+
+/* Valor travado (somente leitura): caixa cinza, como os campos do HPSM. */
+.hpsm-readonly {
+  box-sizing: border-box;
+  min-block-size: var(--dl-control-h);
+  padding: 0.2rem 0.4rem;
+  background: var(--dl-readonly-bg);
+  border: 1px solid var(--dl-readonly-border);
+  color: var(--dl-text);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.hpsm-readonly--multiline {
+  min-block-size: 3.25rem;
+  white-space: pre-wrap;
 }
 
 /* --- 7. Cabeçalho de página (estilo painel HPSM) ------------------------ */
@@ -459,72 +896,12 @@ h6 {
   gap: 0.5rem;
 }
 
-/* Pop-up do cabecalho: icone no canto direito abre um painel. */
-.dl-head-popover {
-  position: relative;
-}
-
-.dl-head-popover__toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--dl-control-h);
-  height: var(--dl-control-h);
-  padding: 0;
-  border: 1px solid var(--dl-field-border);
-  background: var(--dl-surface);
-  color: var(--dl-link);
-  cursor: pointer;
-}
-
-.dl-head-popover__toggle:hover,
-.dl-head-popover__toggle[aria-expanded='true'] {
-  background: var(--dl-surface-hover);
-  color: var(--dl-sidebar-active-text);
-}
-
-.dl-head-popover__toggle svg {
-  display: block;
-}
-
-.dl-head-popover__panel {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 18rem;
-  padding: 0.75rem;
-  background: var(--dl-surface);
-  border: 1px solid var(--dl-panel-border);
-  box-shadow: var(--dl-shadow-card);
-}
-
-/* Controles do painel na mesma altura reduzida dos demais. */
-.dl-head-popover__panel .cds--btn,
-.dl-head-popover__panel .cds--text-input,
-.dl-head-popover__panel .cds--select-input {
-  --cds-layout-size-height-local: var(--dl-control-h);
-  block-size: var(--dl-control-h);
-  min-block-size: var(--dl-control-h);
-}
-
-/* Rotulos mais compactos dentro do painel. */
-.dl-head-popover__panel .cds--label {
-  margin-block-end: 0.25rem;
-}
-
 /* Icones de interface (apps/web/public/icons) alinhados ao container. */
-.dl-head-popover__toggle img,
-.hpsm-nav__icon img,
 .hpsm-topbar__iconbtn img {
   display: block;
 }
 
 /* --- 8. Painéis / cards ------------------------------------------------- */
-.dl-panel,
 .cds--tile {
   padding: 0.75rem;
   background-color: var(--dl-surface);
@@ -537,77 +914,104 @@ h6 {
   background-color: var(--dl-surface);
 }
 
-.dl-panel {
-  padding: 1rem;
+/* O Tile do Carbon traz fonte propria (14px); no app segue o corpo compacto. */
+.dl-shell .cds--tile,
+.dl-console-window .cds--tile {
+  font-size: var(--dl-font-size);
 }
 
 /* --- 9. Botoes ----------------------------------------------------------- */
+/* Base global (inclusive a home): cantos e texto do HPSM. */
 .cds--btn {
-  border-radius: var(--dl-radius);
+  border-radius: 2px;
   letter-spacing: 0;
-  font-size: 0.8125rem;
-  min-block-size: 1.9rem;
-  transition:
-    background var(--dl-transition),
-    border-color var(--dl-transition),
-    color var(--dl-transition);
+  font-size: 0.75rem;
 }
 
-.cds--btn:focus-visible {
-  outline: 2px solid var(--dl-accent);
-  outline-offset: 1px;
-}
+/* No app, todos os "kinds" do Carbon viram o botao cinza com gradiente do
+   HPSM; o tipo so muda detalhes (negrito, texto vermelho, sem moldura). */
+.dl-shell,
+.dl-console-window {
+  .cds--btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    block-size: var(--dl-control-h);
+    min-block-size: var(--dl-control-h);
+    padding-block: 0;
+    padding-inline: 0.75rem;
+    border: 1px solid var(--dl-btn-border);
+    background: linear-gradient(180deg, var(--dl-btn-1) 0%, var(--dl-btn-2) 100%);
+    color: var(--dl-grid-text);
+    font-size: var(--dl-font-size);
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: none;
+  }
 
-.cds--btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+  .cds--btn:hover:not(:disabled) {
+    border-color: var(--dl-btn-hover-border);
+    background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+    color: var(--dl-grid-text);
+  }
 
-/* Primario: gradiente azul HPSM. */
-.cds--btn--primary {
-  background: linear-gradient(180deg, var(--dl-primary) 0%, var(--dl-primary-2) 100%);
-  border: 1px solid var(--dl-topbar-border);
-}
+  /* Pressionado: gradiente invertido (efeito "afundado"). */
+  .cds--btn:active:not(:disabled) {
+    background: linear-gradient(180deg, var(--dl-btn-2) 0%, var(--dl-btn-1) 100%);
+  }
 
-.cds--btn--primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--dl-primary-hover) 0%, var(--dl-primary) 100%);
-}
+  .cds--btn:focus {
+    border-color: var(--dl-btn-border);
+    box-shadow: none;
+  }
 
-.cds--btn--primary:active:not(:disabled) {
-  background: var(--dl-primary-active);
-  border-color: var(--dl-primary-active);
-}
+  .cds--btn:focus-visible {
+    outline: 1px dotted var(--dl-grid-text);
+    outline-offset: -4px;
+  }
 
-/* Secundario: cinza HPSM. */
-.cds--btn--secondary {
-  background: linear-gradient(180deg, #7a8b99 0%, #5f7183 100%);
-  border: 1px solid #4d5f6e;
-  color: #ffffff;
-}
+  .cds--btn:disabled,
+  .cds--btn.cds--btn--disabled {
+    border-color: var(--dl-btn-border);
+    background: linear-gradient(180deg, var(--dl-btn-1) 0%, var(--dl-btn-2) 100%);
+    color: var(--dl-text-help);
+    opacity: 0.6;
+    box-shadow: none;
+    cursor: default;
+  }
 
-.cds--btn--secondary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #6b7d8c 0%, #526476 100%);
-  color: #ffffff;
-}
+  /* Icone antes do texto, como nos botoes do HPSM. */
+  .cds--btn .cds--btn__icon {
+    position: static;
+    order: -1;
+    margin: 0;
+  }
 
-.cds--btn--secondary:active:not(:disabled) {
-  background: #4d5f6e;
-}
+  /* Primario: acao padrao do form, em negrito e com borda mais escura. */
+  .cds--btn--primary {
+    border-color: var(--dl-btn-primary-border);
+    font-weight: 700;
+  }
 
-/* Terciario e ghost: azul sobre fundo claro. */
-.cds--btn--ghost,
-.cds--btn--tertiary {
-  color: var(--dl-link);
-}
+  /* Ghost: como os botoes da toolbar (sem moldura ate o hover). */
+  .cds--btn--ghost,
+  .cds--btn--danger--ghost,
+  .cds--btn--ghost:disabled,
+  .cds--btn--danger--ghost:disabled {
+    border-color: transparent;
+    background: transparent;
+  }
 
-.cds--btn--ghost:hover:not(:disabled),
-.cds--btn--tertiary:hover:not(:disabled) {
-  background: var(--dl-surface-hover);
-  color: var(--dl-sidebar-active-text);
-}
-
-.cds--data-table .cds--btn {
-  padding-inline: 0.75rem;
+  /* Acoes destrutivas: texto vermelho. */
+  .cds--btn--danger,
+  .cds--btn--danger--tertiary,
+  .cds--btn--danger--ghost,
+  .cds--btn--danger:hover:not(:disabled),
+  .cds--btn--danger--tertiary:hover:not(:disabled),
+  .cds--btn--danger--ghost:hover:not(:disabled) {
+    color: var(--dl-status-red);
+  }
 }
 
 /* --- 10. Campos (retos, borda azul-clara) ------------------------------- */
@@ -684,22 +1088,75 @@ h6 {
   background-color: var(--dl-surface);
 }
 
+/* Cabecalho da "Record List": gradiente cinza com divisorias entre colunas. */
 .cds--data-table thead,
 .cds--data-table th {
-  background-color: var(--dl-table-head);
+  background: linear-gradient(180deg, var(--dl-grid-head-1) 0%, var(--dl-grid-head-2) 100%);
 }
 
 .cds--data-table th {
-  color: #2f4a63;
-  border-block-end: 1px solid var(--dl-panel-border);
-  font-size: 0.75rem;
+  color: var(--dl-grid-text);
+  border-block-end: 1px solid var(--dl-grid-head-border);
+  border-inline-end: 1px solid var(--dl-grid-head-border);
+  font-size: var(--dl-font-size);
   font-weight: 700;
 }
 
 .cds--data-table td {
   color: var(--dl-text);
+  border-block-start: 0;
   border-block-end: 1px solid var(--dl-table-border);
-  font-size: 0.8125rem;
+  border-inline-end: 1px solid var(--dl-grid-line);
+  font-size: var(--dl-font-size);
+}
+
+/* O aria-sort dos cabecalhos ativa uma regra do Carbon feita para o
+   TableHeader ordenavel dele (padding 0, altura 3rem, sem borda). Aqui a
+   ordenacao usa o botao .hpsm-sort, entao o cabecalho volta ao padrao da
+   grade: mesmo recuo das celulas e altura da linha xs. */
+.cds--data-table th[aria-sort] {
+  block-size: auto;
+  padding-block: 0;
+  padding-inline: 1rem;
+  border-block-end: 1px solid var(--dl-grid-head-border);
+}
+
+.cds--data-table th:last-child,
+.cds--data-table td:last-child {
+  border-inline-end: 0;
+}
+
+/* Botao de ordenacao dentro do cabecalho (ordem feita no servidor). */
+.hpsm-sort {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hpsm-sort:hover {
+  color: var(--dl-link);
+  text-decoration: underline;
+}
+
+.hpsm-sort:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+.hpsm-sort__arrow {
+  flex: 0 0 auto;
+  color: #555555;
+  font-size: 0.5625rem;
 }
 
 /* Zebra: linhas alternadas em azul bem claro. */
@@ -716,59 +1173,300 @@ h6 {
 /* Rodape do painel de tabela: contagem + "Listar tudo". */
 .dl-table-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.35rem 0.75rem;
-  background: var(--dl-surface);
+  padding: 0.2rem 0.5rem;
+  background: linear-gradient(180deg, var(--dl-grid-head-1) 0%, var(--dl-grid-head-2) 100%);
   border: 1px solid var(--dl-panel-border);
   border-block-start: 0;
   color: var(--dl-text-muted);
   font-size: 0.75rem;
 }
 
-/* --- 12. Avisos ---------------------------------------------------------- */
-.cds--inline-notification--low-contrast,
-.cds--toast-notification--low-contrast {
-  border-radius: var(--dl-radius);
-  border-style: solid;
-  border-width: 1px;
-  border-inline-start-width: 3px;
+/* Paginador da lista: botoes pequenos cinza (primeira/anterior/proxima/ultima). */
+.hpsm-pager {
+  display: flex;
+  gap: 2px;
 }
 
-.cds--inline-notification--low-contrast.cds--inline-notification--error,
-.cds--toast-notification--low-contrast.cds--toast-notification--error {
-  background-color: var(--dl-error-bg);
-  border-color: var(--dl-error-border);
-}
-
-.cds--inline-notification--low-contrast.cds--inline-notification--info,
-.cds--toast-notification--low-contrast.cds--toast-notification--info {
-  background-color: var(--dl-info-bg);
-  border-color: var(--dl-info-border);
-}
-
-.cds--inline-notification--low-contrast.cds--inline-notification--success,
-.cds--toast-notification--low-contrast.cds--toast-notification--success {
-  background-color: var(--dl-success-bg);
-  border-color: var(--dl-success-border);
-}
-
-.cds--inline-notification--low-contrast.cds--inline-notification--warning,
-.cds--toast-notification--low-contrast.cds--toast-notification--warning {
-  background-color: var(--dl-warning-bg);
-  border-color: var(--dl-warning-border);
-}
-
-.cds--inline-notification__title {
-  color: var(--dl-text);
-}
-
-/* --- 13. Etiquetas ------------------------------------------------------- */
-.cds--tag {
-  border-radius: var(--dl-radius);
+.hpsm-pager__btn {
+  min-inline-size: 1.5rem;
+  block-size: 1.25rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--dl-btn-border);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--dl-btn-1) 0%, var(--dl-btn-2) 100%);
+  color: var(--dl-grid-text);
   font-family: var(--dl-font-sans);
   font-size: 0.6875rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpsm-pager__btn:hover:not(:disabled) {
+  border-color: var(--dl-btn-hover-border);
+  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+}
+
+.hpsm-pager__btn:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+.hpsm-pager__btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --- 12. Barra de mensagens (avisos da area de trabalho) ---------------- */
+.hpsm-msgbar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.4rem 0.5rem 0;
+}
+
+.hpsm-msgbar:empty {
+  display: none;
+}
+
+.hpsm-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--dl-msg-border);
+  background: var(--dl-msg-bg);
+  color: var(--dl-text);
+  font-size: var(--dl-font-size);
+  line-height: 1.4;
+}
+
+/* Fora da casca (janela do console) a mensagem fica no proprio lugar. */
+.dl-console-window .hpsm-msg {
+  margin-bottom: 0.5rem;
+}
+
+.hpsm-msg--error {
+  --dl-msg-bg: var(--dl-error-bg);
+  --dl-msg-border: var(--dl-error-border);
+  --dl-msg-tone: var(--dl-status-red);
+}
+
+.hpsm-msg--warning {
+  --dl-msg-bg: var(--dl-warning-bg);
+  --dl-msg-border: var(--dl-warning-border);
+  --dl-msg-tone: var(--dl-status-orange);
+}
+
+.hpsm-msg--info {
+  --dl-msg-bg: var(--dl-info-bg);
+  --dl-msg-border: var(--dl-info-border);
+  --dl-msg-tone: var(--dl-status-blue);
+}
+
+.hpsm-msg--success {
+  --dl-msg-bg: var(--dl-success-bg);
+  --dl-msg-border: var(--dl-success-border);
+  --dl-msg-tone: var(--dl-status-green);
+}
+
+/* Icone redondo do tipo (x, !, i, check), no tamanho dos icones de 16px. */
+.hpsm-msg__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  margin-block-start: 1px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.45) 0, transparent 55%),
+    var(--dl-msg-tone);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hpsm-msg__text {
+  flex: 1;
+  min-inline-size: 0;
+  word-break: break-word;
+}
+
+.hpsm-msg__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dl-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpsm-msg__close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--dl-grid-text);
+}
+
+.hpsm-msg__close:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+/* --- 12b. Linha de filtro fixa acima das listas ------------------------ */
+.hpsm-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: linear-gradient(180deg, var(--dl-grid-head-1) 0%, var(--dl-grid-head-2) 100%);
+  border: 1px solid var(--dl-panel-border);
+}
+
+.hpsm-filterbar__item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.hpsm-filterbar__label {
+  color: var(--dl-text);
+  white-space: nowrap;
+}
+
+.hpsm-filterbar .cds--text-input__field-wrapper,
+.hpsm-filterbar .cds--text-input-wrapper {
+  min-inline-size: 14rem;
+}
+
+.hpsm-filterbar .cds--select {
+  min-inline-size: 8rem;
+}
+
+/* --- 12c. Indicador "Carregando..." (giro de pontos do HPSM) ----------- */
+.hpsm-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+  color: var(--dl-text);
+  font-size: var(--dl-font-size);
+}
+
+/* Anel de 8 segmentos girando em passos, como o GIF classico de "loading". */
+.hpsm-loading__spinner {
+  flex: 0 0 auto;
+  inline-size: 1rem;
+  block-size: 1rem;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--dl-loading-dot) 0 10%,
+    transparent 10% 12.5%,
+    color-mix(in srgb, var(--dl-loading-dot) 85%, transparent) 12.5% 22.5%,
+    transparent 22.5% 25%,
+    color-mix(in srgb, var(--dl-loading-dot) 70%, transparent) 25% 35%,
+    transparent 35% 37.5%,
+    color-mix(in srgb, var(--dl-loading-dot) 55%, transparent) 37.5% 47.5%,
+    transparent 47.5% 50%,
+    color-mix(in srgb, var(--dl-loading-dot) 42%, transparent) 50% 60%,
+    transparent 60% 62.5%,
+    color-mix(in srgb, var(--dl-loading-dot) 30%, transparent) 62.5% 72.5%,
+    transparent 72.5% 75%,
+    color-mix(in srgb, var(--dl-loading-dot) 20%, transparent) 75% 85%,
+    transparent 85% 87.5%,
+    color-mix(in srgb, var(--dl-loading-dot) 12%, transparent) 87.5% 97.5%,
+    transparent 97.5% 100%
+  );
+  mask: radial-gradient(circle, transparent 38%, #000 40%);
+  animation: hpsm-loading-spin 0.8s steps(8) infinite;
+}
+
+@keyframes hpsm-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hpsm-loading__spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* Na tela inteira (carga inicial) e na janela do console, centralizado. */
+.dl-public__main > .hpsm-loading {
+  align-self: center;
+}
+
+/* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
+.hpsm-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+/* Bolinha com brilho, no estilo dos bullets 16px do HPSM. */
+.hpsm-status__bullet {
+  flex: 0 0 auto;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.7) 0, transparent 55%),
+    var(--dl-status-tone);
+}
+
+.hpsm-status--green {
+  --dl-status-tone: var(--dl-status-green);
+}
+
+.hpsm-status--red {
+  --dl-status-tone: var(--dl-status-red);
+}
+
+.hpsm-status--orange {
+  --dl-status-tone: var(--dl-status-orange);
+}
+
+.hpsm-status--blue {
+  --dl-status-tone: var(--dl-status-blue);
+}
+
+.hpsm-status--gray {
+  --dl-status-tone: var(--dl-status-gray);
+}
+
+/* Linha de resumo do registro (Tipo / Status / Veredito / Tags). */
+.dl-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1.5rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+}
+
+.dl-summary__label {
+  color: var(--dl-text-muted);
 }
 
 /* --- 14. Estrutura das paginas ------------------------------------------ */
@@ -788,52 +1486,17 @@ h6 {
   flex: 0 0 auto;
 }
 
-/* Controles da barra: botoes, campos e seletores na mesma altura.
-   O Carbon deriva altura e padding-block de --cds-layout-size-height-local,
-   entao redefinir esse token alinha (e reduz) todos os controles de uma vez. */
-.dl-toolbar .cds--btn,
-.dl-toolbar .cds--text-input,
-.dl-toolbar .cds--select-input {
-  --cds-layout-size-height-local: var(--dl-control-h);
-  block-size: var(--dl-control-h);
-  min-block-size: var(--dl-control-h);
-}
-
 /* Rotulos mais compactos dentro da barra. */
 .dl-toolbar .cds--label {
   margin-block-end: 0.25rem;
 }
 
 /* Dentro de um card a barra perde a moldura (o card ja tem). */
-.cds--tile .dl-toolbar,
-.dl-panel .dl-toolbar {
+.cds--tile .dl-toolbar {
   margin-bottom: 0.75rem;
   padding: 0;
   background: transparent;
   border: 0;
-}
-
-/* Linha rotulo/valor (ficha da amostra). */
-.dl-detail-row {
-  display: flex;
-  gap: 1rem;
-  padding: 0.5rem 0;
-  border-block-end: 1px solid var(--dl-table-border);
-}
-
-.dl-detail-row:last-child {
-  border-block-end: 0;
-}
-
-.dl-detail-row__label {
-  min-width: 9rem;
-  color: var(--dl-text-muted);
-}
-
-.dl-detail-row__value {
-  flex: 1;
-  min-width: 0;
-  word-break: break-word;
 }
 
 /* Linha de controles compactos. */
@@ -846,17 +1509,7 @@ h6 {
 
 /* Coluna de formulario. */
 .dl-form-col {
-  max-width: 40rem;
-}
-
-/* Estado vazio. */
-.dl-empty {
-  padding: 2rem 1rem;
-  border: 1px dashed var(--dl-border-strong);
-  border-radius: var(--dl-radius);
-  background: var(--dl-surface);
-  color: var(--dl-text-muted);
-  text-align: center;
+  max-width: 48rem;
 }
 
 /* Hash/identificador em fonte monoespacada. */
@@ -871,7 +1524,7 @@ h6 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.25rem 1rem;
 }
 
 /* Espacamentos pontuais. */
@@ -883,42 +1536,8 @@ h6 {
   margin-bottom: 1.5rem;
 }
 
-.dl-mt-md {
-  margin-top: 1rem;
-}
-
 .dl-mt-lg {
   margin-top: 1.5rem;
-}
-
-.dl-pre {
-  white-space: pre-wrap;
-}
-
-/* Aviso ocupando toda a largura do container. */
-.dl-note {
-  max-inline-size: 100%;
-}
-
-/* Cabecalho de um relatorio: autor a esquerda, etiquetas a direita. */
-.dl-report__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.dl-report__author {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dl-report__meta {
-  margin-inline-start: 0.5rem;
-  color: var(--dl-text-muted);
-  font-size: 0.75rem;
 }
 
 /* --- 15. Sandbox de analise (VM isolada no Proxmox) --------------------- */
@@ -934,6 +1553,10 @@ h6 {
 
 .dl-sandbox__head h3 {
   margin: 0;
+  color: var(--dl-section-title);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .dl-sandbox__steps {

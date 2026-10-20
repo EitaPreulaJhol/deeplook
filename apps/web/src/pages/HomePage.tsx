@@ -1,44 +1,56 @@
-import { Button, Theme } from '@carbon/react';
 import { useNavigate } from 'react-router-dom';
 
-import { AppFooter } from '../components/AppFooter';
+import { PublicLegal, PublicMasthead } from '../components/AuthLayout';
 
 export function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <Theme theme="g10">
-      <div className="dl-home">
-        <header className="dl-home__topbar">
-          <div className="dl-home__topbar-inner">
-            <span className="dl-home__brand">
-              <img src="/deeplook.svg" alt="" className="dl-logo" />
-              DeepLook
-            </span>
-            <div className="dl-home__actions">
-              <Button kind="ghost" size="xs" onClick={() => navigate('/login')}>
-                Entrar
-              </Button>
-              <Button size="xs" onClick={() => navigate('/register')}>
-                Criar conta
-              </Button>
-            </div>
-          </div>
-        </header>
+    <div className="dl-public">
+      <PublicMasthead>
+        <div className="hpsm-topbar__links">
+          <button type="button" className="hpsm-topbar__link" onClick={() => navigate('/login')}>
+            Entrar
+          </button>
+          <span className="hpsm-topbar__pipe" aria-hidden="true">
+            |
+          </span>
+          <button type="button" className="hpsm-topbar__link" onClick={() => navigate('/register')}>
+            Criar conta
+          </button>
+        </div>
+      </PublicMasthead>
 
-        <main>
-          <section className="dl-home__hero">
-            <h1 className="dl-home__title">Olhe mais a fundo antes de confiar.</h1>
+      <main className="dl-public__main">
+        <section className="dl-box dl-home" aria-labelledby="dl-home-title">
+          <h1 id="dl-home-title" className="dl-box__head">
+            Bem-vindo ao DeepLook
+          </h1>
+          <div className="dl-box__body">
+            <p className="dl-home__tagline">Olhe mais a fundo antes de confiar.</p>
             <p className="dl-home__lead">
               O <strong>DeepLook</strong> é uma plataforma voltada para análise e verificação de
               executáveis inseguros e desconhecidos. Disponibilizamos ambientes de teste,
               ferramentas e recursos para que você possa analisar arquivos suspeitos com segurança e
               compartilhar suas descobertas com a comunidade.
             </p>
-          </section>
-        </main>
-        <AppFooter />
-      </div>
-    </Theme>
+            <div className="dl-home__actions">
+              <button
+                type="button"
+                className="dl-btn dl-btn--primary"
+                onClick={() => navigate('/login')}
+              >
+                Entrar
+              </button>
+              <button type="button" className="dl-btn" onClick={() => navigate('/register')}>
+                Criar conta
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <PublicLegal />
+    </div>
   );
 }

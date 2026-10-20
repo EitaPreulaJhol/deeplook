@@ -19,7 +19,22 @@ const ListQuery = z.object({
   q: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).default(25),
   offset: z.coerce.number().min(0).default(0),
+  sort: z
+    .enum(['title', 'type', 'owner', 'status', 'verdict', 'reports', 'createdAt'])
+    .default('createdAt'),
+  dir: z.enum(['asc', 'desc']).default('desc'),
 });
+
+/** Coluna da lista -> orderBy do Prisma (o id desempata para a paginacao ficar estavel). */
+function listOrderBy(sort: z.infer<typeof ListQuery>['sort'], dir: 'asc' | 'desc') {
+  const primary =
+    sort === 'owner'
+      ? { owner: { displayName: dir } }
+      : sort === 'reports'
+        ? { reports: { _count: dir } }
+        : { [sort]: dir };
+  return [primary, { id: 'asc' as const }];
+}
 
 const UrlSchema = z.object({
   url: z.string().url(),
@@ -75,7 +90,7 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const parsed = ListQuery.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
-    const { scope, type, status, verdict, q, limit, offset } = parsed.data;
+    const { scope, type, status, verdict, q, limit, offset, sort, dir } = parsed.data;
 
     const where: any = {};
     if (scope === 'mine') where.ownerId = user.id;
@@ -97,7 +112,7 @@ export async function entryRoutes(app: FastifyInstance) {
       prisma.entry.count({ where }),
       prisma.entry.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: listOrderBy(sort, dir),
         skip: offset,
         take: limit,
         include: {

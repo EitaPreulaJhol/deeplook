@@ -1,4 +1,4 @@
-import { Button, InlineLoading, InlineNotification, Tag, Theme, Tile } from '@carbon/react';
+import { Button, Theme, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { SandboxSession, SandboxStatus } from '../api/types';
 import { IconRefresh, IconScreen, IconTrash } from '../components/icons';
+import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { SandboxConsole, type SandboxConsoleHandle } from '../components/SandboxConsole';
 import {
   isSandboxActive,
@@ -14,12 +15,13 @@ import {
   SANDBOX_STATUS_LABELS,
   useSandboxCountdown,
 } from '../components/sandboxStatus';
+import { StatusText, type StatusTone } from '../components/tags';
 
-function statusTagType(status: SandboxStatus): 'green' | 'red' | 'warm-gray' | 'cool-gray' {
+function statusTone(status: SandboxStatus): StatusTone {
   if (status === 'RUNNING') return 'green';
   if (status === 'FAILED') return 'red';
-  if (status === 'STOPPED' || status === 'EXPIRED') return 'warm-gray';
-  return 'cool-gray';
+  if (status === 'STOPPED' || status === 'EXPIRED') return 'gray';
+  return 'blue';
 }
 
 /**
@@ -89,16 +91,9 @@ export function SandboxConsoleWindowPage() {
   };
 
   const body = () => {
-    if (query.isLoading) return <InlineLoading description="Consultando o ambiente..." />;
+    if (query.isLoading) return <HpsmLoading text="Consultando o ambiente..." />;
     if (query.isError || !session) {
-      return (
-        <InlineNotification
-          kind="error"
-          title="Erro"
-          subtitle="Ambiente não encontrado para esta amostra."
-          lowContrast
-        />
-      );
+      return <HpsmMessage kind="error">Ambiente não encontrado para esta amostra.</HpsmMessage>;
     }
     if (running) {
       if (!consoleEnabled) {
@@ -117,9 +112,9 @@ export function SandboxConsoleWindowPage() {
       <Tile>
         <div className="dl-sandbox__head">
           <h3>Ambiente isolado</h3>
-          <Tag type={statusTagType(session.status)} size="sm">
+          <StatusText tone={statusTone(session.status)}>
             {SANDBOX_STATUS_LABELS[session.status]}
-          </Tag>
+          </StatusText>
         </div>
         <p className="dl-page-subtitle">
           {session.phase
@@ -127,13 +122,7 @@ export function SandboxConsoleWindowPage() {
             : 'Aguardando o provisionamento...'}
         </p>
         {session.lastError && (
-          <InlineNotification
-            kind="error"
-            title="Falha no ambiente"
-            subtitle={session.lastError}
-            lowContrast
-            className="dl-note dl-mb-md"
-          />
+          <HpsmMessage kind="error">Falha no ambiente: {session.lastError}</HpsmMessage>
         )}
         {!isSandboxActive(session.status) && (
           <Button
@@ -157,20 +146,16 @@ export function SandboxConsoleWindowPage() {
             </h2>
             <div className="dl-taglist">
               {session && (
-                <Tag type={statusTagType(session.status)} size="sm">
+                <StatusText tone={statusTone(session.status)}>
                   {SANDBOX_STATUS_LABELS[session.status]}
-                </Tag>
+                </StatusText>
               )}
               {session?.vmid && (
-                <Tag type="outline" size="sm">
+                <StatusText>
                   VM {session.vmid} · {session.node}
-                </Tag>
+                </StatusText>
               )}
-              {countdown && (
-                <Tag type="cool-gray" size="sm">
-                  expira em {countdown}
-                </Tag>
-              )}
+              {countdown && <StatusText>expira em {countdown}</StatusText>}
             </div>
           </div>
 
@@ -212,15 +197,7 @@ export function SandboxConsoleWindowPage() {
           )}
         </div>
 
-        {error && (
-          <InlineNotification
-            kind="error"
-            title="Erro"
-            subtitle={error}
-            lowContrast
-            className="dl-note"
-          />
-        )}
+        {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
 
         <div className="dl-console-window__body">{body()}</div>
       </div>

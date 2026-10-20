@@ -1,18 +1,13 @@
-import {
-  Button,
-  Checkbox,
-  InlineNotification,
-  Select,
-  SelectItem,
-  Tag,
-  TextArea,
-  Tile,
-} from '@carbon/react';
+import { Checkbox, Select, SelectItem, TextArea } from '@carbon/react';
 import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { Report, Verdict } from '../api/types';
-import { VerdictTag } from './tags';
+import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
+import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
+import { IconAdd } from './icons';
+import { HpsmMessage } from './messages';
+import { StatusText, VerdictTag } from './tags';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -69,99 +64,115 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
   return (
     <>
       {reports.length === 0 && (
-        <div className="dl-empty dl-mb-lg">Nenhum relatório publicado ainda.</div>
+        <HpsmMessage kind="info">Nenhum relatório publicado ainda.</HpsmMessage>
       )}
       {reports.map((r) => (
-        <Tile key={r.id} className="dl-mb-md">
-          <div className="dl-report__head">
-            <div>
-              <strong>{r.analyst.displayName}</strong>
-              <span className="dl-report__meta">{fmtDate(r.createdAt)}</span>
-            </div>
-            <div className="dl-row">
-              <VerdictTag verdict={r.verdict} />
-              {!r.published && (
-                <Tag type="warm-gray" size="sm">
-                  Rascunho
-                </Tag>
-              )}
-            </div>
-          </div>
-          <p className="dl-mt-md">{r.summary}</p>
-          {r.findings && (
-            <div className="dl-mt-md">
-              <strong>Achados:</strong>
-              <p className="dl-pre">{r.findings}</p>
-            </div>
-          )}
-          {r.iocs && (
-            <div className="dl-mt-md">
-              <strong>IOCs:</strong>
-              <p className="dl-mono dl-pre">{r.iocs}</p>
-            </div>
-          )}
-        </Tile>
+        <HpsmSection key={r.id} title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)}`}>
+          <HpsmForm columns={2}>
+            <HpsmField label="Veredito">
+              <HpsmReadonly>
+                <VerdictTag verdict={r.verdict} />
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="Situação">
+              <HpsmReadonly>
+                {r.published ? (
+                  <StatusText tone="green">Publicado</StatusText>
+                ) : (
+                  <StatusText tone="gray">Rascunho</StatusText>
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="Resumo" wide top>
+              <HpsmReadonly multiline>{r.summary}</HpsmReadonly>
+            </HpsmField>
+            {r.findings && (
+              <HpsmField label="Achados" wide top>
+                <HpsmReadonly multiline>{r.findings}</HpsmReadonly>
+              </HpsmField>
+            )}
+            {r.iocs && (
+              <HpsmField label="IOCs" wide top>
+                <HpsmReadonly multiline mono>
+                  {r.iocs}
+                </HpsmReadonly>
+              </HpsmField>
+            )}
+          </HpsmForm>
+        </HpsmSection>
       ))}
 
       {canTriage && (
-        <Tile className="dl-mt-lg">
-          <h3 className="dl-mb-md">Novo relatório de análise</h3>
-          {error && (
-            <InlineNotification
-              kind="error"
-              title="Erro"
-              subtitle={error}
-              lowContrast
-              className="dl-note dl-mb-md"
+        <HpsmSection title="Novo relatório de análise" className="dl-mt-lg">
+          <HpsmToolbar label="Ações do relatório">
+            <HpsmToolbarButton
+              label={saving ? 'Salvando...' : 'Salvar relatório'}
+              icon={IconAdd}
+              disabled={saving}
+              onClick={createReport}
             />
-          )}
-          <TextArea
-            id="report-summary"
-            labelText="Resumo"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            rows={3}
-            className="dl-mb-md"
-          />
-          <TextArea
-            id="report-findings"
-            labelText="Achados"
-            value={findings}
-            onChange={(e) => setFindings(e.target.value)}
-            rows={5}
-            className="dl-mb-md"
-          />
-          <TextArea
-            id="report-iocs"
-            labelText="IOCs (indicadores de comprometimento)"
-            value={iocs}
-            onChange={(e) => setIocs(e.target.value)}
-            rows={3}
-            className="dl-mb-md"
-          />
-          <div className="dl-toolbar">
-            <Select
-              id="report-verdict"
-              labelText="Veredito"
-              value={verdict}
-              onChange={(e) => setVerdict(e.target.value as Verdict)}
+          </HpsmToolbar>
+          {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+          <HpsmForm>
+            <HpsmField label="Resumo" htmlFor="report-summary" required top>
+              <TextArea
+                id="report-summary"
+                labelText="Resumo"
+                hideLabel
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                rows={3}
+              />
+            </HpsmField>
+            <HpsmField label="Achados" htmlFor="report-findings" top>
+              <TextArea
+                id="report-findings"
+                labelText="Achados"
+                hideLabel
+                value={findings}
+                onChange={(e) => setFindings(e.target.value)}
+                rows={5}
+              />
+            </HpsmField>
+            <HpsmField
+              label="IOCs"
+              htmlFor="report-iocs"
+              top
+              help="Indicadores de comprometimento."
             >
-              <SelectItem value="UNKNOWN" text="Desconhecido" />
-              <SelectItem value="CLEAN" text="Limpo" />
-              <SelectItem value="SUSPICIOUS" text="Suspeito" />
-              <SelectItem value="MALICIOUS" text="Malicioso" />
-            </Select>
-            <Checkbox
-              id="report-published"
-              labelText="Publicar (define status/veredito da amostra)"
-              checked={published}
-              onChange={(_, { checked }) => setPublished(checked)}
-            />
-            <Button onClick={createReport} disabled={saving}>
-              {saving ? 'Salvando...' : 'Publicar relatório'}
-            </Button>
-          </div>
-        </Tile>
+              <TextArea
+                id="report-iocs"
+                labelText="IOCs"
+                hideLabel
+                value={iocs}
+                onChange={(e) => setIocs(e.target.value)}
+                rows={3}
+              />
+            </HpsmField>
+            <HpsmField label="Veredito" htmlFor="report-verdict">
+              <Select
+                id="report-verdict"
+                labelText="Veredito"
+                hideLabel
+                value={verdict}
+                onChange={(e) => setVerdict(e.target.value as Verdict)}
+              >
+                <SelectItem value="UNKNOWN" text="Desconhecido" />
+                <SelectItem value="CLEAN" text="Limpo" />
+                <SelectItem value="SUSPICIOUS" text="Suspeito" />
+                <SelectItem value="MALICIOUS" text="Malicioso" />
+              </Select>
+            </HpsmField>
+            <HpsmField label="Publicar">
+              <Checkbox
+                id="report-published"
+                labelText="Define o status e o veredito da amostra"
+                checked={published}
+                onChange={(_, { checked }) => setPublished(checked)}
+              />
+            </HpsmField>
+          </HpsmForm>
+        </HpsmSection>
       )}
     </>
   );

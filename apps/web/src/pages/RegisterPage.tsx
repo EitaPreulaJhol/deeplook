@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
+import { HpsmMessage } from '../components/messages';
 
 /** Formata a chave como DL-XXXX-XXXX-XXXX. */
 function formatActivationKey(raw: string): string {
@@ -55,7 +56,7 @@ export function RegisterPage() {
   return (
     <AuthLayout title="Cadastro">
       <form className="dl-auth__form" onSubmit={submit}>
-        {error && <div className="dl-auth__feedback dl-auth__feedback--error">{error}</div>}
+        {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
 
         <AuthField
           id="displayName"
@@ -102,7 +103,7 @@ export function RegisterPage() {
           uppercase
         />
 
-        <button type="submit" className="dl-auth__submit" disabled={loading}>
+        <button type="submit" className="dl-btn dl-btn--primary dl-auth__submit" disabled={loading}>
           {loading ? 'Cadastrando...' : 'Criar conta'}
         </button>
 
