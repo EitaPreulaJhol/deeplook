@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
@@ -54,7 +54,7 @@ export function RegisterPage() {
   };
 
   return (
-    <AuthLayout title="Cadastro">
+    <AuthLayout title="Cadastro" altLink={{ to: '/login', label: 'Entrar' }}>
       <form className="dl-auth__form" onSubmit={submit}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
 
@@ -103,15 +103,14 @@ export function RegisterPage() {
           uppercase
         />
 
-        <button type="submit" className="dl-btn dl-btn--primary dl-auth__submit" disabled={loading}>
-          {loading ? 'Cadastrando...' : 'Criar conta'}
-        </button>
-
-        <div className="dl-auth__alt">
-          Já tem conta?{' '}
-          <Link className="dl-auth__link" to="/login">
-            Entrar
-          </Link>
+        <div className="dl-auth__actions">
+          <button
+            type="submit"
+            className="dl-btn dl-btn--primary dl-auth__submit"
+            disabled={loading}
+          >
+            {loading ? 'Cadastrando...' : 'Criar conta'}
+          </button>
         </div>
       </form>
     </AuthLayout>

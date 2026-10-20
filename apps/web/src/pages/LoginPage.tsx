@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
@@ -36,7 +36,7 @@ export function LoginPage() {
   };
 
   return (
-    <AuthLayout title="Entrar">
+    <AuthLayout title="Entrar" altLink={{ to: '/register', label: 'Criar conta' }}>
       <form className="dl-auth__form" onSubmit={submit}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {notice && <HpsmMessage kind="info">{notice}</HpsmMessage>}
@@ -62,21 +62,18 @@ export function LoginPage() {
           required
         />
 
-        <div className="dl-auth__row-end">
+        {/* "Esqueceu a senha?" a esquerda e o botao a direita, na coluna dos campos. */}
+        <div className="dl-auth__actions">
           <a className="dl-auth__link" href="#" onClick={handleForgot}>
             Esqueceu a senha?
           </a>
-        </div>
-
-        <button type="submit" className="dl-btn dl-btn--primary dl-auth__submit" disabled={loading}>
-          {loading ? 'Entrando...' : 'Entrar'}
-        </button>
-
-        <div className="dl-auth__alt">
-          Não tem acesso?{' '}
-          <Link className="dl-auth__link" to="/register">
-            Criar conta
-          </Link>
+          <button
+            type="submit"
+            className="dl-btn dl-btn--primary dl-auth__submit"
+            disabled={loading}
+          >
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
         </div>
       </form>
     </AuthLayout>

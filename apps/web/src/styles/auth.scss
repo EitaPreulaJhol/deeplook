@@ -31,6 +31,9 @@
 }
 
 .dl-public__nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
   width: 100%;
   max-width: var(--dl-auth-width);
 }
@@ -102,6 +105,11 @@
   max-width: var(--dl-auth-width);
 }
 
+/* Folga embaixo do formulario, como na caixa de login do HPSM. */
+.dl-auth .dl-box__body {
+  padding-block-end: 2.25rem;
+}
+
 .dl-auth__subtitle {
   margin: 0 0 0.75rem;
   color: var(--dl-text-muted);
@@ -113,21 +121,19 @@
   gap: 0.4rem;
 }
 
-/* Linhas que nao sao campos (link, botao, texto) alinham com a coluna dos campos. */
-.dl-auth__row-end,
-.dl-auth__submit,
-.dl-auth__alt {
+/* Linha de acoes na coluna dos campos: link a esquerda, botao a direita. */
+.dl-auth__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-inline-start: calc(var(--dl-auth-label-w) + 0.5rem);
+  margin-block-start: 0.15rem;
 }
 
 .dl-auth__submit {
-  align-self: flex-start;
-  min-width: 6rem;
-  margin-block-start: 0.25rem;
-}
-
-.dl-auth__alt {
-  color: var(--dl-text-muted);
+  min-width: 5.75rem;
+  margin-inline-start: auto;
 }
 
 /* Linha rotulo/campo: rotulo a esquerda, alinhado a direita, com ":". */
@@ -239,9 +245,7 @@
     text-align: start;
   }
 
-  .dl-auth__row-end,
-  .dl-auth__submit,
-  .dl-auth__alt {
+  .dl-auth__actions {
     margin-inline-start: 0;
   }
 }

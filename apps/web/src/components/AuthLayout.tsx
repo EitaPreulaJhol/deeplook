@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 interface AuthLayoutProps {
   title: string;
   subtitle?: string;
+  /** Link para a outra tela de acesso, abaixo da caixa a direita (ex.: "Criar conta"). */
+  altLink?: { to: string; label: string };
   children: ReactNode;
 }
 
@@ -42,7 +44,7 @@ export function PublicLegal() {
  * Layout das telas de autenticacao no estilo da tela de login do HP Service
  * Manager: masthead azul e uma caixa centralizada com cabecalho proprio.
  */
-export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, altLink, children }: AuthLayoutProps) {
   return (
     <div className="dl-public">
       <PublicMasthead />
@@ -62,6 +64,11 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           <Link className="dl-public__link" to="/home">
             ← Voltar para o início
           </Link>
+          {altLink && (
+            <Link className="dl-public__link" to={altLink.to}>
+              {altLink.label}
+            </Link>
+          )}
         </nav>
       </main>
 
