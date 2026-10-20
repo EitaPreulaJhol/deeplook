@@ -10,15 +10,13 @@ interface AuthLayoutProps {
 }
 
 /** Barra azul do topo das paginas publicas (mesma do app logado). */
-export function PublicMasthead({ children }: { children?: ReactNode }) {
+export function PublicMasthead() {
   return (
     <header className="hpsm-topbar">
       <Link className="hpsm-topbar__brand" to="/home">
         <img src="/deeplook.svg" alt="" className="dl-logo" />
         <span>DeepLook</span>
       </Link>
-      <span className="hpsm-topbar__spacer" />
-      {children}
     </header>
   );
 }

@@ -7,19 +7,7 @@ export function HomePage() {
 
   return (
     <div className="dl-public">
-      <PublicMasthead>
-        <div className="hpsm-topbar__links">
-          <button type="button" className="hpsm-topbar__link" onClick={() => navigate('/login')}>
-            Entrar
-          </button>
-          <span className="hpsm-topbar__pipe" aria-hidden="true">
-            |
-          </span>
-          <button type="button" className="hpsm-topbar__link" onClick={() => navigate('/register')}>
-            Criar conta
-          </button>
-        </div>
-      </PublicMasthead>
+      <PublicMasthead />
 
       <main className="dl-public__main">
         <section className="dl-box dl-home" aria-labelledby="dl-home-title">
