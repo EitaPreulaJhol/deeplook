@@ -179,6 +179,22 @@ if (await confirm({ title: 'Revogar chave', message: '...', confirmLabel: 'Revog
 O `ConfirmProvider` fica em `main.tsx`, então funciona também fora da casca (janela do
 console).
 
+### Alterações não salvas — `components/useUnsavedChanges.ts`
+
+Formulários com conteúdo digitado avisam antes de perdê-lo (trocar de tela ou de aba
+interna, Voltar, fechar a aba de documento, recarregar a janela):
+
+```tsx
+const { allowNavigation } = useUnsavedChanges(Boolean(title || description));
+// depois de salvar com sucesso e antes de redirecionar:
+allowNavigation();
+navigate(`/entries/${id}`);
+```
+
+Usa o `useBlocker` do React Router, que só funciona com *data router* — por isso o
+`main.tsx` usa `createBrowserRouter` com uma rota `*` que renderiza o `App`. Só um
+formulário com o hook pode estar montado por vez (limite do `useBlocker`).
+
 ### Estado das listas na URL — `components/useEntryListState.ts`
 
 Busca, filtros, ordenação e página das listas ficam na URL
@@ -303,6 +319,7 @@ banco nem da API rodando.
 | `filters.mjs` | troca filtros, busca e Limpar; confere que os filtros sobrevivem a recarregar a página; falha se a tela ficar branca ou a contagem errar |
 | `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso) → novo login |
 | `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |
+| `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 
 ```powershell

@@ -8,6 +8,7 @@ import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
 import { HpsmMessage } from './messages';
 import { StatusText, VerdictTag } from './tags';
+import { useUnsavedChanges } from './useUnsavedChanges';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -34,6 +35,8 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
   const [published, setPublished] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Rascunho do relatorio: sair da aba/tela pede confirmacao.
+  useUnsavedChanges(Boolean(summary || findings || iocs));
 
   const createReport = async () => {
     setError(null);

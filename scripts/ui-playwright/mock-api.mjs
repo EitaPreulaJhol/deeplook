@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
-export const ORIGIN = 'http://deeplook.test';
+// HTTPS: contexto seguro, como em producao (Cloudflare Tunnel). Sem ele o
+// navegador nao expoe crypto.subtle e a checagem de duplicata e pulada.
+export const ORIGIN = 'https://deeplook.test';
 const DIST = '/dist';
 export const OUT = '/work/out';
 mkdirSync(OUT, { recursive: true });

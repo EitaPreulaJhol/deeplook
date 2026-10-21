@@ -16,7 +16,7 @@ próprio HPSM.
 | 1 | Redefinição de senha pelo admin | 🔴 | P–M | Admin / API | ✅ |
 | 2 | Confirmação ao salvar a triagem | 🔴 | P | Amostra | ✅ |
 | 3 | Diálogo de confirmação em ações destrutivas | 🔴 | M | Admin / Sandbox | ✅ |
-| 4 | Aviso de alterações não salvas | 🔴 | M | Formulários | ⬜ |
+| 4 | Aviso de alterações não salvas | 🔴 | M | Formulários | ✅ |
 | 5 | Filtros, ordenação e página na URL | 🔴 | P–M | Listas | ✅ |
 | 6 | "Minha fila" com contadores no navegador | 🟡 | M | Navegador / API | ⬜ |
 | 7 | Atribuição de amostra a um analista | 🟡 | G | Amostra / banco | ⬜ |
@@ -32,9 +32,8 @@ próprio HPSM.
 | 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
 | 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Primeira leva (feita):** 1, 2, 3, 18, 5 e 10 — cada item abaixo traz um bloco
-**Implementado** com o que mudou. **Próximos sugeridos:** 4 (único 🔴 pendente),
-12 e 16 (pequenos), depois 6 e 9.
+**Feitos:** 1, 2, 3, 4, 5, 10 e 18 — cada item abaixo traz um bloco **Implementado**
+com o que mudou. **Próximos sugeridos:** 12 e 16 (pequenos), depois 6 e 9.
 
 ---
 
@@ -88,6 +87,14 @@ próprio HPSM.
 - **Cuidados:** o app usa `<BrowserRouter>`/`<Routes>`; o `useBlocker` do React Router
   exige um *data router*. Começar pelo fechamento de aba e pelo `beforeunload`, ou
   migrar para `createBrowserRouter`.
+- ✅ **Implementado:** `main.tsx` migrou para `createBrowserRouter` (uma rota `*` que
+  renderiza o `App`; as `<Routes>` continuam iguais). Hook
+  `components/useUnsavedChanges.ts` (`useBlocker` + `beforeunload`) com o diálogo
+  "Alterações não salvas — [Descartar] [Continuar editando]". Vale para trocar de
+  tela, trocar de aba interna (`?tab=`), Voltar e fechar a aba de documento — a aba
+  ativa só sai da faixa quando a navegação acontece. Aplicado em Enviar Amostra, Novo
+  relatório, Alterar senha e Preferências. **Limite conhecido:** "Sair" (logout)
+  ainda não pergunta.
 
 ### 5. Filtros, ordenação e página na URL
 - **Problema:** ao trocar de aba de documento a página é recriada e perde busca,

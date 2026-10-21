@@ -12,6 +12,7 @@ import { IconKey, IconRefresh, IconSettings } from '../components/icons';
 import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { roleLabel } from '../components/tags';
+import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { clearWorkspaceTabs } from '../components/workspace';
 
 const TABS = [
@@ -75,6 +76,7 @@ function PasswordTab() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
+  const { allowNavigation } = useUnsavedChanges(Boolean(current || next || confirm));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -96,6 +98,7 @@ function PasswordTab() {
     try {
       // A API encerra todas as sessoes: o usuario volta ao login.
       await changePassword(current, next);
+      allowNavigation();
       clearWorkspaceTabs();
       navigate('/login', {
         replace: true,
@@ -164,6 +167,10 @@ function PreferencesTab() {
   const [draft, setDraft] = useState<Preferences>(preferences);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  useUnsavedChanges(
+    (Object.keys(draft) as (keyof Preferences)[]).some((key) => draft[key] !== preferences[key]),
+  );
 
   const set = <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));

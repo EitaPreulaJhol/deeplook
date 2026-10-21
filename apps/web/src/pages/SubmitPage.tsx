@@ -11,6 +11,7 @@ import { IconAdd, IconArrowLeft } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { VerdictTag } from '../components/tags';
+import { useUnsavedChanges } from '../components/useUnsavedChanges';
 
 /**
  * SHA-256 do arquivo calculado no navegador + amostra ja enviada com o mesmo
@@ -69,6 +70,9 @@ export function SubmitPage() {
   const [urlTags, setUrlTags] = useState('');
   const [tab, setTab] = useState('file');
   const { hash, hashing, duplicate } = useDuplicateCheck(file);
+  const { allowNavigation } = useUnsavedChanges(
+    Boolean(file || title || description || tags || url || urlTitle || urlDescription || urlTags),
+  );
 
   const submitFile = async () => {
     setError(null);
@@ -84,6 +88,7 @@ export function SubmitPage() {
       if (description) form.append('description', description);
       if (tags) form.append('tags', tags);
       const res = await api.post<{ entry: Entry }>('/entries/file', form);
+      allowNavigation();
       navigate(`/entries/${res.entry.id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -106,6 +111,7 @@ export function SubmitPage() {
         description: urlDescription || undefined,
         tags: urlTags || undefined,
       });
+      allowNavigation();
       navigate(`/entries/${res.entry.id}`);
     } catch (err) {
       setError((err as Error).message);

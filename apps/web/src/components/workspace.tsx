@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
@@ -24,6 +24,8 @@ interface WorkspaceContextValue {
   tabs: WorkspaceTab[];
   setTitle: (path: string, title: string) => void;
   close: (path: string) => void;
+  /** Desiste do fechamento em andamento (a navegacao foi bloqueada). */
+  cancelClose: () => void;
 }
 
 const STORAGE_KEY = 'dl-workspace-tabs';
@@ -109,8 +111,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  // Aba ativa sendo fechada: so sai da faixa depois que a navegacao acontece
+  // (ela pode ser bloqueada por alteracoes nao salvas).
+  const pendingClose = useRef<string | null>(null);
+
   // Toda navegacao abre (ou atualiza) a aba da rota atual.
   useEffect(() => {
+    const closing = pendingClose.current;
+    if (closing && closing !== pathname) {
+      pendingClose.current = null;
+      setTabs((current) => current.filter((t) => t.path !== closing));
+    }
     const title = routeTitle(pathname);
     if (!title) return;
     const url = pathname + search;
@@ -140,29 +151,36 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // Fechar a aba ativa leva para a vizinha (direita, senao esquerda).
+  // Fechar a aba ativa leva para a vizinha (direita, senao esquerda); a aba so
+  // e removida quando a navegacao se completa (ver pendingClose).
   const close = useCallback(
     (path: string) => {
       const index = tabs.findIndex((t) => t.path === path);
       if (index < 0) return;
       const rest = tabs.filter((t) => t.path !== path);
-      setTabs(rest);
-      if (path === pathname) {
-        const neighbor = rest[index] ?? rest[index - 1];
-        navigate(neighbor ? neighbor.url : HOME_URL);
+      if (path !== pathname) {
+        setTabs(rest);
+        return;
       }
+      const neighbor = rest[index] ?? rest[index - 1];
+      pendingClose.current = path;
+      navigate(neighbor ? neighbor.url : HOME_URL);
     },
     [tabs, pathname, navigate],
   );
 
+  const cancelClose = useCallback(() => {
+    pendingClose.current = null;
+  }, []);
+
   return (
-    <WorkspaceContext.Provider value={{ tabs, setTitle, close }}>
+    <WorkspaceContext.Provider value={{ tabs, setTitle, close, cancelClose }}>
       {children}
     </WorkspaceContext.Provider>
   );
 }
 
-function useWorkspace(): WorkspaceContextValue {
+export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error('useWorkspace precisa estar dentro de <WorkspaceProvider>.');
   return ctx;
