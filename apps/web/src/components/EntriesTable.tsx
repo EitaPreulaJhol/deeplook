@@ -7,6 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from '@carbon/react';
+import type { KeyboardEvent } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { Entry } from '../api/types';
@@ -67,6 +69,36 @@ export function EntriesTable({
 }: EntriesTableProps) {
   const navigate = useNavigate();
 
+  // Teclado: so uma linha entra no Tab (roving tabindex); setas, Home/End movem
+  // o foco e Enter/Espaco abrem a amostra.
+  const [focusIndex, setFocusIndex] = useState(0);
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
+  const tabbableRow = Math.min(focusIndex, Math.max(entries.length - 1, 0));
+
+  const openEntry = (id: string) => navigate(`/entries/${id}`);
+
+  const onRowKeyDown = (event: KeyboardEvent, index: number, id: string) => {
+    const lastRow = entries.length - 1;
+    const target =
+      event.key === 'ArrowDown'
+        ? Math.min(index + 1, lastRow)
+        : event.key === 'ArrowUp'
+          ? Math.max(index - 1, 0)
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? lastRow
+              : null;
+    if (target !== null) {
+      event.preventDefault();
+      setFocusIndex(target);
+      rowRefs.current[target]?.focus();
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openEntry(id);
+    }
+  };
+
   const headers: { key: EntrySortKey; header: string }[] = [
     { key: 'title', header: 'Amostra' },
     { key: 'type', header: 'Tipo' },
@@ -97,7 +129,7 @@ export function EntriesTable({
           ids antigos (entry undefined -> tela branca). As linhas vem direto de
           `entries`; ordenacao e paginacao ja sao controladas aqui. */}
       <TableContainer>
-        <Table size="xs">
+        <Table size="xs" aria-label="Amostras (setas navegam, Enter abre)">
           <TableHead>
             <TableRow>
               {headers.map((header) => {
@@ -124,11 +156,17 @@ export function EntriesTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {entries.map((entry) => (
+            {entries.map((entry, index) => (
               <TableRow
                 key={entry.id}
-                onClick={() => navigate(`/entries/${entry.id}`)}
-                style={{ cursor: 'pointer' }}
+                ref={(el: HTMLTableRowElement | null) => {
+                  rowRefs.current[index] = el;
+                }}
+                className="hpsm-grid-row"
+                tabIndex={index === tabbableRow ? 0 : -1}
+                onFocus={() => setFocusIndex(index)}
+                onKeyDown={(event: KeyboardEvent) => onRowKeyDown(event, index, entry.id)}
+                onClick={() => openEntry(entry.id)}
               >
                 <TableCell>{entry.title}</TableCell>
                 <TableCell>

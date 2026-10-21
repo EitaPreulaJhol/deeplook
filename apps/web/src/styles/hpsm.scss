@@ -886,6 +886,63 @@ h6 {
   white-space: pre-wrap;
 }
 
+/* Valor com botao de copiar no canto direito. */
+.hpsm-readonly--copyable {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.hpsm-readonly__text {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+/* Botao de copiar (icone 16px); confirma "Copiado" ao lado do icone. */
+.hpsm-copy {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  margin-inline-start: 0.25rem;
+  padding: 1px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dl-text-muted);
+  font-family: var(--dl-font-sans);
+  font-size: 0.6875rem;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.hpsm-copy img {
+  display: block;
+}
+
+.hpsm-copy:hover {
+  border-color: var(--dl-btn-hover-border);
+  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+}
+
+.hpsm-copy:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+.hpsm-copy__status:empty {
+  display: none;
+}
+
+.hpsm-copy.is-copied .hpsm-copy__status {
+  color: var(--dl-success-text);
+}
+
+.hpsm-copy.is-failed .hpsm-copy__status {
+  color: var(--dl-error-text);
+}
+
 /* --- 7. Cabeçalho de página (estilo painel HPSM) ------------------------ */
 .dl-page-head {
   display: flex;
@@ -1095,6 +1152,17 @@ h6 {
 }
 
 /* Campo de arquivo (Enviar Amostra) */
+.dl-shell .cds--file__selected-file {
+  min-block-size: var(--dl-control-h);
+  max-inline-size: 22rem;
+  margin-block-start: 0.25rem;
+  padding-inline-start: 0.5rem;
+}
+
+.dl-shell .cds--file__selected-file .cds--file-filename {
+  font-size: var(--dl-font-size);
+}
+
 .cds--file__selected-file {
   background-color: var(--dl-surface);
   border: 1px solid var(--dl-border);
@@ -1158,6 +1226,21 @@ h6 {
 .cds--data-table th:last-child,
 .cds--data-table td:last-child {
   border-inline-end: 0;
+}
+
+/* Linhas da lista: clicaveis e navegaveis pelo teclado (setas + Enter). A
+   linha com foco ganha o destaque de selecao do HPSM. */
+.hpsm-grid-row {
+  cursor: pointer;
+}
+
+.cds--data-table tbody tr.hpsm-grid-row:focus {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: -1px;
+}
+
+.cds--data-table tbody tr.hpsm-grid-row:focus td {
+  background-color: var(--dl-sidebar-active-bg);
 }
 
 /* Botao de ordenacao dentro do cabecalho (ordem feita no servidor). */

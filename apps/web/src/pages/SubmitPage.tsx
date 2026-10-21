@@ -198,7 +198,9 @@ export function SubmitPage() {
               {file && (hashing || hash) && (
                 <HpsmField label="SHA-256">
                   {hash ? (
-                    <HpsmReadonly mono>{hash}</HpsmReadonly>
+                    <HpsmReadonly mono copyable={{ value: hash, label: 'SHA-256' }}>
+                      {hash}
+                    </HpsmReadonly>
                   ) : (
                     <HpsmLoading text="Calculando o hash do arquivo..." />
                   )}

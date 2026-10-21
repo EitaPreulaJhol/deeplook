@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 
+import { CopyButton } from './CopyButton';
+
 interface HpsmSectionProps {
   title: string;
   /** Comeca aberta (padrao) ou recolhida. */
@@ -86,14 +88,27 @@ export function HpsmField({ label, htmlFor, required, wide, top, help, children 
 export function HpsmReadonly({
   multiline,
   mono,
+  copyable,
   children,
 }: {
   multiline?: boolean;
   mono?: boolean;
+  /** Mostra o botao de copiar: o texto copiado e o que esta sendo copiado. */
+  copyable?: { value: string; label: string };
   children: ReactNode;
 }) {
-  const classes = ['hpsm-readonly', multiline && 'hpsm-readonly--multiline', mono && 'dl-mono']
+  const classes = [
+    'hpsm-readonly',
+    multiline && 'hpsm-readonly--multiline',
+    mono && 'dl-mono',
+    copyable && 'hpsm-readonly--copyable',
+  ]
     .filter(Boolean)
     .join(' ');
-  return <div className={classes}>{children}</div>;
+  return (
+    <div className={classes}>
+      {copyable ? <span className="hpsm-readonly__text">{children}</span> : children}
+      {copyable && <CopyButton value={copyable.value} label={copyable.label} />}
+    </div>
+  );
 }

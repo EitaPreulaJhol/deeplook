@@ -1,4 +1,4 @@
-# Testes visuais do front (Playwright em Docker, API simulada, sem banco).
+﻿# Testes visuais do front (Playwright em Docker, API simulada, sem banco).
 # Pre-requisito: build do web (cd apps/web; npm run build).
 #
 # Uso:
@@ -7,7 +7,7 @@
 #
 # Screenshots em scripts/ui-playwright/out/. Sai com erro se alguma checagem falhar.
 param(
-  [string[]]$Scripts = @('screens', 'filters', 'account', 'actions', 'unsaved')
+  [string[]]$Scripts = @('screens', 'filters', 'account', 'actions', 'unsaved', 'copy-keyboard')
 )
 
 $ErrorActionPreference = 'Stop'

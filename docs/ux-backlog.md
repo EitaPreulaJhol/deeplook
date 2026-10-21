@@ -24,16 +24,17 @@ próprio HPSM.
 | 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra | ⬜ |
 | 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API | ✅ |
 | 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ⬜ |
-| 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios | ⬜ |
+| 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios | ✅ |
 | 13 | Avisos ao entrar ("suas amostras concluídas") | ⚪ | M | Página Inicial / API | ⬜ |
 | 14 | Prazo do sandbox à vista | ⚪ | P–M | Sandbox | ⬜ |
 | 15 | Atalhos de teclado | ⚪ | P | Global | ⬜ |
-| 16 | Linhas da grade navegáveis pelo teclado | ⚪ | P | Listas | ⬜ |
+| 16 | Linhas da grade navegáveis pelo teclado | ⚪ | P | Listas | ✅ |
 | 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
 | 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Feitos:** 1, 2, 3, 4, 5, 10 e 18 — cada item abaixo traz um bloco **Implementado**
-com o que mudou. **Próximos sugeridos:** 12 e 16 (pequenos), depois 6 e 9.
+**Feitos:** 1, 2, 3, 4, 5, 10, 12, 16 e 18 — cada item abaixo traz um bloco
+**Implementado** com o que mudou. **Próximos sugeridos:** 6 e 9 (fluxo dos
+analistas), depois 11 e 14 (pequenos).
 
 ---
 
@@ -186,6 +187,11 @@ com o que mudou. **Próximos sugeridos:** 12 e 16 (pequenos), depois 6 e 9.
   barra de mensagens.
 - **Onde mexer:** prop `copyable` em `HpsmReadonly` (`components/HpsmForm.tsx`) usando
   `navigator.clipboard`; usos em `EntryDetailPage.tsx` e `EntryReportsTab.tsx`.
+- ✅ **Implementado:** componente `components/CopyButton.tsx` (ícone 16px; confirma
+  "Copiado" no próprio botão, sem poluir a barra de mensagens; sem Clipboard API cai
+  no `execCommand('copy')`) e prop `copyable` no `HpsmReadonly`. Usado em SHA-256 e
+  URL da amostra, IOCs dos relatórios, SHA-256 calculado em Enviar Amostra e, no
+  Admin, nos códigos das chaves, na chave criada e na senha temporária.
 
 ### 13. Avisos ao entrar
 - **Proposta:** na Página Inicial, mensagem "2 amostras suas foram concluídas desde a
@@ -211,6 +217,9 @@ com o que mudou. **Próximos sugeridos:** 12 e 16 (pequenos), depois 6 e 9.
 - **Proposta:** linhas focáveis, setas ↑↓ movem o foco, Enter abre a amostra; linha
   com foco destacada como a seleção do HPSM. Hoje só abre com o mouse.
 - **Onde mexer:** `EntriesTable.tsx` (`tabIndex`, `onKeyDown`, *roving tabindex*).
+- ✅ **Implementado:** só uma linha entra no Tab; ↑ ↓ Home End movem o foco; Enter ou
+  Espaço abrem a amostra; a linha com foco usa o destaque de seleção
+  (`.hpsm-grid-row`).
 
 ### 17. Exportar CSV da lista filtrada
 - **Proposta:** ação **Exportar CSV** na linha de filtros (ou menu "Mais ▾"),

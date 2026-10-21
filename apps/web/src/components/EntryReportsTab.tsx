@@ -96,7 +96,7 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
             )}
             {r.iocs && (
               <HpsmField label="IOCs" wide top>
-                <HpsmReadonly multiline mono>
+                <HpsmReadonly multiline mono copyable={{ value: r.iocs, label: 'IOCs' }}>
                   {r.iocs}
                 </HpsmReadonly>
               </HpsmField>

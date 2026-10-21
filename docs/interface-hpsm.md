@@ -102,7 +102,7 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
 | `HpsmSection` | grupo recolhível (+/−) com título |
 | `HpsmForm` | grade de campos; `columns={2}` divide em duas colunas a partir de 64rem |
 | `HpsmField` | rótulo à esquerda com `:` e controle ao lado; `required` (asterisco), `wide` (linha inteira), `top` (multilinha), `help` (texto abaixo) |
-| `HpsmReadonly` | valor travado em caixa cinza; `multiline`, `mono` |
+| `HpsmReadonly` | valor travado em caixa cinza; `multiline`, `mono`, `copyable={{ value, label }}` (botão de copiar) |
 
 ```tsx
 <HpsmSection title="Triagem">
@@ -128,6 +128,8 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
   "Exibindo registros X a Y de N" com « ‹ Anterior · Próxima › ».
 - Filtros numa linha fixa acima da lista (`HpsmFilterBar` + `HpsmFilterItem`), com
   botão **Limpar**. A lista se atualiza sozinha (a busca espera 300ms).
+- Teclado: só uma linha entra no Tab; ↑ ↓ Home End movem o foco e Enter abre a
+  amostra (a linha com foco recebe o destaque de seleção).
 - Lista vazia: a grade continua visível e o aviso vai para a barra de mensagens
   (`<HpsmMessage kind="info">Nenhuma amostra encontrada.</HpsmMessage>`).
 
@@ -163,6 +165,11 @@ Tons: `green`, `red`, `orange`, `blue`, `gray` e `none` (sem bolinha).
 - Para dar nome à aba de **documento** (ex.: o título da amostra), chame
   `useWorkspaceTitle(titulo)` na página. Rotas novas precisam de um título padrão em
   `routeTitle()` (`workspace.tsx`), senão não abrem aba.
+
+### Copiar — `components/CopyButton.tsx`
+
+`<CopyButton value={codigo} label="chave" />` — ícone de copiar que confirma "Copiado"
+no próprio botão. Em campos travados, prefira `<HpsmReadonly copyable={{ value, label }}>`.
 
 ### Confirmação — `components/HpsmConfirm.tsx`
 
@@ -320,6 +327,7 @@ banco nem da API rodando.
 | `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso) → novo login |
 | `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
+| `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 
 ```powershell

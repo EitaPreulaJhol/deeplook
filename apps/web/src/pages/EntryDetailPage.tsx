@@ -197,7 +197,12 @@ export function EntryDetailPage() {
                   wide
                   help="Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado."
                 >
-                  <HpsmReadonly mono>{entry.sha256 || '—'}</HpsmReadonly>
+                  <HpsmReadonly
+                    mono
+                    copyable={entry.sha256 ? { value: entry.sha256, label: 'SHA-256' } : undefined}
+                  >
+                    {entry.sha256 || '—'}
+                  </HpsmReadonly>
                 </HpsmField>
               </HpsmForm>
             </HpsmSection>
@@ -205,7 +210,12 @@ export function EntryDetailPage() {
             <HpsmSection title="Link">
               <HpsmForm>
                 <HpsmField label="URL">
-                  <HpsmReadonly mono>{entry.url}</HpsmReadonly>
+                  <HpsmReadonly
+                    mono
+                    copyable={entry.url ? { value: entry.url, label: 'URL' } : undefined}
+                  >
+                    {entry.url}
+                  </HpsmReadonly>
                 </HpsmField>
               </HpsmForm>
             </HpsmSection>

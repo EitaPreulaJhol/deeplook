@@ -19,6 +19,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { CopyButton } from '../components/CopyButton';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
@@ -169,8 +170,9 @@ export function AdminPage() {
       {resetResult && (
         <HpsmMessage kind="success">
           Senha temporária de {resetResult.name}:{' '}
-          <span className="dl-mono">{resetResult.password}</span> — repasse ao usuário; ela não será
-          mostrada de novo. As sessões dessa pessoa foram encerradas.
+          <span className="dl-mono">{resetResult.password}</span>
+          <CopyButton value={resetResult.password} label="senha temporária" /> — repasse ao usuário;
+          ela não será mostrada de novo. As sessões dessa pessoa foram encerradas.
         </HpsmMessage>
       )}
 
@@ -281,6 +283,7 @@ export function AdminPage() {
             {lastKey && (
               <HpsmMessage kind="success">
                 Chave criada: <span className="dl-mono">{lastKey}</span>
+                <CopyButton value={lastKey} label="chave" />
               </HpsmMessage>
             )}
 
@@ -368,6 +371,7 @@ export function AdminPage() {
                             <TableRow {...getRowProps({ row })} key={row.id}>
                               <TableCell>
                                 <span className="dl-mono">{k.code}</span>
+                                <CopyButton value={k.code} label={`chave ${k.code}`} />
                               </TableCell>
                               <TableCell>
                                 <RoleTag role={k.role} />
