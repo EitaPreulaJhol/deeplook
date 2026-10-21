@@ -25,6 +25,12 @@ export function MyUploadsPage() {
   if (verdict) params.set('verdict', verdict);
   entryListParams(params, sort, offset, pageSize);
 
+  // Exportar CSV: mesma busca, filtros e ordenacao, sem paginacao.
+  const exportParams = new URLSearchParams(params);
+  exportParams.delete('offset');
+  exportParams.delete('limit');
+  const exportHref = `/api/entries/export.csv?${exportParams.toString()}`;
+
   const query = useQuery({
     queryKey: [
       'entries',
@@ -49,7 +55,7 @@ export function MyUploadsPage() {
         subtitle="Acompanhe o controle das amostras que você enviou."
       />
 
-      <HpsmFilterBar onClear={list.clear}>
+      <HpsmFilterBar onClear={list.clear} exportHref={exportHref}>
         <HpsmFilterItem label="Buscar" htmlFor="q">
           <TextInput
             id="q"

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { sha256Hex } from '../lib/crypto';
+import { toCsv } from '../lib/csv';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
@@ -95,7 +96,106 @@ async function resolveTags(names: string[]) {
   return links;
 }
 
+/** Filtros da lista (tambem usados na exportacao CSV). */
+function listWhere(
+  filters: Pick<
+    z.infer<typeof ListQuery>,
+    'scope' | 'type' | 'status' | 'verdict' | 'q' | 'sha256' | 'assignee'
+  >,
+  userId: string,
+): Prisma.EntryWhereInput {
+  const { scope, type, status, verdict, q, sha256, assignee } = filters;
+  const where: Prisma.EntryWhereInput = {};
+  if (scope === 'mine') where.ownerId = userId;
+  if (type) where.type = type;
+  if (status) where.status = status;
+  if (verdict) where.verdict = verdict;
+  if (sha256) where.sha256 = sha256.toLowerCase();
+  if (assignee === 'me') where.assigneeId = userId;
+  if (assignee === 'none') where.assigneeId = null;
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: 'insensitive' } },
+      { description: { contains: q, mode: 'insensitive' } },
+      { url: { contains: q, mode: 'insensitive' } },
+      { sha256: { contains: q, mode: 'insensitive' } },
+      { originalFilename: { contains: q, mode: 'insensitive' } },
+      { tags: { some: { name: { contains: q, mode: 'insensitive' } } } },
+    ];
+  }
+  return where;
+}
+
+/** Limite de linhas da exportacao CSV. */
+const EXPORT_MAX_ROWS = 10_000;
+
+const STATUS_LABELS = { PENDING: 'Pendente', IN_REVIEW: 'Em análise', COMPLETED: 'Concluído' };
+const VERDICT_LABELS = {
+  UNKNOWN: 'Desconhecido',
+  CLEAN: 'Limpo',
+  SUSPICIOUS: 'Suspeito',
+  MALICIOUS: 'Malicioso',
+};
+
 export async function entryRoutes(app: FastifyInstance) {
+  // Exportacao CSV da lista filtrada/ordenada (sem paginacao, ate 10 mil linhas).
+  app.get('/api/entries/export.csv', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const parsed = ListQuery.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
+
+    const items = await prisma.entry.findMany({
+      where: listWhere(parsed.data, user.id),
+      orderBy: listOrderBy(parsed.data.sort, parsed.data.dir),
+      take: EXPORT_MAX_ROWS,
+      include: {
+        owner: { select: { displayName: true } },
+        assignee: { select: { displayName: true } },
+        tags: { select: { name: true } },
+        _count: { select: { reports: true } },
+      },
+    });
+
+    const csv = toCsv(
+      [
+        'ID',
+        'Amostra',
+        'Tipo',
+        'Enviado por',
+        'Responsável',
+        'Status',
+        'Veredito',
+        'Relatórios',
+        'SHA-256',
+        'URL',
+        'Tags',
+        'Enviado em',
+      ],
+      items.map((e) => [
+        e.id,
+        e.title,
+        e.type === 'FILE' ? 'Arquivo' : 'Link',
+        e.owner.displayName,
+        e.assignee?.displayName ?? '',
+        STATUS_LABELS[e.status],
+        VERDICT_LABELS[e.verdict],
+        e._count.reports,
+        e.sha256,
+        e.url,
+        e.tags.map((t) => t.name).join(', '),
+        e.createdAt,
+      ]),
+    );
+
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="deeplook-amostras-${day}.csv"`)
+      .send(csv);
+  });
+
   // Listagem (historico global ou "meus uploads")
   app.get('/api/entries', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -103,27 +203,9 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const parsed = ListQuery.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
-    const { scope, type, status, verdict, q, sha256, assignee, limit, offset, sort, dir } =
-      parsed.data;
+    const { limit, offset, sort, dir } = parsed.data;
 
-    const where: any = {};
-    if (scope === 'mine') where.ownerId = user.id;
-    if (type) where.type = type;
-    if (status) where.status = status;
-    if (verdict) where.verdict = verdict;
-    if (sha256) where.sha256 = sha256.toLowerCase();
-    if (assignee === 'me') where.assigneeId = user.id;
-    if (assignee === 'none') where.assigneeId = null;
-    if (q) {
-      where.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        { url: { contains: q, mode: 'insensitive' } },
-        { sha256: { contains: q, mode: 'insensitive' } },
-        { originalFilename: { contains: q, mode: 'insensitive' } },
-        { tags: { some: { name: { contains: q, mode: 'insensitive' } } } },
-      ];
-    }
+    const where = listWhere(parsed.data, user.id);
 
     const [total, items] = await Promise.all([
       prisma.entry.count({ where }),

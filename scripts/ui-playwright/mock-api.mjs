@@ -94,6 +94,10 @@ export function createState({ loggedIn = false } = {}) {
     calls: [],
     /** Ambiente isolado por amostra (id da amostra -> sessao), ex.: { e2: {...} }. */
     sandboxes: {},
+    /** Resposta de GET /api/me/updates (novidades desde a ultima visita). */
+    updates: { since: null, completed: [] },
+    /** Query string da ultima exportacao CSV recebida. */
+    lastExport: null,
   };
 }
 
@@ -150,6 +154,19 @@ export async function setupMock(context, state) {
           if (sp.get(k)) items = items.filter((e) => e[k] === sp.get(k));
         }
         return json(route, 200, { total: items.length, limit: Number(sp.get('limit') || 50), offset: 0, items });
+      }
+      if (p === '/api/me/updates') return json(route, 200, state.updates);
+      if (p === '/api/entries/export.csv') {
+        state.lastExport = url.search;
+        const csv = 'ID;Amostra\r\n' + entries.map((e) => `${e.id};${e.title}`).join('\r\n');
+        return route.fulfill({
+          status: 200,
+          headers: {
+            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="deeplook-amostras-20261021.csv"',
+          },
+          body: csv,
+        });
       }
       if (p === '/api/entries/counts') {
         const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };

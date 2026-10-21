@@ -39,6 +39,27 @@ function publicUser(u: {
   };
 }
 
+/** Pausa que separa duas visitas: abrir o app depois disso conta como nova visita. */
+const VISIT_GAP_MS = 30 * 60 * 1000;
+
+/**
+ * Registra a atividade do usuario. Se a ultima atividade foi ha mais de 30 min,
+ * ela vira a "visita anterior" (base dos avisos da Pagina Inicial).
+ */
+async function touchVisit(userId: string): Promise<void> {
+  const record = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { lastSeenAt: true },
+  });
+  const now = new Date();
+  const last = record?.lastSeenAt;
+  const newVisit = !last || now.getTime() - last.getTime() > VISIT_GAP_MS;
+  await prisma.user.update({
+    where: { id: userId },
+    data: newVisit ? { previousSeenAt: last ?? null, lastSeenAt: now } : { lastSeenAt: now },
+  });
+}
+
 export async function authRoutes(app: FastifyInstance) {
   // Cadastro somente via chave de ativacao gerada por um admin.
   app.post('/api/auth/register', async (req, reply) => {
@@ -125,6 +146,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/api/auth/me', async (req, reply) => {
     const user = await loadUser(req);
     if (!user) return reply.code(401).send({ error: 'Nao autenticado.' });
+    await touchVisit(user.id);
     return reply.send({ user });
   });
 }

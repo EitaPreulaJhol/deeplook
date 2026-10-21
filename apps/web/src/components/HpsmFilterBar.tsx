@@ -5,13 +5,32 @@ import type { ReactNode } from 'react';
  * Linha de filtro fixa acima da lista (como os seletores "Fila:" / "Visao:"
  * do HP Service Manager). A lista se atualiza sozinha ao mudar um filtro.
  */
-export function HpsmFilterBar({ onClear, children }: { onClear: () => void; children: ReactNode }) {
+export function HpsmFilterBar({
+  onClear,
+  exportHref,
+  children,
+}: {
+  onClear: () => void;
+  /** URL do CSV com os mesmos filtros (mostra o botao "Exportar CSV"). */
+  exportHref?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="hpsm-filterbar" role="search">
       {children}
       <Button kind="secondary" size="sm" onClick={onClear}>
         Limpar
       </Button>
+      {exportHref && (
+        <Button
+          kind="secondary"
+          size="sm"
+          href={exportHref}
+          title="Baixar a lista filtrada (todas as páginas) em CSV"
+        >
+          Exportar CSV
+        </Button>
+      )}
     </div>
   );
 }

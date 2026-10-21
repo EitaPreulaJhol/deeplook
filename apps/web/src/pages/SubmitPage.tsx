@@ -11,6 +11,7 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconAdd, IconArrowLeft } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { useSaveShortcut } from '../components/shortcuts';
 import { VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 
@@ -121,6 +122,9 @@ export function SubmitPage() {
     }
   };
 
+  // Ctrl+S envia o formulario da aba atual.
+  useSaveShortcut(tab === 'file' ? submitFile : submitUrl, !loading);
+
   return (
     <>
       <PageHeader
@@ -131,6 +135,7 @@ export function SubmitPage() {
       <HpsmToolbar label="Ações do envio">
         <HpsmToolbarButton
           label={loading ? 'Enviando...' : tab === 'file' ? 'Enviar arquivo' : 'Enviar link'}
+          title="Enviar (Ctrl+S)"
           icon={IconAdd}
           disabled={loading}
           onClick={tab === 'file' ? submitFile : submitUrl}

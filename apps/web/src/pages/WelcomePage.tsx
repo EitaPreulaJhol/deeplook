@@ -1,13 +1,39 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@carbon/react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
+import { api } from '../api/client';
+import type { Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { HpsmSection } from '../components/HpsmForm';
+import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { VerdictTag } from '../components/tags';
+
+interface Updates {
+  since: string | null;
+  completed: { entryId: string; title: string; verdict: Verdict; completedAt: string }[];
+}
 
 /** Pagina inicial do app logado: texto introdutorio de boas-vindas. */
 export function WelcomePage() {
   const { user } = useAuth();
   const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
+
+  // Amostras do usuario concluidas desde a visita anterior.
+  const updatesQuery = useQuery({
+    queryKey: ['me', 'updates'],
+    queryFn: () => api.get<Updates>('/me/updates'),
+  });
+  const completed = updatesQuery.data?.completed ?? [];
 
   return (
     <>
@@ -16,7 +42,46 @@ export function WelcomePage() {
         subtitle={user ? `Bem-vindo(a), ${user.displayName}.` : undefined}
       />
 
+      {completed.length > 0 && (
+        <HpsmMessage kind="info">
+          {completed.length === 1
+            ? '1 amostra sua foi concluída desde a sua última visita.'
+            : `${completed.length} amostras suas foram concluídas desde a sua última visita.`}
+        </HpsmMessage>
+      )}
+
       <div className="dl-welcome">
+        {completed.length > 0 && (
+          <HpsmSection title="Novidades desde a sua última visita">
+            <TableContainer>
+              <Table size="xs" aria-label="Amostras concluídas desde a última visita">
+                <TableHead>
+                  <TableRow>
+                    <TableHeader scope="col">Amostra</TableHeader>
+                    <TableHeader scope="col">Veredito</TableHeader>
+                    <TableHeader scope="col">Concluída em</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {completed.map((item) => (
+                    <TableRow key={item.entryId}>
+                      <TableCell>
+                        <Link className="dl-link" to={`/entries/${item.entryId}`}>
+                          {item.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <VerdictTag verdict={item.verdict} />
+                      </TableCell>
+                      <TableCell>{new Date(item.completedAt).toLocaleString('pt-BR')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </HpsmSection>
+        )}
+
         <HpsmSection title="Bem-vindo ao DeepLook">
           <p>
             O <strong>DeepLook</strong> é uma plataforma colaborativa para análise e verificação de
@@ -67,6 +132,12 @@ export function WelcomePage() {
                 Minha conta
               </Link>{' '}
               para trocar a senha e ajustar suas preferências, inclusive qual tela abre ao entrar.
+            </li>
+            <li>
+              Atalhos: <kbd>/</kbd> busca na lista, <kbd>Alt</kbd>+<kbd>N</kbd> enviar amostra,{' '}
+              <kbd>Alt</kbd>+<kbd>W</kbd> fechar a aba atual, <kbd>Ctrl</kbd>+<kbd>S</kbd> salvar o
+              formulário aberto e, na lista, <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> para abrir
+              uma amostra.
             </li>
             <li>
               Atenção: as amostras podem ser maliciosas. Baixe e execute arquivos apenas em ambiente

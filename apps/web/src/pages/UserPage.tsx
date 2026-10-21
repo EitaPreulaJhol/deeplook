@@ -11,6 +11,7 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey, IconRefresh, IconSettings } from '../components/icons';
 import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { useSaveShortcut } from '../components/shortcuts';
 import { roleLabel } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { clearWorkspaceTabs } from '../components/workspace';
@@ -110,11 +111,14 @@ function PasswordTab() {
     }
   };
 
+  useSaveShortcut(save, !saving);
+
   return (
     <HpsmSection title="Alterar senha" className="dl-form-col">
       <HpsmToolbar label="Ações da senha">
         <HpsmToolbarButton
           label={saving ? 'Salvando...' : 'Salvar senha'}
+          title="Salvar (Ctrl+S)"
           icon={IconKey}
           disabled={saving}
           onClick={save}
@@ -189,11 +193,14 @@ function PreferencesTab() {
     }
   };
 
+  useSaveShortcut(save, !saving);
+
   return (
     <HpsmSection title="Preferências de uso" className="dl-form-col">
       <HpsmToolbar label="Ações das preferências">
         <HpsmToolbarButton
           label={saving ? 'Salvando...' : 'Salvar preferências'}
+          title="Salvar (Ctrl+S)"
           icon={IconSettings}
           disabled={saving}
           onClick={save}

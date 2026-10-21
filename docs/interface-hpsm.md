@@ -182,6 +182,19 @@ Tons: `green`, `red`, `orange`, `blue`, `gray` e `none` (sem bolinha).
 [Selecionar arquivo]" e a linha do arquivo escolhido (nome, tamanho, Remover). Usado
 no lugar do `FileUploader` do Carbon. `formatFileSize()` vem do mesmo arquivo.
 
+### Atalhos de teclado — `components/shortcuts.tsx`
+
+| Tecla | Ação |
+|---|---|
+| `/` | foca a busca da lista (fora de campos de texto) |
+| `Alt+N` | abre Enviar Amostra |
+| `Alt+W` | fecha a aba de documento atual |
+| `Ctrl+S` | salva o formulário aberto |
+| `↑ ↓ Home End` + `Enter` | navegam e abrem amostras na grade |
+
+Para o `Ctrl+S` valer numa tela nova: `useSaveShortcut(salvar, !salvando)` — e ponha
+`title="Salvar (Ctrl+S)"` no botão da toolbar.
+
 ### Copiar — `components/CopyButton.tsx`
 
 `<CopyButton value={codigo} label="chave" />` — ícone de copiar que confirma "Copiado"
@@ -301,6 +314,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/analysts` | analistas/admins ativos (select de Responsável); só para analistas |
 | GET | `/api/entries/counts` | contadores das filas: `{ counts: { PENDING, IN_REVIEW, COMPLETED }, mine }` |
 | GET | `/api/entries/:id/events` | histórico da amostra (aba Histórico) |
+| GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
+| GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
 
 `GET /api/entries` aceita também `assignee=me|none` e `sort=assignee`;
 `PATCH /api/entries/:id` aceita `assigneeId` (id do analista ou `null`).
@@ -353,6 +368,7 @@ banco nem da API rodando.
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
+| `news-shortcuts-export.mjs` | novidades na Página Inicial, atalhos (`/`, Alt+N, Alt+W, Ctrl+S) e download do CSV com os filtros |
 | `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 

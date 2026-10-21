@@ -7,6 +7,7 @@ import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
 import { HpsmMessage } from './messages';
+import { useSaveShortcut } from './shortcuts';
 import { StatusText, VerdictTag } from './tags';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
@@ -64,6 +65,9 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
     }
   };
 
+  // Ctrl+S salva o novo relatorio (so quem pode criar relatorios).
+  useSaveShortcut(createReport, canTriage && !saving);
+
   return (
     <>
       {reports.length === 0 && (
@@ -110,6 +114,7 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
           <HpsmToolbar label="Ações do relatório">
             <HpsmToolbarButton
               label={saving ? 'Salvando...' : 'Salvar relatório'}
+              title="Salvar (Ctrl+S)"
               icon={IconAdd}
               disabled={saving}
               onClick={createReport}

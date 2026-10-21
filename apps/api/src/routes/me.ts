@@ -26,6 +26,44 @@ export async function meRoutes(app: FastifyInstance) {
     return reply.send({ preferences: resolvePreferences(preferences) });
   });
 
+  // Novidades desde a visita anterior: amostras do usuario concluidas por outra
+  // pessoa (evento STATUS_CHANGED -> COMPLETED). Usado na Pagina Inicial.
+  app.get('/api/me/updates', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const record = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { previousSeenAt: true },
+    });
+    const since = record?.previousSeenAt ?? null;
+    if (!since) return reply.send({ since: null, completed: [] });
+
+    const events = await prisma.entryEvent.findMany({
+      where: {
+        type: 'STATUS_CHANGED',
+        toValue: 'COMPLETED',
+        createdAt: { gt: since },
+        NOT: { actorId: user.id },
+        entry: { ownerId: user.id },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { entry: { select: { id: true, title: true, verdict: true } } },
+    });
+
+    // Uma linha por amostra (a conclusao mais recente).
+    const seen = new Set<string>();
+    const completed = events
+      .filter((e) => !seen.has(e.entryId) && seen.add(e.entryId))
+      .map((e) => ({
+        entryId: e.entry.id,
+        title: e.entry.title,
+        verdict: e.entry.verdict,
+        completedAt: e.createdAt,
+      }));
+    return reply.send({ since, completed });
+  });
+
   // 5 tentativas a cada 5 min por sessao: impede adivinhar a senha atual.
   const passwordLimit = attemptLimit(
     (req) =>

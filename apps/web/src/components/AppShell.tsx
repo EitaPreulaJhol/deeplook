@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { HpsmSidebar } from './HpsmSidebar';
 import { HpsmTopBar } from './HpsmTopBar';
 import { HpsmMessageBar, MessageSlotProvider } from './messages';
+import { ShortcutsProvider } from './shortcuts';
 import { WorkspaceProvider, WorkspaceTabs } from './workspace';
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -16,27 +17,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <Theme theme="g10">
       <WorkspaceProvider>
-        <div className="dl-shell">
-          <HpsmTopBar onToggleSidebar={() => setSidebarOpen((value) => !value)} />
+        <ShortcutsProvider>
+          <div className="dl-shell">
+            <HpsmTopBar onToggleSidebar={() => setSidebarOpen((value) => !value)} />
 
-          <div className="dl-shell__body">
-            <HpsmSidebar open={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
+            <div className="dl-shell__body">
+              <HpsmSidebar open={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
 
-            <div
-              className={`hpsm-backdrop${sidebarOpen ? ' is-open' : ''}`}
-              onClick={() => setSidebarOpen(false)}
-              aria-hidden="true"
-            />
+              <div
+                className={`hpsm-backdrop${sidebarOpen ? ' is-open' : ''}`}
+                onClick={() => setSidebarOpen(false)}
+                aria-hidden="true"
+              />
 
-            <main className="dl-content">
-              <WorkspaceTabs />
-              <HpsmMessageBar slotRef={setMessageSlot} />
-              <MessageSlotProvider value={messageSlot}>
-                <div className="dl-content__body">{children}</div>
-              </MessageSlotProvider>
-            </main>
+              <main className="dl-content">
+                <WorkspaceTabs />
+                <HpsmMessageBar slotRef={setMessageSlot} />
+                <MessageSlotProvider value={messageSlot}>
+                  <div className="dl-content__body">{children}</div>
+                </MessageSlotProvider>
+              </main>
+            </div>
           </div>
-        </div>
+        </ShortcutsProvider>
       </WorkspaceProvider>
     </Theme>
   );

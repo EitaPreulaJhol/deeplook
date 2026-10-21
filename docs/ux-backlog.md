@@ -25,15 +25,15 @@ próprio HPSM.
 | 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API | ✅ |
 | 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ✅ |
 | 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios | ✅ |
-| 13 | Avisos ao entrar ("suas amostras concluídas") | ⚪ | M | Página Inicial / API | ⬜ |
+| 13 | Avisos ao entrar ("suas amostras concluídas") | ⚪ | M | Página Inicial / API | ✅ |
 | 14 | Prazo do sandbox à vista | ⚪ | P–M | Sandbox | ✅ |
-| 15 | Atalhos de teclado | ⚪ | P | Global | ⬜ |
+| 15 | Atalhos de teclado | ⚪ | P | Global | ✅ |
 | 16 | Linhas da grade navegáveis pelo teclado | ⚪ | P | Listas | ✅ |
-| 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
+| 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ✅ |
 | 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Feitos:** 1 a 12, 14, 16 e 18 — cada item abaixo traz um bloco **Implementado** com
-o que mudou. **Pendentes:** 13, 15 e 17.
+**Todos os 18 itens foram implementados** — cada item abaixo traz um bloco
+**Implementado** com o que mudou e os limites conhecidos.
 
 ---
 
@@ -227,6 +227,12 @@ o que mudou. **Pendentes:** 13, 15 e 17.
   sua última visita" com link para Meus Uploads.
 - **Onde mexer:** `User.lastSeenAt` (ou data da sessão anterior) + endpoint de
   novidades; `WelcomePage.tsx`.
+- ✅ **Implementado:** `User.lastSeenAt`/`previousSeenAt` (migração
+  `20261024000000_user_visits`), atualizados em `GET /api/auth/me`: abrir o app depois
+  de mais de 30 min parado conta como nova visita. `GET /api/me/updates` usa o
+  histórico (ideia 8) — amostras do usuário concluídas por outra pessoa depois da
+  visita anterior. A Página Inicial mostra o aviso na barra de mensagens e a seção
+  "Novidades desde a sua última visita" (amostra, veredito, data).
 
 ### 14. Prazo do sandbox à vista
 - **Proposta:** tempo restante no título da aba de documento da amostra
@@ -246,6 +252,11 @@ o que mudou. **Pendentes:** 13, 15 e 17.
   Página Inicial (seção Dicas).
 - **Onde mexer:** um *handler* global em `AppShell.tsx`; registro do "salvar" atual
   via contexto pelas páginas com formulário.
+- ✅ **Implementado:** `components/shortcuts.tsx` (`ShortcutsProvider` na casca +
+  `useSaveShortcut`). `/` foca a busca, `Alt+N` abre Enviar Amostra, `Alt+W` fecha a
+  aba de documento (respeitando o aviso de alterações não salvas) e `Ctrl+S` salva
+  Enviar Amostra, Novo relatório, Alterar senha e Preferências — os botões mostram o
+  atalho na dica. Lista dos atalhos na Página Inicial (Dicas).
 
 ### 16. Linhas da grade navegáveis pelo teclado
 - **Proposta:** linhas focáveis, setas ↑↓ movem o foco, Enter abre a amostra; linha
@@ -260,3 +271,8 @@ o que mudou. **Pendentes:** 13, 15 e 17.
   respeitando filtros e ordenação.
 - **Onde mexer:** API `GET /api/entries/export.csv` com os mesmos parâmetros de
   `ListQuery` (sem o limite de 100); botão em `HpsmFilterBar`.
+- ✅ **Implementado:** `GET /api/entries/export.csv` reaproveita os filtros da lista
+  (`listWhere`) e a ordenação, sem paginação (até 10 mil linhas). CSV para o Excel
+  em português (`;` e BOM UTF-8), rótulos em português e proteção contra injeção de
+  fórmula (`lib/csv.ts`). Botão **Exportar CSV** na barra de filtros do Histórico
+  Global e de Meus Uploads.

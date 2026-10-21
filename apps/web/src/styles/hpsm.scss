@@ -1853,6 +1853,20 @@ h6 {
   list-style: disc;
 }
 
+/* Tecla de atalho no texto (estilo das teclas do HPSM / Windows classico). */
+.dl-welcome kbd {
+  display: inline-block;
+  min-inline-size: 1rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--dl-btn-border);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--dl-btn-1) 0%, var(--dl-btn-2) 100%);
+  font-family: var(--dl-font-sans);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .dl-welcome li + li {
   margin-block-start: 0.3rem;
 }
