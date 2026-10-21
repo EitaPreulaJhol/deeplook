@@ -22,6 +22,8 @@ export interface Preferences {
   startPage: StartPage;
   pageSize: 25 | 50 | 100;
   restoreTabs: boolean;
+  /** Painel de detalhe abaixo das listas. */
+  detailPane: boolean;
 }
 
 /** Usuario da sessao atual: inclui as preferencias. */

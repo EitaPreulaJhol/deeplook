@@ -8,6 +8,8 @@ export const PreferencesSchema = z.object({
   pageSize: z.union([z.literal(25), z.literal(50), z.literal(100)]),
   /** Reabre as abas de documento da sessao anterior ao entrar. */
   restoreTabs: z.boolean(),
+  /** Painel de detalhe abaixo das listas (clique seleciona, duplo clique abre). */
+  detailPane: z.boolean(),
 });
 
 export type Preferences = z.infer<typeof PreferencesSchema>;
@@ -16,6 +18,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   startPage: 'welcome',
   pageSize: 50,
   restoreTabs: true,
+  detailPane: false,
 };
 
 /** Atualizacao parcial; chaves desconhecidas sao recusadas. */

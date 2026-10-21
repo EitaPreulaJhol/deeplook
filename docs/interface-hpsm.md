@@ -136,6 +136,9 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
   botão **Limpar**. A lista se atualiza sozinha (a busca espera 300ms).
 - Teclado: só uma linha entra no Tab; ↑ ↓ Home End movem o foco e Enter abre a
   amostra (a linha com foco recebe o destaque de seleção).
+- Painel de detalhe (preferência `detailPane`, desligada por padrão): clique/setas
+  selecionam e mostram o resumo abaixo da grade (`EntryPreviewPane`); duplo clique ou
+  Enter abrem a ficha.
 - Abrir uma linha guarda a sequência da página (`components/entryNav.ts`); a ficha da
   amostra mostra **◀ Anterior / Próxima ▶** e "Registro N de M" na toolbar.
 - Lista vazia: a grade continua visível e o aviso vai para a barra de mensagens
@@ -336,6 +339,7 @@ Guardadas na coluna JSON `User.preferences` (migração
 | `startPage` | **`welcome`** · `history` · `mine` | destino após o login e na raiz `/` |
 | `pageSize` | 25 · **50** · 100 | Histórico Global e Meus Uploads |
 | `restoreTabs` | **`true`** · `false` | reabre as abas de documento da sessão anterior ao entrar (cópia por usuário no `localStorage`) |
+| `detailPane` | `true` · **`false`** | painel de detalhe abaixo das listas (clique seleciona, duplo clique abre) |
 
 ### Como adicionar uma preferência
 
@@ -368,6 +372,7 @@ banco nem da API rodando.
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
+| `detail-pane.mjs` | painel de detalhe: desligado o clique abre; ligado, seleção, setas, duplo clique, Enter e "Abrir amostra" |
 | `news-shortcuts-export.mjs` | novidades na Página Inicial, atalhos (`/`, Alt+N, Alt+W, Ctrl+S) e download do CSV com os filtros |
 | `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |

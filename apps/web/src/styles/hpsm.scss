@@ -1279,8 +1279,14 @@ h6 {
   outline-offset: -1px;
 }
 
-.cds--data-table tbody tr.hpsm-grid-row:focus td {
+.cds--data-table tbody tr.hpsm-grid-row:focus td,
+.cds--data-table tbody tr.hpsm-grid-row.is-selected td {
   background-color: var(--dl-sidebar-active-bg);
+}
+
+/* Painel de detalhe abaixo da lista. */
+.dl-preview {
+  margin-top: 0.5rem;
 }
 
 /* Botao de ordenacao dentro do cabecalho (ordem feita no servidor). */

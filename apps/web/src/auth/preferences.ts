@@ -5,6 +5,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   startPage: 'welcome',
   pageSize: 50,
   restoreTabs: true,
+  detailPane: false,
 };
 
 const START_PATHS: Record<StartPage, string> = {

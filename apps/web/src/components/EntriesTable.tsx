@@ -12,7 +12,9 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { Entry } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { saveEntrySequence } from './entryNav';
+import { EntryPreviewPane } from './EntryPreviewPane';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
@@ -69,6 +71,14 @@ export function EntriesTable({
   onPageChange,
 }: EntriesTableProps) {
   const navigate = useNavigate();
+  const { preferences } = useAuth();
+
+  // Painel de detalhe (preferencia): clique seleciona a linha e mostra o resumo
+  // abaixo da grade; duplo clique ou Enter abrem a amostra. Desligado, o clique
+  // abre direto. A selecao so vale para linhas da pagina atual.
+  const detailPane = preferences.detailPane;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = detailPane ? (entries.find((e) => e.id === selectedId) ?? null) : null;
 
   // Teclado: so uma linha entra no Tab (roving tabindex); setas, Home/End movem
   // o foco e Enter/Espaco abrem a amostra.
@@ -135,7 +145,14 @@ export function EntriesTable({
           ids antigos (entry undefined -> tela branca). As linhas vem direto de
           `entries`; ordenacao e paginacao ja sao controladas aqui. */}
       <TableContainer>
-        <Table size="xs" aria-label="Amostras (setas navegam, Enter abre)">
+        <Table
+          size="xs"
+          aria-label={
+            detailPane
+              ? 'Amostras (setas selecionam, Enter ou duplo clique abre)'
+              : 'Amostras (setas navegam, Enter abre)'
+          }
+        >
           <TableHead>
             <TableRow>
               {headers.map((header) => {
@@ -168,11 +185,16 @@ export function EntriesTable({
                 ref={(el: HTMLTableRowElement | null) => {
                   rowRefs.current[index] = el;
                 }}
-                className="hpsm-grid-row"
+                className={`hpsm-grid-row${selected?.id === entry.id ? ' is-selected' : ''}`}
                 tabIndex={index === tabbableRow ? 0 : -1}
-                onFocus={() => setFocusIndex(index)}
+                aria-selected={detailPane ? selected?.id === entry.id : undefined}
+                onFocus={() => {
+                  setFocusIndex(index);
+                  if (detailPane) setSelectedId(entry.id);
+                }}
                 onKeyDown={(event: KeyboardEvent) => onRowKeyDown(event, index, entry.id)}
-                onClick={() => openEntry(entry.id)}
+                onClick={() => (detailPane ? setSelectedId(entry.id) : openEntry(entry.id))}
+                onDoubleClick={() => detailPane && openEntry(entry.id)}
               >
                 <TableCell>{entry.title}</TableCell>
                 <TableCell>
@@ -242,6 +264,7 @@ export function EntriesTable({
           </button>
         </div>
       </div>
+      {selected && <EntryPreviewPane entryId={selected.id} onOpen={() => openEntry(selected.id)} />}
     </>
   );
 }

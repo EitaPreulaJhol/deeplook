@@ -289,7 +289,7 @@ HP Service Manager 9 (indicados em cada item).
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ⬜ |
+| 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ✅ |
 | 20 | Atualização em massa | Mass Update | 🟡 | M | ⬜ |
 | 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ⬜ |
 | 22 | Registros relacionados | aba Related Records | 🟡 | M | ⬜ |
@@ -317,6 +317,12 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   mesmo da ficha); preferência em `lib/preferences.ts` / `UserPage.tsx`.
 - **Cuidados:** muda o comportamento do clique — manter Enter abrindo; a navegação por
   setas (ideia 16) passa a atualizar o painel; `aria-selected` na linha.
+- ✅ **Implementado (decisão: opcional):** preferência **Painel de detalhe** em Minha
+  Conta, **desligada por padrão** — desligada, o clique continua abrindo a amostra.
+  Ligada, o clique (e as setas) selecionam a linha e mostram `EntryPreviewPane` abaixo
+  da grade (tipo, envio, status, veredito, responsável, tags, SHA-256/URL copiável e
+  último relatório publicado); duplo clique, Enter ou "Abrir amostra" abrem a ficha.
+  O painel usa o mesmo cache da ficha (`['entry', id]`).
 
 ### 20. Atualização em massa
 - **Problema:** mudar status, veredito ou responsável de muitas amostras exige abrir

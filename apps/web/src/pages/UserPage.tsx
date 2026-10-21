@@ -256,6 +256,14 @@ function PreferencesTab() {
             onChange={(_, { checked }) => set('restoreTabs', checked)}
           />
         </HpsmField>
+        <HpsmField label="Painel de detalhe">
+          <Checkbox
+            id="pref-detail-pane"
+            labelText="Mostrar o resumo da amostra abaixo das listas (clique seleciona, duplo clique abre)"
+            checked={draft.detailPane}
+            onChange={(_, { checked }) => set('detailPane', checked)}
+          />
+        </HpsmField>
       </HpsmForm>
     </HpsmSection>
   );
