@@ -18,6 +18,8 @@ import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
+import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
@@ -32,6 +34,8 @@ function fmtDate(iso?: string | null): string {
 
 export function AdminPage() {
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
 
   const usersQuery = useQuery({
@@ -87,7 +91,67 @@ export function AdminPage() {
     }
   };
 
-  const revokeKey = async (id: string) => {
+  // Senha temporaria gerada pela ultima redefinicao (mostrada uma unica vez).
+  const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null);
+
+  const resetPassword = async (u: User) => {
+    const ok = await confirm({
+      title: 'Redefinir senha',
+      message: (
+        <>
+          Deseja redefinir a senha de <strong>{u.displayName}</strong>? Uma senha temporária será
+          gerada e todas as sessões dessa pessoa serão encerradas.
+        </>
+      ),
+      confirmLabel: 'Redefinir',
+      danger: true,
+    });
+    if (!ok) return;
+    setError(null);
+    setResetResult(null);
+    try {
+      const res = await api.post<{ temporaryPassword: string }>(
+        `/admin/users/${u.id}/reset-password`,
+        {},
+      );
+      setResetResult({ name: u.displayName, password: res.temporaryPassword });
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const toggleStatus = async (u: User) => {
+    if (u.status === 'ACTIVE') {
+      const ok = await confirm({
+        title: 'Suspender usuário',
+        message: (
+          <>
+            Deseja realmente suspender <strong>{u.displayName}</strong>? A pessoa perde o acesso
+            imediatamente.
+          </>
+        ),
+        confirmLabel: 'Suspender',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    await updateUser(u.id, { status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' });
+  };
+
+  const revokeKey = async (key: ActivationKey) => {
+    const ok = await confirm({
+      title: 'Revogar chave',
+      message: (
+        <>
+          Deseja realmente revogar a chave <span className="dl-mono">{key.code}</span>? Ela deixa de
+          aceitar novos cadastros.
+        </>
+      ),
+      confirmLabel: 'Revogar',
+      danger: true,
+    });
+    if (!ok) return;
+    const id = key.id;
     setError(null);
     try {
       await api.del(`/admin/activation-keys/${id}`);
@@ -102,6 +166,13 @@ export function AdminPage() {
       <PageHeader title="Administração" subtitle="Gerencie o funcionamento da aplicação." />
 
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+      {resetResult && (
+        <HpsmMessage kind="success">
+          Senha temporária de {resetResult.name}:{' '}
+          <span className="dl-mono">{resetResult.password}</span> — repasse ao usuário; ela não será
+          mostrada de novo. As sessões dessa pessoa foram encerradas.
+        </HpsmMessage>
+      )}
 
       <HpsmTabs
         ariaLabel="Administração"
@@ -176,13 +247,22 @@ export function AdminPage() {
                                   <Button
                                     size="sm"
                                     kind={u.status === 'ACTIVE' ? 'danger--tertiary' : 'tertiary'}
-                                    onClick={() =>
-                                      updateUser(u.id, {
-                                        status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE',
-                                      })
-                                    }
+                                    onClick={() => toggleStatus(u)}
                                   >
                                     {u.status === 'ACTIVE' ? 'Suspender' : 'Reativar'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    kind="tertiary"
+                                    disabled={u.id === currentUser?.id}
+                                    title={
+                                      u.id === currentUser?.id
+                                        ? 'Use Minha conta > Alterar senha'
+                                        : undefined
+                                    }
+                                    onClick={() => resetPassword(u)}
+                                  >
+                                    Redefinir senha
                                   </Button>
                                 </div>
                               </TableCell>
@@ -310,7 +390,7 @@ export function AdminPage() {
                                   size="sm"
                                   kind="danger--tertiary"
                                   disabled={k.revoked}
-                                  onClick={() => revokeKey(k.id)}
+                                  onClick={() => revokeKey(k)}
                                 >
                                   Revogar
                                 </Button>

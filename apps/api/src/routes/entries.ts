@@ -17,6 +17,11 @@ const ListQuery = z.object({
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
   q: z.string().optional(),
+  /** Hash exato (64 hex): usado para avisar que a amostra ja foi enviada. */
+  sha256: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/i)
+    .optional(),
   limit: z.coerce.number().min(1).max(100).default(25),
   offset: z.coerce.number().min(0).default(0),
   sort: z
@@ -90,13 +95,14 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const parsed = ListQuery.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
-    const { scope, type, status, verdict, q, limit, offset, sort, dir } = parsed.data;
+    const { scope, type, status, verdict, q, sha256, limit, offset, sort, dir } = parsed.data;
 
     const where: any = {};
     if (scope === 'mine') where.ownerId = user.id;
     if (type) where.type = type;
     if (status) where.status = status;
     if (verdict) where.verdict = verdict;
+    if (sha256) where.sha256 = sha256.toLowerCase();
     if (q) {
       where.OR = [
         { title: { contains: q, mode: 'insensitive' } },

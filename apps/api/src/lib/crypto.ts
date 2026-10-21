@@ -19,6 +19,17 @@ export function sha256Hex(buf: Buffer): string {
 }
 
 /**
+ * Senha temporaria legivel para o admin repassar ao usuario,
+ * ex.: k7Tm-Q2xa-9PwR (14 caracteres, sem caracteres ambiguos).
+ */
+export function generateTemporaryPassword(): string {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const block = () =>
+    Array.from({ length: 4 }, () => alphabet[crypto.randomInt(alphabet.length)]).join('');
+  return `${block()}-${block()}-${block()}`;
+}
+
+/**
  * Gera uma chave de ativacao legivel, ex.: DL-A1B2-C3D4-E5F6
  * O alfabeto evita caracteres ambiguos (I, O, 0, 1).
  */

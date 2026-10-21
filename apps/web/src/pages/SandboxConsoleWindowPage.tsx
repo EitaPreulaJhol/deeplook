@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { SandboxSession, SandboxStatus } from '../api/types';
+import { useConfirm } from '../components/HpsmConfirm';
 import { IconRefresh, IconScreen, IconTrash } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { SandboxConsole, type SandboxConsoleHandle } from '../components/SandboxConsole';
@@ -32,6 +33,7 @@ function statusTone(status: SandboxStatus): StatusTone {
 export function SandboxConsoleWindowPage() {
   const { entryId = '' } = useParams();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const consoleRef = useRef<SandboxConsoleHandle>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -184,12 +186,22 @@ export function SandboxConsoleWindowPage() {
                 kind="danger--ghost"
                 renderIcon={IconTrash}
                 disabled={busy !== null}
-                onClick={() =>
-                  run('dispose', async () => {
+                onClick={async () => {
+                  if (
+                    !(await confirm({
+                      title: 'Descartar ambiente',
+                      message:
+                        'Deseja realmente descartar o ambiente? A VM e a ISO da amostra serão destruídas e o console será desconectado.',
+                      confirmLabel: 'Descartar',
+                      danger: true,
+                    }))
+                  )
+                    return;
+                  void run('dispose', async () => {
                     await api.del(`/sandbox/${session.id}`);
                     window.setTimeout(() => window.close(), 1500);
-                  })
-                }
+                  });
+                }}
               >
                 Descartar ambiente
               </Button>

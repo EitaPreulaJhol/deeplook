@@ -7,34 +7,34 @@ confirmação, filas com contadores, aba de atividades, Anterior/Próximo) exist
 próprio HPSM.
 
 **Legenda** — Prioridade: 🔴 alta · 🟡 média · ⚪ baixa. Esforço: **P** (horas),
-**M** (1–2 dias), **G** (vários dias, envolve banco).
+**M** (1–2 dias), **G** (vários dias, envolve banco). Status: ✅ feito · ⬜ pendente.
 
 ## Resumo
 
-| # | Ideia | Prioridade | Esforço | Área |
-|---|---|---|---|---|
-| 1 | Redefinição de senha pelo admin | 🔴 | P–M | Admin / API |
-| 2 | Confirmação ao salvar a triagem | 🔴 | P | Amostra |
-| 3 | Diálogo de confirmação em ações destrutivas | 🔴 | M | Admin / Sandbox |
-| 4 | Aviso de alterações não salvas | 🔴 | M | Formulários |
-| 5 | Filtros, ordenação e página na URL | 🔴 | P–M | Listas |
-| 6 | "Minha fila" com contadores no navegador | 🟡 | M | Navegador / API |
-| 7 | Atribuição de amostra a um analista | 🟡 | G | Amostra / banco |
-| 8 | Aba "Histórico" (auditoria) na amostra | 🟡 | G | Amostra / banco |
-| 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra |
-| 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API |
-| 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio |
-| 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios |
-| 13 | Avisos ao entrar ("suas amostras concluídas") | ⚪ | M | Página Inicial / API |
-| 14 | Prazo do sandbox à vista | ⚪ | P–M | Sandbox |
-| 15 | Atalhos de teclado | ⚪ | P | Global |
-| 16 | Linhas da grade navegáveis pelo teclado | ⚪ | P | Listas |
-| 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API |
-| 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API |
+| # | Ideia | Prioridade | Esforço | Área | Status |
+|---|---|---|---|---|---|
+| 1 | Redefinição de senha pelo admin | 🔴 | P–M | Admin / API | ✅ |
+| 2 | Confirmação ao salvar a triagem | 🔴 | P | Amostra | ✅ |
+| 3 | Diálogo de confirmação em ações destrutivas | 🔴 | M | Admin / Sandbox | ✅ |
+| 4 | Aviso de alterações não salvas | 🔴 | M | Formulários | ⬜ |
+| 5 | Filtros, ordenação e página na URL | 🔴 | P–M | Listas | ✅ |
+| 6 | "Minha fila" com contadores no navegador | 🟡 | M | Navegador / API | ⬜ |
+| 7 | Atribuição de amostra a um analista | 🟡 | G | Amostra / banco | ⬜ |
+| 8 | Aba "Histórico" (auditoria) na amostra | 🟡 | G | Amostra / banco | ⬜ |
+| 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra | ⬜ |
+| 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API | ✅ |
+| 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ⬜ |
+| 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios | ⬜ |
+| 13 | Avisos ao entrar ("suas amostras concluídas") | ⚪ | M | Página Inicial / API | ⬜ |
+| 14 | Prazo do sandbox à vista | ⚪ | P–M | Sandbox | ⬜ |
+| 15 | Atalhos de teclado | ⚪ | P | Global | ⬜ |
+| 16 | Linhas da grade navegáveis pelo teclado | ⚪ | P | Listas | ⬜ |
+| 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
+| 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Ordem sugerida:** 1 → 2 → 3 → 18 → 5 → 10. A 1 cumpre o que a própria tela de
-login promete; 2, 3 e 18 são pequenas e de alto impacto; 5 elimina a perda de filtros
-ao trocar de aba; 10 é a de maior valor para quem envia amostras.
+**Primeira leva (feita):** 1, 2, 3, 18, 5 e 10 — cada item abaixo traz um bloco
+**Implementado** com o que mudou. **Próximos sugeridos:** 4 (único 🔴 pendente),
+12 e 16 (pequenos), depois 6 e 9.
 
 ---
 
@@ -52,6 +52,11 @@ ao trocar de aba; 10 é a de maior valor para quem envia amostras.
   `session.deleteMany` de `routes/me.ts`); `apps/web/src/pages/AdminPage.tsx`.
 - **Cuidados:** ação destrutiva → usar o diálogo da ideia 3; não registrar a senha
   em log.
+- ✅ **Implementado:** `POST /api/admin/users/:id/reset-password` (recusa a própria
+  conta, gera senha de 14 caracteres com `generateTemporaryPassword`, encerra as
+  sessões); botão **Redefinir senha** em Admin › Usuários, com confirmação e a senha
+  temporária mostrada uma vez na barra de mensagens. A troca obrigatória no próximo
+  login ficou para depois.
 
 ### 2. Confirmação ao salvar a triagem
 - **Problema:** em Amostra › Análise, mudar Status ou Veredito grava na hora, sem
@@ -59,6 +64,7 @@ ao trocar de aba; 10 é a de maior valor para quem envia amostras.
 - **Proposta:** após o `PATCH`, mostrar `HpsmMessage kind="success"` "Registro
   atualizado." na barra de mensagens (padrão do HPSM).
 - **Onde mexer:** `quickUpdate` em `apps/web/src/pages/EntryDetailPage.tsx`.
+- ✅ **Implementado:** "Registro atualizado." após cada mudança de Status/Veredito.
 
 ### 3. Diálogo de confirmação em ações destrutivas
 - **Problema:** Revogar chave, Suspender usuário e Descartar VM executam com um
@@ -68,6 +74,9 @@ ao trocar de aba; 10 é a de maior valor para quem envia amostras.
   em Não) e um hook `useConfirm()` que devolve uma `Promise<boolean>`.
 - **Onde mexer:** novo `components/HpsmConfirm.tsx`; usos em `AdminPage.tsx`,
   `SandboxPanel.tsx` e `SandboxConsoleWindowPage.tsx`.
+- ✅ **Implementado:** `ConfirmProvider` (em `main.tsx`) + `useConfirm()`. Pedem
+  confirmação: Revogar chave, Suspender usuário, Redefinir senha e Descartar ambiente
+  (painel e janela do console). Reativar não pede.
 
 ### 4. Aviso de alterações não salvas
 - **Problema:** fechar a aba de documento ou navegar no meio de um relatório ou
@@ -88,6 +97,9 @@ ao trocar de aba; 10 é a de maior valor para quem envia amostras.
   uma busca pode ser compartilhado.
 - **Onde mexer:** `GlobalHistoryPage.tsx` e `MyUploadsPage.tsx` (trocar os `useState`
   por `useSearchParams`, mantendo o *debounce* da busca).
+- ✅ **Implementado:** hook `components/useEntryListState.ts`, usado pelas duas listas.
+  Valores padrão não aparecem na URL; "Limpar" zera busca e filtros e mantém a
+  ordenação.
 
 ### 18. Limite de tentativas no login e na troca de senha
 - **Problema:** não há limite de tentativas em `/api/auth/login` nem em
@@ -97,6 +109,11 @@ ao trocar de aba; 10 é a de maior valor para quem envia amostras.
 - **Onde mexer:** `apps/api/src/index.ts`, `routes/auth.ts`, `routes/me.ts`.
 - **Cuidados:** atrás do Cloudflare Tunnel, configurar `trustProxy` para pegar o IP
   real.
+- ✅ **Implementado:** `@fastify/rate-limit` (só nas rotas que pedem) com o helper
+  `lib/rate-limit.ts`: 5 tentativas a cada 5 min, chave por **e-mail** no login e por
+  **sessão** na troca de senha — não por IP, porque o `X-Forwarded-For` pode ser
+  forjado. Resposta 429 "Muitas tentativas. Tente novamente em N minutos."
+  Efeito colateral aceito: alguém pode travar o login de um e-mail por 5 minutos.
 
 ---
 
@@ -143,6 +160,9 @@ ao trocar de aba; 10 é a de maior valor para quem envia amostras.
 - **Onde mexer:** `SubmitPage.tsx`; API com busca **exata** por hash (hoje `q`
   procura `contains`), ex. `GET /api/entries?sha256=`.
 - **Cuidados:** arquivos grandes — calcular sob demanda e mostrar `HpsmLoading`.
+- ✅ **Implementado:** filtro exato `sha256` em `GET /api/entries`; em Enviar Amostra
+  o hash aparece no formulário e, se já existir, um aviso com link e veredito. Sem
+  `crypto.subtle` (HTTP sem TLS fora do localhost) a checagem é pulada.
 
 ### 11. Arrastar e soltar o arquivo
 - **Proposta:** área de soltar na seção "Dados do arquivo" mostrando nome, tamanho e

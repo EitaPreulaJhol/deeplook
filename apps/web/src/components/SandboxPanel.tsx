@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession } from '../api/types';
+import { useConfirm } from './HpsmConfirm';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 import {
@@ -35,6 +36,7 @@ interface Props {
  */
 export function SandboxPanel({ entryId }: Props) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
@@ -223,7 +225,18 @@ export function SandboxPanel({ entryId }: Props) {
             kind="danger--ghost"
             renderIcon={IconTrash}
             disabled={busy !== null}
-            onClick={() => run('dispose', () => api.del(`/sandbox/${session.id}`))}
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: 'Descartar ambiente',
+                  message:
+                    'Deseja realmente descartar o ambiente? A VM e a ISO da amostra serão destruídas e o console será desconectado.',
+                  confirmLabel: 'Descartar',
+                  danger: true,
+                })
+              )
+                void run('dispose', () => api.del(`/sandbox/${session.id}`));
+            }}
           >
             Descartar ambiente
           </Button>

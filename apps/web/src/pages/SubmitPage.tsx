@@ -1,15 +1,57 @@
 import { FileUploader, TextArea, TextInput } from '@carbon/react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
-import { HpsmField, HpsmForm, HpsmSection } from '../components/HpsmForm';
+import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconAdd, IconArrowLeft } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { VerdictTag } from '../components/tags';
+
+/**
+ * SHA-256 do arquivo calculado no navegador + amostra ja enviada com o mesmo
+ * hash (se houver). Sem `crypto.subtle` (HTTP sem TLS fora do localhost) nao
+ * ha checagem e o envio segue normal.
+ */
+function useDuplicateCheck(file: File | null) {
+  const [hash, setHash] = useState<string | null>(null);
+  const [hashing, setHashing] = useState(false);
+  const [duplicate, setDuplicate] = useState<Entry | null>(null);
+
+  useEffect(() => {
+    setHash(null);
+    setDuplicate(null);
+    if (!file || !window.crypto?.subtle) return;
+
+    let cancelled = false;
+    setHashing(true);
+    (async () => {
+      try {
+        const digest = await window.crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+        const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join(
+          '',
+        );
+        if (cancelled) return;
+        setHash(hex);
+        const res = await api.get<{ items: Entry[] }>(`/entries?scope=all&limit=1&sha256=${hex}`);
+        if (!cancelled) setDuplicate(res.items[0] ?? null);
+      } catch {
+        /* sem checagem de duplicata: o envio continua permitido */
+      } finally {
+        if (!cancelled) setHashing(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  return { hash, hashing, duplicate };
+}
 
 export function SubmitPage() {
   const navigate = useNavigate();
@@ -26,6 +68,7 @@ export function SubmitPage() {
   const [urlDescription, setUrlDescription] = useState('');
   const [urlTags, setUrlTags] = useState('');
   const [tab, setTab] = useState('file');
+  const { hash, hashing, duplicate } = useDuplicateCheck(file);
 
   const submitFile = async () => {
     setError(null);
@@ -100,6 +143,16 @@ export function SubmitPage() {
       </HpsmToolbar>
 
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+      {tab === 'file' && duplicate && (
+        <HpsmMessage kind="warning">
+          Esta amostra já foi enviada:{' '}
+          <Link className="dl-link" to={`/entries/${duplicate.id}`}>
+            {duplicate.title}
+          </Link>{' '}
+          (veredito: <VerdictTag verdict={duplicate.verdict} />
+          ). Você ainda pode enviá-la com um novo contexto.
+        </HpsmMessage>
+      )}
 
       <HpsmTabs
         ariaLabel="Tipo de amostra"
@@ -136,6 +189,15 @@ export function SubmitPage() {
                   onDelete={() => setFile(null)}
                 />
               </HpsmField>
+              {file && (hashing || hash) && (
+                <HpsmField label="SHA-256">
+                  {hash ? (
+                    <HpsmReadonly mono>{hash}</HpsmReadonly>
+                  ) : (
+                    <HpsmLoading text="Calculando o hash do arquivo..." />
+                  )}
+                </HpsmField>
+              )}
               <HpsmField label="Título" htmlFor="file-title">
                 <TextInput
                   id="file-title"

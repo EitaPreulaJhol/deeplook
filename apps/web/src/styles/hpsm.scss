@@ -1448,6 +1448,81 @@ h6 {
   align-self: center;
 }
 
+/* --- 12d. Dialogo de confirmacao (HpsmConfirm) ------------------------- */
+.hpsm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(40, 50, 60, 0.35);
+  color: var(--dl-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+}
+
+.hpsm-modal__box {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.hpsm-modal__head {
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  background: linear-gradient(180deg, var(--dl-section-head-1) 0%, var(--dl-section-head-2) 100%);
+  border-block-end: 1px solid var(--dl-panel-border);
+  color: var(--dl-section-title);
+  font-size: var(--dl-font-size);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.hpsm-modal__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  line-height: 1.5;
+}
+
+/* Icone de aviso redondo (mesmo desenho dos icones da barra de mensagens). */
+.hpsm-modal__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.45) 0, transparent 55%),
+    var(--dl-status-orange);
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.hpsm-modal__message {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.hpsm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding: 0 0.9rem 0.75rem;
+}
+
+.hpsm-modal__actions .dl-btn {
+  min-inline-size: 5rem;
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;

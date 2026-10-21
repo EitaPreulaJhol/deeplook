@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { requireAdmin } from '../lib/auth';
-import { generateActivationCode } from '../lib/crypto';
+import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { prisma } from '../lib/prisma';
 
 const CreateKeySchema = z.object({
@@ -62,6 +62,32 @@ export async function adminRoutes(app: FastifyInstance) {
       },
     });
     return reply.send({ user: updated });
+  });
+
+  // Redefine a senha de um usuario: gera uma senha temporaria (devolvida uma
+  // unica vez, para o admin repassar) e encerra todas as sessoes dele.
+  app.post('/api/admin/users/:id/reset-password', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    if (!admin) return;
+
+    const { id } = req.params as { id: string };
+    if (id === admin.id) {
+      return reply
+        .code(400)
+        .send({ error: 'Para trocar a propria senha, use Minha conta > Alterar senha.' });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id }, data: { passwordHash } }),
+      prisma.session.deleteMany({ where: { userId: id } }),
+    ]);
+
+    return reply.send({ temporaryPassword });
   });
 
   // ---- Chaves de ativacao ----

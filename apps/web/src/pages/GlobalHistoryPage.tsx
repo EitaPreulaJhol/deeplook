@@ -1,42 +1,22 @@
 import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import {
-  DEFAULT_ENTRY_SORT,
-  EntriesTable,
-  entryListParams,
-  type EntrySort,
-} from '../components/EntriesTable';
+import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { useEntryListState } from '../components/useEntryListState';
 
 export function GlobalHistoryPage() {
   const { preferences } = useAuth();
   const pageSize = preferences.pageSize;
-  const [searchParams] = useSearchParams();
-  const initialQ = searchParams.get('q') ?? '';
-  const [draftQ, setDraftQ] = useState(initialQ);
-  const [q, setQ] = useState(initialQ);
-  const [type, setType] = useState('');
-  const [status, setStatus] = useState('');
-  const [verdict, setVerdict] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [sort, setSort] = useState<EntrySort>(DEFAULT_ENTRY_SORT);
-
-  // A tabela se atualiza sozinha: a busca por texto roda logo apos parar de digitar.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setQ(draftQ);
-      setOffset(0);
-    }, 300);
-    return () => clearTimeout(id);
-  }, [draftQ]);
+  // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
+  const list = useEntryListState();
+  const { q, draftQ, setDraftQ, sort, offset } = list;
+  const { type, status, verdict } = list.filters;
 
   const params = new URLSearchParams();
   params.set('scope', 'all');
@@ -52,20 +32,11 @@ export function GlobalHistoryPage() {
     placeholderData: keepPreviousData,
   });
 
-  const clearFilters = () => {
-    setDraftQ('');
-    setQ('');
-    setType('');
-    setStatus('');
-    setVerdict('');
-    setOffset(0);
-  };
-
   return (
     <>
       <PageHeader title="Histórico Global" subtitle="Todas as amostras enviadas pela comunidade." />
 
-      <HpsmFilterBar onClear={clearFilters}>
+      <HpsmFilterBar onClear={list.clear}>
         <HpsmFilterItem label="Buscar" htmlFor="q">
           <TextInput
             id="q"
@@ -84,10 +55,7 @@ export function GlobalHistoryPage() {
             hideLabel
             size="sm"
             value={type}
-            onChange={(e) => {
-              setType(e.target.value);
-              setOffset(0);
-            }}
+            onChange={(e) => list.setFilter('type', e.target.value)}
           >
             <SelectItem value="" text="Todos" />
             <SelectItem value="FILE" text="Arquivo" />
@@ -101,10 +69,7 @@ export function GlobalHistoryPage() {
             hideLabel
             size="sm"
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setOffset(0);
-            }}
+            onChange={(e) => list.setFilter('status', e.target.value)}
           >
             <SelectItem value="" text="Todos" />
             <SelectItem value="PENDING" text="Pendente" />
@@ -119,10 +84,7 @@ export function GlobalHistoryPage() {
             hideLabel
             size="sm"
             value={verdict}
-            onChange={(e) => {
-              setVerdict(e.target.value);
-              setOffset(0);
-            }}
+            onChange={(e) => list.setFilter('verdict', e.target.value)}
           >
             <SelectItem value="" text="Todos" />
             <SelectItem value="UNKNOWN" text="Desconhecido" />
@@ -148,11 +110,8 @@ export function GlobalHistoryPage() {
           offset={offset}
           pageSize={pageSize}
           sort={sort}
-          onSortChange={(next) => {
-            setSort(next);
-            setOffset(0);
-          }}
-          onPageChange={setOffset}
+          onSortChange={list.setSort}
+          onPageChange={list.setOffset}
         />
       )}
     </>

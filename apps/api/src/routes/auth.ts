@@ -5,6 +5,7 @@ import { createSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
+import { attemptLimit } from '../lib/rate-limit';
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -92,7 +93,13 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.code(201).send({ user: publicUser(user) });
   });
 
-  app.post('/api/auth/login', async (req, reply) => {
+  // 5 tentativas a cada 5 min por e-mail (ver lib/rate-limit.ts).
+  const loginLimit = attemptLimit((req) => {
+    const email = (req.body as { email?: unknown } | undefined)?.email;
+    return `login:${typeof email === 'string' ? email.trim().toLowerCase() : '-'}`;
+  });
+
+  app.post('/api/auth/login', { config: loginLimit }, async (req, reply) => {
     const parsed = LoginSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
     const { email, password } = parsed.data;

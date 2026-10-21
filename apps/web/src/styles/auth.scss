@@ -294,6 +294,11 @@
   font-weight: 700;
 }
 
+/* Confirmacao de acao destrutiva (ex.: "Revogar" no dialogo). */
+.dl-btn--danger {
+  color: var(--dl-status-red);
+}
+
 /* --- Home (boas-vindas) -------------------------------------------------- */
 .dl-home {
   max-width: 40rem;

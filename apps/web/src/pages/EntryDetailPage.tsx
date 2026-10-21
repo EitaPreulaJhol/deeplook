@@ -61,6 +61,7 @@ export function EntryDetailPage() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const entry = query.data?.entry;
   const sandboxSession = sandboxQuery.data?.session ?? null;
@@ -70,11 +71,14 @@ export function EntryDetailPage() {
 
   const reload = () => queryClient.invalidateQueries({ queryKey: ['entry', id] });
 
+  // Triagem grava na hora; o retorno vai para a barra de mensagens (padrao HPSM).
   const quickUpdate = async (patch: Record<string, unknown>) => {
     setError(null);
+    setSaved(false);
     try {
       await api.patch(`/entries/${id}`, patch);
       await reload();
+      setSaved(true);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -212,6 +216,7 @@ export function EntryDetailPage() {
       {canTriage && (
         <div className="hpsm-tabpanel" hidden={activeTab !== 'analise'}>
           {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+          {saved && <HpsmMessage kind="success">Registro atualizado.</HpsmMessage>}
 
           <HpsmSection title="Triagem">
             <HpsmForm columns={2}>

@@ -34,6 +34,14 @@ await page.selectOption('#verdict', 'MALICIOUS');
 await check('veredito = Malicioso', 1);
 await page.screenshot({ path: `${OUT}/filtros.png` });
 
+// Filtros na URL: recarregar a pagina mantem o filtro e o valor do select.
+await page.reload({ waitUntil: 'networkidle' });
+await check('recarregar mantém veredito = Malicioso', 1);
+const kept = await page.locator('#verdict').inputValue();
+if (kept !== 'MALICIOUS') failures += 1;
+console.log(`${kept === 'MALICIOUS' ? 'ok  ' : 'FALHA'} select mantém o valor após recarregar (${kept})`);
+console.log(`     URL: ${new URL(page.url()).search}`);
+
 await page.goto(ORIGIN + '/me', { waitUntil: 'networkidle' });
 await page.fill('#q', 'abc');
 await check('Meus Uploads com busca', 0);

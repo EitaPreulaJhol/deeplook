@@ -164,6 +164,27 @@ Tons: `green`, `red`, `orange`, `blue`, `gray` e `none` (sem bolinha).
   `useWorkspaceTitle(titulo)` na página. Rotas novas precisam de um título padrão em
   `routeTitle()` (`workspace.tsx`), senão não abrem aba.
 
+### Confirmação — `components/HpsmConfirm.tsx`
+
+Ações destrutivas pedem confirmação numa caixa no estilo HPSM (foco inicial em
+**Não**, Esc cancela):
+
+```tsx
+const confirm = useConfirm();
+if (await confirm({ title: 'Revogar chave', message: '...', confirmLabel: 'Revogar', danger: true })) {
+  await revokeKey(key);
+}
+```
+
+O `ConfirmProvider` fica em `main.tsx`, então funciona também fora da casca (janela do
+console).
+
+### Estado das listas na URL — `components/useEntryListState.ts`
+
+Busca, filtros, ordenação e página das listas ficam na URL
+(`?q=&status=&sort=&dir=&offset=`): a aba de documento reabre a lista como estava e a
+busca pode ser compartilhada por link. Use o hook em qualquer lista nova de amostras.
+
 ### Cabeçalho da página — `components/PageHeader.tsx`
 
 `<PageHeader title="..." subtitle="..." />` — faixa com título e subtítulo.
@@ -236,6 +257,10 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/auth/me` | usuário da sessão, incluindo `preferences` (já completadas com os padrões) |
 | PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
 | POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário |
+| POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez) e encerra as sessões do usuário |
+
+`POST /api/auth/login` e `POST /api/me/password` aceitam **5 tentativas a cada 5
+minutos** (por e-mail e por sessão, respectivamente); depois respondem 429.
 
 Após trocar a senha, o front limpa a sessão e leva ao login com o aviso
 "Senha alterada. Entre novamente com a nova senha.".
@@ -275,8 +300,9 @@ banco nem da API rodando.
 | Roteiro | O que faz |
 |---|---|
 | `screens.mjs` | screenshot de todas as telas em `out/` e medida do cabeçalho da lista |
-| `filters.mjs` | troca filtros, busca e Limpar; falha se a tela ficar branca ou a contagem de linhas errar |
+| `filters.mjs` | troca filtros, busca e Limpar; confere que os filtros sobrevivem a recarregar a página; falha se a tela ficar branca ou a contagem errar |
 | `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso) → novo login |
+| `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 
 ```powershell

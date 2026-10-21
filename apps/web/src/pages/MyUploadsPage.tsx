@@ -1,38 +1,22 @@
 import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import {
-  DEFAULT_ENTRY_SORT,
-  EntriesTable,
-  entryListParams,
-  type EntrySort,
-} from '../components/EntriesTable';
+import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { useEntryListState } from '../components/useEntryListState';
 
 export function MyUploadsPage() {
   const { user, preferences } = useAuth();
   const pageSize = preferences.pageSize;
-  const [q, setQ] = useState('');
-  const [draftQ, setDraftQ] = useState('');
-  const [status, setStatus] = useState('');
-  const [verdict, setVerdict] = useState('');
-  const [offset, setOffset] = useState(0);
-  const [sort, setSort] = useState<EntrySort>(DEFAULT_ENTRY_SORT);
-
-  // A tabela se atualiza sozinha: a busca por texto roda logo apos parar de digitar.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setQ(draftQ);
-      setOffset(0);
-    }, 300);
-    return () => clearTimeout(id);
-  }, [draftQ]);
+  // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
+  const list = useEntryListState();
+  const { q, draftQ, setDraftQ, sort, offset } = list;
+  const { status, verdict } = list.filters;
 
   const params = new URLSearchParams();
   params.set('scope', 'mine');
@@ -58,14 +42,6 @@ export function MyUploadsPage() {
     placeholderData: keepPreviousData,
   });
 
-  const clearFilters = () => {
-    setDraftQ('');
-    setQ('');
-    setStatus('');
-    setVerdict('');
-    setOffset(0);
-  };
-
   return (
     <>
       <PageHeader
@@ -73,7 +49,7 @@ export function MyUploadsPage() {
         subtitle="Acompanhe o controle das amostras que você enviou."
       />
 
-      <HpsmFilterBar onClear={clearFilters}>
+      <HpsmFilterBar onClear={list.clear}>
         <HpsmFilterItem label="Buscar" htmlFor="q">
           <TextInput
             id="q"
@@ -92,10 +68,7 @@ export function MyUploadsPage() {
             hideLabel
             size="sm"
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setOffset(0);
-            }}
+            onChange={(e) => list.setFilter('status', e.target.value)}
           >
             <SelectItem value="" text="Todos" />
             <SelectItem value="PENDING" text="Pendente" />
@@ -110,10 +83,7 @@ export function MyUploadsPage() {
             hideLabel
             size="sm"
             value={verdict}
-            onChange={(e) => {
-              setVerdict(e.target.value);
-              setOffset(0);
-            }}
+            onChange={(e) => list.setFilter('verdict', e.target.value)}
           >
             <SelectItem value="" text="Todos" />
             <SelectItem value="UNKNOWN" text="Desconhecido" />
@@ -140,11 +110,8 @@ export function MyUploadsPage() {
           offset={offset}
           pageSize={pageSize}
           sort={sort}
-          onSortChange={(next) => {
-            setSort(next);
-            setOffset(0);
-          }}
-          onPageChange={setOffset}
+          onSortChange={list.setSort}
+          onPageChange={list.setOffset}
         />
       )}
     </>

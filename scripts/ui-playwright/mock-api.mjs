@@ -1,5 +1,6 @@
 // API simulada + servidor estatico do build (apps/web/dist) para os testes visuais.
 // Nenhum banco/back-end e necessario: o Playwright intercepta todas as requisicoes.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
@@ -21,6 +22,10 @@ const MIME = {
 };
 
 const now = '2026-10-20T13:00:00.000Z';
+
+/** Conteudo cujo SHA-256 coincide com o da amostra e1 (teste de duplicata). */
+export const DUPLICATE_SAMPLE = Buffer.from('deeplook: amostra repetida para o teste de duplicata');
+const DUPLICATE_SHA = createHash('sha256').update(DUPLICATE_SAMPLE).digest('hex');
 export const DEFAULT_PREFERENCES = { startPage: 'welcome', pageSize: 50, restoreTabs: true };
 
 const owner = { id: 'u2', displayName: 'Bruno Lima', email: 'bruno@deeplook.test' };
@@ -30,7 +35,7 @@ const users = [
   { id: 'u3', email: 'carla@deeplook.test', displayName: 'Carla Dias', role: 'USER', status: 'SUSPENDED', createdAt: now, _count: { entries: 0 } },
 ];
 const entries = [
-  { id: 'e1', ownerId: 'u2', owner, type: 'FILE', title: 'instalador_suspeito.exe', description: 'Recebido por e-mail de um remetente desconhecido.\nPede permissão de administrador.', status: 'IN_REVIEW', verdict: 'SUSPICIOUS', originalFilename: 'setup_v2.exe', fileSize: 2483712, mimeType: 'application/x-msdownload', sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08', storageKey: 'k1', createdAt: now, updatedAt: now, tags: [{ id: 't1', name: 'malware' }, { id: 't2', name: 'email' }], _count: { reports: 1 } },
+  { id: 'e1', ownerId: 'u2', owner, type: 'FILE', title: 'instalador_suspeito.exe', description: 'Recebido por e-mail de um remetente desconhecido.\nPede permissão de administrador.', status: 'IN_REVIEW', verdict: 'SUSPICIOUS', originalFilename: 'setup_v2.exe', fileSize: 2483712, mimeType: 'application/x-msdownload', sha256: DUPLICATE_SHA, storageKey: 'k1', createdAt: now, updatedAt: now, tags: [{ id: 't1', name: 'malware' }, { id: 't2', name: 'email' }], _count: { reports: 1 } },
   { id: 'e2', ownerId: 'u2', owner, type: 'URL', title: 'Página de login falsa do banco', status: 'COMPLETED', verdict: 'MALICIOUS', url: 'https://banco-seguro-login.example/acesso', createdAt: '2026-10-19T09:30:00.000Z', updatedAt: now, tags: [{ id: 't3', name: 'phishing' }], _count: { reports: 2 } },
   { id: 'e3', ownerId: 'u1', owner: { id: 'u1', displayName: 'Ana Souza', email: 'ana@deeplook.test' }, type: 'FILE', title: 'relatorio_trimestral.docm', status: 'PENDING', verdict: 'UNKNOWN', originalFilename: 'relatorio_trimestral.docm', fileSize: 88211, mimeType: 'application/vnd.ms-word', sha256: 'aa11', storageKey: 'k3', createdAt: '2026-10-18T16:10:00.000Z', updatedAt: now, tags: [], _count: { reports: 0 } },
   { id: 'e4', ownerId: 'u2', owner, type: 'FILE', title: 'driver_update.msi', status: 'COMPLETED', verdict: 'CLEAN', originalFilename: 'driver_update.msi', fileSize: 1048576, mimeType: 'application/x-msi', sha256: 'bb22', storageKey: 'k4', createdAt: '2026-10-17T08:00:00.000Z', updatedAt: now, tags: [], _count: { reports: 1 } },
@@ -46,7 +51,14 @@ const keys = [
 
 /** Estado mutavel da API simulada (os roteiros leem/alteram para conferir efeitos). */
 export function createState({ loggedIn = false } = {}) {
-  return { loggedIn, password: 'senha-atual', preferences: { ...DEFAULT_PREFERENCES }, lastLimit: null };
+  return {
+    loggedIn,
+    password: 'senha-atual',
+    preferences: { ...DEFAULT_PREFERENCES },
+    lastLimit: null,
+    /** Chamadas de escrita recebidas (metodo + rota), para conferir efeitos. */
+    calls: [],
+  };
 }
 
 const json = (route, status, body) =>
@@ -62,6 +74,7 @@ export async function setupMock(context, state) {
     if (url.origin !== ORIGIN) return route.abort();
     const p = url.pathname;
     const body = req.postData() ? JSON.parse(req.postData()) : {};
+    if (p.startsWith('/api/') && req.method() !== 'GET') state.calls.push(`${req.method()} ${p}`);
 
     if (p.startsWith('/api/')) {
       if (p === '/api/auth/me') {
@@ -94,6 +107,7 @@ export async function setupMock(context, state) {
         let items = sp.get('scope') === 'mine' ? [] : entries;
         const q = (sp.get('q') || '').toLowerCase();
         if (q) items = items.filter((e) => e.title.toLowerCase().includes(q));
+        if (sp.get('sha256')) items = entries.filter((e) => e.sha256 === sp.get('sha256'));
         for (const k of ['type', 'status', 'verdict']) {
           if (sp.get(k)) items = items.filter((e) => e[k] === sp.get(k));
         }
@@ -102,6 +116,11 @@ export async function setupMock(context, state) {
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
       if (m) return json(route, 200, { enabled: true, consoleEnabled: true, session: null });
       m = p.match(/^\/api\/entries\/(\w+)$/);
+      if (m && req.method() === 'PATCH') {
+        const e = entries.find((x) => x.id === m[1]);
+        Object.assign(e, body);
+        return json(route, 200, { entry: e });
+      }
       if (m) {
         const e = entries.find((x) => x.id === m[1]);
         return e
@@ -109,6 +128,19 @@ export async function setupMock(context, state) {
           : json(route, 404, { error: 'Nao encontrado.' });
       }
       if (p === '/api/admin/users') return json(route, 200, { users });
+      m = p.match(/^\/api\/admin\/users\/(\w+)\/reset-password$/);
+      if (m) return json(route, 200, { temporaryPassword: 'k7Tm-Q2xa-9PwR' });
+      m = p.match(/^\/api\/admin\/users\/(\w+)$/);
+      if (m && req.method() === 'PATCH') {
+        const u = users.find((x) => x.id === m[1]);
+        Object.assign(u, body);
+        return json(route, 200, { user: u });
+      }
+      m = p.match(/^\/api\/admin\/activation-keys\/(\w+)$/);
+      if (m && req.method() === 'DELETE') {
+        keys.find((x) => x.id === m[1]).revoked = true;
+        return json(route, 200, { ok: true });
+      }
       if (p === '/api/admin/activation-keys') return json(route, 200, { keys });
       return json(route, 404, { error: 'Mock sem rota: ' + p });
     }

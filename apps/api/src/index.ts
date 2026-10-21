@@ -1,5 +1,6 @@
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
@@ -22,6 +23,8 @@ async function main() {
   });
 
   await app.register(cookie, { secret: env.SESSION_SECRET });
+  // Limite de tentativas so nas rotas que pedem (config.rateLimit da rota).
+  await app.register(rateLimit, { global: false });
   await app.register(multipart, {
     limits: { fileSize: env.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
   });
@@ -72,7 +75,8 @@ async function main() {
   if (sandboxEnabled) {
     try {
       const stuck = await recoverStuckSessions();
-      if (stuck) app.log.warn(`[sandbox] ${stuck} provisionamento(s) travado(s) marcados como falha.`);
+      if (stuck)
+        app.log.warn(`[sandbox] ${stuck} provisionamento(s) travado(s) marcados como falha.`);
       const orphans = await reconcileOrphans();
       if (orphans.vms || orphans.isos) {
         app.log.warn(
