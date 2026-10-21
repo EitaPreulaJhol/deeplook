@@ -8,6 +8,7 @@ import type { Entry, SandboxSession } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { loadEntrySequence } from '../components/entryNav';
 import { EntryReportsTab } from '../components/EntryReportsTab';
+import { formatFileSize } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../components/HpsmToolbar';
@@ -15,24 +16,12 @@ import { IconArrowLeft, IconDownload, IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
-import { isSandboxActive, isSandboxWorking } from '../components/sandboxStatus';
+import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
-}
-
-function fmtSize(n?: number | null): string {
-  if (n === null || n === undefined) return '—';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let v = n;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 export function EntryDetailPage() {
@@ -69,7 +58,28 @@ export function EntryDetailPage() {
   const sandboxSession = sandboxQuery.data?.session ?? null;
   const sandboxActive = isSandboxActive(sandboxSession?.status);
 
-  useWorkspaceTitle(entry?.title);
+  // Prazo do ambiente isolado: aparece na aba de documento ("12min · nome", antes
+  // do nome para nao sumir no corte) e, nos ultimos 5 min, vira um aviso.
+  const sandboxRunning = sandboxSession?.status === 'RUNNING';
+  const minutesLeft = useMinutesLeft(sandboxRunning ? sandboxSession?.expiresAt : null);
+  const showCountdown = sandboxRunning && minutesLeft !== null && minutesLeft > 0;
+  useWorkspaceTitle(
+    entry && showCountdown ? `${minutesLeft}min · ${entry.title}` : entry?.title,
+    entry?.title,
+  );
+  const [extending, setExtending] = useState(false);
+  const extendSandbox = async () => {
+    if (!sandboxSession) return;
+    setExtending(true);
+    try {
+      await api.post(`/sandbox/${sandboxSession.id}/extend`, {});
+      await queryClient.invalidateQueries({ queryKey: ['sandbox', 'entry', id] });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExtending(false);
+    }
+  };
 
   // Recarrega a amostra e os contadores das filas do navegador.
   const reload = () =>
@@ -170,6 +180,20 @@ export function EntryDetailPage() {
         )}
       </HpsmToolbar>
 
+      {showCountdown && minutesLeft <= 5 && (
+        <HpsmMessage kind="warning">
+          O ambiente isolado desta amostra expira em {minutesLeft} min.{' '}
+          <button
+            type="button"
+            className="dl-link-button"
+            disabled={extending}
+            onClick={extendSandbox}
+          >
+            {extending ? 'Estendendo...' : 'Estender prazo'}
+          </button>
+        </HpsmMessage>
+      )}
+
       <PageHeader title={entry.title} />
       <div className="dl-summary dl-mb-lg">
         <span>
@@ -223,7 +247,7 @@ export function EntryDetailPage() {
                   <HpsmReadonly>{entry.originalFilename || '—'}</HpsmReadonly>
                 </HpsmField>
                 <HpsmField label="Tamanho">
-                  <HpsmReadonly>{fmtSize(entry.fileSize)}</HpsmReadonly>
+                  <HpsmReadonly>{formatFileSize(entry.fileSize)}</HpsmReadonly>
                 </HpsmField>
                 <HpsmField label="Tipo MIME">
                   <HpsmReadonly>{entry.mimeType || '—'}</HpsmReadonly>

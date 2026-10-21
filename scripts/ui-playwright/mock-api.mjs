@@ -51,6 +51,23 @@ const keys = [
   { id: 'k3', code: 'DL-QQ11-WW22-EE33', role: 'USER', maxUses: 5, usesUsed: 0, expiresAt: null, revoked: true, createdAt: now },
 ];
 
+/** Sessao de sandbox em execucao que expira em `minutes` minutos. */
+export function runningSandbox(entryId, minutes) {
+  return {
+    id: `sb-${entryId}`,
+    entryId,
+    analystId: 'u1',
+    node: 'pve',
+    vmid: 9101,
+    name: `deeplook-${entryId}`,
+    status: 'RUNNING',
+    phase: null,
+    expiresAt: new Date(Date.now() + minutes * 60_000).toISOString(),
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 /** Estado mutavel da API simulada (os roteiros leem/alteram para conferir efeitos). */
 export function createState({ loggedIn = false } = {}) {
   return {
@@ -60,6 +77,8 @@ export function createState({ loggedIn = false } = {}) {
     lastLimit: null,
     /** Chamadas de escrita recebidas (metodo + rota), para conferir efeitos. */
     calls: [],
+    /** Ambiente isolado por amostra (id da amostra -> sessao), ex.: { e2: {...} }. */
+    sandboxes: {},
   };
 }
 
@@ -121,7 +140,19 @@ export async function setupMock(context, state) {
         return json(route, 200, { counts });
       }
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
-      if (m) return json(route, 200, { enabled: true, consoleEnabled: true, session: null });
+      if (m) {
+        return json(route, 200, {
+          enabled: true,
+          consoleEnabled: true,
+          session: state.sandboxes[m[1]] ?? null,
+        });
+      }
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/extend$/);
+      if (m) {
+        const session = Object.values(state.sandboxes).find((x) => x.id === m[1]);
+        session.expiresAt = new Date(new Date(session.expiresAt).getTime() + 30 * 60_000).toISOString();
+        return json(route, 200, { session });
+      }
       m = p.match(/^\/api\/entries\/(\w+)$/);
       if (m && req.method() === 'PATCH') {
         const e = entries.find((x) => x.id === m[1]);

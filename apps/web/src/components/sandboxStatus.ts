@@ -62,3 +62,25 @@ export function useSandboxCountdown(expiresAt?: string | null): string {
 
   return left;
 }
+
+/** Minutos restantes ate `expiresAt` (arredondado para cima). */
+function minutesUntil(expiresAt?: string | null): number | null {
+  return expiresAt ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 60_000) : null;
+}
+
+/**
+ * Minutos restantes do ambiente, atualizados a cada 15s (precisao suficiente
+ * para o titulo da aba e o aviso de expiracao). null quando nao ha prazo.
+ */
+export function useMinutesLeft(expiresAt?: string | null): number | null {
+  const [left, setLeft] = useState(() => minutesUntil(expiresAt));
+
+  useEffect(() => {
+    setLeft(minutesUntil(expiresAt));
+    if (!expiresAt) return;
+    const id = window.setInterval(() => setLeft(minutesUntil(expiresAt)), 15_000);
+    return () => window.clearInterval(id);
+  }, [expiresAt]);
+
+  return left;
+}

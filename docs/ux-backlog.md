@@ -23,18 +23,18 @@ próprio HPSM.
 | 8 | Aba "Histórico" (auditoria) na amostra | 🟡 | G | Amostra / banco | ⬜ |
 | 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra | ✅ |
 | 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API | ✅ |
-| 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ⬜ |
+| 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ✅ |
 | 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios | ✅ |
 | 13 | Avisos ao entrar ("suas amostras concluídas") | ⚪ | M | Página Inicial / API | ⬜ |
-| 14 | Prazo do sandbox à vista | ⚪ | P–M | Sandbox | ⬜ |
+| 14 | Prazo do sandbox à vista | ⚪ | P–M | Sandbox | ✅ |
 | 15 | Atalhos de teclado | ⚪ | P | Global | ⬜ |
 | 16 | Linhas da grade navegáveis pelo teclado | ⚪ | P | Listas | ✅ |
 | 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
 | 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Feitos:** 1, 2, 3, 4, 5, 6, 9, 10, 12, 16 e 18 — cada item abaixo traz um bloco
-**Implementado** com o que mudou. **Próximos sugeridos:** 11 e 14 (pequenos), depois
-7 e 8 (envolvem banco).
+**Feitos:** 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 14, 16 e 18 — cada item abaixo traz um
+bloco **Implementado** com o que mudou. **Pendentes:** 7 e 8 (envolvem banco), 13, 15
+e 17.
 
 ---
 
@@ -188,6 +188,10 @@ próprio HPSM.
   (com a ideia 10) o hash antes do envio.
 - **Onde mexer:** `SubmitPage.tsx` (`FileUploaderDropContainer` do Carbon ou área
   própria com o skin HPSM).
+- ✅ **Implementado:** componente próprio `components/HpsmFileDrop.tsx` no lugar do
+  `FileUploader` do Carbon: área "Arraste o arquivo aqui ou [Selecionar arquivo]"
+  (destaque ao arrastar por cima) e, depois, a linha com nome, tamanho e "Remover".
+  O hash e o aviso de duplicata (ideia 10) aparecem logo abaixo.
 
 ---
 
@@ -216,6 +220,11 @@ próprio HPSM.
   expirar, com atalho para "Estender prazo".
 - **Onde mexer:** `useSandboxCountdown` (`components/sandboxStatus.ts`) +
   `useWorkspaceTitle` em `EntryDetailPage.tsx`; aviso em `SandboxPanel.tsx`.
+- ✅ **Implementado:** `useMinutesLeft` (atualiza a cada 15s). Com o ambiente em
+  execução a aba de documento mostra **"12min · nome"** (prazo antes do nome, para não
+  sumir no corte) e volta ao nome simples ao sair da tela (`useWorkspaceTitle` ganhou
+  `titleOnLeave`). Nos últimos 5 min a barra de mensagens avisa "expira em N min" com
+  o link **Estender prazo** — visível em qualquer aba da amostra.
 
 ### 15. Atalhos de teclado
 - **Proposta:** `/` foca a busca da lista, `Alt+N` abre Enviar Amostra, `Ctrl+S`

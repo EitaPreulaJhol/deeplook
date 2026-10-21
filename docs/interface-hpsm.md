@@ -171,8 +171,16 @@ Tons: `green`, `red`, `orange`, `blue`, `gray` e `none` (sem bolinha).
   aba ativa fica na URL (`?tab=`), para o navegador e o menu poderem apontar direto
   para ela e para a aba de documento reabrir no mesmo ponto.
 - Para dar nome à aba de **documento** (ex.: o título da amostra), chame
-  `useWorkspaceTitle(titulo)` na página. Rotas novas precisam de um título padrão em
+  `useWorkspaceTitle(titulo)` na página. Se o título tiver informação viva (ex.:
+  "12min · nome" do sandbox), passe o nome simples no 2º argumento
+  (`titleOnLeave`): ele é aplicado quando a tela é desmontada. Rotas novas precisam de um título padrão em
   `routeTitle()` (`workspace.tsx`), senão não abrem aba.
+
+### Arquivo — `components/HpsmFileDrop.tsx`
+
+`<HpsmFileDrop file={file} onChange={setFile} />` — área "Arraste o arquivo aqui ou
+[Selecionar arquivo]" e a linha do arquivo escolhido (nome, tamanho, Remover). Usado
+no lugar do `FileUploader` do Carbon. `formatFileSize()` vem do mesmo arquivo.
 
 ### Copiar — `components/CopyButton.tsx`
 
@@ -337,6 +345,7 @@ banco nem da API rodando.
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
+| `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 
 ```powershell

@@ -198,13 +198,22 @@ export function useWorkspace(): WorkspaceContextValue {
   return ctx;
 }
 
-/** Define o titulo da aba da rota atual (ex.: o nome da amostra aberta). */
-export function useWorkspaceTitle(title?: string) {
+/** Define o titulo da aba da rota atual (ex.: o nome da amostra aberta);
+ *  `titleOnLeave` e aplicado quando a tela e desmontada. */
+export function useWorkspaceTitle(title?: string, titleOnLeave?: string) {
   const { setTitle } = useWorkspace();
   const { pathname } = useLocation();
   useEffect(() => {
     if (title) setTitle(pathname, title);
   }, [title, pathname, setTitle]);
+  // Titulo com informacao viva (ex.: prazo do sandbox): ao sair da tela a aba
+  // volta ao titulo simples, para nao ficar com um valor parado.
+  useEffect(
+    () => () => {
+      if (titleOnLeave) setTitle(pathname, titleOnLeave);
+    },
+    [titleOnLeave, pathname, setTitle],
+  );
 }
 
 /** Faixa de abas de documento no topo da area de conteudo. */

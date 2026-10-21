@@ -1,9 +1,10 @@
-import { FileUploader, TextArea, TextInput } from '@carbon/react';
+import { TextArea, TextInput } from '@carbon/react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
+import { HpsmFileDrop } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
@@ -180,20 +181,7 @@ export function SubmitPage() {
                 top
                 help="Tamanho máximo conforme configurado no servidor."
               >
-                <FileUploader
-                  buttonLabel="Selecionar arquivo"
-                  buttonKind="tertiary"
-                  size="sm"
-                  filenameStatus="edit"
-                  iconDescription="Limpar"
-                  accept={['*']}
-                  multiple={false}
-                  onChange={(evt) => {
-                    const f = (evt.target as HTMLInputElement).files;
-                    setFile(f && f.length ? f[0] : null);
-                  }}
-                  onDelete={() => setFile(null)}
-                />
+                <HpsmFileDrop file={file} onChange={setFile} />
               </HpsmField>
               {file && (hashing || hash) && (
                 <HpsmField label="SHA-256">

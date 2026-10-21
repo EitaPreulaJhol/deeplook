@@ -872,12 +872,6 @@ h6 {
   font-size: 0.6875rem;
 }
 
-/* O FileUploader nao precisa do espaco vertical proprio dentro do campo. */
-.hpsm-field__control .cds--file__container,
-.hpsm-field__control .cds--file {
-  margin: 0;
-}
-
 @media (max-width: 40rem) {
   .hpsm-field {
     grid-template-columns: minmax(0, 1fr);
@@ -1171,29 +1165,78 @@ h6 {
   color: var(--dl-text);
 }
 
-/* Campo de arquivo (Enviar Amostra) */
-.dl-shell .cds--file__selected-file {
-  min-block-size: var(--dl-control-h);
-  max-inline-size: 22rem;
-  margin-block-start: 0.25rem;
-  padding-inline-start: 0.5rem;
+/* Campo de arquivo (Enviar Amostra): area de soltar + arquivo escolhido. */
+.hpsm-filedrop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.dl-shell .cds--file__selected-file .cds--file-filename {
-  font-size: var(--dl-font-size);
+.hpsm-filedrop__zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--dl-readonly-bg);
+  border: 1px dotted var(--dl-field-border);
+  color: var(--dl-text-muted);
 }
 
-.cds--file__selected-file {
-  background-color: var(--dl-surface);
-  border: 1px solid var(--dl-border);
-  border-radius: var(--dl-radius);
+/* Arrastando um arquivo por cima: destaque de selecao. */
+.hpsm-filedrop__zone.is-dragging {
+  background: var(--dl-sidebar-active-bg);
+  border: 1px solid var(--dl-tree-selected-border);
+  color: var(--dl-sidebar-active-text);
 }
 
-.cds--file-browse-btn {
+.hpsm-filedrop__input {
+  display: none;
+}
+
+.hpsm-filedrop__file {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-inline-size: 0;
+}
+
+.hpsm-filedrop__file img {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.hpsm-filedrop__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hpsm-filedrop__size {
+  flex: 0 0 auto;
+  color: var(--dl-text-muted);
+}
+
+.hpsm-filedrop__remove {
+  flex: 0 0 auto;
+  margin-inline-start: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--dl-link);
+  font: inherit;
+  cursor: pointer;
 }
 
-.cds--file--label,
+.hpsm-filedrop__remove:hover {
+  text-decoration: underline;
+}
+
+.hpsm-filedrop__remove:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
 .cds--label-description {
   color: var(--dl-text-muted);
 }
@@ -1764,6 +1807,31 @@ h6 {
 }
 
 .dl-link:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+/* Botao com aparencia de link (acoes dentro de mensagens e textos). */
+.dl-link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dl-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dl-link-button:hover {
+  color: var(--dl-link-hover);
+}
+
+.dl-link-button:disabled {
+  color: var(--dl-text-help);
+  cursor: default;
+}
+
+.dl-link-button:focus-visible {
   outline: 1px dotted var(--dl-grid-text);
   outline-offset: 1px;
 }
