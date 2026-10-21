@@ -14,6 +14,21 @@ export interface User {
   _count?: { entries: number };
 }
 
+/** Tela aberta apos o login e na raiz "/". */
+export type StartPage = 'welcome' | 'history' | 'mine';
+
+/** Preferencias de uso (GET /api/auth/me, PATCH /api/me/preferences). */
+export interface Preferences {
+  startPage: StartPage;
+  pageSize: 25 | 50 | 100;
+  restoreTabs: boolean;
+}
+
+/** Usuario da sessao atual: inclui as preferencias. */
+export interface CurrentUser extends User {
+  preferences: Preferences;
+}
+
 export interface TagValue {
   id: string;
   name: string;

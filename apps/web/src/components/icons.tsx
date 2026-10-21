@@ -49,3 +49,4 @@ export const IconEye = createIcon('/icons/eye.svg');
 export const IconEyeOff = createIcon('/icons/eye-off.svg');
 export const IconKey = createIcon('/icons/key.svg');
 export const IconPage = createIcon('/icons/page.svg');
+export const IconHome = createIcon('/icons/home.svg');

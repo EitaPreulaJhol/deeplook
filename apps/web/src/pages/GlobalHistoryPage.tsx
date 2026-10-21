@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import {
   DEFAULT_ENTRY_SORT,
   EntriesTable,
@@ -15,10 +16,9 @@ import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 
-/** Registros por pagina da lista. */
-const PAGE_SIZE = 50;
-
 export function GlobalHistoryPage() {
+  const { preferences } = useAuth();
+  const pageSize = preferences.pageSize;
   const [searchParams] = useSearchParams();
   const initialQ = searchParams.get('q') ?? '';
   const [draftQ, setDraftQ] = useState(initialQ);
@@ -44,10 +44,10 @@ export function GlobalHistoryPage() {
   if (type) params.set('type', type);
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
-  entryListParams(params, sort, offset, PAGE_SIZE);
+  entryListParams(params, sort, offset, pageSize);
 
   const query = useQuery({
-    queryKey: ['entries', 'all', q, type, status, verdict, sort.key, sort.dir, offset],
+    queryKey: ['entries', 'all', q, type, status, verdict, sort.key, sort.dir, offset, pageSize],
     queryFn: () => api.get<{ items: Entry[]; total: number }>(`/entries?${params.toString()}`),
     placeholderData: keepPreviousData,
   });
@@ -146,7 +146,7 @@ export function GlobalHistoryPage() {
           entries={query.data.items}
           total={query.data.total}
           offset={offset}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize}
           sort={sort}
           onSortChange={(next) => {
             setSort(next);

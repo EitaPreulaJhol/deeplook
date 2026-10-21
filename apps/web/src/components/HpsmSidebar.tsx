@@ -4,14 +4,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import type { IconComponent } from './icons';
-import { IconAdd, IconFolder, IconHistory, IconKey, IconPage } from './icons';
+import { IconAdd, IconFolder, IconHistory, IconHome, IconKey, IconPage } from './icons';
 
 interface SidebarProps {
   /** Controle do drawer no mobile (a sidebar fica off-canvas). */
   open: boolean;
-  /** Painel recolhido a uma faixa estreita (desktop). */
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
   /** Fecha o drawer apos navegar (mobile). */
   onNavigate?: () => void;
 }
@@ -28,6 +25,9 @@ interface NavFolder {
   adminOnly?: boolean;
   children: NavLeaf[];
 }
+
+/* Itens soltos no topo da arvore, antes das pastas. */
+const ROOT_LEAVES: NavLeaf[] = [{ to: '/inicio', label: 'Página Inicial', icon: IconHome }];
 
 /* Arvore do "Navegador do Sistema": pastas com as telas da aplicacao. */
 const TREE: NavFolder[] = [
@@ -59,7 +59,7 @@ function isLeafActive(to: string, pathname: string, search: string): boolean {
   return path === pathname && leafTab === currentTab;
 }
 
-export function HpsmSidebar({ open, collapsed, onToggleCollapsed, onNavigate }: SidebarProps) {
+export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
@@ -82,28 +82,36 @@ export function HpsmSidebar({ open, collapsed, onToggleCollapsed, onNavigate }: 
     });
   };
 
-  const classes = ['hpsm-sidebar', open && 'is-open', collapsed && 'is-collapsed']
-    .filter(Boolean)
-    .join(' ');
+  // Folha da arvore; na raiz ganha um espaco no lugar do +/- das pastas.
+  const renderLeaf = (leaf: NavLeaf, root = false) => {
+    const active = isLeafActive(leaf.to, pathname, search);
+    return (
+      <a
+        href={leaf.to}
+        className={`hpsm-tree__row hpsm-tree__leaf${active ? ' is-active' : ''}`}
+        aria-current={active ? 'page' : undefined}
+        onClick={go(leaf.to)}
+      >
+        {root && <span className="hpsm-tree__spacer" aria-hidden="true" />}
+        <leaf.icon size={16} />
+        <span className="hpsm-tree__label">{leaf.label}</span>
+      </a>
+    );
+  };
+
+  const classes = ['hpsm-sidebar', open && 'is-open'].filter(Boolean).join(' ');
 
   return (
     <aside className={classes} aria-label="Navegação principal">
       <div className="hpsm-sidebar__head">
         <span className="hpsm-sidebar__title">Navegador do Sistema</span>
-        <button
-          type="button"
-          className="hpsm-sidebar__collapse"
-          aria-label={collapsed ? 'Expandir navegador' : 'Recolher navegador'}
-          aria-expanded={!collapsed}
-          title={collapsed ? 'Expandir' : 'Recolher'}
-          onClick={onToggleCollapsed}
-        >
-          {collapsed ? '»' : '«'}
-        </button>
       </div>
 
       <nav className="hpsm-tree">
         <ul className="hpsm-tree__list">
+          {ROOT_LEAVES.map((leaf) => (
+            <li key={leaf.to}>{renderLeaf(leaf, true)}</li>
+          ))}
           {TREE.filter((folder) => !folder.adminOnly || isAdmin).map((folder) => {
             const expanded = !closedFolders.has(folder.id);
             const childrenId = `hpsm-tree-${folder.id}`;
@@ -123,22 +131,9 @@ export function HpsmSidebar({ open, collapsed, onToggleCollapsed, onNavigate }: 
                   <span className="hpsm-tree__label">{folder.label}</span>
                 </button>
                 <ul id={childrenId} className="hpsm-tree__children" hidden={!expanded}>
-                  {folder.children.map((leaf) => {
-                    const active = isLeafActive(leaf.to, pathname, search);
-                    return (
-                      <li key={leaf.to}>
-                        <a
-                          href={leaf.to}
-                          className={`hpsm-tree__row hpsm-tree__leaf${active ? ' is-active' : ''}`}
-                          aria-current={active ? 'page' : undefined}
-                          onClick={go(leaf.to)}
-                        >
-                          <leaf.icon size={16} />
-                          <span className="hpsm-tree__label">{leaf.label}</span>
-                        </a>
-                      </li>
-                    );
-                  })}
+                  {folder.children.map((leaf) => (
+                    <li key={leaf.to}>{renderLeaf(leaf)}</li>
+                  ))}
                 </ul>
               </li>
             );

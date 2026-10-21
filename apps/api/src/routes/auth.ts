@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { createSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
+import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
 
 const RegisterSchema = z.object({
@@ -24,6 +25,7 @@ function publicUser(u: {
   role: string;
   status: string;
   createdAt: Date;
+  preferences: unknown;
 }) {
   return {
     id: u.id,
@@ -32,6 +34,7 @@ function publicUser(u: {
     role: u.role,
     status: u.status,
     createdAt: u.createdAt,
+    preferences: resolvePreferences(u.preferences),
   };
 }
 

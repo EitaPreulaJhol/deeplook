@@ -15,11 +15,9 @@ import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 
-/** Registros por pagina da lista. */
-const PAGE_SIZE = 50;
-
 export function MyUploadsPage() {
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
+  const pageSize = preferences.pageSize;
   const [q, setQ] = useState('');
   const [draftQ, setDraftQ] = useState('');
   const [status, setStatus] = useState('');
@@ -41,10 +39,21 @@ export function MyUploadsPage() {
   if (q) params.set('q', q);
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
-  entryListParams(params, sort, offset, PAGE_SIZE);
+  entryListParams(params, sort, offset, pageSize);
 
   const query = useQuery({
-    queryKey: ['entries', 'mine', user?.id, q, status, verdict, sort.key, sort.dir, offset],
+    queryKey: [
+      'entries',
+      'mine',
+      user?.id,
+      q,
+      status,
+      verdict,
+      sort.key,
+      sort.dir,
+      offset,
+      pageSize,
+    ],
     queryFn: () => api.get<{ items: Entry[]; total: number }>(`/entries?${params.toString()}`),
     placeholderData: keepPreviousData,
   });
@@ -129,7 +138,7 @@ export function MyUploadsPage() {
           showOwner={false}
           total={query.data.total}
           offset={offset}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize}
           sort={sort}
           onSortChange={(next) => {
             setSort(next);

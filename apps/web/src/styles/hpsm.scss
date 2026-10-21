@@ -269,14 +269,94 @@ h6 {
   color: #eaf3fb;
 }
 
+/* Nome do usuario: botao que abre o submenu (Minha conta, Senha...). */
 .hpsm-topbar__user-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #ffffff;
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.hpsm-topbar__user-name:hover,
+.hpsm-topbar__user-name[aria-expanded='true'] {
+  text-decoration: underline;
+}
+
+.hpsm-topbar__user-name:focus-visible {
+  outline: 1px dotted #ffffff;
+  outline-offset: 2px;
+}
+
+.hpsm-topbar__role {
+  margin-inline-start: 0.25rem;
+}
+
+/* Submenu do usuario: caixa branca com borda azul-clara (menu do HPSM). */
+.hpsm-usermenu {
+  position: relative;
+  display: inline-block;
+}
+
+.hpsm-usermenu__caret {
+  font-size: 0.625rem;
+  font-weight: 400;
+}
+
+.hpsm-usermenu__panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 50;
+  min-inline-size: 11rem;
+  padding: 2px;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.hpsm-usermenu__item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  inline-size: 100%;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dl-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+  font-weight: 400;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.hpsm-usermenu__item img {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.hpsm-usermenu__item:hover,
+.hpsm-usermenu__item:focus {
+  background: var(--dl-sidebar-active-bg);
+  border-color: var(--dl-tree-selected-border);
+  outline: none;
+}
+
+.hpsm-usermenu__sep {
+  block-size: 1px;
+  margin: 2px 0.25rem;
+  background: var(--dl-grid-line);
 }
 
 @media (max-width: 52rem) {
-  .hpsm-topbar__user,
-  .hpsm-topbar__pipe {
+  .hpsm-topbar__role {
     display: none;
   }
 }
@@ -294,7 +374,7 @@ h6 {
   border-inline-end: 1px solid var(--dl-panel-border);
 }
 
-/* Cabecalho do painel: titulo + botao de recolher. */
+/* Cabecalho do painel: titulo "Navegador do Sistema". */
 .hpsm-sidebar__head {
   display: flex;
   flex: 0 0 auto;
@@ -313,58 +393,6 @@ h6 {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.hpsm-sidebar__collapse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  inline-size: 1rem;
-  block-size: 1rem;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  background: transparent;
-  color: var(--dl-section-title);
-  font-size: 0.75rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.hpsm-sidebar__collapse:hover {
-  border-color: var(--dl-btn-hover-border);
-  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
-}
-
-.hpsm-sidebar__collapse:focus-visible {
-  outline: 1px dotted var(--dl-grid-text);
-  outline-offset: 1px;
-}
-
-/* Recolhido (so desktop): faixa estreita com o botao de expandir. */
-@media (min-width: 52.0625rem) {
-  .hpsm-sidebar.is-collapsed {
-    flex-basis: 1.5rem;
-    width: 1.5rem;
-  }
-
-  .hpsm-sidebar.is-collapsed .hpsm-sidebar__head {
-    justify-content: center;
-    padding-inline: 0;
-  }
-
-  .hpsm-sidebar.is-collapsed .hpsm-sidebar__title,
-  .hpsm-sidebar.is-collapsed .hpsm-tree {
-    display: none;
-  }
-}
-
-/* No drawer do mobile o botao de recolher nao se aplica. */
-@media (max-width: 52rem) {
-  .hpsm-sidebar__collapse {
-    display: none;
-  }
 }
 
 /* Arvore: pastas com +/-, folhas indentadas com guia pontilhada. */
@@ -414,6 +442,12 @@ h6 {
 .hpsm-tree__row img {
   display: block;
   flex: 0 0 auto;
+}
+
+/* Folha na raiz: ocupa o lugar do +/- para alinhar com as pastas. */
+.hpsm-tree__spacer {
+  flex: 0 0 auto;
+  inline-size: 0.6875rem;
 }
 
 .hpsm-tree__label {
@@ -1538,6 +1572,43 @@ h6 {
 
 .dl-mt-lg {
   margin-top: 1.5rem;
+}
+
+/* Link de texto dentro do conteudo. */
+.dl-link {
+  color: var(--dl-link);
+  text-decoration: none;
+}
+
+.dl-link:hover {
+  color: var(--dl-link-hover);
+  text-decoration: underline;
+}
+
+.dl-link:focus-visible {
+  outline: 1px dotted var(--dl-grid-text);
+  outline-offset: 1px;
+}
+
+/* Pagina Inicial: texto de boas-vindas dentro das secoes. */
+.dl-welcome {
+  max-width: 56rem;
+  line-height: 1.5;
+}
+
+.dl-welcome p {
+  margin: 0;
+  font-size: var(--dl-font-size);
+}
+
+.dl-welcome ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  list-style: disc;
+}
+
+.dl-welcome li + li {
+  margin-block-start: 0.3rem;
 }
 
 /* --- 15. Sandbox de analise (VM isolada no Proxmox) --------------------- */

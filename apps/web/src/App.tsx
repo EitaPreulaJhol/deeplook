@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthContext';
+import { startPath } from './auth/preferences';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
@@ -12,6 +13,8 @@ import { MyUploadsPage } from './pages/MyUploadsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SandboxConsoleWindowPage } from './pages/SandboxConsoleWindowPage';
 import { SubmitPage } from './pages/SubmitPage';
+import { UserPage } from './pages/UserPage';
+import { WelcomePage } from './pages/WelcomePage';
 
 function FullScreenLoader() {
   return (
@@ -33,7 +36,7 @@ function ShellLayout() {
 }
 
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, preferences, loading } = useAuth();
 
   if (loading) return <FullScreenLoader />;
 
@@ -54,16 +57,19 @@ export default function App() {
       <Route path="/sandbox/entry/:entryId/console" element={<SandboxConsoleWindowPage />} />
 
       <Route element={<ShellLayout />}>
-        <Route path="/" element={<Navigate to="/history" replace />} />
+        {/* Raiz (e destino apos o login): a pagina inicial escolhida nas preferencias. */}
+        <Route path="/" element={<Navigate to={startPath(preferences)} replace />} />
+        <Route path="/inicio" element={<WelcomePage />} />
+        <Route path="/user" element={<UserPage />} />
         <Route path="/history" element={<GlobalHistoryPage />} />
         <Route path="/me" element={<MyUploadsPage />} />
         <Route path="/submit" element={<SubmitPage />} />
         <Route path="/entries/:id" element={<EntryDetailPage />} />
         <Route
           path="/admin"
-          element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/history" replace />}
+          element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/" replace />}
         />
-        <Route path="*" element={<Navigate to="/history" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );

@@ -55,6 +55,8 @@ model User {
   displayName  String
   role         Role       @default(USER)
   status       UserStatus @default(ACTIVE)
+  /// Preferencias de uso (pagina inicial, registros por pagina...). Ver src/lib/preferences.ts.
+  preferences  Json       @default("{}")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

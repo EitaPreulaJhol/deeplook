@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
@@ -9,10 +9,12 @@ import { HpsmMessage } from '../components/messages';
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  // Aviso vindo de outra tela (ex.: "Senha alterada. Entre novamente...").
+  const { state } = useLocation() as { state: { notice?: string } | null };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(state?.notice ?? null);
   const [loading, setLoading] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
@@ -22,7 +24,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      navigate('/history');
+      navigate('/');
     } catch (err) {
       setError((err as Error).message || 'Falha ao entrar.');
     } finally {

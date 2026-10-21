@@ -45,7 +45,7 @@ export function RegisterPage() {
         password,
         activationKey: activationKey.trim().toUpperCase(),
       });
-      navigate('/history');
+      navigate('/');
     } catch (err) {
       setError((err as Error).message || 'Falha no cadastro.');
     } finally {

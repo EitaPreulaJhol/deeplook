@@ -2,11 +2,15 @@ import type { MouseEvent, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { useAuth } from '../auth/AuthContext';
+
 /**
  * Abas de documento da area de trabalho (estilo HP Service Manager): cada
  * lista/registro aberto vira uma aba no topo do conteudo, com "x" para fechar.
  * A aba e identificada pelo pathname; a URL completa (com ?tab=...) e guardada
- * para reabrir no mesmo ponto. A lista sobrevive a recarga via sessionStorage.
+ * para reabrir no mesmo ponto. A lista sobrevive a recarga via sessionStorage;
+ * com a preferencia "Reabrir abas ao entrar", uma copia por usuario fica no
+ * localStorage e e restaurada no proximo login.
  */
 interface WorkspaceTab {
   /** Chave da aba (pathname). */
@@ -25,12 +29,15 @@ interface WorkspaceContextValue {
 const STORAGE_KEY = 'dl-workspace-tabs';
 /** Limite de abas abertas; ao passar, a mais antiga (fora a ativa) e fechada. */
 const MAX_TABS = 10;
-const HOME_URL = '/history';
+/** Sem abas restantes: a raiz leva a pagina inicial das preferencias. */
+const HOME_URL = '/';
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 /** Titulo padrao de cada rota (null = rota sem aba, ex.: redirecionamentos). */
 function routeTitle(pathname: string): string | null {
+  if (pathname === '/inicio') return 'Página Inicial';
+  if (pathname === '/user') return 'Minha Conta';
   if (pathname === '/history') return 'Histórico Global';
   if (pathname === '/me') return 'Meus Uploads';
   if (pathname === '/submit') return 'Enviar Amostra';
@@ -39,9 +46,14 @@ function routeTitle(pathname: string): string | null {
   return null;
 }
 
-function loadTabs(): WorkspaceTab[] {
+/** Copia das abas guardada entre logins (uma por usuario). */
+function restoreKey(userId: string): string {
+  return `${STORAGE_KEY}:${userId}`;
+}
+
+function loadTabs(storage: Storage, key: string): WorkspaceTab[] {
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    const raw = storage.getItem(key);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
       ? parsed.filter(
@@ -56,15 +68,21 @@ function loadTabs(): WorkspaceTab[] {
   }
 }
 
-function saveTabs(tabs: WorkspaceTab[]) {
+function saveTabs(tabs: WorkspaceTab[], userId: string | undefined, restore: boolean) {
   try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
+    const json = JSON.stringify(tabs);
+    window.sessionStorage.setItem(STORAGE_KEY, json);
+    if (userId) {
+      if (restore) window.localStorage.setItem(restoreKey(userId), json);
+      else window.localStorage.removeItem(restoreKey(userId));
+    }
   } catch {
     /* armazenamento indisponivel: as abas so nao sobrevivem a recarga */
   }
 }
 
-/** Esquece as abas abertas (logout: o proximo usuario comeca do zero). */
+/** Esquece as abas desta sessao do navegador (logout). A copia de "reabrir ao
+ *  entrar" fica guardada por usuario, entao outro usuario nao a ve. */
 export function clearWorkspaceTabs() {
   try {
     window.sessionStorage.removeItem(STORAGE_KEY);
@@ -76,7 +94,20 @@ export function clearWorkspaceTabs() {
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const [tabs, setTabs] = useState<WorkspaceTab[]>(loadTabs);
+  const { user, preferences } = useAuth();
+  const userId = user?.id;
+  const restore = preferences.restoreTabs;
+
+  // Abas desta sessao (F5) ou, num login novo, as da sessao anterior.
+  const [tabs, setTabs] = useState<WorkspaceTab[]>(() => {
+    try {
+      const current = loadTabs(window.sessionStorage, STORAGE_KEY);
+      if (current.length > 0 || !userId || !restore) return current;
+      return loadTabs(window.localStorage, restoreKey(userId));
+    } catch {
+      return [];
+    }
+  });
 
   // Toda navegacao abre (ou atualiza) a aba da rota atual.
   useEffect(() => {
@@ -99,7 +130,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, [pathname, search]);
 
-  useEffect(() => saveTabs(tabs), [tabs]);
+  useEffect(() => saveTabs(tabs, userId, restore), [tabs, userId, restore]);
 
   const setTitle = useCallback((path: string, title: string) => {
     setTabs((current) =>

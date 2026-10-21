@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { HpsmUserMenu } from './HpsmUserMenu';
 import { IconMenu } from './icons';
 import { roleLabel } from './tags';
 import { clearWorkspaceTabs } from './workspace';
@@ -17,7 +18,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
 
   const goHome = (event: MouseEvent) => {
     event.preventDefault();
-    navigate('/history');
+    navigate('/');
   };
 
   const handleLogout = async () => {
@@ -37,7 +38,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
         <IconMenu size={18} />
       </button>
 
-      <a className="hpsm-topbar__brand" href="/history" onClick={goHome}>
+      <a className="hpsm-topbar__brand" href="/" onClick={goHome}>
         <img src="/deeplook.svg" alt="" className="dl-logo" />
         <span>DeepLook</span>
       </a>
@@ -48,9 +49,10 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
       <div className="hpsm-topbar__links">
         {user && (
           <>
+            {/* Nome abre o submenu do usuario (Minha conta, Senha, Preferencias, Sair). */}
             <span className="hpsm-topbar__user">
-              <span className="hpsm-topbar__user-name">{user.displayName}</span> (
-              {roleLabel(user.role)})
+              <HpsmUserMenu name={user.displayName} onLogout={handleLogout} />
+              <span className="hpsm-topbar__role">({roleLabel(user.role)})</span>
             </span>
             <span className="hpsm-topbar__pipe" aria-hidden="true">
               |

@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../env';
+import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
 
 export const SESSION_COOKIE = 'dl_session';
@@ -14,6 +15,7 @@ export type PublicUser = {
   role: RoleName;
   status: 'ACTIVE' | 'SUSPENDED';
   createdAt: Date;
+  preferences: Preferences;
 };
 
 export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> {
@@ -41,6 +43,7 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
     role: u.role as RoleName,
     status: u.status as 'ACTIVE' | 'SUSPENDED',
     createdAt: u.createdAt,
+    preferences: resolvePreferences(u.preferences),
   };
 }
 
