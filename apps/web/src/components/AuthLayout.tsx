@@ -14,7 +14,7 @@ export function PublicMasthead() {
   return (
     <header className="hpsm-topbar">
       <Link className="hpsm-topbar__brand" to="/home">
-        <img src="/deeplook.svg" alt="" className="dl-logo" />
+        <img src="/icons/magnifier.svg" alt="" className="dl-logo" />
         <span>DeepLook</span>
       </Link>
     </header>

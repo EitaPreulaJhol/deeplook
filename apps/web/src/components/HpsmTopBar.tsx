@@ -39,7 +39,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
       </button>
 
       <a className="hpsm-topbar__brand" href="/" onClick={goHome}>
-        <img src="/deeplook.svg" alt="" className="dl-logo" />
+        <img src="/icons/magnifier.svg" alt="" className="dl-logo" />
         <span>DeepLook</span>
       </a>
 
