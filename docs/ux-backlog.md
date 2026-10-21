@@ -297,7 +297,7 @@ HP Service Manager 9 (indicados em cada item).
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ⬜ |
 | 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ⬜ |
-| 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ⬜ |
+| 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ✅ |
 | 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ⬜ |
 | 29 | Ficha para impressão | impressão do registro | ⚪ | P | ⬜ |
 | 30 | Ajuda de atalhos (`?` / F1) | Ajuda | ⚪ | P | ⬜ |
@@ -415,6 +415,10 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   `/entries/:id`; qualquer outro texto abre o Histórico Global com `?q=`.
 - **Onde mexer:** `HpsmTopBar.tsx` + componente do campo; a API já suporta tudo.
 - **Cuidados:** no celular, só o ícone (o campo abre por cima).
+- ✅ **Implementado:** `components/HpsmQuickSearch.tsx` — **"Ir para:"** no masthead
+  (`Ctrl+K` foca). SHA-256 de uma amostra única abre a ficha; um ID (cuid) abre a
+  amostra; o resto (inclusive hash desconhecido ou repetido) abre o Histórico Global com
+  `?q=`. Abaixo de `52rem` o campo sai do masthead (a busca da lista continua).
 
 ### 28. Menu "Mais ▾" na toolbar
 - **Proposta:** botão **Mais ▾** na toolbar da amostra agrupando ações menos usadas:

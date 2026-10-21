@@ -134,7 +134,8 @@ export function WelcomePage() {
               para trocar a senha e ajustar suas preferências, inclusive qual tela abre ao entrar.
             </li>
             <li>
-              Atalhos: <kbd>/</kbd> busca na lista, <kbd>Alt</kbd>+<kbd>N</kbd> enviar amostra,{' '}
+              Atalhos: <kbd>Ctrl</kbd>+<kbd>K</kbd> ir para uma amostra (ID, SHA-256 ou texto),{' '}
+              <kbd>/</kbd> busca na lista, <kbd>Alt</kbd>+<kbd>N</kbd> enviar amostra,{' '}
               <kbd>Alt</kbd>+<kbd>W</kbd> fechar a aba atual, <kbd>Ctrl</kbd>+<kbd>S</kbd> salvar o
               formulário aberto e, na lista, <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> para abrir
               uma amostra.

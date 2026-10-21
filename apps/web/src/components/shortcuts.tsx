@@ -7,6 +7,7 @@ import { useWorkspace } from './workspace';
 /**
  * Atalhos de teclado do app (listados na Pagina Inicial):
  *   /       foca a busca da lista (fora de campos de texto)
+ *   Ctrl+K  foca o "Ir para…" do masthead
  *   Alt+N   abre "Enviar Amostra"
  *   Alt+W   fecha a aba de documento atual
  *   Ctrl+S  salva o formulario aberto (quem registrou useSaveShortcut)
@@ -42,6 +43,14 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
         if (saveRef.current) {
           event.preventDefault();
           saveRef.current();
+        }
+        return;
+      }
+      if (mod && !event.altKey && event.key.toLowerCase() === 'k') {
+        const quick = document.getElementById('dl-quick-search');
+        if (quick) {
+          event.preventDefault();
+          quick.focus();
         }
         return;
       }

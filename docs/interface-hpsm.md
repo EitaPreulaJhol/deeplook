@@ -192,6 +192,7 @@ no lugar do `FileUploader` do Carbon. `formatFileSize()` vem do mesmo arquivo.
 
 | Tecla | Ação |
 |---|---|
+| `Ctrl+K` | foca o "Ir para:" do masthead (ID, SHA-256 ou texto) |
 | `/` | foca a busca da lista (fora de campos de texto) |
 | `Alt+N` | abre Enviar Amostra |
 | `Alt+W` | fecha a aba de documento atual |
@@ -376,6 +377,7 @@ banco nem da API rodando.
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
+| `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |
 | `detail-pane.mjs` | painel de detalhe: desligado o clique abre; ligado, seleção, setas, duplo clique, Enter e "Abrir amostra" |
 | `news-shortcuts-export.mjs` | novidades na Página Inicial, atalhos (`/`, Alt+N, Alt+W, Ctrl+S) e download do CSV com os filtros |
