@@ -21,7 +21,7 @@ function fmtDate(iso: string): string {
 
 /** Colunas ordenaveis (mesmos nomes do parametro `sort` de GET /api/entries). */
 export type EntrySortKey =
-  'title' | 'type' | 'owner' | 'status' | 'verdict' | 'reports' | 'createdAt';
+  'title' | 'type' | 'owner' | 'assignee' | 'status' | 'verdict' | 'reports' | 'createdAt';
 
 export interface EntrySort {
   key: EntrySortKey;
@@ -108,6 +108,7 @@ export function EntriesTable({
     { key: 'title', header: 'Amostra' },
     { key: 'type', header: 'Tipo' },
     ...(showOwner ? [{ key: 'owner' as const, header: 'Enviado por' }] : []),
+    { key: 'assignee', header: 'Responsável' },
     { key: 'status', header: 'Status' },
     { key: 'verdict', header: 'Veredito' },
     { key: 'reports', header: 'Relatórios' },
@@ -178,6 +179,7 @@ export function EntriesTable({
                   <TypeTag type={entry.type} />
                 </TableCell>
                 {showOwner && <TableCell>{entry.owner.displayName}</TableCell>}
+                <TableCell>{entry.assignee?.displayName ?? '—'}</TableCell>
                 <TableCell>
                   <StatusTag status={entry.status} />
                 </TableCell>

@@ -23,8 +23,8 @@ interface NavLeaf {
   /** Icone 16px; filas usam a bolinha de status (`tone`) no lugar. */
   icon?: IconComponent;
   tone?: StatusTone;
-  /** Mostra o contador da fila com este status, ex.: "Pendentes (12)". */
-  count?: EntryStatus;
+  /** Contador da fila: um status ou `mine` (atribuidas a mim e abertas). */
+  count?: EntryStatus | 'mine';
 }
 
 interface NavFolder {
@@ -46,6 +46,7 @@ const TREE: NavFolder[] = [
     label: 'Filas',
     access: 'triage',
     children: [
+      { to: '/history?assignee=me', label: 'Atribuídas a mim', tone: 'orange', count: 'mine' },
       { to: '/history?status=PENDING', label: 'Pendentes', tone: 'gray', count: 'PENDING' },
       { to: '/history?status=IN_REVIEW', label: 'Em análise', tone: 'blue', count: 'IN_REVIEW' },
       { to: '/history?status=COMPLETED', label: 'Concluídas', tone: 'green', count: 'COMPLETED' },
@@ -101,11 +102,14 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   // Contadores das filas: atualizam a cada minuto (e apos cada triagem).
   const countsQuery = useQuery({
     queryKey: ['entries', 'counts'],
-    queryFn: () => api.get<{ counts: Record<EntryStatus, number> }>('/entries/counts'),
+    queryFn: () =>
+      api.get<{ counts: Record<EntryStatus, number>; mine: number }>('/entries/counts'),
     enabled: canTriage,
     refetchInterval: 60_000,
   });
-  const counts = countsQuery.data?.counts;
+  const counts = countsQuery.data
+    ? { ...countsQuery.data.counts, mine: countsQuery.data.mine }
+    : undefined;
 
   const folders = TREE.filter(
     (folder) => !folder.access || (folder.access === 'admin' ? isAdmin : canTriage),

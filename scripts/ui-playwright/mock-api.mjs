@@ -42,6 +42,19 @@ const entries = [
   { id: 'e3', ownerId: 'u1', owner: { id: 'u1', displayName: 'Ana Souza', email: 'ana@deeplook.test' }, type: 'FILE', title: 'relatorio_trimestral.docm', status: 'PENDING', verdict: 'UNKNOWN', originalFilename: 'relatorio_trimestral.docm', fileSize: 88211, mimeType: 'application/vnd.ms-word', sha256: 'aa11', storageKey: 'k3', createdAt: '2026-10-18T16:10:00.000Z', updatedAt: now, tags: [], _count: { reports: 0 } },
   { id: 'e4', ownerId: 'u2', owner, type: 'FILE', title: 'driver_update.msi', status: 'COMPLETED', verdict: 'CLEAN', originalFilename: 'driver_update.msi', fileSize: 1048576, mimeType: 'application/x-msi', sha256: 'bb22', storageKey: 'k4', createdAt: '2026-10-17T08:00:00.000Z', updatedAt: now, tags: [], _count: { reports: 1 } },
 ];
+// Linha do tempo por amostra (GET /api/entries/:id/events); PATCH acrescenta eventos.
+const events = Object.fromEntries(
+  entries.map((e) => [
+    e.id,
+    [{ id: `${e.id}-ev0`, entryId: e.id, type: 'CREATED', createdAt: e.createdAt, actor: { id: e.owner.id, displayName: e.owner.displayName } }],
+  ]),
+);
+const actorOf = (u) => ({ id: u.id, displayName: u.displayName });
+function pushEvent(entryId, type, fromValue, toValue) {
+  const list = events[entryId];
+  list.push({ id: `${entryId}-ev${list.length}`, entryId, type, fromValue, toValue, createdAt: new Date().toISOString(), actor: actorOf(users[0]) });
+}
+
 const reports = [
   { id: 'r1', entryId: 'e1', analystId: 'u2', analyst: { id: 'u2', displayName: 'Bruno Lima', role: 'ANALYST' }, summary: 'Executável empacotado com UPX; tenta persistir via chave Run.', findings: 'Cria HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\updater.\nContata domínio recém-registrado.', iocs: 'updater-cdn.example\n185.0.2.10', verdict: 'SUSPICIOUS', published: true, createdAt: now, updatedAt: now },
 ];
@@ -129,6 +142,8 @@ export async function setupMock(context, state) {
         const q = (sp.get('q') || '').toLowerCase();
         if (q) items = items.filter((e) => e.title.toLowerCase().includes(q));
         if (sp.get('sha256')) items = entries.filter((e) => e.sha256 === sp.get('sha256'));
+        if (sp.get('assignee') === 'me') items = items.filter((e) => e.assignee?.id === 'u1');
+        if (sp.get('assignee') === 'none') items = items.filter((e) => !e.assignee);
         for (const k of ['type', 'status', 'verdict']) {
           if (sp.get(k)) items = items.filter((e) => e[k] === sp.get(k));
         }
@@ -137,7 +152,8 @@ export async function setupMock(context, state) {
       if (p === '/api/entries/counts') {
         const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
         for (const e of entries) counts[e.status] += 1;
-        return json(route, 200, { counts });
+        const mine = entries.filter((e) => e.assignee?.id === 'u1' && e.status !== 'COMPLETED').length;
+        return json(route, 200, { counts, mine });
       }
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
       if (m) {
@@ -156,14 +172,30 @@ export async function setupMock(context, state) {
       m = p.match(/^\/api\/entries\/(\w+)$/);
       if (m && req.method() === 'PATCH') {
         const e = entries.find((x) => x.id === m[1]);
-        Object.assign(e, body);
+        const { assigneeId, ...rest } = body;
+        for (const [key, type] of [['status', 'STATUS_CHANGED'], ['verdict', 'VERDICT_CHANGED']]) {
+          if (rest[key] && rest[key] !== e[key]) pushEvent(e.id, type, e[key], rest[key]);
+        }
+        Object.assign(e, rest);
+        if (assigneeId !== undefined) {
+          const next = assigneeId ? actorOf(users.find((u) => u.id === assigneeId)) : null;
+          pushEvent(e.id, 'ASSIGNED', e.assignee?.displayName ?? null, next?.displayName ?? null);
+          e.assignee = next;
+        }
         return json(route, 200, { entry: e });
       }
+      const ev = p.match(/^\/api\/entries\/(\w+)\/events$/);
+      if (ev) return json(route, 200, { events: events[ev[1]] ?? [] });
       if (m) {
         const e = entries.find((x) => x.id === m[1]);
         return e
           ? json(route, 200, { entry: { ...e, reports: e.id === 'e1' ? reports : [] } })
           : json(route, 404, { error: 'Nao encontrado.' });
+      }
+      if (p === '/api/analysts') {
+        return json(route, 200, {
+          analysts: users.filter((u) => u.role !== 'USER' && u.status === 'ACTIVE').map(actorOf),
+        });
       }
       if (p === '/api/admin/users') return json(route, 200, { users });
       m = p.match(/^\/api\/admin\/users\/(\w+)\/reset-password$/);

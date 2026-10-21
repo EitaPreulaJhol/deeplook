@@ -9,7 +9,13 @@ import type { EntryStatus, EntryType, Role, Verdict } from '../api/types';
  */
 export type StatusTone = 'green' | 'red' | 'orange' | 'blue' | 'gray' | 'none';
 
-export function StatusText({ tone = 'none', children }: { tone?: StatusTone; children: ReactNode }) {
+export function StatusText({
+  tone = 'none',
+  children,
+}: {
+  tone?: StatusTone;
+  children: ReactNode;
+}) {
   return (
     <span className={`hpsm-status hpsm-status--${tone}`}>
       {tone !== 'none' && <span className="hpsm-status__bullet" aria-hidden="true" />}
@@ -36,6 +42,14 @@ const ROLE_LABELS: Record<Role, string> = {
   ANALYST: 'Analista',
   ADMIN: 'Admin',
 };
+
+export function statusLabel(status: EntryStatus): string {
+  return (STATUS_MAP[status] ?? STATUS_MAP.PENDING).label;
+}
+
+export function verdictLabel(verdict: Verdict): string {
+  return (VERDICT_MAP[verdict] ?? VERDICT_MAP.UNKNOWN).label;
+}
 
 export function roleLabel(role: Role): string {
   return ROLE_LABELS[role] ?? ROLE_LABELS.USER;

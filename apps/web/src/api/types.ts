@@ -73,6 +73,8 @@ export interface Entry {
   urlDomain?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Analista responsavel (atribuicao); null = sem responsavel. */
+  assignee?: { id: string; displayName: string } | null;
   tags: TagValue[];
   reports?: Report[];
   _count?: { reports: number };
@@ -92,13 +94,7 @@ export interface ActivationKey {
 }
 
 export type SandboxStatus =
-  | 'REQUESTED'
-  | 'PROVISIONING'
-  | 'RUNNING'
-  | 'STOPPING'
-  | 'STOPPED'
-  | 'EXPIRED'
-  | 'FAILED';
+  'REQUESTED' | 'PROVISIONING' | 'RUNNING' | 'STOPPING' | 'STOPPED' | 'EXPIRED' | 'FAILED';
 
 export interface SandboxEntryRef {
   id: string;
@@ -143,4 +139,27 @@ export interface SandboxHealth {
   consoleEnabled: boolean;
   activeSessions: number;
   checks: { name: string; ok: boolean; detail: string }[];
+}
+
+export type EntryEventType =
+  | 'CREATED'
+  | 'STATUS_CHANGED'
+  | 'VERDICT_CHANGED'
+  | 'ASSIGNED'
+  | 'REPORT_CREATED'
+  | 'REPORT_PUBLISHED'
+  | 'SANDBOX_OPENED'
+  | 'SANDBOX_CLOSED';
+
+/** Evento do historico da amostra (GET /api/entries/:id/events). */
+export interface EntryEvent {
+  id: string;
+  entryId: string;
+  type: EntryEventType;
+  fromValue?: string | null;
+  toValue?: string | null;
+  detail?: string | null;
+  createdAt: string;
+  /** null = acao do sistema (ex.: expiracao do sandbox). */
+  actor: { id: string; displayName: string } | null;
 }

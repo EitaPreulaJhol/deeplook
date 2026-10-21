@@ -11,12 +11,13 @@ import { PageHeader } from '../components/PageHeader';
 import { useEntryListState } from '../components/useEntryListState';
 
 export function GlobalHistoryPage() {
-  const { preferences } = useAuth();
+  const { user, preferences } = useAuth();
+  const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
   const pageSize = preferences.pageSize;
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { type, status, verdict } = list.filters;
+  const { type, status, verdict, assignee } = list.filters;
 
   const params = new URLSearchParams();
   params.set('scope', 'all');
@@ -24,10 +25,23 @@ export function GlobalHistoryPage() {
   if (type) params.set('type', type);
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
+  if (assignee) params.set('assignee', assignee);
   entryListParams(params, sort, offset, pageSize);
 
   const query = useQuery({
-    queryKey: ['entries', 'all', q, type, status, verdict, sort.key, sort.dir, offset, pageSize],
+    queryKey: [
+      'entries',
+      'all',
+      q,
+      type,
+      status,
+      verdict,
+      assignee,
+      sort.key,
+      sort.dir,
+      offset,
+      pageSize,
+    ],
     queryFn: () => api.get<{ items: Entry[]; total: number }>(`/entries?${params.toString()}`),
     placeholderData: keepPreviousData,
   });
@@ -93,6 +107,22 @@ export function GlobalHistoryPage() {
             <SelectItem value="MALICIOUS" text="Malicioso" />
           </Select>
         </HpsmFilterItem>
+        {canTriage && (
+          <HpsmFilterItem label="Responsável" htmlFor="assignee">
+            <Select
+              id="assignee"
+              labelText="Responsável"
+              hideLabel
+              size="sm"
+              value={assignee}
+              onChange={(e) => list.setFilter('assignee', e.target.value)}
+            >
+              <SelectItem value="" text="Todos" />
+              <SelectItem value="me" text="Atribuídas a mim" />
+              <SelectItem value="none" text="Sem responsável" />
+            </Select>
+          </HpsmFilterItem>
+        )}
       </HpsmFilterBar>
 
       {query.isLoading && <HpsmLoading text="Carregando amostras..." />}

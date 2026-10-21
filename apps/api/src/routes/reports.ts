@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { isAnalyst, requireUser } from '../lib/auth';
+import { recordEvent, recordTriageChanges } from '../lib/events';
 import { prisma } from '../lib/prisma';
 
 const ReportSchema = z.object({
@@ -60,8 +61,15 @@ export async function reportRoutes(app: FastifyInstance) {
         },
         include: { analyst: { select: { id: true, displayName: true, role: true } } },
       });
+      await recordEvent(tx, {
+        entryId: id,
+        actorId: user.id,
+        type: published ? 'REPORT_PUBLISHED' : 'REPORT_CREATED',
+        toValue: verdict,
+      });
       if (published) {
         await tx.entry.update({ where: { id }, data: { verdict, status: 'COMPLETED' } });
+        await recordTriageChanges(tx, id, user.id, entry, { verdict, status: 'COMPLETED' });
       }
       return created;
     });
@@ -100,7 +108,24 @@ export async function reportRoutes(app: FastifyInstance) {
         },
         include: { analyst: { select: { id: true, displayName: true, role: true } } },
       });
-      if (data.published === true) {
+      // Publicar um rascunho define status/veredito da amostra (e entra no historico).
+      if (data.published === true && !report.published) {
+        const before = await tx.entry.findUniqueOrThrow({ where: { id: report.entryId } });
+        await tx.entry.update({
+          where: { id: report.entryId },
+          data: { verdict: r.verdict, status: 'COMPLETED' },
+        });
+        await recordEvent(tx, {
+          entryId: report.entryId,
+          actorId: user.id,
+          type: 'REPORT_PUBLISHED',
+          toValue: r.verdict,
+        });
+        await recordTriageChanges(tx, report.entryId, user.id, before, {
+          verdict: r.verdict,
+          status: 'COMPLETED',
+        });
+      } else if (data.published === true) {
         await tx.entry.update({
           where: { id: report.entryId },
           data: { verdict: r.verdict, status: 'COMPLETED' },

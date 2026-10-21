@@ -6,13 +6,14 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { api } from '../api/client';
 import type { Entry, SandboxSession } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { formatFileSize } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../components/HpsmToolbar';
-import { IconArrowLeft, IconDownload, IconRefresh } from '../components/icons';
+import { IconArrowLeft, IconDownload, IconPage, IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
@@ -48,6 +49,14 @@ export function EntryDetailPage() {
     enabled: canTriage,
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
     refetchOnWindowFocus: true,
+  });
+
+  // Analistas que podem ser responsaveis (select da triagem).
+  const analystsQuery = useQuery({
+    queryKey: ['analysts'],
+    queryFn: () => api.get<{ analysts: { id: string; displayName: string }[] }>('/analysts'),
+    enabled: canTriage,
+    staleTime: 5 * 60 * 1000,
   });
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,6 +144,7 @@ export function EntryDetailPage() {
         ]
       : []),
     { id: 'relatorios', label: `Relatórios (${reports.length})` },
+    { id: 'historico', label: 'Histórico' },
   ];
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam && tabs.some((t) => t.id === tabParam) ? tabParam : 'detalhes';
@@ -144,6 +154,14 @@ export function EntryDetailPage() {
       <HpsmToolbar label="Ações da amostra">
         <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
         <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={reload} />
+        {canTriage && user && entry.assignee?.id !== user.id && (
+          <HpsmToolbarButton
+            label="Assumir análise"
+            icon={IconPage}
+            title="Tornar-me responsável por esta amostra"
+            onClick={() => quickUpdate({ assigneeId: user.id })}
+          />
+        )}
         {position >= 0 && sequence.length > 1 && (
           <>
             <HpsmToolbarDivider />
@@ -198,6 +216,10 @@ export function EntryDetailPage() {
       <div className="dl-summary dl-mb-lg">
         <span>
           <span className="dl-summary__label">Tipo:</span> <TypeTag type={entry.type} />
+        </span>
+        <span>
+          <span className="dl-summary__label">Responsável:</span>{' '}
+          {entry.assignee?.displayName ?? '—'}
         </span>
         <span>
           <span className="dl-summary__label">Status:</span> <StatusTag status={entry.status} />
@@ -317,6 +339,20 @@ export function EntryDetailPage() {
                   <SelectItem value="MALICIOUS" text="Malicioso" />
                 </Select>
               </HpsmField>
+              <HpsmField label="Responsável" htmlFor="triage-assignee">
+                <Select
+                  id="triage-assignee"
+                  labelText="Responsável"
+                  hideLabel
+                  value={entry.assignee?.id ?? ''}
+                  onChange={(e) => quickUpdate({ assigneeId: e.target.value || null })}
+                >
+                  <SelectItem value="" text="— Sem responsável —" />
+                  {(analystsQuery.data?.analysts ?? []).map((a) => (
+                    <SelectItem key={a.id} value={a.id} text={a.displayName} />
+                  ))}
+                </Select>
+              </HpsmField>
             </HpsmForm>
           </HpsmSection>
 
@@ -332,6 +368,12 @@ export function EntryDetailPage() {
             canTriage={canTriage}
             onCreated={reload}
           />
+        </div>
+      )}
+
+      {activeTab === 'historico' && (
+        <div className="hpsm-tabpanel">
+          <EntryHistoryTab entryId={id} />
         </div>
       )}
     </>

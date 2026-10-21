@@ -19,8 +19,8 @@ próprio HPSM.
 | 4 | Aviso de alterações não salvas | 🔴 | M | Formulários | ✅ |
 | 5 | Filtros, ordenação e página na URL | 🔴 | P–M | Listas | ✅ |
 | 6 | "Minha fila" com contadores no navegador | 🟡 | M | Navegador / API | ✅ |
-| 7 | Atribuição de amostra a um analista | 🟡 | G | Amostra / banco | ⬜ |
-| 8 | Aba "Histórico" (auditoria) na amostra | 🟡 | G | Amostra / banco | ⬜ |
+| 7 | Atribuição de amostra a um analista | 🟡 | G | Amostra / banco | ✅ |
+| 8 | Aba "Histórico" (auditoria) na amostra | 🟡 | G | Amostra / banco | ✅ |
 | 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra | ✅ |
 | 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API | ✅ |
 | 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ✅ |
@@ -32,9 +32,8 @@ próprio HPSM.
 | 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
 | 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Feitos:** 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 14, 16 e 18 — cada item abaixo traz um
-bloco **Implementado** com o que mudou. **Pendentes:** 7 e 8 (envolvem banco), 13, 15
-e 17.
+**Feitos:** 1 a 12, 14, 16 e 18 — cada item abaixo traz um bloco **Implementado** com
+o que mudou. **Pendentes:** 13, 15 e 17.
 
 ---
 
@@ -146,6 +145,13 @@ e 17.
   "Atribuídas a mim" (ideia 6).
 - **Onde mexer:** `Entry.assigneeId` no `schema.prisma` + migração; `PatchSchema` em
   `routes/entries.ts`; `EntryDetailPage.tsx`; `EntriesTable.tsx` (coluna).
+- ✅ **Implementado:** `Entry.assigneeId` (migração
+  `20261022000000_assignee_and_entry_events`); `PATCH /api/entries/:id` aceita
+  `assigneeId` (só analistas atribuem, e só a analistas/admins ativos);
+  `GET /api/analysts`; filtro `assignee=me|none` e ordenação pela coluna Responsável.
+  Na amostra: botão **Assumir análise** na toolbar, campo **Responsável** na triagem e
+  "Responsável" no resumo. Listas com coluna e filtro "Responsável"; fila
+  **Atribuídas a mim (N)** no navegador (abertas, sem as concluídas).
 
 ### 8. Aba "Histórico" (auditoria) na amostra
 - **Proposta:** aba **Histórico** com a linha do tempo da amostra: envio, mudanças de
@@ -154,6 +160,12 @@ e 17.
 - **Onde mexer:** modelo `EntryEvent` + migração; gravação nos pontos de mudança em
   `routes/entries.ts`, `routes/reports.ts` e `routes/sandbox.ts`;
   `GET /api/entries/:id/events`; nova aba em `EntryDetailPage.tsx` usando a grade.
+- ✅ **Implementado:** modelo `EntryEvent` (helper `lib/events.ts`) gravado no envio,
+  em mudanças de status/veredito/responsável, em relatórios (rascunho/publicado — a
+  publicação também registra as mudanças de status e veredito), e na abertura,
+  descarte e expiração do sandbox (expiração com autor "Sistema"). A migração cria o
+  evento "Amostra enviada" para as amostras já existentes. Aba **Histórico** na
+  amostra (Data · Usuário · Evento), visível para todos.
 
 ### 9. Anterior / Próximo na ficha da amostra
 - **Proposta:** botões ◀ ▶ na toolbar da amostra para percorrer os resultados da

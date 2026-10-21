@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { sha256Hex } from '../lib/crypto';
+import { recordEvent, recordTriageChanges } from '../lib/events';
 import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
 
@@ -17,6 +19,8 @@ const ListQuery = z.object({
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
   q: z.string().optional(),
+  /** Responsavel: `me` (atribuidas a mim) ou `none` (sem responsavel). */
+  assignee: z.enum(['me', 'none']).optional(),
   /** Hash exato (64 hex): usado para avisar que a amostra ja foi enviada. */
   sha256: z
     .string()
@@ -25,7 +29,7 @@ const ListQuery = z.object({
   limit: z.coerce.number().min(1).max(100).default(25),
   offset: z.coerce.number().min(0).default(0),
   sort: z
-    .enum(['title', 'type', 'owner', 'status', 'verdict', 'reports', 'createdAt'])
+    .enum(['title', 'type', 'owner', 'assignee', 'status', 'verdict', 'reports', 'createdAt'])
     .default('createdAt'),
   dir: z.enum(['asc', 'desc']).default('desc'),
 });
@@ -35,9 +39,11 @@ function listOrderBy(sort: z.infer<typeof ListQuery>['sort'], dir: 'asc' | 'desc
   const primary =
     sort === 'owner'
       ? { owner: { displayName: dir } }
-      : sort === 'reports'
-        ? { reports: { _count: dir } }
-        : { [sort]: dir };
+      : sort === 'assignee'
+        ? { assignee: { displayName: dir } }
+        : sort === 'reports'
+          ? { reports: { _count: dir } }
+          : { [sort]: dir };
   return [primary, { id: 'asc' as const }];
 }
 
@@ -53,6 +59,8 @@ const PatchSchema = z.object({
   description: z.string().max(4000).nullable().optional(),
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
+  /** Analista responsavel (id) ou null para remover a atribuicao. */
+  assigneeId: z.string().min(1).nullable().optional(),
 });
 
 function domainOf(url: string): string | null {
@@ -95,7 +103,8 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const parsed = ListQuery.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
-    const { scope, type, status, verdict, q, sha256, limit, offset, sort, dir } = parsed.data;
+    const { scope, type, status, verdict, q, sha256, assignee, limit, offset, sort, dir } =
+      parsed.data;
 
     const where: any = {};
     if (scope === 'mine') where.ownerId = user.id;
@@ -103,6 +112,8 @@ export async function entryRoutes(app: FastifyInstance) {
     if (status) where.status = status;
     if (verdict) where.verdict = verdict;
     if (sha256) where.sha256 = sha256.toLowerCase();
+    if (assignee === 'me') where.assigneeId = user.id;
+    if (assignee === 'none') where.assigneeId = null;
     if (q) {
       where.OR = [
         { title: { contains: q, mode: 'insensitive' } },
@@ -123,6 +134,7 @@ export async function entryRoutes(app: FastifyInstance) {
         take: limit,
         include: {
           owner: { select: { id: true, displayName: true, email: true } },
+          assignee: { select: { id: true, displayName: true } },
           tags: true,
           _count: { select: { reports: true } },
         },
@@ -139,10 +151,44 @@ export async function entryRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
 
-    const groups = await prisma.entry.groupBy({ by: ['status'], _count: { _all: true } });
+    const [groups, mine] = await Promise.all([
+      prisma.entry.groupBy({ by: ['status'], _count: { _all: true } }),
+      // Fila "Atribuidas a mim": so as que ainda nao foram concluidas.
+      prisma.entry.count({ where: { assigneeId: user.id, status: { not: 'COMPLETED' } } }),
+    ]);
     const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
     for (const g of groups) counts[g.status] = g._count._all;
-    return reply.send({ counts });
+    return reply.send({ counts, mine });
+  });
+
+  // Analistas que podem ser responsaveis por uma amostra (select da triagem).
+  app.get('/api/analysts', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) return reply.code(403).send({ error: 'Acesso negado.' });
+
+    const analysts = await prisma.user.findMany({
+      where: { role: { in: ['ANALYST', 'ADMIN'] }, status: 'ACTIVE' },
+      orderBy: { displayName: 'asc' },
+      select: { id: true, displayName: true },
+    });
+    return reply.send({ analysts });
+  });
+
+  // Historico (auditoria) da amostra: quem fez o que e quando.
+  app.get('/api/entries/:id/events', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const { id } = req.params as { id: string };
+    const events = await prisma.entryEvent.findMany({
+      where: { entryId: id },
+      // Eventos da mesma transacao podem ter o mesmo milissegundo: o id (cuid,
+      // crescente) desempata na ordem em que foram gravados.
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: { actor: { select: { id: true, displayName: true } } },
+    });
+    return reply.send({ events });
   });
 
   app.post('/api/entries/file', async (req, reply) => {
@@ -215,6 +261,7 @@ export async function entryRoutes(app: FastifyInstance) {
       },
     });
 
+    await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
     return reply.code(201).send({ entry });
   });
 
@@ -249,6 +296,7 @@ export async function entryRoutes(app: FastifyInstance) {
       },
     });
 
+    await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
     return reply.code(201).send({ entry });
   });
 
@@ -262,6 +310,7 @@ export async function entryRoutes(app: FastifyInstance) {
       where: { id },
       include: {
         owner: { select: { id: true, displayName: true, email: true } },
+        assignee: { select: { id: true, displayName: true } },
         tags: true,
         reports: {
           orderBy: { createdAt: 'desc' },
@@ -279,7 +328,10 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const { id } = req.params as { id: string };
-    const entry = await prisma.entry.findUnique({ where: { id } });
+    const entry = await prisma.entry.findUnique({
+      where: { id },
+      include: { assignee: { select: { id: true, displayName: true } } },
+    });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
 
     const parsed = PatchSchema.safeParse(req.body);
@@ -288,7 +340,7 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const isOwner = entry.ownerId === user.id;
     const canTriage = isAnalyst(user);
-    const updateData: Record<string, unknown> = {};
+    const updateData: Prisma.EntryUncheckedUpdateInput = {};
 
     if (data.title !== undefined || data.description !== undefined) {
       if (!isOwner && !canTriage) return reply.code(403).send({ error: 'Acesso negado.' });
@@ -303,13 +355,48 @@ export async function entryRoutes(app: FastifyInstance) {
       if (data.verdict !== undefined) updateData.verdict = data.verdict;
     }
 
-    const updated = await prisma.entry.update({
-      where: { id },
-      data: updateData,
-      include: {
-        owner: { select: { id: true, displayName: true, email: true } },
-        tags: true,
-      },
+    // Atribuicao: so analistas/admins atribuem, e so a analistas/admins ativos.
+    let newAssignee: { id: string; displayName: string } | null | undefined;
+    if (data.assigneeId !== undefined) {
+      if (!canTriage) {
+        return reply.code(403).send({ error: 'Somente analistas podem atribuir amostras.' });
+      }
+      if (data.assigneeId === null) {
+        newAssignee = null;
+      } else {
+        const target = await prisma.user.findUnique({
+          where: { id: data.assigneeId },
+          select: { id: true, displayName: true, role: true, status: true },
+        });
+        if (!target || target.status !== 'ACTIVE' || target.role === 'USER') {
+          return reply.code(400).send({ error: 'Responsavel deve ser um analista ativo.' });
+        }
+        newAssignee = { id: target.id, displayName: target.displayName };
+      }
+      updateData.assigneeId = newAssignee?.id ?? null;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.entry.update({
+        where: { id },
+        data: updateData,
+        include: {
+          owner: { select: { id: true, displayName: true, email: true } },
+          assignee: { select: { id: true, displayName: true } },
+          tags: true,
+        },
+      });
+      await recordTriageChanges(tx, id, user.id, entry, data);
+      if (newAssignee !== undefined && (newAssignee?.id ?? null) !== entry.assigneeId) {
+        await recordEvent(tx, {
+          entryId: id,
+          actorId: user.id,
+          type: 'ASSIGNED',
+          fromValue: entry.assignee?.displayName ?? null,
+          toValue: newAssignee?.displayName ?? null,
+        });
+      }
+      return result;
     });
     return reply.send({ entry: updated });
   });

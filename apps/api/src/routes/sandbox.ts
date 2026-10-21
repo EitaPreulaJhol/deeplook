@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import { isAnalyst, loadUser, requireUser } from '../lib/auth';
+import { recordEvent } from '../lib/events';
 import { attachMockVnc } from '../lib/mock-vnc';
 import { prisma } from '../lib/prisma';
 import {
@@ -62,7 +63,10 @@ async function loadOwned(
 }
 
 /** Estado atual da VM no Proxmox (best effort: nunca derruba a resposta). */
-async function liveVmStatus(session: { vmid: number | null; node: string }): Promise<string | null> {
+async function liveVmStatus(session: {
+  vmid: number | null;
+  node: string;
+}): Promise<string | null> {
   if (!session.vmid) return null;
   try {
     const data = await pve<{ status?: string }>(
@@ -179,6 +183,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
 
     const result = await createSession(entry, user.id);
     if (!result.ok) return reply.code(result.code).send({ error: result.error });
+    await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'SANDBOX_OPENED' });
 
     return reply.code(201).send({ session: result.session });
   });
@@ -223,7 +228,8 @@ export async function sandboxRoutes(app: FastifyInstance) {
     }
 
     const requested = Number((req.body as { minutes?: number } | null)?.minutes);
-    const minutes = Number.isFinite(requested) && requested > 0 ? requested : env.SANDBOX_TTL_MINUTES;
+    const minutes =
+      Number.isFinite(requested) && requested > 0 ? requested : env.SANDBOX_TTL_MINUTES;
     const base = Math.max(session.expiresAt.getTime(), Date.now());
 
     const updated = await prisma.sandboxSession.update({
@@ -272,6 +278,12 @@ export async function sandboxRoutes(app: FastifyInstance) {
     if (!session) return;
 
     await dispose(id, 'STOPPED');
+    await recordEvent(prisma, {
+      entryId: session.entryId,
+      actorId: user.id,
+      type: 'SANDBOX_CLOSED',
+      detail: 'descartado',
+    });
     return reply.send({ ok: true });
   });
 
@@ -305,7 +317,9 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const session = await loadOwned(id, user, reply);
     if (!session) return;
     if (env.SANDBOX_CONSOLE_ENABLED !== 'true') {
-      return reply.code(503).send({ error: 'O console esta desabilitado (SANDBOX_CONSOLE_ENABLED).' });
+      return reply
+        .code(503)
+        .send({ error: 'O console esta desabilitado (SANDBOX_CONSOLE_ENABLED).' });
     }
     if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
 
@@ -423,7 +437,10 @@ export async function sandboxRoutes(app: FastifyInstance) {
         if (ping) clearInterval(ping);
         ping = null;
         try {
-          if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) {
+          if (
+            upstream.readyState === WebSocket.OPEN ||
+            upstream.readyState === WebSocket.CONNECTING
+          ) {
             upstream.close();
           }
         } catch {

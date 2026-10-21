@@ -68,6 +68,8 @@ export function SandboxPanel({ entryId }: Props) {
     try {
       await fn();
       await refresh();
+      // Abrir/descartar entra no historico da amostra.
+      await queryClient.invalidateQueries({ queryKey: ['entry', entryId, 'events'] });
     } catch (err) {
       setError((err as Error).message);
     } finally {

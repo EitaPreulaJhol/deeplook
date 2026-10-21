@@ -11,6 +11,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { Entry, Prisma, SandboxSession } from '@prisma/client';
 
 import { env } from '../env';
+import { recordEvent } from './events';
 import { prisma } from './prisma';
 import { pve, pveNode, pveUploadIso, waitTask } from './proxmox';
 import { s3 } from './s3';
@@ -468,15 +469,25 @@ export async function dispose(
 export async function reapExpired(): Promise<number> {
   const expired = await prisma.sandboxSession.findMany({
     where: { status: { in: ACTIVE_STATUSES }, expiresAt: { lt: new Date() } },
-    select: { id: true },
+    select: { id: true, entryId: true },
   });
 
   for (const item of expired) {
-    await dispose(item.id, 'EXPIRED').catch((err: unknown) => {
-      console.warn(
-        `[sandbox] falha ao expirar ${item.id}: ${err instanceof Error ? err.message : err}`,
-      );
-    });
+    await dispose(item.id, 'EXPIRED')
+      .then(() =>
+        // Encerramento automatico: o "autor" do evento e o sistema (actorId null).
+        recordEvent(prisma, {
+          entryId: item.entryId,
+          actorId: null,
+          type: 'SANDBOX_CLOSED',
+          detail: 'expirado',
+        }),
+      )
+      .catch((err: unknown) => {
+        console.warn(
+          `[sandbox] falha ao expirar ${item.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
   }
 
   if (expired.length) {

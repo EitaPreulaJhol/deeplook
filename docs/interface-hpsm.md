@@ -280,7 +280,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/history` | Histórico Global | |
 | `/me` | Meus Uploads | |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
-| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios` |
+| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=historico` |
 | `/admin` | Administração | só ADMIN; `?tab=keys` |
 | `/user` | Minha Conta | `?tab=senha`, `?tab=preferencias` |
 | `/sandbox/entry/:entryId/console` | janela do console | fora da casca |
@@ -297,6 +297,13 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
 | POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário |
 | POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez) e encerra as sessões do usuário |
+
+| GET | `/api/analysts` | analistas/admins ativos (select de Responsável); só para analistas |
+| GET | `/api/entries/counts` | contadores das filas: `{ counts: { PENDING, IN_REVIEW, COMPLETED }, mine }` |
+| GET | `/api/entries/:id/events` | histórico da amostra (aba Histórico) |
+
+`GET /api/entries` aceita também `assignee=me|none` e `sort=assignee`;
+`PATCH /api/entries/:id` aceita `assigneeId` (id do analista ou `null`).
 
 `POST /api/auth/login` e `POST /api/me/password` aceitam **5 tentativas a cada 5
 minutos** (por e-mail e por sessão, respectivamente); depois respondem 429.
@@ -345,6 +352,7 @@ banco nem da API rodando.
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
+| `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico |
 | `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 
