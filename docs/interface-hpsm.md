@@ -136,6 +136,9 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
   botão **Limpar**. A lista se atualiza sozinha (a busca espera 300ms).
 - Teclado: só uma linha entra no Tab; ↑ ↓ Home End movem o foco e Enter abre a
   amostra (a linha com foco recebe o destaque de seleção).
+- Atualização em massa (analistas): coluna de seleção (Espaço marca a linha) e a barra
+  `EntriesBulkBar` ("N selecionadas: Status / Veredito / Responsável [Aplicar]") →
+  `POST /api/entries/bulk`, com confirmação.
 - Painel de detalhe (preferência `detailPane`, desligada por padrão): clique/setas
   selecionam e mostram o resumo abaixo da grade (`EntryPreviewPane`); duplo clique ou
   Enter abrem a ficha.
@@ -317,6 +320,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/analysts` | analistas/admins ativos (select de Responsável); só para analistas |
 | GET | `/api/entries/counts` | contadores das filas: `{ counts: { PENDING, IN_REVIEW, COMPLETED }, mine }` |
 | GET | `/api/entries/:id/events` | histórico da amostra (aba Histórico) |
+| POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
 
@@ -372,6 +376,7 @@ banco nem da API rodando.
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
+| `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |
 | `detail-pane.mjs` | painel de detalhe: desligado o clique abre; ligado, seleção, setas, duplo clique, Enter e "Abrir amostra" |
 | `news-shortcuts-export.mjs` | novidades na Página Inicial, atalhos (`/`, Alt+N, Alt+W, Ctrl+S) e download do CSV com os filtros |
 | `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |

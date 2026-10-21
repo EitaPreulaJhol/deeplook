@@ -290,7 +290,7 @@ HP Service Manager 9 (indicados em cada item).
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
 | 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ✅ |
-| 20 | Atualização em massa | Mass Update | 🟡 | M | ⬜ |
+| 20 | Atualização em massa | Mass Update | 🟡 | M | ✅ |
 | 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ⬜ |
 | 22 | Registros relacionados | aba Related Records | 🟡 | M | ⬜ |
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
@@ -336,6 +336,13 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   `EntriesTable.tsx` (seleção por página); `HpsmConfirm`.
 - **Cuidados:** limite de ids por chamada (ex.: 100); a seleção é limpa ao trocar filtro
   ou página; usuários comuns não veem a coluna.
+- ✅ **Implementado:** `POST /api/entries/bulk { ids (1–100), patch }` só para analistas,
+  com os helpers `resolveAssignee`/`applyTriage` compartilhados com o `PATCH` (mesmas
+  regras e eventos de histórico por amostra, numa transação; ids inexistentes voltam
+  em `notFound`). Na grade: coluna de seleção (cabeçalho marca a página, com estado
+  indeterminado), **Espaço** marca a linha, e a barra **`EntriesBulkBar`** com Status /
+  Veredito / Responsável "(manter)", confirmação listando as mudanças e o resultado
+  na barra de mensagens. Trocar filtro ou página limpa a seleção.
 
 ### 21. Visões salvas e Favoritos
 - **Problema:** combinações de filtro usadas todo dia (ex.: "phishing pendentes") são

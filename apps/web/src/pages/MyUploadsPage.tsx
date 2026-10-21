@@ -12,6 +12,7 @@ import { useEntryListState } from '../components/useEntryListState';
 
 export function MyUploadsPage() {
   const { user, preferences } = useAuth();
+  const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
   const pageSize = preferences.pageSize;
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
@@ -118,6 +119,7 @@ export function MyUploadsPage() {
           sort={sort}
           onSortChange={list.setSort}
           onPageChange={list.setOffset}
+          selectable={canTriage}
         />
       )}
     </>

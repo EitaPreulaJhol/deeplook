@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import type { Prisma } from '@prisma/client';
+import type { EntryStatus, Prisma, Verdict } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
@@ -125,6 +125,74 @@ function listWhere(
   }
   return where;
 }
+
+type Assignee = { id: string; displayName: string } | null;
+
+/**
+ * Valida o novo responsavel: null remove a atribuicao; um id precisa ser de um
+ * analista/admin ativo. Devolve o responsavel ou a mensagem de erro (400).
+ */
+async function resolveAssignee(assigneeId: string | null): Promise<Assignee | { error: string }> {
+  if (assigneeId === null) return null;
+  const target = await prisma.user.findUnique({
+    where: { id: assigneeId },
+    select: { id: true, displayName: true, role: true, status: true },
+  });
+  if (!target || target.status !== 'ACTIVE' || target.role === 'USER') {
+    return { error: 'Responsavel deve ser um analista ativo.' };
+  }
+  return { id: target.id, displayName: target.displayName };
+}
+
+/**
+ * Aplica uma mudanca de triagem (status, veredito, responsavel) a uma amostra
+ * dentro da transacao e grava os eventos correspondentes no historico.
+ */
+async function applyTriage(
+  tx: Prisma.TransactionClient,
+  entry: Prisma.EntryGetPayload<{
+    include: { assignee: { select: { id: true; displayName: true } } };
+  }>,
+  actorId: string,
+  data: { status?: EntryStatus; verdict?: Verdict },
+  updateData: Prisma.EntryUncheckedUpdateInput,
+  newAssignee: Assignee | undefined,
+) {
+  if (newAssignee !== undefined) updateData.assigneeId = newAssignee?.id ?? null;
+  const result = await tx.entry.update({
+    where: { id: entry.id },
+    data: updateData,
+    include: {
+      owner: { select: { id: true, displayName: true, email: true } },
+      assignee: { select: { id: true, displayName: true } },
+      tags: true,
+    },
+  });
+  await recordTriageChanges(tx, entry.id, actorId, entry, data);
+  if (newAssignee !== undefined && (newAssignee?.id ?? null) !== entry.assigneeId) {
+    await recordEvent(tx, {
+      entryId: entry.id,
+      actorId,
+      type: 'ASSIGNED',
+      fromValue: entry.assignee?.displayName ?? null,
+      toValue: newAssignee?.displayName ?? null,
+    });
+  }
+  return result;
+}
+
+/** Atualizacao em massa: ate 100 amostras, so campos de triagem. */
+const BulkSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(100),
+  patch: z
+    .object({
+      status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
+      verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
+      assigneeId: z.string().min(1).nullable().optional(),
+    })
+    .strict()
+    .refine((p) => Object.keys(p).length > 0, 'Nada para atualizar.'),
+});
 
 /** Limite de linhas da exportacao CSV. */
 const EXPORT_MAX_ROWS = 10_000;
@@ -438,49 +506,60 @@ export async function entryRoutes(app: FastifyInstance) {
     }
 
     // Atribuicao: so analistas/admins atribuem, e so a analistas/admins ativos.
-    let newAssignee: { id: string; displayName: string } | null | undefined;
+    let newAssignee: Assignee | undefined;
     if (data.assigneeId !== undefined) {
       if (!canTriage) {
         return reply.code(403).send({ error: 'Somente analistas podem atribuir amostras.' });
       }
-      if (data.assigneeId === null) {
-        newAssignee = null;
-      } else {
-        const target = await prisma.user.findUnique({
-          where: { id: data.assigneeId },
-          select: { id: true, displayName: true, role: true, status: true },
-        });
-        if (!target || target.status !== 'ACTIVE' || target.role === 'USER') {
-          return reply.code(400).send({ error: 'Responsavel deve ser um analista ativo.' });
-        }
-        newAssignee = { id: target.id, displayName: target.displayName };
-      }
-      updateData.assigneeId = newAssignee?.id ?? null;
+      const resolved = await resolveAssignee(data.assigneeId);
+      if (resolved && 'error' in resolved) return reply.code(400).send(resolved);
+      newAssignee = resolved;
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const result = await tx.entry.update({
-        where: { id },
-        data: updateData,
-        include: {
-          owner: { select: { id: true, displayName: true, email: true } },
-          assignee: { select: { id: true, displayName: true } },
-          tags: true,
-        },
-      });
-      await recordTriageChanges(tx, id, user.id, entry, data);
-      if (newAssignee !== undefined && (newAssignee?.id ?? null) !== entry.assigneeId) {
-        await recordEvent(tx, {
-          entryId: id,
-          actorId: user.id,
-          type: 'ASSIGNED',
-          fromValue: entry.assignee?.displayName ?? null,
-          toValue: newAssignee?.displayName ?? null,
-        });
-      }
-      return result;
-    });
+    const updated = await prisma.$transaction((tx) =>
+      applyTriage(tx, entry, user.id, data, updateData, newAssignee),
+    );
     return reply.send({ entry: updated });
+  });
+
+  // Atualizacao em massa (analistas): mesmas regras do PATCH, em uma transacao,
+  // com os eventos de historico de cada amostra.
+  app.post('/api/entries/bulk', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas podem atualizar em massa.' });
+    }
+
+    const parsed = BulkSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    const { ids, patch } = parsed.data;
+
+    let newAssignee: Assignee | undefined;
+    if (patch.assigneeId !== undefined) {
+      const resolved = await resolveAssignee(patch.assigneeId);
+      if (resolved && 'error' in resolved) return reply.code(400).send(resolved);
+      newAssignee = resolved;
+    }
+
+    const entries = await prisma.entry.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      include: { assignee: { select: { id: true, displayName: true } } },
+    });
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        const updateData: Prisma.EntryUncheckedUpdateInput = {};
+        if (patch.status !== undefined) updateData.status = patch.status;
+        if (patch.verdict !== undefined) updateData.verdict = patch.verdict;
+        await applyTriage(tx, entry, user.id, patch, updateData, newAssignee);
+      }
+    });
+
+    const found = new Set(entries.map((e) => e.id));
+    return reply.send({
+      updated: entries.length,
+      notFound: ids.filter((id) => !found.has(id)),
+    });
   });
 
   // Download do arquivo (autenticado; objetos nunca ficam publicos no MinIO)

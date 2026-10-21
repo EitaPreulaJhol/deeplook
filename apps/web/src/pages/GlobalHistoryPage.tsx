@@ -148,6 +148,7 @@ export function GlobalHistoryPage() {
           sort={sort}
           onSortChange={list.setSort}
           onPageChange={list.setOffset}
+          selectable={canTriage}
         />
       )}
     </>

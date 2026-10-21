@@ -106,7 +106,11 @@ const json = (route, status, body) =>
 
 /** Instala o servidor do dist + API simulada no contexto do navegador. */
 export async function setupMock(context, state) {
-  const currentUser = () => ({ ...users[0], preferences: state.preferences });
+  const currentUser = () => ({
+    ...users[0],
+    role: state.role ?? users[0].role,
+    preferences: state.preferences,
+  });
 
   await context.route('**/*', async (route) => {
     const req = route.request();
@@ -167,6 +171,22 @@ export async function setupMock(context, state) {
           },
           body: csv,
         });
+      }
+      if (p === '/api/entries/bulk' && req.method() === 'POST') {
+        const targets = entries.filter((e) => body.ids.includes(e.id));
+        for (const e of targets) {
+          const { assigneeId, ...rest } = body.patch;
+          for (const [key, type] of [['status', 'STATUS_CHANGED'], ['verdict', 'VERDICT_CHANGED']]) {
+            if (rest[key] && rest[key] !== e[key]) pushEvent(e.id, type, e[key], rest[key]);
+          }
+          Object.assign(e, rest);
+          if (assigneeId !== undefined) {
+            const next = assigneeId ? actorOf(users.find((u) => u.id === assigneeId)) : null;
+            pushEvent(e.id, 'ASSIGNED', e.assignee?.displayName ?? null, next?.displayName ?? null);
+            e.assignee = next;
+          }
+        }
+        return json(route, 200, { updated: targets.length, notFound: [] });
       }
       if (p === '/api/entries/counts') {
         const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };

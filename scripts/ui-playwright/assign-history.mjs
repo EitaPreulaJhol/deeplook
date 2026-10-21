@@ -51,7 +51,8 @@ await page.screenshot({ path: `${OUT}/historico.png` });
 
 // 4. Lista: coluna e filtro "Responsável"; fila "Atribuídas a mim".
 await page.goto(ORIGIN + '/history', { waitUntil: 'networkidle' });
-const assigneeCol = await page.locator('tbody tr td:nth-child(4)').allTextContents();
+const assigneeIdx = (await page.locator('thead th').allTextContents()).findIndex((t) => t.includes('Responsável'));
+const assigneeCol = await page.locator(`tbody tr td:nth-child(${assigneeIdx + 1})`).allTextContents();
 expect('coluna Responsável na lista', assigneeCol.includes('Bruno Lima') && assigneeCol.includes('—'), assigneeCol.join(' | '));
 await page.selectOption('#assignee', 'none');
 await page.waitForTimeout(600);

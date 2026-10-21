@@ -8,13 +8,15 @@ import {
   TableRow,
 } from '@carbon/react';
 import type { KeyboardEvent } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { Entry } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { EntriesBulkBar } from './EntriesBulkBar';
 import { saveEntrySequence } from './entryNav';
 import { EntryPreviewPane } from './EntryPreviewPane';
+import { HpsmMessage } from './messages';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
@@ -57,6 +59,8 @@ interface EntriesTableProps {
   sort: EntrySort;
   onSortChange: (sort: EntrySort) => void;
   onPageChange: (offset: number) => void;
+  /** Coluna de selecao + atualizacao em massa (analistas/admins). */
+  selectable?: boolean;
 }
 
 /** Lista de registros no estilo "Record List" do HP Service Manager. */
@@ -69,6 +73,7 @@ export function EntriesTable({
   sort,
   onSortChange,
   onPageChange,
+  selectable = false,
 }: EntriesTableProps) {
   const navigate = useNavigate();
   const { preferences } = useAuth();
@@ -79,6 +84,25 @@ export function EntriesTable({
   const detailPane = preferences.detailPane;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = detailPane ? (entries.find((e) => e.id === selectedId) ?? null) : null;
+
+  // Atualizacao em massa: linhas marcadas na pagina atual. Trocar de filtro ou
+  // de pagina (outro conjunto de linhas) limpa a marcacao.
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
+  const [bulkResult, setBulkResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(
+    null,
+  );
+  const idsKey = entries.map((e) => e.id).join(',');
+  useEffect(() => setCheckedIds(new Set()), [idsKey]);
+  const toggleChecked = (id: string) =>
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allChecked = entries.length > 0 && entries.every((e) => checkedIds.has(e.id));
+  const someChecked = checkedIds.size > 0 && !allChecked;
+  const toggleAll = () => setCheckedIds(allChecked ? new Set() : new Set(entries.map((e) => e.id)));
 
   // Teclado: so uma linha entra no Tab (roving tabindex); setas, Home/End movem
   // o foco e Enter/Espaco abrem a amostra.
@@ -108,6 +132,10 @@ export function EntriesTable({
       event.preventDefault();
       setFocusIndex(target);
       rowRefs.current[target]?.focus();
+    } else if (event.key === ' ' && selectable) {
+      // Com a coluna de selecao, Espaco marca/desmarca a linha (como no HPSM).
+      event.preventDefault();
+      toggleChecked(id);
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       openEntry(id);
@@ -144,6 +172,14 @@ export function EntriesTable({
           so sincroniza um render depois, entao ao trocar o filtro ainda entregava
           ids antigos (entry undefined -> tela branca). As linhas vem direto de
           `entries`; ordenacao e paginacao ja sao controladas aqui. */}
+      {bulkResult && <HpsmMessage kind={bulkResult.kind}>{bulkResult.text}</HpsmMessage>}
+      {selectable && checkedIds.size > 0 && (
+        <EntriesBulkBar
+          ids={[...checkedIds]}
+          onClear={() => setCheckedIds(new Set())}
+          onDone={setBulkResult}
+        />
+      )}
       <TableContainer>
         <Table
           size="xs"
@@ -155,6 +191,20 @@ export function EntriesTable({
         >
           <TableHead>
             <TableRow>
+              {selectable && (
+                <TableHeader scope="col" className="hpsm-grid-check">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todas desta página"
+                    title="Selecionar todas desta página"
+                    checked={allChecked}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someChecked;
+                    }}
+                    onChange={toggleAll}
+                  />
+                </TableHeader>
+              )}
               {headers.map((header) => {
                 const active = sort.key === header.key;
                 return (
@@ -196,6 +246,19 @@ export function EntriesTable({
                 onClick={() => (detailPane ? setSelectedId(entry.id) : openEntry(entry.id))}
                 onDoubleClick={() => detailPane && openEntry(entry.id)}
               >
+                {selectable && (
+                  <TableCell className="hpsm-grid-check">
+                    <input
+                      type="checkbox"
+                      tabIndex={-1}
+                      aria-label={`Selecionar ${entry.title}`}
+                      checked={checkedIds.has(entry.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      onDoubleClick={(event) => event.stopPropagation()}
+                      onChange={() => toggleChecked(entry.id)}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>{entry.title}</TableCell>
                 <TableCell>
                   <TypeTag type={entry.type} />

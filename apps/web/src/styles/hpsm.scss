@@ -1284,6 +1284,35 @@ h6 {
   background-color: var(--dl-sidebar-active-bg);
 }
 
+/* Coluna de selecao da grade (atualizacao em massa). */
+.cds--data-table .hpsm-grid-check {
+  inline-size: 1.75rem;
+  padding-inline: 0.5rem;
+  text-align: center;
+}
+
+.hpsm-grid-check input {
+  margin: 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+/* Barra de atualizacao em massa (aparece com linhas marcadas). */
+.hpsm-bulkbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--dl-info-bg);
+  border: 1px solid var(--dl-info-border);
+}
+
+.hpsm-bulkbar__count {
+  color: var(--dl-section-title);
+}
+
 /* Painel de detalhe abaixo da lista. */
 .dl-preview {
   margin-top: 0.5rem;
