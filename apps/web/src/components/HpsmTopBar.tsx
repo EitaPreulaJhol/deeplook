@@ -45,23 +45,14 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
 
       <span className="hpsm-topbar__spacer" />
 
-      {/* Links de texto separados por "|", como no masthead do HPSM. */}
+      {/* O nome abre o submenu do usuario (Minha conta, Senha, Preferencias, Sair). */}
       <div className="hpsm-topbar__links">
         {user && (
-          <>
-            {/* Nome abre o submenu do usuario (Minha conta, Senha, Preferencias, Sair). */}
-            <span className="hpsm-topbar__user">
-              <HpsmUserMenu name={user.displayName} onLogout={handleLogout} />
-              <span className="hpsm-topbar__role">({roleLabel(user.role)})</span>
-            </span>
-            <span className="hpsm-topbar__pipe" aria-hidden="true">
-              |
-            </span>
-          </>
+          <span className="hpsm-topbar__user">
+            <HpsmUserMenu name={user.displayName} onLogout={handleLogout} />
+            <span className="hpsm-topbar__role">({roleLabel(user.role)})</span>
+          </span>
         )}
-        <button type="button" className="hpsm-topbar__link" onClick={handleLogout}>
-          Sair
-        </button>
       </div>
     </header>
   );

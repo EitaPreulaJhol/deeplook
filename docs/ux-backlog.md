@@ -35,6 +35,9 @@ próprio HPSM.
 **Todos os 18 itens foram implementados** — cada item abaixo traz um bloco
 **Implementado** com o que mudou e os limites conhecidos.
 
+A **segunda leva (ideias 19 a 30)**, ainda pendente, está no fim do documento:
+[Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30).
+
 ---
 
 ## 🔴 Alta prioridade
@@ -276,3 +279,148 @@ próprio HPSM.
   em português (`;` e BOM UTF-8), rótulos em português e proteção contra injeção de
   fórmula (`lib/csv.ts`). Botão **Exportar CSV** na barra de filtros do Histórico
   Global e de Meus Uploads.
+
+---
+
+## Segunda leva — ideias 19 a 30
+
+Novas ideias depois da primeira leva, todas baseadas em padrões que existem no próprio
+HP Service Manager 9 (indicados em cada item).
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ⬜ |
+| 20 | Atualização em massa | Mass Update | 🟡 | M | ⬜ |
+| 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ⬜ |
+| 22 | Registros relacionados | aba Related Records | 🟡 | M | ⬜ |
+| 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
+| 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
+| 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ⬜ |
+| 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ⬜ |
+| 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ⬜ |
+| 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ⬜ |
+| 29 | Ficha para impressão | impressão do registro | ⚪ | P | ⬜ |
+| 30 | Ajuda de atalhos (`?` / F1) | Ajuda | ⚪ | P | ⬜ |
+
+**Ordem sugerida:** 19 → 20 (maior ganho para quem faz triagem todos os dias), depois
+os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de índices.
+
+### 19. Lista com painel de detalhe
+- **Problema:** para triar várias amostras o analista abre uma por uma; cada abertura
+  troca de tela (e cria/reaproveita uma aba de documento).
+- **Proposta:** como no HPSM, **clique simples seleciona** a linha e mostra um painel
+  abaixo da grade com o resumo da amostra (tipo, status, veredito, responsável,
+  SHA-256/URL, último relatório publicado); **duplo clique ou Enter abre** o registro.
+  Uma preferência liga/desliga o painel.
+- **Onde mexer:** `EntriesTable.tsx` (estado de seleção; hoje o clique abre), novo
+  `EntryPreviewPane.tsx` usando `GET /api/entries/:id` (o cache do React Query é o
+  mesmo da ficha); preferência em `lib/preferences.ts` / `UserPage.tsx`.
+- **Cuidados:** muda o comportamento do clique — manter Enter abrindo; a navegação por
+  setas (ideia 16) passa a atualizar o painel; `aria-selected` na linha.
+
+### 20. Atualização em massa
+- **Problema:** mudar status, veredito ou responsável de muitas amostras exige abrir
+  cada uma.
+- **Proposta:** coluna de seleção (caixa) na grade para analistas e uma barra
+  "N selecionadas: [Status ▾] [Veredito ▾] [Responsável ▾] [Aplicar]", com
+  confirmação ("Atualizar 12 amostras?") e o resultado na barra de mensagens
+  ("12 atualizadas").
+- **Onde mexer:** API `POST /api/entries/bulk` `{ ids, patch }` com as mesmas regras do
+  `PATCH` (em transação, gravando os eventos de cada amostra com `recordTriageChanges`);
+  `EntriesTable.tsx` (seleção por página); `HpsmConfirm`.
+- **Cuidados:** limite de ids por chamada (ex.: 100); a seleção é limpa ao trocar filtro
+  ou página; usuários comuns não veem a coluna.
+
+### 21. Visões salvas e Favoritos
+- **Problema:** combinações de filtro usadas todo dia (ex.: "phishing pendentes") são
+  remontadas à mão; amostras acompanhadas não têm atalho.
+- **Proposta:** botão **Salvar visão** na barra de filtros (pede um nome) cria um nó na
+  pasta **Favoritos** do navegador, que abre a URL salva; **Fixar** na toolbar da
+  amostra adiciona a amostra à mesma pasta. Renomear e remover pelo clique direito ou
+  por um "×" no nó.
+- **Onde mexer:** modelo `Favorite { userId, kind: VIEW | ENTRY, label, url | entryId,
+  position }` + migração; rotas `GET/POST/PATCH/DELETE /api/me/favorites`;
+  `HpsmSidebar.tsx` (pasta dinâmica); `HpsmFilterBar.tsx` e `EntryDetailPage.tsx`.
+- **Cuidados:** aceitar só URLs relativas do próprio app; limite de favoritos por
+  usuário (ex.: 30).
+
+### 22. Registros relacionados
+- **Problema:** campanhas reaparecem com amostras parecidas, e hoje não há como ver a
+  ligação entre elas.
+- **Proposta:** aba **Relacionadas** na amostra com outras amostras do mesmo domínio
+  (`urlDomain`), do mesmo SHA-256 (reenvios), com tags em comum e, numa segunda fase,
+  com IOCs coincidentes nos relatórios; coluna **Motivo** explica a ligação.
+- **Onde mexer:** `GET /api/entries/:id/related`; componente com a grade de sempre;
+  índice em `Entry.urlDomain` (migração).
+- **Cuidados:** limitar o resultado (ex.: 50) e ordenar por relevância; IOCs exigem
+  extrair e normalizar tokens dos relatórios (fase 2).
+
+### 23. Atualizações / comentários na amostra
+- **Problema:** notas do analista ("pedi mais informações ao remetente") não têm lugar;
+  relatórios são formais demais para isso. Comentários estão no Roadmap do README.
+- **Proposta:** campo **Nova atualização** na aba Histórico (salvar com Ctrl+S); as
+  atualizações entram na linha do tempo com autor e data, visíveis para todos.
+- **Onde mexer:** novo tipo de evento `COMMENT` (migração do enum) com o texto no
+  `detail`, ou modelo próprio se precisar de edição; `POST /api/entries/:id/comments`;
+  `EntryHistoryTab.tsx`.
+- **Cuidados:** texto puro (sem HTML), até 4000 caracteres; limite de tentativas como
+  nas outras rotas de escrita.
+
+### 24. Idade na fila e alerta de prazo
+- **Problema:** nada indica há quanto tempo uma amostra espera triagem.
+- **Proposta:** coluna **Idade** na grade (tempo desde o envio ou desde que entrou no
+  status atual), com bolinha laranja depois de X horas e vermelha depois de Y para as
+  não concluídas; fila **Atrasadas (N)** no navegador.
+- **Onde mexer:** a API devolve `statusChangedAt` (do último `STATUS_CHANGED` do
+  histórico); limites em variáveis de ambiente (`SLA_WARN_HOURS`, `SLA_LATE_HOURS`) ou
+  numa tela de configurações do Admin; `EntriesTable.tsx` e `HpsmSidebar.tsx`.
+- **Cuidados:** decidir se a idade conta desde o envio ou desde o status atual.
+
+### 25. Aviso de sessão expirando
+- **Problema:** a sessão expira num horário fixo (`SESSION_TTL_HOURS`, padrão 168h, sem
+  renovação); quem está escrevendo um relatório na hora pode perder o texto.
+- **Proposta:** dois minutos antes, caixa "Sua sessão expira em 2 min — [Continuar
+  conectado] [Sair]"; continuar renova a sessão.
+- **Onde mexer:** `GET /api/auth/me` devolve `sessionExpiresAt`; nova rota
+  `POST /api/auth/refresh` (estende `expiresAt` e o cookie); aviso agendado no
+  `AuthContext` usando o diálogo do `HpsmConfirm`.
+- **Cuidados:** com 7 dias de validade o aviso é raro; o ganho é maior se o projeto
+  adotar expiração por inatividade (ex.: 30 min) — decidir a política antes.
+
+### 26. Validação de campos no estilo HPSM
+- **Problema:** hoje um campo obrigatório vazio gera só uma mensagem genérica na barra.
+- **Proposta:** ao salvar, os campos obrigatórios vazios ou inválidos ficam com **borda
+  vermelha**, a barra lista os campos ("Preencha: Resumo, Arquivo") e o foco vai para o
+  primeiro; erros de validação da API (`details` do zod) são ligados aos campos.
+- **Onde mexer:** `HpsmField` ganha `invalid`/`error` (`components/HpsmForm.tsx`);
+  `SubmitPage.tsx`, `EntryReportsTab.tsx`, `UserPage.tsx`, formulário de chave do
+  `AdminPage.tsx`.
+
+### 27. Busca rápida no masthead
+- **Proposta:** campo **Ir para…** no masthead (ou atalho `Ctrl+K`): um SHA-256
+  completo abre a amostra (filtro exato `sha256` que já existe); um id abre
+  `/entries/:id`; qualquer outro texto abre o Histórico Global com `?q=`.
+- **Onde mexer:** `HpsmTopBar.tsx` + componente do campo; a API já suporta tudo.
+- **Cuidados:** no celular, só o ícone (o campo abre por cima).
+
+### 28. Menu "Mais ▾" na toolbar
+- **Proposta:** botão **Mais ▾** na toolbar da amostra agrupando ações menos usadas:
+  copiar link do registro, imprimir ficha (ideia 29), exportar relatório
+  (Markdown/PDF, do Roadmap), abrir em nova janela.
+- **Onde mexer:** `HpsmToolbarMenu` em `components/HpsmToolbar.tsx`, reaproveitando o
+  comportamento de teclado do `HpsmUserMenu.tsx`; `EntryDetailPage.tsx`.
+
+### 29. Ficha para impressão
+- **Proposta:** versão **Imprimir** da amostra com detalhes, relatórios publicados e
+  histórico de uma vez (não só a aba ativa), com cabeçalho "impresso por / em".
+- **Onde mexer:** rota dedicada `/entries/:id/imprimir` fora da casca (como a janela do
+  console), com CSS `@media print`; chamada pelo menu "Mais ▾" (ideia 28).
+- **Cuidados:** não incluir dados sensíveis do sandbox (credenciais de console).
+
+### 30. Ajuda de atalhos (`?` / F1)
+- **Proposta:** `?` (fora de campos de texto) ou F1 abre a caixa **Atalhos de
+  teclado**, com a tabela de teclas.
+- **Onde mexer:** `components/shortcuts.tsx` (já centraliza as teclas) + um diálogo
+  genérico derivado do `HpsmConfirm`; uma única lista de atalhos compartilhada com as
+  Dicas da Página Inicial, para não divergir.
+- **Cuidados:** F1 abre a ajuda do navegador — usar `preventDefault`.

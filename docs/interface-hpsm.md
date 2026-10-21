@@ -15,7 +15,7 @@ gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com a
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ DeepLook                                   Ana Souza ▾ (Admin)  |  Sair    │  masthead
+│ DeepLook                                             Ana Souza ▾ (Admin)   │  masthead
 ├──────────────────────┬────────────────────────────────────────────────────┤
 │ Navegador do Sistema │ [Página Inicial ×] [Histórico Global ×] [Amostra ×]│  abas de documento
 │  🏠 Página Inicial   ├────────────────────────────────────────────────────┤
@@ -35,9 +35,9 @@ gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com a
 | Abas de documento | `WorkspaceProvider` + `WorkspaceTabs` | `components/workspace.tsx` |
 | Barra de mensagens | `HpsmMessageBar` + `HpsmMessage` | `components/messages.tsx` |
 
-- **Masthead:** marca à esquerda; à direita, links de texto separados por `|`. O nome
-  do usuário abre um submenu (Minha conta, Alterar senha, Preferências, Sair). No
-  celular, o papel "(Admin)" some e o nome continua abrindo o menu.
+- **Masthead:** marca à esquerda; à direita, "Nome ▾ (Papel)". O nome do usuário
+  abre um submenu (Minha conta, Alterar senha, Preferências, Sair) — é o único lugar
+  do "Sair". No celular, o papel "(Admin)" some e o nome continua abrindo o menu.
 - **Navegador do Sistema:** sempre visível no desktop (não recolhe). Abaixo de
   `52rem` vira um drawer aberto pelo botão ☰. Itens novos entram em `ROOT_LEAVES`
   (soltos no topo) ou em `TREE` (dentro de uma pasta) em `HpsmSidebar.tsx`; pastas
@@ -387,4 +387,6 @@ O script sai com erro se alguma checagem falhar; screenshots ficam em
 
 ## 8. Próximas melhorias
 
-Ideias de UX/usabilidade priorizadas estão em [`docs/ux-backlog.md`](ux-backlog.md).
+Ideias de UX/usabilidade priorizadas estão em [`docs/ux-backlog.md`](ux-backlog.md):
+a primeira leva (1–18) está implementada; a segunda (19–30, padrões do HPSM 9 como
+painel de detalhe, atualização em massa e Favoritos) está pendente.

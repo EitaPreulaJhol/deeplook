@@ -206,7 +206,7 @@ h6 {
   flex: 1;
 }
 
-/* Links de texto do masthead ("Nome (Papel) | Sair"). */
+/* Area do usuario no masthead: "Nome ▾ (Papel)". */
 .hpsm-topbar__links {
   display: flex;
   align-items: center;
@@ -214,29 +214,6 @@ h6 {
   color: #eaf3fb;
   font-size: var(--dl-font-size);
   white-space: nowrap;
-}
-
-.hpsm-topbar__pipe {
-  opacity: 0.6;
-}
-
-.hpsm-topbar__link {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #ffffff;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.hpsm-topbar__link:hover {
-  text-decoration: underline;
-}
-
-.hpsm-topbar__link:focus-visible {
-  outline: 1px dotted #ffffff;
-  outline-offset: 2px;
 }
 
 /* Botoes de icone da barra do topo. */
