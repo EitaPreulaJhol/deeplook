@@ -1,0 +1,297 @@
+# 🖥️ Interface no estilo HP Service Manager 9
+
+Este guia descreve como a interface do DeepLook foi construída para se parecer com o
+**web client do HP Service Manager 9** e como manter esse visual ao criar ou alterar
+telas. A regra geral é **não modernizar**: densidade alta, fonte pequena, cinzas com
+gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com abas.
+
+> O app usa **React + Vite + @carbon/react**. O Carbon fornece o comportamento dos
+> controles (campos, selects, tabelas); a aparência HPSM vem dos tokens `--dl-*` e
+> do skin em `apps/web/src/styles/hpsm.scss`, que sobrescreve o que o Carbon desenha.
+
+---
+
+## 1. Estrutura da tela
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│ DeepLook                                   Ana Souza ▾ (Admin)  |  Sair    │  masthead
+├──────────────────────┬────────────────────────────────────────────────────┤
+│ Navegador do Sistema │ [Página Inicial ×] [Histórico Global ×] [Amostra ×]│  abas de documento
+│  🏠 Página Inicial   ├────────────────────────────────────────────────────┤
+│  ⊟ 📁 Amostras       │ ⓘ Mensagens (erros, avisos, confirmações)          │  barra de mensagens
+│     Histórico Global │ ┌─ Título da página ───────────────────────────────┐│
+│     Meus Uploads     │ │ [Voltar] [Atualizar] | [Baixar amostra]          ││  toolbar do registro
+│     Enviar Amostra   │ │ ⊟ Seção  Rótulo: [campo]   Rótulo: [campo]       ││  formulário
+│  ⊟ 📁 Administração  │ └──────────────────────────────────────────────────┘│
+└──────────────────────┴────────────────────────────────────────────────────┘
+```
+
+| Parte | Componente | Arquivo |
+|---|---|---|
+| Casca (junta tudo) | `AppShell` | `components/AppShell.tsx` |
+| Masthead azul | `HpsmTopBar` + `HpsmUserMenu` | `components/HpsmTopBar.tsx`, `components/HpsmUserMenu.tsx` |
+| Navegador em árvore | `HpsmSidebar` | `components/HpsmSidebar.tsx` |
+| Abas de documento | `WorkspaceProvider` + `WorkspaceTabs` | `components/workspace.tsx` |
+| Barra de mensagens | `HpsmMessageBar` + `HpsmMessage` | `components/messages.tsx` |
+
+- **Masthead:** marca à esquerda; à direita, links de texto separados por `|`. O nome
+  do usuário abre um submenu (Minha conta, Alterar senha, Preferências, Sair). No
+  celular, o papel "(Admin)" some e o nome continua abrindo o menu.
+- **Navegador do Sistema:** sempre visível no desktop (não recolhe). Abaixo de
+  `52rem` vira um drawer aberto pelo botão ☰. Itens novos entram em `ROOT_LEAVES`
+  (soltos no topo) ou em `TREE` (dentro de uma pasta) em `HpsmSidebar.tsx`.
+- **Abas de documento:** cada tela aberta vira uma aba com **×** (clique do meio
+  também fecha). Limite de 10 abas; a mais antiga sai primeiro.
+- **Barra de mensagens:** todas as mensagens da página aparecem empilhadas aqui, no
+  topo da área de trabalho, como no HPSM.
+
+---
+
+## 2. Tokens e tipografia
+
+Todos os valores visuais estão em `apps/web/src/styles/_tokens.scss` (fonte única).
+Não use cores ou medidas soltas nos componentes: crie ou reaproveite um token.
+
+| Grupo | Tokens principais | Valor / uso |
+|---|---|---|
+| Tipografia | `--dl-font-sans`, `--dl-font-size` | Tahoma/Arial, **12px** no app inteiro |
+| Controles | `--dl-control-h` | **24px** de altura para campos, selects e botões |
+| Grade (tabelas) | `--dl-grid-head-1/2`, `--dl-grid-head-border`, `--dl-grid-line` | cabeçalho em gradiente cinza, divisórias verticais |
+| Seções | `--dl-section-head-1/2`, `--dl-section-title`, `--dl-section-toggle-border` | cabeçalho azul-claro com título `#15428b` e caixinha +/− |
+| Campos | `--dl-field-label-w`, `--dl-readonly-bg`, `--dl-readonly-border` | coluna de rótulos (9rem) e campo travado cinza |
+| Botões | `--dl-btn-*` | gradiente cinza; hover azul-claro; `--dl-btn-primary-border` para a ação padrão |
+| Status | `--dl-status-green/red/orange/blue/gray` | bolinha ao lado do texto de status |
+| Navegador | `--dl-sidebar-*`, `--dl-tree-*` | fundo branco, seleção `#dfe8f6`, guia pontilhada |
+| Abas de documento | `--dl-doctabs-*`, `--dl-doctab-*` | faixa e abas com gradiente |
+| Login | `--dl-auth-width`, `--dl-auth-label-w` | largura da caixa e coluna de rótulos |
+
+Arquivos de estilo:
+
+| Arquivo | Papel |
+|---|---|
+| `styles/_tokens.scss` | tokens `--dl-*` |
+| `styles/hpsm.scss` | skin do app logado: tokens do Carbon → paleta HPSM e todos os componentes `hpsm-*`/`dl-*` |
+| `styles/auth.scss` | páginas públicas (home, login, cadastro) e o botão `.dl-btn` sem Carbon |
+| `styles/app.scss` | entrada dos estilos e layout da casca |
+
+---
+
+## 3. Componentes
+
+### Toolbar do registro — `components/HpsmToolbar.tsx`
+
+Ações da tela (Voltar, Salvar, Cancelar…) ficam numa toolbar logo abaixo do título,
+com botões pequenos de ícone + texto. **Não** use botões grandes no meio do conteúdo.
+
+```tsx
+<HpsmToolbar label="Ações da amostra">
+  <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
+  <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={reload} />
+  <HpsmToolbarDivider />
+  <HpsmToolbarButton label="Baixar amostra" icon={IconDownload} href={url} disabled={!url} />
+</HpsmToolbar>
+```
+
+Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
+
+### Formulários — `components/HpsmForm.tsx`
+
+| Componente | Uso |
+|---|---|
+| `HpsmSection` | grupo recolhível (+/−) com título |
+| `HpsmForm` | grade de campos; `columns={2}` divide em duas colunas a partir de 64rem |
+| `HpsmField` | rótulo à esquerda com `:` e controle ao lado; `required` (asterisco), `wide` (linha inteira), `top` (multilinha), `help` (texto abaixo) |
+| `HpsmReadonly` | valor travado em caixa cinza; `multiline`, `mono` |
+
+```tsx
+<HpsmSection title="Triagem">
+  <HpsmForm columns={2}>
+    <HpsmField label="Status" htmlFor="triage-status">
+      <Select id="triage-status" labelText="Status" hideLabel ...>...</Select>
+    </HpsmField>
+    <HpsmField label="Enviado por">
+      <HpsmReadonly>{entry.owner.displayName}</HpsmReadonly>
+    </HpsmField>
+  </HpsmForm>
+</HpsmSection>
+```
+
+> **Rótulos e acessibilidade:** o controle do Carbon recebe `labelText` + `hideLabel`
+> (o nome acessível continua no controle) e o `HpsmField` recebe o mesmo `htmlFor`.
+> O rótulo visível fica com `aria-hidden` para o leitor de tela não ler duas vezes.
+
+### Listas — `components/EntriesTable.tsx` e `components/HpsmFilterBar.tsx`
+
+- Grade compacta (`size="xs"`), cabeçalho ordenável (ordenação **no servidor**,
+  parâmetros `sort`/`dir` de `GET /api/entries`) e rodapé
+  "Exibindo registros X a Y de N" com « ‹ Anterior · Próxima › ».
+- Filtros numa linha fixa acima da lista (`HpsmFilterBar` + `HpsmFilterItem`), com
+  botão **Limpar**. A lista se atualiza sozinha (a busca espera 300ms).
+- Lista vazia: a grade continua visível e o aviso vai para a barra de mensagens
+  (`<HpsmMessage kind="info">Nenhuma amostra encontrada.</HpsmMessage>`).
+
+### Status em texto — `components/tags.tsx`
+
+Status, veredito, papel e tipo são **texto**, nunca a `Tag` ("pílula") do Carbon:
+
+```tsx
+<StatusText tone="green">Ativo</StatusText>   // bolinha verde + texto
+<VerdictTag verdict={entry.verdict} />          // tons já mapeados
+<RoleTag role={user.role} />                    // texto puro
+```
+
+Tons: `green`, `red`, `orange`, `blue`, `gray` e `none` (sem bolinha).
+
+### Mensagens e carregamento — `components/messages.tsx`
+
+```tsx
+{error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+{query.isLoading && <HpsmLoading text="Carregando amostras..." />}
+```
+
+- `HpsmMessage` (`error`, `warning`, `info`, `success`) é renderizado por portal na
+  barra de mensagens da casca. Fora da casca (login, janela do console) aparece no
+  próprio lugar. Use o texto direto, sem título "Erro" (o ícone já diz).
+- `HpsmLoading` é a caixinha "Carregando…" com o anel de pontos.
+
+### Abas — `components/HpsmTabs.tsx` e `components/workspace.tsx`
+
+- Abas **internas** da página (Detalhes / Análise / Relatórios) usam `HpsmTabs`. A
+  aba ativa fica na URL (`?tab=`), para o navegador e o menu poderem apontar direto
+  para ela e para a aba de documento reabrir no mesmo ponto.
+- Para dar nome à aba de **documento** (ex.: o título da amostra), chame
+  `useWorkspaceTitle(titulo)` na página. Rotas novas precisam de um título padrão em
+  `routeTitle()` (`workspace.tsx`), senão não abrem aba.
+
+### Cabeçalho da página — `components/PageHeader.tsx`
+
+`<PageHeader title="..." subtitle="..." />` — faixa com título e subtítulo.
+
+### Páginas públicas — `components/AuthLayout.tsx` e `components/AuthField.tsx`
+
+Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
+`PublicLegal`. `AuthLayout` aceita `altLink` (link para a outra tela, abaixo da caixa
+à direita). Os botões são `.dl-btn` / `.dl-btn--primary` (sem Carbon).
+
+---
+
+## 4. Convenções e armadilhas do Carbon
+
+**Faça assim**
+
+- Botões do Carbon dentro do app viram automaticamente o botão cinza do HPSM. O
+  `kind` muda só detalhes: `primary` = negrito (ação padrão), `ghost` = sem moldura,
+  `danger*` = texto vermelho.
+- Toda mensagem ao usuário passa por `HpsmMessage`; nada de `InlineNotification`.
+- Fonte e alturas vêm dos tokens; controles do Carbon já são ajustados para 12px/24px
+  dentro de `.dl-shell` e `.dl-console-window`.
+
+**Evite**
+
+- `Tag` do Carbon para status (use `StatusText`).
+- `DataTable` do Carbon para listas cujos dados mudam (filtro, paginação): ele guarda
+  as linhas em estado interno e sincroniza **um render depois**, entregando ids que
+  não existem mais (`entry` vira `undefined` e a tela fica branca). `EntriesTable`
+  renderiza as linhas direto dos dados. As tabelas do Admin ainda usam `DataTable`,
+  mas ignoram ids antigos (`if (!u) return null`).
+- Popovers e caixas tracejadas de "vazio" — não fazem parte do HPSM.
+
+**Ajustes que o skin faz no Carbon** (se algo "voltar ao Carbon", procure aqui em
+`hpsm.scss`):
+
+| Problema do Carbon | Correção |
+|---|---|
+| `th[aria-sort]` zera o padding, força 48px de altura e tira a borda | regra própria para `th[aria-sort]` |
+| ícone do botão com `position: absolute` (fica sobre o texto) | `position: static` e ícone antes do texto |
+| `::placeholder` do textarea com 14px fixos | `font-size: inherit` |
+| `padding-block` sobrando nos campos de 24px (texto do select sobe) | `padding-block: 0` |
+| `Tile` e `p` com fonte própria (14–16px) | fonte do corpo (12px) |
+
+---
+
+## 5. Rotas do front
+
+| Rota | Tela | Observação |
+|---|---|---|
+| `/home`, `/login`, `/register` | páginas públicas | só sem sessão |
+| `/` | — | redireciona para a página inicial das preferências |
+| `/inicio` | Página Inicial | boas-vindas; padrão após o login |
+| `/history` | Histórico Global | |
+| `/me` | Meus Uploads | |
+| `/submit` | Enviar Amostra | abas Arquivo / Link |
+| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios` |
+| `/admin` | Administração | só ADMIN; `?tab=keys` |
+| `/user` | Minha Conta | `?tab=senha`, `?tab=preferencias` |
+| `/sandbox/entry/:entryId/console` | janela do console | fora da casca |
+
+---
+
+## 6. Minha Conta e preferências
+
+### Endpoints
+
+| Método | Rota | Função |
+|---|---|---|
+| GET | `/api/auth/me` | usuário da sessão, incluindo `preferences` (já completadas com os padrões) |
+| PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
+| POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário |
+
+Após trocar a senha, o front limpa a sessão e leva ao login com o aviso
+"Senha alterada. Entre novamente com a nova senha.".
+
+### Preferências
+
+Guardadas na coluna JSON `User.preferences` (migração
+`20261021000000_add_user_preferences`).
+
+| Chave | Valores (padrão em negrito) | Onde é aplicada |
+|---|---|---|
+| `startPage` | **`welcome`** · `history` · `mine` | destino após o login e na raiz `/` |
+| `pageSize` | 25 · **50** · 100 | Histórico Global e Meus Uploads |
+| `restoreTabs` | **`true`** · `false` | reabre as abas de documento da sessão anterior ao entrar (cópia por usuário no `localStorage`) |
+
+### Como adicionar uma preferência
+
+1. **API** — `apps/api/src/lib/preferences.ts`: adicione a chave em
+   `PreferencesSchema` e em `DEFAULT_PREFERENCES`. Valores salvos inválidos ou
+   ausentes caem no padrão (validação por chave), então não há migração.
+2. **Web** — `apps/web/src/api/types.ts` (`Preferences`) e
+   `apps/web/src/auth/preferences.ts` (`DEFAULT_PREFERENCES`, com o mesmo valor).
+3. **Formulário** — um `HpsmField` novo na aba Preferências de
+   `apps/web/src/pages/UserPage.tsx`.
+4. **Aplicação** — leia com `const { preferences } = useAuth()`. Para gravar fora da
+   página de conta, use `updatePreferences({ chave: valor })` (atualiza na hora e
+   desfaz se a API recusar).
+
+---
+
+## 7. Verificação visual (Playwright)
+
+Os roteiros em `scripts/ui-playwright/` sobem o **build** do front num Chromium
+(Playwright em Docker) e respondem `/api/*` com dados de exemplo — não precisam de
+banco nem da API rodando.
+
+| Roteiro | O que faz |
+|---|---|
+| `screens.mjs` | screenshot de todas as telas em `out/` e medida do cabeçalho da lista |
+| `filters.mjs` | troca filtros, busca e Limpar; falha se a tela ficar branca ou a contagem de linhas errar |
+| `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso) → novo login |
+| `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
+
+```powershell
+cd apps/web; npm run build; cd ../..
+powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
+# só alguns roteiros:
+powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1 -Scripts filters,account
+```
+
+Requer o Docker em execução (imagem `mcr.microsoft.com/playwright:v1.49.0-noble`).
+O script sai com erro se alguma checagem falhar; screenshots ficam em
+`scripts/ui-playwright/out/` (ignorado pelo git).
+
+---
+
+## 8. Próximas melhorias
+
+Ideias de UX/usabilidade priorizadas estão em [`docs/ux-backlog.md`](ux-backlog.md).

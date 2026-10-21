@@ -1,0 +1,5 @@
+# screenshots e dependencias instaladas dentro do container
+out/
+node_modules/
+package.json
+package-lock.json

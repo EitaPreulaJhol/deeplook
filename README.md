@@ -171,6 +171,8 @@ deeplook/
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf
 │     └─ src/         # api, auth, components, pages, styles
+├─ docs/              # guias: interface-hpsm.md, ux-backlog.md, proxmox.md
+├─ scripts/           # smoke tests (PowerShell) e testes visuais (ui-playwright/)
 └─ data/              # volumes (git-ignored): pgdata/, minio/
 ```
 
@@ -225,22 +227,38 @@ ou seja, o `npm run build` **falha** se sobrar variável/import/parâmetro sem u
 
 ---
 
-## Design system (tokens & skin)
+## Interface (estilo HP Service Manager 9)
 
-O visual é um tema escuro no estilo **Fluent**, o mesmo desenho das telas de
-login/cadastro, aplicado sobre o Carbon Design System:
+A interface imita o **web client do HP Service Manager 9**, sem modernizar: tema
+claro, Tahoma 12px, controles de 24px, masthead azul, **Navegador do Sistema** em
+árvore, **abas de documento** para cada tela aberta, barra de mensagens única,
+toolbar de ações por registro e formulários com rótulo à esquerda. O comportamento
+dos controles vem do Carbon Design System; o visual vem dos tokens e do skin:
 
 | Arquivo | Papel |
 | --- | --- |
-| `src/styles/_tokens.scss` | tokens `--dl-*` (cores, tipografia, formas) — fonte única de verdade |
-| `src/styles/auth.scss` | telas de login/cadastro (consome os tokens) |
-| `src/styles/fluent.scss` | skin do resto do app: realinha os tokens `--cds-*` do Carbon com a paleta Fluent e ajusta o que token não cobre (Segoe UI, cards, abas, campos sublinhados, tabelas, header, avisos) |
-| `src/styles/app.scss` | entrada dos estilos + layout global (header, conteúdo, home, footer, scrollbar) |
+| `src/styles/_tokens.scss` | tokens `--dl-*` (cores, tipografia, medidas) — fonte única de verdade |
+| `src/styles/hpsm.scss` | skin do app logado: realinha os tokens `--cds-*` do Carbon e estiliza os componentes `hpsm-*`/`dl-*` |
+| `src/styles/auth.scss` | páginas públicas (home, login, cadastro) |
+| `src/styles/app.scss` | entrada dos estilos + layout da casca |
 
-Classes de estrutura usadas pelas páginas: `PageHeader`
-(`.dl-page-head`/`.dl-page-header`/`.dl-page-subtitle`), `.dl-toolbar`,
-`.dl-panel`, `.dl-detail-row`, `.dl-row`, `.dl-note`, `.dl-empty`,
-`.dl-mono`, `.dl-taglist`.
+Componentes, convenções (o que usar e o que evitar do Carbon), rotas, preferências do
+usuário e a verificação visual estão em
+**[`docs/interface-hpsm.md`](docs/interface-hpsm.md)**. Ideias de UX priorizadas:
+**[`docs/ux-backlog.md`](docs/ux-backlog.md)**.
+
+### Minha Conta e preferências
+
+O nome do usuário no topo abre um submenu (Minha conta, Alterar senha, Preferências,
+Sair). Em `/user` o usuário vê seus dados (somente leitura), troca a senha — o que
+**encerra todas as sessões** e exige novo login — e ajusta as preferências: página
+inicial (padrão: a **Página Inicial** de boas-vindas, `/inicio`), registros por página
+e reabrir as abas da sessão anterior.
+
+| Método | Rota | Função |
+|---|---|---|
+| PATCH | `/api/me/preferences` | Atualiza preferências (parcial) |
+| POST | `/api/me/password` | Troca a senha e encerra todas as sessões |
 
 ---
 
@@ -379,9 +397,22 @@ Checagem visual (screenshot de uma página autenticada via CDP, sem dependência
 node scripts/ui-shot.mjs "http://localhost:8080/entries/<id>" data/ui.png "<cookie dl_session>"
 ```
 
+Testes visuais sem banco (build do front + API simulada, Playwright em Docker):
+screenshots de todas as telas e checagens dos filtros e do fluxo de Minha Conta.
+
+```powershell
+cd apps/web; npm run build; cd ../..
+powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
+```
+
+Detalhes em [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-verificação-visual-playwright).
+
 ---
 
 ## Roadmap (próximos passos)
+
+Melhorias de interface e usabilidade estão priorizadas em
+[`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
 - Scanners automáticos (ClamAV e/ou VirusTotal) por hash/URL.
 - Comentários nas amostras e múltiplos anexos por envio.
