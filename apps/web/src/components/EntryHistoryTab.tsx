@@ -46,6 +46,8 @@ function describe(event: EntryEvent): string {
       return `Ambiente isolado encerrado${
         event.detail ? ` (${SANDBOX_CLOSE_REASONS[event.detail] ?? event.detail})` : ''
       }`;
+    case 'SANDBOX_FAILED':
+      return `Falha ao preparar o ambiente isolado${event.detail ? `: ${event.detail}` : ''}`;
     default:
       return event.type;
   }

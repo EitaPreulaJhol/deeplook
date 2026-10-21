@@ -352,7 +352,7 @@ banco nem da API rodando.
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
-| `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico |
+| `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
 | `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 

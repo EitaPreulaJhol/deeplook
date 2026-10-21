@@ -163,7 +163,9 @@ o que mudou. **Pendentes:** 13, 15 e 17.
 - ✅ **Implementado:** modelo `EntryEvent` (helper `lib/events.ts`) gravado no envio,
   em mudanças de status/veredito/responsável, em relatórios (rascunho/publicado — a
   publicação também registra as mudanças de status e veredito), e na abertura,
-  descarte e expiração do sandbox (expiração com autor "Sistema"). A migração cria o
+  descarte, expiração e **falha de provisionamento** do sandbox (expiração e falha com
+  autor "Sistema"; a falha guarda a mensagem de erro — migração
+  `20261023000000_sandbox_failed_event`). A migração cria o
   evento "Amostra enviada" para as amostras já existentes. Aba **Histórico** na
   amostra (Data · Usuário · Evento), visível para todos.
 

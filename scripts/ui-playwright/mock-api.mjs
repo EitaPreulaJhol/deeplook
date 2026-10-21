@@ -50,6 +50,8 @@ const events = Object.fromEntries(
   ]),
 );
 const actorOf = (u) => ({ id: u.id, displayName: u.displayName });
+// Falha de provisionamento do sandbox (autor: sistema) no historico da e4.
+events.e4.push({ id: 'e4-fail', entryId: 'e4', type: 'SANDBOX_FAILED', detail: 'Template 9000 nao encontrado no Proxmox', createdAt: now, actor: null });
 function pushEvent(entryId, type, fromValue, toValue) {
   const list = events[entryId];
   list.push({ id: `${entryId}-ev${list.length}`, entryId, type, fromValue, toValue, createdAt: new Date().toISOString(), actor: actorOf(users[0]) });

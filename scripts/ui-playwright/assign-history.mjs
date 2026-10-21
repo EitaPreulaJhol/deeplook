@@ -60,5 +60,16 @@ await page.click('.hpsm-tree__leaf:has-text("Atribuídas a mim")');
 await page.waitForTimeout(600);
 expect('fila abre o Histórico com assignee=me', new URL(page.url()).search === '?assignee=me', new URL(page.url()).search);
 
+// 5. Falha de provisionamento do sandbox aparece no historico (autor: Sistema).
+await page.goto(ORIGIN + '/entries/e4?tab=historico', { waitUntil: 'networkidle' });
+const failRow = page.locator('tbody tr', { hasText: 'Falha ao preparar o ambiente isolado' });
+expect(
+  'falha do sandbox no histórico, autor "Sistema"',
+  (await failRow.count()) === 1 &&
+    (await failRow.locator('td').nth(1).textContent()) === 'Sistema' &&
+    (await failRow.locator('td').nth(2).textContent()).includes('Template 9000 nao encontrado'),
+);
+await page.screenshot({ path: `${OUT}/historico-falha-sandbox.png` });
+
 await browser.close();
 process.exit(failures ? 1 : 0);

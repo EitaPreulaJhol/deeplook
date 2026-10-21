@@ -199,6 +199,7 @@ enum EntryEventType {
   REPORT_PUBLISHED
   SANDBOX_OPENED
   SANDBOX_CLOSED
+  SANDBOX_FAILED
 }
 
 /// Linha do tempo da amostra: quem fez o que e quando (aba "Historico").

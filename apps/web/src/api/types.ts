@@ -149,7 +149,8 @@ export type EntryEventType =
   | 'REPORT_CREATED'
   | 'REPORT_PUBLISHED'
   | 'SANDBOX_OPENED'
-  | 'SANDBOX_CLOSED';
+  | 'SANDBOX_CLOSED'
+  | 'SANDBOX_FAILED';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {

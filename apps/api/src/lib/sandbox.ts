@@ -68,12 +68,22 @@ async function setPhase(sessionId: string, phase: string): Promise<void> {
 }
 
 async function failSession(sessionId: string, message: string): Promise<void> {
-  await prisma.sandboxSession
+  const failed = await prisma.sandboxSession
     .update({
       where: { id: sessionId },
       data: { status: 'FAILED', phase: null, lastError: message.slice(0, 500) },
+      select: { entryId: true },
     })
-    .catch(() => undefined);
+    .catch(() => null);
+  // Falha no provisionamento entra no historico da amostra (autor: sistema).
+  if (failed) {
+    await recordEvent(prisma, {
+      entryId: failed.entryId,
+      actorId: null,
+      type: 'SANDBOX_FAILED',
+      detail: message.slice(0, 500),
+    }).catch(() => undefined);
+  }
 }
 
 /** Sessao ativa (nao finalizada) de uma amostra. */
@@ -499,15 +509,15 @@ export async function reapExpired(): Promise<number> {
 /** Provisionamentos interrompidos (API reiniciada) viram FAILED. */
 export async function recoverStuckSessions(): Promise<number> {
   const cutoff = new Date(Date.now() - 15 * 60_000);
-  const result = await prisma.sandboxSession.updateMany({
+  const stuck = await prisma.sandboxSession.findMany({
     where: { status: { in: ['REQUESTED', 'PROVISIONING'] }, updatedAt: { lt: cutoff } },
-    data: {
-      status: 'FAILED',
-      phase: null,
-      lastError: 'Provisionamento interrompido (API reiniciada). Tente de novo.',
-    },
+    select: { id: true },
   });
-  return result.count;
+  // Um a um (sao poucos): cada falha tambem vai para o historico da amostra.
+  for (const session of stuck) {
+    await failSession(session.id, 'Provisionamento interrompido (API reiniciada). Tente de novo.');
+  }
+  return stuck.length;
 }
 
 /**
