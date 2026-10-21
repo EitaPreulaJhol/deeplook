@@ -133,6 +133,18 @@ export async function entryRoutes(app: FastifyInstance) {
   });
 
   // Submissao de ARQUIVO (multipart)
+  // Contadores das filas do Navegador do Sistema (Pendentes, Em analise...).
+  // Rota estatica: o find-my-way a prioriza sobre /api/entries/:id.
+  app.get('/api/entries/counts', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const groups = await prisma.entry.groupBy({ by: ['status'], _count: { _all: true } });
+    const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
+    for (const g of groups) counts[g.status] = g._count._all;
+    return reply.send({ counts });
+  });
+
   app.post('/api/entries/file', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;

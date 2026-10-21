@@ -115,6 +115,11 @@ export async function setupMock(context, state) {
         }
         return json(route, 200, { total: items.length, limit: Number(sp.get('limit') || 50), offset: 0, items });
       }
+      if (p === '/api/entries/counts') {
+        const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
+        for (const e of entries) counts[e.status] += 1;
+        return json(route, 200, { counts });
+      }
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
       if (m) return json(route, 200, { enabled: true, consoleEnabled: true, session: null });
       m = p.match(/^\/api\/entries\/(\w+)$/);

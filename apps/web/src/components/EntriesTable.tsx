@@ -12,6 +12,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { Entry } from '../api/types';
+import { saveEntrySequence } from './entryNav';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
@@ -75,7 +76,11 @@ export function EntriesTable({
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
   const tabbableRow = Math.min(focusIndex, Math.max(entries.length - 1, 0));
 
-  const openEntry = (id: string) => navigate(`/entries/${id}`);
+  // Abrir uma linha guarda a sequencia da pagina (Anterior/Proxima na ficha).
+  const openEntry = (id: string) => {
+    saveEntrySequence(entries.map((e) => e.id));
+    navigate(`/entries/${id}`);
+  };
 
   const onRowKeyDown = (event: KeyboardEvent, index: number, id: string) => {
     const lastRow = entries.length - 1;

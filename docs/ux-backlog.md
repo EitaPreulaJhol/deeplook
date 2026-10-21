@@ -18,10 +18,10 @@ próprio HPSM.
 | 3 | Diálogo de confirmação em ações destrutivas | 🔴 | M | Admin / Sandbox | ✅ |
 | 4 | Aviso de alterações não salvas | 🔴 | M | Formulários | ✅ |
 | 5 | Filtros, ordenação e página na URL | 🔴 | P–M | Listas | ✅ |
-| 6 | "Minha fila" com contadores no navegador | 🟡 | M | Navegador / API | ⬜ |
+| 6 | "Minha fila" com contadores no navegador | 🟡 | M | Navegador / API | ✅ |
 | 7 | Atribuição de amostra a um analista | 🟡 | G | Amostra / banco | ⬜ |
 | 8 | Aba "Histórico" (auditoria) na amostra | 🟡 | G | Amostra / banco | ⬜ |
-| 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra | ⬜ |
+| 9 | Anterior / Próximo na ficha da amostra | 🟡 | M | Amostra | ✅ |
 | 10 | Detecção de duplicata pelo SHA-256 | 🟡 | M | Envio / API | ✅ |
 | 11 | Arrastar e soltar o arquivo | ⚪ | P | Envio | ⬜ |
 | 12 | Botões de copiar (hash, URL, IOCs) | ⚪ | P | Amostra / Relatórios | ✅ |
@@ -32,9 +32,9 @@ próprio HPSM.
 | 17 | Exportar CSV da lista filtrada | ⚪ | M | Listas / API | ⬜ |
 | 18 | Limite de tentativas no login e na troca de senha | 🔴 | P | Segurança / API | ✅ |
 
-**Feitos:** 1, 2, 3, 4, 5, 10, 12, 16 e 18 — cada item abaixo traz um bloco
-**Implementado** com o que mudou. **Próximos sugeridos:** 6 e 9 (fluxo dos
-analistas), depois 11 e 14 (pequenos).
+**Feitos:** 1, 2, 3, 4, 5, 6, 9, 10, 12, 16 e 18 — cada item abaixo traz um bloco
+**Implementado** com o que mudou. **Próximos sugeridos:** 11 e 14 (pequenos), depois
+7 e 8 (envolvem banco).
 
 ---
 
@@ -133,6 +133,12 @@ analistas), depois 11 e 14 (pequenos).
   Histórico Global já filtrado (depende da ideia 5).
 - **Onde mexer:** API `GET /api/entries/counts` (um `groupBy` por status);
   `HpsmSidebar.tsx` (folhas com contador, atualização periódica via React Query).
+- ✅ **Implementado:** pasta **Filas** (analistas e admins) com **Pendentes**,
+  **Em análise** e **Concluídas** — bolinha de status e contador; cada uma abre o
+  Histórico Global com `?status=`. Contadores atualizam a cada minuto e após a
+  triagem. O destaque do navegador passou a escolher a folha mais específica que
+  bate com a URL (a fila, não o Histórico). "Concluídas hoje" virou "Concluídas"
+  (não há filtro por data na API ainda); "Atribuídas a mim" depende da ideia 7.
 
 ### 7. Atribuição de amostra a um analista
 - **Proposta:** campo **Responsável** na triagem e ação "Assumir análise" na toolbar,
@@ -155,6 +161,11 @@ analistas), depois 11 e 14 (pequenos).
 - **Onde mexer:** `EntriesTable.tsx` guarda os ids da página atual (ex.:
   `sessionStorage` ou contexto do workspace) ao abrir uma linha;
   `EntryDetailPage.tsx` lê e mostra os botões (desabilitados nas pontas).
+- ✅ **Implementado:** `components/entryNav.ts` guarda a sequência da página ao abrir
+  uma linha; a toolbar da amostra mostra **◀ Anterior / Próxima ▶** (desabilitados
+  nas pontas) e "Registro N de M". O registro troca **na mesma aba de documento**
+  (se o destino já tinha aba, a de origem fecha) e mantém a aba interna (`?tab=`).
+  Limite: a sequência é a página atual da lista (não passa para a próxima página).
 
 ---
 

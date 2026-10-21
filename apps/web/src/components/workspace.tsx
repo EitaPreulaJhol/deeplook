@@ -94,7 +94,7 @@ export function clearWorkspaceTabs() {
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const { pathname, search } = useLocation();
+  const { pathname, search, state } = useLocation();
   const navigate = useNavigate();
   const { user, preferences } = useAuth();
   const userId = user?.id;
@@ -125,7 +125,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const title = routeTitle(pathname);
     if (!title) return;
     const url = pathname + search;
+    // Navegacao que troca o registro da aba (ex.: Anterior/Proxima da amostra).
+    const replaceTab = (state as { replaceTab?: string } | null)?.replaceTab;
     setTabs((current) => {
+      // A aba de origem vira a do novo registro; se ele ja tinha aba propria,
+      // a de origem fecha e a existente e reaproveitada.
+      if (replaceTab && replaceTab !== pathname && current.some((t) => t.path === replaceTab)) {
+        if (current.some((t) => t.path === pathname)) {
+          return current
+            .filter((t) => t.path !== replaceTab)
+            .map((t) => (t.path === pathname ? { ...t, url } : t));
+        }
+        return current.map((t) => (t.path === replaceTab ? { path: pathname, url, title } : t));
+      }
       const existing = current.find((t) => t.path === pathname);
       if (existing) {
         return existing.url === url
@@ -139,7 +151,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
-  }, [pathname, search]);
+  }, [pathname, search, state]);
 
   useEffect(() => saveTabs(tabs, userId, restore), [tabs, userId, restore]);
 

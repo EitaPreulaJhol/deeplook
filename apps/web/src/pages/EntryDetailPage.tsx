@@ -1,11 +1,12 @@
 import { Select, SelectItem } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry, SandboxSession } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { loadEntrySequence } from '../components/entryNav';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
@@ -37,6 +38,7 @@ function fmtSize(n?: number | null): string {
 export function EntryDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
@@ -69,7 +71,19 @@ export function EntryDetailPage() {
 
   useWorkspaceTitle(entry?.title);
 
-  const reload = () => queryClient.invalidateQueries({ queryKey: ['entry', id] });
+  // Recarrega a amostra e os contadores das filas do navegador.
+  const reload = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['entry', id] }),
+      queryClient.invalidateQueries({ queryKey: ['entries', 'counts'] }),
+    ]);
+
+  // Anterior / Proxima dentro da lista de onde a amostra foi aberta. Troca o
+  // registro na mesma aba de documento e mantem a aba interna (?tab=).
+  const sequence = loadEntrySequence();
+  const position = sequence.indexOf(id);
+  const goToEntry = (target: string) =>
+    navigate(`/entries/${target}${location.search}`, { state: { replaceTab: location.pathname } });
 
   // Triagem grava na hora; o retorno vai para a barra de mensagens (padrao HPSM).
   const quickUpdate = async (patch: Record<string, unknown>) => {
@@ -120,6 +134,23 @@ export function EntryDetailPage() {
       <HpsmToolbar label="Ações da amostra">
         <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
         <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={reload} />
+        {position >= 0 && sequence.length > 1 && (
+          <>
+            <HpsmToolbarDivider />
+            <HpsmToolbarButton
+              label="◀ Anterior"
+              title="Registro anterior da lista"
+              disabled={position === 0}
+              onClick={() => goToEntry(sequence[position - 1])}
+            />
+            <HpsmToolbarButton
+              label="Próxima ▶"
+              title="Próximo registro da lista"
+              disabled={position === sequence.length - 1}
+              onClick={() => goToEntry(sequence[position + 1])}
+            />
+          </>
+        )}
         {entry.type === 'FILE' && (
           <>
             <HpsmToolbarDivider />
@@ -131,6 +162,11 @@ export function EntryDetailPage() {
               title="Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado."
             />
           </>
+        )}
+        {position >= 0 && sequence.length > 1 && (
+          <span className="hpsm-toolbar__info">
+            Registro {position + 1} de {sequence.length}
+          </span>
         )}
       </HpsmToolbar>
 

@@ -40,9 +40,15 @@ gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com a
   celular, o papel "(Admin)" some e o nome continua abrindo o menu.
 - **Navegador do Sistema:** sempre visível no desktop (não recolhe). Abaixo de
   `52rem` vira um drawer aberto pelo botão ☰. Itens novos entram em `ROOT_LEAVES`
-  (soltos no topo) ou em `TREE` (dentro de uma pasta) em `HpsmSidebar.tsx`.
+  (soltos no topo) ou em `TREE` (dentro de uma pasta) em `HpsmSidebar.tsx`; pastas
+  podem ser restritas (`access: 'triage' | 'admin'`) e folhas podem ter contador
+  (`count`) e bolinha de status (`tone`). A pasta **Filas** (analistas/admins) mostra
+  Pendentes / Em análise / Concluídas com contadores (`GET /api/entries/counts`). O
+  destaque vai para a folha mais específica que bate com a URL.
 - **Abas de documento:** cada tela aberta vira uma aba com **×** (clique do meio
-  também fecha). Limite de 10 abas; a mais antiga sai primeiro.
+  também fecha). Limite de 10 abas; a mais antiga sai primeiro. Uma navegação com
+  `state: { replaceTab: pathnameAtual }` troca o registro **na mesma aba** (usado pelo
+  Anterior / Próxima da amostra).
 - **Barra de mensagens:** todas as mensagens da página aparecem empilhadas aqui, no
   topo da área de trabalho, como no HPSM.
 
@@ -130,6 +136,8 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
   botão **Limpar**. A lista se atualiza sozinha (a busca espera 300ms).
 - Teclado: só uma linha entra no Tab; ↑ ↓ Home End movem o foco e Enter abre a
   amostra (a linha com foco recebe o destaque de seleção).
+- Abrir uma linha guarda a sequência da página (`components/entryNav.ts`); a ficha da
+  amostra mostra **◀ Anterior / Próxima ▶** e "Registro N de M" na toolbar.
 - Lista vazia: a grade continua visível e o aviso vai para a barra de mensagens
   (`<HpsmMessage kind="info">Nenhuma amostra encontrada.</HpsmMessage>`).
 
@@ -328,6 +336,7 @@ banco nem da API rodando.
 | `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
+| `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 
 ```powershell

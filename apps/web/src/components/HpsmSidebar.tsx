@@ -1,10 +1,14 @@
+import { useQuery } from '@tanstack/react-query';
 import type { MouseEvent } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { api } from '../api/client';
+import type { EntryStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import type { IconComponent } from './icons';
 import { IconAdd, IconFolder, IconHistory, IconHome, IconKey, IconPage } from './icons';
+import type { StatusTone } from './tags';
 
 interface SidebarProps {
   /** Controle do drawer no mobile (a sidebar fica off-canvas). */
@@ -16,13 +20,18 @@ interface SidebarProps {
 interface NavLeaf {
   to: string;
   label: string;
-  icon: IconComponent;
+  /** Icone 16px; filas usam a bolinha de status (`tone`) no lugar. */
+  icon?: IconComponent;
+  tone?: StatusTone;
+  /** Mostra o contador da fila com este status, ex.: "Pendentes (12)". */
+  count?: EntryStatus;
 }
 
 interface NavFolder {
   id: string;
   label: string;
-  adminOnly?: boolean;
+  /** Quem ve a pasta: analistas/admins (`triage`) ou so admins (`admin`). */
+  access?: 'triage' | 'admin';
   children: NavLeaf[];
 }
 
@@ -31,6 +40,17 @@ const ROOT_LEAVES: NavLeaf[] = [{ to: '/inicio', label: 'Página Inicial', icon:
 
 /* Arvore do "Navegador do Sistema": pastas com as telas da aplicacao. */
 const TREE: NavFolder[] = [
+  {
+    // Filas de trabalho dos analistas (como as filas do HPSM), com contadores.
+    id: 'filas',
+    label: 'Filas',
+    access: 'triage',
+    children: [
+      { to: '/history?status=PENDING', label: 'Pendentes', tone: 'gray', count: 'PENDING' },
+      { to: '/history?status=IN_REVIEW', label: 'Em análise', tone: 'blue', count: 'IN_REVIEW' },
+      { to: '/history?status=COMPLETED', label: 'Concluídas', tone: 'green', count: 'COMPLETED' },
+    ],
+  },
   {
     id: 'amostras',
     label: 'Amostras',
@@ -43,7 +63,7 @@ const TREE: NavFolder[] = [
   {
     id: 'admin',
     label: 'Administração',
-    adminOnly: true,
+    access: 'admin',
     children: [
       { to: '/admin', label: 'Usuários', icon: IconPage },
       { to: '/admin?tab=keys', label: 'Chaves de ativação', icon: IconKey },
@@ -51,12 +71,22 @@ const TREE: NavFolder[] = [
   },
 ];
 
-/** Folha ativa: mesmo pathname e mesma aba (`?tab=`) da URL atual. */
-function isLeafActive(to: string, pathname: string, search: string): boolean {
-  const [path, query = ''] = to.split('?');
-  const leafTab = new URLSearchParams(query).get('tab') ?? '';
-  const currentTab = new URLSearchParams(search).get('tab') ?? '';
-  return path === pathname && leafTab === currentTab;
+/**
+ * Folha ativa: a mais especifica cujo caminho e parametros batem com a URL.
+ * Ex.: /history?status=PENDING&q=x destaca "Pendentes"; /history?verdict=CLEAN
+ * destaca "Histórico Global"; /admin?tab=keys destaca "Chaves de ativação".
+ */
+function activeLeaf(leaves: NavLeaf[], pathname: string, search: string): string | null {
+  const current = new URLSearchParams(search);
+  let best: { to: string; params: number } | null = null;
+  for (const leaf of leaves) {
+    const [path, query = ''] = leaf.to.split('?');
+    if (path !== pathname) continue;
+    const params = [...new URLSearchParams(query)];
+    if (!params.every(([key, value]) => current.get(key) === value)) continue;
+    if (!best || params.length > best.params) best = { to: leaf.to, params: params.length };
+  }
+  return best?.to ?? null;
 }
 
 export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
@@ -66,6 +96,25 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const [closedFolders, setClosedFolders] = useState<Set<string>>(() => new Set());
 
   const isAdmin = user?.role === 'ADMIN';
+  const canTriage = isAdmin || user?.role === 'ANALYST';
+
+  // Contadores das filas: atualizam a cada minuto (e apos cada triagem).
+  const countsQuery = useQuery({
+    queryKey: ['entries', 'counts'],
+    queryFn: () => api.get<{ counts: Record<EntryStatus, number> }>('/entries/counts'),
+    enabled: canTriage,
+    refetchInterval: 60_000,
+  });
+  const counts = countsQuery.data?.counts;
+
+  const folders = TREE.filter(
+    (folder) => !folder.access || (folder.access === 'admin' ? isAdmin : canTriage),
+  );
+  const active = activeLeaf(
+    [...ROOT_LEAVES, ...folders.flatMap((folder) => folder.children)],
+    pathname,
+    search,
+  );
 
   const go = (to: string) => (event: MouseEvent) => {
     event.preventDefault();
@@ -84,17 +133,25 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
 
   // Folha da arvore; na raiz ganha um espaco no lugar do +/- das pastas.
   const renderLeaf = (leaf: NavLeaf, root = false) => {
-    const active = isLeafActive(leaf.to, pathname, search);
+    const isActive = leaf.to === active;
+    const count = leaf.count && counts ? counts[leaf.count] : undefined;
     return (
       <a
         href={leaf.to}
-        className={`hpsm-tree__row hpsm-tree__leaf${active ? ' is-active' : ''}`}
-        aria-current={active ? 'page' : undefined}
+        className={`hpsm-tree__row hpsm-tree__leaf${isActive ? ' is-active' : ''}`}
+        aria-current={isActive ? 'page' : undefined}
         onClick={go(leaf.to)}
       >
         {root && <span className="hpsm-tree__spacer" aria-hidden="true" />}
-        <leaf.icon size={16} />
+        {leaf.icon ? (
+          <leaf.icon size={16} />
+        ) : (
+          <span className={`hpsm-tree__bullet hpsm-status hpsm-status--${leaf.tone ?? 'gray'}`}>
+            <span className="hpsm-status__bullet" aria-hidden="true" />
+          </span>
+        )}
         <span className="hpsm-tree__label">{leaf.label}</span>
+        {count !== undefined && <span className="hpsm-tree__count">({count})</span>}
       </a>
     );
   };
@@ -112,7 +169,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           {ROOT_LEAVES.map((leaf) => (
             <li key={leaf.to}>{renderLeaf(leaf, true)}</li>
           ))}
-          {TREE.filter((folder) => !folder.adminOnly || isAdmin).map((folder) => {
+          {folders.map((folder) => {
             const expanded = !closedFolders.has(folder.id);
             const childrenId = `hpsm-tree-${folder.id}`;
             return (

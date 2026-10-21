@@ -444,6 +444,18 @@ h6 {
   flex: 0 0 auto;
 }
 
+/* Filas: bolinha de status no lugar do icone e contador ao lado do nome. */
+.hpsm-tree__bullet {
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 16px;
+}
+
+.hpsm-tree__count {
+  flex: 0 0 auto;
+  color: var(--dl-text-muted);
+}
+
 /* Folha na raiz: ocupa o lugar do +/- para alinhar com as pastas. */
 .hpsm-tree__spacer {
   flex: 0 0 auto;
@@ -719,6 +731,14 @@ h6 {
 
 .hpsm-toolbar__action img {
   display: block;
+}
+
+/* Texto informativo a direita da toolbar (ex.: "Registro 3 de 4"). */
+.hpsm-toolbar__info {
+  margin-inline-start: auto;
+  padding-inline: 0.5rem;
+  color: var(--dl-text-muted);
+  white-space: nowrap;
 }
 
 .hpsm-toolbar__divider {
