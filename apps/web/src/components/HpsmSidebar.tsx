@@ -322,7 +322,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   return (
     <aside className={classes} aria-label="Navegação principal">
       <div className="hpsm-sidebar__head">
-        <span className="hpsm-sidebar__title">Navegador do Sistema</span>
+        <span className="hpsm-sidebar__title">Navegação</span>
       </div>
 
       <nav className="hpsm-tree">
