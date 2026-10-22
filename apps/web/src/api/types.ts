@@ -117,7 +117,10 @@ export type AuditAction =
   | 'TEMPLATE_UPDATED'
   | 'TEMPLATE_DELETED'
   | 'LOGIN_FAILED'
-  | 'LOGIN_LOCKED';
+  | 'LOGIN_LOCKED'
+  | 'ENTRY_TRASHED'
+  | 'ENTRY_RESTORED'
+  | 'ENTRY_DELETED';
 
 /** Registro de auditoria (GET /api/admin/audit). */
 export interface AuditEvent {
@@ -256,6 +259,8 @@ export interface Entry {
   mimeType?: string | null;
   sha256?: string | null;
   storageKey?: string | null;
+  /** Arquivo apagado pela retencao (RETENTION_DAYS); ficha e hash continuam. */
+  filePurgedAt?: string | null;
   bucket?: string | null;
   url?: string | null;
   urlDomain?: string | null;
@@ -359,7 +364,10 @@ export type EntryEventType =
   | 'UNMARKED_DUPLICATE'
   | 'REPORT_SUBMITTED'
   | 'REPORT_APPROVED'
-  | 'REPORT_RETURNED';
+  | 'REPORT_RETURNED'
+  | 'FILE_PURGED'
+  | 'TRASHED'
+  | 'RESTORED';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {

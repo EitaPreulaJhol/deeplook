@@ -58,6 +58,12 @@ export function describeEvent(event: EntryEvent): string {
       return `Marcada como duplicata de "${to ?? 'outra amostra'}"`;
     case 'UNMARKED_DUPLICATE':
       return 'Deixou de ser duplicata';
+    case 'FILE_PURGED':
+      return `Arquivo expurgado${event.detail ? ` (${event.detail})` : ''}; ficha, relatórios e hash mantidos`;
+    case 'TRASHED':
+      return 'Movida para a lixeira';
+    case 'RESTORED':
+      return 'Restaurada da lixeira';
     case 'ASSIGNED':
       return `Responsável: ${from ?? '—'} → ${to ?? '—'}`;
     case 'REPORT_CREATED':

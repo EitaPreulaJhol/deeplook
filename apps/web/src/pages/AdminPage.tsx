@@ -22,6 +22,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AdminAuditTab } from '../components/AdminAuditTab';
 import { AdminStatusTab } from '../components/AdminStatusTab';
 import { AdminTemplatesTab } from '../components/AdminTemplatesTab';
+import { AdminTrashTab } from '../components/AdminTrashTab';
 import { CopyButton } from '../components/CopyButton';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
@@ -69,7 +70,11 @@ export function AdminPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const tab =
-    tabParam === 'keys' || tabParam === 'templates' || tabParam === 'status' || tabParam === 'audit'
+    tabParam === 'keys' ||
+    tabParam === 'templates' ||
+    tabParam === 'status' ||
+    tabParam === 'audit' ||
+    tabParam === 'trash'
       ? tabParam
       : 'users';
   const setTab = (next: string) => {
@@ -224,11 +229,14 @@ export function AdminPage() {
           { id: 'templates', label: 'Modelos de relatório' },
           { id: 'status', label: 'Status do sistema' },
           { id: 'audit', label: 'Auditoria' },
+          { id: 'trash', label: 'Lixeira' },
         ]}
       />
 
       <div className="hpsm-tabpanel">
-        {tab === 'audit' ? (
+        {tab === 'trash' ? (
+          <AdminTrashTab />
+        ) : tab === 'audit' ? (
           <AdminAuditTab />
         ) : tab === 'status' ? (
           <AdminStatusTab />

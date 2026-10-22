@@ -44,8 +44,9 @@ export async function favoritesRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
 
+    // Amostra na lixeira: o favorito fica guardado e volta se ela for restaurada.
     const favorites = await prisma.favorite.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, OR: [{ entryId: null }, { entry: { deletedAt: null } }] },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       select: favoriteSelect,
     });

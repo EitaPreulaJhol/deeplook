@@ -33,6 +33,7 @@ import {
   IconRefresh,
   IconScreen,
   IconStar,
+  IconTrash,
 } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
@@ -58,7 +59,12 @@ export function EntryDetailPage() {
   const query = useQuery({
     queryKey: ['entry', id],
     queryFn: () =>
-      api.get<{ entry: Entry; sla?: SlaConfig; reviewRequired?: boolean }>(`/entries/${id}`),
+      api.get<{
+        entry: Entry;
+        sla?: SlaConfig;
+        reviewRequired?: boolean;
+        retentionDays?: number;
+      }>(`/entries/${id}`),
   });
 
   // Mesmo queryKey do SandboxPanel: o React Query compartilha o cache (sem
@@ -112,6 +118,29 @@ export function EntryDetailPage() {
       await api.del(`/entries/${id}/duplicate`);
       await reloadAfterDuplicate();
       setPinNotice({ ok: true, text: 'A amostra deixou de ser duplicata.' });
+    } catch (err) {
+      setPinNotice({ ok: false, text: (err as Error).message });
+    }
+  };
+
+  // Lixeira (admin): a ficha some de todas as telas; a aba vira a Lixeira, onde da para restaurar.
+  const isAdmin = user?.role === 'ADMIN';
+  const moveToTrash = async (title: string) => {
+    const ok = await confirm({
+      title: 'Mover para a lixeira',
+      message: `"${title}" vai sumir das listas, filas, buscas e favoritos. Dá para restaurar depois em Administração > Lixeira.`,
+      confirmLabel: 'Mover para a lixeira',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.post(`/entries/${id}/trash`, {});
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['entries'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'trash'] }),
+      ]);
+      navigate('/admin?tab=trash', { state: { replaceTab: location.pathname, trashed: title } });
     } catch (err) {
       setPinNotice({ ok: false, text: (err as Error).message });
     }
@@ -276,7 +305,11 @@ export function EntryDetailPage() {
               icon={IconDownload}
               href={`/api/entries/${entry.id}/download`}
               disabled={!entry.storageKey}
-              title="Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado."
+              title={
+                entry.filePurgedAt
+                  ? 'O arquivo foi expurgado pela política de retenção.'
+                  : 'Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado.'
+              }
             />
           </>
         )}
@@ -345,6 +378,17 @@ export function EntryDetailPage() {
               separated: i === 0,
               action: () => downloadUrl(`/api/entries/${entry.id}/iocs/export?format=${format}`),
             })),
+            // Acao destrutiva por ultimo, separada das demais.
+            ...(isAdmin
+              ? [
+                  {
+                    label: 'Mover para a lixeira…',
+                    icon: IconTrash,
+                    separated: true,
+                    action: () => void moveToTrash(entry.title),
+                  },
+                ]
+              : []),
           ]}
         />
         {position >= 0 && sequence.length > 1 && (
@@ -424,6 +468,12 @@ export function EntryDetailPage() {
             <span className="dl-summary__label">Duplicatas:</span> {entry._count?.duplicates}
           </span>
         )}
+        {entry.filePurgedAt && (
+          <span>
+            <span className="dl-summary__label">Arquivo:</span> expurgado em{' '}
+            {new Date(entry.filePurgedAt).toLocaleDateString('pt-BR')}
+          </span>
+        )}
         {entry.tags.length > 0 && (
           <span>
             <span className="dl-summary__label">Tags:</span>{' '}
@@ -486,6 +536,17 @@ export function EntryDetailPage() {
                 <HpsmField label="Tipo MIME">
                   <HpsmReadonly>{entry.mimeType || '—'}</HpsmReadonly>
                 </HpsmField>
+                {entry.filePurgedAt && (
+                  <HpsmField label="Armazenamento" wide>
+                    <HpsmReadonly>
+                      Arquivo expurgado em {fmtDate(entry.filePurgedAt)} pela política de retenção
+                      {query.data?.retentionDays
+                        ? ` (${query.data.retentionDays} dias após a conclusão)`
+                        : ''}
+                      . A ficha, os relatórios, os IOCs e o hash continuam disponíveis.
+                    </HpsmReadonly>
+                  </HpsmField>
+                )}
                 <HpsmField
                   label="SHA-256"
                   wide
@@ -506,6 +567,7 @@ export function EntryDetailPage() {
               entryId={entry.id}
               info={entry.staticInfo}
               canTriage={canTriage}
+              purged={Boolean(entry.filePurgedAt)}
             />
           )}
           {entry.type !== 'FILE' && (
@@ -576,7 +638,16 @@ export function EntryDetailPage() {
             </HpsmForm>
           </HpsmSection>
 
-          {entry.type === 'FILE' && <SandboxPanel entryId={entry.id} />}
+          {entry.type === 'FILE' &&
+            (entry.filePurgedAt ? (
+              <HpsmSection title="Ambiente isolado">
+                <p className="dl-static-empty">
+                  Indisponível: o arquivo desta amostra foi expurgado pela política de retenção.
+                </p>
+              </HpsmSection>
+            ) : (
+              <SandboxPanel entryId={entry.id} />
+            ))}
         </div>
       )}
 

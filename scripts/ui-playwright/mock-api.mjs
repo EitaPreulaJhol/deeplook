@@ -51,7 +51,7 @@ for (const e of entries) e.statusChangedAt = hoursAgo(STATUS_AGE_HOURS[e.id] ?? 
 const olderThan = (e, hours) => e.status !== 'COMPLETED' && Date.parse(e.statusChangedAt) < Date.now() - hours * 3600 * 1000;
 
 // Linha do tempo por amostra (GET /api/entries/:id/events); PATCH acrescenta eventos.
-const events = Object.fromEntries(
+export const events = Object.fromEntries(
   entries.map((e) => [
     e.id,
     [{ id: `${e.id}-ev0`, entryId: e.id, type: 'CREATED', createdAt: e.createdAt, actor: { id: e.owner.id, displayName: e.owner.displayName } }],
@@ -149,6 +149,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Envio de arquivos (lote) e do .zip: nomes recebidos e campos do ultimo .zip. */
     uploads: [],
     lastZipFields: null,
+    /** Retencao (GET da ficha) e a Lixeira da Administracao. */
+    retentionDays: 0,
+    trash: [],
   };
 }
 
@@ -393,6 +396,26 @@ export async function setupMock(context, state) {
           body: csv,
         });
       }
+      // Lixeira: mover (ficha), listar, restaurar e excluir de vez.
+      const tr = p.match(/^\/api\/entries\/(\w+)\/trash$/);
+      if (tr && req.method() === 'POST') {
+        const i = entries.findIndex((e) => e.id === tr[1]);
+        const [e] = entries.splice(i, 1);
+        state.trash.unshift({ ...e, deletedAt: new Date().toISOString(), deletedBy: { id: 'u1', displayName: 'Ana Souza' }, _count: { reports: e._count?.reports ?? 0 } });
+        return json(route, 200, { ok: true });
+      }
+      if (p === '/api/admin/trash') {
+        const q = (url.searchParams.get('q') ?? '').toLowerCase();
+        const items = state.trash.filter((t) => !q || t.title.toLowerCase().includes(q));
+        return json(route, 200, { total: items.length, items });
+      }
+      const trx = p.match(/^\/api\/admin\/trash\/(\w+)(\/restore)?$/);
+      if (trx) {
+        const i = state.trash.findIndex((t) => t.id === trx[1]);
+        const [t] = state.trash.splice(i, 1);
+        if (trx[2]) entries.push(t);
+        return json(route, 200, { ok: true });
+      }
       // Envio de arquivo (um por requisicao no lote). "falha" no nome simula o
       // limite de tamanho; "repetida" aponta uma amostra anterior.
       if ((p === '/api/entries/file' || p === '/api/entries/zip') && req.method() === 'POST') {
@@ -607,6 +630,7 @@ export async function setupMock(context, state) {
               entry: { ...e, reports: reports.filter((r) => r.entryId === e.id && (state.role !== 'USER' || r.status === 'PUBLISHED')) },
               sla: SLA,
               reviewRequired: state.reviewRequired,
+              retentionDays: state.retentionDays,
             })
           : json(route, 404, { error: 'Nao encontrado.' });
       }

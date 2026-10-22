@@ -619,7 +619,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 42 | Status do sistema | System Status | ⚪ | P | ✅ |
 | 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
 | 44 | Envio em lote | anexos múltiplos | 🟡 | M | ✅ |
-| 45 | Retenção de amostras | arquivamento/expurgo | ⚪ | M | ⬜ |
+| 45 | Retenção de amostras | arquivamento/expurgo | ⚪ | M | ✅ |
 
 **Ordem sugerida:**
 1. 31 + 32 (o índice de IOCs já existe).
@@ -1038,3 +1038,41 @@ precisam de uma decisão de segurança.
   restaurar amostras inteiras.
 - **Cuidados:** aviso na ficha ("arquivo expurgado em…"); nunca expurgar amostra com
   sandbox ativo.
+- ✅ **Implementado:** migração `20261105000000_entry_retention_trash` (`Entry.filePurgedAt`,
+  `deletedAt`, `deletedById`; eventos `FILE_PURGED`, `TRASHED` e `RESTORED`; auditoria
+  `ENTRY_TRASHED`, `ENTRY_RESTORED` e `ENTRY_DELETED`).
+  - **Retenção** (`lib/retention.ts`): `RETENTION_DAYS` (padrão `0`, desligada).
+    - **O que expurga:** só o arquivo das amostras **concluídas** há mais de N dias
+      (`statusChangedAt`), para não apagar o que ainda está em análise.
+    - **O que não toca:** amostras com sandbox ativo e as que estão na lixeira.
+    - **Quando roda:** ao subir a API e depois a cada hora, até 100 por rodada.
+    - **Ordem:** apaga o objeto no MinIO antes de marcar a ficha; se algo falhar no
+      meio, a próxima rodada termina.
+    - **Ficha:**
+      - "Arquivo: expurgado em…" no resumo e o campo Armazenamento com a política;
+      - Baixar amostra desabilitado;
+      - sandbox e "Analisar agora" indisponíveis;
+      - evento no histórico.
+    - **API:** download, reanálise e sandbox respondem 410.
+    - **Status do sistema:** o armazenamento mostra a política, quantos arquivos foram
+      expurgados e quantas amostras estão na lixeira.
+  - **Lixeira** (só admin):
+    - **Mover:** "Mover para a lixeira…" no fim do menu Mais da ficha, com confirmação
+      (recusado com sandbox ativo). A aba da ficha vira a Lixeira, com o aviso.
+    - **Filtro central:** consultas de `Entry` ignoram a lixeira por padrão, via extensão
+      do Prisma em `lib/prisma.ts`. Assim a amostra some de listas, filas, contadores,
+      CSV, painel, busca e IOCs, e a ficha responde 404. Triagem e atualização em massa
+      também não a alcançam.
+    - **Filtros explícitos** nas relações: favoritos, notificações, fila de revisão,
+      atualizações do usuário, IOCs, relacionadas, duplicatas da ficha e o SQL do
+      painel. Ao restaurar, tudo volta.
+    - **Aba Lixeira** na Administração (`?tab=trash`) e no navegador, com busca. Cada
+      linha mostra quem enviou, quem moveu, desde quando, o tamanho, se o arquivo já foi
+      expurgado e quantos relatórios tem.
+    - **Restaurar.**
+    - **Excluir definitivamente…:** confirmação; apaga o arquivo no MinIO primeiro (se
+      falhar, a amostra fica na lixeira) e depois a ficha com relatórios, histórico e
+      atualizações.
+    - **Auditoria:** mover, restaurar e excluir.
+  - **Tipos:** `Tx` e `Db` saem de `lib/prisma.ts`, porque o cliente estendido não é
+    compatível com `Prisma.TransactionClient`.

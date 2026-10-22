@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
@@ -20,9 +21,12 @@ const ReadSchema = z.object({
  * Caixa de entrada (sininho do masthead e pagina "Caixa de entrada") e a lista
  * de pessoas para o autocompletar de "@" nas atualizacoes.
  */
+/** Notificacoes de amostras na lixeira ficam escondidas (voltam se restaurada). */
+const liveEntry: Prisma.NotificationWhereInput = { entry: { deletedAt: null } };
+
 export async function notificationRoutes(app: FastifyInstance) {
   const unreadCount = (userId: string) =>
-    prisma.notification.count({ where: { userId, readAt: null } });
+    prisma.notification.count({ where: { userId, readAt: null, ...liveEntry } });
 
   app.get('/api/me/notifications', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -33,7 +37,7 @@ export async function notificationRoutes(app: FastifyInstance) {
 
     const [items, total] = await Promise.all([
       prisma.notification.findMany({
-        where: { userId: user.id, ...(unread === '1' ? { readAt: null } : {}) },
+        where: { userId: user.id, ...liveEntry, ...(unread === '1' ? { readAt: null } : {}) },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
         select: {

@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import { env, sandboxEnabled } from './env';
 import { backfillReportIocs } from './lib/iocs';
 import { prisma } from './lib/prisma';
+import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { reconcileOrphans, recoverStuckSessions, startSandboxReaper } from './lib/sandbox';
 import { adminRoutes } from './routes/admin';
@@ -22,6 +23,7 @@ import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { sandboxRoutes } from './routes/sandbox';
 import { templateRoutes } from './routes/templates';
+import { trashRoutes } from './routes/trash';
 
 async function main() {
   const app = Fastify({
@@ -63,6 +65,7 @@ async function main() {
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(adminRoutes);
+  await app.register(trashRoutes);
   await app.register(sandboxRoutes);
 
   app.setNotFoundHandler((_request, reply) => {
@@ -113,6 +116,14 @@ async function main() {
     } catch (err) {
       app.log.error({ err }, '[sandbox] falha ao inicializar o sandbox');
     }
+  }
+
+  // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).
+  startRetention(app.log);
+  if (env.RETENTION_DAYS) {
+    app.log.info(
+      `[retencao] ligada: arquivos expurgados ${env.RETENTION_DAYS} dia(s) após a conclusão`,
+    );
   }
 
   await app.listen({ host: '0.0.0.0', port: env.PORT });

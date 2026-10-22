@@ -82,6 +82,8 @@ model User {
   /// Auditoria: acoes feitas por este usuario e as que o tiveram como alvo.
   auditActions    AuditEvent[]     @relation("AuditActor")
   auditTargets    AuditEvent[]     @relation("AuditTarget")
+  /// Amostras que este usuario (admin) moveu para a lixeira.
+  trashedEntries  Entry[]          @relation("EntryDeletedBy")
 }
 
 model Session {
@@ -140,12 +142,21 @@ model Entry {
   /// Analise estatica do arquivo no envio (src/lib/static-analysis.ts): tipo real,
   /// entropia, strings e cabecalho PE. So leitura de bytes; null em URLs.
   staticInfo       Json?
+  /// Arquivo apagado do armazenamento pela retencao (RETENTION_DAYS); ficha,
+  /// relatorios, IOCs e hash continuam (src/lib/retention.ts).
+  filePurgedAt     DateTime?
 
   url       String?
   urlDomain String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Lixeira (admin): some de todas as telas ate ser restaurada ou excluida de
+  /// vez. O filtro e automatico nas consultas de Entry (src/lib/prisma.ts).
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("EntryDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   reports         Report[]
   tags            Tag[]
@@ -164,6 +175,7 @@ model Entry {
   /// Fila "Atrasadas" e ordenacao por idade.
   @@index([status, statusChangedAt])
   @@index([duplicateOfId])
+  @@index([deletedAt])
 }
 
 model Tag {
@@ -259,6 +271,11 @@ enum EntryEventType {
   MARKED_DUPLICATE
   /// Deixou de ser duplicata (detail: id da principal anterior).
   UNMARKED_DUPLICATE
+  /// Arquivo expurgado pela retencao (detail: politica aplicada).
+  FILE_PURGED
+  /// Movida para a lixeira / restaurada (admin).
+  TRASHED
+  RESTORED
 }
 
 /// Linha do tempo da amostra: quem fez o que e quando (aba "Historico").
@@ -393,6 +410,9 @@ enum AuditAction {
   TEMPLATE_DELETED
   LOGIN_FAILED
   LOGIN_LOCKED
+  ENTRY_TRASHED
+  ENTRY_RESTORED
+  ENTRY_DELETED
 }
 
 /// Auditoria administrativa (aba Auditoria da Administracao): quem fez o que,

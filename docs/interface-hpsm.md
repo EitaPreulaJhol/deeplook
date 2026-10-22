@@ -402,7 +402,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
 | `/entries/:id/imprimir` | Ficha para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
-| `/admin` | Administração | só ADMIN; `?tab=keys`, `templates`, `status`, `audit` |
+| `/admin` | Administração | só ADMIN; `?tab=keys`, `templates`, `status`, `audit`, `trash` |
 | `/user` | Minha Conta | `?tab=senha`, `?tab=preferencias` |
 | `/sandbox/entry/:entryId/console` | janela do console | fora da casca |
 
@@ -440,6 +440,10 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
 | GET | `/api/admin/audit?action=&days=&q=&limit=&offset=` | admin: `{ total, items: [{ action, actor, targetUser, targetLabel, detail, ip, createdAt }] }`, mais recentes primeiro |
 | GET | `/api/admin/audit/export.csv` | admin: CSV da auditoria com os mesmos filtros |
+| POST | `/api/entries/:id/trash` | admin: move para a lixeira (some de todas as telas); 409 com sandbox ativo |
+| GET | `/api/admin/trash?q=&limit=&offset=` | admin: amostras na lixeira `{ total, items: [{ …, owner, deletedBy, deletedAt, filePurgedAt, _count }] }` |
+| POST | `/api/admin/trash/:id/restore` | admin: restaura (volta a todas as telas) |
+| DELETE | `/api/admin/trash/:id` | admin: exclui de vez (arquivo no MinIO + ficha e tudo ligado a ela) |
 | GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
 | POST/PATCH/DELETE | `/api/report-templates[/:id]` | admin: `{ name, summary, findings?, iocs?, verdict }`; nome repetido → 409 |
 | GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT) |
@@ -523,6 +527,7 @@ banco nem da API rodando.
 | `report-review.mjs` | revisão de relatório: fila com contador, situações e ações, devolver com comentário, aviso de devolução, enviar, aprovar, "Ao salvar" com e sem revisão obrigatória, usuário comum só vê publicados, notificação |
 | `static-analysis.mjs` | análise estática: aviso de executável disfarçado, tipo real, entropia, PE (empacotador, funções suspeitas, seções, imports), strings por categoria, IOCs sugeridos (ficha e "Inserir" sem duplicar), "Analisar agora", ficha impressa |
 | `dashboard.mjs` | painel: indicadores e links, fuso enviado, gráfico (legenda, colunas, dica sem cobrir colunas, tabela), vereditos, carga e link por analista, etiqueta do período na lista, período na URL, escopo do usuário, preferência de página inicial |
+| `retention-trash.mjs` | retenção e lixeira: ficha expurgada (resumo, Armazenamento, Baixar desabilitado, análise estática e sandbox indisponíveis, histórico), "Mover para a lixeira" só para admin com confirmação, aba substituída pela Lixeira, busca, Restaurar, Excluir definitivamente e navegador |
 | `admin-audit.mjs` | auditoria: aba pelo navegador, colunas, anônimo e cores, paginação, filtros de ação/período/busca, Exportar CSV com os mesmos filtros, lista vazia e Limpar |
 | `admin-status.mjs` | status do sistema: aba pelo navegador, rótulos e cores por situação, resumo/tempo/detalhes, linha com falha destacada, aviso geral e Atualizar |
 | `duplicates.mjs` | duplicatas: caixa com sugestões e foco, ID inválido (erro e foco), Esc, marcar (resumo, histórico, marca na grade, seção na principal), desfazer com confirmação, oculto para usuário comum |

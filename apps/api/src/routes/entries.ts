@@ -12,6 +12,7 @@ import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
+import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { s3 } from '../lib/s3';
@@ -215,7 +216,7 @@ async function resolveAssignee(assigneeId: string | null): Promise<Assignee | { 
  * dentro da transacao e grava os eventos correspondentes no historico.
  */
 async function applyTriage(
-  tx: Prisma.TransactionClient,
+  tx: Tx,
   entry: Prisma.EntryGetPayload<{
     include: { assignee: { select: { id: true; displayName: true } } };
   }>,
@@ -495,7 +496,9 @@ export async function entryRoutes(app: FastifyInstance) {
         where: { status: { not: 'COMPLETED' }, statusChangedAt: { lt: slaCutoff('late') } },
       }),
       // Fila "Relatorios para revisar": em revisao, de outros analistas.
-      prisma.report.count({ where: { status: 'IN_REVIEW', analystId: { not: user.id } } }),
+      prisma.report.count({
+        where: { status: 'IN_REVIEW', analystId: { not: user.id }, entry: { deletedAt: null } },
+      }),
     ]);
     const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
     for (const g of groups) counts[g.status] = g._count._all;
@@ -590,6 +593,11 @@ export async function entryRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (entry.type === 'FILE' && entry.filePurgedAt) {
+      return reply
+        .code(410)
+        .send({ error: 'O arquivo desta amostra foi expurgado pela política de retenção.' });
+    }
     if (entry.type !== 'FILE' || !entry.storageKey) {
       return reply.code(400).send({ error: 'So arquivos tem analise estatica.' });
     }
@@ -801,11 +809,12 @@ export async function entryRoutes(app: FastifyInstance) {
         tags: true,
         duplicateOf: { select: { id: true, title: true } },
         duplicates: {
+          where: { deletedAt: null },
           select: { id: true, title: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
         },
-        _count: { select: { duplicates: true } },
+        _count: { select: { duplicates: { where: { deletedAt: null } } } },
         // Rascunhos e relatorios em revisao so para analistas.
         reports: {
           where: isAnalyst(user) ? {} : { status: 'PUBLISHED' },
@@ -818,7 +827,12 @@ export async function entryRoutes(app: FastifyInstance) {
       },
     });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
-    return reply.send({ entry, sla: slaConfig(), reviewRequired: reviewRequired() });
+    return reply.send({
+      entry,
+      sla: slaConfig(),
+      reviewRequired: reviewRequired(),
+      retentionDays: env.RETENTION_DAYS,
+    });
   });
 
   // Edicao (dono edita titulo/descricao; analista define status/veredito)
@@ -918,6 +932,11 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
+    if (entry && entry.type === 'FILE' && entry.filePurgedAt) {
+      return reply
+        .code(410)
+        .send({ error: 'O arquivo desta amostra foi expurgado pela política de retenção.' });
+    }
     if (!entry || entry.type !== 'FILE' || !entry.storageKey) {
       return reply.code(404).send({ error: 'Arquivo nao encontrado.' });
     }

@@ -7,6 +7,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { syncReportIocs } from '../lib/iocs';
 import { excerpt, notify } from '../lib/notifications';
+import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
@@ -27,8 +28,6 @@ const reportInclude = {
   analyst: { select: { id: true, displayName: true, role: true } },
   reviewedBy: { select: { id: true, displayName: true } },
 } satisfies Prisma.ReportInclude;
-
-type Tx = Prisma.TransactionClient;
 
 /**
  * Publica o relatorio (direto ou na aprovacao da revisao): conclui a amostra com
@@ -97,7 +96,7 @@ export async function reportRoutes(app: FastifyInstance) {
     if (!user) return;
     if (!isAnalyst(user)) return reply.code(403).send({ error: 'Acesso negado.' });
     const reports = await prisma.report.findMany({
-      where: { status: 'IN_REVIEW', analystId: { not: user.id } },
+      where: { status: 'IN_REVIEW', analystId: { not: user.id }, entry: { deletedAt: null } },
       orderBy: { submittedAt: 'asc' },
       include: {
         ...reportInclude,

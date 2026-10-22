@@ -47,7 +47,7 @@ export async function meRoutes(app: FastifyInstance) {
         toValue: 'COMPLETED',
         createdAt: { gt: since },
         NOT: { actorId: user.id },
-        entry: { ownerId: user.id },
+        entry: { ownerId: user.id, deletedAt: null },
       },
       orderBy: { createdAt: 'desc' },
       include: { entry: { select: { id: true, title: true, verdict: true } } },

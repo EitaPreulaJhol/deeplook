@@ -99,6 +99,7 @@ const TREE: NavFolder[] = [
       { to: '/admin?tab=templates', label: 'Modelos de relatório', icon: IconPage },
       { to: '/admin?tab=status', label: 'Status do sistema', icon: IconScreen },
       { to: '/admin?tab=audit', label: 'Auditoria', icon: IconHistory },
+      { to: '/admin?tab=trash', label: 'Lixeira', icon: IconTrash },
     ],
   },
 ];

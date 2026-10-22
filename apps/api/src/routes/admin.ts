@@ -37,6 +37,9 @@ const AuditQuery = z.object({
       'TEMPLATE_DELETED',
       'LOGIN_FAILED',
       'LOGIN_LOCKED',
+      'ENTRY_TRASHED',
+      'ENTRY_RESTORED',
+      'ENTRY_DELETED',
     ])
     .optional(),
   q: z.string().trim().max(100).optional(),
@@ -60,6 +63,9 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   TEMPLATE_DELETED: 'Modelo excluído',
   LOGIN_FAILED: 'Login recusado',
   LOGIN_LOCKED: 'Login bloqueado (tentativas)',
+  ENTRY_TRASHED: 'Amostra movida para a lixeira',
+  ENTRY_RESTORED: 'Amostra restaurada',
+  ENTRY_DELETED: 'Amostra excluída definitivamente',
 };
 
 export async function adminRoutes(app: FastifyInstance) {

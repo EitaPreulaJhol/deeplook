@@ -3097,3 +3097,21 @@ body:has(.dl-print) {
 .dl-batch__previous {
   color: var(--dl-text-muted);
 }
+
+/* Lixeira (Administracao): detalhe sob o titulo e acoes em linha. */
+.dl-trash__meta {
+  display: block;
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+}
+
+.dl-trash__actions {
+  display: inline-flex;
+  gap: 0.75rem;
+  white-space: nowrap;
+}
+
+.dl-link-button--danger,
+.dl-link-button--danger:hover {
+  color: var(--dl-error-text);
+}

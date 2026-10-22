@@ -1,9 +1,7 @@
-import type { IocKind, Prisma } from '@prisma/client';
+import type { IocKind } from '@prisma/client';
 
+import type { Db } from './prisma';
 import { prisma } from './prisma';
-
-/** Cliente do Prisma ou transacao em andamento. */
-type Db = Prisma.TransactionClient | typeof prisma;
 
 export interface Ioc {
   kind: IocKind;

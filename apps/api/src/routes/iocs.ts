@@ -116,7 +116,7 @@ export async function iocRoutes(app: FastifyInstance) {
 
     const [reportHits, fileHits, hostHits] = await Promise.all([
       prisma.reportIoc.findMany({
-        where: { kind, value },
+        where: { kind, value, entry: { deletedAt: null } },
         select: {
           entryId: true,
           report: {

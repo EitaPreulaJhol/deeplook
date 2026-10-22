@@ -1,10 +1,7 @@
-import type { AuditAction, Prisma } from '@prisma/client';
+import type { AuditAction } from '@prisma/client';
 import type { FastifyRequest } from 'fastify';
 
-import { prisma } from './prisma';
-
-/** Cliente do Prisma ou transacao em andamento. */
-type Db = Prisma.TransactionClient | typeof prisma;
+import type { Db } from './prisma';
 
 export interface AuditInput {
   action: AuditAction;

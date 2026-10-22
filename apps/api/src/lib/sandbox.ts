@@ -24,7 +24,7 @@ const ISO_PREFIX = 'deeplook-';
 /** Sessoes com provisionamento em andamento neste processo (trava simples). */
 const provisioning = new Set<string>();
 
-const ACTIVE_STATUSES: SandboxSession['status'][] = [
+export const ACTIVE_STATUSES: SandboxSession['status'][] = [
   'REQUESTED',
   'PROVISIONING',
   'RUNNING',
@@ -117,6 +117,13 @@ export type CreateSessionResult =
 
 /** Cria a sessao de sandbox e dispara o provisionamento em background. */
 export async function createSession(entry: Entry, analystId: string): Promise<CreateSessionResult> {
+  if (entry.type === 'FILE' && entry.filePurgedAt) {
+    return {
+      ok: false,
+      code: 410,
+      error: 'O arquivo desta amostra foi expurgado pela política de retenção.',
+    };
+  }
   if (entry.type !== 'FILE' || !entry.storageKey) {
     return { ok: false, code: 400, error: 'Somente amostras de arquivo podem ir para o sandbox.' };
   }

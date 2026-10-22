@@ -44,6 +44,7 @@ async function daily(
             count(*) AS n
        FROM "Entry"
       WHERE "${col}" >= $2
+        AND "deletedAt" IS NULL
         ${ownerId ? 'AND "ownerId" = $3' : ''}
         ${completedOnly ? `AND "status" = 'COMPLETED' AND "duplicateOfId" IS NULL` : ''}
       GROUP BY 1`,

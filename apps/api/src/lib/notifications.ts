@@ -1,9 +1,7 @@
-import type { NotificationType, Prisma } from '@prisma/client';
+import type { NotificationType } from '@prisma/client';
 
+import type { Db } from './prisma';
 import { prisma } from './prisma';
-
-/** Cliente do Prisma ou transacao em andamento. */
-type Db = Prisma.TransactionClient | typeof prisma;
 
 export interface NotificationInput {
   /** Destinatario. */

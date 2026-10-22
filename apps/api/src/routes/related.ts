@@ -76,6 +76,7 @@ async function sharedIocs(
     const hits = await prisma.reportIoc.findMany({
       where: {
         entryId: { not: entryId },
+        entry: { deletedAt: null },
         OR: probes.map((p) => ({ kind: p.kind, value: p.value })),
       },
       select: { entryId: true, value: true },

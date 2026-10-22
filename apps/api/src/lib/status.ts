@@ -153,9 +153,20 @@ async function storageCheck(): Promise<StatusCheck> {
   } catch {
     /* endpoint sem esquema: mostra como esta */
   }
+  const [purged, trashed] = await Promise.all([
+    prisma.entry.count({ where: { filePurgedAt: { not: null } } }),
+    prisma.entry.count({ where: { deletedAt: { not: null } } }),
+  ]);
   const details = [
     { label: 'Bucket', value: env.S3_BUCKET },
     { label: 'Endereço', value: host },
+    {
+      label: 'Retenção',
+      value: env.RETENTION_DAYS
+        ? `${env.RETENTION_DAYS} dias após a conclusão · ${purged} arquivo(s) expurgado(s)`
+        : 'desligada (RETENTION_DAYS=0)',
+    },
+    { label: 'Lixeira', value: `${trashed} amostra(s)` },
   ];
   if (probe.error) {
     return {

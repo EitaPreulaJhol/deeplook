@@ -62,10 +62,13 @@ export function StaticAnalysisSection({
   entryId,
   info,
   canTriage,
+  purged = false,
 }: {
   entryId: string;
   info?: StaticInfo | null;
   canTriage: boolean;
+  /** Arquivo expurgado pela retencao: nao ha o que (re)analisar. */
+  purged?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [running, setRunning] = useState(false);
@@ -89,8 +92,10 @@ export function StaticAnalysisSection({
       <HpsmSection title="Análise estática">
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         <p className="dl-static-empty">
-          Esta amostra foi enviada antes da análise estática.{' '}
-          {canTriage && (
+          {purged
+            ? 'Sem análise estática: o arquivo foi expurgado pela política de retenção antes de ser analisado.'
+            : 'Esta amostra foi enviada antes da análise estática.'}{' '}
+          {canTriage && !purged && (
             <button type="button" className="dl-link-button" disabled={running} onClick={analyze}>
               {running ? 'Analisando...' : 'Analisar agora'}
             </button>
