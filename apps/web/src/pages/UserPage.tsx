@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Preferences } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_PREFERENCES } from '../auth/preferences';
+import { ApiTokensTab } from '../components/ApiTokensTab';
 import {
   HpsmField,
   HpsmForm,
@@ -32,8 +33,10 @@ const TABS = [
 export function UserPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  // "Tokens de API" so aparece com o acesso liberado por um admin.
+  const tabs = user?.apiAccess ? [...TABS, { id: 'tokens', label: 'Tokens de API' }] : TABS;
   const tabParam = searchParams.get('tab');
-  const tab = TABS.some((t) => t.id === tabParam) ? (tabParam as string) : 'dados';
+  const tab = tabs.some((t) => t.id === tabParam) ? (tabParam as string) : 'dados';
 
   // A aba fica na URL: o menu do usuario aponta direto para cada uma.
   const changeTab = (next: string) => {
@@ -49,7 +52,7 @@ export function UserPage() {
     <>
       <PageHeader title="Minha Conta" subtitle="Seus dados de acesso e preferências de uso." />
 
-      <HpsmTabs ariaLabel="Minha conta" active={tab} onChange={changeTab} items={TABS} />
+      <HpsmTabs ariaLabel="Minha conta" active={tab} onChange={changeTab} items={tabs} />
 
       <div className="hpsm-tabpanel">
         {tab === 'dados' && (
@@ -72,6 +75,7 @@ export function UserPage() {
         )}
         {tab === 'senha' && <PasswordTab />}
         {tab === 'preferencias' && <PreferencesTab />}
+        {tab === 'tokens' && <ApiTokensTab />}
       </div>
     </>
   );

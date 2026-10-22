@@ -55,6 +55,8 @@ model User {
   displayName    String
   role           Role       @default(USER)
   status         UserStatus @default(ACTIVE)
+  /// Acesso por API: so um admin libera (aba Usuarios). Sem ele, nenhum token vale.
+  apiAccess      Boolean    @default(false)
   /// Preferencias de uso (pagina inicial, registros por pagina...). Ver src/lib/preferences.ts.
   preferences    Json       @default("{}")
   /// Ultima atividade (GET /api/auth/me) e a visita anterior a ela: base dos
@@ -84,6 +86,7 @@ model User {
   auditTargets    AuditEvent[]     @relation("AuditTarget")
   /// Amostras que este usuario (admin) moveu para a lixeira.
   trashedEntries  Entry[]          @relation("EntryDeletedBy")
+  apiTokens       ApiToken[]
 }
 
 model Session {
@@ -410,6 +413,10 @@ enum AuditAction {
   TEMPLATE_DELETED
   LOGIN_FAILED
   LOGIN_LOCKED
+  API_ACCESS_GRANTED
+  API_ACCESS_REVOKED
+  API_TOKEN_CREATED
+  API_TOKEN_REVOKED
   ENTRY_TRASHED
   ENTRY_RESTORED
   ENTRY_DELETED
@@ -432,4 +439,23 @@ model AuditEvent {
 
   @@index([createdAt])
   @@index([action, createdAt])
+}
+
+/// Token de API pessoal (Minha Conta > Tokens de API): so envio e consulta de
+/// amostras (src/lib/api-tokens.ts). Guarda so o hash; o token aparece uma vez.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  /// Comeco do token ("dlk_xxxxxxxx"), para reconhecer qual e qual.
+  prefix     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  lastUsedIp String?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }

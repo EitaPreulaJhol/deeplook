@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../env';
+import { authenticateToken, bearerOf } from './api-tokens';
 import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
 
@@ -15,6 +16,8 @@ export type PublicUser = {
   role: RoleName;
   status: 'ACTIVE' | 'SUSPENDED';
   createdAt: Date;
+  /** Acesso por API liberado por um admin (tokens pessoais). */
+  apiAccess: boolean;
   preferences: Preferences;
 };
 
@@ -43,6 +46,7 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
     role: u.role as RoleName,
     status: u.status as 'ACTIVE' | 'SUSPENDED',
     createdAt: u.createdAt,
+    apiAccess: u.apiAccess,
     preferences: resolvePreferences(u.preferences),
   };
 }
@@ -114,6 +118,16 @@ export async function requireUser(
   req: FastifyRequest,
   reply: FastifyReply,
 ): Promise<PublicUser | null> {
+  // Script com token de API (Authorization: Bearer): so nas rotas liberadas.
+  const bearer = bearerOf(req);
+  if (bearer !== null) {
+    const auth = await authenticateToken(req, bearer);
+    if (!auth.ok) {
+      reply.code(auth.code).send({ error: auth.error });
+      return null;
+    }
+    return auth.user;
+  }
   const user = await loadUser(req);
   if (!user) {
     unauthorized(reply);

@@ -11,7 +11,21 @@ export interface User {
   role: Role;
   status: UserStatus;
   createdAt: string;
-  _count?: { entries: number };
+  /** Acesso por API liberado por um admin (tokens pessoais). */
+  apiAccess?: boolean;
+  _count?: { entries: number; apiTokens?: number };
+}
+
+/** Token de API pessoal (GET /api/me/api-tokens); o segredo so vem na criacao. */
+export interface ApiToken {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+  lastUsedIp: string | null;
+  revokedAt: string | null;
 }
 
 /** Tela aberta apos o login e na raiz "/". */
@@ -118,6 +132,10 @@ export type AuditAction =
   | 'TEMPLATE_DELETED'
   | 'LOGIN_FAILED'
   | 'LOGIN_LOCKED'
+  | 'API_ACCESS_GRANTED'
+  | 'API_ACCESS_REVOKED'
+  | 'API_TOKEN_CREATED'
+  | 'API_TOKEN_REVOKED'
   | 'ENTRY_TRASHED'
   | 'ENTRY_RESTORED'
   | 'ENTRY_DELETED';

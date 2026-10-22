@@ -19,6 +19,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AdminApiTokensTab } from '../components/AdminApiTokensTab';
 import { AdminAuditTab } from '../components/AdminAuditTab';
 import { AdminStatusTab } from '../components/AdminStatusTab';
 import { AdminTemplatesTab } from '../components/AdminTemplatesTab';
@@ -74,7 +75,8 @@ export function AdminPage() {
     tabParam === 'templates' ||
     tabParam === 'status' ||
     tabParam === 'audit' ||
-    tabParam === 'trash'
+    tabParam === 'trash' ||
+    tabParam === 'tokens'
       ? tabParam
       : 'users';
   const setTab = (next: string) => {
@@ -182,6 +184,28 @@ export function AdminPage() {
     await updateUser(u.id, { status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' });
   };
 
+  // Acesso por API: liberar e manual; retirar revoga na hora todos os tokens ativos.
+  const toggleApi = async (u: User) => {
+    const ok = await confirm({
+      title: u.apiAccess ? 'Retirar acesso por API' : 'Liberar acesso por API',
+      message: u.apiAccess ? (
+        <>
+          Retirar o acesso por API de <strong>{u.displayName}</strong>? Todos os tokens ativos dessa
+          pessoa ({u._count?.apiTokens ?? 0}) serão revogados imediatamente.
+        </>
+      ) : (
+        <>
+          Liberar o acesso por API para <strong>{u.displayName}</strong>? A pessoa poderá gerar
+          tokens em Minha Conta para enviar e consultar amostras por script.
+        </>
+      ),
+      confirmLabel: u.apiAccess ? 'Retirar' : 'Liberar',
+      danger: u.apiAccess,
+    });
+    if (!ok) return;
+    await updateUser(u.id, { apiAccess: !u.apiAccess });
+  };
+
   const revokeKey = async (key: ActivationKey) => {
     const ok = await confirm({
       title: 'Revogar chave',
@@ -226,6 +250,7 @@ export function AdminPage() {
         items={[
           { id: 'users', label: 'Usuários' },
           { id: 'keys', label: 'Chaves de ativação' },
+          { id: 'tokens', label: 'Tokens de API' },
           { id: 'templates', label: 'Modelos de relatório' },
           { id: 'status', label: 'Status do sistema' },
           { id: 'audit', label: 'Auditoria' },
@@ -234,7 +259,9 @@ export function AdminPage() {
       />
 
       <div className="hpsm-tabpanel">
-        {tab === 'trash' ? (
+        {tab === 'tokens' ? (
+          <AdminApiTokensTab />
+        ) : tab === 'trash' ? (
           <AdminTrashTab />
         ) : tab === 'audit' ? (
           <AdminAuditTab />
@@ -254,6 +281,7 @@ export function AdminPage() {
                   { key: 'role', header: 'Papel' },
                   { key: 'status', header: 'Status' },
                   { key: 'entries', header: 'Envios' },
+                  { key: 'api', header: 'Acesso por API' },
                   { key: 'actions', header: 'Ações' },
                 ]}
               >
@@ -288,6 +316,17 @@ export function AdminPage() {
                               </TableCell>
                               <TableCell>{u._count ? u._count.entries : 0}</TableCell>
                               <TableCell>
+                                {u.apiAccess ? (
+                                  <StatusText tone="blue">
+                                    Liberado · {u._count?.apiTokens ?? 0} token
+                                    {(u._count?.apiTokens ?? 0) === 1 ? '' : 's'} ativo
+                                    {(u._count?.apiTokens ?? 0) === 1 ? '' : 's'}
+                                  </StatusText>
+                                ) : (
+                                  '—'
+                                )}
+                              </TableCell>
+                              <TableCell>
                                 <div className="dl-row">
                                   <Select
                                     id={`role-${u.id}`}
@@ -320,6 +359,13 @@ export function AdminPage() {
                                     onClick={() => resetPassword(u)}
                                   >
                                     Redefinir senha
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    kind={u.apiAccess ? 'danger--tertiary' : 'tertiary'}
+                                    onClick={() => toggleApi(u)}
+                                  >
+                                    {u.apiAccess ? 'Retirar API' : 'Liberar API'}
                                   </Button>
                                 </div>
                               </TableCell>

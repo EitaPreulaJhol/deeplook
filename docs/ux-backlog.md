@@ -617,7 +617,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 40 | Painel do analista | Dashboards | 🟡 | M | ✅ |
 | 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ✅ |
 | 42 | Status do sistema | System Status | ⚪ | P | ✅ |
-| 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
+| 43 | Tokens de API pessoais | Web Services | ⚪ | M | ✅ |
 | 44 | Envio em lote | anexos múltiplos | 🟡 | M | ✅ |
 | 45 | Retenção de amostras | arquivamento/expurgo | ⚪ | M | ✅ |
 
@@ -997,6 +997,32 @@ precisam de uma decisão de segurança.
 - **Onde mexer:** modelo `ApiToken` (hash do token), autenticação por
   `Authorization: Bearer`.
 - **Decisão pendente:** abrir acesso fora do navegador.
+- **Decisão:** a API só é liberada manualmente por um administrador, usuário a usuário.
+- ✅ **Implementado:** migração `20261106000000_api_tokens` (`User.apiAccess`, modelo
+  `ApiToken`; auditoria `API_ACCESS_GRANTED`, `API_ACCESS_REVOKED`, `API_TOKEN_CREATED` e
+  `API_TOKEN_REVOKED`).
+  - **Liberação:** botões Liberar API / Retirar API na aba Usuários, com confirmação, e a
+    coluna "Acesso por API" (liberado e quantos tokens ativos). Retirar revoga na hora
+    todos os tokens ativos da pessoa.
+  - **Minha Conta > Tokens de API:** a aba só aparece com o acesso liberado.
+    - Gera token com nome e validade (7, 30, 60 ou 90 dias), no máximo 10 ativos.
+    - O token (`dlk_` + 32 bytes aleatórios) aparece uma única vez, com Copiar; o banco
+      guarda só o SHA-256.
+    - A lista mostra o início do token, a validade, o último uso com IP e a situação
+      (Ativo, Vencido, Revogado), com Revogar…
+    - A aba traz exemplos de `curl` com o endereço do servidor.
+  - **Autenticação** (`lib/api-tokens.ts`): `Authorization: Bearer <token>` em
+    `requireUser`.
+    - Só vale em uma lista fechada de rotas: enviar arquivo, `.zip` e link; listar e
+      consultar amostras, relatórios, histórico e IOCs. O resto responde 403, inclusive
+      download do arquivo, triagem, conta e administração.
+    - Recusa token vencido, revogado ou desconhecido e conta suspensa (401), e usuário sem
+      a liberação (403).
+    - Limite de 120 requisições por minuto por token (429).
+    - `/api/auth/me` continua só com o cookie. Outros esquemas de `Authorization` (ex.:
+      Basic) seguem para o cookie.
+  - **Administração > Tokens de API** (`?tab=tokens`, também no navegador): tokens de
+    todos os usuários, ativos ou todos, com último uso e IP, e Revogar….
 
 ### 44. Envio em lote
 - **Proposta:** vários arquivos de uma vez no Enviar Amostra (uma amostra por arquivo,

@@ -258,6 +258,7 @@ export function SubmitPage() {
 
   /** Depois de um lote o formulario volta ao comeco (o resultado fica abaixo). */
   const resetFileForm = () => {
+    fileCheck.reset();
     setFiles([]);
     setTitle('');
     setDescription('');

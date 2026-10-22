@@ -88,6 +88,36 @@ O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 
 ---
 
+## Acesso por API (tokens pessoais)
+
+Scripts podem enviar e consultar amostras com um token pessoal, sem passar pelo navegador.
+
+1. Um **admin** libera o usuário em Administração > Usuários > **Liberar API**. Sem essa
+   liberação, nenhum token vale.
+2. O usuário gera o token em **Minha Conta > Tokens de API** (validade de até 90 dias).
+   O token aparece uma única vez.
+3. Use no cabeçalho `Authorization`:
+
+```bash
+# listar as próprias amostras
+curl -H "Authorization: Bearer dlk_..." "https://deeplook.exemplo/api/entries?scope=mine"
+# enviar um arquivo
+curl -H "Authorization: Bearer dlk_..." -F file=@amostra.exe -F tags=phishing \
+  "https://deeplook.exemplo/api/entries/file"
+# enviar um link
+curl -H "Authorization: Bearer dlk_..." -H "Content-Type: application/json" \
+  -d '{"url":"https://site-suspeito.exemplo","title":"Link do e-mail"}' \
+  "https://deeplook.exemplo/api/entries/url"
+```
+
+- **Permitido:** enviar arquivos, `.zip` (`/api/entries/zip`) e links; listar e consultar
+  amostras, relatórios, histórico e IOCs.
+- **Fora do token (403):** baixar o arquivo, triagem, relatórios, conta e administração.
+- **Limite:** 120 requisições por minuto por token.
+- **Revogação:** o usuário revoga em Minha Conta; o admin revoga um token na aba Tokens de
+  API ou retira a liberação, o que revoga todos de uma vez. Suspender a conta também corta
+  o acesso.
+
 ## Cloudflare Tunnel (no host, fora do Docker)
 
 O DeepLook publica apenas `127.0.0.1:8080`, então instale o `cloudflared`

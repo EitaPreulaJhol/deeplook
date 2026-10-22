@@ -31,7 +31,7 @@ const DUPLICATE_SHA = createHash('sha256').update(DUPLICATE_SAMPLE).digest('hex'
 export const DEFAULT_PREFERENCES = { startPage: 'welcome', pageSize: 50, restoreTabs: true, detailPane: false };
 
 const owner = { id: 'u2', displayName: 'Bruno Lima', email: 'bruno@deeplook.test' };
-const users = [
+export const users = [
   { id: 'u1', email: 'ana@deeplook.test', displayName: 'Ana Souza', role: 'ADMIN', status: 'ACTIVE', createdAt: '2026-01-15T10:00:00.000Z', _count: { entries: 2 } },
   { id: 'u2', email: 'bruno@deeplook.test', displayName: 'Bruno Lima', role: 'ANALYST', status: 'ACTIVE', createdAt: now, _count: { entries: 5 } },
   { id: 'u3', email: 'carla@deeplook.test', displayName: 'Carla Dias', role: 'USER', status: 'SUSPENDED', createdAt: now, _count: { entries: 0 } },
@@ -152,6 +152,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Retencao (GET da ficha) e a Lixeira da Administracao. */
     retentionDays: 0,
     trash: [],
+    /** Tokens de API: os do usuario (Minha Conta) e os da aba da Administracao. */
+    apiTokens: [],
+    adminTokens: [],
   };
 }
 
@@ -395,6 +398,33 @@ export async function setupMock(context, state) {
           },
           body: csv,
         });
+      }
+      // Tokens de API pessoais (Minha Conta) e a aba da Administracao.
+      if (p === '/api/me/api-tokens' && req.method() === 'GET') {
+        return json(route, 200, { apiAccess: Boolean(users[0].apiAccess), maxDays: 90, tokens: state.apiTokens });
+      }
+      if (p === '/api/me/api-tokens' && req.method() === 'POST') {
+        if (!body.name || body.name.trim().length < 2) {
+          return json(route, 400, { error: 'Dados invalidos.', details: { name: ['mínimo de 2 caracteres'] } });
+        }
+        const n = state.apiTokens.length + 1;
+        const token = {
+          id: `tk${n}`, name: body.name, prefix: `dlk_Ab12Cd3${n}`, createdAt: '2026-10-22T12:00:00.000Z',
+          expiresAt: new Date(Date.parse('2026-10-22T12:00:00.000Z') + body.expiresInDays * 86400000).toISOString(),
+          lastUsedAt: null, lastUsedIp: null, revokedAt: null,
+        };
+        state.apiTokens.unshift(token);
+        return json(route, 201, { token, secret: `dlk_Ab12Cd3${n}EfGh5678IjKl9012MnOp3456QrSt` });
+      }
+      const mt = p.match(/^\/api\/(me|admin)\/api-tokens\/(\w+)$/);
+      if (mt && req.method() === 'DELETE') {
+        const list = mt[1] === 'me' ? state.apiTokens : state.adminTokens;
+        list.find((t) => t.id === mt[2]).revokedAt = '2026-10-22T13:00:00.000Z';
+        return json(route, 200, { ok: true });
+      }
+      if (p === '/api/admin/api-tokens') {
+        const all = url.searchParams.get('status') === 'all';
+        return json(route, 200, { tokens: state.adminTokens.filter((t) => all || !t.revokedAt) });
       }
       // Lixeira: mover (ficha), listar, restaurar e excluir de vez.
       const tr = p.match(/^\/api\/entries\/(\w+)\/trash$/);

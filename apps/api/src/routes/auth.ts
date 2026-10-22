@@ -28,6 +28,7 @@ function publicUser(u: {
   role: string;
   status: string;
   createdAt: Date;
+  apiAccess: boolean;
   preferences: unknown;
 }) {
   return {
@@ -37,6 +38,7 @@ function publicUser(u: {
     role: u.role,
     status: u.status,
     createdAt: u.createdAt,
+    apiAccess: u.apiAccess,
     preferences: resolvePreferences(u.preferences),
   };
 }

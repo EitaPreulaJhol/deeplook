@@ -19,6 +19,8 @@ const CreateKeySchema = z.object({
 const PatchUserSchema = z.object({
   role: z.enum(['USER', 'ANALYST', 'ADMIN']).optional(),
   status: z.enum(['ACTIVE', 'SUSPENDED']).optional(),
+  /** Acesso por API (tokens pessoais); retirar revoga todos os tokens ativos. */
+  apiAccess: z.boolean().optional(),
 });
 
 const AuditQuery = z.object({
@@ -37,6 +39,10 @@ const AuditQuery = z.object({
       'TEMPLATE_DELETED',
       'LOGIN_FAILED',
       'LOGIN_LOCKED',
+      'API_ACCESS_GRANTED',
+      'API_ACCESS_REVOKED',
+      'API_TOKEN_CREATED',
+      'API_TOKEN_REVOKED',
       'ENTRY_TRASHED',
       'ENTRY_RESTORED',
       'ENTRY_DELETED',
@@ -63,6 +69,10 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   TEMPLATE_DELETED: 'Modelo excluído',
   LOGIN_FAILED: 'Login recusado',
   LOGIN_LOCKED: 'Login bloqueado (tentativas)',
+  API_ACCESS_GRANTED: 'Acesso por API liberado',
+  API_ACCESS_REVOKED: 'Acesso por API retirado',
+  API_TOKEN_CREATED: 'Token de API gerado',
+  API_TOKEN_REVOKED: 'Token de API revogado',
   ENTRY_TRASHED: 'Amostra movida para a lixeira',
   ENTRY_RESTORED: 'Amostra restaurada',
   ENTRY_DELETED: 'Amostra excluída definitivamente',
@@ -160,7 +170,13 @@ export async function adminRoutes(app: FastifyInstance) {
         role: true,
         status: true,
         createdAt: true,
-        _count: { select: { entries: true } },
+        apiAccess: true,
+        _count: {
+          select: {
+            entries: true,
+            apiTokens: { where: { revokedAt: null, expiresAt: { gt: new Date() } } },
+          },
+        },
       },
     });
     return reply.send({ users });
@@ -180,7 +196,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
     const before = await prisma.user.findUnique({
       where: { id },
-      select: { email: true, role: true, status: true },
+      select: { email: true, role: true, status: true, apiAccess: true },
     });
     if (!before) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
 
@@ -195,9 +211,25 @@ export async function adminRoutes(app: FastifyInstance) {
           role: true,
           status: true,
           createdAt: true,
+          apiAccess: true,
         },
       });
       const target = { actorId: user.id, targetUserId: id, targetLabel: before.email };
+      if (parsed.data.apiAccess !== undefined && parsed.data.apiAccess !== before.apiAccess) {
+        let detail: string | undefined;
+        if (!parsed.data.apiAccess) {
+          const { count } = await tx.apiToken.updateMany({
+            where: { userId: id, revokedAt: null, expiresAt: { gt: new Date() } },
+            data: { revokedAt: new Date() },
+          });
+          detail = `${count} token(s) revogado(s)`;
+        }
+        await audit(tx, req, {
+          ...target,
+          action: parsed.data.apiAccess ? 'API_ACCESS_GRANTED' : 'API_ACCESS_REVOKED',
+          detail,
+        });
+      }
       if (parsed.data.role && parsed.data.role !== before.role) {
         await audit(tx, req, {
           ...target,
