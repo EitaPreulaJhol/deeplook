@@ -1,11 +1,14 @@
 import { Checkbox, Select, SelectItem, TextArea } from '@carbon/react';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { Report, Verdict } from '../api/types';
+import type { EntryIoc, Report, Verdict } from '../api/types';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
+import { IOC_KIND_LABELS, iocHref } from './iocs';
 import { HpsmMessage } from './messages';
 import { useSaveShortcut } from './shortcuts';
 import { StatusText, VerdictTag } from './tags';
@@ -75,6 +78,13 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
     }
   };
 
+  // Indicadores reconhecidos (relatorios publicados + a propria amostra).
+  const iocsQuery = useQuery({
+    queryKey: ['entry', entryId, 'iocs'],
+    queryFn: () => api.get<{ iocs: EntryIoc[] }>(`/entries/${entryId}/iocs`),
+  });
+  const recognized = iocsQuery.data?.iocs ?? [];
+
   // Ctrl+S salva o novo relatorio (so quem pode criar relatorios).
   useSaveShortcut(createReport, canTriage && !saving);
 
@@ -118,6 +128,32 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
           </HpsmForm>
         </HpsmSection>
       ))}
+
+      {recognized.length > 0 && (
+        <HpsmSection title={`Indicadores reconhecidos (${recognized.length})`} className="dl-mt-lg">
+          <p className="dl-related-hint">
+            IOCs dos relatórios publicados e da própria amostra. Clique para ver em que outras
+            amostras o indicador aparece; para exportar, use Mais ▾ &gt; Exportar IOCs.
+          </p>
+          <ul className="dl-ioc-list">
+            {recognized.map((ioc) => (
+              <li key={`${ioc.kind}:${ioc.value}`}>
+                <span className="dl-ioc-list__kind">{IOC_KIND_LABELS[ioc.kind]}</span>
+                {ioc.kind === 'URL' ? (
+                  <span className="dl-mono">{ioc.value}</span>
+                ) : (
+                  <Link className="dl-link dl-mono" to={iocHref(ioc.kind, ioc.value)}>
+                    {ioc.value}
+                  </Link>
+                )}
+                <span className="dl-ioc-list__source">
+                  {ioc.source === 'REPORT' ? 'relatório' : 'amostra'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </HpsmSection>
+      )}
 
       {canTriage && (
         <HpsmSection title="Novo relatório de análise" className="dl-mt-lg">

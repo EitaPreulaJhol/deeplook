@@ -7,7 +7,7 @@ import { api } from '../api/client';
 import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { copyText } from '../components/CopyButton';
-import { downloadText, entryReportsMarkdown } from '../components/entryExport';
+import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
 import { EntryRelatedTab, useRelatedEntries } from '../components/EntryRelatedTab';
@@ -288,6 +288,19 @@ export function EntryDetailPage() {
                   entryReportsMarkdown(entry, user?.displayName ?? '—'),
                 ),
             },
+            // IOCs dos relatorios publicados + o proprio arquivo/URL, gerados na API.
+            ...(
+              [
+                ['csv', 'CSV'],
+                ['stix', 'STIX 2.1'],
+                ['misp', 'MISP'],
+              ] as const
+            ).map(([format, name], i) => ({
+              label: `Exportar IOCs (${name})`,
+              icon: IconDownload,
+              separated: i === 0,
+              action: () => downloadUrl(`/api/entries/${entry.id}/iocs/export?format=${format}`),
+            })),
           ]}
         />
         {position >= 0 && sequence.length > 1 && (

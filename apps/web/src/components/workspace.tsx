@@ -45,6 +45,7 @@ function routeTitle(pathname: string): string | null {
   if (pathname === '/submit') return 'Enviar Amostra';
   if (pathname === '/admin') return 'Administração';
   if (pathname.startsWith('/entries/')) return 'Amostra';
+  if (pathname.startsWith('/iocs/')) return 'Indicador';
   return null;
 }
 
@@ -113,6 +114,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   // Aba ativa sendo fechada: so sai da faixa depois que a navegacao acontece
   // (ela pode ser bloqueada por alteracoes nao salvas).
+  // Ultimo titulo definido por tela (useWorkspaceTitle), por caminho.
+  const knownTitles = useRef(new Map<string, string>());
   const pendingClose = useRef<string | null>(null);
 
   // Toda navegacao abre (ou atualiza) a aba da rota atual.
@@ -122,8 +125,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       pendingClose.current = null;
       setTabs((current) => current.filter((t) => t.path !== closing));
     }
-    const title = routeTitle(pathname);
-    if (!title) return;
+    const base = routeTitle(pathname);
+    if (!base) return;
+    // Titulo pedido pela tela antes de a aba existir (o efeito da pagina roda
+    // antes deste): usa ele no lugar do titulo padrao da rota.
+    const title = knownTitles.current.get(pathname) ?? base;
     const url = pathname + search;
     // Navegacao que troca o registro da aba (ex.: Anterior/Proxima da amostra).
     const replaceTab = (state as { replaceTab?: string } | null)?.replaceTab;
@@ -156,6 +162,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => saveTabs(tabs, userId, restore), [tabs, userId, restore]);
 
   const setTitle = useCallback((path: string, title: string) => {
+    knownTitles.current.set(path, title);
     setTabs((current) =>
       current.some((t) => t.path === path && t.title !== title)
         ? current.map((t) => (t.path === path ? { ...t, title } : t))

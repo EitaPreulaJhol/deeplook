@@ -31,6 +31,32 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Tipos de indicador do indice de IOCs (relatorios publicados). */
+export type IocKind = 'IPV4' | 'DOMAIN' | 'EMAIL' | 'MD5' | 'SHA1' | 'SHA256';
+
+/** Onde um indicador aparece numa amostra (ficha do indicador). */
+export type IocSighting =
+  | { kind: 'REPORT'; reportId: string; analyst: string; createdAt: string }
+  | { kind: 'FILE' }
+  | { kind: 'URL_HOST' };
+
+/** GET /api/iocs/:kind/:value */
+export interface IocDetail {
+  ioc: { kind: IocKind; value: string };
+  items: { entry: Entry; sightings: IocSighting[] }[];
+  total: number;
+  firstSeen: string | null;
+  lastSeen: string | null;
+}
+
+/** GET /api/entries/:id/iocs: indicadores da amostra (relatorios + a propria). */
+export interface EntryIoc {
+  kind: IocKind | 'URL';
+  value: string;
+  source: 'REPORT' | 'SAMPLE';
+  reportIds: string[];
+}
+
 /** Por que uma amostra aparece na aba "Relacionadas". */
 export type RelatedReason =
   | { kind: 'SAME_SHA256' }

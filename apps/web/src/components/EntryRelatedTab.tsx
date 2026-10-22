@@ -10,11 +10,12 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import type { KeyboardEvent } from 'react';
 import { useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { RelatedEntry, RelatedReason } from '../api/types';
 import { saveEntrySequence } from './entryNav';
+import { iocHref, iocKindOf, shortIoc } from './iocs';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
@@ -42,6 +43,33 @@ function describe(reason: RelatedReason): string {
       return `${reason.detail.length > 1 ? 'IOCs' : 'IOC'} em comum: ${shown.join(', ')}${more}`;
     }
   }
+}
+
+/**
+ * "IOCs em comum: a, b, c (+N)" com cada indicador ligado a sua ficha. O clique
+ * e o Enter no link nao abrem a amostra da linha.
+ */
+function IocLinks({ values }: { values: string[] }) {
+  const shown = values.slice(0, 3);
+  return (
+    <>
+      {values.length > 1 ? 'IOCs' : 'IOC'} em comum:{' '}
+      {shown.map((value, i) => (
+        <span key={value}>
+          {i > 0 && ', '}
+          <Link
+            className="dl-link"
+            to={iocHref(iocKindOf(value), value)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            {shortIoc(value)}
+          </Link>
+        </span>
+      ))}
+      {values.length > 3 && ` (+${values.length - 3})`}
+    </>
+  );
 }
 
 /** Mesma consulta da aba e do contador no rotulo da aba (cache compartilhado). */
@@ -146,7 +174,11 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
                         key={reason.kind}
                         title={reason.kind === 'SHARED_IOCS' ? reason.detail.join('\n') : undefined}
                       >
-                        {describe(reason)}
+                        {reason.kind === 'SHARED_IOCS' ? (
+                          <IocLinks values={reason.detail} />
+                        ) : (
+                          describe(reason)
+                        )}
                       </li>
                     ))}
                   </ul>

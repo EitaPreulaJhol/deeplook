@@ -605,8 +605,8 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 31 | Busca por IOC e ficha do indicador | registro de Configuration Item | 🔴 | P–M | ⬜ |
-| 32 | Exportação de IOCs (CSV / STIX / MISP) | Export | 🔴 | P–M | ⬜ |
+| 31 | Busca por IOC e ficha do indicador | registro de Configuration Item | 🔴 | P–M | ✅ |
+| 32 | Exportação de IOCs (CSV / STIX / MISP) | Export | 🔴 | P–M | ✅ |
 | 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ⬜ |
 | 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ⬜ |
 | 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
@@ -645,6 +645,26 @@ precisam de uma decisão de segurança.
   - Front: `pages/IocPage.tsx`, `HpsmQuickSearch.tsx`.
 - **Cuidados:** a ficha só lista relatórios publicados; um hash que é o SHA-256 de uma
   amostra aparece mesmo sem relatório.
+- ✅ **Implementado:**
+  - **API** (`routes/iocs.ts`):
+    - `GET /api/iocs/lookup?q=` reconhece o indicador com a mesma extração do índice
+      (`hxxp`, `[.]`, URL inteira → domínio; IP privado não conta);
+    - `GET /api/iocs/:tipo/:valor` devolve as amostras com o motivo de cada uma
+      (relatório publicado, com analista e data; o arquivo; o domínio da URL), a
+      primeira e a última aparição, até 200 amostras;
+    - `GET /api/entries/:id/iocs` lista os indicadores da amostra.
+  - **Ficha** (`pages/IocPage.tsx`, rota `/iocs/:tipo/:valor`): título "IPv4:
+    185.0.2.10", resumo (tipo, valor com botão de copiar, primeira e última aparição,
+    total), grade navegável pelo teclado (Anterior/Próxima percorrem as amostras da
+    ficha) e aba de documento "IOC · valor".
+  - **"Ir para:":** um indicador abre a ficha. Um SHA-256 sem amostra também abre a
+    ficha (antes caía na busca por texto). Texto comum e IP privado continuam indo
+    para a lista.
+  - **Links para a ficha:** seção **Indicadores reconhecidos** na aba Relatórios
+    (tipo, valor e origem) e os IOCs em comum da aba Relacionadas.
+  - **Correção junto:** o título definido por uma tela logo no primeiro render se
+    perdia, porque a aba ainda não existia. O `WorkspaceProvider` agora guarda o
+    título e o aplica ao criar a aba.
 
 ### 32. Exportação de IOCs (CSV / STIX / MISP)
 - **Problema:** levar os indicadores para firewall, SIEM ou MISP é copiar e colar.
@@ -660,6 +680,18 @@ precisam de uma decisão de segurança.
   - MISP: evento JSON com `Attribute` (`ip-dst`, `domain`, `email-src`, `md5`, `sha1`,
     `sha256`).
   - Só indicadores de relatórios publicados.
+- ✅ **Implementado:** `GET /api/entries/:id/iocs/export?format=csv|stix|misp`
+  (`lib/ioc-export.ts`), no menu **Mais ▾ > Exportar IOCs (CSV / STIX 2.1 / MISP)**.
+  - **O que entra:** os IOCs dos relatórios publicados, o SHA-256 do arquivo, a URL e
+    o domínio da amostra.
+  - **CSV:** `;` com BOM, como o export da lista.
+  - **STIX 2.1:** `bundle` com a identidade "DeepLook" e um `indicator` por IOC, com
+    `pattern` STIX escapado e `indicator_types` pelo veredito. Os ids são UUID v5, os
+    mesmos a cada exportação.
+  - **MISP:** evento com `threat_level_id` e `analysis` pelo veredito e pelo status;
+    e-mails com `to_ids: false`.
+  - **Mudança no plano:** a ficha do indicador não ganhou exportação própria. A
+    exportação é por amostra, e a ficha leva às amostras.
 
 ### 33. Análise estática no envio
 - **Problema:** informações básicas do arquivo (tipo real, se é executável, entropia)

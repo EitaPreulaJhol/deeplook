@@ -62,6 +62,18 @@ export function entryReportsMarkdown(entry: Entry, exportedBy: string): string {
   return lines.join('\n');
 }
 
+/**
+ * Baixa um arquivo gerado pela API. Sem o atributo `download`: o nome e o tipo
+ * vem do Content-Disposition da resposta (attachment), e a pagina continua.
+ */
+export function downloadUrl(url: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 /** Baixa um texto como arquivo (sem ida ao servidor). */
 export function downloadText(filename: string, text: string, type = 'text/markdown') {
   const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));

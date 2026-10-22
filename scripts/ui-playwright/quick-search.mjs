@@ -1,4 +1,5 @@
-// "Ir para…" do masthead: Ctrl+K, SHA-256 abre a amostra, texto abre a lista filtrada.
+// "Ir para…" do masthead: Ctrl+K, SHA-256 abre a amostra, hash sem amostra abre a
+// ficha do indicador, texto abre a lista filtrada.
 import { createHash } from 'node:crypto';
 
 import { chromium } from 'playwright';
@@ -36,12 +37,12 @@ await page.waitForURL('**/entries/e1');
 expect('SHA-256 abre a amostra', url() === '/entries/e1', url());
 expect('campo é limpo depois de ir', (await input.inputValue()) === '');
 
-// 3. SHA-256 desconhecido cai na busca da lista.
+// 3. SHA-256 sem amostra abre a ficha do indicador (31).
 const unknown = 'f'.repeat(64);
 await input.fill(unknown);
 await input.press('Enter');
-await page.waitForURL('**/history?q=*');
-expect('hash desconhecido abre a lista filtrada', url() === `/history?q=${unknown}`, url());
+await page.waitForURL('**/iocs/**');
+expect('hash desconhecido abre a ficha do indicador', url() === `/iocs/sha256/${unknown}`, url());
 
 // 4. Texto livre abre o Historico com a busca preenchida.
 await input.fill('driver');

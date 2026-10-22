@@ -46,7 +46,8 @@ expect('clique abre o menu', await menu.isVisible() && (await more.getAttribute(
 const labels = (await menu.locator('button').allTextContents()).map((t) => t.trim());
 expect(
   'itens do menu',
-  labels.join('|') === 'Copiar link do registro|Abrir em nova janela|Imprimir ficha…|Exportar relatórios (Markdown)',
+  labels.join('|') ===
+    'Copiar link do registro|Abrir em nova janela|Imprimir ficha…|Exportar relatórios (Markdown)|Exportar IOCs (CSV)|Exportar IOCs (STIX 2.1)|Exportar IOCs (MISP)',
   labels.join('|'),
 );
 const box = await menu.boundingBox();

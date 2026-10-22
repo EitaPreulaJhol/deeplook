@@ -74,7 +74,11 @@ function domainOk(domain: string): boolean {
 
 const DOMAIN = String.raw`(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}`;
 const URL_RE = /\bhttps?:\/\/([^\s/"'<>:?#]+)/gi;
-const EMAIL_RE = new RegExp(String.raw`\b[a-z0-9._%+-]+@(${DOMAIN})\b`, 'gi');
+// Parte local com apostrofo so no meio (o'brien@...), sem casar pedaco de palavra.
+const EMAIL_RE = new RegExp(
+  String.raw`(?<![\w.%+'-])[a-z0-9._%+-]+(?:'[a-z0-9._%+-]+)*@(${DOMAIN})\b`,
+  'gi',
+);
 const IPV4_RE = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])/g;
 const HASH_RE = /\b(?:[a-f0-9]{64}|[a-f0-9]{40}|[a-f0-9]{32})\b/gi;
 const DOMAIN_RE = new RegExp(String.raw`(?<![\w@.-])${DOMAIN}(?![\w-])`, 'gi');

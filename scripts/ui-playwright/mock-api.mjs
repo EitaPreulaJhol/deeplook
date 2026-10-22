@@ -119,6 +119,12 @@ export function createState({ loggedIn = false } = {}) {
     commentError: null,
     /** 400 com `details` por campo para uma rota de escrita (ex.: { '/api/entries/url': { title: [...] } }). */
     validationErrors: {},
+    /** Ficha do indicador por "KIND:valor" (padrao: indicador sem amostras). */
+    iocDetails: {},
+    /** IOCs da amostra por id (padrao: o proprio arquivo/URL). */
+    entryIocs: {},
+    /** Formato da ultima exportacao de IOCs recebida. */
+    lastIocExport: null,
   };
 }
 
@@ -327,6 +333,48 @@ export async function setupMock(context, state) {
           e.assignee = next;
         }
         return json(route, 200, { entry: e });
+      }
+      // Indicadores: reconhecimento simplificado (a API usa lib/iocs.ts).
+      if (p === '/api/iocs/lookup') {
+        const q = (url.searchParams.get('q') || '').trim().replace(/^hxxp/i, 'http').replace(/\[\.\]/g, '.').toLowerCase();
+        const host = q.match(/^https?:\/\/([^/:?#]+)/)?.[1];
+        let ioc = null;
+        if (/^[a-f0-9]{64}$/.test(q)) ioc = { kind: 'SHA256', value: q };
+        else if (/^[a-f0-9]{40}$/.test(q)) ioc = { kind: 'SHA1', value: q };
+        else if (/^[a-f0-9]{32}$/.test(q)) ioc = { kind: 'MD5', value: q };
+        else if (/^(\d{1,3}\.){3}\d{1,3}$/.test(q)) ioc = /^(10|127)\.|^192\.168\./.test(q) ? null : { kind: 'IPV4', value: q };
+        else if (host) ioc = { kind: 'DOMAIN', value: host };
+        else if (q.includes('@')) ioc = { kind: 'EMAIL', value: q };
+        else if (/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(q)) ioc = { kind: 'DOMAIN', value: q };
+        return ioc ? json(route, 200, { ioc }) : json(route, 404, { error: 'Nao e um indicador reconhecido.' });
+      }
+      const io = p.match(/^\/api\/iocs\/(\w+)\/(.+)$/);
+      if (io) {
+        const kind = io[1].toUpperCase();
+        const value = decodeURIComponent(io[2]);
+        if (!['IPV4', 'DOMAIN', 'EMAIL', 'MD5', 'SHA1', 'SHA256'].includes(kind)) return json(route, 400, { error: 'Indicador invalido.' });
+        return json(route, 200, state.iocDetails[`${kind}:${value}`] ?? { ioc: { kind, value }, items: [], total: 0, firstSeen: null, lastSeen: null });
+      }
+      const ex = p.match(/^\/api\/entries\/([\w-]+)\/iocs\/export$/);
+      if (ex) {
+        const format = url.searchParams.get('format');
+        state.lastIocExport = format;
+        const name = `deeplook-${ex[1]}-iocs.${format === 'csv' ? 'csv' : `${format}.json`}`;
+        return route.fulfill({
+          status: 200,
+          headers: { 'Content-Type': format === 'csv' ? 'text/csv' : 'application/json', 'Content-Disposition': `attachment; filename="${name}"` },
+          body: format === 'csv' ? 'Tipo;Valor\r\n' : '{}',
+        });
+      }
+      const ei = p.match(/^\/api\/entries\/([\w-]+)\/iocs$/);
+      if (ei) {
+        const e = entries.find((x) => x.id === ei[1]);
+        const own = e?.sha256
+          ? [{ kind: 'SHA256', value: e.sha256, source: 'SAMPLE', reportIds: [] }]
+          : e?.url
+            ? [{ kind: 'URL', value: e.url, source: 'SAMPLE', reportIds: [] }]
+            : [];
+        return json(route, 200, { iocs: state.entryIocs[ei[1]] ?? own });
       }
       const rel = p.match(/^\/api\/entries\/([\w-]+)\/related$/);
       if (rel) return json(route, 200, state.related[rel[1]] ?? { items: [], total: 0, limit: 50 });

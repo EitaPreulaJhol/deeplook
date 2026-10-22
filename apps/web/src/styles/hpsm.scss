@@ -2125,6 +2125,43 @@ body:has(.dl-print) {
   }
 }
 
+/* --- 12j. Indicadores (IOCs) ------------------------------------------- */
+/* Lista "Indicadores reconhecidos" da aba Relatorios: tipo | valor | origem. */
+.dl-ioc-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  gap: 0.15rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-ioc-list li {
+  display: contents;
+}
+
+.dl-ioc-list .dl-mono {
+  overflow-wrap: anywhere;
+}
+
+.dl-ioc-list__kind {
+  color: var(--dl-text-muted);
+  font-weight: 700;
+}
+
+.dl-ioc-list__source {
+  color: var(--dl-text-muted);
+}
+
+/* Valor na ficha do indicador: hash longo quebra, botao de copiar ao lado. */
+.dl-ioc-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;
