@@ -16,6 +16,7 @@ export function HpsmFilterBar({
   onClear,
   exportHref,
   viewName,
+  chips = [],
   children,
 }: {
   onClear: () => void;
@@ -23,6 +24,8 @@ export function HpsmFilterBar({
   exportHref?: string;
   /** Nome sugerido para "Salvar visão" (mostra o botao; a visao vai para os Favoritos). */
   viewName?: string;
+  /** Filtros sem controle na barra (ex.: periodo vindo do Painel), removiveis. */
+  chips?: { label: string; onRemove: () => void }[];
   children: ReactNode;
 }) {
   const { pathname, search } = useLocation();
@@ -58,6 +61,20 @@ export function HpsmFilterBar({
         </HpsmMessage>
       )}
       {children}
+      {chips.map((chip) => (
+        <span key={chip.label} className="hpsm-filterbar__chip">
+          {chip.label}
+          <button
+            type="button"
+            className="hpsm-filterbar__chip-x"
+            aria-label={`Remover o filtro: ${chip.label}`}
+            title="Remover filtro"
+            onClick={chip.onRemove}
+          >
+            ×
+          </button>
+        </span>
+      ))}
       <Button kind="secondary" size="sm" onClick={onClear}>
         Limpar
       </Button>

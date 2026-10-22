@@ -19,7 +19,34 @@ export function GlobalHistoryPage() {
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { type, status, verdict, assignee, age } = list.filters;
+  const { type, status, verdict, assignee, age, submittedFrom, completedFrom } = list.filters;
+  // Analistas do select "Responsável" (o Painel leva a um analista especifico).
+  const analystsQuery = useQuery({
+    queryKey: ['analysts'],
+    queryFn: () => api.get<{ analysts: { id: string; displayName: string }[] }>('/analysts'),
+    enabled: canTriage,
+    staleTime: 5 * 60 * 1000,
+  });
+  // Filtros de periodo (links do Painel) aparecem como etiquetas removiveis.
+  const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+  const chips = [
+    ...(submittedFrom
+      ? [
+          {
+            label: `Enviadas desde ${dateLabel(submittedFrom)}`,
+            onRemove: () => list.setFilter('submittedFrom', ''),
+          },
+        ]
+      : []),
+    ...(completedFrom
+      ? [
+          {
+            label: `Concluídas desde ${dateLabel(completedFrom)}`,
+            onRemove: () => list.setFilter('completedFrom', ''),
+          },
+        ]
+      : []),
+  ];
 
   const params = new URLSearchParams();
   params.set('scope', 'all');
@@ -29,6 +56,8 @@ export function GlobalHistoryPage() {
   if (verdict) params.set('verdict', verdict);
   if (assignee) params.set('assignee', assignee);
   if (age) params.set('age', age);
+  if (submittedFrom) params.set('submittedFrom', submittedFrom);
+  if (completedFrom) params.set('completedFrom', completedFrom);
   entryListParams(params, sort, offset, pageSize);
 
   // Exportar CSV: mesma busca, filtros e ordenacao, sem paginacao.
@@ -58,6 +87,8 @@ export function GlobalHistoryPage() {
       verdict,
       assignee,
       age,
+      submittedFrom,
+      completedFrom,
       sort.key,
       sort.dir,
       offset,
@@ -72,7 +103,7 @@ export function GlobalHistoryPage() {
     <>
       <PageHeader title="Histórico Global" subtitle="Todas as amostras enviadas pela comunidade." />
 
-      <HpsmFilterBar onClear={list.clear} exportHref={exportHref} viewName={viewName}>
+      <HpsmFilterBar onClear={list.clear} exportHref={exportHref} viewName={viewName} chips={chips}>
         <HpsmFilterItem label="Buscar" htmlFor="q">
           <TextInput
             id="q"
@@ -156,6 +187,9 @@ export function GlobalHistoryPage() {
               <SelectItem value="" text="Todos" />
               <SelectItem value="me" text="Atribuídas a mim" />
               <SelectItem value="none" text="Sem responsável" />
+              {(analystsQuery.data?.analysts ?? []).map((a) => (
+                <SelectItem key={a.id} value={a.id} text={a.displayName} />
+              ))}
             </Select>
           </HpsmFilterItem>
         )}

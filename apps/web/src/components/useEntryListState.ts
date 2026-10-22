@@ -15,7 +15,8 @@ const SORT_KEYS: EntrySortKey[] = [
   'createdAt',
 ];
 
-export type EntryFilterKey = 'type' | 'status' | 'verdict' | 'assignee' | 'age';
+export type EntryFilterKey =
+  'type' | 'status' | 'verdict' | 'assignee' | 'age' | 'submittedFrom' | 'completedFrom';
 
 /** Espera apos a ultima tecla antes de aplicar a busca por texto. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -36,6 +37,9 @@ export function useEntryListState() {
     verdict: searchParams.get('verdict') ?? '',
     assignee: searchParams.get('assignee') ?? '',
     age: searchParams.get('age') ?? '',
+    // Periodo (links do Painel): instante ISO; sem controle proprio, vira etiqueta.
+    submittedFrom: searchParams.get('submittedFrom') ?? '',
+    completedFrom: searchParams.get('completedFrom') ?? '',
   };
   const sortKey = searchParams.get('sort') as EntrySortKey | null;
   const sort: EntrySort =
@@ -101,7 +105,16 @@ export function useEntryListState() {
     clear: () => {
       writtenQ.current = '';
       setDraftQ('');
-      update({ q: null, type: null, status: null, verdict: null, assignee: null, age: null });
+      update({
+        q: null,
+        type: null,
+        status: null,
+        verdict: null,
+        assignee: null,
+        age: null,
+        submittedFrom: null,
+        completedFrom: null,
+      });
     },
   };
 }

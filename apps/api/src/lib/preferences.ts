@@ -3,7 +3,7 @@ import { z } from 'zod';
 /** Preferencias de uso do usuario (coluna JSON `User.preferences`). */
 export const PreferencesSchema = z.object({
   /** Tela aberta apos o login e na raiz "/". */
-  startPage: z.enum(['welcome', 'history', 'mine']),
+  startPage: z.enum(['welcome', 'dashboard', 'history', 'mine']),
   /** Registros por pagina nas listas de amostras. */
   pageSize: z.union([z.literal(25), z.literal(50), z.literal(100)]),
   /** Reabre as abas de documento da sessao anterior ao entrar. */

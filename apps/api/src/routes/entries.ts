@@ -44,9 +44,13 @@ const ListQuery = z.object({
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
   q: z.string().optional(),
   /** Responsavel: `me` (atribuidas a mim) ou `none` (sem responsavel). */
-  assignee: z.enum(['me', 'none']).optional(),
+  assignee: z.union([z.enum(['me', 'none']), z.string().regex(/^c[a-z0-9]{20,32}$/)]).optional(),
   /** Prazo: nao concluidas ha mais de SLA_WARN_HOURS (`warn`) ou SLA_LATE_HOURS (`late`). */
   age: z.enum(['warn', 'late']).optional(),
+  /** Enviadas a partir deste instante (links do Painel). */
+  submittedFrom: z.coerce.date().optional(),
+  /** Concluidas (sem duplicatas) a partir deste instante (links do Painel). */
+  completedFrom: z.coerce.date().optional(),
   /** Hash exato (64 hex): usado para avisar que a amostra ja foi enviada. */
   sha256: z
     .string()
@@ -138,11 +142,21 @@ async function resolveTags(names: string[]) {
 function listWhere(
   filters: Pick<
     z.infer<typeof ListQuery>,
-    'scope' | 'type' | 'status' | 'verdict' | 'q' | 'sha256' | 'assignee' | 'age'
+    | 'scope'
+    | 'type'
+    | 'status'
+    | 'verdict'
+    | 'q'
+    | 'sha256'
+    | 'assignee'
+    | 'age'
+    | 'submittedFrom'
+    | 'completedFrom'
   >,
   userId: string,
 ): Prisma.EntryWhereInput {
-  const { scope, type, status, verdict, q, sha256, assignee, age } = filters;
+  const { scope, type, status, verdict, q, sha256, assignee, age, submittedFrom, completedFrom } =
+    filters;
   const where: Prisma.EntryWhereInput = {};
   if (scope === 'mine') where.ownerId = userId;
   if (type) where.type = type;
@@ -151,6 +165,13 @@ function listWhere(
   if (sha256) where.sha256 = sha256.toLowerCase();
   if (assignee === 'me') where.assigneeId = userId;
   if (assignee === 'none') where.assigneeId = null;
+  if (assignee && assignee !== 'me' && assignee !== 'none') where.assigneeId = assignee;
+  if (submittedFrom) where.createdAt = { gte: submittedFrom };
+  if (completedFrom) {
+    where.status = 'COMPLETED';
+    where.duplicateOfId = null;
+    where.statusChangedAt = { gte: completedFrom };
+  }
   if (age) {
     where.AND = [{ status: { not: 'COMPLETED' } }, { statusChangedAt: { lt: slaCutoff(age) } }];
   }

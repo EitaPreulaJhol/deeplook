@@ -258,6 +258,7 @@ function PreferencesTab() {
             onChange={(e) => set('startPage', e.target.value as Preferences['startPage'])}
           >
             <SelectItem value="welcome" text="Página Inicial (boas-vindas)" />
+            <SelectItem value="dashboard" text="Painel" />
             <SelectItem value="history" text="Histórico Global" />
             <SelectItem value="mine" text="Meus Uploads" />
           </Select>

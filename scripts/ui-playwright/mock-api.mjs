@@ -131,6 +131,9 @@ export function createState({ loggedIn = false } = {}) {
     lastCommentBody: null,
     /** Modelos de relatorio (aba Modelos da Administracao / Novo relatorio). */
     templates: [],
+    /** Resposta de GET /api/dashboard e a ultima query recebida. */
+    dashboard: null,
+    lastDashboardQuery: null,
     /** Resposta de GET /api/admin/status (o roteiro troca) e quantas vezes foi pedida. */
     systemStatus: null,
     statusCalls: 0,
@@ -195,6 +198,17 @@ export async function setupMock(context, state) {
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
+      if (p === '/api/dashboard') {
+        state.lastDashboardQuery = url.search;
+        const days = Number(url.searchParams.get('days') || 7);
+        const base = state.dashboard ?? {
+          scope: 'all', since: '2026-10-16T03:00:00.000Z', sla: SLA,
+          byStatus: { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 }, byVerdict: { UNKNOWN: 0, CLEAN: 0, SUSPICIOUS: 0, MALICIOUS: 0 },
+          open: { warn: 0, late: 0 }, period: { submitted: 0, completed: 0 }, daily: [], workload: [],
+        };
+        const scope = state.role === 'USER' ? 'mine' : base.scope;
+        return json(route, 200, { ...base, scope, days, tz: url.searchParams.get('tz'), workload: scope === 'mine' ? [] : base.workload });
+      }
       if (p === '/api/admin/status') {
         state.statusCalls += 1;
         return json(route, 200, state.systemStatus ?? {

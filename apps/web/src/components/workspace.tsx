@@ -47,6 +47,7 @@ function routeTitle(pathname: string): string | null {
   if (pathname.startsWith('/entries/')) return 'Amostra';
   if (pathname.startsWith('/iocs/')) return 'Indicador';
   if (pathname === '/inbox') return 'Caixa de entrada';
+  if (pathname === '/painel') return 'Painel';
   return null;
 }
 

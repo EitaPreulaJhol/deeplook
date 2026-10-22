@@ -15,7 +15,7 @@ export interface User {
 }
 
 /** Tela aberta apos o login e na raiz "/". */
-export type StartPage = 'welcome' | 'history' | 'mine';
+export type StartPage = 'welcome' | 'dashboard' | 'history' | 'mine';
 
 /** Preferencias de uso (GET /api/auth/me, PATCH /api/me/preferences). */
 export interface Preferences {
@@ -29,6 +29,29 @@ export interface Preferences {
 /** Usuario da sessao atual: inclui as preferencias. */
 export interface CurrentUser extends User {
   preferences: Preferences;
+}
+
+/** GET /api/dashboard (Painel). */
+export interface DashboardData {
+  scope: 'all' | 'mine';
+  days: number;
+  tz: string;
+  /** Inicio do periodo (meia-noite do 1o dia no fuso do navegador). */
+  since: string;
+  sla: SlaConfig;
+  byStatus: Record<EntryStatus, number>;
+  byVerdict: Record<Verdict, number>;
+  open: { warn: number; late: number };
+  period: { submitted: number; completed: number };
+  daily: { day: string; submitted: number; completed: number }[];
+  workload: {
+    id: string | null;
+    name: string;
+    pending: number;
+    inReview: number;
+    late: number;
+    completed: number;
+  }[];
 }
 
 /** Situacao de um componente: verde, laranja, vermelho ou desligado. */

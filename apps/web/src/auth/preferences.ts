@@ -10,6 +10,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 
 const START_PATHS: Record<StartPage, string> = {
   welcome: '/inicio',
+  dashboard: '/painel',
   history: '/history',
   mine: '/me',
 };

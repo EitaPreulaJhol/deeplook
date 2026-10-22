@@ -55,3 +55,4 @@ export const IconHelp = createIcon('/icons/help.svg');
 export const IconStar = createIcon('/icons/star.svg');
 export const IconPrint = createIcon('/icons/print.svg');
 export const IconBell = createIcon('/icons/bell.svg');
+export const IconChart = createIcon('/icons/chart.svg');

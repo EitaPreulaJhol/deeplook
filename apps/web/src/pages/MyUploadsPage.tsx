@@ -19,13 +19,36 @@ export function MyUploadsPage() {
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { status, verdict } = list.filters;
+  const { status, verdict, age, submittedFrom, completedFrom } = list.filters;
+  // Filtros de periodo (links do Painel) aparecem como etiquetas removiveis.
+  const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+  const chips = [
+    ...(submittedFrom
+      ? [
+          {
+            label: `Enviadas desde ${dateLabel(submittedFrom)}`,
+            onRemove: () => list.setFilter('submittedFrom', ''),
+          },
+        ]
+      : []),
+    ...(completedFrom
+      ? [
+          {
+            label: `Concluídas desde ${dateLabel(completedFrom)}`,
+            onRemove: () => list.setFilter('completedFrom', ''),
+          },
+        ]
+      : []),
+  ];
 
   const params = new URLSearchParams();
   params.set('scope', 'mine');
   if (q) params.set('q', q);
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
+  if (age) params.set('age', age);
+  if (submittedFrom) params.set('submittedFrom', submittedFrom);
+  if (completedFrom) params.set('completedFrom', completedFrom);
   entryListParams(params, sort, offset, pageSize);
 
   // Exportar CSV: mesma busca, filtros e ordenacao, sem paginacao.
@@ -49,6 +72,9 @@ export function MyUploadsPage() {
       q,
       status,
       verdict,
+      age,
+      submittedFrom,
+      completedFrom,
       sort.key,
       sort.dir,
       offset,
@@ -66,7 +92,22 @@ export function MyUploadsPage() {
         subtitle="Acompanhe o controle das amostras que você enviou."
       />
 
-      <HpsmFilterBar onClear={list.clear} exportHref={exportHref} viewName={viewName}>
+      <HpsmFilterBar
+        onClear={list.clear}
+        exportHref={exportHref}
+        viewName={viewName}
+        chips={[
+          ...(age
+            ? [
+                {
+                  label: age === 'late' ? 'Atrasadas' : 'Em alerta ou atrasadas',
+                  onRemove: () => list.setFilter('age', ''),
+                },
+              ]
+            : []),
+          ...chips,
+        ]}
+      >
         <HpsmFilterItem label="Buscar" htmlFor="q">
           <TextInput
             id="q"

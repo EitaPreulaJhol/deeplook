@@ -614,7 +614,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ✅ |
 | 38 | Modelos de relatório | Templates | 🟡 | P | ✅ |
 | 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ⬜ |
-| 40 | Painel do analista | Dashboards | 🟡 | M | ⬜ |
+| 40 | Painel do analista | Dashboards | 🟡 | M | ✅ |
 | 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ⬜ |
 | 42 | Status do sistema | System Status | ⚪ | P | ✅ |
 | 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
@@ -852,6 +852,29 @@ precisam de uma decisão de segurança.
 - **Onde mexer:** `GET /api/dashboard` (agregações), `pages/DashboardPage.tsx`; gráficos
   simples em SVG, sem biblioteca pesada.
 - **Cuidados:** usuários comuns veem só os próprios números.
+- ✅ **Implementado:** `GET /api/dashboard?days=7|30|90&tz=` (`routes/dashboard.ts`) e
+  `pages/DashboardPage.tsx` em `/painel`, na raiz do navegador. Também pode ser
+  escolhido como página inicial nas preferências.
+  - **Indicadores:** pendentes, em análise, em alerta ou atrasadas, atrasadas, enviadas
+    e concluídas no período (sem duplicatas). Cada um é um link para a lista filtrada.
+  - **Gráfico** (`components/DailyChart.tsx`, SVG próprio): colunas por dia de enviadas
+    × concluídas, com os dias no **fuso do navegador** (agrupados no Postgres).
+    - Um eixo só e grade discreta.
+    - Dica ao passar o mouse, ao lado do dia (nunca por cima das colunas).
+    - Legenda com totais e "Ver em tabela".
+    - Par de cores `--dl-series-1/2` validado com o script do skill de visualização
+      (daltonismo e visão normal). O verde-água fica abaixo de 3:1 de contraste, por
+      isso a legenda e a tabela são obrigatórias.
+  - **Vereditos:** barras horizontais de uma cor (magnitude), com o estado no rótulo.
+  - **Carga por analista:** pendentes, em análise, atrasadas e concluídas no período,
+    com "Sem responsável" por último; cada número é um link.
+  - **Escopo:** usuários comuns veem só as próprias amostras, com links para Meus
+    Uploads e sem a carga por analista.
+  - **Lista:**
+    - novos filtros `assignee=<id do analista>`, `submittedFrom` e `completedFrom`;
+    - o select "Responsável" lista os analistas;
+    - os filtros de período (e o de prazo em Meus Uploads) aparecem como etiquetas
+      removíveis na barra de filtros (`chips` do `HpsmFilterBar`).
 
 ### 41. Auditoria administrativa
 - **Proposta:** aba "Auditoria" na Administração, com quem fez o quê e quando:

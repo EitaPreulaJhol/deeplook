@@ -13,6 +13,7 @@ import type { IconComponent } from './icons';
 import {
   IconAdd,
   IconBell,
+  IconChart,
   IconFilter,
   IconFolder,
   IconHistory,
@@ -57,6 +58,7 @@ interface NavFolder {
 /* Itens soltos no topo da arvore, antes das pastas. */
 const ROOT_LEAVES: NavLeaf[] = [
   { to: '/inicio', label: 'Página Inicial', icon: IconHome },
+  { to: '/painel', label: 'Painel', icon: IconChart },
   { to: '/inbox', label: 'Caixa de entrada', icon: IconBell, count: 'unread' },
 ];
 

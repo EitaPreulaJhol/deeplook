@@ -5,6 +5,7 @@ import { startPath } from './auth/preferences';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
 import { EntryPrintPage } from './pages/EntryPrintPage';
 import { GlobalHistoryPage } from './pages/GlobalHistoryPage';
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/entries/:id" element={<EntryDetailPage />} />
         <Route path="/iocs/:kind/:value" element={<IocPage />} />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/painel" element={<DashboardPage />} />
         <Route
           path="/admin"
           element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/" replace />}

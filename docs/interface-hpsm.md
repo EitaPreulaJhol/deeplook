@@ -395,6 +395,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/me` | Meus Uploads | |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
+| `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
 | `/entries/:id/imprimir` | Ficha para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
@@ -427,6 +428,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
 | POST | `/api/entries/:id/duplicate` | `{ of }` marca como duplicata da principal (analistas); conclui com o veredito dela |
 | DELETE | `/api/entries/:id/duplicate` | desfaz e restaura status/veredito anteriores |
+| GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas) |
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
 | GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
 | POST/PATCH/DELETE | `/api/report-templates[/:id]` | admin: `{ name, summary, findings?, iocs?, verdict }`; nome repetido → 409 |
@@ -446,7 +448,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | PUT | `/api/me/favorites/order` | `{ ids }`: todos os ids do usuário na nova ordem |
 | DELETE | `/api/me/favorites/:id` | remove o favorito |
 
-`GET /api/entries` aceita também `assignee=me|none` e `sort=assignee`;
+`GET /api/entries` aceita também `assignee=me|none|<id>`, `submittedFrom`, `completedFrom` (ISO; links do Painel) e `sort=assignee`;
 `PATCH /api/entries/:id` aceita `assigneeId` (id do analista ou `null`).
 
 `POST /api/auth/login` e `POST /api/me/password` aceitam **5 tentativas a cada 5
@@ -508,6 +510,7 @@ banco nem da API rodando.
 | `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
+| `dashboard.mjs` | painel: indicadores e links, fuso enviado, gráfico (legenda, colunas, dica sem cobrir colunas, tabela), vereditos, carga e link por analista, etiqueta do período na lista, período na URL, escopo do usuário, preferência de página inicial |
 | `admin-status.mjs` | status do sistema: aba pelo navegador, rótulos e cores por situação, resumo/tempo/detalhes, linha com falha destacada, aviso geral e Atualizar |
 | `duplicates.mjs` | duplicatas: caixa com sugestões e foco, ID inválido (erro e foco), Esc, marcar (resumo, histórico, marca na grade, seção na principal), desfazer com confirmação, oculto para usuário comum |
 | `report-templates.mjs` | modelos: aba pelo navegador, validação, criar (Ctrl+S), editar, nome repetido da API no campo, excluir com confirmação; campo Modelo no Novo relatório (preenche, veredito, pergunta antes de sobrescrever) |
