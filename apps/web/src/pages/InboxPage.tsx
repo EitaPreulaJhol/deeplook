@@ -121,9 +121,12 @@ export function InboxPage() {
                   </TableCell>
                   <TableCell>
                     {notificationText(n)}
-                    {n.detail && (n.type === 'MENTION' || n.type === 'COMMENT') && (
-                      <div className="hpsm-inbox__detail">“{n.detail}”</div>
-                    )}
+                    {n.detail &&
+                      (n.type === 'MENTION' ||
+                        n.type === 'COMMENT' ||
+                        n.type === 'REPORT_RETURNED') && (
+                        <div className="hpsm-inbox__detail">“{n.detail}”</div>
+                      )}
                   </TableCell>
                   <TableCell>{n.entry.title}</TableCell>
                   <TableCell>{fmtDate(n.createdAt)}</TableCell>

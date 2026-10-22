@@ -23,7 +23,7 @@ function block(title: string, text?: string | null): string[] {
  * Rascunhos ficam de fora.
  */
 export function entryReportsMarkdown(entry: Entry, exportedBy: string): string {
-  const published = (entry.reports ?? []).filter((r) => r.published);
+  const published = (entry.reports ?? []).filter((r) => r.status === 'PUBLISHED');
   const lines = [
     `# ${entry.title}`,
     '',

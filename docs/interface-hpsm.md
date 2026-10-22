@@ -395,6 +395,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/me` | Meus Uploads | |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
+| `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
@@ -429,6 +430,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/:id/static-analysis` | reanalisa o arquivo (analistas); a análise do envio vem em `entry.staticInfo` |
 | POST | `/api/entries/:id/duplicate` | `{ of }` marca como duplicata da principal (analistas); conclui com o veredito dela |
 | DELETE | `/api/entries/:id/duplicate` | desfaz e restaura status/veredito anteriores |
+| POST | `/api/reports/:id/submit` · `/approve` · `/return` | revisão de relatório: enviar, aprovar (publica) e devolver `{ note }`; o autor não revisa o próprio |
+| GET | `/api/reports/review-queue` | relatórios em revisão de outros analistas |
 | GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas) |
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
 | GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
@@ -511,6 +514,7 @@ banco nem da API rodando.
 | `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
+| `report-review.mjs` | revisão de relatório: fila com contador, situações e ações, devolver com comentário, aviso de devolução, enviar, aprovar, "Ao salvar" com e sem revisão obrigatória, usuário comum só vê publicados, notificação |
 | `static-analysis.mjs` | análise estática: aviso de executável disfarçado, tipo real, entropia, PE (empacotador, funções suspeitas, seções, imports), strings por categoria, IOCs sugeridos (ficha e "Inserir" sem duplicar), "Analisar agora", ficha impressa |
 | `dashboard.mjs` | painel: indicadores e links, fuso enviado, gráfico (legenda, colunas, dica sem cobrir colunas, tabela), vereditos, carga e link por analista, etiqueta do período na lista, período na URL, escopo do usuário, preferência de página inicial |
 | `admin-status.mjs` | status do sistema: aba pelo navegador, rótulos e cores por situação, resumo/tempo/detalhes, linha com falha destacada, aviso geral e Atualizar |

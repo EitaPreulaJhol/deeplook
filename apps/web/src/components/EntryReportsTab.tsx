@@ -1,11 +1,12 @@
-import { Checkbox, Select, SelectItem, TextArea } from '@carbon/react';
+import { Select, SelectItem, TextArea } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { EntryIoc, Report, ReportTemplate, Verdict } from '../api/types';
-import { useConfirm } from './HpsmConfirm';
+import type { EntryIoc, Report, ReportStatus, ReportTemplate, Verdict } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
+import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
@@ -27,7 +28,15 @@ interface Props {
   onCreated: () => void;
   /** IOCs encontrados pela analise estatica (botao "Inserir IOCs sugeridos"). */
   suggestedIocs?: string[];
+  /** Servidor exige revisao (quatro olhos): nao ha "Publicar" direto. */
+  reviewRequired?: boolean;
 }
+
+const STATUS_TEXT: Record<ReportStatus, { tone: 'gray' | 'orange' | 'green'; label: string }> = {
+  DRAFT: { tone: 'gray', label: 'Rascunho' },
+  IN_REVIEW: { tone: 'orange', label: 'Em revisão' },
+  PUBLISHED: { tone: 'green', label: 'Publicado' },
+};
 
 /**
  * Aba "Relatorios": lista os relatorios da amostra e, para analistas/admin,
@@ -40,12 +49,54 @@ export function EntryReportsTab({
   canTriage,
   onCreated,
   suggestedIocs = [],
+  reviewRequired = false,
 }: Props) {
+  const { user } = useAuth();
+  const prompt = usePrompt();
   const [summary, setSummary] = useState('');
   const [findings, setFindings] = useState('');
   const [iocs, setIocs] = useState('');
   const [verdict, setVerdict] = useState<Verdict>('SUSPICIOUS');
-  const [published, setPublished] = useState(true);
+  // "Ao salvar": rascunho, enviar para revisao ou publicar (sem revisao obrigatoria).
+  const [saveAs, setSaveAs] = useState<ReportStatus>(reviewRequired ? 'IN_REVIEW' : 'PUBLISHED');
+  const [actionMsg, setActionMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Acoes da revisao num relatorio (enviar, publicar, aprovar, devolver).
+  const reportAction = async (
+    report: Report,
+    action: 'submit' | 'publish' | 'approve' | 'return',
+  ) => {
+    setActionMsg(null);
+    let note: string | null = null;
+    if (action === 'return') {
+      note = await prompt({
+        title: 'Devolver relatório',
+        message: `O relatório de ${report.analyst.displayName} volta a rascunho com o seu comentário.`,
+        label: 'Comentário',
+        maxLength: 2000,
+        confirmLabel: 'Devolver',
+      });
+      if (!note) return;
+    }
+    setBusyId(report.id);
+    try {
+      if (action === 'publish') await api.patch(`/reports/${report.id}`, { status: 'PUBLISHED' });
+      else await api.post(`/reports/${report.id}/${action}`, note ? { note } : {});
+      const done = {
+        submit: 'Relatório enviado para revisão.',
+        publish: 'Relatório publicado.',
+        approve: 'Relatório aprovado e publicado.',
+        return: 'Relatório devolvido ao autor.',
+      }[action];
+      setActionMsg({ ok: true, text: done });
+      onCreated();
+    } catch (err) {
+      setActionMsg({ ok: false, text: (err as Error).message });
+    } finally {
+      setBusyId(null);
+    }
+  };
   const [templateId, setTemplateId] = useState('');
   const confirm = useConfirm();
   const templatesQuery = useQuery({
@@ -106,7 +157,7 @@ export function EntryReportsTab({
         findings,
         iocs,
         verdict,
-        published,
+        status: saveAs,
       });
       setSummary('');
       setFindings('');
@@ -136,41 +187,100 @@ export function EntryReportsTab({
       {reports.length === 0 && (
         <HpsmMessage kind="info">Nenhum relatório publicado ainda.</HpsmMessage>
       )}
-      {reports.map((r) => (
-        <HpsmSection key={r.id} title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)}`}>
-          <HpsmForm columns={2}>
-            <HpsmField label="Veredito">
-              <HpsmReadonly>
-                <VerdictTag verdict={r.verdict} />
-              </HpsmReadonly>
-            </HpsmField>
-            <HpsmField label="Situação">
-              <HpsmReadonly>
-                {r.published ? (
-                  <StatusText tone="green">Publicado</StatusText>
-                ) : (
-                  <StatusText tone="gray">Rascunho</StatusText>
+      {actionMsg && (
+        <HpsmMessage key={actionMsg.text} kind={actionMsg.ok ? 'success' : 'error'}>
+          {actionMsg.text}
+        </HpsmMessage>
+      )}
+      {reports.map((r) => {
+        const mine = r.analystId === user?.id;
+        const canEdit = mine || user?.role === 'ADMIN';
+        const busy = busyId === r.id;
+        return (
+          <HpsmSection key={r.id} title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)}`}>
+            {canTriage && r.status !== 'PUBLISHED' && (
+              <HpsmToolbar label="Ações do relatório">
+                {r.status === 'DRAFT' && canEdit && (
+                  <>
+                    <HpsmToolbarButton
+                      label="Enviar para revisão"
+                      disabled={busy}
+                      onClick={() => void reportAction(r, 'submit')}
+                    />
+                    {!reviewRequired && (
+                      <HpsmToolbarButton
+                        label="Publicar"
+                        disabled={busy}
+                        onClick={() => void reportAction(r, 'publish')}
+                      />
+                    )}
+                  </>
                 )}
-              </HpsmReadonly>
-            </HpsmField>
-            <HpsmField label="Resumo" wide top>
-              <HpsmReadonly multiline>{r.summary}</HpsmReadonly>
-            </HpsmField>
-            {r.findings && (
-              <HpsmField label="Achados" wide top>
-                <HpsmReadonly multiline>{r.findings}</HpsmReadonly>
-              </HpsmField>
+                {r.status === 'IN_REVIEW' && !mine && (
+                  <>
+                    <HpsmToolbarButton
+                      label="Aprovar e publicar"
+                      disabled={busy}
+                      onClick={() => void reportAction(r, 'approve')}
+                    />
+                    <HpsmToolbarButton
+                      label="Devolver…"
+                      disabled={busy}
+                      onClick={() => void reportAction(r, 'return')}
+                    />
+                  </>
+                )}
+                {r.status === 'IN_REVIEW' && mine && (
+                  <span className="hpsm-toolbar__info">
+                    Aguardando a revisão de outro analista.
+                  </span>
+                )}
+              </HpsmToolbar>
             )}
-            {r.iocs && (
-              <HpsmField label="IOCs" wide top>
-                <HpsmReadonly multiline mono copyable={{ value: r.iocs, label: 'IOCs' }}>
-                  {r.iocs}
+            {r.status === 'DRAFT' && r.reviewNote && (
+              <div className="dl-review-note" role="note">
+                <strong>Devolvido por {r.reviewedBy?.displayName ?? 'um revisor'}</strong> em{' '}
+                {fmtDate(r.reviewedAt)}: {r.reviewNote}
+              </div>
+            )}
+            <HpsmForm columns={2}>
+              <HpsmField label="Veredito">
+                <HpsmReadonly>
+                  <VerdictTag verdict={r.verdict} />
                 </HpsmReadonly>
               </HpsmField>
-            )}
-          </HpsmForm>
-        </HpsmSection>
-      ))}
+              <HpsmField label="Situação">
+                <HpsmReadonly>
+                  <StatusText tone={STATUS_TEXT[r.status].tone}>
+                    {STATUS_TEXT[r.status].label}
+                  </StatusText>
+                  {r.status === 'PUBLISHED' && r.reviewedBy && (
+                    <span className="dl-review-by">
+                      {' '}
+                      · revisado por {r.reviewedBy.displayName} em {fmtDate(r.reviewedAt)}
+                    </span>
+                  )}
+                </HpsmReadonly>
+              </HpsmField>
+              <HpsmField label="Resumo" wide top>
+                <HpsmReadonly multiline>{r.summary}</HpsmReadonly>
+              </HpsmField>
+              {r.findings && (
+                <HpsmField label="Achados" wide top>
+                  <HpsmReadonly multiline>{r.findings}</HpsmReadonly>
+                </HpsmField>
+              )}
+              {r.iocs && (
+                <HpsmField label="IOCs" wide top>
+                  <HpsmReadonly multiline mono copyable={{ value: r.iocs, label: 'IOCs' }}>
+                    {r.iocs}
+                  </HpsmReadonly>
+                </HpsmField>
+              )}
+            </HpsmForm>
+          </HpsmSection>
+        );
+      })}
 
       {recognized.length > 0 && (
         <HpsmSection title={`Indicadores reconhecidos (${recognized.length})`} className="dl-mt-lg">
@@ -315,13 +425,26 @@ export function EntryReportsTab({
                 <SelectItem value="MALICIOUS" text="Malicioso" />
               </Select>
             </HpsmField>
-            <HpsmField label="Publicar">
-              <Checkbox
-                id="report-published"
-                labelText="Define o status e o veredito da amostra"
-                checked={published}
-                onChange={(_, { checked }) => setPublished(checked)}
-              />
+            <HpsmField
+              label="Ao salvar"
+              htmlFor="report-save-as"
+              help={
+                reviewRequired
+                  ? 'Este servidor exige revisão: outro analista aprova antes de publicar.'
+                  : 'Publicar define o status e o veredito da amostra.'
+              }
+            >
+              <Select
+                id="report-save-as"
+                labelText="Ao salvar"
+                hideLabel
+                value={saveAs}
+                onChange={(e) => setSaveAs(e.target.value as ReportStatus)}
+              >
+                {!reviewRequired && <SelectItem value="PUBLISHED" text="Publicar" />}
+                <SelectItem value="IN_REVIEW" text="Enviar para revisão" />
+                <SelectItem value="DRAFT" text="Salvar como rascunho" />
+              </Select>
             </HpsmField>
           </HpsmForm>
         </HpsmSection>

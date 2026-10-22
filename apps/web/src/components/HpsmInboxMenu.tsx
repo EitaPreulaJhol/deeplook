@@ -151,9 +151,12 @@ export function HpsmInboxMenu() {
               <span className="hpsm-inbox__text">
                 <span className="hpsm-inbox__title">{notificationText(n)}</span>
                 <span className="hpsm-inbox__entry">{n.entry.title}</span>
-                {n.detail && (n.type === 'MENTION' || n.type === 'COMMENT') && (
-                  <span className="hpsm-inbox__detail">“{n.detail}”</span>
-                )}
+                {n.detail &&
+                  (n.type === 'MENTION' ||
+                    n.type === 'COMMENT' ||
+                    n.type === 'REPORT_RETURNED') && (
+                    <span className="hpsm-inbox__detail">“{n.detail}”</span>
+                  )}
               </span>
               <span className="hpsm-inbox__date">{fmtDate(n.createdAt)}</span>
               {!n.readAt && <span className="cds--visually-hidden"> (não lida)</span>}

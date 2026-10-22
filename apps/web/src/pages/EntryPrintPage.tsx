@@ -72,7 +72,7 @@ export function EntryPrintPage() {
   } else if (!entry || !events) {
     body = <HpsmMessage kind="error">Amostra não encontrada.</HpsmMessage>;
   } else {
-    const published = (entry.reports ?? []).filter((r) => r.published);
+    const published = (entry.reports ?? []).filter((r) => r.status === 'PUBLISHED');
     body = (
       <>
         <section className="dl-print__section">

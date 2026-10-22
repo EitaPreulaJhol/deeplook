@@ -42,9 +42,9 @@ interface NavLeaf {
   tone?: StatusTone;
   /**
    * Contador ao lado do nome: um status, `mine` (atribuidas a mim e abertas),
-   * `late` (atrasadas) ou `unread` (caixa de entrada).
+   * `late` (atrasadas), `reviews` (relatorios para revisar) ou `unread` (caixa de entrada).
    */
-  count?: EntryStatus | 'mine' | 'late' | 'unread';
+  count?: EntryStatus | 'mine' | 'late' | 'reviews' | 'unread';
 }
 
 interface NavFolder {
@@ -76,6 +76,8 @@ const TREE: NavFolder[] = [
       { to: '/history?status=COMPLETED', label: 'Concluídas', tone: 'green', count: 'COMPLETED' },
       // Nao concluidas ha mais de SLA_LATE_HOURS no status atual.
       { to: '/history?age=late', label: 'Atrasadas', tone: 'red', count: 'late' },
+      // Relatorios de outros analistas aguardando aprovacao (quatro olhos).
+      { to: '/revisoes', label: 'Relatórios para revisar', icon: IconPage, count: 'reviews' },
     ],
   },
   {
@@ -149,16 +151,24 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const countsQuery = useQuery({
     queryKey: ['entries', 'counts'],
     queryFn: () =>
-      api.get<{ counts: Record<EntryStatus, number>; mine: number; late: number }>(
-        '/entries/counts',
-      ),
+      api.get<{
+        counts: Record<EntryStatus, number>;
+        mine: number;
+        late: number;
+        reviews: number;
+      }>('/entries/counts'),
     enabled: canTriage,
     refetchInterval: 60_000,
   });
   const unread = useNotificationCount();
   const counts = {
     ...(countsQuery.data
-      ? { ...countsQuery.data.counts, mine: countsQuery.data.mine, late: countsQuery.data.late }
+      ? {
+          ...countsQuery.data.counts,
+          mine: countsQuery.data.mine,
+          late: countsQuery.data.late,
+          reviews: countsQuery.data.reviews,
+        }
       : {}),
     unread,
   } as Partial<Record<NonNullable<NavLeaf['count']>, number>>;

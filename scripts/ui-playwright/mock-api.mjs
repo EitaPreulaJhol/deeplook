@@ -65,8 +65,8 @@ function pushEvent(entryId, type, fromValue, toValue) {
   list.push({ id: `${entryId}-ev${list.length}`, entryId, type, fromValue, toValue, createdAt: new Date().toISOString(), actor: actorOf(users[0]) });
 }
 
-const reports = [
-  { id: 'r1', entryId: 'e1', analystId: 'u2', analyst: { id: 'u2', displayName: 'Bruno Lima', role: 'ANALYST' }, summary: 'Executável empacotado com UPX; tenta persistir via chave Run.', findings: 'Cria HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\updater.\nContata domínio recém-registrado.', iocs: 'updater-cdn.example\n185.0.2.10', verdict: 'SUSPICIOUS', published: true, createdAt: now, updatedAt: now },
+export const reports = [
+  { id: 'r1', entryId: 'e1', analystId: 'u2', analyst: { id: 'u2', displayName: 'Bruno Lima', role: 'ANALYST' }, summary: 'Executável empacotado com UPX; tenta persistir via chave Run.', findings: 'Cria HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\updater.\nContata domínio recém-registrado.', iocs: 'updater-cdn.example\n185.0.2.10', verdict: 'SUSPICIOUS', status: 'PUBLISHED', createdAt: now, updatedAt: now },
 ];
 const keys = [
   { id: 'k1', code: 'DL-AB12-CD34-EF56', role: 'ANALYST', maxUses: 3, usesUsed: 1, expiresAt: '2026-11-19T00:00:00.000Z', revoked: false, createdAt: now },
@@ -131,6 +131,9 @@ export function createState({ loggedIn = false } = {}) {
     lastCommentBody: null,
     /** Modelos de relatorio (aba Modelos da Administracao / Novo relatorio). */
     templates: [],
+    /** Revisao obrigatoria (GET da ficha) e corpo do ultimo relatorio criado. */
+    reviewRequired: false,
+    lastReportBody: null,
     /** Resultado de POST /api/entries/:id/static-analysis (reanalise). */
     staticResult: null,
     /** Resposta de GET /api/dashboard e a ultima query recebida. */
@@ -384,7 +387,8 @@ export async function setupMock(context, state) {
         for (const e of entries) counts[e.status] += 1;
         const mine = entries.filter((e) => e.assignee?.id === 'u1' && e.status !== 'COMPLETED').length;
         const late = entries.filter((e) => olderThan(e, SLA.lateHours)).length;
-        return json(route, 200, { counts, mine, late });
+        const reviews = reports.filter((r) => r.status === 'IN_REVIEW' && r.analystId !== 'u1').length;
+        return json(route, 200, { counts, mine, late, reviews });
       }
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
       if (m) {
@@ -494,7 +498,26 @@ export async function setupMock(context, state) {
 
       // Novo relatorio (aba Relatorios): so confirma o salvamento.
       if (/^\/api\/entries\/[\w-]+\/reports$/.test(p) && req.method() === 'POST') {
+        state.lastReportBody = body;
         return json(route, 201, { report: { id: `r-${Date.now()}`, ...body } });
+      }
+      // Revisao de relatorio (quatro olhos).
+      if (p === '/api/reports/review-queue') {
+        const items = reports
+          .filter((r) => r.status === 'IN_REVIEW' && r.analystId !== 'u1')
+          .map((r) => ({ ...r, entry: { id: r.entryId, title: entries.find((e) => e.id === r.entryId).title, type: entries.find((e) => e.id === r.entryId).type } }));
+        return json(route, 200, { reports: items });
+      }
+      const rv = p.match(/^\/api\/reports\/([\w-]+)(?:\/(submit|approve|return))?$/);
+      if (rv && req.method() !== 'GET') {
+        const r = reports.find((x) => x.id === rv[1]);
+        const me = { id: 'u1', displayName: 'Ana Souza' };
+        if (rv[2] === 'submit') Object.assign(r, { status: 'IN_REVIEW', submittedAt: new Date().toISOString(), reviewNote: null });
+        if (rv[2] === 'approve') Object.assign(r, { status: 'PUBLISHED', reviewedBy: me, reviewedAt: new Date().toISOString() });
+        if (rv[2] === 'return') Object.assign(r, { status: 'DRAFT', reviewedBy: me, reviewedAt: new Date().toISOString(), reviewNote: body.note });
+        if (!rv[2] && body.status) r.status = body.status;
+        state.calls.push(`REPORT ${rv[2] ?? 'patch'} ${r.id}`);
+        return json(route, 200, { report: r });
       }
       const cm = p.match(/^\/api\/entries\/([\w-]+)\/comments$/);
       if (cm && req.method() === 'POST') {
@@ -524,7 +547,11 @@ export async function setupMock(context, state) {
       if (m) {
         const e = entries.find((x) => x.id === m[1]);
         return e
-          ? json(route, 200, { entry: { ...e, reports: e.id === 'e1' ? reports : [] }, sla: SLA })
+          ? json(route, 200, {
+              entry: { ...e, reports: reports.filter((r) => r.entryId === e.id && (state.role !== 'USER' || r.status === 'PUBLISHED')) },
+              sla: SLA,
+              reviewRequired: state.reviewRequired,
+            })
           : json(route, 404, { error: 'Nao encontrado.' });
       }
       if (p === '/api/analysts') {

@@ -57,7 +57,8 @@ export function EntryDetailPage() {
 
   const query = useQuery({
     queryKey: ['entry', id],
-    queryFn: () => api.get<{ entry: Entry; sla?: SlaConfig }>(`/entries/${id}`),
+    queryFn: () =>
+      api.get<{ entry: Entry; sla?: SlaConfig; reviewRequired?: boolean }>(`/entries/${id}`),
   });
 
   // Mesmo queryKey do SandboxPanel: o React Query compartilha o cache (sem
@@ -324,7 +325,7 @@ export function EntryDetailPage() {
             {
               label: 'Exportar relatórios (Markdown)',
               icon: IconDownload,
-              disabled: !reports.some((r) => r.published),
+              disabled: !reports.some((r) => r.status === 'PUBLISHED'),
               action: () =>
                 downloadText(
                   `deeplook-${entry.id}-relatorios.md`,
@@ -586,6 +587,7 @@ export function EntryDetailPage() {
             reports={reports}
             canTriage={canTriage}
             onCreated={reload}
+            reviewRequired={query.data?.reviewRequired ?? false}
             suggestedIocs={entry.staticInfo?.iocCandidates.map((i) => i.value) ?? []}
           />
         </div>

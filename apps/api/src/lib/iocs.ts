@@ -128,10 +128,10 @@ export function extractIocs(text: string | null | undefined): Ioc[] {
 export async function syncReportIocs(db: Db, reportId: string): Promise<void> {
   const report = await db.report.findUnique({
     where: { id: reportId },
-    select: { id: true, entryId: true, published: true, iocs: true },
+    select: { id: true, entryId: true, status: true, iocs: true },
   });
   await db.reportIoc.deleteMany({ where: { reportId } });
-  if (!report?.published) return;
+  if (report?.status !== 'PUBLISHED') return;
   const iocs = extractIocs(report.iocs);
   if (iocs.length === 0) return;
   await db.reportIoc.createMany({
@@ -146,7 +146,7 @@ export async function syncReportIocs(db: Db, reportId: string): Promise<void> {
  */
 export async function backfillReportIocs(): Promise<number> {
   const pending = await prisma.report.findMany({
-    where: { published: true, iocs: { not: null }, extractedIocs: { none: {} } },
+    where: { status: 'PUBLISHED', iocs: { not: null }, extractedIocs: { none: {} } },
     select: { id: true },
   });
   for (const report of pending) await syncReportIocs(prisma, report.id);

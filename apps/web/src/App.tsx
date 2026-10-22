@@ -15,6 +15,7 @@ import { IocPage } from './pages/IocPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyUploadsPage } from './pages/MyUploadsPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ReviewQueuePage } from './pages/ReviewQueuePage';
 import { SandboxConsoleWindowPage } from './pages/SandboxConsoleWindowPage';
 import { SubmitPage } from './pages/SubmitPage';
 import { UserPage } from './pages/UserPage';
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/iocs/:kind/:value" element={<IocPage />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/painel" element={<DashboardPage />} />
+        <Route path="/revisoes" element={<ReviewQueuePage />} />
         <Route
           path="/admin"
           element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/" replace />}

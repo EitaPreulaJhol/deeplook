@@ -2678,6 +2678,20 @@ body:has(.dl-print) {
   font-size: var(--dl-font-size);
 }
 
+/* --- 12p. Revisao de relatorio ---------------------------------------- */
+/* Comentario de quem devolveu: caixa de aviso dentro da secao do relatorio. */
+.dl-review-note {
+  margin: 0.5rem 0.75rem 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--dl-warning-border);
+  background: var(--dl-warning-bg);
+  color: var(--dl-text);
+}
+
+.dl-review-by {
+  color: var(--dl-text-muted);
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;

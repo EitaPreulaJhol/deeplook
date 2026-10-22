@@ -134,6 +134,7 @@ COOKIE_SECURE=true
 | `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
 | `SLA_WARN_HOURS` | Amostra não concluída há mais de N horas no status atual ganha bolinha laranja (alerta) | `24` |
 | `SLA_LATE_HOURS` | Acima de N horas fica vermelha e entra na fila "Atrasadas" | `72` |
+| `REPORT_REVIEW_REQUIRED` | `true`: relatório só é publicado com a aprovação de outro analista (quatro olhos) | `false` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot | — |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |

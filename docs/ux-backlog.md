@@ -613,7 +613,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ✅ |
 | 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ✅ |
 | 38 | Modelos de relatório | Templates | 🟡 | P | ✅ |
-| 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ⬜ |
+| 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ✅ |
 | 40 | Painel do analista | Dashboards | 🟡 | M | ✅ |
 | 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ⬜ |
 | 42 | Status do sistema | System Status | ⚪ | P | ✅ |
@@ -864,6 +864,37 @@ precisam de uma decisão de segurança.
 - **Onde mexer:** `Report.status` (DRAFT, IN_REVIEW, PUBLISHED) no lugar do booleano,
   com migração; eventos no histórico; fila "Relatórios para revisar".
 - **Cuidados:** o autor não revisa o próprio relatório.
+- ✅ **Implementado:** `Report.status` (DRAFT, IN_REVIEW, PUBLISHED) no lugar do booleano
+  `published`, com `submittedAt`, `reviewedBy`, `reviewedAt` e `reviewNote` (migração
+  `20261103000000_report_review`, que converte os publicados existentes).
+  - **Configuração:** `REPORT_REVIEW_REQUIRED` (padrão `false`). Com `true`, ninguém
+    publica direto: só a aprovação de outro analista publica, e relatório publicado não
+    é editado.
+  - **API:**
+    - `POST /api/entries/:id/reports` aceita `status`;
+    - `POST /api/reports/:id/submit`;
+    - `POST /api/reports/:id/approve` (publica e conclui a amostra);
+    - `POST /api/reports/:id/return { note }` (volta a rascunho com o comentário);
+    - `GET /api/reports/review-queue`;
+    - `reviews` em `/api/entries/counts`.
+  - **Regras:**
+    - o autor não aprova nem devolve o próprio relatório (403);
+    - em revisão o relatório fica travado para edição (409);
+    - a publicação, direta ou por aprovação, passa por uma única função (conclui a
+      amostra, registra no histórico e indexa os IOCs).
+  - **Visibilidade:** usuários comuns veem só relatórios publicados, na ficha e na API.
+    Antes os rascunhos apareciam para todos.
+  - **Histórico:** eventos `REPORT_SUBMITTED`, `REPORT_APPROVED` e `REPORT_RETURNED`.
+  - **Notificações** `REPORT_APPROVED` e `REPORT_RETURNED` ao autor, com o comentário,
+    abrindo a aba Relatórios.
+  - **Telas:**
+    - fila **Relatórios para revisar (N)** no navegador, em Filas
+      (`pages/ReviewQueuePage.tsx`);
+    - em cada relatório: situação (Rascunho, Em revisão, Publicado · revisado por…),
+      ações (Enviar para revisão, Publicar, Aprovar e publicar, Devolver… com
+      comentário) e o aviso "Devolvido por…" para o autor;
+    - no Novo relatório, o campo **Ao salvar** (Publicar, Enviar para revisão, Salvar
+      como rascunho) substitui a caixa "Publicar".
 
 ### 40. Painel do analista
 - **Proposta:** página "Painel" no navegador com indicadores no estilo HPSM:

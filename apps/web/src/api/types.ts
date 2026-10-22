@@ -118,7 +118,7 @@ export interface ReportTemplate {
 /** Notificacao da caixa de entrada (GET /api/me/notifications). */
 export interface AppNotification {
   id: string;
-  type: 'ASSIGNED' | 'COMPLETED' | 'MENTION' | 'COMMENT';
+  type: 'ASSIGNED' | 'COMPLETED' | 'MENTION' | 'COMMENT' | 'REPORT_APPROVED' | 'REPORT_RETURNED';
   /** Veredito (COMPLETED) ou trecho da atualizacao (MENTION/COMMENT). */
   detail: string | null;
   readAt: string | null;
@@ -192,6 +192,9 @@ export interface EntryOwner {
   email: string;
 }
 
+/** Rascunho -> (Em revisao ->) Publicado. */
+export type ReportStatus = 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED';
+
 export interface Report {
   id: string;
   entryId: string;
@@ -201,7 +204,13 @@ export interface Report {
   findings?: string | null;
   iocs?: string | null;
   verdict: Verdict;
-  published: boolean;
+  status: ReportStatus;
+  /** Revisao (quatro olhos). */
+  submittedAt?: string | null;
+  reviewedBy?: { id: string; displayName: string } | null;
+  reviewedAt?: string | null;
+  /** Comentario de quem devolveu o relatorio. */
+  reviewNote?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -320,7 +329,10 @@ export type EntryEventType =
   | 'SANDBOX_FAILED'
   | 'COMMENT'
   | 'MARKED_DUPLICATE'
-  | 'UNMARKED_DUPLICATE';
+  | 'UNMARKED_DUPLICATE'
+  | 'REPORT_SUBMITTED'
+  | 'REPORT_APPROVED'
+  | 'REPORT_RETURNED';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {

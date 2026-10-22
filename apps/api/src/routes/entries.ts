@@ -18,6 +18,7 @@ import { s3 } from '../lib/s3';
 import { slaConfig, slaCutoff } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
+import { reviewRequired } from './reports';
 
 /**
  * Texto da atualizacao: texto puro (o front exibe escapado), quebras de linha
@@ -370,7 +371,7 @@ export async function entryRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
 
-    const [groups, mine, late] = await Promise.all([
+    const [groups, mine, late, reviews] = await Promise.all([
       prisma.entry.groupBy({ by: ['status'], _count: { _all: true } }),
       // Fila "Atribuidas a mim": so as que ainda nao foram concluidas.
       prisma.entry.count({ where: { assigneeId: user.id, status: { not: 'COMPLETED' } } }),
@@ -378,10 +379,12 @@ export async function entryRoutes(app: FastifyInstance) {
       prisma.entry.count({
         where: { status: { not: 'COMPLETED' }, statusChangedAt: { lt: slaCutoff('late') } },
       }),
+      // Fila "Relatorios para revisar": em revisao, de outros analistas.
+      prisma.report.count({ where: { status: 'IN_REVIEW', analystId: { not: user.id } } }),
     ]);
     const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
     for (const g of groups) counts[g.status] = g._count._all;
-    return reply.send({ counts, mine, late });
+    return reply.send({ counts, mine, late, reviews });
   });
 
   // Analistas que podem ser responsaveis por uma amostra (select da triagem).
@@ -641,14 +644,19 @@ export async function entryRoutes(app: FastifyInstance) {
           take: 50,
         },
         _count: { select: { duplicates: true } },
+        // Rascunhos e relatorios em revisao so para analistas.
         reports: {
+          where: isAnalyst(user) ? {} : { status: 'PUBLISHED' },
           orderBy: { createdAt: 'desc' },
-          include: { analyst: { select: { id: true, displayName: true, role: true } } },
+          include: {
+            analyst: { select: { id: true, displayName: true, role: true } },
+            reviewedBy: { select: { id: true, displayName: true } },
+          },
         },
       },
     });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
-    return reply.send({ entry, sla: slaConfig() });
+    return reply.send({ entry, sla: slaConfig(), reviewRequired: reviewRequired() });
   });
 
   // Edicao (dono edita titulo/descricao; analista define status/veredito)

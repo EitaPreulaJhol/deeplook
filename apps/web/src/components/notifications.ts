@@ -58,11 +58,20 @@ export function notificationText(n: AppNotification): string {
       return `${who} mencionou você numa atualização`;
     case 'COMMENT':
       return `${who} escreveu uma atualização`;
+    case 'REPORT_APPROVED':
+      return `${who} aprovou o seu relatório (publicado)`;
+    case 'REPORT_RETURNED':
+      return `${who} devolveu o seu relatório para ajustes`;
   }
 }
 
 /** Para onde a notificacao leva (atualizacoes abrem a aba Historico). */
 export function notificationHref(n: AppNotification): string {
-  const tab = n.type === 'MENTION' || n.type === 'COMMENT' ? '?tab=historico' : '';
+  const tab =
+    n.type === 'MENTION' || n.type === 'COMMENT'
+      ? '?tab=historico'
+      : n.type === 'REPORT_APPROVED' || n.type === 'REPORT_RETURNED'
+        ? '?tab=relatorios'
+        : '';
   return `/entries/${n.entry.id}${tab}`;
 }

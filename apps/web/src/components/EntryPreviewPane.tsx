@@ -23,7 +23,7 @@ export function EntryPreviewPane({ entryId, onOpen }: { entryId: string; onOpen:
     queryFn: () => api.get<{ entry: Entry }>(`/entries/${entryId}`),
   });
   const entry = query.data?.entry;
-  const lastReport = entry?.reports?.find((r) => r.published);
+  const lastReport = entry?.reports?.find((r) => r.status === 'PUBLISHED');
 
   return (
     <HpsmSection

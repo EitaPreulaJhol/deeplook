@@ -69,7 +69,7 @@ model User {
   /// Amostras sob responsabilidade deste analista (atribuicao).
   assignedEntries Entry[]          @relation("EntryAssignee")
   entryEvents     EntryEvent[]
-  reports         Report[]
+  reports         Report[]         @relation("ReportAuthor")
   sandboxSessions SandboxSession[]
   createdKeys     ActivationKey[]  @relation("KeyCreator")
   usedKeys        ActivationKey[]  @relation("KeyUser")
@@ -78,6 +78,7 @@ model User {
   notifications   Notification[]   @relation("NotificationRecipient")
   notified        Notification[]   @relation("NotificationActor")
   reportTemplates ReportTemplate[]
+  reviewedReports Report[]         @relation("ReportReviewer")
 }
 
 model Session {
@@ -169,23 +170,37 @@ model Tag {
 }
 
 model Report {
-  id        String   @id @default(cuid())
-  entryId   String
-  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  analystId String
-  analyst   User     @relation(fields: [analystId], references: [id])
-  summary   String
-  findings  String?
-  iocs      String?
-  verdict   Verdict  @default(UNKNOWN)
-  published Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String       @id @default(cuid())
+  entryId      String
+  entry        Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  analystId    String
+  analyst      User         @relation("ReportAuthor", fields: [analystId], references: [id])
+  summary      String
+  findings     String?
+  iocs         String?
+  verdict      Verdict      @default(UNKNOWN)
+  /// Rascunho -> (Em revisao ->) Publicado. Ver REPORT_REVIEW_REQUIRED.
+  status       ReportStatus @default(DRAFT)
+  /// Revisao (quatro olhos): quem aprovou/devolveu, quando e o comentario da devolucao.
+  submittedAt  DateTime?
+  reviewedById String?
+  reviewedBy   User?        @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNote   String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   /// Indicadores extraidos do campo `iocs` (so de relatorios publicados).
   extractedIocs ReportIoc[]
 
   @@index([entryId])
+  @@index([status])
+}
+
+enum ReportStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
 }
 
 /// VM isolada (clone do template no Proxmox) usada para analisar uma amostra.
@@ -228,6 +243,10 @@ enum EntryEventType {
   ASSIGNED
   REPORT_CREATED
   REPORT_PUBLISHED
+  /// Relatorio enviado para revisao / aprovado / devolvido (detail = comentario).
+  REPORT_SUBMITTED
+  REPORT_APPROVED
+  REPORT_RETURNED
   SANDBOX_OPENED
   SANDBOX_CLOSED
   SANDBOX_FAILED
@@ -317,6 +336,9 @@ enum NotificationType {
   MENTION
   /// Atualizacao numa amostra do destinatario ou sob sua responsabilidade.
   COMMENT
+  /// Relatorio do destinatario aprovado na revisao / devolvido (detail = comentario).
+  REPORT_APPROVED
+  REPORT_RETURNED
 }
 
 /// Caixa de entrada (sininho do masthead): criadas junto com os eventos do

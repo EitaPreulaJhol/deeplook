@@ -48,6 +48,12 @@ export function describeEvent(event: EntryEvent): string {
       return `Veredito: ${verdictLabel(from as Verdict)} → ${verdictLabel(to as Verdict)}${
         event.detail === 'principal' ? ' (acompanhando a amostra principal)' : ''
       }`;
+    case 'REPORT_SUBMITTED':
+      return 'Relatório enviado para revisão';
+    case 'REPORT_APPROVED':
+      return 'Relatório aprovado na revisão';
+    case 'REPORT_RETURNED':
+      return `Relatório devolvido para ajustes${event.detail ? `: ${event.detail}` : ''}`;
     case 'MARKED_DUPLICATE':
       return `Marcada como duplicata de "${to ?? 'outra amostra'}"`;
     case 'UNMARKED_DUPLICATE':
