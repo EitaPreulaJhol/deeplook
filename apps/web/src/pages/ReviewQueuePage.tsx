@@ -73,7 +73,7 @@ export function ReviewQueuePage() {
       </HpsmToolbar>
       <PageHeader
         title="Relatórios para revisar"
-        subtitle="Relatórios de outros analistas aguardando aprovação (quatro olhos)."
+        subtitle="Relatórios de outros analistas aguardando aprovação."
       />
       {query.isLoading && <HpsmLoading text="Carregando a fila..." />}
       {query.isError && (

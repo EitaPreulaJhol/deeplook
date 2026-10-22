@@ -76,7 +76,7 @@ const TREE: NavFolder[] = [
       { to: '/history?status=COMPLETED', label: 'Concluídas', tone: 'green', count: 'COMPLETED' },
       // Nao concluidas ha mais de SLA_LATE_HOURS no status atual.
       { to: '/history?age=late', label: 'Atrasadas', tone: 'red', count: 'late' },
-      // Relatorios de outros analistas aguardando aprovacao (quatro olhos).
+      // Relatorios de outros analistas aguardando aprovacao.
       { to: '/revisoes', label: 'Relatórios para revisar', icon: IconPage, count: 'reviews' },
     ],
   },

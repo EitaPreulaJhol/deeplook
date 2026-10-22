@@ -103,19 +103,19 @@ export function WelcomePage() {
               <Link className="dl-link" to="/submit">
                 Enviar Amostra
               </Link>{' '}
-              — envie um arquivo ou link suspeito para que os analistas investiguem.
+              - envie um arquivo ou link suspeito para este seja analisado.
             </li>
             <li>
               <Link className="dl-link" to="/me">
                 Meus Uploads
               </Link>{' '}
-              — acompanhe o status e o veredito das amostras que você enviou.
+              - acompanhe o status e o veredito das amostras que você enviou.
             </li>
             <li>
               <Link className="dl-link" to="/history">
                 Histórico Global
               </Link>{' '}
-              — consulte todas as amostras da comunidade e os relatórios publicados.
+              - consulte todas as amostras da comunidade e os relatórios publicados.
             </li>
             {canTriage && (
               <li>
