@@ -103,6 +103,8 @@ export function createState({ loggedIn = false } = {}) {
     sessionExpiresAt: null,
     /** Relogio da sessao (o roteiro troca pelo relogio falso do navegador). */
     now: async () => Date.now(),
+    /** Pasta Favoritos do navegador (visoes salvas e amostras fixadas), em ordem. */
+    favorites: [],
   };
 }
 
@@ -158,6 +160,57 @@ export async function setupMock(context, state) {
         return json(route, 200, { ok: true });
       }
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
+
+      // Favoritos (mesmas regras da API: limite de 30, sem repetir visao/amostra).
+      if (p === '/api/me/favorites' && req.method() === 'GET') {
+        return json(route, 200, { favorites: state.favorites });
+      }
+      if (p === '/api/me/favorites' && req.method() === 'POST') {
+        if (state.favorites.length >= 30) {
+          return json(route, 409, { error: 'Limite de 30 favoritos atingido. Remova algum para adicionar outro.' });
+        }
+        const label = String(body.label ?? '').trim();
+        let favorite;
+        if (body.kind === 'VIEW') {
+          if (!label || !/^\/(?![/\\])[^\s\\]*$/.test(body.url ?? '')) return json(route, 400, { error: 'Favorito invalido.' });
+          const same = state.favorites.find((f) => f.url === body.url);
+          if (same) return json(route, 409, { error: `Esta visão já está nos Favoritos como "${same.label}".` });
+          favorite = { kind: 'VIEW', label, url: body.url, entryId: null, entry: null };
+        } else {
+          const entry = entries.find((e) => e.id === body.entryId);
+          if (!entry) return json(route, 404, { error: 'Amostra nao encontrada.' });
+          if (state.favorites.some((f) => f.entryId === entry.id)) return json(route, 409, { error: 'Esta amostra já está nos Favoritos.' });
+          favorite = {
+            kind: 'ENTRY',
+            label: label || entry.title,
+            url: null,
+            entryId: entry.id,
+            entry: { id: entry.id, title: entry.title, status: entry.status, verdict: entry.verdict },
+          };
+        }
+        favorite = { id: `fav-${Date.now()}-${state.favorites.length}`, position: state.favorites.length, createdAt: new Date().toISOString(), ...favorite };
+        state.favorites.push(favorite);
+        return json(route, 201, { favorite });
+      }
+      if (p === '/api/me/favorites/order' && req.method() === 'PUT') {
+        const ids = body.ids ?? [];
+        if (ids.length !== state.favorites.length || !state.favorites.every((f) => ids.includes(f.id))) {
+          return json(route, 400, { error: 'Ordem invalida.' });
+        }
+        state.favorites = ids.map((id, position) => ({ ...state.favorites.find((f) => f.id === id), position }));
+        return json(route, 200, { ok: true });
+      }
+      const fav = p.match(/^\/api\/me\/favorites\/([\w-]+)$/);
+      if (fav) {
+        const favorite = state.favorites.find((f) => f.id === fav[1]);
+        if (!favorite) return json(route, 404, { error: 'Favorito nao encontrado.' });
+        if (req.method() === 'DELETE') {
+          state.favorites = state.favorites.filter((f) => f !== favorite);
+          return json(route, 200, { ok: true });
+        }
+        favorite.label = String(body.label ?? '').trim();
+        return json(route, 200, { favorite });
+      }
 
       if (p === '/api/me/preferences' && req.method() === 'PATCH') {
         state.preferences = { ...state.preferences, ...body };

@@ -291,7 +291,7 @@ HP Service Manager 9 (indicados em cada item).
 |---|---|---|---|---|---|
 | 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ✅ |
 | 20 | Atualização em massa | Mass Update | 🟡 | M | ✅ |
-| 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ⬜ |
+| 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ✅ |
 | 22 | Registros relacionados | aba Related Records | 🟡 | M | ⬜ |
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
@@ -356,6 +356,22 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   `HpsmSidebar.tsx` (pasta dinâmica); `HpsmFilterBar.tsx` e `EntryDetailPage.tsx`.
 - **Cuidados:** aceitar só URLs relativas do próprio app; limite de favoritos por
   usuário (ex.: 30).
+- ✅ **Implementado:** modelo `Favorite` (migração `20261025000000_favorites`) e rotas
+  em `routes/favorites.ts`: `GET/POST /api/me/favorites`, `PATCH`/`DELETE
+  /api/me/favorites/:id` e `PUT /api/me/favorites/order`. A API aceita só caminhos do
+  próprio app (`/…`, sem host, `//` ou `\`), até 30 favoritos, e recusa visão ou
+  amostra repetida (409, citando o nome já salvo). Amostra apagada some dos favoritos
+  (cascade).
+  - **Salvar visão** na barra de filtros (Histórico Global e Meus Uploads) pede o nome
+    numa caixa HPSM (`usePrompt`), já sugerido pelos filtros ("Pendente · Suspeito"),
+    e guarda busca, filtros e ordenação, sem a página.
+  - **Fixar / Desafixar** na toolbar da ficha (ícone de estrela; fica "afundado"
+    quando fixada).
+  - Pasta **Favoritos** no navegador, logo abaixo da Página Inicial: visão salva com
+    ícone de funil, amostra com ícone de página; o favorito da tela atual fica
+    destacado. Clique direito ou Shift+F10 abrem o menu de contexto (Abrir,
+    Renomear, Mover para cima/baixo, Remover); F2 renomeia, Delete remove (com
+    confirmação) e o "×" aparece ao passar o mouse.
 
 ### 22. Registros relacionados
 - **Problema:** campanhas reaparecem com amostras parecidas, e hoje não há como ver a

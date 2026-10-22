@@ -1,13 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
-import type { MouseEvent } from 'react';
-import { useState } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { EntryStatus } from '../api/types';
+import type { EntryStatus, Favorite } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { favoriteHref, useFavorites } from './favorites';
+import { useConfirm, usePrompt } from './HpsmConfirm';
+import { HpsmContextMenu } from './HpsmContextMenu';
 import type { IconComponent } from './icons';
-import { IconAdd, IconFolder, IconHistory, IconHome, IconKey, IconPage } from './icons';
+import {
+  IconAdd,
+  IconFilter,
+  IconFolder,
+  IconHistory,
+  IconHome,
+  IconKey,
+  IconPage,
+  IconTrash,
+} from './icons';
+import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 
 interface SidebarProps {
@@ -90,11 +103,29 @@ function activeLeaf(leaves: NavLeaf[], pathname: string, search: string): string
   return best?.to ?? null;
 }
 
+/** Favorito como folha da arvore (visao salva = funil; amostra fixada = pagina). */
+function favoriteLeaf(favorite: Favorite): NavLeaf {
+  return {
+    to: favoriteHref(favorite),
+    label: favorite.label,
+    icon: favorite.kind === 'VIEW' ? IconFilter : IconPage,
+  };
+}
+
 export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const [closedFolders, setClosedFolders] = useState<Set<string>>(() => new Set());
+  const favs = useFavorites();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
+  const [menu, setMenu] = useState<{ favorite: Favorite; x: number; y: number } | null>(null);
+  const [favError, setFavError] = useState<string | null>(null);
+  const favRefs = useRef(new Map<string, HTMLAnchorElement>());
+
+  // O erro de uma acao nos Favoritos some ao trocar de tela.
+  useEffect(() => setFavError(null), [pathname, search]);
 
   const isAdmin = user?.role === 'ADMIN';
   const canTriage = isAdmin || user?.role === 'ANALYST';
@@ -114,8 +145,9 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const folders = TREE.filter(
     (folder) => !folder.access || (folder.access === 'admin' ? isAdmin : canTriage),
   );
+  const favoriteLeaves = favs.favorites.map(favoriteLeaf);
   const active = activeLeaf(
-    [...ROOT_LEAVES, ...folders.flatMap((folder) => folder.children)],
+    [...ROOT_LEAVES, ...favoriteLeaves, ...folders.flatMap((folder) => folder.children)],
     pathname,
     search,
   );
@@ -135,8 +167,60 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     });
   };
 
+  /** Executa uma acao dos Favoritos; erro da API vai para a barra de mensagens. */
+  const runFav = async (action: () => Promise<unknown>) => {
+    setFavError(null);
+    try {
+      await action();
+    } catch (err) {
+      setFavError((err as Error).message);
+    }
+  };
+
+  const renameFavorite = async (favorite: Favorite) => {
+    const label = await prompt({
+      title: 'Renomear favorito',
+      label: 'Nome',
+      defaultValue: favorite.label,
+      confirmLabel: 'Renomear',
+    });
+    if (label && label !== favorite.label) await runFav(() => favs.rename(favorite.id, label));
+  };
+
+  const removeFavorite = async (favorite: Favorite) => {
+    const ok = await confirm({
+      title: 'Remover favorito',
+      message: `Remover "${favorite.label}" dos Favoritos?`,
+    });
+    if (ok) await runFav(() => favs.remove(favorite.id));
+  };
+
+  const closeMenu = useCallback(
+    (restoreFocus: boolean) => {
+      if (restoreFocus && menu) favRefs.current.get(menu.favorite.id)?.focus();
+      setMenu(null);
+    },
+    [menu],
+  );
+
+  // Teclado no favorito: Shift+F10 / tecla Menu abrem o menu de contexto,
+  // F2 renomeia e Delete remove (como no navegador do HPSM).
+  const onFavoriteKeyDown = (favorite: Favorite) => (event: KeyboardEvent<HTMLAnchorElement>) => {
+    if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      setMenu({ favorite, x: rect.left + 16, y: rect.bottom });
+    } else if (event.key === 'F2') {
+      event.preventDefault();
+      void renameFavorite(favorite);
+    } else if (event.key === 'Delete') {
+      event.preventDefault();
+      void removeFavorite(favorite);
+    }
+  };
+
   // Folha da arvore; na raiz ganha um espaco no lugar do +/- das pastas.
-  const renderLeaf = (leaf: NavLeaf, root = false) => {
+  const renderLeaf = (leaf: NavLeaf, root = false, favorite?: Favorite) => {
     const isActive = leaf.to === active;
     const count = leaf.count && counts ? counts[leaf.count] : undefined;
     return (
@@ -145,6 +229,19 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
         className={`hpsm-tree__row hpsm-tree__leaf${isActive ? ' is-active' : ''}`}
         aria-current={isActive ? 'page' : undefined}
         onClick={go(leaf.to)}
+        {...(favorite && {
+          ref: (el: HTMLAnchorElement | null) => {
+            if (el) favRefs.current.set(favorite.id, el);
+            else favRefs.current.delete(favorite.id);
+          },
+          title: `${leaf.label} (clique direito: renomear, mover, remover)`,
+          'aria-keyshortcuts': 'Shift+F10 F2 Delete',
+          onContextMenu: (event: MouseEvent) => {
+            event.preventDefault();
+            setMenu({ favorite, x: event.clientX, y: event.clientY });
+          },
+          onKeyDown: onFavoriteKeyDown(favorite),
+        })}
       >
         {root && <span className="hpsm-tree__spacer" aria-hidden="true" />}
         {leaf.icon ? (
@@ -160,6 +257,33 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     );
   };
 
+  // Pasta da arvore (+/- recolhe e expande).
+  const renderFolder = (id: string, label: string, children: ReactNode) => {
+    const expanded = !closedFolders.has(id);
+    const childrenId = `hpsm-tree-${id}`;
+    return (
+      <li key={id}>
+        <button
+          type="button"
+          className="hpsm-tree__row hpsm-tree__folder"
+          aria-expanded={expanded}
+          aria-controls={childrenId}
+          onClick={() => toggleFolder(id)}
+        >
+          <span className="hpsm-tree__toggle" aria-hidden="true">
+            {expanded ? '−' : '+'}
+          </span>
+          <IconFolder size={16} />
+          <span className="hpsm-tree__label">{label}</span>
+        </button>
+        <ul id={childrenId} className="hpsm-tree__children" hidden={!expanded}>
+          {children}
+        </ul>
+      </li>
+    );
+  };
+
+  const menuIndex = menu ? favs.favorites.findIndex((f) => f.id === menu.favorite.id) : -1;
   const classes = ['hpsm-sidebar', open && 'is-open'].filter(Boolean).join(' ');
 
   return (
@@ -173,34 +297,72 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           {ROOT_LEAVES.map((leaf) => (
             <li key={leaf.to}>{renderLeaf(leaf, true)}</li>
           ))}
-          {folders.map((folder) => {
-            const expanded = !closedFolders.has(folder.id);
-            const childrenId = `hpsm-tree-${folder.id}`;
-            return (
-              <li key={folder.id}>
-                <button
-                  type="button"
-                  className="hpsm-tree__row hpsm-tree__folder"
-                  aria-expanded={expanded}
-                  aria-controls={childrenId}
-                  onClick={() => toggleFolder(folder.id)}
-                >
-                  <span className="hpsm-tree__toggle" aria-hidden="true">
-                    {expanded ? '−' : '+'}
-                  </span>
-                  <IconFolder size={16} />
-                  <span className="hpsm-tree__label">{folder.label}</span>
-                </button>
-                <ul id={childrenId} className="hpsm-tree__children" hidden={!expanded}>
-                  {folder.children.map((leaf) => (
-                    <li key={leaf.to}>{renderLeaf(leaf)}</li>
-                  ))}
-                </ul>
-              </li>
-            );
-          })}
+          {/* Visoes salvas e amostras fixadas pelo usuario. */}
+          {renderFolder(
+            'favoritos',
+            'Favoritos',
+            favs.favorites.length === 0
+              ? !favs.loading && (
+                  <li className="hpsm-tree__empty">
+                    Vazio. Use “Salvar visão” nas listas ou “Fixar” numa amostra.
+                  </li>
+                )
+              : favs.favorites.map((favorite, index) => (
+                  <li key={favorite.id} className="hpsm-tree__fav">
+                    {renderLeaf(favoriteLeaves[index], false, favorite)}
+                    <button
+                      type="button"
+                      className="hpsm-tree__remove"
+                      aria-label={`Remover "${favorite.label}" dos Favoritos`}
+                      title="Remover dos Favoritos"
+                      onClick={() => void removeFavorite(favorite)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                )),
+          )}
+          {folders.map((folder) =>
+            renderFolder(
+              folder.id,
+              folder.label,
+              folder.children.map((leaf) => <li key={leaf.to}>{renderLeaf(leaf)}</li>),
+            ),
+          )}
         </ul>
       </nav>
+
+      {favError && <HpsmMessage kind="error">{favError}</HpsmMessage>}
+
+      {menu && (
+        <HpsmContextMenu
+          x={menu.x}
+          y={menu.y}
+          label={`Favorito ${menu.favorite.label}`}
+          onClose={closeMenu}
+          items={[
+            { label: 'Abrir', action: () => navigate(favoriteHref(menu.favorite)) },
+            { label: 'Renomear… (F2)', action: () => void renameFavorite(menu.favorite) },
+            {
+              label: 'Mover para cima',
+              disabled: menuIndex <= 0,
+              separated: true,
+              action: () => void runFav(() => favs.move(menu.favorite.id, -1)),
+            },
+            {
+              label: 'Mover para baixo',
+              disabled: menuIndex >= favs.favorites.length - 1,
+              action: () => void runFav(() => favs.move(menu.favorite.id, 1)),
+            },
+            {
+              label: 'Remover dos Favoritos (Del)',
+              icon: IconTrash,
+              separated: true,
+              action: () => void removeFavorite(menu.favorite),
+            },
+          ]}
+        />
+      )}
     </aside>
   );
 }

@@ -234,6 +234,31 @@ if (await confirm({ title: 'Revogar chave', message: '...', confirmLabel: 'Revog
 O `ConfirmProvider` fica em `main.tsx`, então funciona também fora da casca (janela do
 console).
 
+Para pedir um texto (nome de visão, renomear), use `usePrompt` do mesmo arquivo: devolve
+o texto aparado ou `null` (Cancelar/Esc); o botão de confirmar fica desabilitado com o
+campo vazio.
+
+```tsx
+const prompt = usePrompt();
+const nome = await prompt({ title: 'Salvar visão', label: 'Nome', defaultValue: sugestao });
+```
+
+### Menu de contexto — `components/HpsmContextMenu.tsx`
+
+`<HpsmContextMenu x y label items={[{ label, icon?, action, disabled?, separated? }]}
+onClose={(restaurarFoco) => ...} />` — menu flutuante no desenho do menu do usuário
+(portal no `body`, não sai da janela). Setas pulam itens desabilitados, Esc/Tab fecham
+devolvendo o foco a quem abriu, clique fora fecha. Abra pelo `onContextMenu` (posição
+do mouse) e por Shift+F10 / tecla Menu (posição do elemento).
+
+### Favoritos — `components/favorites.ts`
+
+`useFavorites()` devolve `favorites` e as ações `addView(nome, url)`, `pinEntry(id)`,
+`rename`, `remove` e `move(id, -1 | 1)`; os erros da API (limite, repetido) chegam como
+exceção para a tela mostrar na barra. `currentViewUrl(pathname, search)` monta a URL
+da visão sem a página; `suggestViewName(base, partes)` sugere o nome. Na barra de
+filtros, basta passar `viewName` ao `HpsmFilterBar` para aparecer **Salvar visão**.
+
 ### Alterações não salvas — `components/useUnsavedChanges.ts`
 
 Formulários com conteúdo digitado avisam antes de perdê-lo (trocar de tela ou de aba
@@ -338,6 +363,11 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
+| GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
+| POST | `/api/me/favorites` | `{ kind: 'VIEW', label, url }` ou `{ kind: 'ENTRY', entryId, label? }`; até 30; repetido → 409 |
+| PATCH | `/api/me/favorites/:id` | `{ label }` (1–60 caracteres) |
+| PUT | `/api/me/favorites/order` | `{ ids }`: todos os ids do usuário na nova ordem |
+| DELETE | `/api/me/favorites/:id` | remove o favorito |
 
 `GET /api/entries` aceita também `assignee=me|none` e `sort=assignee`;
 `PATCH /api/entries/:id` aceita `assigneeId` (id do analista ou `null`).
@@ -398,6 +428,7 @@ banco nem da API rodando.
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
 | `session-idle.mjs` | sessão por inatividade (relógio falso): renovação 1x/min, aviso aos 28 min com contagem, Continuar/Sair, renovação por outra janela e expiração com volta ao login |
+| `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |

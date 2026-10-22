@@ -9,11 +9,12 @@ import { useAuth } from '../auth/AuthContext';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
 import { EntryReportsTab } from '../components/EntryReportsTab';
+import { useFavorites } from '../components/favorites';
 import { formatFileSize } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../components/HpsmToolbar';
-import { IconArrowLeft, IconDownload, IconPage, IconRefresh } from '../components/icons';
+import { IconArrowLeft, IconDownload, IconPage, IconRefresh, IconStar } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
@@ -62,6 +63,29 @@ export function EntryDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  // Fixar / Desafixar: a amostra entra na pasta Favoritos do navegador.
+  const favs = useFavorites();
+  const pinned = favs.favorites.find((f) => f.kind === 'ENTRY' && f.entryId === id);
+  const [pinNotice, setPinNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pinning, setPinning] = useState(false);
+  const togglePin = async () => {
+    setPinNotice(null);
+    setPinning(true);
+    try {
+      if (pinned) {
+        await favs.remove(pinned.id);
+        setPinNotice({ ok: true, text: 'Amostra removida dos Favoritos.' });
+      } else {
+        await favs.pinEntry(id);
+        setPinNotice({ ok: true, text: 'Amostra fixada nos Favoritos do navegador.' });
+      }
+    } catch (err) {
+      setPinNotice({ ok: false, text: (err as Error).message });
+    } finally {
+      setPinning(false);
+    }
+  };
 
   const entry = query.data?.entry;
   const sandboxSession = sandboxQuery.data?.session ?? null;
@@ -154,6 +178,16 @@ export function EntryDetailPage() {
       <HpsmToolbar label="Ações da amostra">
         <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
         <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={reload} />
+        <HpsmToolbarButton
+          label={pinned ? 'Desafixar' : 'Fixar'}
+          icon={IconStar}
+          title={
+            pinned ? 'Remover dos Favoritos do navegador' : 'Adicionar aos Favoritos do navegador'
+          }
+          disabled={pinning || favs.loading}
+          pressed={Boolean(pinned)}
+          onClick={() => void togglePin()}
+        />
         {canTriage && user && entry.assignee?.id !== user.id && (
           <HpsmToolbarButton
             label="Assumir análise"
@@ -197,6 +231,12 @@ export function EntryDetailPage() {
           </span>
         )}
       </HpsmToolbar>
+
+      {pinNotice && (
+        <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
+          {pinNotice.text}
+        </HpsmMessage>
+      )}
 
       {showCountdown && minutesLeft <= 5 && (
         <HpsmMessage kind="warning">

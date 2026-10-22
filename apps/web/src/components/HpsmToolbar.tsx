@@ -24,6 +24,8 @@ interface HpsmToolbarButtonProps {
   onClick?: () => void;
   disabled?: boolean;
   title?: string;
+  /** Botao liga/desliga (ex.: Fixar): aparece afundado quando ativo. */
+  pressed?: boolean;
 }
 
 /** Botao pequeno da toolbar: icone 16px + texto, sem moldura ate o hover. */
@@ -34,6 +36,7 @@ export function HpsmToolbarButton({
   onClick,
   disabled,
   title,
+  pressed,
 }: HpsmToolbarButtonProps) {
   const content = (
     <>
@@ -57,6 +60,7 @@ export function HpsmToolbarButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-pressed={pressed}
     >
       {content}
     </button>

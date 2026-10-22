@@ -73,6 +73,7 @@ model User {
   sandboxSessions SandboxSession[]
   createdKeys     ActivationKey[]  @relation("KeyCreator")
   usedKeys        ActivationKey[]  @relation("KeyUser")
+  favorites       Favorite[]
 }
 
 model Session {
@@ -131,6 +132,7 @@ model Entry {
   tags            Tag[]
   sandboxSessions SandboxSession[]
   events          EntryEvent[]
+  favorites       Favorite[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -222,4 +224,29 @@ model EntryEvent {
   createdAt DateTime       @default(now())
 
   @@index([entryId, createdAt])
+}
+
+enum FavoriteKind {
+  VIEW
+  ENTRY
+}
+
+/// Pasta "Favoritos" do Navegador do Sistema: visoes de lista salvas (URL com os
+/// filtros) e amostras fixadas, por usuario.
+model Favorite {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      FavoriteKind
+  label     String
+  /// VIEW: caminho relativo do proprio app (ex.: /history?status=PENDING).
+  url       String?
+  /// ENTRY: amostra fixada (some dos favoritos se a amostra for apagada).
+  entryId   String?
+  entry     Entry?       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  position  Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, entryId])
+  @@index([userId, position])
 }

@@ -31,6 +31,19 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Item da pasta "Favoritos" do navegador (GET /api/me/favorites). */
+export interface Favorite {
+  id: string;
+  /** VIEW: visao de lista salva (`url`); ENTRY: amostra fixada (`entryId`). */
+  kind: 'VIEW' | 'ENTRY';
+  label: string;
+  url: string | null;
+  entryId: string | null;
+  position: number;
+  createdAt: string;
+  entry: { id: string; title: string; status: EntryStatus; verdict: Verdict } | null;
+}
+
 export interface TagValue {
   id: string;
   name: string;

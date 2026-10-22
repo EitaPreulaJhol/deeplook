@@ -2,12 +2,14 @@ import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
-import type { Entry } from '../api/types';
+import type { Entry, EntryStatus, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntriesTable, entryListParams } from '../components/EntriesTable';
+import { suggestViewName } from '../components/favorites';
 import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { statusLabel, verdictLabel } from '../components/tags';
 import { useEntryListState } from '../components/useEntryListState';
 
 export function GlobalHistoryPage() {
@@ -34,6 +36,15 @@ export function GlobalHistoryPage() {
   exportParams.delete('limit');
   const exportHref = `/api/entries/export.csv?${exportParams.toString()}`;
 
+  const viewName = suggestViewName('Histórico Global', [
+    status && statusLabel(status as EntryStatus),
+    verdict && verdictLabel(verdict as Verdict),
+    type && (type === 'FILE' ? 'Arquivos' : 'URLs'),
+    assignee === 'me' && 'Atribuídas a mim',
+    assignee === 'none' && 'Sem responsável',
+    q && `"${q}"`,
+  ]);
+
   const query = useQuery({
     queryKey: [
       'entries',
@@ -56,7 +67,7 @@ export function GlobalHistoryPage() {
     <>
       <PageHeader title="Histórico Global" subtitle="Todas as amostras enviadas pela comunidade." />
 
-      <HpsmFilterBar onClear={list.clear} exportHref={exportHref}>
+      <HpsmFilterBar onClear={list.clear} exportHref={exportHref} viewName={viewName}>
         <HpsmFilterItem label="Buscar" htmlFor="q">
           <TextInput
             id="q"

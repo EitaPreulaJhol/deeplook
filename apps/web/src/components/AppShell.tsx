@@ -21,23 +21,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="dl-shell">
             <HpsmTopBar onToggleSidebar={() => setSidebarOpen((value) => !value)} />
 
-            <div className="dl-shell__body">
-              <HpsmSidebar open={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
+            {/* A barra de mensagens recebe tambem os avisos do navegador (Favoritos). */}
+            <MessageSlotProvider value={messageSlot}>
+              <div className="dl-shell__body">
+                <HpsmSidebar open={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
 
-              <div
-                className={`hpsm-backdrop${sidebarOpen ? ' is-open' : ''}`}
-                onClick={() => setSidebarOpen(false)}
-                aria-hidden="true"
-              />
+                <div
+                  className={`hpsm-backdrop${sidebarOpen ? ' is-open' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
+                  aria-hidden="true"
+                />
 
-              <main className="dl-content">
-                <WorkspaceTabs />
-                <HpsmMessageBar slotRef={setMessageSlot} />
-                <MessageSlotProvider value={messageSlot}>
+                <main className="dl-content">
+                  <WorkspaceTabs />
+                  <HpsmMessageBar slotRef={setMessageSlot} />
                   <div className="dl-content__body">{children}</div>
-                </MessageSlotProvider>
-              </main>
-            </div>
+                </main>
+              </div>
+            </MessageSlotProvider>
           </div>
         </ShortcutsProvider>
       </WorkspaceProvider>

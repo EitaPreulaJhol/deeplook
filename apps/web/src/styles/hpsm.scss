@@ -513,6 +513,54 @@ h6 {
   line-height: 1;
 }
 
+/* Favoritos: o "x" de remover aparece ao passar o mouse ou com foco no item. */
+.hpsm-tree__fav {
+  position: relative;
+}
+
+.hpsm-tree__fav > .hpsm-tree__row {
+  padding-inline-end: 1.1rem;
+}
+
+.hpsm-tree__remove {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 0.35rem;
+  display: none;
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+  line-height: 0.75rem;
+  cursor: pointer;
+}
+
+.hpsm-tree__fav:hover .hpsm-tree__remove,
+.hpsm-tree__fav:focus-within .hpsm-tree__remove {
+  display: block;
+}
+
+.hpsm-tree__remove:hover,
+.hpsm-tree__remove:focus-visible {
+  border-color: var(--dl-btn-hover-border);
+  background: var(--dl-surface);
+  color: var(--dl-error-text);
+  outline: none;
+}
+
+/* Pasta Favoritos vazia: dica em cinza no lugar dos itens. */
+.hpsm-tree__empty {
+  padding: 1px 0.25rem 2px;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  white-space: normal;
+}
+
 /* Foco visivel nas abas internas das paginas. */
 .hpsm-tab:focus-visible {
   outline: 2px solid var(--dl-accent);
@@ -726,6 +774,13 @@ h6 {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+}
+
+/* Botao liga/desliga ativo (ex.: Fixar): fica "afundado". */
+.hpsm-toolbar__action[aria-pressed='true'] {
+  border-color: var(--dl-btn-hover-border);
+  background: linear-gradient(180deg, var(--dl-btn-2) 0%, var(--dl-btn-1) 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .hpsm-toolbar__action:hover:not(:disabled) {
@@ -1737,6 +1792,64 @@ h6 {
 
 .hpsm-modal__actions .dl-btn {
   min-inline-size: 5rem;
+}
+
+/* Caixa que pede um texto (usePrompt): rotulo + campo no estilo HPSM. */
+.hpsm-modal__prompt {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem;
+  line-height: 1.5;
+}
+
+.hpsm-modal__label {
+  color: var(--dl-text);
+  font-weight: 700;
+}
+
+.hpsm-modal__input {
+  inline-size: 100%;
+  block-size: var(--dl-control-h);
+  padding: 0 0.35rem;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-surface);
+  color: var(--dl-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+}
+
+.hpsm-modal__input:focus {
+  border-color: var(--dl-accent);
+  outline: none;
+}
+
+/* Menu de contexto (clique direito): mesmo desenho do menu do usuario. */
+.hpsm-ctxmenu {
+  position: fixed;
+  z-index: 90;
+  min-inline-size: 12rem;
+  padding: 2px;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  color: var(--dl-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+}
+
+.hpsm-ctxmenu .hpsm-usermenu__item:disabled {
+  color: var(--dl-text-muted);
+  cursor: default;
+}
+
+.hpsm-ctxmenu .hpsm-usermenu__item:disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.hpsm-ctxmenu__noicon {
+  flex: 0 0 auto;
+  inline-size: 16px;
 }
 
 /* --- 12e. Atalhos de teclado (? / F1) ----------------------------------- */
