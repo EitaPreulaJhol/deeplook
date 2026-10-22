@@ -35,8 +35,10 @@ próprio HPSM.
 **Todos os 18 itens foram implementados** — cada item abaixo traz um bloco
 **Implementado** com o que mudou e os limites conhecidos.
 
-A **segunda leva (ideias 19 a 30)**, ainda pendente, está no fim do documento:
-[Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30).
+As levas seguintes também foram concluídas e estão mais abaixo:
+[Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30) e
+[Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45). A
+[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50) está em andamento.
 
 ---
 
@@ -1136,3 +1138,106 @@ precisam de uma decisão de segurança.
     - **Auditoria:** mover, restaurar e excluir.
   - **Tipos:** `Tx` e `Db` saem de `lib/prisma.ts`, porque o cliente estendido não é
     compatível com `Prisma.TransactionClient`.
+
+## Quarta leva — ideias 46 a 50
+
+Segurança da conta e verificação das amostras: sobras das levas anteriores (troca
+obrigatória de senha e "Sair" sem aviso), antivírus em contêiner próprio e 2FA opcional.
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 46 | Botão "Salvar" na alteração de senha | botões do formulário | ⚪ | P | ⬜ |
+| 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ⬜ |
+| 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ⬜ |
+| 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ⬜ |
+| 50 | Autenticação em dois fatores (2FA) opcional | login com segundo fator | 🔴 | M–G | ⬜ |
+
+**Ordem (uma etapa por item, cada uma com testes, documentação e commit próprio):**
+46 → 47 → 48 → 49 → 50. As duas primeiras são pequenas e só de interface; a 48 mexe
+no login e prepara o terreno para a 50.
+
+### 46. Botão "Salvar" na alteração de senha
+- **Problema:** em Minha Conta > Senha, o único jeito de salvar é "Salvar senha" na
+  barra cinza da seção (ou Ctrl+S). Fica fácil de não perceber.
+- **Proposta:** botão **Salvar** no rodapé do formulário, logo abaixo de "Confirmar
+  senha", alinhado aos campos. Faz o mesmo que a barra e o Ctrl+S: valida, mostra
+  "Salvando..." e fica desabilitado enquanto salva.
+- **Cuidados:** a barra continua (padrão das outras telas); os dois botões e o atalho
+  chamam a mesma função.
+
+### 47. "Sair" com alterações não salvas
+- **Problema:** trocar de tela com um formulário alterado pergunta "Alterações não
+  salvas", mas o **Sair** do menu do usuário encerra a sessão direto e perde o que foi
+  digitado (limite conhecido do item 4).
+- **Proposta:** com alguma alteração pendente (Enviar Amostra, Novo relatório, Alterar
+  senha, Preferências, Tokens de API...), o Sair pergunta antes: "Há alterações não
+  salvas. Sair mesmo assim? [Sair] [Continuar editando]". Sem alterações, sai direto como
+  hoje.
+- **Onde mexer:** `useUnsavedChanges` registra os formulários sujos num ponto central;
+  o `handleLogout` da barra superior consulta esse registro antes de chamar a API.
+- **Cuidados:** o mesmo vale para o encerramento por inatividade? Não: a sessão expirada
+  já expirou; o aviso de inatividade (item 24) continua como está.
+
+### 48. Troca obrigatória de senha após redefinição
+- **Problema:** quando o admin redefine a senha (item 2), a pessoa recebe uma senha
+  temporária, que o admin viu, e pode continuar usando-a para sempre.
+- **Proposta:**
+  - A redefinição pelo admin marca a conta com **troca obrigatória**.
+  - No login com a senha temporária, a pessoa vai direto para uma tela **Definir nova
+    senha** (senha atual já preenchida pelo login, nova e confirmação). Enquanto não
+    trocar, a API recusa tudo o que não for essa troca, sair e os dados da sessão (403
+    com código próprio), e o front não deixa navegar para outras telas.
+  - Ao trocar, a marca some, as outras sessões são encerradas e a pessoa entra
+    normalmente.
+  - A nova senha não pode ser igual à temporária.
+- **Onde mexer:** `User.mustChangePassword`; `POST /api/admin/users/:id/reset-password`
+  liga; `POST /api/me/password` desliga; checagem central em `requireUser`; tokens de API
+  da pessoa também ficam bloqueados até a troca.
+- **Admin:** coluna/indicador "troca de senha pendente" na aba Usuários; auditoria da
+  troca já existe (`USER_PASSWORD_CHANGED`).
+
+### 49. Antivírus ClamAV em contêiner próprio
+- **Proposta:**
+  - Novo serviço `clamav` no `docker-compose.yml` (imagem oficial `clamav/clamav`, com
+    `freshclam` atualizando as assinaturas sozinho e volume para a base).
+  - A API conversa com o `clamd` pela rede interna (TCP 3310, protocolo `INSTREAM`), sem
+    gravar o arquivo em disco e sem expor a porta para fora.
+  - **Varredura automática** de cada arquivo enviado (inclusive os extraídos de um
+    `.zip`), em segundo plano, sem atrasar o envio.
+  - **Resultado na ficha:** seção "Antivírus (ClamAV)" com Limpo / Infectado (nome da
+    assinatura) / Falha, versão do motor e data da base; "Infectado" também no resumo do
+    topo. Analistas têm "Escanear de novo".
+  - **Status do sistema:** linha "Antivírus (ClamAV)" com a situação do `clamd` (responde
+    ao PING), versão, data da base de assinaturas (alerta se tiver mais de 2 dias) e
+    varreduras/infectados nas últimas 24 h.
+- **Configuração:** `CLAMAV_HOST` (vazio = desligado) e `CLAMAV_PORT` (3310).
+- **Cuidados:** o ClamAV usa bastante memória (cerca de 1,5 a 3 GB por causa da base);
+  arquivos acima do limite do `clamd` (`StreamMaxLength`) viram "Falha: arquivo grande
+  demais" em vez de travar; o resultado não muda o veredito, que continua com o analista.
+
+### 50. Autenticação em dois fatores (2FA) opcional
+- **Proposta:**
+  - **Opcional, por usuário**, configurado em Minha Conta numa aba própria **2FA**.
+  - **TOTP** (códigos de 6 dígitos a cada 30 s), compatível com Google Authenticator,
+    Microsoft Authenticator, Aegis, 1Password etc.
+  - **Ativar:** a aba mostra o QR code e a chave para digitar à mão; a pessoa confirma
+    com um código do aplicativo e recebe **10 códigos de recuperação** (uso único,
+    mostrados uma vez, com Copiar e Baixar).
+  - **Login:** depois da senha certa, quem tem 2FA vê a etapa "Código de verificação"
+    (aceita também um código de recuperação). Sem o código, nenhuma sessão é criada.
+  - **Desativar** ou **gerar novos códigos de recuperação**: pede a senha e um código.
+  - **Admin:** "Desativar 2FA" na aba Usuários para quem perdeu o celular (com
+    confirmação), e coluna mostrando quem tem 2FA ativo.
+- **Segurança:**
+  - Segredo TOTP guardado criptografado (AES-GCM com chave derivada do
+    `SESSION_SECRET`); códigos de recuperação só como hash.
+  - Janela de ±1 passo (30 s) para relógio adiantado/atrasado; um código já usado não
+    vale de novo.
+  - Limite de tentativas na etapa do código, como no login; tentativas erradas entram
+    na auditoria.
+  - Auditoria: 2FA ativado, desativado (pela pessoa ou pelo admin), códigos de
+    recuperação gerados e login com código de recuperação.
+- **Junto com o item 48:** quem precisa trocar a senha e tem 2FA passa primeiro pelo
+  código e depois pela troca.
+- **Tokens de API** continuam valendo sem 2FA (são para scripts); o 2FA protege o login
+  pelo navegador.
