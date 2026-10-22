@@ -95,6 +95,14 @@ export function EntryPrintPage() {
               </Row>
               <Row label="Enviado em">{fmtDate(entry.createdAt)}</Row>
               <Row label="No status desde">{fmtDate(entry.statusChangedAt)}</Row>
+              {entry.duplicateOf && (
+                <Row label="Duplicata de">
+                  {entry.duplicateOf.title} ({entry.duplicateOf.id})
+                </Row>
+              )}
+              {(entry._count?.duplicates ?? 0) > 0 && (
+                <Row label="Duplicatas">{entry._count?.duplicates}</Row>
+              )}
               {entry.type === 'FILE' ? (
                 <>
                   <Row label="Arquivo">

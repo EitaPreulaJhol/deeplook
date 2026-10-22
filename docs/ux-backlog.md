@@ -608,7 +608,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 31 | Busca por IOC e ficha do indicador | registro de Configuration Item | 🔴 | P–M | ✅ |
 | 32 | Exportação de IOCs (CSV / STIX / MISP) | Export | 🔴 | P–M | ✅ |
 | 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ⬜ |
-| 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ⬜ |
+| 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ✅ |
 | 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
 | 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ✅ |
 | 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ✅ |
@@ -721,6 +721,31 @@ precisam de uma decisão de segurança.
   e contadores ignoram duplicatas.
 - **Cuidados:** impedir ciclos (A → B → A) e encadeamentos (duplicata de duplicata
   aponta para a principal).
+- ✅ **Implementado:** `Entry.duplicateOfId` e os eventos `MARKED_DUPLICATE` e
+  `UNMARKED_DUPLICATE` (migração `20261101000000_entry_duplicates`), em
+  `routes/duplicates.ts`.
+  - **API:**
+    - `POST /api/entries/:id/duplicate { of }` (analistas) conclui a amostra com o
+      veredito da principal e guarda a situação anterior no evento;
+    - `DELETE /api/entries/:id/duplicate` restaura essa situação.
+  - **Regras:**
+    - a cadeia é sempre achatada: duplicata de duplicata aponta para a principal, e as
+      duplicatas de uma amostra que vira duplicata passam a apontar para a nova
+      principal;
+    - ciclo → 400;
+    - quando o veredito da principal muda (triagem, massa ou relatório), as duplicatas
+      acompanham, com evento "acompanhando a amostra principal" (`recordTriageChanges`);
+    - principal apagada solta as duplicatas.
+  - **Telas:**
+    - menu **Mais ▾ > Marcar como duplicata…** abre a caixa com as amostras
+      relacionadas sugeridas (motivo e veredito) ou "Outra amostra (ID ou link)", com
+      o erro na própria caixa;
+    - **Desfazer duplicata**, com confirmação;
+    - no resumo, "Duplicata de: <link>" e, na principal, "Duplicatas: N", com a seção
+      **Duplicatas** na aba Detalhes;
+    - marca "duplicata" ao lado do título nas listas e linha na ficha impressa.
+  - **Filas:** a duplicata fica Concluída, então sai de Pendentes, Em análise,
+    Atribuídas e Atrasadas.
 
 ### 35. Reputação externa (opcional)
 - **Proposta:** consulta VirusTotal, URLhaus ou AbuseIPDB por hash, domínio ou IP (nunca

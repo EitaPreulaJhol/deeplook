@@ -2321,6 +2321,72 @@ body:has(.dl-print) {
   color: var(--dl-section-title);
 }
 
+/* --- 12l. Duplicatas -------------------------------------------------- */
+/* Marca "duplicata" ao lado do titulo na grade. */
+.dl-dup-tag {
+  margin-inline-start: 0.4rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--dl-panel-border);
+  border-radius: 2px;
+  background: var(--dl-surface-alt);
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-dup-list {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  list-style: square;
+}
+
+.dl-dup-list__date {
+  color: var(--dl-text-muted);
+}
+
+/* Caixa "Marcar como duplicata": opcoes em lista, uma por linha. */
+.dl-dup-options {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dl-dup-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-inline-size: 0;
+  padding: 0.15rem 0.25rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.dl-dup-option:has(input:checked) {
+  background: var(--dl-sidebar-active-bg);
+  border-color: var(--dl-tree-selected-border);
+}
+
+.dl-dup-option__title {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-dup-option__reason {
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: var(--dl-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-dup-error {
+  color: var(--dl-error-text);
+  font-weight: 700;
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;

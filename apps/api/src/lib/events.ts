@@ -61,5 +61,27 @@ export async function recordTriageChanges(
       fromValue: before.verdict,
       toValue: after.verdict,
     });
+    // As duplicatas acompanham o veredito da principal (por qualquer caminho:
+    // triagem, massa, relatorio). A cadeia e achatada, entao nao ha recursao.
+    const duplicates = await db.entry.findMany({
+      where: { duplicateOfId: entryId, verdict: { not: after.verdict } },
+      select: { id: true, verdict: true },
+    });
+    if (duplicates.length) {
+      await db.entry.updateMany({
+        where: { id: { in: duplicates.map((d) => d.id) } },
+        data: { verdict: after.verdict },
+      });
+      for (const dup of duplicates) {
+        await recordEvent(db, {
+          entryId: dup.id,
+          actorId,
+          type: 'VERDICT_CHANGED',
+          fromValue: dup.verdict,
+          toValue: after.verdict,
+          detail: 'principal',
+        });
+      }
+    }
   }
 }

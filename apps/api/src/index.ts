@@ -11,6 +11,7 @@ import { ensureBucket } from './lib/s3';
 import { reconcileOrphans, recoverStuckSessions, startSandboxReaper } from './lib/sandbox';
 import { adminRoutes } from './routes/admin';
 import { authRoutes } from './routes/auth';
+import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { favoritesRoutes } from './routes/favorites';
 import { iocRoutes } from './routes/iocs';
@@ -56,6 +57,7 @@ async function main() {
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
   await app.register(templateRoutes);
+  await app.register(duplicateRoutes);
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(adminRoutes);

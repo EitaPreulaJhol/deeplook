@@ -122,6 +122,11 @@ model Entry {
   assigneeId String?
   assignee   User?   @relation("EntryAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
+  /// Duplicata de outra amostra (a principal); herda o veredito dela.
+  duplicateOfId String?
+  duplicateOf   Entry?  @relation("EntryDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates    Entry[] @relation("EntryDuplicate")
+
   originalFilename String?
   storageKey       String?
   bucket           String?
@@ -151,6 +156,7 @@ model Entry {
   @@index([urlDomain])
   /// Fila "Atrasadas" e ordenacao por idade.
   @@index([status, statusChangedAt])
+  @@index([duplicateOfId])
 }
 
 model Tag {
@@ -224,6 +230,10 @@ enum EntryEventType {
   SANDBOX_FAILED
   /// Atualizacao/comentario livre (texto puro no `detail`).
   COMMENT
+  /// Marcada como duplicata (fromValue: situacao anterior em JSON; detail: id da principal).
+  MARKED_DUPLICATE
+  /// Deixou de ser duplicata (detail: id da principal anterior).
+  UNMARKED_DUPLICATE
 }
 
 /// Linha do tempo da amostra: quem fez o que e quando (aba "Historico").

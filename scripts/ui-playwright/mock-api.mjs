@@ -432,6 +432,30 @@ export async function setupMock(context, state) {
       }
       const rel = p.match(/^\/api\/entries\/([\w-]+)\/related$/);
       if (rel) return json(route, 200, state.related[rel[1]] ?? { items: [], total: 0, limit: 50 });
+      // Duplicatas: marcar conclui com o veredito da principal; desfazer restaura.
+      const dupm = p.match(/^\/api\/entries\/([\w-]+)\/duplicate$/);
+      if (dupm) {
+        const e = entries.find((x) => x.id === dupm[1]);
+        if (req.method() === 'POST') {
+          const principal = entries.find((x) => x.id === body.of);
+          if (!principal) return json(route, 400, { error: 'Amostra principal nao encontrada.', details: { of: ['amostra não encontrada'] } });
+          e.duplicatePrev = { status: e.status, verdict: e.verdict };
+          pushEvent(e.id, 'MARKED_DUPLICATE', null, principal.title);
+          Object.assign(e, { duplicateOfId: principal.id, duplicateOf: { id: principal.id, title: principal.title }, status: 'COMPLETED', verdict: principal.verdict });
+          principal.duplicates = [...(principal.duplicates ?? []), { id: e.id, title: e.title, createdAt: e.createdAt }];
+          principal._count = { ...principal._count, duplicates: principal.duplicates.length };
+          return json(route, 200, { entry: e, principal: { id: principal.id, title: principal.title } });
+        }
+        const principal = entries.find((x) => x.id === e.duplicateOfId);
+        if (principal) {
+          principal.duplicates = (principal.duplicates ?? []).filter((d) => d.id !== e.id);
+          principal._count = { ...principal._count, duplicates: principal.duplicates.length };
+        }
+        pushEvent(e.id, 'UNMARKED_DUPLICATE', null, null);
+        Object.assign(e, { duplicateOfId: null, duplicateOf: null, ...e.duplicatePrev });
+        return json(route, 200, { entry: e });
+      }
+
       // Novo relatorio (aba Relatorios): so confirma o salvamento.
       if (/^\/api\/entries\/[\w-]+\/reports$/.test(p) && req.method() === 'POST') {
         return json(route, 201, { report: { id: `r-${Date.now()}`, ...body } });

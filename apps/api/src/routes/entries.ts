@@ -571,6 +571,13 @@ export async function entryRoutes(app: FastifyInstance) {
         owner: { select: { id: true, displayName: true, email: true } },
         assignee: { select: { id: true, displayName: true } },
         tags: true,
+        duplicateOf: { select: { id: true, title: true } },
+        duplicates: {
+          select: { id: true, title: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        },
+        _count: { select: { duplicates: true } },
         reports: {
           orderBy: { createdAt: 'desc' },
           include: { analyst: { select: { id: true, displayName: true, role: true } } },

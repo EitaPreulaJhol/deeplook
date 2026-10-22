@@ -45,7 +45,13 @@ export function describeEvent(event: EntryEvent): string {
     case 'STATUS_CHANGED':
       return `Status: ${statusLabel(from as EntryStatus)} → ${statusLabel(to as EntryStatus)}`;
     case 'VERDICT_CHANGED':
-      return `Veredito: ${verdictLabel(from as Verdict)} → ${verdictLabel(to as Verdict)}`;
+      return `Veredito: ${verdictLabel(from as Verdict)} → ${verdictLabel(to as Verdict)}${
+        event.detail === 'principal' ? ' (acompanhando a amostra principal)' : ''
+      }`;
+    case 'MARKED_DUPLICATE':
+      return `Marcada como duplicata de "${to ?? 'outra amostra'}"`;
+    case 'UNMARKED_DUPLICATE':
+      return 'Deixou de ser duplicata';
     case 'ASSIGNED':
       return `Responsável: ${from ?? '—'} → ${to ?? '—'}`;
     case 'REPORT_CREATED':

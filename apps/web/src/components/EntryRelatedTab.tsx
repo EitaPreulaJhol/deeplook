@@ -24,7 +24,7 @@ function fmtDate(iso: string): string {
 }
 
 /** Texto da coluna Motivo (por que a amostra aparece aqui). */
-function describe(reason: RelatedReason): string {
+export function describeReason(reason: RelatedReason): string {
   switch (reason.kind) {
     case 'SAME_SHA256':
       return 'Mesmo arquivo (SHA-256)';
@@ -177,7 +177,7 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
                         {reason.kind === 'SHARED_IOCS' ? (
                           <IocLinks values={reason.detail} />
                         ) : (
-                          describe(reason)
+                          describeReason(reason)
                         )}
                       </li>
                     ))}

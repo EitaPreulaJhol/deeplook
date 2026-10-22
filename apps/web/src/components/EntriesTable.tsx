@@ -264,7 +264,14 @@ export function EntriesTable({
                     />
                   </TableCell>
                 )}
-                <TableCell>{entry.title}</TableCell>
+                <TableCell>
+                  {entry.title}
+                  {entry.duplicateOfId && (
+                    <span className="dl-dup-tag" title="Duplicata de outra amostra">
+                      duplicata
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <TypeTag type={entry.type} />
                 </TableCell>

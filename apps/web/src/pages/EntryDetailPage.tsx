@@ -1,18 +1,20 @@
 import { Select, SelectItem } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { copyText } from '../components/CopyButton';
+import { DuplicateDialog } from '../components/DuplicateDialog';
 import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
 import { EntryRelatedTab, useRelatedEntries } from '../components/EntryRelatedTab';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { useFavorites } from '../components/favorites';
+import { useConfirm } from '../components/HpsmConfirm';
 import { formatFileSize } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
@@ -88,6 +90,31 @@ export function EntryDetailPage() {
   // Fixar / Desafixar: a amostra entra na pasta Favoritos do navegador.
   const favs = useFavorites();
   const pinned = favs.favorites.find((f) => f.kind === 'ENTRY' && f.entryId === id);
+  // Duplicata: caixa de escolha da principal e "Desfazer".
+  const [dupOpen, setDupOpen] = useState(false);
+  const confirm = useConfirm();
+  const reloadAfterDuplicate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['entry'] }),
+      queryClient.invalidateQueries({ queryKey: ['entries'] }),
+    ]);
+  const undoDuplicate = async () => {
+    const ok = await confirm({
+      title: 'Desfazer duplicata',
+      message: 'A amostra volta ao status e ao veredito que tinha antes de ser marcada.',
+      confirmLabel: 'Desfazer',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    try {
+      await api.del(`/entries/${id}/duplicate`);
+      await reloadAfterDuplicate();
+      setPinNotice({ ok: true, text: 'A amostra deixou de ser duplicata.' });
+    } catch (err) {
+      setPinNotice({ ok: false, text: (err as Error).message });
+    }
+  };
+
   // Retorno das acoes da toolbar (Fixar, menu Mais) na barra de mensagens.
   const [pinNotice, setPinNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [pinning, setPinning] = useState(false);
@@ -272,6 +299,21 @@ export function EntryDetailPage() {
               icon: IconScreen,
               action: () => window.open(`/entries/${entry.id}`, '_blank', 'noopener'),
             },
+            ...(canTriage
+              ? [
+                  entry.duplicateOf
+                    ? {
+                        label: 'Desfazer duplicata',
+                        separated: true,
+                        action: () => void undoDuplicate(),
+                      }
+                    : {
+                        label: 'Marcar como duplicata…',
+                        separated: true,
+                        action: () => setDupOpen(true),
+                      },
+                ]
+              : []),
             {
               label: 'Imprimir ficha…',
               icon: IconPrint,
@@ -309,6 +351,19 @@ export function EntryDetailPage() {
           </span>
         )}
       </HpsmToolbar>
+
+      {dupOpen && (
+        <DuplicateDialog
+          entryId={entry.id}
+          excludeIds={(entry.duplicates ?? []).map((d) => d.id)}
+          onClose={(principal) => {
+            setDupOpen(false);
+            if (!principal) return;
+            void reloadAfterDuplicate();
+            setPinNotice({ ok: true, text: `Marcada como duplicata de "${principal.title}".` });
+          }}
+        />
+      )}
 
       {pinNotice && (
         <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
@@ -352,6 +407,19 @@ export function EntryDetailPage() {
           <span className="dl-summary__label">Veredito:</span>{' '}
           <VerdictTag verdict={entry.verdict} />
         </span>
+        {entry.duplicateOf && (
+          <span>
+            <span className="dl-summary__label">Duplicata de:</span>{' '}
+            <Link className="dl-link" to={`/entries/${entry.duplicateOf.id}`}>
+              {entry.duplicateOf.title}
+            </Link>
+          </span>
+        )}
+        {(entry._count?.duplicates ?? 0) > 0 && (
+          <span>
+            <span className="dl-summary__label">Duplicatas:</span> {entry._count?.duplicates}
+          </span>
+        )}
         {entry.tags.length > 0 && (
           <span>
             <span className="dl-summary__label">Tags:</span>{' '}
@@ -364,6 +432,22 @@ export function EntryDetailPage() {
 
       {activeTab === 'detalhes' && (
         <div className="hpsm-tabpanel">
+          {(entry.duplicates?.length ?? 0) > 0 && (
+            <HpsmSection
+              title={`Duplicatas (${entry._count?.duplicates ?? entry.duplicates?.length})`}
+            >
+              <ul className="dl-dup-list">
+                {entry.duplicates?.map((d) => (
+                  <li key={d.id}>
+                    <Link className="dl-link" to={`/entries/${d.id}`}>
+                      {d.title}
+                    </Link>{' '}
+                    <span className="dl-dup-list__date">enviada em {fmtDate(d.createdAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </HpsmSection>
+          )}
           <HpsmSection title="Envio">
             <HpsmForm columns={2}>
               <HpsmField label="Enviado por">

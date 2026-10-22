@@ -156,7 +156,12 @@ export interface Entry {
   assignee?: { id: string; displayName: string } | null;
   tags: TagValue[];
   reports?: Report[];
-  _count?: { reports: number };
+  _count?: { reports: number; duplicates?: number };
+  /** Duplicata de outra amostra (a principal). */
+  duplicateOfId?: string | null;
+  duplicateOf?: { id: string; title: string } | null;
+  /** Duplicatas desta amostra (GET /api/entries/:id, ate 50). */
+  duplicates?: { id: string; title: string; createdAt: string }[];
   /** Quando entrou no status atual (idade na fila / prazo). */
   statusChangedAt?: string;
 }
@@ -238,7 +243,9 @@ export type EntryEventType =
   | 'SANDBOX_OPENED'
   | 'SANDBOX_CLOSED'
   | 'SANDBOX_FAILED'
-  | 'COMMENT';
+  | 'COMMENT'
+  | 'MARKED_DUPLICATE'
+  | 'UNMARKED_DUPLICATE';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {
