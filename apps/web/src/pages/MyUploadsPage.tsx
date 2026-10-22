@@ -2,7 +2,7 @@ import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
-import type { Entry, EntryStatus, Verdict } from '../api/types';
+import type { Entry, EntryStatus, SlaConfig, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { suggestViewName } from '../components/favorites';
@@ -54,7 +54,8 @@ export function MyUploadsPage() {
       offset,
       pageSize,
     ],
-    queryFn: () => api.get<{ items: Entry[]; total: number }>(`/entries?${params.toString()}`),
+    queryFn: () =>
+      api.get<{ items: Entry[]; total: number; sla: SlaConfig }>(`/entries?${params.toString()}`),
     placeholderData: keepPreviousData,
   });
 
@@ -121,6 +122,7 @@ export function MyUploadsPage() {
       {query.data && (
         <EntriesTable
           entries={query.data.items}
+          sla={query.data.sla}
           showOwner={false}
           total={query.data.total}
           offset={offset}

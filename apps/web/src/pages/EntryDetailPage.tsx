@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { Entry, SandboxSession } from '../api/types';
+import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
@@ -20,6 +20,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
+import { AgeText } from '../components/sla';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
 
@@ -37,7 +38,7 @@ export function EntryDetailPage() {
 
   const query = useQuery({
     queryKey: ['entry', id],
-    queryFn: () => api.get<{ entry: Entry }>(`/entries/${id}`),
+    queryFn: () => api.get<{ entry: Entry; sla?: SlaConfig }>(`/entries/${id}`),
   });
 
   // Mesmo queryKey do SandboxPanel: o React Query compartilha o cache (sem
@@ -272,6 +273,12 @@ export function EntryDetailPage() {
         <span>
           <span className="dl-summary__label">Status:</span> <StatusTag status={entry.status} />
         </span>
+        {entry.status !== 'COMPLETED' && entry.statusChangedAt && (
+          <span>
+            <span className="dl-summary__label">No status há:</span>{' '}
+            <AgeText entry={entry} sla={query.data?.sla} />
+          </span>
+        )}
         <span>
           <span className="dl-summary__label">Veredito:</span>{' '}
           <VerdictTag verdict={entry.verdict} />

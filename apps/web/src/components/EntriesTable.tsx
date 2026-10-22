@@ -11,12 +11,13 @@ import type { KeyboardEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { Entry } from '../api/types';
+import type { Entry, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntriesBulkBar } from './EntriesBulkBar';
 import { saveEntrySequence } from './entryNav';
 import { EntryPreviewPane } from './EntryPreviewPane';
 import { HpsmMessage } from './messages';
+import { AgeText } from './sla';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
@@ -25,7 +26,7 @@ function fmtDate(iso: string): string {
 
 /** Colunas ordenaveis (mesmos nomes do parametro `sort` de GET /api/entries). */
 export type EntrySortKey =
-  'title' | 'type' | 'owner' | 'assignee' | 'status' | 'verdict' | 'reports' | 'createdAt';
+  'title' | 'type' | 'owner' | 'assignee' | 'status' | 'age' | 'verdict' | 'reports' | 'createdAt';
 
 export interface EntrySort {
   key: EntrySortKey;
@@ -61,6 +62,8 @@ interface EntriesTableProps {
   onPageChange: (offset: number) => void;
   /** Coluna de selecao + atualizacao em massa (analistas/admins). */
   selectable?: boolean;
+  /** Limites do prazo (coluna Idade com marcador laranja/vermelho). */
+  sla?: SlaConfig;
 }
 
 /** Lista de registros no estilo "Record List" do HP Service Manager. */
@@ -74,6 +77,7 @@ export function EntriesTable({
   onSortChange,
   onPageChange,
   selectable = false,
+  sla,
 }: EntriesTableProps) {
   const navigate = useNavigate();
   const { preferences } = useAuth();
@@ -148,6 +152,7 @@ export function EntriesTable({
     ...(showOwner ? [{ key: 'owner' as const, header: 'Enviado por' }] : []),
     { key: 'assignee', header: 'Responsável' },
     { key: 'status', header: 'Status' },
+    { key: 'age', header: 'Idade' },
     { key: 'verdict', header: 'Veredito' },
     { key: 'reports', header: 'Relatórios' },
     { key: 'createdAt', header: 'Data' },
@@ -267,6 +272,9 @@ export function EntriesTable({
                 <TableCell>{entry.assignee?.displayName ?? '—'}</TableCell>
                 <TableCell>
                   <StatusTag status={entry.status} />
+                </TableCell>
+                <TableCell>
+                  <AgeText entry={entry} sla={sla} />
                 </TableCell>
                 <TableCell>
                   <VerdictTag verdict={entry.verdict} />

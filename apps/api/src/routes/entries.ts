@@ -14,6 +14,7 @@ import { recordEvent, recordTriageChanges } from '../lib/events';
 import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { s3 } from '../lib/s3';
+import { slaConfig, slaCutoff } from '../lib/sla';
 
 /**
  * Texto da atualizacao: texto puro (o front exibe escapado), quebras de linha
@@ -40,6 +41,8 @@ const ListQuery = z.object({
   q: z.string().optional(),
   /** Responsavel: `me` (atribuidas a mim) ou `none` (sem responsavel). */
   assignee: z.enum(['me', 'none']).optional(),
+  /** Prazo: nao concluidas ha mais de SLA_WARN_HOURS (`warn`) ou SLA_LATE_HOURS (`late`). */
+  age: z.enum(['warn', 'late']).optional(),
   /** Hash exato (64 hex): usado para avisar que a amostra ja foi enviada. */
   sha256: z
     .string()
@@ -48,7 +51,17 @@ const ListQuery = z.object({
   limit: z.coerce.number().min(1).max(100).default(25),
   offset: z.coerce.number().min(0).default(0),
   sort: z
-    .enum(['title', 'type', 'owner', 'assignee', 'status', 'verdict', 'reports', 'createdAt'])
+    .enum([
+      'title',
+      'type',
+      'owner',
+      'assignee',
+      'status',
+      'age',
+      'verdict',
+      'reports',
+      'createdAt',
+    ])
     .default('createdAt'),
   dir: z.enum(['asc', 'desc']).default('desc'),
 });
@@ -62,7 +75,10 @@ function listOrderBy(sort: z.infer<typeof ListQuery>['sort'], dir: 'asc' | 'desc
         ? { assignee: { displayName: dir } }
         : sort === 'reports'
           ? { reports: { _count: dir } }
-          : { [sort]: dir };
+          : sort === 'age'
+            ? // Idade decrescente = ha mais tempo no status (data mais antiga primeiro).
+              { statusChangedAt: dir === 'desc' ? ('asc' as const) : ('desc' as const) }
+            : { [sort]: dir };
   return [primary, { id: 'asc' as const }];
 }
 
@@ -118,11 +134,11 @@ async function resolveTags(names: string[]) {
 function listWhere(
   filters: Pick<
     z.infer<typeof ListQuery>,
-    'scope' | 'type' | 'status' | 'verdict' | 'q' | 'sha256' | 'assignee'
+    'scope' | 'type' | 'status' | 'verdict' | 'q' | 'sha256' | 'assignee' | 'age'
   >,
   userId: string,
 ): Prisma.EntryWhereInput {
-  const { scope, type, status, verdict, q, sha256, assignee } = filters;
+  const { scope, type, status, verdict, q, sha256, assignee, age } = filters;
   const where: Prisma.EntryWhereInput = {};
   if (scope === 'mine') where.ownerId = userId;
   if (type) where.type = type;
@@ -131,6 +147,9 @@ function listWhere(
   if (sha256) where.sha256 = sha256.toLowerCase();
   if (assignee === 'me') where.assigneeId = userId;
   if (assignee === 'none') where.assigneeId = null;
+  if (age) {
+    where.AND = [{ status: { not: 'COMPLETED' } }, { statusChangedAt: { lt: slaCutoff(age) } }];
+  }
   if (q) {
     where.OR = [
       { title: { contains: q, mode: 'insensitive' } },
@@ -258,6 +277,7 @@ export async function entryRoutes(app: FastifyInstance) {
         'URL',
         'Tags',
         'Enviado em',
+        'No status desde',
       ],
       items.map((e) => [
         e.id,
@@ -272,6 +292,7 @@ export async function entryRoutes(app: FastifyInstance) {
         e.url,
         e.tags.map((t) => t.name).join(', '),
         e.createdAt,
+        e.statusChangedAt,
       ]),
     );
 
@@ -309,7 +330,7 @@ export async function entryRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    return reply.send({ total, limit, offset, items });
+    return reply.send({ total, limit, offset, items, sla: slaConfig() });
   });
 
   // Submissao de ARQUIVO (multipart)
@@ -319,14 +340,18 @@ export async function entryRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
 
-    const [groups, mine] = await Promise.all([
+    const [groups, mine, late] = await Promise.all([
       prisma.entry.groupBy({ by: ['status'], _count: { _all: true } }),
       // Fila "Atribuidas a mim": so as que ainda nao foram concluidas.
       prisma.entry.count({ where: { assigneeId: user.id, status: { not: 'COMPLETED' } } }),
+      // Fila "Atrasadas": nao concluidas ha mais de SLA_LATE_HOURS no status atual.
+      prisma.entry.count({
+        where: { status: { not: 'COMPLETED' }, statusChangedAt: { lt: slaCutoff('late') } },
+      }),
     ]);
     const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
     for (const g of groups) counts[g.status] = g._count._all;
-    return reply.send({ counts, mine });
+    return reply.send({ counts, mine, late });
   });
 
   // Analistas que podem ser responsaveis por uma amostra (select da triagem).
@@ -511,7 +536,7 @@ export async function entryRoutes(app: FastifyInstance) {
       },
     });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
-    return reply.send({ entry });
+    return reply.send({ entry, sla: slaConfig() });
   });
 
   // Edicao (dono edita titulo/descricao; analista define status/veredito)

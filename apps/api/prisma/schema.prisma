@@ -102,14 +102,17 @@ model ActivationKey {
 }
 
 model Entry {
-  id          String      @id @default(cuid())
-  ownerId     String
-  owner       User        @relation("EntryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  type        EntryType
-  title       String
-  description String?
-  status      EntryStatus @default(PENDING)
-  verdict     Verdict     @default(UNKNOWN)
+  id              String      @id @default(cuid())
+  ownerId         String
+  owner           User        @relation("EntryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  type            EntryType
+  title           String
+  description     String?
+  status          EntryStatus @default(PENDING)
+  verdict         Verdict     @default(UNKNOWN)
+  /// Quando a amostra entrou no status atual (idade na fila / prazo). Mantido por
+  /// um trigger no Postgres a cada mudanca de status (migracao entry_status_changed_at).
+  statusChangedAt DateTime    @default(now())
 
   /// Analista responsavel pela amostra (atribuicao); null = sem responsavel.
   assigneeId String?
@@ -140,6 +143,8 @@ model Entry {
   @@index([createdAt])
   /// Aba "Relacionadas": amostras do mesmo dominio.
   @@index([urlDomain])
+  /// Fila "Atrasadas" e ordenacao por idade.
+  @@index([status, statusChangedAt])
 }
 
 model Tag {

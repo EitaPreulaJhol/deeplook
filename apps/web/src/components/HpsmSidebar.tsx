@@ -36,8 +36,8 @@ interface NavLeaf {
   /** Icone 16px; filas usam a bolinha de status (`tone`) no lugar. */
   icon?: IconComponent;
   tone?: StatusTone;
-  /** Contador da fila: um status ou `mine` (atribuidas a mim e abertas). */
-  count?: EntryStatus | 'mine';
+  /** Contador da fila: um status, `mine` (atribuidas a mim e abertas) ou `late` (atrasadas). */
+  count?: EntryStatus | 'mine' | 'late';
 }
 
 interface NavFolder {
@@ -63,6 +63,8 @@ const TREE: NavFolder[] = [
       { to: '/history?status=PENDING', label: 'Pendentes', tone: 'gray', count: 'PENDING' },
       { to: '/history?status=IN_REVIEW', label: 'Em análise', tone: 'blue', count: 'IN_REVIEW' },
       { to: '/history?status=COMPLETED', label: 'Concluídas', tone: 'green', count: 'COMPLETED' },
+      // Nao concluidas ha mais de SLA_LATE_HOURS no status atual.
+      { to: '/history?age=late', label: 'Atrasadas', tone: 'red', count: 'late' },
     ],
   },
   {
@@ -134,12 +136,14 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const countsQuery = useQuery({
     queryKey: ['entries', 'counts'],
     queryFn: () =>
-      api.get<{ counts: Record<EntryStatus, number>; mine: number }>('/entries/counts'),
+      api.get<{ counts: Record<EntryStatus, number>; mine: number; late: number }>(
+        '/entries/counts',
+      ),
     enabled: canTriage,
     refetchInterval: 60_000,
   });
   const counts = countsQuery.data
-    ? { ...countsQuery.data.counts, mine: countsQuery.data.mine }
+    ? { ...countsQuery.data.counts, mine: countsQuery.data.mine, late: countsQuery.data.late }
     : undefined;
 
   const folders = TREE.filter(

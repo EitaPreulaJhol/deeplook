@@ -107,6 +107,14 @@ export interface Entry {
   tags: TagValue[];
   reports?: Report[];
   _count?: { reports: number };
+  /** Quando entrou no status atual (idade na fila / prazo). */
+  statusChangedAt?: string;
+}
+
+/** Limites do prazo (horas no status atual), vindos da API. */
+export interface SlaConfig {
+  warnHours: number;
+  lateHours: number;
 }
 
 export interface ActivationKey {

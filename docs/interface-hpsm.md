@@ -253,6 +253,13 @@ onClose={(restaurarFoco) => ...} />` — menu flutuante no desenho do menu do us
 devolvendo o foco a quem abriu, clique fora fecha. Abra pelo `onContextMenu` (posição
 do mouse) e por Shift+F10 / tecla Menu (posição do elemento).
 
+### Prazo — `components/sla.tsx`
+
+`<AgeText entry={entry} sla={sla} />` mostra a idade no status atual ("1 d 6 h") com o
+marcador do prazo: nada no prazo, laranja acima de `warnHours`, vermelho acima de
+`lateHours`, "—" nas concluídas. Os limites vêm da API (`sla` na resposta da lista e da
+ficha); passe `sla` ao `EntriesTable` para a coluna Idade ganhar os marcadores.
+
 ### Favoritos — `components/favorites.ts`
 
 `useFavorites()` devolve `favorites` e as ações `addView(nome, url)`, `pinEntry(id)`,
@@ -365,6 +372,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
+| GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; devolve `sla: { warnHours, lateHours }` |
+| GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
 | GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS` |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
@@ -432,6 +441,7 @@ banco nem da API rodando.
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
 | `session-idle.mjs` | sessão por inatividade (relógio falso): renovação 1x/min, aviso aos 28 min com contagem, Continuar/Sair, renovação por outra janela e expiração com volta ao login |
+| `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
 | `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
 | `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |

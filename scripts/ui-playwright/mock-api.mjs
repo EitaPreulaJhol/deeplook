@@ -42,6 +42,14 @@ export const entries = [
   { id: 'e3', ownerId: 'u1', owner: { id: 'u1', displayName: 'Ana Souza', email: 'ana@deeplook.test' }, type: 'FILE', title: 'relatorio_trimestral.docm', status: 'PENDING', verdict: 'UNKNOWN', originalFilename: 'relatorio_trimestral.docm', fileSize: 88211, mimeType: 'application/vnd.ms-word', sha256: 'aa11', storageKey: 'k3', createdAt: '2026-10-18T16:10:00.000Z', updatedAt: now, tags: [], _count: { reports: 0 } },
   { id: 'e4', ownerId: 'u2', owner, type: 'FILE', title: 'driver_update.msi', status: 'COMPLETED', verdict: 'CLEAN', originalFilename: 'driver_update.msi', fileSize: 1048576, mimeType: 'application/x-msi', sha256: 'bb22', storageKey: 'k4', createdAt: '2026-10-17T08:00:00.000Z', updatedAt: now, tags: [], _count: { reports: 1 } },
 ];
+// Prazo (SLA): limites da API e a idade de cada amostra no status atual.
+export const SLA = { warnHours: 24, lateHours: 72 };
+const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
+const STATUS_AGE_HOURS = { e1: 30, e2: 200, e3: 100, e4: 300 };
+for (const e of entries) e.statusChangedAt = hoursAgo(STATUS_AGE_HOURS[e.id] ?? 1);
+/** Nao concluida ha mais de N horas no status atual. */
+const olderThan = (e, hours) => e.status !== 'COMPLETED' && Date.parse(e.statusChangedAt) < Date.now() - hours * 3600 * 1000;
+
 // Linha do tempo por amostra (GET /api/entries/:id/events); PATCH acrescenta eventos.
 const events = Object.fromEntries(
   entries.map((e) => [
@@ -238,7 +246,13 @@ export async function setupMock(context, state) {
         for (const k of ['type', 'status', 'verdict']) {
           if (sp.get(k)) items = items.filter((e) => e[k] === sp.get(k));
         }
-        return json(route, 200, { total: items.length, limit: Number(sp.get('limit') || 50), offset: 0, items });
+        const age = sp.get('age');
+        if (age) items = items.filter((e) => olderThan(e, age === 'late' ? SLA.lateHours : SLA.warnHours));
+        if (sp.get('sort') === 'age') {
+          const sign = sp.get('dir') === 'asc' ? -1 : 1;
+          items = [...items].sort((a, b) => sign * (Date.parse(a.statusChangedAt) - Date.parse(b.statusChangedAt)));
+        }
+        return json(route, 200, { total: items.length, limit: Number(sp.get('limit') || 50), offset: 0, items, sla: SLA });
       }
       if (p === '/api/me/updates') return json(route, 200, state.updates);
       if (p === '/api/entries/export.csv') {
@@ -260,6 +274,7 @@ export async function setupMock(context, state) {
           for (const [key, type] of [['status', 'STATUS_CHANGED'], ['verdict', 'VERDICT_CHANGED']]) {
             if (rest[key] && rest[key] !== e[key]) pushEvent(e.id, type, e[key], rest[key]);
           }
+          if (rest.status && rest.status !== e.status) e.statusChangedAt = new Date().toISOString();
           Object.assign(e, rest);
           if (assigneeId !== undefined) {
             const next = assigneeId ? actorOf(users.find((u) => u.id === assigneeId)) : null;
@@ -273,7 +288,8 @@ export async function setupMock(context, state) {
         const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
         for (const e of entries) counts[e.status] += 1;
         const mine = entries.filter((e) => e.assignee?.id === 'u1' && e.status !== 'COMPLETED').length;
-        return json(route, 200, { counts, mine });
+        const late = entries.filter((e) => olderThan(e, SLA.lateHours)).length;
+        return json(route, 200, { counts, mine, late });
       }
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
       if (m) {
@@ -296,6 +312,7 @@ export async function setupMock(context, state) {
         for (const [key, type] of [['status', 'STATUS_CHANGED'], ['verdict', 'VERDICT_CHANGED']]) {
           if (rest[key] && rest[key] !== e[key]) pushEvent(e.id, type, e[key], rest[key]);
         }
+        if (rest.status && rest.status !== e.status) e.statusChangedAt = new Date().toISOString();
         Object.assign(e, rest);
         if (assigneeId !== undefined) {
           const next = assigneeId ? actorOf(users.find((u) => u.id === assigneeId)) : null;
@@ -326,7 +343,7 @@ export async function setupMock(context, state) {
       if (m) {
         const e = entries.find((x) => x.id === m[1]);
         return e
-          ? json(route, 200, { entry: { ...e, reports: e.id === 'e1' ? reports : [] } })
+          ? json(route, 200, { entry: { ...e, reports: e.id === 'e1' ? reports : [] }, sla: SLA })
           : json(route, 404, { error: 'Nao encontrado.' });
       }
       if (p === '/api/analysts') {

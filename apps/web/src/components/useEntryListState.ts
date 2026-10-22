@@ -9,12 +9,13 @@ const SORT_KEYS: EntrySortKey[] = [
   'owner',
   'assignee',
   'status',
+  'age',
   'verdict',
   'reports',
   'createdAt',
 ];
 
-export type EntryFilterKey = 'type' | 'status' | 'verdict' | 'assignee';
+export type EntryFilterKey = 'type' | 'status' | 'verdict' | 'assignee' | 'age';
 
 /** Espera apos a ultima tecla antes de aplicar a busca por texto. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -34,6 +35,7 @@ export function useEntryListState() {
     status: searchParams.get('status') ?? '',
     verdict: searchParams.get('verdict') ?? '',
     assignee: searchParams.get('assignee') ?? '',
+    age: searchParams.get('age') ?? '',
   };
   const sortKey = searchParams.get('sort') as EntrySortKey | null;
   const sort: EntrySort =
@@ -99,7 +101,7 @@ export function useEntryListState() {
     clear: () => {
       writtenQ.current = '';
       setDraftQ('');
-      update({ q: null, type: null, status: null, verdict: null, assignee: null });
+      update({ q: null, type: null, status: null, verdict: null, assignee: null, age: null });
     },
   };
 }

@@ -2,7 +2,7 @@ import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
-import type { Entry, EntryStatus, Verdict } from '../api/types';
+import type { Entry, EntryStatus, SlaConfig, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { suggestViewName } from '../components/favorites';
@@ -19,7 +19,7 @@ export function GlobalHistoryPage() {
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { type, status, verdict, assignee } = list.filters;
+  const { type, status, verdict, assignee, age } = list.filters;
 
   const params = new URLSearchParams();
   params.set('scope', 'all');
@@ -28,6 +28,7 @@ export function GlobalHistoryPage() {
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
   if (assignee) params.set('assignee', assignee);
+  if (age) params.set('age', age);
   entryListParams(params, sort, offset, pageSize);
 
   // Exportar CSV: mesma busca, filtros e ordenacao, sem paginacao.
@@ -42,6 +43,8 @@ export function GlobalHistoryPage() {
     type && (type === 'FILE' ? 'Arquivos' : 'URLs'),
     assignee === 'me' && 'Atribuídas a mim',
     assignee === 'none' && 'Sem responsável',
+    age === 'warn' && 'Em alerta',
+    age === 'late' && 'Atrasadas',
     q && `"${q}"`,
   ]);
 
@@ -54,12 +57,14 @@ export function GlobalHistoryPage() {
       status,
       verdict,
       assignee,
+      age,
       sort.key,
       sort.dir,
       offset,
       pageSize,
     ],
-    queryFn: () => api.get<{ items: Entry[]; total: number }>(`/entries?${params.toString()}`),
+    queryFn: () =>
+      api.get<{ items: Entry[]; total: number; sla: SlaConfig }>(`/entries?${params.toString()}`),
     placeholderData: keepPreviousData,
   });
 
@@ -124,6 +129,20 @@ export function GlobalHistoryPage() {
             <SelectItem value="MALICIOUS" text="Malicioso" />
           </Select>
         </HpsmFilterItem>
+        <HpsmFilterItem label="Prazo" htmlFor="age">
+          <Select
+            id="age"
+            labelText="Prazo"
+            hideLabel
+            size="sm"
+            value={age}
+            onChange={(e) => list.setFilter('age', e.target.value)}
+          >
+            <SelectItem value="" text="Todos" />
+            <SelectItem value="warn" text="Em alerta ou atrasadas" />
+            <SelectItem value="late" text="Atrasadas" />
+          </Select>
+        </HpsmFilterItem>
         {canTriage && (
           <HpsmFilterItem label="Responsável" htmlFor="assignee">
             <Select
@@ -153,6 +172,7 @@ export function GlobalHistoryPage() {
       {query.data && (
         <EntriesTable
           entries={query.data.items}
+          sla={query.data.sla}
           total={query.data.total}
           offset={offset}
           pageSize={pageSize}

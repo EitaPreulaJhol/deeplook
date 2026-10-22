@@ -294,7 +294,7 @@ HP Service Manager 9 (indicados em cada item).
 | 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ✅ |
 | 22 | Registros relacionados | aba Related Records | 🟡 | M | 🟡 |
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ✅ |
-| 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
+| 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ✅ |
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ✅ |
 | 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ✅ |
 | 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ✅ |
@@ -434,6 +434,27 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   histórico); limites em variáveis de ambiente (`SLA_WARN_HOURS`, `SLA_LATE_HOURS`) ou
   numa tela de configurações do Admin; `EntriesTable.tsx` e `HpsmSidebar.tsx`.
 - **Cuidados:** decidir se a idade conta desde o envio ou desde o status atual.
+- ✅ **Implementado (idade desde a entrada no status atual; alerta 24 h, atraso 72 h):**
+  - **Banco:** coluna `Entry.statusChangedAt` (migração
+    `20261028000000_entry_status_changed_at`). As amostras existentes recebem a data da
+    última mudança de status do histórico, ou o envio se não houver. Um **trigger no
+    Postgres** atualiza a data a cada mudança de status, por qualquer caminho
+    (triagem, ação em massa, publicação de relatório), sempre em UTC.
+  - **Configuração:** limites em `SLA_WARN_HOURS` e `SLA_LATE_HOURS` (`lib/sla.ts`).
+  - **API:**
+    - `GET /api/entries` aceita `age=warn|late` (não concluídas acima do limite) e
+      `sort=age`, e devolve `sla` (os limites);
+    - `GET /api/entries/:id` também devolve `sla`;
+    - `GET /api/entries/counts` traz `late`;
+    - o CSV ganhou a coluna "No status desde".
+  - **Telas:**
+    - coluna **Idade** ("1 d 6 h") na grade, ordenável, com bolinha laranja em alerta
+      e vermelha quando atrasada; concluídas mostram "—"; a dica mostra a situação e
+      os limites;
+    - filtro **Prazo** no Histórico Global;
+    - fila **Atrasadas (N)** no navegador;
+    - **No status há** no resumo da ficha (`components/sla.tsx`: `AgeText`,
+      `slaLevel`, `formatAge`).
 
 ### 25. Aviso de sessão expirando
 - **Problema:** a sessão expira num horário fixo (`SESSION_TTL_HOURS`, padrão 168h, sem
