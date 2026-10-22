@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit';
 import { requireUser, SESSION_COOKIE } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
@@ -91,10 +92,17 @@ export async function meRoutes(app: FastifyInstance) {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
-      prisma.session.deleteMany({ where: { userId: user.id } }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+      await tx.session.deleteMany({ where: { userId: user.id } });
+      await audit(tx, req, {
+        action: 'USER_PASSWORD_CHANGED',
+        actorId: user.id,
+        targetUserId: user.id,
+        targetLabel: record.email,
+        detail: 'sessões encerradas',
+      });
+    });
 
     reply.clearCookie(SESSION_COOKIE, { path: '/' });
     return reply.send({ ok: true });

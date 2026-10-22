@@ -1,6 +1,7 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit';
 import { createSession, currentSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { resolvePreferences } from '../lib/preferences';
@@ -104,6 +105,13 @@ export async function authRoutes(app: FastifyInstance) {
           usedBy: { connect: { id: created.id } },
         },
       });
+      await audit(tx, req, {
+        action: 'USER_REGISTERED',
+        actorId: created.id,
+        targetUserId: created.id,
+        targetLabel: normalizedEmail,
+        detail: `chave ${key.code} · papel ${key.role}`,
+      });
       return created;
     });
 
@@ -112,10 +120,30 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // 5 tentativas a cada 5 min por e-mail (ver lib/rate-limit.ts).
-  const loginLimit = attemptLimit((req) => {
+  const loginEmail = (req: { body?: unknown }) => {
     const email = (req.body as { email?: unknown } | undefined)?.email;
-    return `login:${typeof email === 'string' ? email.trim().toLowerCase() : '-'}`;
+    return typeof email === 'string' ? email.trim().toLowerCase().slice(0, 200) : '-';
+  };
+  const loginLimit = attemptLimit((req) => `login:${loginEmail(req)}`, {
+    // Bloqueio por excesso de tentativas entra na auditoria (uma vez por janela).
+    onExceeded: (req) => {
+      void audit(prisma, req, {
+        action: 'LOGIN_LOCKED',
+        actorId: null,
+        targetLabel: loginEmail(req),
+        detail: '5 tentativas em 5 min',
+      }).catch((err) => req.log.error({ err }, 'Falha ao auditar bloqueio de login'));
+    },
   });
+  // Login recusado: registra o e-mail tentado e o motivo (nunca a senha).
+  const loginFailed = (req: FastifyRequest, email: string, userId: string | null, reason: string) =>
+    audit(prisma, req, {
+      action: 'LOGIN_FAILED',
+      actorId: null,
+      targetUserId: userId,
+      targetLabel: email,
+      detail: reason,
+    });
 
   app.post('/api/auth/login', { config: loginLimit }, async (req, reply) => {
     const parsed = LoginSchema.safeParse(req.body);
@@ -125,11 +153,21 @@ export async function authRoutes(app: FastifyInstance) {
     const user = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
-    if (!user) return reply.code(401).send({ error: 'Credenciais invalidas.' });
-    if (user.status !== 'ACTIVE') return reply.code(403).send({ error: 'Conta suspensa.' });
+    const normalized = email.trim().toLowerCase();
+    if (!user) {
+      await loginFailed(req, normalized, null, 'e-mail não cadastrado');
+      return reply.code(401).send({ error: 'Credenciais invalidas.' });
+    }
+    if (user.status !== 'ACTIVE') {
+      await loginFailed(req, normalized, user.id, 'conta suspensa');
+      return reply.code(403).send({ error: 'Conta suspensa.' });
+    }
 
     const ok = await verifyPassword(password, user.passwordHash);
-    if (!ok) return reply.code(401).send({ error: 'Credenciais invalidas.' });
+    if (!ok) {
+      await loginFailed(req, normalized, user.id, 'senha incorreta');
+      return reply.code(401).send({ error: 'Credenciais invalidas.' });
+    }
 
     await createSession(reply, user.id);
     return reply.send({ user: publicUser(user) });

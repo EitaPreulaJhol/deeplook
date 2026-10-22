@@ -3078,3 +3078,13 @@ body:has(.dl-print) {
 .dl-sandbox-console__screen canvas {
   outline: none;
 }
+
+/* Auditoria (Administracao): data numa linha so e autor anonimo apagado. */
+.dl-audit__date {
+  white-space: nowrap;
+}
+
+.dl-audit__anon {
+  color: var(--dl-text-muted);
+  font-style: italic;
+}

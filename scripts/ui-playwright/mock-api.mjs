@@ -142,6 +142,10 @@ export function createState({ loggedIn = false } = {}) {
     /** Resposta de GET /api/admin/status (o roteiro troca) e quantas vezes foi pedida. */
     systemStatus: null,
     statusCalls: 0,
+    /** Registros da aba Auditoria (o roteiro preenche) e as ultimas consultas. */
+    audit: [],
+    auditQueries: [],
+    lastAuditExport: null,
   };
 }
 
@@ -213,6 +217,26 @@ export async function setupMock(context, state) {
         };
         const scope = state.role === 'USER' ? 'mine' : base.scope;
         return json(route, 200, { ...base, scope, days, tz: url.searchParams.get('tz'), workload: scope === 'mine' ? [] : base.workload });
+      }
+      if (p === '/api/admin/audit' || p === '/api/admin/audit/export.csv') {
+        const sp = url.searchParams;
+        const text = (sp.get('q') ?? '').toLowerCase();
+        const rows = state.audit.filter(
+          (e) =>
+            (!sp.get('action') || e.action === sp.get('action')) &&
+            (!text || [e.targetLabel, e.detail, e.ip, e.actor?.displayName, e.actor?.email].some((v) => v?.toLowerCase().includes(text))),
+        );
+        if (p.endsWith('.csv')) {
+          state.lastAuditExport = url.search;
+          return route.fulfill({
+            status: 200,
+            headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="deeplook-auditoria-20261022.csv"' },
+            body: 'Data;Quem;Ação\r\n' + rows.map((e) => `${e.createdAt};${e.actor?.displayName ?? ''};${e.action}`).join('\r\n'),
+          });
+        }
+        state.auditQueries.push(url.search);
+        const offset = Number(sp.get('offset') ?? 0);
+        return json(route, 200, { total: rows.length, items: rows.slice(offset, offset + Number(sp.get('limit') ?? 50)) });
       }
       if (p === '/api/admin/status') {
         state.statusCalls += 1;

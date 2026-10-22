@@ -615,7 +615,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 38 | Modelos de relatório | Templates | 🟡 | P | ✅ |
 | 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ✅ |
 | 40 | Painel do analista | Dashboards | 🟡 | M | ✅ |
-| 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ⬜ |
+| 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ✅ |
 | 42 | Status do sistema | System Status | ⚪ | P | ✅ |
 | 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
 | 44 | Envio em lote | anexos múltiplos | 🟡 | M | ⬜ |
@@ -941,6 +941,30 @@ precisam de uma decisão de segurança.
   Com filtros e exportação CSV.
 - **Onde mexer:** modelo `AdminEvent`, gravado nas rotas de `admin.ts` e `auth.ts`.
 - **Cuidados:** nunca gravar senhas, nem as temporárias.
+- ✅ **Implementado:** modelo `AuditEvent` (migração `20261104000000_audit_events`) com
+  quem fez, ação, usuário-alvo, rótulo do alvo no momento (e-mail, código da chave, nome
+  do modelo), detalhe e IP. Gravado por `lib/audit.ts`, na mesma transação da ação.
+  - **Ações registradas:**
+    - papel alterado ("USER → ANALYST"), conta suspensa e reativada;
+    - senha redefinida pelo admin e senha trocada pelo próprio usuário;
+    - chave gerada (papel, usos, validade) e revogada;
+    - modelo de relatório criado, alterado e excluído;
+    - cadastro com chave (código e papel);
+    - login recusado, com o motivo: e-mail não cadastrado, senha incorreta ou conta
+      suspensa;
+    - login bloqueado por excesso de tentativas, uma vez por janela de 5 min (opção
+      `onExceeded` em `attemptLimit`).
+  - **Nunca grava senhas**, nem a temporária nem a tentada (o teste confere).
+  - **Usuário apagado:** os registros ficam (`SetNull`), com o rótulo do alvo.
+  - **API** (só admin):
+    - `GET /api/admin/audit?action=&days=&q=&limit=&offset=`;
+    - `GET /api/admin/audit/export.csv` com os mesmos filtros (até 10 000 linhas, proteção
+      contra fórmula no Excel).
+  - **Tela:** aba **Auditoria** na Administração (`?tab=audit`) e folha no navegador
+    (`components/AdminAuditTab.tsx`).
+    - Filtros: Buscar (quem, alvo, detalhe, IP), Ação e Período (padrão 30 dias).
+    - Colunas: Data, Quem (ou "(anônimo)"), Ação com cor, Alvo, Detalhe e IP.
+    - 50 por página, e Exportar CSV.
 
 ### 42. Status do sistema
 - **Proposta:** página do admin com verde, laranja ou vermelho para:

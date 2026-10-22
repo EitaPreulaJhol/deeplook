@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit';
 import { isAnalyst, requireAdmin, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
@@ -52,19 +53,25 @@ export async function templateRoutes(app: FastifyInstance) {
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { findings, iocs, ...rest } = parsed.data;
     try {
-      const template = await prisma.reportTemplate.create({
-        data: { ...rest, findings: findings || null, iocs: iocs || null, createdById: user.id },
-        select: templateSelect,
+      const template = await prisma.$transaction(async (tx) => {
+        const created = await tx.reportTemplate.create({
+          data: { ...rest, findings: findings || null, iocs: iocs || null, createdById: user.id },
+          select: templateSelect,
+        });
+        await audit(tx, req, {
+          action: 'TEMPLATE_CREATED',
+          actorId: user.id,
+          targetLabel: created.name,
+        });
+        return created;
       });
       return reply.code(201).send({ template });
     } catch (err) {
       if (duplicateName(err)) {
-        return reply
-          .code(409)
-          .send({
-            error: 'Ja existe um modelo com este nome.',
-            details: { name: ['nome em uso'] },
-          });
+        return reply.code(409).send({
+          error: 'Ja existe um modelo com este nome.',
+          details: { name: ['nome em uso'] },
+        });
       }
       throw err;
     }
@@ -78,20 +85,26 @@ export async function templateRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const { findings, iocs, ...rest } = parsed.data;
     try {
-      const template = await prisma.reportTemplate.update({
-        where: { id },
-        data: { ...rest, findings: findings || null, iocs: iocs || null },
-        select: templateSelect,
+      const template = await prisma.$transaction(async (tx) => {
+        const updated = await tx.reportTemplate.update({
+          where: { id },
+          data: { ...rest, findings: findings || null, iocs: iocs || null },
+          select: templateSelect,
+        });
+        await audit(tx, req, {
+          action: 'TEMPLATE_UPDATED',
+          actorId: user.id,
+          targetLabel: updated.name,
+        });
+        return updated;
       });
       return reply.send({ template });
     } catch (err) {
       if (duplicateName(err)) {
-        return reply
-          .code(409)
-          .send({
-            error: 'Ja existe um modelo com este nome.',
-            details: { name: ['nome em uso'] },
-          });
+        return reply.code(409).send({
+          error: 'Ja existe um modelo com este nome.',
+          details: { name: ['nome em uso'] },
+        });
       }
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
         return reply.code(404).send({ error: 'Modelo nao encontrado.' });
@@ -104,8 +117,19 @@ export async function templateRoutes(app: FastifyInstance) {
     const user = await requireAdmin(req, reply);
     if (!user) return;
     const { id } = req.params as { id: string };
-    const result = await prisma.reportTemplate.deleteMany({ where: { id } });
-    if (result.count === 0) return reply.code(404).send({ error: 'Modelo nao encontrado.' });
+    const existing = await prisma.reportTemplate.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+    if (!existing) return reply.code(404).send({ error: 'Modelo nao encontrado.' });
+    await prisma.$transaction(async (tx) => {
+      await tx.reportTemplate.delete({ where: { id } });
+      await audit(tx, req, {
+        action: 'TEMPLATE_DELETED',
+        actorId: user.id,
+        targetLabel: existing.name,
+      });
+    });
     return reply.send({ ok: true });
   });
 }

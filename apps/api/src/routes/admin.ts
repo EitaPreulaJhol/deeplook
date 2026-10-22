@@ -1,8 +1,11 @@
+import type { AuditAction, Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
+import { toCsv } from '../lib/csv';
 import { prisma } from '../lib/prisma';
 import { systemStatus } from '../lib/status';
 import { sendValidationError } from '../lib/validation';
@@ -18,6 +21,47 @@ const PatchUserSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED']).optional(),
 });
 
+const AuditQuery = z.object({
+  action: z
+    .enum([
+      'USER_REGISTERED',
+      'USER_ROLE_CHANGED',
+      'USER_SUSPENDED',
+      'USER_REACTIVATED',
+      'USER_PASSWORD_RESET',
+      'USER_PASSWORD_CHANGED',
+      'KEY_CREATED',
+      'KEY_REVOKED',
+      'TEMPLATE_CREATED',
+      'TEMPLATE_UPDATED',
+      'TEMPLATE_DELETED',
+      'LOGIN_FAILED',
+      'LOGIN_LOCKED',
+    ])
+    .optional(),
+  q: z.string().trim().max(100).optional(),
+  days: z.coerce.number().int().min(1).max(3650).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** Rotulos das acoes (CSV); o front tem os mesmos. */
+const AUDIT_LABELS: Record<AuditAction, string> = {
+  USER_REGISTERED: 'Cadastro com chave',
+  USER_ROLE_CHANGED: 'Papel alterado',
+  USER_SUSPENDED: 'Conta suspensa',
+  USER_REACTIVATED: 'Conta reativada',
+  USER_PASSWORD_RESET: 'Senha redefinida pelo admin',
+  USER_PASSWORD_CHANGED: 'Senha alterada pelo usuário',
+  KEY_CREATED: 'Chave gerada',
+  KEY_REVOKED: 'Chave revogada',
+  TEMPLATE_CREATED: 'Modelo criado',
+  TEMPLATE_UPDATED: 'Modelo alterado',
+  TEMPLATE_DELETED: 'Modelo excluído',
+  LOGIN_FAILED: 'Login recusado',
+  LOGIN_LOCKED: 'Login bloqueado (tentativas)',
+};
+
 export async function adminRoutes(app: FastifyInstance) {
   // Status do sistema: API, banco, MinIO, Proxmox e filas (cada um com tempo-limite).
   app.get('/api/admin/status', async (req, reply) => {
@@ -27,6 +71,76 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ---- Usuarios ----
+  // Auditoria: filtros por acao, periodo e texto (quem, alvo, detalhe, IP).
+  const auditWhere = (q: z.infer<typeof AuditQuery>): Prisma.AuditEventWhereInput => {
+    const where: Prisma.AuditEventWhereInput = {};
+    if (q.action) where.action = q.action;
+    if (q.days) where.createdAt = { gte: new Date(Date.now() - q.days * 86400000) };
+    if (q.q) {
+      const text = { contains: q.q, mode: 'insensitive' as const };
+      where.OR = [
+        { targetLabel: text },
+        { detail: text },
+        { ip: text },
+        { actor: { displayName: text } },
+        { actor: { email: text } },
+      ];
+    }
+    return where;
+  };
+  const auditInclude = {
+    actor: { select: { id: true, displayName: true, email: true } },
+    targetUser: { select: { id: true, displayName: true, email: true } },
+  } satisfies Prisma.AuditEventInclude;
+
+  app.get('/api/admin/audit', async (req, reply) => {
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    const parsed = AuditQuery.safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    const where = auditWhere(parsed.data);
+    const [total, items] = await Promise.all([
+      prisma.auditEvent.count({ where }),
+      prisma.auditEvent.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: parsed.data.offset,
+        take: parsed.data.limit,
+        include: auditInclude,
+      }),
+    ]);
+    return reply.send({ total, items });
+  });
+
+  app.get('/api/admin/audit/export.csv', async (req, reply) => {
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    const parsed = AuditQuery.safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    const items = await prisma.auditEvent.findMany({
+      where: auditWhere(parsed.data),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 10000,
+      include: auditInclude,
+    });
+    const csv = toCsv(
+      ['Data', 'Quem', 'Ação', 'Alvo', 'Detalhe', 'IP'],
+      items.map((e) => [
+        e.createdAt,
+        e.actor ? `${e.actor.displayName} <${e.actor.email}>` : '(anônimo)',
+        AUDIT_LABELS[e.action],
+        e.targetLabel ?? e.targetUser?.email ?? '',
+        e.detail ?? '',
+        e.ip ?? '',
+      ]),
+    );
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="deeplook-auditoria-${day}.csv"`)
+      .send(csv);
+  });
+
   app.get('/api/admin/users', async (req, reply) => {
     const user = await requireAdmin(req, reply);
     if (!user) return;
@@ -58,17 +172,40 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Voce nao pode suspender a propria conta.' });
     }
 
-    const updated = await prisma.user.update({
+    const before = await prisma.user.findUnique({
       where: { id },
-      data: parsed.data,
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        role: true,
-        status: true,
-        createdAt: true,
-      },
+      select: { email: true, role: true, status: true },
+    });
+    if (!before) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.user.update({
+        where: { id },
+        data: parsed.data,
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          role: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+      const target = { actorId: user.id, targetUserId: id, targetLabel: before.email };
+      if (parsed.data.role && parsed.data.role !== before.role) {
+        await audit(tx, req, {
+          ...target,
+          action: 'USER_ROLE_CHANGED',
+          detail: `${before.role} → ${parsed.data.role}`,
+        });
+      }
+      if (parsed.data.status && parsed.data.status !== before.status) {
+        await audit(tx, req, {
+          ...target,
+          action: parsed.data.status === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
+        });
+      }
+      return result;
     });
     return reply.send({ user: updated });
   });
@@ -86,15 +223,26 @@ export async function adminRoutes(app: FastifyInstance) {
         .send({ error: 'Para trocar a propria senha, use Minha conta > Alterar senha.' });
     }
 
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true },
+    });
     if (!target) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
 
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);
-    await prisma.$transaction([
-      prisma.user.update({ where: { id }, data: { passwordHash } }),
-      prisma.session.deleteMany({ where: { userId: id } }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id }, data: { passwordHash } });
+      await tx.session.deleteMany({ where: { userId: id } });
+      // A senha temporaria NAO vai para a auditoria.
+      await audit(tx, req, {
+        action: 'USER_PASSWORD_RESET',
+        actorId: admin.id,
+        targetUserId: id,
+        targetLabel: target.email,
+        detail: 'sessões encerradas',
+      });
+    });
 
     return reply.send({ temporaryPassword });
   });
@@ -129,15 +277,24 @@ export async function adminRoutes(app: FastifyInstance) {
       code = generateActivationCode();
     }
 
-    const key = await prisma.activationKey.create({
-      data: {
-        code,
-        role,
-        maxUses,
-        expiresAt: expiresInDays ? new Date(Date.now() + expiresInDays * 86400000) : null,
-        createdById: user.id,
-      },
-      include: { createdBy: { select: { id: true, displayName: true } } },
+    const key = await prisma.$transaction(async (tx) => {
+      const created = await tx.activationKey.create({
+        data: {
+          code,
+          role,
+          maxUses,
+          expiresAt: expiresInDays ? new Date(Date.now() + expiresInDays * 86400000) : null,
+          createdById: user.id,
+        },
+        include: { createdBy: { select: { id: true, displayName: true } } },
+      });
+      await audit(tx, req, {
+        action: 'KEY_CREATED',
+        actorId: user.id,
+        targetLabel: code,
+        detail: `papel ${role} · ${maxUses} uso(s) · ${expiresInDays ? `${expiresInDays} dia(s)` : 'sem prazo'}`,
+      });
+      return created;
     });
     return reply.code(201).send({ key });
   });
@@ -150,7 +307,10 @@ export async function adminRoutes(app: FastifyInstance) {
     const key = await prisma.activationKey.findUnique({ where: { id } });
     if (!key) return reply.code(404).send({ error: 'Chave nao encontrada.' });
 
-    await prisma.activationKey.update({ where: { id }, data: { revoked: true } });
+    await prisma.$transaction(async (tx) => {
+      await tx.activationKey.update({ where: { id }, data: { revoked: true } });
+      await audit(tx, req, { action: 'KEY_REVOKED', actorId: user.id, targetLabel: key.code });
+    });
     return reply.send({ ok: true });
   });
 }

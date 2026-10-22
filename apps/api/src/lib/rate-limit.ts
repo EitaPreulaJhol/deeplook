@@ -14,6 +14,21 @@ export function sessionKey(prefix: string) {
 }
 
 /**
+ * O plugin chama `onExceeded` a cada requisicao recusada; aqui so a primeira
+ * de cada chave na janela passa adiante (ex.: um registro de bloqueio).
+ */
+function oncePerWindow(fn: (req: FastifyRequest) => void, windowMs: number) {
+  const seen = new Map<string, number>();
+  return (req: FastifyRequest, key: string) => {
+    const now = Date.now();
+    for (const [k, until] of seen) if (until <= now) seen.delete(k);
+    if (seen.has(key)) return;
+    seen.set(key, now + windowMs);
+    fn(req);
+  };
+}
+
+/**
  * Limite de tentativas por rota (`config` da rota). A chave vem da propria
  * requisicao (e-mail, sessao...) e nao do IP: atras do nginx/Cloudflare o
  * X-Forwarded-For pode ser forjado pelo cliente. Roda no preHandler para o
@@ -21,7 +36,11 @@ export function sessionKey(prefix: string) {
  */
 export function attemptLimit(
   key: (req: FastifyRequest) => string,
-  { max = MAX_ATTEMPTS, windowMs = WINDOW_MS }: { max?: number; windowMs?: number } = {},
+  {
+    max = MAX_ATTEMPTS,
+    windowMs = WINDOW_MS,
+    onExceeded,
+  }: { max?: number; windowMs?: number; onExceeded?: (req: FastifyRequest) => void } = {},
 ): {
   rateLimit: RateLimitOptions;
 } {
@@ -31,6 +50,7 @@ export function attemptLimit(
       timeWindow: windowMs,
       hook: 'preHandler',
       keyGenerator: key,
+      ...(onExceeded ? { onExceeded: oncePerWindow(onExceeded, windowMs) } : {}),
       errorResponseBuilder: (_req, context) => {
         const minutes = Math.max(1, Math.ceil(context.ttl / 60000));
         return {

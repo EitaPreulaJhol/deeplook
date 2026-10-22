@@ -104,6 +104,33 @@ export interface SystemStatus {
   }[];
 }
 
+export type AuditAction =
+  | 'USER_REGISTERED'
+  | 'USER_ROLE_CHANGED'
+  | 'USER_SUSPENDED'
+  | 'USER_REACTIVATED'
+  | 'USER_PASSWORD_RESET'
+  | 'USER_PASSWORD_CHANGED'
+  | 'KEY_CREATED'
+  | 'KEY_REVOKED'
+  | 'TEMPLATE_CREATED'
+  | 'TEMPLATE_UPDATED'
+  | 'TEMPLATE_DELETED'
+  | 'LOGIN_FAILED'
+  | 'LOGIN_LOCKED';
+
+/** Registro de auditoria (GET /api/admin/audit). */
+export interface AuditEvent {
+  id: string;
+  action: AuditAction;
+  actor: { id: string; displayName: string; email: string } | null;
+  targetUser: { id: string; displayName: string; email: string } | null;
+  targetLabel: string | null;
+  detail: string | null;
+  ip: string | null;
+  createdAt: string;
+}
+
 /** Modelo de relatorio (GET /api/report-templates). */
 export interface ReportTemplate {
   id: string;
