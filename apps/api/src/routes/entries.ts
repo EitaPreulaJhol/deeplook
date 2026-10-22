@@ -3,7 +3,7 @@ import type { Readable } from 'node:stream';
 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { EntryStatus, Prisma, Verdict } from '@prisma/client';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
@@ -18,6 +18,8 @@ import { s3 } from '../lib/s3';
 import { slaConfig, slaCutoff } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
+import type { ZipEntry } from '../lib/zip';
+import { extractZipEntry, listZip, ZipError } from '../lib/zip';
 import { reviewRequired } from './reports';
 
 /**
@@ -272,6 +274,119 @@ const VERDICT_LABELS = {
   MALICIOUS: 'Malicioso',
 };
 
+/** Envio por .zip: arquivos por pacote e limites de tamanho (por arquivo e total). */
+const ZIP_MAX_FILES = 20;
+const ZIP_MAX_FILE_BYTES = () => env.MAX_UPLOAD_MB * 1024 * 1024;
+const ZIP_MAX_TOTAL_BYTES = () => 2 * ZIP_MAX_FILE_BYTES();
+
+interface Upload {
+  buffer: Buffer;
+  filename: string;
+  mimetype: string;
+  fields: Record<string, string>;
+}
+
+/** Le o multipart (um arquivo e os campos). Em erro ja responde e devolve null. */
+async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upload | null> {
+  let buffer: Buffer | null = null;
+  let filename = 'arquivo';
+  let mimetype = 'application/octet-stream';
+  const fields: Record<string, string> = {};
+
+  try {
+    for await (const part of req.parts()) {
+      if (part.type === 'file') {
+        filename = part.filename || filename;
+        mimetype = part.mimetype || mimetype;
+        buffer = await part.toBuffer();
+      } else {
+        fields[part.fieldname] = String(part.value);
+      }
+    }
+  } catch (err: any) {
+    if (err?.code === 'FST_REQ_FILE_TOO_LARGE') {
+      reply.code(413).send({ error: `Arquivo maior que o limite de ${env.MAX_UPLOAD_MB} MB.` });
+      return null;
+    }
+    req.log.error(err);
+    reply.code(400).send({ error: 'Falha ao processar o upload.' });
+    return null;
+  }
+
+  if (!buffer) {
+    reply.code(400).send({ error: 'Nenhum arquivo enviado.' });
+    return null;
+  }
+  return { buffer, filename, mimetype, fields };
+}
+
+/**
+ * Grava o arquivo no MinIO e cria a amostra (envio unico, lote e .zip). Devolve
+ * tambem a primeira amostra ja enviada com o mesmo SHA-256, se houver.
+ */
+async function createFileEntry(
+  req: FastifyRequest,
+  ownerId: string,
+  input: {
+    buffer: Buffer;
+    filename: string;
+    mimetype: string;
+    title: string;
+    description: string | null;
+    tags: { id: string }[];
+  },
+) {
+  const { buffer, filename, mimetype } = input;
+  const sha256 = sha256Hex(buffer);
+  const storageKey = `samples/${randomUUID()}`;
+  // Analise estatica (so leitura, com limites); falha nao impede o envio.
+  let staticInfo: ReturnType<typeof analyzeBuffer> | undefined;
+  try {
+    staticInfo = analyzeBuffer(buffer, filename);
+  } catch (err) {
+    req.log.warn({ err }, 'Falha na analise estatica');
+  }
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: env.S3_BUCKET,
+      Key: storageKey,
+      Body: buffer,
+      ContentType: mimetype,
+      Metadata: { originalfilename: encodeURIComponent(filename), sha256 },
+    }),
+  );
+
+  const entry = await prisma.entry.create({
+    data: {
+      ownerId,
+      type: 'FILE',
+      title: input.title.slice(0, 200),
+      description: input.description ? input.description.slice(0, 4000) : null,
+      originalFilename: filename,
+      storageKey,
+      bucket: env.S3_BUCKET,
+      fileSize: buffer.length,
+      mimeType: mimetype,
+      sha256,
+      staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
+      tags: { connect: input.tags },
+    },
+    include: {
+      owner: { select: { id: true, displayName: true, email: true } },
+      tags: true,
+    },
+  });
+
+  await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
+  const previous = await prisma.entry.findFirst({
+    where: { sha256, id: { not: entry.id } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, title: true },
+  });
+  return { entry, previous };
+}
+
 export async function entryRoutes(app: FastifyInstance) {
   // Exportacao CSV da lista filtrada/ordenada (sem paginacao, ate 10 mil linhas).
   app.get('/api/entries/export.csv', async (req, reply) => {
@@ -515,83 +630,130 @@ export async function entryRoutes(app: FastifyInstance) {
   app.post('/api/entries/file', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
+    const upload = await readUpload(req, reply);
+    if (!upload) return;
 
-    let fileBuffer: Buffer | null = null;
-    let filename = 'arquivo';
-    let mimetype = 'application/octet-stream';
-    const fields: Record<string, string> = {};
-
-    try {
-      for await (const part of req.parts()) {
-        if (part.type === 'file') {
-          filename = part.filename || filename;
-          mimetype = part.mimetype || mimetype;
-          fileBuffer = await part.toBuffer();
-        } else {
-          fields[part.fieldname] = String(part.value);
-        }
-      }
-    } catch (err: any) {
-      if (err?.code === 'FST_REQ_FILE_TOO_LARGE') {
-        return reply
-          .code(413)
-          .send({ error: `Arquivo maior que o limite de ${env.MAX_UPLOAD_MB} MB.` });
-      }
-      req.log.error(err);
-      return reply.code(400).send({ error: 'Falha ao processar o upload.' });
-    }
-
-    if (!fileBuffer) return reply.code(400).send({ error: 'Nenhum arquivo enviado.' });
-
-    const title = (fields.title || filename).slice(0, 200);
-    const description = fields.description ? fields.description.slice(0, 4000) : null;
-    const tagNames = parseTags(fields.tags);
-
-    const sha256 = sha256Hex(fileBuffer);
-    const storageKey = `samples/${randomUUID()}`;
-    // Analise estatica (so leitura, com limites); falha nao impede o envio.
-    let staticInfo: ReturnType<typeof analyzeBuffer> | undefined;
-    try {
-      staticInfo = analyzeBuffer(fileBuffer, filename);
-    } catch (err) {
-      req.log.warn({ err }, 'Falha na analise estatica');
-    }
-
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: env.S3_BUCKET,
-        Key: storageKey,
-        Body: fileBuffer,
-        ContentType: mimetype,
-        Metadata: { originalfilename: encodeURIComponent(filename), sha256 },
-      }),
-    );
-
-    const tags = await resolveTags(tagNames);
-
-    const entry = await prisma.entry.create({
-      data: {
-        ownerId: user.id,
-        type: 'FILE',
-        title,
-        description,
-        originalFilename: filename,
-        storageKey,
-        bucket: env.S3_BUCKET,
-        fileSize: fileBuffer.length,
-        mimeType: mimetype,
-        sha256,
-        staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
-        tags: { connect: tags },
-      },
-      include: {
-        owner: { select: { id: true, displayName: true, email: true } },
-        tags: true,
-      },
+    const { entry, previous } = await createFileEntry(req, user.id, {
+      buffer: upload.buffer,
+      filename: upload.filename,
+      mimetype: upload.mimetype,
+      title: upload.fields.title || upload.filename,
+      description: upload.fields.description || null,
+      tags: await resolveTags(parseTags(upload.fields.tags)),
     });
+    return reply.code(201).send({ entry, previous });
+  });
 
-    await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
-    return reply.code(201).send({ entry });
+  // Envio em lote por .zip (ex.: pacote de malware com a senha "infected"):
+  // cada arquivo de dentro vira uma amostra, com a mesma descricao e as mesmas
+  // tags. O pacote e aberto so na memoria, nunca no disco nem executado.
+  app.post('/api/entries/zip', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const upload = await readUpload(req, reply);
+    if (!upload) return;
+
+    const password = upload.fields.password ?? '';
+    if (password.length > 200) {
+      return reply
+        .code(400)
+        .send({ error: 'Dados invalidos.', details: { password: ['máximo de 200 caracteres'] } });
+    }
+
+    let files: ZipEntry[];
+    try {
+      files = listZip(upload.buffer).filter(
+        (e) => !e.dir && !e.path.startsWith('__MACOSX/') && e.name !== '.DS_Store',
+      );
+    } catch (err) {
+      if (err instanceof ZipError) return reply.code(400).send({ error: err.message });
+      throw err;
+    }
+    if (files.length === 0) return reply.code(400).send({ error: 'O .zip não tem arquivos.' });
+
+    const tags = await resolveTags(parseTags(upload.fields.tags));
+    const base = upload.fields.description ? upload.fields.description.slice(0, 3600) : '';
+    const created: {
+      name: string;
+      path: string;
+      entry: { id: string; title: string; sha256: string | null; fileSize: number | null };
+      previous: { id: string; title: string } | null;
+    }[] = [];
+    const skipped: { name: string; path: string; reason: string }[] = [];
+    let total = 0;
+    let passwordError: string | null = null;
+
+    for (const file of files) {
+      if (created.length >= ZIP_MAX_FILES) {
+        skipped.push({
+          name: file.name,
+          path: file.path,
+          reason: `limite de ${ZIP_MAX_FILES} arquivos por pacote`,
+        });
+        continue;
+      }
+      if (file.size === 0) {
+        skipped.push({ name: file.name, path: file.path, reason: 'arquivo vazio' });
+        continue;
+      }
+      if (file.size > ZIP_MAX_FILE_BYTES()) {
+        skipped.push({
+          name: file.name,
+          path: file.path,
+          reason: 'Arquivo maior que o limite de upload.',
+        });
+        continue;
+      }
+      if (total + file.size > ZIP_MAX_TOTAL_BYTES()) {
+        skipped.push({
+          name: file.name,
+          path: file.path,
+          reason: 'limite total do pacote atingido',
+        });
+        continue;
+      }
+      let buffer: Buffer;
+      try {
+        buffer = extractZipEntry(upload.buffer, file, password, ZIP_MAX_FILE_BYTES());
+      } catch (err) {
+        if (!(err instanceof ZipError)) throw err;
+        if (err.code === 'BAD_PASSWORD') passwordError ??= err.message;
+        skipped.push({ name: file.name, path: file.path, reason: err.message });
+        continue;
+      }
+      total += buffer.length;
+      const origin = `Extraído de ${upload.filename}${file.path !== file.name ? ` (${file.path})` : ''}.`;
+      const { entry, previous } = await createFileEntry(req, user.id, {
+        buffer,
+        filename: file.name,
+        mimetype: 'application/octet-stream',
+        title: file.name,
+        description: base ? `${base}\n\n${origin}` : origin,
+        tags,
+      });
+      created.push({
+        name: file.name,
+        path: file.path,
+        entry: { id: entry.id, title: entry.title, sha256: entry.sha256, fileSize: entry.fileSize },
+        previous,
+      });
+    }
+
+    if (created.length === 0) {
+      // Nada criado e a senha nao abriu: destaca o campo Senha.
+      if (passwordError) {
+        return reply.code(400).send({
+          error: passwordError,
+          details: { password: [passwordError] },
+          created,
+          skipped,
+        });
+      }
+      return reply
+        .code(400)
+        .send({ error: 'Nenhum arquivo pôde ser extraído do .zip.', created, skipped });
+    }
+    return reply.code(201).send({ created, skipped });
   });
 
   // Submissao de LINK (JSON)

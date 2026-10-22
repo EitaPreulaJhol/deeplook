@@ -16,9 +16,17 @@ export function formatFileSize(n?: number | null): string {
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+/** Mesmo nome e tamanho = o mesmo arquivo escolhido de novo. */
+const fileKey = (f: File) => `${f.name}\u0000${f.size}`;
+
 interface HpsmFileDropProps {
-  file: File | null;
-  onChange: (file: File | null) => void;
+  files: File[];
+  onChange: (files: File[]) => void;
+  /** Varios arquivos: cada escolha soma a lista (sem repetir o mesmo arquivo). */
+  multiple?: boolean;
+  /** Limite da lista; o que passar e descartado e `onLimit` avisa. */
+  maxFiles?: number;
+  onLimit?: (max: number) => void;
   /** id do botao "Selecionar arquivo" (foco na validacao). */
   buttonId?: string;
   invalid?: boolean;
@@ -26,16 +34,34 @@ interface HpsmFileDropProps {
 
 /**
  * Campo de arquivo no estilo HPSM: area "Arraste o arquivo aqui ou [Selecionar
- * arquivo]" e, depois da escolha, a linha com nome, tamanho e "Remover". O input
- * nativo fica oculto, mas e ele que o botao (e o teclado) aciona.
+ * arquivo]" e, depois da escolha, uma linha por arquivo com nome, tamanho e
+ * "Remover". O input nativo fica oculto, mas e ele que o botao (e o teclado) aciona.
  */
-export function HpsmFileDrop({ file, onChange, buttonId, invalid }: HpsmFileDropProps) {
+export function HpsmFileDrop({
+  files,
+  onChange,
+  multiple = false,
+  maxFiles,
+  onLimit,
+  buttonId,
+  invalid,
+}: HpsmFileDropProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const pick = (files: FileList | null) => {
-    onChange(files && files.length > 0 ? files[0] : null);
+  const pick = (list: FileList | null) => {
+    const picked = Array.from(list ?? []);
+    if (picked.length === 0) return;
+    if (!multiple) {
+      onChange([picked[0]]);
+      return;
+    }
+    const seen = new Set(files.map(fileKey));
+    const next = [...files, ...picked.filter((f) => !seen.has(fileKey(f)))];
+    const over = Boolean(maxFiles && next.length > maxFiles);
+    onChange(over ? next.slice(0, maxFiles) : next);
+    if (over && maxFiles) onLimit?.(maxFiles);
   };
 
   const onDragOver = (event: DragEvent) => {
@@ -51,10 +77,12 @@ export function HpsmFileDrop({ file, onChange, buttonId, invalid }: HpsmFileDrop
     pick(event.dataTransfer.files);
   };
 
-  const clear = () => {
-    onChange(null);
+  const remove = (file: File) => {
+    onChange(files.filter((f) => f !== file));
     if (inputRef.current) inputRef.current.value = '';
   };
+
+  const total = files.reduce((sum, f) => sum + f.size, 0);
 
   return (
     <div className="hpsm-filedrop">
@@ -65,7 +93,15 @@ export function HpsmFileDrop({ file, onChange, buttonId, invalid }: HpsmFileDrop
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        <span>{dragging ? 'Solte o arquivo para anexar' : 'Arraste o arquivo aqui ou'}</span>
+        <span>
+          {dragging
+            ? multiple
+              ? 'Solte os arquivos para anexar'
+              : 'Solte o arquivo para anexar'
+            : multiple
+              ? 'Arraste os arquivos aqui ou'
+              : 'Arraste o arquivo aqui ou'}
+        </span>
         <button
           id={buttonId}
           type="button"
@@ -73,29 +109,44 @@ export function HpsmFileDrop({ file, onChange, buttonId, invalid }: HpsmFileDrop
           aria-invalid={invalid || undefined}
           onClick={() => inputRef.current?.click()}
         >
-          Selecionar arquivo
+          {multiple ? 'Selecionar arquivos' : 'Selecionar arquivo'}
         </button>
         <input
           ref={inputRef}
           id={inputId}
           type="file"
+          multiple={multiple}
           className="hpsm-filedrop__input"
           tabIndex={-1}
           aria-hidden="true"
-          onChange={(event) => pick(event.target.files)}
+          onChange={(event) => {
+            pick(event.target.files);
+            event.target.value = '';
+          }}
         />
       </div>
 
-      {file && (
-        <div className="hpsm-filedrop__file">
+      {files.map((file) => (
+        <div key={fileKey(file)} className="hpsm-filedrop__file">
           <IconPage size={16} />
           <span className="hpsm-filedrop__name" title={file.name}>
             {file.name}
           </span>
           <span className="hpsm-filedrop__size">({formatFileSize(file.size)})</span>
-          <button type="button" className="hpsm-filedrop__remove" onClick={clear}>
+          <button
+            type="button"
+            className="hpsm-filedrop__remove"
+            aria-label={`Remover ${file.name}`}
+            onClick={() => remove(file)}
+          >
             Remover
           </button>
+        </div>
+      ))}
+      {files.length > 1 && (
+        <div className="hpsm-filedrop__total">
+          {files.length} arquivos · {formatFileSize(total)}
+          {maxFiles ? ` (máximo de ${maxFiles} por envio)` : ''}
         </div>
       )}
     </div>

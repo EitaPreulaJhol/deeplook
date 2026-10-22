@@ -1,10 +1,21 @@
-import { TextArea, TextInput } from '@carbon/react';
+import {
+  Checkbox,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TextArea,
+  TextInput,
+} from '@carbon/react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import type { Entry } from '../api/types';
-import { HpsmFileDrop } from '../components/HpsmFileDrop';
+import { formatFileSize, HpsmFileDrop } from '../components/HpsmFileDrop';
 import {
   HpsmField,
   HpsmForm,
@@ -18,7 +29,8 @@ import { IconAdd, IconArrowLeft } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
-import { VerdictTag } from '../components/tags';
+import type { StatusTone } from '../components/tags';
+import { StatusText, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 
 /**
@@ -62,10 +74,141 @@ function useDuplicateCheck(file: File | null) {
   return { hash, hashing, duplicate };
 }
 
+/** Arquivos por envio em lote (o .zip tem o mesmo limite no servidor). */
+const MAX_FILES = 20;
+
+type Previous = { id: string; title: string } | null;
+
+/** Linha do "Resultado do envio" (lote de arquivos ou conteudo do .zip). */
+interface BatchRow {
+  key: string;
+  name: string;
+  size?: number;
+  status: 'waiting' | 'sending' | 'done' | 'skipped' | 'error';
+  entry?: { id: string; title: string };
+  previous?: Previous;
+  reason?: string;
+}
+
+interface ZipResult {
+  created: {
+    name: string;
+    path: string;
+    entry: { id: string; title: string; fileSize: number | null };
+    previous: Previous;
+  }[];
+  skipped: { name: string; path: string; reason: string }[];
+}
+
+const ROW_STATUS: Record<BatchRow['status'], { label: string; tone: StatusTone }> = {
+  waiting: { label: 'Aguardando', tone: 'gray' },
+  sending: { label: 'Enviando...', tone: 'blue' },
+  done: { label: 'Enviada', tone: 'green' },
+  skipped: { label: 'Ignorado', tone: 'orange' },
+  error: { label: 'Falha', tone: 'red' },
+};
+
+const isZipName = (name: string) => /\.zip$/i.test(name);
+
+function zipRows(result: ZipResult): BatchRow[] {
+  return [
+    ...result.created.map((c): BatchRow => ({
+      key: `c:${c.path}`,
+      name: c.path,
+      size: c.entry.fileSize ?? undefined,
+      status: 'done',
+      entry: c.entry,
+      previous: c.previous,
+    })),
+    ...result.skipped.map((s): BatchRow => ({
+      key: `s:${s.path}`,
+      name: s.path,
+      status: 'skipped',
+      reason: s.reason,
+    })),
+  ];
+}
+
+/** Resultado do envio em lote: uma linha por arquivo, atualizada ao vivo. */
+function BatchResult({ rows, source }: { rows: BatchRow[]; source: string }) {
+  const done = rows.filter((r) => r.status === 'done').length;
+  const running = rows.some((r) => r.status === 'waiting' || r.status === 'sending');
+  const failed = rows.length - done;
+  return (
+    <HpsmSection title={`Resultado do envio — ${source}`}>
+      {!running &&
+        (failed === 0 ? (
+          <HpsmMessage kind="success">
+            {done === 1 ? '1 amostra criada.' : `${done} amostras criadas.`}
+          </HpsmMessage>
+        ) : (
+          <HpsmMessage kind={done ? 'warning' : 'error'}>
+            {done === 1 ? '1 amostra criada' : `${done} amostras criadas`};{' '}
+            {failed === 1 ? '1 arquivo não foi enviado' : `${failed} arquivos não foram enviados`}.
+            Veja o motivo de cada um abaixo.
+          </HpsmMessage>
+        ))}
+      <TableContainer>
+        <Table size="xs" aria-label="Resultado do envio">
+          <TableHead>
+            <TableRow>
+              <TableHeader scope="col">Arquivo</TableHeader>
+              <TableHeader scope="col">Tamanho</TableHeader>
+              <TableHeader scope="col">Situação</TableHeader>
+              <TableHeader scope="col">Amostra</TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.key}>
+                <TableCell>
+                  <span className="dl-mono">{row.name}</span>
+                </TableCell>
+                <TableCell>{formatFileSize(row.size)}</TableCell>
+                <TableCell>
+                  <StatusText tone={ROW_STATUS[row.status].tone}>
+                    {ROW_STATUS[row.status].label}
+                    {row.reason ? `: ${row.reason}` : ''}
+                  </StatusText>
+                </TableCell>
+                <TableCell>
+                  {row.entry ? (
+                    <>
+                      <Link className="dl-link" to={`/entries/${row.entry.id}`}>
+                        {row.entry.title}
+                      </Link>
+                      {row.previous && (
+                        <span className="dl-batch__previous">
+                          {' '}
+                          · já enviada antes:{' '}
+                          <Link className="dl-link" to={`/entries/${row.previous.id}`}>
+                            {row.previous.title}
+                          </Link>
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </HpsmSection>
+  );
+}
+
 export function SubmitPage() {
   const navigate = useNavigate();
 
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const file = files.length === 1 ? files[0] : null;
+  const [unzip, setUnzip] = useState(false);
+  const [zipPassword, setZipPassword] = useState('infected');
+  const [batch, setBatch] = useState<{ source: string; rows: BatchRow[] } | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
@@ -78,12 +221,21 @@ export function SubmitPage() {
   const [urlTags, setUrlTags] = useState('');
   const [tab, setTab] = useState('file');
   const { hash, hashing, duplicate } = useDuplicateCheck(file);
+  const zipMode = Boolean(file && isZipName(file.name) && unzip);
+  // Um arquivo vira uma amostra com titulo proprio; varios (ou o .zip
+  // desmembrado) usam o nome de cada arquivo.
+  const many = files.length > 1 || zipMode;
   const { allowNavigation } = useUnsavedChanges(
-    Boolean(file || title || description || tags || url || urlTitle || urlDescription || urlTags),
+    Boolean(
+      files.length || title || description || tags || url || urlTitle || urlDescription || urlTags,
+    ) || Boolean(progress),
   );
 
   // Validacao no estilo HPSM (campo destacado + mensagem + foco).
-  const fileCheck = useRequiredFields([{ id: 'file-pick', label: 'Arquivo', ok: Boolean(file) }]);
+  const fileCheck = useRequiredFields([
+    { id: 'file-pick', label: 'Arquivo', ok: files.length > 0 },
+    { id: 'zip-password', label: 'Senha do .zip', ok: true, api: 'password', value: zipPassword },
+  ]);
   const urlCheck = useRequiredFields([
     {
       id: 'url',
@@ -104,9 +256,88 @@ export function SubmitPage() {
   ]);
   const validation = tab === 'file' ? fileCheck.message : urlCheck.message;
 
+  /** Depois de um lote o formulario volta ao comeco (o resultado fica abaixo). */
+  const resetFileForm = () => {
+    setFiles([]);
+    setTitle('');
+    setDescription('');
+    setTags('');
+    setUnzip(false);
+  };
+
+  const submitZip = async (zip: File) => {
+    const form = new FormData();
+    form.append('file', zip);
+    form.append('password', zipPassword);
+    if (description) form.append('description', description);
+    if (tags) form.append('tags', tags);
+    setProgress('Abrindo o .zip e criando as amostras...');
+    try {
+      const res = await api.post<ZipResult>('/entries/zip', form);
+      setBatch({ source: zip.name, rows: zipRows(res) });
+      resetFileForm();
+    } catch (err) {
+      if (fileCheck.fromApi(err)) return;
+      const data = err instanceof ApiError ? (err.data as Partial<ZipResult> | null) : null;
+      if (data?.skipped?.length) {
+        setBatch({ source: zip.name, rows: zipRows({ created: [], skipped: data.skipped }) });
+      }
+      setError((err as Error).message);
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  const submitBatch = async (list: File[]) => {
+    const rows: BatchRow[] = list.map((f, i) => ({
+      key: `${i}:${f.name}`,
+      name: f.name,
+      size: f.size,
+      status: 'waiting',
+    }));
+    const update = (i: number, patch: Partial<BatchRow>) =>
+      setBatch((current) =>
+        current
+          ? { ...current, rows: current.rows.map((r, j) => (j === i ? { ...r, ...patch } : r)) }
+          : current,
+      );
+    setBatch({ source: `${list.length} arquivos`, rows });
+    const shared = { description, tags };
+    resetFileForm();
+    // Um por vez: o limite de tamanho do servidor vale para cada arquivo.
+    for (let i = 0; i < list.length; i++) {
+      setProgress(`Enviando ${i + 1} de ${list.length}...`);
+      update(i, { status: 'sending' });
+      try {
+        const form = new FormData();
+        form.append('file', list[i]);
+        form.append('title', list[i].name);
+        if (shared.description) form.append('description', shared.description);
+        if (shared.tags) form.append('tags', shared.tags);
+        const res = await api.post<{ entry: Entry; previous: Previous }>('/entries/file', form);
+        update(i, { status: 'done', entry: res.entry, previous: res.previous });
+      } catch (err) {
+        update(i, { status: 'error', reason: (err as Error).message });
+      }
+    }
+    setProgress(null);
+  };
+
   const submitFile = async () => {
     setError(null);
-    if (!fileCheck.check() || !file) return;
+    if (!fileCheck.check()) return;
+    if (many) {
+      setLoading(true);
+      setBatch(null);
+      try {
+        if (zipMode && file) await submitZip(file);
+        else await submitBatch(files);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    if (!file) return;
     setLoading(true);
     try {
       const form = new FormData();
@@ -156,7 +387,17 @@ export function SubmitPage() {
 
       <HpsmToolbar label="Ações do envio">
         <HpsmToolbarButton
-          label={loading ? 'Enviando...' : tab === 'file' ? 'Enviar arquivo' : 'Enviar link'}
+          label={
+            loading
+              ? 'Enviando...'
+              : tab === 'url'
+                ? 'Enviar link'
+                : zipMode
+                  ? 'Desmembrar e enviar'
+                  : files.length > 1
+                    ? `Enviar ${files.length} arquivos`
+                    : 'Enviar arquivo'
+          }
           title="Enviar (Ctrl+S)"
           icon={IconAdd}
           disabled={loading}
@@ -171,14 +412,14 @@ export function SubmitPage() {
         {loading && (
           <HpsmLoading
             className="hpsm-toolbar__loading"
-            text={tab === 'file' ? 'Fazendo upload seguro...' : 'Registrando link...'}
+            text={tab === 'url' ? 'Registrando link...' : (progress ?? 'Fazendo upload seguro...')}
           />
         )}
       </HpsmToolbar>
 
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {validation && <HpsmMessage kind="error">{validation}</HpsmMessage>}
-      {tab === 'file' && duplicate && (
+      {tab === 'file' && duplicate && !zipMode && (
         <HpsmMessage kind="warning">
           Esta amostra já foi enviada:{' '}
           <Link className="dl-link" to={`/entries/${duplicate.id}`}>
@@ -207,18 +448,61 @@ export function SubmitPage() {
                 label="Arquivo"
                 required
                 top
-                help="Tamanho máximo conforme configurado no servidor."
-
+                help={
+                  many
+                    ? 'Cada arquivo vira uma amostra com o próprio nome; descrição e tags valem para todas.'
+                    : `Um ou mais arquivos (até ${MAX_FILES}). Tamanho máximo por arquivo conforme configurado no servidor.`
+                }
                 invalid={fileCheck.isInvalid('file-pick')}
               >
                 <HpsmFileDrop
-                  file={file}
-                  onChange={setFile}
+                  files={files}
+                  onChange={(next) => {
+                    setFiles(next);
+                    setError(null);
+                  }}
+                  multiple
+                  maxFiles={MAX_FILES}
+                  onLimit={(max) =>
+                    setError(
+                      `Selecione no máximo ${max} arquivos por envio; os excedentes foram ignorados.`,
+                    )
+                  }
                   buttonId="file-pick"
                   invalid={fileCheck.isInvalid('file-pick')}
                 />
               </HpsmField>
-              {file && (hashing || hash) && (
+              {file && isZipName(file.name) && (
+                <HpsmField
+                  label="Pacote .zip"
+                  help="O .zip é aberto só no servidor, sem executar nada. Até 20 arquivos por pacote."
+                >
+                  <Checkbox
+                    id="zip-unzip"
+                    labelText="Desmembrar: cada arquivo de dentro do .zip vira uma amostra"
+                    checked={unzip}
+                    onChange={(_, { checked }) => setUnzip(checked)}
+                  />
+                </HpsmField>
+              )}
+              {zipMode && (
+                <HpsmField
+                  label="Senha do .zip"
+                  htmlFor="zip-password"
+                  invalid={fileCheck.isInvalid('zip-password')}
+                  help="Pacotes de malware costumam usar “infected”. Deixe em branco se não houver senha."
+                >
+                  <TextInput
+                    id="zip-password"
+                    labelText="Senha do .zip"
+                    hideLabel
+                    autoComplete="off"
+                    value={zipPassword}
+                    onChange={(e) => setZipPassword(e.target.value)}
+                  />
+                </HpsmField>
+              )}
+              {file && !zipMode && (hashing || hash) && (
                 <HpsmField label="SHA-256">
                   {hash ? (
                     <HpsmReadonly mono copyable={{ value: hash, label: 'SHA-256' }}>
@@ -229,16 +513,18 @@ export function SubmitPage() {
                   )}
                 </HpsmField>
               )}
-              <HpsmField label="Título" htmlFor="file-title">
-                <TextInput
-                  id="file-title"
-                  labelText="Título"
-                  hideLabel
-                  placeholder="Ex.: instalador_suspeito.exe"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </HpsmField>
+              {!many && (
+                <HpsmField label="Título" htmlFor="file-title">
+                  <TextInput
+                    id="file-title"
+                    labelText="Título"
+                    hideLabel
+                    placeholder="Ex.: instalador_suspeito.exe"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </HpsmField>
+              )}
               <HpsmField label="Descrição" htmlFor="file-description" top>
                 <TextArea
                   id="file-description"
@@ -330,6 +616,8 @@ export function SubmitPage() {
           </HpsmSection>
         )}
       </div>
+
+      {tab === 'file' && batch && <BatchResult rows={batch.rows} source={batch.source} />}
     </>
   );
 }

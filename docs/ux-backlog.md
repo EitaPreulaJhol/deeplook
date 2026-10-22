@@ -618,7 +618,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ✅ |
 | 42 | Status do sistema | System Status | ⚪ | P | ✅ |
 | 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
-| 44 | Envio em lote | anexos múltiplos | 🟡 | M | ⬜ |
+| 44 | Envio em lote | anexos múltiplos | 🟡 | M | ✅ |
 | 45 | Retenção de amostras | arquivamento/expurgo | ⚪ | M | ⬜ |
 
 **Ordem sugerida:**
@@ -1003,6 +1003,34 @@ precisam de uma decisão de segurança.
   com as mesmas tags), ou um `.zip` com senha `infected` desmembrado em amostras.
 - **Cuidados:** limite de arquivos e tamanho total; o zip é aberto só para listar e
   extrair, nunca executar.
+- ✅ **Implementado:**
+  - **Vários arquivos** no Enviar Amostra (até 20):
+    - o seletor soma escolhas sem repetir o mesmo arquivo (nome e tamanho), mostra o
+      total e tem Remover por arquivo;
+    - o campo Título some (cada amostra leva o nome do arquivo); descrição e tags valem
+      para todas;
+    - um envio por arquivo pela rota de sempre, então o limite de tamanho vale para
+      cada um.
+  - **`.zip` desmembrado:** com um único `.zip`, a caixa "Desmembrar" mostra o campo
+    Senha (padrão `infected`) e envia para `POST /api/entries/zip`.
+    - **Leitor próprio** (`lib/zip.ts`, sem dependência nova): stored e deflate,
+      ZipCrypto (inclusive com descritor de dados) e AES do WinZip/7-Zip (AE-1/AE-2, com
+      HMAC). ZIP64 e a criptografia forte da PKWARE são recusados com mensagem clara.
+    - **Segurança:** tudo na memória, nada vai para o disco nem é executado; CRC e
+      tamanho conferidos; zip bomb barrado pelo tamanho declarado e na descompressão
+      (`maxOutputLength`).
+    - **Limites:** 20 arquivos por pacote; cada arquivo até `MAX_UPLOAD_MB`; total
+      extraído até 2× esse valor.
+    - **Arquivos ignorados:** pastas, `__MACOSX/` e `.DS_Store`. Vazios e acima do
+      limite aparecem como "Ignorado" com o motivo.
+    - **Senha:** arquivos com outra senha são pulados. Se nada abrir pela senha, o
+      campo Senha fica destacado.
+    - **Cada amostra** recebe a análise estática e o evento CREATED, com a descrição
+      "Extraído de pacote.zip (caminho/interno)".
+  - **Resultado do envio:** tabela com uma linha por arquivo (Aguardando, Enviando...,
+    Enviada, Ignorado, Falha com o motivo), link para cada amostra e um resumo.
+  - **"Já enviada antes":** `POST /api/entries/file` e o `.zip` devolvem `previous`, a
+    primeira amostra com o mesmo SHA-256. O resultado mostra o link.
 
 ### 45. Retenção de amostras
 - **Proposta:** expurgo automático do **arquivo** após N dias (`RETENTION_DAYS`),

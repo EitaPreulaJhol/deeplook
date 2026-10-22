@@ -3088,3 +3088,12 @@ body:has(.dl-print) {
   color: var(--dl-text-muted);
   font-style: italic;
 }
+
+/* Envio em lote: total da lista e aviso de amostra repetida no resultado. */
+.hpsm-filedrop__total {
+  color: var(--dl-text-muted);
+}
+
+.dl-batch__previous {
+  color: var(--dl-text-muted);
+}

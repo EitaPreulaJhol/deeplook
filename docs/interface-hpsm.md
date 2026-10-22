@@ -206,9 +206,11 @@ Tons: `green`, `red`, `orange`, `blue`, `gray` e `none` (sem bolinha).
 
 ### Arquivo — `components/HpsmFileDrop.tsx`
 
-`<HpsmFileDrop file={file} onChange={setFile} />` — área "Arraste o arquivo aqui ou
-[Selecionar arquivo]" e a linha do arquivo escolhido (nome, tamanho, Remover). Usado
-no lugar do `FileUploader` do Carbon. `formatFileSize()` vem do mesmo arquivo.
+`<HpsmFileDrop files={files} onChange={setFiles} multiple maxFiles={20} onLimit={…} />`
+— área "Arraste os arquivos aqui ou [Selecionar arquivos]" e uma linha por arquivo
+(nome, tamanho, Remover), com o total quando há mais de um. Sem `multiple`, a escolha
+troca o arquivo. Usado no lugar do `FileUploader` do Carbon. `formatFileSize()` vem do
+mesmo arquivo.
 
 ### Atalhos de teclado — `components/shortcuts.tsx`
 
@@ -422,6 +424,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/analysts` | analistas/admins ativos (select de Responsável); só para analistas |
 | GET | `/api/entries/counts` | contadores das filas: `{ counts: { PENDING, IN_REVIEW, COMPLETED }, mine }` |
 | GET | `/api/entries/:id/events` | histórico da amostra (aba Histórico) |
+| POST | `/api/entries/file` | envio de arquivo (multipart: `file`, `title?`, `description?`, `tags?`) → `{ entry, previous }` (`previous` = primeira amostra com o mesmo SHA-256) |
+| POST | `/api/entries/zip` | `.zip` desmembrado (multipart: `file`, `password?`, `description?`, `tags?`) → `{ created: [{ name, path, entry, previous }], skipped: [{ name, path, reason }] }`; até 20 arquivos; senha errada → 400 com `details.password` |
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
@@ -534,6 +538,7 @@ banco nem da API rodando.
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |
 | `detail-pane.mjs` | painel de detalhe: desligado o clique abre; ligado, seleção, setas, duplo clique, Enter e "Abrir amostra" |
 | `news-shortcuts-export.mjs` | novidades na Página Inicial, atalhos (`/`, Alt+N, Alt+W, Ctrl+S) e download do CSV com os filtros |
+| `batch-upload.mjs` | envio em lote: soma sem repetir, total, Remover, limite de 20, título some, um envio por arquivo com descrição e tags, resultado (falha, "já enviada antes", link), `.zip` com Desmembrar, senha errada no campo e resultado com ignorados |
 | `filedrop-sandbox.mjs` | arrastar e soltar o arquivo (via `DataTransfer`) e prazo do sandbox: aba com "Nmin", aviso nos últimos 5 min e "Estender prazo" |
 | `mock-api.mjs` | API simulada e servidor do `dist` usados pelos três |
 

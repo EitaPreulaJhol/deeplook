@@ -146,6 +146,9 @@ export function createState({ loggedIn = false } = {}) {
     audit: [],
     auditQueries: [],
     lastAuditExport: null,
+    /** Envio de arquivos (lote) e do .zip: nomes recebidos e campos do ultimo .zip. */
+    uploads: [],
+    lastZipFields: null,
   };
 }
 
@@ -165,7 +168,8 @@ export async function setupMock(context, state) {
     const url = new URL(req.url());
     if (url.origin !== ORIGIN) return route.abort();
     const p = url.pathname;
-    const body = req.postData() ? JSON.parse(req.postData()) : {};
+    const multipartBody = (req.headers()['content-type'] ?? '').startsWith('multipart/');
+    const body = req.postData() && !multipartBody ? JSON.parse(req.postData()) : {};
     if (p.startsWith('/api/') && req.method() !== 'GET') state.calls.push(`${req.method()} ${p}`);
 
     if (p.startsWith('/api/')) {
@@ -387,6 +391,34 @@ export async function setupMock(context, state) {
             'Content-Disposition': 'attachment; filename="deeplook-amostras-20261021.csv"',
           },
           body: csv,
+        });
+      }
+      // Envio de arquivo (um por requisicao no lote). "falha" no nome simula o
+      // limite de tamanho; "repetida" aponta uma amostra anterior.
+      if ((p === '/api/entries/file' || p === '/api/entries/zip') && req.method() === 'POST') {
+        const raw = req.postDataBuffer()?.toString('utf8') ?? '';
+        const fields = {};
+        for (const m of raw.matchAll(/name="([^"]+)"\r\n\r\n([^\r]*)\r\n/g)) fields[m[1]] = m[2];
+        const filename = raw.match(/filename="([^"]*)"/)?.[1] ?? '';
+        if (p === '/api/entries/zip') {
+          state.lastZipFields = fields;
+          if (fields.password !== 'infected') {
+            return json(route, 400, { error: 'Senha incorreta para o .zip.', details: { password: ['Senha incorreta para o .zip.'] }, created: [], skipped: [] });
+          }
+          return json(route, 201, {
+            created: [
+              { name: 'dropper.exe', path: 'dropper.exe', entry: { id: 'z1', title: 'dropper.exe', fileSize: 48213 }, previous: null },
+              { name: 'config.bin', path: 'payload/config.bin', entry: { id: 'z2', title: 'config.bin', fileSize: 912 }, previous: { id: 'e1', title: entries[0].title } },
+            ],
+            skipped: [{ name: 'vazio.txt', path: 'vazio.txt', reason: 'arquivo vazio' }],
+          });
+        }
+        state.uploads.push({ filename, ...fields });
+        if (filename.includes('falha')) return json(route, 413, { error: 'Arquivo maior que o limite de 200 MB.' });
+        const id = `n${state.uploads.length}`;
+        return json(route, 201, {
+          entry: { id, title: fields.title || filename },
+          previous: filename.includes('repetida') ? { id: 'e1', title: entries[0].title } : null,
         });
       }
       if (p === '/api/entries/bulk' && req.method() === 'POST') {
