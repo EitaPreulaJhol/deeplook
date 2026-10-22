@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { EntryIoc, Report, Verdict } from '../api/types';
+import type { EntryIoc, Report, ReportTemplate, Verdict } from '../api/types';
+import { useConfirm } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
@@ -37,6 +38,39 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
   const [iocs, setIocs] = useState('');
   const [verdict, setVerdict] = useState<Verdict>('SUSPICIOUS');
   const [published, setPublished] = useState(true);
+  const [templateId, setTemplateId] = useState('');
+  const confirm = useConfirm();
+  const templatesQuery = useQuery({
+    queryKey: ['report-templates'],
+    queryFn: () => api.get<{ templates: ReportTemplate[] }>('/report-templates'),
+    enabled: canTriage,
+    staleTime: 60_000,
+  });
+  const templates = templatesQuery.data?.templates ?? [];
+
+  // Aplica o modelo (Resumo, Achados, IOCs e veredito); pergunta antes de
+  // sobrescrever texto ja digitado.
+  const applyTemplate = async (id: string) => {
+    const template = templates.find((t) => t.id === id);
+    if (!template) {
+      setTemplateId('');
+      return;
+    }
+    if (summary.trim() || findings.trim() || iocs.trim()) {
+      const ok = await confirm({
+        title: 'Aplicar modelo',
+        message: `Substituir o texto já digitado pelo modelo "${template.name}"?`,
+        confirmLabel: 'Substituir',
+        cancelLabel: 'Manter o texto',
+      });
+      if (!ok) return;
+    }
+    setTemplateId(id);
+    setSummary(template.summary);
+    setFindings(template.findings ?? '');
+    setIocs(template.iocs ?? '');
+    setVerdict(template.verdict);
+  };
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Rascunho do relatorio: sair da aba/tela pede confirmacao.
@@ -69,6 +103,7 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
       setSummary('');
       setFindings('');
       setIocs('');
+      setTemplateId('');
       reportCheck.reset();
       onCreated();
     } catch (err) {
@@ -169,6 +204,26 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
           {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
           {reportCheck.message && <HpsmMessage kind="error">{reportCheck.message}</HpsmMessage>}
           <HpsmForm>
+            {templates.length > 0 && (
+              <HpsmField
+                label="Modelo"
+                htmlFor="report-template"
+                help="Preenche Resumo, Achados, IOCs e veredito; depois é só ajustar."
+              >
+                <Select
+                  id="report-template"
+                  labelText="Modelo"
+                  hideLabel
+                  value={templateId}
+                  onChange={(e) => void applyTemplate(e.target.value)}
+                >
+                  <SelectItem value="" text="— Sem modelo —" />
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id} text={t.name} />
+                  ))}
+                </Select>
+              </HpsmField>
+            )}
             <HpsmField
               label="Resumo"
               htmlFor="report-summary"

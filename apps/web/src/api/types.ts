@@ -31,6 +31,17 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Modelo de relatorio (GET /api/report-templates). */
+export interface ReportTemplate {
+  id: string;
+  name: string;
+  summary: string;
+  findings: string | null;
+  iocs: string | null;
+  verdict: Verdict;
+  updatedAt: string;
+}
+
 /** Notificacao da caixa de entrada (GET /api/me/notifications). */
 export interface AppNotification {
   id: string;

@@ -425,6 +425,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
 | GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; devolve `sla: { warnHours, lateHours }` |
 | GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
+| GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
+| POST/PATCH/DELETE | `/api/report-templates[/:id]` | admin: `{ name, summary, findings?, iocs?, verdict }`; nome repetido → 409 |
 | GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT) |
 | GET | `/api/me/notifications/count` | `{ unread }` (sininho, a cada minuto) |
 | POST | `/api/me/notifications/read` | `{ ids? }` marca como lidas (sem `ids`: todas) |
@@ -503,6 +505,7 @@ banco nem da API rodando.
 | `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
+| `report-templates.mjs` | modelos: aba pelo navegador, validação, criar (Ctrl+S), editar, nome repetido da API no campo, excluir com confirmação; campo Modelo no Novo relatório (preenche, veredito, pergunta antes de sobrescrever) |
 | `notifications.mjs` | caixa de entrada: contador no sininho e no navegador, painel (frases, foco, teclado, abrir marca como lida, marcar todas), página com filtro e teclado; menções (lista, Esc, Enter/Tab, nova linha, ids enviados, destaque no histórico) |
 | `iocs.mjs` | indicadores: seção na aba Relatórios, ficha (título, resumo, onde aparece, aba de documento, teclado), ficha vazia/inválida, "Ir para:" com IOC desarmado/IP/IP privado/texto, links nas Relacionadas e exportação CSV/STIX/MISP |
 | `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural, IOCs em comum com hash encurtado, "+N" e lista na dica), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |

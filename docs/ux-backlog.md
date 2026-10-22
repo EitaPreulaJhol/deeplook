@@ -612,7 +612,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
 | 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ✅ |
 | 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ✅ |
-| 38 | Modelos de relatório | Templates | 🟡 | P | ⬜ |
+| 38 | Modelos de relatório | Templates | 🟡 | P | ✅ |
 | 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ⬜ |
 | 40 | Painel do analista | Dashboards | 🟡 | M | ⬜ |
 | 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ⬜ |
@@ -793,6 +793,18 @@ precisam de uma decisão de segurança.
   - O admin mantém a lista numa aba "Modelos" da Administração.
 - **Onde mexer:** modelo `ReportTemplate`, rotas `/api/report-templates` (leitura para
   analistas, escrita para admin).
+- ✅ **Implementado:** modelo `ReportTemplate` com nome único (migração
+  `20261031000000_report_templates`) e `routes/templates.ts`.
+  - **API:** `GET` para analistas e admin; `POST`, `PATCH` e `DELETE` só para o admin,
+    com erros por campo e nome repetido → 409 apontando o campo Nome.
+  - **Administração:** aba **Modelos de relatório** (também no navegador, em
+    Administração), em `components/AdminTemplatesTab.tsx`:
+    - formulário Novo/Editar (nome, veredito sugerido, resumo, achados, IOCs) com
+      validação HPSM, Ctrl+S e aviso de alterações não salvas;
+    - grade com Editar e Excluir (com confirmação).
+  - **Novo relatório:** campo **Modelo**, que só aparece quando há modelos. Preenche
+    Resumo, Achados, IOCs e o veredito; com texto já digitado, pergunta antes
+    ("Substituir" ou "Manter o texto").
 
 ### 39. Revisão de relatório (quatro olhos)
 - **Proposta:**

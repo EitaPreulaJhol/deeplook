@@ -19,6 +19,7 @@ import { notificationRoutes } from './routes/notifications';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { sandboxRoutes } from './routes/sandbox';
+import { templateRoutes } from './routes/templates';
 
 async function main() {
   const app = Fastify({
@@ -54,6 +55,7 @@ async function main() {
   await app.register(relatedRoutes);
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
+  await app.register(templateRoutes);
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(adminRoutes);

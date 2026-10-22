@@ -91,6 +91,7 @@ const TREE: NavFolder[] = [
     children: [
       { to: '/admin', label: 'Usuários', icon: IconPage },
       { to: '/admin?tab=keys', label: 'Chaves de ativação', icon: IconKey },
+      { to: '/admin?tab=templates', label: 'Modelos de relatório', icon: IconPage },
     ],
   },
 ];

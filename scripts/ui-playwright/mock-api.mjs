@@ -129,6 +129,8 @@ export function createState({ loggedIn = false } = {}) {
     notifications: [],
     /** Corpo do ultimo POST de atualizacao (texto + mencoes). */
     lastCommentBody: null,
+    /** Modelos de relatorio (aba Modelos da Administracao / Novo relatorio). */
+    templates: [],
   };
 }
 
@@ -189,6 +191,31 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
+
+      // Modelos de relatorio (nome unico, como na API).
+      if (p === '/api/report-templates' && req.method() === 'GET') {
+        return json(route, 200, { templates: [...state.templates].sort((a, b) => a.name.localeCompare(b.name)) });
+      }
+      const tpl = p.match(/^\/api\/report-templates(?:\/([\w-]+))?$/);
+      if (tpl && req.method() !== 'GET') {
+        if (req.method() === 'DELETE') {
+          state.templates = state.templates.filter((t) => t.id !== tpl[1]);
+          return json(route, 200, { ok: true });
+        }
+        const name = String(body.name ?? '').trim();
+        if (state.templates.some((t) => t.name === name && t.id !== tpl[1])) {
+          return json(route, 409, { error: 'Ja existe um modelo com este nome.', details: { name: ['nome em uso'] } });
+        }
+        const data = { name, summary: body.summary, findings: body.findings || null, iocs: body.iocs || null, verdict: body.verdict, updatedAt: new Date().toISOString() };
+        if (req.method() === 'POST') {
+          const template = { id: `tpl${state.templates.length + 1}`, ...data };
+          state.templates.push(template);
+          return json(route, 201, { template });
+        }
+        const template = state.templates.find((t) => t.id === tpl[1]);
+        Object.assign(template, data);
+        return json(route, 200, { template });
+      }
 
       // Caixa de entrada.
       const unreadCount = () => state.notifications.filter((n) => !n.readAt).length;
