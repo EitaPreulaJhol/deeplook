@@ -131,6 +131,9 @@ export function createState({ loggedIn = false } = {}) {
     lastCommentBody: null,
     /** Modelos de relatorio (aba Modelos da Administracao / Novo relatorio). */
     templates: [],
+    /** Resposta de GET /api/admin/status (o roteiro troca) e quantas vezes foi pedida. */
+    systemStatus: null,
+    statusCalls: 0,
   };
 }
 
@@ -191,6 +194,15 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
+
+      if (p === '/api/admin/status') {
+        state.statusCalls += 1;
+        return json(route, 200, state.systemStatus ?? {
+          checkedAt: new Date().toISOString(),
+          overall: 'ok',
+          checks: [{ id: 'api', name: 'API', level: 'ok', summary: 'versão 1.0.0 · no ar há 5 min', details: [] }],
+        });
+      }
 
       // Modelos de relatorio (nome unico, como na API).
       if (p === '/api/report-templates' && req.method() === 'GET') {

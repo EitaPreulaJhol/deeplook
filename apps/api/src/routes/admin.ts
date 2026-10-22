@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { prisma } from '../lib/prisma';
+import { systemStatus } from '../lib/status';
 import { sendValidationError } from '../lib/validation';
 
 const CreateKeySchema = z.object({
@@ -18,6 +19,13 @@ const PatchUserSchema = z.object({
 });
 
 export async function adminRoutes(app: FastifyInstance) {
+  // Status do sistema: API, banco, MinIO, Proxmox e filas (cada um com tempo-limite).
+  app.get('/api/admin/status', async (req, reply) => {
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    return reply.send(await systemStatus());
+  });
+
   // ---- Usuarios ----
   app.get('/api/admin/users', async (req, reply) => {
     const user = await requireAdmin(req, reply);

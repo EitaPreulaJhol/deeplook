@@ -616,7 +616,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ⬜ |
 | 40 | Painel do analista | Dashboards | 🟡 | M | ⬜ |
 | 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ⬜ |
-| 42 | Status do sistema | System Status | ⚪ | P | ⬜ |
+| 42 | Status do sistema | System Status | ⚪ | P | ✅ |
 | 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
 | 44 | Envio em lote | anexos múltiplos | 🟡 | M | ⬜ |
 | 45 | Retenção de amostras | arquivamento/expurgo | ⚪ | M | ⬜ |
@@ -870,6 +870,22 @@ precisam de uma decisão de segurança.
   - Proxmox (alcançável, VMs do DeepLook em execução);
   - versão e tempo no ar da API.
 - **Onde mexer:** `GET /api/admin/status` com tempo limite por verificação.
+- ✅ **Implementado:** `lib/status.ts` e `GET /api/admin/status` (só o admin). As
+  verificações rodam em paralelo, com 3 s de limite cada e "lento" acima de 1 s.
+  - **O que entra:**
+    - **API:** versão, tempo no ar, Node.js e ambiente;
+    - **Banco:** `SELECT 1`, usuários ativos, amostras e sessões abertas;
+    - **MinIO:** bucket acessível; mostra o bucket e o host, nunca as credenciais;
+    - **Proxmox:** versão, template e VMs ativas contra `SANDBOX_MAX_ACTIVE` (laranja
+      no limite); "Desligado" com `SANDBOX_ENABLED=false` e o modo simulado indicado;
+    - **Filas:** pendentes, em análise e atrasadas (laranja se houver atrasada).
+  - **Situação geral:** a pior entre as verificações; "Desligado" não conta como
+    problema. Os motivos de falha saem legíveis ("conexão recusada", "acesso negado
+    (confira as credenciais)"...) em vez de "AggregateError".
+  - **Tela:** aba **Status do sistema** na Administração (também no navegador), com
+    situação colorida, resumo, tempo, detalhes, aviso geral de falha ou alerta, linha
+    com falha destacada, Atualizar e atualização automática a cada 30 s.
+  - **Fora:** espaço em disco do MinIO, que exige a API administrativa do MinIO.
 
 ### 43. Tokens de API pessoais
 - **Proposta:** na Minha Conta, gerar token com nome e validade para enviar e consultar

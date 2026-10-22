@@ -19,6 +19,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ActivationKey, Role, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AdminStatusTab } from '../components/AdminStatusTab';
 import { AdminTemplatesTab } from '../components/AdminTemplatesTab';
 import { CopyButton } from '../components/CopyButton';
 import { useConfirm } from '../components/HpsmConfirm';
@@ -66,7 +67,8 @@ export function AdminPage() {
   // A aba fica na URL: o navegador lateral aponta direto para cada uma.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const tab = tabParam === 'keys' || tabParam === 'templates' ? tabParam : 'users';
+  const tab =
+    tabParam === 'keys' || tabParam === 'templates' || tabParam === 'status' ? tabParam : 'users';
   const setTab = (next: string) => {
     const params = new URLSearchParams(searchParams);
     if (next === 'users') params.delete('tab');
@@ -217,11 +219,14 @@ export function AdminPage() {
           { id: 'users', label: 'Usuários' },
           { id: 'keys', label: 'Chaves de ativação' },
           { id: 'templates', label: 'Modelos de relatório' },
+          { id: 'status', label: 'Status do sistema' },
         ]}
       />
 
       <div className="hpsm-tabpanel">
-        {tab === 'templates' ? (
+        {tab === 'status' ? (
+          <AdminStatusTab />
+        ) : tab === 'templates' ? (
           <AdminTemplatesTab />
         ) : tab === 'users' ? (
           <>

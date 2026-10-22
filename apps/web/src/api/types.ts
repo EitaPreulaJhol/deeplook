@@ -31,6 +31,23 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Situacao de um componente: verde, laranja, vermelho ou desligado. */
+export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
+
+/** GET /api/admin/status */
+export interface SystemStatus {
+  checkedAt: string;
+  overall: StatusLevel;
+  checks: {
+    id: string;
+    name: string;
+    level: StatusLevel;
+    summary: string;
+    latencyMs?: number;
+    details: { label: string; value: string }[];
+  }[];
+}
+
 /** Modelo de relatorio (GET /api/report-templates). */
 export interface ReportTemplate {
   id: string;

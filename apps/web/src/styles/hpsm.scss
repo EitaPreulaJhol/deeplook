@@ -2387,6 +2387,16 @@ body:has(.dl-print) {
   font-weight: 700;
 }
 
+/* --- 12m. Status do sistema ------------------------------------------- */
+.dl-status-details__label {
+  color: var(--dl-text-muted);
+}
+
+/* Linha com falha: fundo de erro, como os avisos da barra. */
+.cds--data-table tbody tr.dl-status-row--error td {
+  background-color: var(--dl-error-bg);
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;
