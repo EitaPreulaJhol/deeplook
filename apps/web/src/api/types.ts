@@ -16,6 +16,28 @@ export interface User {
   _count?: { entries: number; apiTokens?: number };
 }
 
+/** Resultado de um servico de reputacao externa (GET /api/entries/:id/reputation). */
+export interface ReputationResult {
+  service: string;
+  name: string;
+  kind: 'HASH' | 'DOMAIN' | 'IP';
+  indicator: string;
+  status: 'PENDING' | 'FOUND' | 'NOT_FOUND' | 'ERROR';
+  verdict: Verdict;
+  summary: string;
+  link: string | null;
+  checkedAt: string;
+}
+
+export interface ReputationInfo {
+  /** Servicos ligados (com chave no .env); vazio = secao escondida. */
+  services: { id: string; name: string }[];
+  indicator: { kind: 'HASH' | 'DOMAIN' | 'IP'; value: string } | null;
+  /** Consulta do envio ainda em andamento. */
+  pending: boolean;
+  results: ReputationResult[];
+}
+
 /** Token de API pessoal (GET /api/me/api-tokens); o segredo so vem na criacao. */
 export interface ApiToken {
   id: string;

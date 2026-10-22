@@ -155,6 +155,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Tokens de API: os do usuario (Minha Conta) e os da aba da Administracao. */
     apiTokens: [],
     adminTokens: [],
+    /** Reputacao externa por amostra (GET) e quantas consultas a ficha fez. */
+    reputation: {},
+    reputationGets: 0,
   };
 }
 
@@ -399,6 +402,15 @@ export async function setupMock(context, state) {
           body: csv,
         });
       }
+      // Reputacao externa: o roteiro define o que cada GET devolve (lista = sequencia).
+      const rp = p.match(/^\/api\/entries\/(\w+)\/reputation$/);
+      if (rp && req.method() === 'GET') {
+        state.reputationGets += 1;
+        const r = state.reputation[rp[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { services: [], indicator: null, pending: false, results: [] });
+      }
+      if (rp && req.method() === 'POST') return json(route, 202, { ok: true });
       // Tokens de API pessoais (Minha Conta) e a aba da Administracao.
       if (p === '/api/me/api-tokens' && req.method() === 'GET') {
         return json(route, 200, { apiAccess: Boolean(users[0].apiAccess), maxDays: 90, tokens: state.apiTokens });

@@ -22,6 +22,7 @@ import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
+import { reputationRoutes } from './routes/reputation';
 import { sandboxRoutes } from './routes/sandbox';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
@@ -65,6 +66,7 @@ async function main() {
   await app.register(dashboardRoutes);
   await app.register(entryRoutes);
   await app.register(reportRoutes);
+  await app.register(reputationRoutes);
   await app.register(adminRoutes);
   await app.register(apiTokenRoutes);
   await app.register(trashRoutes);

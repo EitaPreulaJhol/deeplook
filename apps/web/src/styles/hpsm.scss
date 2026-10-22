@@ -3115,3 +3115,11 @@ body:has(.dl-print) {
 .dl-link-button--danger:hover {
   color: var(--dl-error-text);
 }
+
+/* Reputacao externa (ficha): nota sobre o que foi consultado. */
+.dl-reputation__note {
+  margin: 0 0 0.5rem;
+  padding: 0.25rem 0 0;
+  color: var(--dl-text-muted);
+  font-size: var(--dl-font-size);
+}

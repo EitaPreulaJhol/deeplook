@@ -15,6 +15,7 @@ import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
+import { checkReputationInBackground } from '../lib/reputation';
 import { s3 } from '../lib/s3';
 import { slaConfig, slaCutoff } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
@@ -380,6 +381,7 @@ async function createFileEntry(
   });
 
   await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
+  checkReputationInBackground(entry.id, req.log);
   const previous = await prisma.entry.findFirst({
     where: { sha256, id: { not: entry.id } },
     orderBy: { createdAt: 'asc' },
@@ -792,6 +794,7 @@ export async function entryRoutes(app: FastifyInstance) {
     });
 
     await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
+    checkReputationInBackground(entry.id, req.log);
     return reply.code(201).send({ entry });
   });
 

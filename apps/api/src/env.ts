@@ -31,6 +31,14 @@ const EnvSchema = z
      * (ficha, relatorios, IOCs e hash ficam). 0 = desligada.
      */
     RETENTION_DAYS: z.coerce.number().int().min(0).max(36500).default(0),
+    /**
+     * Reputacao externa: consulta automatica no envio (so SHA-256 ou dominio/IP).
+     * Cada servico liga com a sua chave; vazio = desligado.
+     */
+    VT_API_KEY: z.string().default(''),
+    /** Uma chave da abuse.ch serve para MalwareBazaar, URLhaus e ThreatFox. */
+    ABUSECH_AUTH_KEY: z.string().default(''),
+    ABUSEIPDB_API_KEY: z.string().default(''),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),

@@ -118,6 +118,27 @@ curl -H "Authorization: Bearer dlk_..." -H "Content-Type: application/json" \
   API ou retira a liberação, o que revoga todos de uma vez. Suspender a conta também corta
   o acesso.
 
+## Reputação externa
+
+Com as chaves no `.env`, cada amostra enviada é consultada **automaticamente** nos serviços
+ligados, em segundo plano, sem atrasar o envio. O resultado aparece na seção **Reputação
+externa** da ficha e num resumo no topo, por exemplo "malicioso em 2 de 3 serviços".
+
+| Indicador | Serviços |
+|---|---|
+| Arquivo: **só o SHA-256** | VirusTotal, MalwareBazaar, ThreatFox |
+| Link: **só o domínio** | VirusTotal, URLhaus, ThreatFox |
+| Link cujo host é um IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB |
+
+- **O que sai do servidor:** só o indicador. O arquivo nunca sai, nem a URL completa (com
+  caminho, e-mail ou token da vítima).
+- **Cache de 24 h** por serviço e indicador; analistas têm "Consultar de novo".
+- **Limites:** o VirusTotal gratuito permite 4 consultas por minuto, e a fila respeita
+  isso (envios em lote esperam a vez). A API pública dele é só para uso não comercial.
+- **Falhas** (chave recusada, limite, tempo esgotado) aparecem na linha do serviço e em
+  Status do sistema.
+- **Atenção:** mesmo só o hash revela a terceiros que a amostra está sendo analisada.
+
 ## Cloudflare Tunnel (no host, fora do Docker)
 
 O DeepLook publica apenas `127.0.0.1:8080`, então instale o `cloudflared`
@@ -166,6 +187,9 @@ COOKIE_SECURE=true
 | `SLA_LATE_HOURS` | Acima de N horas fica vermelha e entra na fila "Atrasadas" | `72` |
 | `REPORT_REVIEW_REQUIRED` | `true`: relatório só é publicado com a aprovação de outro analista (quatro olhos) | `false` |
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
+| `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
+| `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |
+| `ABUSEIPDB_API_KEY` | chave do AbuseIPDB (IPs) | — |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot | — |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |

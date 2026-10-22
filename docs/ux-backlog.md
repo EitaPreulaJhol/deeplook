@@ -609,7 +609,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 32 | Exportação de IOCs (CSV / STIX / MISP) | Export | 🔴 | P–M | ✅ |
 | 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ✅ |
 | 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ✅ |
-| 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
+| 35 | Reputação externa (opcional) | integrações | ⚪ | M | ✅ |
 | 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ✅ |
 | 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ✅ |
 | 38 | Modelos de relatório | Templates | 🟡 | P | ✅ |
@@ -779,6 +779,40 @@ precisam de uma decisão de segurança.
   (`VT_API_KEY`...), desligado por padrão.
 - **Decisão pendente:** o projeto pode enviar indicadores a terceiros? Mesmo só o hash
   revela que a amostra está sendo analisada.
+- **Decisão:** todos os serviços citados (VirusTotal, MalwareBazaar, URLhaus, ThreatFox e
+  AbuseIPDB), cada um ligado pela própria chave no `.env`. Consulta automática no envio,
+  independente de analistas. Do link, só o domínio.
+- ✅ **Implementado:** migração `20261107000000_reputation` (modelo `ReputationResult`, um
+  por amostra e serviço). Código em `lib/reputation.ts`.
+  - **Indicador:** SHA-256 do arquivo; domínio do link, ou IP quando o host é um IP. A URL
+    completa e o arquivo nunca saem (o teste confere com servidores falsos).
+  - **Serviços por indicador:**
+    - **hash:** VirusTotal, MalwareBazaar e ThreatFox;
+    - **domínio:** VirusTotal, URLhaus e ThreatFox;
+    - **IP:** os três de domínio mais o AbuseIPDB.
+  - **Quando:** no envio de arquivo, `.zip` e link, em segundo plano, sem atrasar a
+    resposta. Também vale para envios por token.
+  - **Fila por serviço** com intervalo mínimo (VirusTotal: 15 s, por causa do limite de 4
+    por minuto). Tempo-limite de 15 s por chamada.
+  - **Cache de 24 h** por serviço e indicador: outra amostra com o mesmo hash ou domínio
+    copia o resultado sem consultar de novo.
+  - **Resultados:** Malicioso, Suspeito, Limpo, Não encontrado ou Falha (chave recusada,
+    limite atingido, sem resposta), com resumo e link para a página do serviço.
+    - **VirusTotal:** malicioso a partir de 5 motores.
+    - **AbuseIPDB:** pela confiança de abuso (75% malicioso, 25% suspeito).
+  - **API:**
+    - `GET /api/entries/:id/reputation`, que traz `pending` enquanto a consulta roda e
+      também aceita token;
+    - `POST` "Consultar de novo", só analistas, ignora o cache.
+  - **Ficha:**
+    - **Topo:** "Reputação: malicioso em 2 de 3 serviços", "sem alertas (… · 1 com
+      falha)" ou "consultando...".
+    - **Seção Reputação externa** na aba Detalhes: indicador consultado e o aviso do que
+      não sai; uma linha por serviço com resultado, resumo, data e "Abrir no …"
+      (`noopener`).
+    - Atualiza sozinha enquanto consulta. Sem serviço ligado, nada aparece.
+  - **Status do sistema:** linha "Reputação externa" com os serviços ligados ou sem chave,
+    consultas em 24 h e falhas (alerta).
 
 ### 36. Caixa de entrada / notificações
 - **Problema:** atribuições e conclusões só são vistas quando a pessoa abre a lista.

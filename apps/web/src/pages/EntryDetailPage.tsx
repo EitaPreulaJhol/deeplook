@@ -37,11 +37,16 @@ import {
 } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import {
+  ReputationSection,
+  reputationSummary,
+  useReputation,
+} from '../components/ReputationSection';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
-import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
+import { StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
 
 function fmtDate(iso?: string | null): string {
@@ -79,6 +84,9 @@ export function EntryDetailPage() {
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
     refetchOnWindowFocus: true,
   });
+
+  // Reputacao externa: resumo no topo (a secao da aba Detalhes usa a mesma consulta).
+  const reputation = reputationSummary(useReputation(id).data);
 
   // Amostras relacionadas: o total aparece no rotulo da aba.
   const relatedQuery = useRelatedEntries(id);
@@ -468,6 +476,12 @@ export function EntryDetailPage() {
             <span className="dl-summary__label">Duplicatas:</span> {entry._count?.duplicates}
           </span>
         )}
+        {reputation && (
+          <span>
+            <span className="dl-summary__label">Reputação:</span>{' '}
+            <StatusText tone={reputation.tone}>{reputation.text}</StatusText>
+          </span>
+        )}
         {entry.filePurgedAt && (
           <span>
             <span className="dl-summary__label">Arquivo:</span> expurgado em{' '}
@@ -584,6 +598,7 @@ export function EntryDetailPage() {
               </HpsmForm>
             </HpsmSection>
           )}
+          <ReputationSection entryId={entry.id} canTriage={canTriage} />
         </div>
       )}
 

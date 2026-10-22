@@ -3,6 +3,7 @@ import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import { prisma } from './prisma';
 import { pveTemplateExists, pveVersion } from './proxmox';
+import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
 import { s3 } from './s3';
 import { countActive } from './sandbox';
 import { slaCutoff } from './sla';
@@ -11,7 +12,7 @@ import { slaCutoff } from './sla';
 export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
 
 export interface StatusCheck {
-  id: 'api' | 'database' | 'storage' | 'sandbox' | 'queues';
+  id: 'api' | 'database' | 'storage' | 'sandbox' | 'queues' | 'reputation';
   name: string;
   level: StatusLevel;
   summary: string;
@@ -275,6 +276,47 @@ async function queuesCheck(): Promise<StatusCheck> {
 const ORDER: StatusLevel[] = ['ok', 'off', 'warn', 'error'];
 
 /** Todas as verificacoes em paralelo + a situacao geral (a pior, ignorando "off"). */
+/** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
+async function reputationCheck(): Promise<StatusCheck> {
+  const enabled = enabledServices();
+  const all = Object.keys(SERVICE_NAMES) as ServiceId[];
+  const details = all.map((s) => ({
+    label: SERVICE_NAMES[s],
+    value: enabled.includes(s) ? 'ligado' : 'sem chave',
+  }));
+  if (enabled.length === 0) {
+    return {
+      id: 'reputation',
+      name: 'Reputação externa',
+      level: 'off',
+      summary: 'desligada (nenhuma chave configurada)',
+      details,
+    };
+  }
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [lookups, errors] = await Promise.all([
+    prisma.reputationResult.count({ where: { checkedAt: { gt: since } } }),
+    prisma.reputationResult.findMany({
+      where: { status: 'ERROR', checkedAt: { gt: since } },
+      select: { service: true, summary: true },
+      distinct: ['service'],
+    }),
+  ]);
+  for (const e of errors) {
+    const d = details.find((x) => x.label === SERVICE_NAMES[e.service as ServiceId]);
+    if (d) d.value = `ligado · falhou: ${e.summary}`;
+  }
+  return {
+    id: 'reputation',
+    name: 'Reputação externa',
+    level: errors.length ? 'warn' : 'ok',
+    summary: `${enabled.length} serviço(s) ligado(s) · ${lookups} consulta(s) em 24 h${
+      errors.length ? ` · ${errors.length} com falha` : ''
+    }`,
+    details,
+  };
+}
+
 export async function systemStatus() {
   const checks = await Promise.all([
     apiCheck(),
@@ -282,6 +324,7 @@ export async function systemStatus() {
     storageCheck(),
     sandboxCheck(),
     queuesCheck(),
+    reputationCheck(),
   ]);
   const overall = checks
     .map((c) => (c.level === 'off' ? 'ok' : c.level))

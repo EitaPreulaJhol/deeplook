@@ -168,6 +168,7 @@ model Entry {
   favorites       Favorite[]
   reportIocs      ReportIoc[]
   notifications   Notification[]
+  reputation      ReputationResult[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -458,4 +459,39 @@ model ApiToken {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+enum ReputationKind {
+  HASH
+  DOMAIN
+  IP
+}
+
+enum ReputationStatus {
+  PENDING
+  FOUND
+  NOT_FOUND
+  ERROR
+}
+
+/// Reputacao externa da amostra (src/lib/reputation.ts): um resultado por servico.
+/// So o indicador sai do servidor (SHA-256 ou dominio/IP), nunca o arquivo.
+model ReputationResult {
+  id        String           @id @default(cuid())
+  entryId   String
+  entry     Entry            @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  /// virustotal, malwarebazaar, urlhaus, threatfox, abuseipdb
+  service   String
+  kind      ReputationKind
+  indicator String
+  status    ReputationStatus
+  verdict   Verdict          @default(UNKNOWN)
+  summary   String
+  link      String?
+  details   Json?
+  checkedAt DateTime         @default(now())
+
+  @@unique([entryId, service])
+  /// Cache de 24 h: mesmo servico e indicador em outra amostra.
+  @@index([service, indicator, checkedAt])
 }
