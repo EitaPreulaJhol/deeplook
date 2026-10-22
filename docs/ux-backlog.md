@@ -298,8 +298,8 @@ HP Service Manager 9 (indicados em cada item).
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ✅ |
 | 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ✅ |
 | 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ✅ |
-| 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ⬜ |
-| 29 | Ficha para impressão | impressão do registro | ⚪ | P | ⬜ |
+| 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ✅ |
+| 29 | Ficha para impressão | impressão do registro | ⚪ | P | ✅ |
 | 30 | Ajuda de atalhos (`?` / F1) | Ajuda | ⚪ | P | ✅ |
 
 **Ordem sugerida:** 19 → 20 (maior ganho para quem faz triagem todos os dias), depois
@@ -511,6 +511,15 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   (Markdown/PDF, do Roadmap), abrir em nova janela.
 - **Onde mexer:** `HpsmToolbarMenu` em `components/HpsmToolbar.tsx`, reaproveitando o
   comportamento de teclado do `HpsmUserMenu.tsx`; `EntryDetailPage.tsx`.
+- ✅ **Implementado:** `HpsmToolbarMenu` (`components/HpsmToolbar.tsx`) abre o
+  `HpsmContextMenu` logo abaixo do botão **Mais ▾**. Clique, Enter, Espaço ou ↓ abrem;
+  Esc fecha e devolve o foco; clicar de novo fecha. Na ficha da amostra:
+  - **Copiar link do registro**;
+  - **Abrir em nova janela**;
+  - **Imprimir ficha…** (ideia 29);
+  - **Exportar relatórios (Markdown)**: gerado no navegador (`components/entryExport.ts`)
+    com os dados da amostra e só os relatórios publicados; desabilitado quando não há
+    nenhum. O PDF sai pela ficha impressa ("Salvar como PDF").
 
 ### 29. Ficha para impressão
 - **Proposta:** versão **Imprimir** da amostra com detalhes, relatórios publicados e
@@ -518,6 +527,16 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
 - **Onde mexer:** rota dedicada `/entries/:id/imprimir` fora da casca (como a janela do
   console), com CSS `@media print`; chamada pelo menu "Mais ▾" (ideia 28).
 - **Cuidados:** não incluir dados sensíveis do sandbox (credenciais de console).
+- ✅ **Implementado:** `pages/EntryPrintPage.tsx` em `/entries/:id/imprimir`, fora da
+  casca (como a janela do console).
+  - **Conteúdo:** cabeçalho "DeepLook — Ficha da amostra" com **Impresso por / em**;
+    Dados da amostra, Descrição, Relatórios publicados (rascunhos ficam de fora) e o
+    Histórico completo, com as atualizações.
+  - **Sandbox:** nenhuma informação do ambiente isolado entra na ficha.
+  - **Impressão:** `?auto=1` (usado pelo menu) abre a caixa de impressão assim que
+    carrega; a toolbar [Imprimir] [Fechar] some no papel; CSS `@media print` em A4,
+    com cabeçalho da grade repetido e relatórios sem quebra no meio.
+  - **Título da janela:** "Ficha — <amostra>", que também vira o nome sugerido do PDF.
 
 ### 30. Ajuda de atalhos (`?` / F1)
 - **Proposta:** `?` (fora de campos de texto) ou F1 abre a caixa **Atalhos de

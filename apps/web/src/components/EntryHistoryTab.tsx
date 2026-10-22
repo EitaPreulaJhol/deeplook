@@ -34,8 +34,8 @@ const SANDBOX_CLOSE_REASONS: Record<string, string> = {
   expirado: 'expirou',
 };
 
-/** Descricao legivel de um evento do historico. */
-function describe(event: EntryEvent): string {
+/** Descricao legivel de um evento do historico (tambem usada na ficha impressa). */
+export function describeEvent(event: EntryEvent): string {
   const from = event.fromValue;
   const to = event.toValue;
   switch (event.type) {
@@ -207,12 +207,12 @@ function HistoryTable({ events }: { events: EntryEvent[] }) {
               <TableCell>
                 {event.type === 'COMMENT' ? (
                   <>
-                    <strong>{describe(event)}:</strong>
+                    <strong>{describeEvent(event)}:</strong>
                     {/* Texto puro: o React escapa; quebras de linha preservadas no CSS. */}
                     <div className="dl-history-comment__text">{event.detail}</div>
                   </>
                 ) : (
-                  describe(event)
+                  describeEvent(event)
                 )}
               </TableCell>
             </TableRow>

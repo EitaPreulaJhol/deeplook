@@ -1934,6 +1934,197 @@ h6 {
   overflow-wrap: anywhere;
 }
 
+/* --- 12h. Menu "Mais" da toolbar --------------------------------------- */
+.hpsm-toolbar__caret {
+  font-size: 0.625rem;
+  line-height: 1;
+}
+
+/* --- 12i. Ficha para impressao (/entries/:id/imprimir) ------------------ */
+/* A janela da ficha e "papel": sem o fundo cinza do app (nem na impressao). */
+body:has(.dl-print) {
+  background: var(--dl-surface);
+}
+
+.dl-print {
+  max-inline-size: 60rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem 1.5rem;
+  background: var(--dl-surface);
+  color: var(--dl-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+  line-height: 1.45;
+}
+
+.dl-print__toolbar {
+  margin-block-end: 0.75rem;
+}
+
+.dl-print__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-block-end: 0.5rem;
+  border-block-end: 2px solid var(--dl-panel-border);
+}
+
+.dl-print__logo {
+  inline-size: 28px;
+  block-size: 28px;
+}
+
+.dl-print__brand {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dl-print__title {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.dl-print__meta {
+  margin-inline-start: auto;
+  color: var(--dl-text-muted);
+  text-align: end;
+}
+
+.dl-print__section {
+  margin-block-start: 1rem;
+}
+
+.dl-print h2 {
+  margin: 0 0 0.4rem;
+  padding: 0.2rem 0.4rem;
+  background: var(--dl-section-head-2);
+  border: 1px solid var(--dl-panel-border);
+  color: var(--dl-section-title);
+  font-size: 0.8125rem;
+}
+
+.dl-print h3 {
+  margin: 0.6rem 0 0.2rem;
+  font-size: var(--dl-font-size);
+}
+
+.dl-print h4 {
+  margin: 0.4rem 0 0.1rem;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+}
+
+.dl-print__kv,
+.dl-print__grid {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.dl-print__kv th,
+.dl-print__kv td,
+.dl-print__grid th,
+.dl-print__grid td {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--dl-grid-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.dl-print__kv th {
+  inline-size: 10rem;
+  background: var(--dl-surface-alt);
+  font-weight: 700;
+}
+
+.dl-print__grid thead th {
+  background: var(--dl-section-head-2);
+  font-weight: 700;
+}
+
+/* Data e Usuario do tamanho do conteudo; o Evento fica com o resto. */
+.dl-print__grid :is(th, td):nth-child(1),
+.dl-print__grid :is(th, td):nth-child(2) {
+  inline-size: 1%;
+  white-space: nowrap;
+}
+
+/* Paragrafos no corpo da ficha (o Carbon aumentaria a fonte do <p>). */
+.dl-print p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: 0;
+}
+
+.dl-print__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dl-print__mono {
+  font-family: var(--dl-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.dl-print__report {
+  padding: 0.2rem 0.5rem 0.5rem;
+  border: 1px solid var(--dl-grid-line);
+  break-inside: avoid;
+}
+
+.dl-print__report + .dl-print__report {
+  margin-block-start: 0.5rem;
+}
+
+.dl-print__foot {
+  margin-block-start: 1rem;
+  padding-block-start: 0.4rem;
+  border-block-start: 1px solid var(--dl-grid-line);
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  .dl-print {
+    max-inline-size: none;
+    padding: 0;
+    font-size: 9.5pt;
+  }
+
+  .dl-print__toolbar {
+    display: none;
+  }
+
+  /* Cabecalho da grade repete em cada pagina; linhas nao quebram ao meio. */
+  .dl-print__grid thead {
+    display: table-header-group;
+  }
+
+  .dl-print__grid tr,
+  .dl-print__kv tr {
+    break-inside: avoid;
+  }
+
+  .dl-print h2 {
+    break-after: avoid;
+  }
+
+  .dl-print,
+  .dl-print * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;

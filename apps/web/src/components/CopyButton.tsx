@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { IconCopy } from './icons';
 
 /** Copia o texto; sem a Clipboard API (HTTP sem TLS), usa o metodo antigo. */
-async function copyText(text: string): Promise<boolean> {
+/** Copia para a area de transferencia (com o metodo antigo como reserva). */
+export async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);

@@ -6,6 +6,8 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { api } from '../api/client';
 import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { copyText } from '../components/CopyButton';
+import { downloadText, entryReportsMarkdown } from '../components/entryExport';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
 import { EntryRelatedTab, useRelatedEntries } from '../components/EntryRelatedTab';
@@ -14,8 +16,22 @@ import { useFavorites } from '../components/favorites';
 import { formatFileSize } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
 import { type HpsmTabItem, HpsmTabs } from '../components/HpsmTabs';
-import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../components/HpsmToolbar';
-import { IconArrowLeft, IconDownload, IconPage, IconRefresh, IconStar } from '../components/icons';
+import {
+  HpsmToolbar,
+  HpsmToolbarButton,
+  HpsmToolbarDivider,
+  HpsmToolbarMenu,
+} from '../components/HpsmToolbar';
+import {
+  IconArrowLeft,
+  IconCopy,
+  IconDownload,
+  IconPage,
+  IconPrint,
+  IconRefresh,
+  IconScreen,
+  IconStar,
+} from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
@@ -72,6 +88,7 @@ export function EntryDetailPage() {
   // Fixar / Desafixar: a amostra entra na pasta Favoritos do navegador.
   const favs = useFavorites();
   const pinned = favs.favorites.find((f) => f.kind === 'ENTRY' && f.entryId === id);
+  // Retorno das acoes da toolbar (Fixar, menu Mais) na barra de mensagens.
   const [pinNotice, setPinNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [pinning, setPinning] = useState(false);
   const togglePin = async () => {
@@ -234,6 +251,45 @@ export function EntryDetailPage() {
             />
           </>
         )}
+        <HpsmToolbarDivider />
+        <HpsmToolbarMenu
+          label="Mais"
+          items={[
+            {
+              label: 'Copiar link do registro',
+              icon: IconCopy,
+              action: async () => {
+                const ok = await copyText(`${window.location.origin}/entries/${entry.id}`);
+                setPinNotice(
+                  ok
+                    ? { ok: true, text: 'Link do registro copiado.' }
+                    : { ok: false, text: 'Não foi possível copiar o link.' },
+                );
+              },
+            },
+            {
+              label: 'Abrir em nova janela',
+              icon: IconScreen,
+              action: () => window.open(`/entries/${entry.id}`, '_blank', 'noopener'),
+            },
+            {
+              label: 'Imprimir ficha…',
+              icon: IconPrint,
+              separated: true,
+              action: () => window.open(`/entries/${entry.id}/imprimir?auto=1`, '_blank'),
+            },
+            {
+              label: 'Exportar relatórios (Markdown)',
+              icon: IconDownload,
+              disabled: !reports.some((r) => r.published),
+              action: () =>
+                downloadText(
+                  `deeplook-${entry.id}-relatorios.md`,
+                  entryReportsMarkdown(entry, user?.displayName ?? '—'),
+                ),
+            },
+          ]}
+        />
         {position >= 0 && sequence.length > 1 && (
           <span className="hpsm-toolbar__info">
             Registro {position + 1} de {sequence.length}

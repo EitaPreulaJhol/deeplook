@@ -253,6 +253,18 @@ onClose={(restaurarFoco) => ...} />` — menu flutuante no desenho do menu do us
 devolvendo o foco a quem abriu, clique fora fecha. Abra pelo `onContextMenu` (posição
 do mouse) e por Shift+F10 / tecla Menu (posição do elemento).
 
+### Menu "Mais" da toolbar — `HpsmToolbarMenu` em `components/HpsmToolbar.tsx`
+
+`<HpsmToolbarMenu label="Mais" items={[{ label, icon?, action, disabled?, separated? }]} />`
+— botão "Mais ▾" que abre o `HpsmContextMenu` logo abaixo dele (teclado: Enter, Espaço
+ou ↓ abrem; Esc fecha e volta ao botão). Use para ações menos frequentes do registro.
+
+### Ficha para impressão — `pages/EntryPrintPage.tsx`
+
+Rota `/entries/:id/imprimir` fora da casca, aberta por "Mais ▾ > Imprimir ficha…" com
+`?auto=1`. Estilos em `.dl-print*` (`hpsm.scss`, seção 12i) com `@media print`. Ao
+acrescentar dados à ficha, nunca inclua nada do ambiente isolado.
+
 ### Prazo — `components/sla.tsx`
 
 `<AgeText entry={entry} sla={sla} />` mostra a idade no status atual ("1 d 6 h") com o
@@ -346,7 +358,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/history` | Histórico Global | |
 | `/me` | Meus Uploads | |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
-| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=historico` |
+| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
+| `/entries/:id/imprimir` | Ficha para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
 | `/admin` | Administração | só ADMIN; `?tab=keys` |
 | `/user` | Minha Conta | `?tab=senha`, `?tab=preferencias` |
 | `/sandbox/entry/:entryId/console` | janela do console | fora da casca |
@@ -441,6 +454,7 @@ banco nem da API rodando.
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
 | `session-idle.mjs` | sessão por inatividade (relógio falso): renovação 1x/min, aviso aos 28 min com contagem, Continuar/Sair, renovação por outra janela e expiração com volta ao login |
+| `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
 | `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |

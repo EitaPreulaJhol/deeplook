@@ -6,6 +6,7 @@ import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
+import { EntryPrintPage } from './pages/EntryPrintPage';
 import { GlobalHistoryPage } from './pages/GlobalHistoryPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -55,6 +56,8 @@ export default function App() {
     <Routes>
       {/* Janela dedicada do console do sandbox (aberta via window.open, sem o shell). */}
       <Route path="/sandbox/entry/:entryId/console" element={<SandboxConsoleWindowPage />} />
+      {/* Ficha para impressao (menu "Mais" > Imprimir ficha), tambem sem o shell. */}
+      <Route path="/entries/:id/imprimir" element={<EntryPrintPage />} />
 
       <Route element={<ShellLayout />}>
         {/* Raiz (e destino apos o login): a pagina inicial escolhida nas preferencias. */}
