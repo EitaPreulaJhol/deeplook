@@ -60,7 +60,7 @@ As levas seguintes também foram concluídas e estão mais abaixo:
   conta, gera senha de 14 caracteres com `generateTemporaryPassword`, encerra as
   sessões); botão **Redefinir senha** em Admin › Usuários, com confirmação e a senha
   temporária mostrada uma vez na barra de mensagens. A troca obrigatória no próximo
-  login ficou para depois.
+  login veio depois, no item 48.
 
 ### 2. Confirmação ao salvar a triagem
 - **Problema:** em Amostra › Análise, mudar Status ou Veredito grava na hora, sem
@@ -1147,7 +1147,7 @@ obrigatória de senha e "Sair" sem aviso), antivírus em contêiner próprio e 2
 |---|---|---|---|---|---|
 | 46 | Botão "Salvar" na alteração de senha | botões do formulário | ⚪ | P | ✅ |
 | 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ✅ |
-| 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ⬜ |
+| 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ✅ |
 | 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ⬜ |
 | 50 | Autenticação em dois fatores (2FA) opcional | login com segundo fator | 🔴 | M–G | ⬜ |
 
@@ -1210,6 +1210,26 @@ no login e prepara o terreno para a 50.
   da pessoa também ficam bloqueados até a troca.
 - **Admin:** coluna/indicador "troca de senha pendente" na aba Usuários; auditoria da
   troca já existe (`USER_PASSWORD_CHANGED`).
+- ✅ **Implementado:** migração `20261108000000_must_change_password`
+  (`User.mustChangePassword`).
+  - **Redefinição pelo admin:** liga a marca. A confirmação e o aviso da senha
+    temporária explicam a troca, e a auditoria registra "troca obrigatória no próximo
+    login".
+  - **API:** com a marca ligada, `requireUser` responde 403
+    `{ code: 'PASSWORD_CHANGE_REQUIRED' }` em tudo, menos `POST /api/me/password`.
+    `/api/auth/me`, sessão e Sair continuam. Tokens de API da pessoa também recebem 403.
+  - **Troca obrigatória:**
+    - desliga a marca e encerra todas as sessões;
+    - abre uma sessão nova (`signedIn: true`), então a pessoa entra direto;
+    - na auditoria aparece como "troca obrigatória após redefinição";
+    - a nova senha precisa ser diferente da temporária.
+  - **Tela "Definir nova senha"** (`pages/ForcePasswordPage.tsx`), no layout do login,
+    sem o shell: é a única rota enquanto a marca estiver ligada.
+    - A senha temporária digitada no login fica só em memória e é usada uma vez; depois
+      de recarregar, a tela pede a temporária.
+    - Botões "Salvar e entrar" e "Sair".
+  - **Usuários (Administração):** "· troca de senha pendente" ao lado do status.
+  - **Testes:** 21 de integração (Postgres) e `force-password.mjs`.
 
 ### 49. Antivírus ClamAV em contêiner próprio
 - **Proposta:**

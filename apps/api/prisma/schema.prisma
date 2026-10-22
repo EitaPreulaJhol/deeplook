@@ -49,22 +49,24 @@ enum SandboxStatus {
 }
 
 model User {
-  id             String     @id @default(cuid())
-  email          String     @unique
-  passwordHash   String
-  displayName    String
-  role           Role       @default(USER)
-  status         UserStatus @default(ACTIVE)
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  passwordHash       String
+  displayName        String
+  role               Role       @default(USER)
+  status             UserStatus @default(ACTIVE)
   /// Acesso por API: so um admin libera (aba Usuarios). Sem ele, nenhum token vale.
-  apiAccess      Boolean    @default(false)
+  apiAccess          Boolean    @default(false)
+  /// Senha redefinida pelo admin: so entra depois de definir uma nova (item 48).
+  mustChangePassword Boolean    @default(false)
   /// Preferencias de uso (pagina inicial, registros por pagina...). Ver src/lib/preferences.ts.
-  preferences    Json       @default("{}")
+  preferences        Json       @default("{}")
   /// Ultima atividade (GET /api/auth/me) e a visita anterior a ela: base dos
   /// avisos "desde a sua ultima visita" da Pagina Inicial.
-  lastSeenAt     DateTime?
-  previousSeenAt DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  lastSeenAt         DateTime?
+  previousSeenAt     DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   sessions        Session[]
   entries         Entry[]          @relation("EntryOwner")

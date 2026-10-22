@@ -95,6 +95,13 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
   if (!token || token.revokedAt || token.expiresAt.getTime() <= now) return invalid;
   const u = token.user;
   if (u.status !== 'ACTIVE') return invalid;
+  if (u.mustChangePassword) {
+    return {
+      ok: false,
+      code: 403,
+      error: 'A conta precisa definir uma nova senha (redefinida pelo admin) antes de usar a API.',
+    };
+  }
   if (!u.apiAccess) {
     return { ok: false, code: 403, error: 'O acesso por API desta conta não está liberado.' };
   }
@@ -127,6 +134,7 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
       status: 'ACTIVE',
       createdAt: u.createdAt,
       apiAccess: true,
+      mustChangePassword: false,
       preferences: resolvePreferences(u.preferences),
     },
   };

@@ -365,9 +365,23 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/me/password') {
         if (body.currentPassword !== state.password) return json(route, 400, { error: 'Senha atual incorreta.' });
+        if (body.newPassword === state.password) {
+          return json(route, 400, { error: 'A nova senha deve ser diferente da atual.' });
+        }
         state.password = body.newPassword;
+        state.lastPasswordBody = body;
+        // Troca obrigatoria (senha redefinida pelo admin): segue logado com sessao nova.
+        if (users[0].mustChangePassword) {
+          users[0].mustChangePassword = false;
+          return json(route, 200, { ok: true, signedIn: true });
+        }
         state.loggedIn = false;
         return json(route, 200, { ok: true });
+      }
+      // Com a troca obrigatoria pendente, a API recusa o resto (como a real).
+      if (users[0].mustChangePassword && state.loggedIn && !['/api/auth/me', '/api/auth/session', '/api/auth/touch'].includes(p)) {
+        state.blockedWhileForced = (state.blockedWhileForced ?? 0) + 1;
+        return json(route, 403, { error: 'Defina uma nova senha para continuar.', code: 'PASSWORD_CHANGE_REQUIRED' });
       }
       if (p === '/api/entries') {
         const sp = url.searchParams;

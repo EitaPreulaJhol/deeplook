@@ -424,8 +424,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/auth/touch` | atividade do usuário: renova a sessão por `SESSION_IDLE_MINUTES` e devolve `{ expiresAt }` (401 se já expirou) |
 | GET | `/api/auth/session` | `{ expiresAt }` da sessão atual, **sem** renovar |
 | PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
-| POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário |
-| POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez) e encerra as sessões do usuário |
+| POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário. Na troca obrigatória (senha redefinida pelo admin) abre uma sessão nova e devolve `{ ok, signedIn: true }` |
+| POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez), encerra as sessões e marca a **troca obrigatória**: até trocar, as rotas respondem 403 `{ code: 'PASSWORD_CHANGE_REQUIRED' }` (inclusive para os tokens de API), exceto a troca de senha |
 
 | GET | `/api/analysts` | analistas/admins ativos (select de Responsável); só para analistas |
 | GET | `/api/entries/counts` | contadores das filas: `{ counts: { PENDING, IN_REVIEW, COMPLETED }, mine }` |
@@ -527,6 +527,7 @@ banco nem da API rodando.
 |---|---|
 | `screens.mjs` | screenshot de todas as telas em `out/` e medida do cabeçalho da lista |
 | `filters.mjs` | troca filtros, busca e Limpar; confere que os filtros sobrevivem a recarregar a página; falha se a tela ficar branca ou a contagem errar |
+| `force-password.mjs` | troca obrigatória: login com a temporária abre só "Definir nova senha" (sem shell, sem outras chamadas), outra rota continua nela, validações, igual à temporária recusada, troca entra direto, recarregar pede a temporária, Sair e a pendência na aba Usuários |
 | `logout-unsaved.mjs` | Sair com alterações não salvas: pergunta, Continuar editando mantém tela e texto, Sair sem segundo aviso, sem alteração (ou desfeita) sai direto |
 | `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso, botão Salvar do rodapé alinhado aos campos) → novo login |
 | `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |

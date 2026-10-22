@@ -13,6 +13,8 @@ export interface User {
   createdAt: string;
   /** Acesso por API liberado por um admin (tokens pessoais). */
   apiAccess?: boolean;
+  /** Senha redefinida pelo admin: precisa definir uma nova antes de entrar. */
+  mustChangePassword?: boolean;
   _count?: { entries: number; apiTokens?: number };
 }
 

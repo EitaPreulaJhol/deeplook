@@ -28,7 +28,17 @@ interface AuthContextValue {
   clearSession: () => void;
   /** Troca a senha; a API encerra todas as sessoes, entao o usuario sai. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** Senha temporaria digitada no login (troca obrigatoria); devolve uma vez. */
+  takeTemporaryPassword: () => string | null;
+  /** Troca obrigatoria: a API ja abre uma sessao nova e a pessoa segue logada. */
+  completeForcedPasswordChange: (currentPassword: string, newPassword: string) => Promise<void>;
 }
+
+/**
+ * Senha temporaria do ultimo login com troca obrigatoria: so em memoria, so
+ * ate a tela "Definir nova senha" pegar (para nao pedir de novo).
+ */
+let temporaryPassword: string | null = null;
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -52,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const data = await api.post<{ user: CurrentUser }>('/auth/login', { email, password });
+      temporaryPassword = data.user.mustChangePassword ? password : null;
       queryClient.setQueryData(['me'], data.user);
     },
     [queryClient],
@@ -112,6 +123,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [forgetSession],
   );
 
+  const takeTemporaryPassword = useCallback(() => {
+    const value = temporaryPassword;
+    temporaryPassword = null;
+    return value;
+  }, []);
+
+  const completeForcedPasswordChange = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      await api.post('/me/password', { currentPassword, newPassword });
+      const data = await api.get<{ user: CurrentUser }>('/auth/me');
+      queryClient.setQueryData(['me'], data.user);
+    },
+    [queryClient],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user: meQuery.data ?? null,
@@ -124,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePreferences,
       clearSession: forgetSession,
       changePassword,
+      takeTemporaryPassword,
+      completeForcedPasswordChange,
     }),
     [
       meQuery.data,
@@ -135,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePreferences,
       forgetSession,
       changePassword,
+      takeTemporaryPassword,
+      completeForcedPasswordChange,
     ],
   );
 

@@ -171,6 +171,7 @@ export async function adminRoutes(app: FastifyInstance) {
         status: true,
         createdAt: true,
         apiAccess: true,
+        mustChangePassword: true,
         _count: {
           select: {
             entries: true,
@@ -270,7 +271,8 @@ export async function adminRoutes(app: FastifyInstance) {
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);
     await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id }, data: { passwordHash } });
+      // Troca obrigatoria no proximo login: a temporaria foi vista pelo admin.
+      await tx.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
       await tx.session.deleteMany({ where: { userId: id } });
       // A senha temporaria NAO vai para a auditoria.
       await audit(tx, req, {
@@ -278,7 +280,7 @@ export async function adminRoutes(app: FastifyInstance) {
         actorId: admin.id,
         targetUserId: id,
         targetLabel: target.email,
-        detail: 'sessões encerradas',
+        detail: 'sessões encerradas · troca obrigatória no próximo login',
       });
     });
 

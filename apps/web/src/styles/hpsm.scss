@@ -3137,3 +3137,9 @@ body:has(.dl-print) {
   color: var(--dl-text-muted);
   font-size: var(--dl-font-size);
 }
+
+/* Usuarios (Administracao): troca de senha pendente ao lado do status. */
+.dl-user-pending {
+  color: var(--dl-text-muted);
+  white-space: nowrap;
+}

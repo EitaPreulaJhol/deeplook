@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { audit } from '../lib/audit';
-import { requireUser, SESSION_COOKIE } from '../lib/auth';
+import { createSession, requireUser, SESSION_COOKIE } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
@@ -70,7 +70,9 @@ export async function meRoutes(app: FastifyInstance) {
   const passwordLimit = attemptLimit(sessionKey('password'));
 
   // Troca de senha: confere a atual e encerra TODAS as sessoes do usuario
-  // (inclusive esta), obrigando um novo login com a senha nova.
+  // (inclusive esta), obrigando um novo login com a senha nova. Na troca
+  // obrigatoria (senha redefinida pelo admin), a pessoa ja entra com uma sessao
+  // nova: ela acabou de provar a senha temporaria e de definir a dela.
   app.post('/api/me/password', { config: passwordLimit }, async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
@@ -92,18 +94,26 @@ export async function meRoutes(app: FastifyInstance) {
     }
 
     const passwordHash = await hashPassword(newPassword);
+    const forced = record.mustChangePassword;
     await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash, mustChangePassword: false },
+      });
       await tx.session.deleteMany({ where: { userId: user.id } });
       await audit(tx, req, {
         action: 'USER_PASSWORD_CHANGED',
         actorId: user.id,
         targetUserId: user.id,
         targetLabel: record.email,
-        detail: 'sessões encerradas',
+        detail: forced ? 'troca obrigatória após redefinição' : 'sessões encerradas',
       });
     });
 
+    if (forced) {
+      await createSession(reply, user.id);
+      return reply.send({ ok: true, signedIn: true });
+    }
     reply.clearCookie(SESSION_COOKIE, { path: '/' });
     return reply.send({ ok: true });
   });

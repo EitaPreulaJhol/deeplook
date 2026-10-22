@@ -18,6 +18,8 @@ export type PublicUser = {
   createdAt: Date;
   /** Acesso por API liberado por um admin (tokens pessoais). */
   apiAccess: boolean;
+  /** Senha redefinida pelo admin: precisa definir uma nova antes de usar o sistema. */
+  mustChangePassword: boolean;
   preferences: Preferences;
 };
 
@@ -47,9 +49,13 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
     status: u.status as 'ACTIVE' | 'SUSPENDED',
     createdAt: u.createdAt,
     apiAccess: u.apiAccess,
+    mustChangePassword: u.mustChangePassword,
     preferences: resolvePreferences(u.preferences),
   };
 }
+
+/** Rotas liberadas enquanto a senha redefinida pelo admin nao for trocada. */
+const PASSWORD_CHANGE_ROUTES = new Set(['POST /api/me/password']);
 
 /**
  * Validade da sessao: N minutos sem atividade (SESSION_IDLE_MINUTES), nunca
@@ -131,6 +137,16 @@ export async function requireUser(
   const user = await loadUser(req);
   if (!user) {
     unauthorized(reply);
+    return null;
+  }
+  if (
+    user.mustChangePassword &&
+    !PASSWORD_CHANGE_ROUTES.has(`${req.method} ${req.routeOptions.url ?? ''}`)
+  ) {
+    reply.code(403).send({
+      error: 'Defina uma nova senha para continuar.',
+      code: 'PASSWORD_CHANGE_REQUIRED',
+    });
     return null;
   }
   return user;

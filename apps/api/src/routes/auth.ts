@@ -29,6 +29,7 @@ function publicUser(u: {
   status: string;
   createdAt: Date;
   apiAccess: boolean;
+  mustChangePassword: boolean;
   preferences: unknown;
 }) {
   return {
@@ -39,6 +40,7 @@ function publicUser(u: {
     status: u.status,
     createdAt: u.createdAt,
     apiAccess: u.apiAccess,
+    mustChangePassword: u.mustChangePassword,
     preferences: resolvePreferences(u.preferences),
   };
 }

@@ -8,6 +8,7 @@ import { AdminPage } from './pages/AdminPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
 import { EntryPrintPage } from './pages/EntryPrintPage';
+import { ForcePasswordPage } from './pages/ForcePasswordPage';
 import { GlobalHistoryPage } from './pages/GlobalHistoryPage';
 import { HomePage } from './pages/HomePage';
 import { InboxPage } from './pages/InboxPage';
@@ -52,6 +53,15 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
+      </Routes>
+    );
+  }
+
+  // Senha redefinida pelo admin: so a tela de nova senha ate trocar (a API recusa o resto).
+  if (user.mustChangePassword) {
+    return (
+      <Routes>
+        <Route path="*" element={<ForcePasswordPage />} />
       </Routes>
     );
   }

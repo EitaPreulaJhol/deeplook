@@ -146,7 +146,8 @@ export function AdminPage() {
       message: (
         <>
           Deseja redefinir a senha de <strong>{u.displayName}</strong>? Uma senha temporária será
-          gerada e todas as sessões dessa pessoa serão encerradas.
+          gerada, todas as sessões dessa pessoa serão encerradas e ela terá de definir uma senha
+          nova no próximo login.
         </>
       ),
       confirmLabel: 'Redefinir',
@@ -239,7 +240,8 @@ export function AdminPage() {
           Senha temporária de {resetResult.name}:{' '}
           <span className="dl-mono">{resetResult.password}</span>
           <CopyButton value={resetResult.password} label="senha temporária" /> — repasse ao usuário;
-          ela não será mostrada de novo. As sessões dessa pessoa foram encerradas.
+          ela não será mostrada de novo. As sessões dessa pessoa foram encerradas, e no próximo
+          login ela terá de definir uma senha nova.
         </HpsmMessage>
       )}
 
@@ -313,6 +315,12 @@ export function AdminPage() {
                                 <StatusText tone={u.status === 'ACTIVE' ? 'green' : 'red'}>
                                   {u.status === 'ACTIVE' ? 'Ativo' : 'Suspenso'}
                                 </StatusText>
+                                {u.mustChangePassword && (
+                                  <span className="dl-user-pending">
+                                    {' '}
+                                    · troca de senha pendente
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell>{u._count ? u._count.entries : 0}</TableCell>
                               <TableCell>
