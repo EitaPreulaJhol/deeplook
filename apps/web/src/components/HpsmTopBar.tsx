@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { HpsmInboxMenu } from './HpsmInboxMenu';
 import { HpsmQuickSearch } from './HpsmQuickSearch';
 import { HpsmUserMenu } from './HpsmUserMenu';
 import { IconMenu } from './icons';
@@ -50,6 +51,7 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
 
       {/* O nome abre o submenu do usuario (Minha conta, Senha, Preferencias, Sair). */}
       <div className="hpsm-topbar__links">
+        {user && <HpsmInboxMenu />}
         {user && (
           <span className="hpsm-topbar__user">
             <HpsmUserMenu name={user.displayName} onLogout={handleLogout} />

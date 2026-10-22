@@ -12,6 +12,7 @@ import { HpsmContextMenu } from './HpsmContextMenu';
 import type { IconComponent } from './icons';
 import {
   IconAdd,
+  IconBell,
   IconFilter,
   IconFolder,
   IconHistory,
@@ -21,6 +22,7 @@ import {
   IconTrash,
 } from './icons';
 import { HpsmMessage } from './messages';
+import { useNotificationCount } from './notifications';
 import type { StatusTone } from './tags';
 
 interface SidebarProps {
@@ -36,8 +38,11 @@ interface NavLeaf {
   /** Icone 16px; filas usam a bolinha de status (`tone`) no lugar. */
   icon?: IconComponent;
   tone?: StatusTone;
-  /** Contador da fila: um status, `mine` (atribuidas a mim e abertas) ou `late` (atrasadas). */
-  count?: EntryStatus | 'mine' | 'late';
+  /**
+   * Contador ao lado do nome: um status, `mine` (atribuidas a mim e abertas),
+   * `late` (atrasadas) ou `unread` (caixa de entrada).
+   */
+  count?: EntryStatus | 'mine' | 'late' | 'unread';
 }
 
 interface NavFolder {
@@ -49,7 +54,10 @@ interface NavFolder {
 }
 
 /* Itens soltos no topo da arvore, antes das pastas. */
-const ROOT_LEAVES: NavLeaf[] = [{ to: '/inicio', label: 'Página Inicial', icon: IconHome }];
+const ROOT_LEAVES: NavLeaf[] = [
+  { to: '/inicio', label: 'Página Inicial', icon: IconHome },
+  { to: '/inbox', label: 'Caixa de entrada', icon: IconBell, count: 'unread' },
+];
 
 /* Arvore do "Navegador do Sistema": pastas com as telas da aplicacao. */
 const TREE: NavFolder[] = [
@@ -142,9 +150,13 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     enabled: canTriage,
     refetchInterval: 60_000,
   });
-  const counts = countsQuery.data
-    ? { ...countsQuery.data.counts, mine: countsQuery.data.mine, late: countsQuery.data.late }
-    : undefined;
+  const unread = useNotificationCount();
+  const counts = {
+    ...(countsQuery.data
+      ? { ...countsQuery.data.counts, mine: countsQuery.data.mine, late: countsQuery.data.late }
+      : {}),
+    unread,
+  } as Partial<Record<NonNullable<NavLeaf['count']>, number>>;
 
   const folders = TREE.filter(
     (folder) => !folder.access || (folder.access === 'admin' ? isAdmin : canTriage),
@@ -226,7 +238,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   // Folha da arvore; na raiz ganha um espaco no lugar do +/- das pastas.
   const renderLeaf = (leaf: NavLeaf, root = false, favorite?: Favorite) => {
     const isActive = leaf.to === active;
-    const count = leaf.count && counts ? counts[leaf.count] : undefined;
+    const count = leaf.count ? counts[leaf.count] : undefined;
     return (
       <a
         href={leaf.to}

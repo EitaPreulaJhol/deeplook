@@ -280,6 +280,19 @@ Rota `/entries/:id/imprimir` fora da casca, aberta por "Mais ▾ > Imprimir fich
 `?auto=1`. Estilos em `.dl-print*` (`hpsm.scss`, seção 12i) com `@media print`. Ao
 acrescentar dados à ficha, nunca inclua nada do ambiente isolado.
 
+### Notificações — `lib/notifications.ts` (API) e `components/notifications.ts`
+
+Na API, notifique com `notify(tx, [{ userId, type, entryId, actorId, detail }])` dentro
+da mesma transação do evento; ele ignora a própria pessoa e destinatários repetidos. No
+front, `useNotificationCount()` (contador compartilhado), `useNotifications(limit,
+somenteNaoLidas)`, `useMarkRead()`, `notificationText(n)` e `notificationHref(n)`.
+
+### Menções — `components/MentionTextArea.tsx`
+
+`<MentionTextArea id value onChange onMention />` no lugar do `TextArea`: "@" abre a
+lista de pessoas e insere "@Nome". Envie os ids das menções que continuam no texto e
+use `renderMentions(texto, event.toValue)` para destacar os nomes.
+
 ### Indicadores — `components/iocs.ts` e `pages/IocPage.tsx`
 
 `iocHref(kind, valor)` monta o link da ficha; `iocKindOf(valor)` deduz o tipo de um
@@ -382,6 +395,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/me` | Meus Uploads | |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
+| `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
 | `/entries/:id/imprimir` | Ficha para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
 | `/admin` | Administração | só ADMIN; `?tab=keys` |
@@ -411,11 +425,15 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
 | GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; devolve `sla: { warnHours, lateHours }` |
 | GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
+| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT) |
+| GET | `/api/me/notifications/count` | `{ unread }` (sininho, a cada minuto) |
+| POST | `/api/me/notifications/read` | `{ ids? }` marca como lidas (sem `ids`: todas) |
+| GET | `/api/users/mentionable?q=` | pessoas ativas para o "@" (nome, sem e-mail; até 8) |
 | GET | `/api/iocs/lookup?q=` | texto → indicador reconhecido `{ ioc: { kind, value } }` ou 404 |
 | GET | `/api/iocs/:kind/:value` | ficha: `{ ioc, items: [{ entry, sightings }], total, firstSeen, lastSeen }` |
 | GET | `/api/entries/:id/iocs` | indicadores da amostra (relatórios publicados + arquivo/URL/domínio) |
 | GET | `/api/entries/:id/iocs/export?format=` | `csv`, `stix` (STIX 2.1) ou `misp` (evento JSON), como anexo |
-| POST | `/api/entries/:id/comments` | nova atualização `{ text }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
+| POST | `/api/entries/:id/comments` | nova atualização `{ text, mentions? }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
 | GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`) |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
 | POST | `/api/me/favorites` | `{ kind: 'VIEW', label, url }` ou `{ kind: 'ENTRY', entryId, label? }`; até 30; repetido → 409 |
@@ -485,6 +503,7 @@ banco nem da API rodando.
 | `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
+| `notifications.mjs` | caixa de entrada: contador no sininho e no navegador, painel (frases, foco, teclado, abrir marca como lida, marcar todas), página com filtro e teclado; menções (lista, Esc, Enter/Tab, nova linha, ids enviados, destaque no histórico) |
 | `iocs.mjs` | indicadores: seção na aba Relatórios, ficha (título, resumo, onde aparece, aba de documento, teclado), ficha vazia/inválida, "Ir para:" com IOC desarmado/IP/IP privado/texto, links nas Relacionadas e exportação CSV/STIX/MISP |
 | `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural, IOCs em comum com hash encurtado, "+N" e lista na dica), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
 | `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |

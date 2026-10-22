@@ -1,5 +1,6 @@
 import type { EntryEventType, EntryStatus, Prisma, Verdict } from '@prisma/client';
 
+import { notify } from './notifications';
 import { prisma } from './prisma';
 
 /** Cliente do Prisma ou transacao em andamento. */
@@ -39,6 +40,18 @@ export async function recordTriageChanges(
       fromValue: before.status,
       toValue: after.status,
     });
+    // Caixa de entrada: o dono fica sabendo que a amostra dele foi concluida.
+    if (after.status === 'COMPLETED') {
+      const entry = await db.entry.findUnique({
+        where: { id: entryId },
+        select: { ownerId: true, verdict: true },
+      });
+      if (entry) {
+        await notify(db, [
+          { userId: entry.ownerId, type: 'COMPLETED', entryId, actorId, detail: entry.verdict },
+        ]);
+      }
+    }
   }
   if (after.verdict && after.verdict !== before.verdict) {
     await recordEvent(db, {

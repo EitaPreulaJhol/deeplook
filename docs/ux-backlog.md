@@ -610,8 +610,8 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 | 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ⬜ |
 | 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ⬜ |
 | 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
-| 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ⬜ |
-| 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ⬜ |
+| 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ✅ |
+| 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ✅ |
 | 38 | Modelos de relatório | Templates | 🟡 | P | ⬜ |
 | 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ⬜ |
 | 40 | Painel do analista | Dashboards | 🟡 | M | ⬜ |
@@ -741,6 +741,30 @@ precisam de uma decisão de segurança.
   criado junto com os eventos do histórico; `GET/PATCH /api/me/notifications`; polling
   leve (60 s, como as filas).
 - **Cuidados:** não notificar a própria ação; e-mail fica para depois (opcional, SMTP).
+- ✅ **Implementado:** modelo `Notification` (migração `20261030000000_notifications`) e
+  `lib/notifications.ts` (`notify`), chamado nos pontos únicos da API:
+  - `applyTriage` → **ASSIGNED** para o novo responsável (inclusive na atualização em
+    massa);
+  - `recordTriageChanges` → **COMPLETED** para o dono, com o veredito (triagem, massa e
+    publicação de relatório);
+  - atualização → **MENTION** para os mencionados e **COMMENT** para dono e
+    responsável. Quem já recebeu a menção não recebe o COMMENT repetido.
+
+  Ninguém é notificado da própria ação, e amostra apagada leva as notificações junto.
+  - **API:**
+    - `GET /api/me/notifications?limit=&unread=1`;
+    - `GET /api/me/notifications/count`;
+    - `POST /api/me/notifications/read { ids? }` (sem `ids`, marca todas).
+  - **Sininho** no masthead (`HpsmInboxMenu`):
+    - contador vermelho e rótulo acessível ("Caixa de entrada: 2 não lidas");
+    - painel com as 8 mais recentes: não lidas em negrito com ponto azul, trecho da
+      atualização, "Marcar todas como lidas" e "Ver todas";
+    - teclado igual ao menu do usuário;
+    - abrir uma notificação marca como lida e leva à amostra (atualizações abrem a aba
+      Histórico).
+  - **Caixa de entrada** (`/inbox`, também na raiz do navegador com o contador): as
+    últimas 100, com o filtro "Somente não lidas" e teclado.
+  - **Contador:** consultado a cada minuto e ao voltar para a janela.
 
 ### 37. Menções nas atualizações
 - **Proposta:** `@` no campo de atualização sugere usuários ativos; a menção vira link
@@ -749,6 +773,16 @@ precisam de uma decisão de segurança.
   `@[Nome](id)` no texto e exibidas como nome; a API valida os ids.
 - **Cuidados:** só usuários ativos; a menção não dá acesso a nada além do que a pessoa
   já tem.
+- ✅ **Implementado (com ajuste):** o texto guarda só "@Nome", mais legível no histórico,
+  na ficha impressa e no CSV. Os ids vão à parte (`mentions` no POST).
+  - **API:** valida os ids (usuários ativos cujo "@Nome" ainda está no texto) e grava
+    `[{ id, name }]` no `toValue` do evento.
+  - **Campo de atualização** (`components/MentionTextArea.tsx`, combobox acessível):
+    - "@" lista as pessoas ativas (`GET /api/users/mentionable?q=`: só nome, sem
+      e-mail, até 8);
+    - ↑/↓ escolhem, Enter ou Tab inserem "@Nome ", Esc fecha só a lista;
+    - sem a lista aberta, o Enter continua quebrando linha.
+  - **No histórico:** o "@Nome" mencionado aparece em negrito (`renderMentions`).
 
 ### 38. Modelos de relatório
 - **Problema:** relatórios de casos comuns (phishing de credenciais, dropper, doc com

@@ -125,6 +125,10 @@ export function createState({ loggedIn = false } = {}) {
     entryIocs: {},
     /** Formato da ultima exportacao de IOCs recebida. */
     lastIocExport: null,
+    /** Caixa de entrada (mais recentes primeiro). */
+    notifications: [],
+    /** Corpo do ultimo POST de atualizacao (texto + mencoes). */
+    lastCommentBody: null,
   };
 }
 
@@ -185,6 +189,29 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
+
+      // Caixa de entrada.
+      const unreadCount = () => state.notifications.filter((n) => !n.readAt).length;
+      if (p === '/api/me/notifications/count') return json(route, 200, { unread: unreadCount() });
+      if (p === '/api/me/notifications' && req.method() === 'GET') {
+        const limit = Number(url.searchParams.get('limit') || 20);
+        const onlyUnread = url.searchParams.get('unread') === '1';
+        const items = state.notifications.filter((n) => !onlyUnread || !n.readAt).slice(0, limit);
+        return json(route, 200, { items, unread: unreadCount() });
+      }
+      if (p === '/api/me/notifications/read' && req.method() === 'POST') {
+        for (const n of state.notifications) {
+          if (!n.readAt && (!body.ids || body.ids.includes(n.id))) n.readAt = new Date().toISOString();
+        }
+        return json(route, 200, { unread: unreadCount() });
+      }
+      if (p === '/api/users/mentionable') {
+        const q = (url.searchParams.get('q') || '').toLowerCase();
+        const list = users
+          .filter((u) => u.status === 'ACTIVE' && u.id !== 'u1' && u.displayName.toLowerCase().includes(q))
+          .map((u) => ({ id: u.id, displayName: u.displayName }));
+        return json(route, 200, { users: list });
+      }
 
       // Favoritos (mesmas regras da API: limite de 30, sem repetir visao/amostra).
       if (p === '/api/me/favorites' && req.method() === 'GET') {
@@ -389,7 +416,19 @@ export async function setupMock(context, state) {
         if (!text || text.length > 4000) return json(route, 400, { error: 'Escreva a atualização (até 4000 caracteres).' });
         const list = events[cm[1]];
         if (!list) return json(route, 404, { error: 'Amostra nao encontrada.' });
-        const event = { id: `${cm[1]}-ev${list.length}`, entryId: cm[1], type: 'COMMENT', detail: text, createdAt: new Date().toISOString(), actor: actorOf(users[0]) };
+        state.lastCommentBody = body;
+        const mentions = users
+          .filter((u) => (body.mentions ?? []).includes(u.id) && text.includes(`@${u.displayName}`))
+          .map((u) => ({ id: u.id, name: u.displayName }));
+        const event = {
+          id: `${cm[1]}-ev${list.length}`,
+          entryId: cm[1],
+          type: 'COMMENT',
+          detail: text,
+          toValue: mentions.length ? JSON.stringify(mentions) : null,
+          createdAt: new Date().toISOString(),
+          actor: actorOf(users[0]),
+        };
         list.push(event);
         return json(route, 201, { event });
       }

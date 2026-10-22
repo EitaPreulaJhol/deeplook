@@ -7,7 +7,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TextArea,
 } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -17,6 +16,8 @@ import type { EntryEvent, EntryStatus, Verdict } from '../api/types';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
+import type { Mention } from './MentionTextArea';
+import { MentionTextArea, renderMentions } from './MentionTextArea';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { useSaveShortcut } from './shortcuts';
 import { statusLabel, verdictLabel } from './tags';
@@ -80,6 +81,8 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
   });
 
   const [text, setText] = useState('');
+  // Pessoas escolhidas no "@" (so vao as que continuam citadas no texto).
+  const [mentions, setMentions] = useState<Mention[]>([]);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [onlyComments, setOnlyComments] = useState(false);
@@ -100,8 +103,10 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
     if (!check.check()) return;
     setSaving(true);
     try {
-      await api.post(`/entries/${entryId}/comments`, { text });
+      const cited = mentions.filter((m) => text.includes(`@${m.name}`)).map((m) => m.id);
+      await api.post(`/entries/${entryId}/comments`, { text, mentions: cited });
       setText('');
+      setMentions([]);
       check.reset();
       setResult({ ok: true, text: 'Atualização registrada no histórico.' });
       await queryClient.invalidateQueries({ queryKey });
@@ -145,9 +150,9 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
             wide
             top
             invalid={check.isInvalid('comment-text')}
-            help={`Texto livre, visível para todos que acessam a amostra (${text.length}/${COMMENT_MAX}).`}
+            help={`Texto livre, visível para todos que acessam a amostra; digite @ para mencionar alguém (${text.length}/${COMMENT_MAX}).`}
           >
-            <TextArea
+            <MentionTextArea
               id="comment-text"
               labelText="Atualização"
               hideLabel
@@ -155,7 +160,12 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
               maxLength={COMMENT_MAX}
               placeholder="Ex.: pedi mais informações ao remetente."
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={setText}
+              onMention={(m) =>
+                setMentions((current) =>
+                  current.some((c) => c.id === m.id) ? current : [...current, m],
+                )
+              }
             />
           </HpsmField>
         </HpsmForm>
@@ -215,7 +225,9 @@ function HistoryTable({ events }: { events: EntryEvent[] }) {
                   <>
                     <strong>{describeEvent(event)}:</strong>
                     {/* Texto puro: o React escapa; quebras de linha preservadas no CSS. */}
-                    <div className="dl-history-comment__text">{event.detail}</div>
+                    <div className="dl-history-comment__text">
+                      {renderMentions(event.detail ?? '', event.toValue)}
+                    </div>
                   </>
                 ) : (
                   describeEvent(event)

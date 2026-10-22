@@ -11,6 +11,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { s3 } from '../lib/s3';
@@ -32,6 +33,8 @@ const CommentSchema = z.object({
         .trim(),
     )
     .pipe(z.string().min(1).max(4000)),
+  /** Usuarios escolhidos no autocompletar de "@" (validados na API). */
+  mentions: z.array(z.string().min(1).max(40)).max(20).optional(),
 });
 
 const ListQuery = z.object({
@@ -215,6 +218,9 @@ async function applyTriage(
       fromValue: entry.assignee?.displayName ?? null,
       toValue: newAssignee?.displayName ?? null,
     });
+    if (newAssignee) {
+      await notify(tx, [{ userId: newAssignee.id, type: 'ASSIGNED', entryId: entry.id, actorId }]);
+    }
   }
   return result;
 }
@@ -387,12 +393,47 @@ export async function entryRoutes(app: FastifyInstance) {
     }
 
     const { id } = req.params as { id: string };
-    const entry = await prisma.entry.findUnique({ where: { id }, select: { id: true } });
+    const entry = await prisma.entry.findUnique({
+      where: { id },
+      select: { id: true, ownerId: true, assigneeId: true },
+    });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
 
-    const event = await prisma.entryEvent.create({
-      data: { entryId: id, actorId: user.id, type: 'COMMENT', detail: parsed.data.text },
-      include: { actor: { select: { id: true, displayName: true } } },
+    const { text } = parsed.data;
+    const mentions = await resolveMentions(text, parsed.data.mentions ?? []);
+    const event = await prisma.$transaction(async (tx) => {
+      const created = await tx.entryEvent.create({
+        data: {
+          entryId: id,
+          actorId: user.id,
+          type: 'COMMENT',
+          detail: text,
+          // Mencoes (id + nome) para o front destacar o "@Nome" no texto.
+          toValue: mentions.length ? JSON.stringify(mentions) : null,
+        },
+        include: { actor: { select: { id: true, displayName: true } } },
+      });
+      // Mencionados primeiro: quem tambem e dono/responsavel recebe so a mencao.
+      const detail = excerpt(text);
+      await notify(tx, [
+        ...mentions.map((m) => ({
+          userId: m.id,
+          type: 'MENTION' as const,
+          entryId: id,
+          actorId: user.id,
+          detail,
+        })),
+        ...[entry.ownerId, entry.assigneeId]
+          .filter((userId): userId is string => Boolean(userId))
+          .map((userId) => ({
+            userId,
+            type: 'COMMENT' as const,
+            entryId: id,
+            actorId: user.id,
+            detail,
+          })),
+      ]);
+      return created;
     });
     return reply.code(201).send({ event });
   });

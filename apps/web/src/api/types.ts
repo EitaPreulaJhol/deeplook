@@ -31,6 +31,18 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Notificacao da caixa de entrada (GET /api/me/notifications). */
+export interface AppNotification {
+  id: string;
+  type: 'ASSIGNED' | 'COMPLETED' | 'MENTION' | 'COMMENT';
+  /** Veredito (COMPLETED) ou trecho da atualizacao (MENTION/COMMENT). */
+  detail: string | null;
+  readAt: string | null;
+  createdAt: string;
+  entry: { id: string; title: string };
+  actor: { id: string; displayName: string } | null;
+}
+
 /** Tipos de indicador do indice de IOCs (relatorios publicados). */
 export type IocKind = 'IPV4' | 'DOMAIN' | 'EMAIL' | 'MD5' | 'SHA1' | 'SHA256';
 

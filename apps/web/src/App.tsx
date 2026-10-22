@@ -9,6 +9,7 @@ import { EntryDetailPage } from './pages/EntryDetailPage';
 import { EntryPrintPage } from './pages/EntryPrintPage';
 import { GlobalHistoryPage } from './pages/GlobalHistoryPage';
 import { HomePage } from './pages/HomePage';
+import { InboxPage } from './pages/InboxPage';
 import { IocPage } from './pages/IocPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyUploadsPage } from './pages/MyUploadsPage';
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/submit" element={<SubmitPage />} />
         <Route path="/entries/:id" element={<EntryDetailPage />} />
         <Route path="/iocs/:kind/:value" element={<IocPage />} />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route
           path="/admin"
           element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/" replace />}

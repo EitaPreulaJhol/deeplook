@@ -15,6 +15,7 @@ import { entryRoutes } from './routes/entries';
 import { favoritesRoutes } from './routes/favorites';
 import { iocRoutes } from './routes/iocs';
 import { meRoutes } from './routes/me';
+import { notificationRoutes } from './routes/notifications';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { sandboxRoutes } from './routes/sandbox';
@@ -52,6 +53,7 @@ async function main() {
   await app.register(favoritesRoutes);
   await app.register(relatedRoutes);
   await app.register(iocRoutes);
+  await app.register(notificationRoutes);
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(adminRoutes);

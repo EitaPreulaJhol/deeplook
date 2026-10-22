@@ -2162,6 +2162,165 @@ body:has(.dl-print) {
   overflow-wrap: anywhere;
 }
 
+/* --- 12k. Caixa de entrada (sininho) e mencoes ------------------------- */
+.hpsm-inbox__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hpsm-inbox__bell:hover,
+.hpsm-inbox__bell[aria-expanded='true'] {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hpsm-inbox__bell:focus-visible {
+  outline: 1px dotted #ffffff;
+  outline-offset: 1px;
+}
+
+/* Contador vermelho no canto do sininho. */
+.hpsm-inbox__badge {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: -6px;
+  min-inline-size: 0.95rem;
+  padding: 0 0.2rem;
+  border: 1px solid #ffffff;
+  border-radius: 0.5rem;
+  background: var(--dl-status-red);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 0.85rem;
+  text-align: center;
+}
+
+.hpsm-inbox__panel {
+  inline-size: 24rem;
+  max-inline-size: calc(100vw - 1rem);
+  max-block-size: 70vh;
+  overflow-y: auto;
+}
+
+.hpsm-inbox__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-block-end: 1px solid var(--dl-grid-line);
+  color: var(--dl-section-title);
+  font-weight: 700;
+}
+
+.hpsm-inbox__head .dl-link-button {
+  font-weight: 400;
+}
+
+.hpsm-inbox__empty {
+  padding: 0.5rem;
+  color: var(--dl-text-muted);
+}
+
+.hpsm-inbox__item {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.hpsm-inbox__dot {
+  flex: 0 0 auto;
+  inline-size: 7px;
+  block-size: 7px;
+  margin-block-start: 0.35rem;
+  border-radius: 50%;
+}
+
+.hpsm-inbox__item.is-unread .hpsm-inbox__dot,
+.dl-inbox-unread .hpsm-inbox__dot,
+.dl-inbox-state .hpsm-inbox__dot {
+  background: var(--dl-accent);
+}
+
+.hpsm-inbox__text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.hpsm-inbox__item.is-unread .hpsm-inbox__title,
+.dl-inbox-unread td {
+  font-weight: 700;
+}
+
+.hpsm-inbox__entry,
+.hpsm-inbox__date {
+  color: var(--dl-text-muted);
+}
+
+.hpsm-inbox__date {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.hpsm-inbox__detail {
+  overflow: hidden;
+  color: var(--dl-text-muted);
+  font-style: italic;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-inbox-state {
+  inline-size: 1.5rem;
+}
+
+/* Autocompletar de "@" abaixo do campo de atualizacao. */
+.dl-mention {
+  position: relative;
+}
+
+.dl-mention-list {
+  position: absolute;
+  inset-inline-start: 0;
+  z-index: 40;
+  min-inline-size: 14rem;
+  margin: 1px 0 0;
+  padding: 2px;
+  list-style: none;
+  background: var(--dl-surface);
+  border: 1px solid var(--dl-panel-border);
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dl-mention-list li {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.dl-mention-list li.is-active,
+.dl-mention-list li:hover {
+  background: var(--dl-sidebar-active-bg);
+  border-color: var(--dl-tree-selected-border);
+}
+
+/* "@Nome" mencionado no texto da atualizacao. */
+.dl-mention-tag {
+  color: var(--dl-section-title);
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;
