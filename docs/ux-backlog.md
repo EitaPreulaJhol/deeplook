@@ -300,7 +300,7 @@ HP Service Manager 9 (indicados em cada item).
 | 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ✅ |
 | 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ⬜ |
 | 29 | Ficha para impressão | impressão do registro | ⚪ | P | ⬜ |
-| 30 | Ajuda de atalhos (`?` / F1) | Ajuda | ⚪ | P | ⬜ |
+| 30 | Ajuda de atalhos (`?` / F1) | Ajuda | ⚪ | P | ✅ |
 
 **Ordem sugerida:** 19 → 20 (maior ganho para quem faz triagem todos os dias), depois
 os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de índices.
@@ -459,3 +459,10 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   genérico derivado do `HpsmConfirm`; uma única lista de atalhos compartilhada com as
   Dicas da Página Inicial, para não divergir.
 - **Cuidados:** F1 abre a ajuda do navegador — usar `preventDefault`.
+- ✅ **Implementado:** `?` (fora de campos de texto) ou F1 (em qualquer lugar) abrem a
+  caixa **Atalhos de teclado** (`components/HpsmShortcutsHelp.tsx`), com a tabela
+  agrupada em Geral, Listas e Formulários e caixas; Esc ou [Fechar] fecham e o foco
+  volta para onde estava. Também no menu do usuário ("Atalhos de teclado", com ícone
+  de ajuda). A lista única `SHORTCUT_GROUPS` (`components/shortcutList.tsx`) alimenta a
+  caixa e as Dicas da Página Inicial (itens `tip`), que agora terminam com "Pressione
+  ? / F1 para ver todos os atalhos.".

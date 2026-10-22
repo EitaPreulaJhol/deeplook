@@ -1,20 +1,14 @@
 import type { MutableRefObject, ReactNode } from 'react';
-import { createContext, useContext, useEffect, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { HpsmShortcutsHelp } from './HpsmShortcutsHelp';
 import { useWorkspace } from './workspace';
 
-/**
- * Atalhos de teclado do app (listados na Pagina Inicial):
- *   /       foca a busca da lista (fora de campos de texto)
- *   Ctrl+K  foca o "Ir para…" do masthead
- *   Alt+N   abre "Enviar Amostra"
- *   Alt+W   fecha a aba de documento atual
- *   Ctrl+S  salva o formulario aberto (quem registrou useSaveShortcut)
- */
 type SaveHandler = () => void;
 
 const SaveContext = createContext<MutableRefObject<SaveHandler | null> | null>(null);
+const HelpContext = createContext<(() => void) | null>(null);
 
 function isEditable(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -32,12 +26,25 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { close } = useWorkspace();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const openHelp = useCallback(() => setHelpOpen(true), []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // F1 abriria a ajuda do navegador.
+      if (event.key === 'F1') event.preventDefault();
       // Com um dialogo aberto, o teclado e dele.
-      if (document.querySelector('[role="alertdialog"]')) return;
+      if (document.querySelector('.hpsm-modal')) return;
       const mod = event.ctrlKey || event.metaKey;
+
+      if (
+        event.key === 'F1' ||
+        (event.key === '?' && !mod && !event.altKey && !isEditable(event.target))
+      ) {
+        event.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
 
       if (mod && !event.altKey && event.key.toLowerCase() === 's') {
         if (saveRef.current) {
@@ -77,7 +84,21 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [navigate, close, pathname]);
 
-  return <SaveContext.Provider value={saveRef}>{children}</SaveContext.Provider>;
+  return (
+    <SaveContext.Provider value={saveRef}>
+      <HelpContext.Provider value={openHelp}>
+        {children}
+        {helpOpen && <HpsmShortcutsHelp onClose={() => setHelpOpen(false)} />}
+      </HelpContext.Provider>
+    </SaveContext.Provider>
+  );
+}
+
+/** Abre a caixa "Atalhos de teclado" (ex.: pelo menu do usuario). */
+export function useShortcutsHelp(): () => void {
+  const open = useContext(HelpContext);
+  if (!open) throw new Error('useShortcutsHelp precisa estar dentro de <ShortcutsProvider>.');
+  return open;
 }
 
 /** Registra a acao de salvar da tela para o Ctrl+S (enquanto `enabled`). */

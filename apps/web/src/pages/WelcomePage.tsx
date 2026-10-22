@@ -8,6 +8,7 @@ import {
   TableRow,
 } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
@@ -16,6 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import { HpsmSection } from '../components/HpsmForm';
 import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { SHORTCUT_GROUPS, ShortcutKeys } from '../components/shortcutList';
 import { VerdictTag } from '../components/tags';
 
 interface Updates {
@@ -24,6 +26,10 @@ interface Updates {
 }
 
 /** Pagina inicial do app logado: texto introdutorio de boas-vindas. */
+/** Atalhos resumidos nas Dicas (a lista completa abre com ? ou F1). */
+const TIP_SHORTCUTS = SHORTCUT_GROUPS.flatMap((group) => group.items).filter((item) => item.tip);
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
 export function WelcomePage() {
   const { user } = useAuth();
   const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
@@ -134,11 +140,14 @@ export function WelcomePage() {
               para trocar a senha e ajustar suas preferências, inclusive qual tela abre ao entrar.
             </li>
             <li>
-              Atalhos: <kbd>Ctrl</kbd>+<kbd>K</kbd> ir para uma amostra (ID, SHA-256 ou texto),{' '}
-              <kbd>/</kbd> busca na lista, <kbd>Alt</kbd>+<kbd>N</kbd> enviar amostra,{' '}
-              <kbd>Alt</kbd>+<kbd>W</kbd> fechar a aba atual, <kbd>Ctrl</kbd>+<kbd>S</kbd> salvar o
-              formulário aberto e, na lista, <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> para abrir
-              uma amostra.
+              Atalhos:{' '}
+              {TIP_SHORTCUTS.map((item, index) => (
+                <Fragment key={item.label}>
+                  {index > 0 && ', '}
+                  <ShortcutKeys keys={item.keys} /> {lowerFirst(item.label)}
+                </Fragment>
+              ))}
+              . Pressione <ShortcutKeys keys={[['?'], ['F1']]} /> para ver todos os atalhos.
             </li>
             <li>
               Atenção: as amostras podem ser maliciosas. Baixe e execute arquivos apenas em ambiente

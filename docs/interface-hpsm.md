@@ -203,9 +203,16 @@ no lugar do `FileUploader` do Carbon. `formatFileSize()` vem do mesmo arquivo.
 | `Alt+W` | fecha a aba de documento atual |
 | `Ctrl+S` | salva o formulário aberto |
 | `↑ ↓ Home End` + `Enter` | navegam e abrem amostras na grade |
+| `?` (fora de campos) / `F1` | abre a caixa **Atalhos de teclado** (também no menu do usuário) |
 
 Para o `Ctrl+S` valer numa tela nova: `useSaveShortcut(salvar, !salvando)` — e ponha
 `title="Salvar (Ctrl+S)"` no botão da toolbar.
+
+**Lista única:** todo atalho novo entra em `SHORTCUT_GROUPS`
+(`components/shortcutList.tsx`). Dela saem a caixa `HpsmShortcutsHelp` (`?`/F1) e as
+Dicas da Página Inicial (itens com `tip: true`); `<ShortcutKeys keys={[['Ctrl', 'K']]} />`
+desenha as teclas. Com qualquer `.hpsm-modal` aberto, os atalhos globais ficam
+desligados; F1 sempre leva `preventDefault` (não abre a ajuda do navegador).
 
 ### Copiar — `components/CopyButton.tsx`
 
@@ -391,6 +398,7 @@ banco nem da API rodando.
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
 | `session-idle.mjs` | sessão por inatividade (relógio falso): renovação 1x/min, aviso aos 28 min com contagem, Continuar/Sair, renovação por outra janela e expiração com volta ao login |
+| `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |

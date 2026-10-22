@@ -3,7 +3,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { IconComponent } from './icons';
-import { IconKey, IconLogout, IconPage, IconSettings } from './icons';
+import { IconHelp, IconKey, IconLogout, IconPage, IconSettings } from './icons';
+import { useShortcutsHelp } from './shortcuts';
 
 interface MenuItem {
   label: string;
@@ -20,11 +21,12 @@ interface HpsmUserMenuProps {
 
 /**
  * Nome do usuario no masthead que abre um submenu (Minha conta, Alterar senha,
- * Preferencias, Sair). Teclado: Enter/Espaco/seta abrem, setas e Home/End
+ * Preferencias, Atalhos de teclado, Sair). Teclado: Enter/Espaco/seta abrem, setas e Home/End
  * navegam, Esc fecha e devolve o foco ao nome; Tab ou clique fora fecham.
  */
 export function HpsmUserMenu({ name, onLogout }: HpsmUserMenuProps) {
   const navigate = useNavigate();
+  const openHelp = useShortcutsHelp();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -35,6 +37,7 @@ export function HpsmUserMenu({ name, onLogout }: HpsmUserMenuProps) {
     { label: 'Minha conta', icon: IconPage, action: () => navigate('/user') },
     { label: 'Alterar senha', icon: IconKey, action: () => navigate('/user?tab=senha') },
     { label: 'Preferências', icon: IconSettings, action: () => navigate('/user?tab=preferencias') },
+    { label: 'Atalhos de teclado', icon: IconHelp, action: openHelp, separated: true },
     { label: 'Sair', icon: IconLogout, action: onLogout, separated: true },
   ];
 

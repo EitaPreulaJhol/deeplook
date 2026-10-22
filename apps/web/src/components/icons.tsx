@@ -51,3 +51,4 @@ export const IconKey = createIcon('/icons/key.svg');
 export const IconPage = createIcon('/icons/page.svg');
 export const IconHome = createIcon('/icons/home.svg');
 export const IconCopy = createIcon('/icons/copy.svg');
+export const IconHelp = createIcon('/icons/help.svg');

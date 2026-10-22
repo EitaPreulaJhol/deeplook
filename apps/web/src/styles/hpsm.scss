@@ -1739,6 +1739,49 @@ h6 {
   min-inline-size: 5rem;
 }
 
+/* --- 12e. Atalhos de teclado (? / F1) ----------------------------------- */
+.hpsm-modal__box--wide {
+  max-width: 34rem;
+}
+
+.dl-shortcuts {
+  max-block-size: min(70vh, 32rem);
+  overflow-y: auto;
+  margin: 0.75rem 0.9rem;
+  border: 1px solid var(--dl-panel-border);
+}
+
+.dl-shortcuts__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.dl-shortcuts__table th,
+.dl-shortcuts__table td {
+  padding: 0.25rem 0.5rem;
+  border-block-end: 1px solid var(--dl-panel-border);
+  text-align: start;
+  vertical-align: middle;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.dl-shortcuts__table tbody th[scope='row'] {
+  inline-size: 11rem;
+  white-space: nowrap;
+}
+
+/* Cabecalho de grupo no estilo dos cabecalhos de secao. */
+.dl-shortcuts__group th {
+  background: linear-gradient(180deg, var(--dl-section-head-1) 0%, var(--dl-section-head-2) 100%);
+  color: var(--dl-section-title);
+  font-weight: 700;
+}
+
+.dl-keys {
+  white-space: nowrap;
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;
@@ -1924,7 +1967,8 @@ h6 {
 }
 
 /* Tecla de atalho no texto (estilo das teclas do HPSM / Windows classico). */
-.dl-welcome kbd {
+.dl-welcome kbd,
+.dl-keys kbd {
   display: inline-block;
   min-inline-size: 1rem;
   padding: 0 0.25rem;
