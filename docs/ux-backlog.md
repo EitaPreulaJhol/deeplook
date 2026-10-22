@@ -295,7 +295,7 @@ HP Service Manager 9 (indicados em cada item).
 | 22 | Registros relacionados | aba Related Records | 🟡 | M | ⬜ |
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
-| 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ⬜ |
+| 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ✅ |
 | 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ✅ |
 | 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ✅ |
 | 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ⬜ |
@@ -399,6 +399,17 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   `AuthContext` usando o diálogo do `HpsmConfirm`.
 - **Cuidados:** com 7 dias de validade o aviso é raro; o ganho é maior se o projeto
   adotar expiração por inatividade (ex.: 30 min) — decidir a política antes.
+- ✅ **Implementado (política: inatividade de 30 min):** a sessão vale
+  `SESSION_IDLE_MINUTES` (padrão 30) desde a última atividade, nunca além do teto
+  `SESSION_TTL_HOURS` contado da criação. Só o login e `POST /api/auth/touch` renovam;
+  `GET /api/auth/session` consulta a validade sem renovar (polling não conta como
+  atividade). No front, `components/SessionWatcher.tsx` (dentro do `AuthProvider`):
+  teclado, mouse, rolagem e toque — inclusive no console do sandbox — renovam no
+  máximo 1x/min; 2 min antes do fim confere no servidor (outra janela pode ter
+  renovado), renova se houve atividade recente ou mostra a caixa "Sessão expirando"
+  com contagem regressiva **[Continuar conectado] [Sair]** (com ela aberta, só o
+  botão renova). Ao expirar, fecha as abas e volta ao login com "Sua sessão expirou
+  por inatividade. Entre novamente." — sem a pergunta de alterações não salvas.
 
 ### 26. Validação de campos no estilo HPSM
 - **Problema:** hoje um campo obrigatório vazio gera só uma mensagem genérica na barra.

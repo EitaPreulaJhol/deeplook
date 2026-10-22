@@ -24,6 +24,8 @@ interface AuthContextValue {
   refresh: () => Promise<void>;
   /** Salva preferencias (aplica na hora; desfaz se a API recusar). */
   updatePreferences: (patch: Partial<Preferences>) => Promise<void>;
+  /** Esquece a sessao no cliente (ex.: expirou por inatividade). */
+  clearSession: () => void;
   /** Troca a senha; a API encerra todas as sessoes, entao o usuario sai. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
@@ -120,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refresh,
       updatePreferences,
+      clearSession: forgetSession,
       changePassword,
     }),
     [
@@ -130,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refresh,
       updatePreferences,
+      forgetSession,
       changePassword,
     ],
   );

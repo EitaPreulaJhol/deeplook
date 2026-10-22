@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { createSession, destroySession, loadUser } from '../lib/auth';
+import { createSession, currentSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
@@ -141,6 +141,22 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/logout', async (req, reply) => {
     await destroySession(req, reply);
     return reply.send({ ok: true });
+  });
+
+  // Atividade do usuario (teclado/mouse no front): renova a sessao por mais
+  // SESSION_IDLE_MINUTES e devolve a nova validade.
+  app.post('/api/auth/touch', async (req, reply) => {
+    const session = await currentSession(req, true);
+    if (!session) return reply.code(401).send({ error: 'Sessao expirada.' });
+    return reply.send({ expiresAt: session.expiresAt });
+  });
+
+  // Validade atual sem renovar (o front confere antes de avisar/encerrar,
+  // pois outra janela pode ter renovado a sessao).
+  app.get('/api/auth/session', async (req, reply) => {
+    const session = await currentSession(req, false);
+    if (!session) return reply.code(401).send({ error: 'Sessao expirada.' });
+    return reply.send({ expiresAt: session.expiresAt });
   });
 
   app.get('/api/auth/me', async (req, reply) => {

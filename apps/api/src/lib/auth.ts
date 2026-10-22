@@ -47,8 +47,18 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
   };
 }
 
+/**
+ * Validade da sessao: N minutos sem atividade (SESSION_IDLE_MINUTES), nunca
+ * alem do teto absoluto (SESSION_TTL_HOURS desde a criacao).
+ */
+function slidingExpiry(createdAt: Date, now = Date.now()): Date {
+  const idle = now + env.SESSION_IDLE_MINUTES * 60_000;
+  const ceiling = createdAt.getTime() + env.SESSION_TTL_HOURS * 3600 * 1000;
+  return new Date(Math.min(idle, ceiling));
+}
+
 export async function createSession(reply: FastifyReply, userId: string): Promise<void> {
-  const expiresAt = new Date(Date.now() + env.SESSION_TTL_HOURS * 3600 * 1000);
+  const expiresAt = slidingExpiry(new Date());
   const session = await prisma.session.create({ data: { userId, expiresAt } });
 
   reply.setCookie(SESSION_COOKIE, session.id, {
@@ -58,6 +68,30 @@ export async function createSession(reply: FastifyReply, userId: string): Promis
     secure: env.COOKIE_SECURE === 'true',
     maxAge: env.SESSION_TTL_HOURS * 3600,
   });
+}
+
+/**
+ * Sessao atual (pelo cookie). Com `renew`, registra atividade do usuario e
+ * empurra a validade (so o login e POST /api/auth/touch renovam: consultas
+ * automaticas do front, como polling, nao contam como atividade).
+ */
+export async function currentSession(
+  req: FastifyRequest,
+  renew: boolean,
+): Promise<{ expiresAt: Date } | null> {
+  const sid = (req as any).cookies?.[SESSION_COOKIE];
+  if (!sid) return null;
+  const session = await prisma.session.findUnique({
+    where: { id: sid },
+    include: { user: { select: { status: true } } },
+  });
+  if (!session || session.user.status !== 'ACTIVE') return null;
+  if (session.expiresAt.getTime() <= Date.now()) return null;
+  if (!renew) return { expiresAt: session.expiresAt };
+
+  const expiresAt = slidingExpiry(session.createdAt);
+  await prisma.session.update({ where: { id: sid }, data: { expiresAt } });
+  return { expiresAt };
 }
 
 export async function destroySession(req: FastifyRequest, reply: FastifyReply): Promise<void> {

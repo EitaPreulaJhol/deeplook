@@ -130,7 +130,8 @@ COOKIE_SECURE=true
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL | `deeplook` |
 | `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório) | — |
-| `SESSION_TTL_HOURS` | Validade da sessão (horas) | `168` |
+| `SESSION_TTL_HOURS` | Validade máxima da sessão (horas), mesmo com uso contínuo | `168` |
+| `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot | — |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |

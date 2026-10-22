@@ -7,7 +7,7 @@
 #
 # Screenshots em scripts/ui-playwright/out/. Sai com erro se alguma checagem falhar.
 param(
-  [string[]]$Scripts = @('screens', 'filters', 'account', 'actions', 'unsaved', 'copy-keyboard', 'queues-nav', 'filedrop-sandbox', 'assign-history', 'news-shortcuts-export', 'detail-pane', 'bulk-update', 'quick-search', 'validation')
+  [string[]]$Scripts = @('screens', 'filters', 'account', 'actions', 'unsaved', 'copy-keyboard', 'queues-nav', 'filedrop-sandbox', 'assign-history', 'news-shortcuts-export', 'detail-pane', 'bulk-update', 'quick-search', 'validation', 'session-idle')
 )
 
 $ErrorActionPreference = 'Stop'

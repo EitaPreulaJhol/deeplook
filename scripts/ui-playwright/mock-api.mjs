@@ -98,6 +98,11 @@ export function createState({ loggedIn = false } = {}) {
     updates: { since: null, completed: [] },
     /** Query string da ultima exportacao CSV recebida. */
     lastExport: null,
+    /** Sessao por inatividade: minutos sem atividade e validade atual (ms). */
+    idleMinutes: 30,
+    sessionExpiresAt: null,
+    /** Relogio da sessao (o roteiro troca pelo relogio falso do navegador). */
+    now: async () => Date.now(),
   };
 }
 
@@ -121,16 +126,35 @@ export async function setupMock(context, state) {
     if (p.startsWith('/api/') && req.method() !== 'GET') state.calls.push(`${req.method()} ${p}`);
 
     if (p.startsWith('/api/')) {
+      // Sessao vencida por inatividade: daqui em diante tudo responde 401.
+      if (state.loggedIn && state.sessionExpiresAt && state.sessionExpiresAt <= (await state.now())) {
+        state.loggedIn = false;
+        state.sessionExpiresAt = null;
+      }
+      const renewSession = async () => {
+        state.sessionExpiresAt = (await state.now()) + state.idleMinutes * 60_000;
+        return { expiresAt: new Date(state.sessionExpiresAt).toISOString() };
+      };
+      if (p === '/api/auth/touch') {
+        return state.loggedIn ? json(route, 200, await renewSession()) : json(route, 401, { error: 'Sessao expirada.' });
+      }
+      if (p === '/api/auth/session') {
+        if (!state.loggedIn) return json(route, 401, { error: 'Sessao expirada.' });
+        if (!state.sessionExpiresAt) return json(route, 200, await renewSession());
+        return json(route, 200, { expiresAt: new Date(state.sessionExpiresAt).toISOString() });
+      }
       if (p === '/api/auth/me') {
         return state.loggedIn ? json(route, 200, { user: currentUser() }) : json(route, 401, { error: 'Nao autenticado.' });
       }
       if (p === '/api/auth/login') {
         if (body.password !== state.password) return json(route, 401, { error: 'Credenciais invalidas.' });
         state.loggedIn = true;
+        await renewSession();
         return json(route, 200, { user: currentUser() });
       }
       if (p === '/api/auth/logout') {
         state.loggedIn = false;
+        state.sessionExpiresAt = null;
         return json(route, 200, { ok: true });
       }
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });

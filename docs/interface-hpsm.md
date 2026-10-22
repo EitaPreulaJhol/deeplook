@@ -319,6 +319,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | Método | Rota | Função |
 |---|---|---|
 | GET | `/api/auth/me` | usuário da sessão, incluindo `preferences` (já completadas com os padrões) |
+| POST | `/api/auth/touch` | atividade do usuário: renova a sessão por `SESSION_IDLE_MINUTES` e devolve `{ expiresAt }` (401 se já expirou) |
+| GET | `/api/auth/session` | `{ expiresAt }` da sessão atual, **sem** renovar |
 | PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
 | POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário |
 | POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez) e encerra as sessões do usuário |
@@ -338,6 +340,12 @@ minutos** (por e-mail e por sessão, respectivamente); depois respondem 429.
 
 Após trocar a senha, o front limpa a sessão e leva ao login com o aviso
 "Senha alterada. Entre novamente com a nova senha.".
+
+**Sessão por inatividade:** expira após `SESSION_IDLE_MINUTES` (padrão 30) sem
+atividade, com teto absoluto de `SESSION_TTL_HOURS`. O `SessionWatcher` renova com
+atividade (no máximo 1x/min), avisa 2 min antes com a caixa "Sessão expirando"
+(contagem regressiva, **[Continuar conectado] [Sair]**) e, ao expirar, volta ao login
+com "Sua sessão expirou por inatividade. Entre novamente.".
 
 ### Preferências
 
@@ -382,6 +390,7 @@ banco nem da API rodando.
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
+| `session-idle.mjs` | sessão por inatividade (relógio falso): renovação 1x/min, aviso aos 28 min com contagem, Continuar/Sair, renovação por outra janela e expiração com volta ao login |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |

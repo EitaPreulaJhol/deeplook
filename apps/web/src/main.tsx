@@ -8,6 +8,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './auth/AuthContext';
 import { ConfirmProvider } from './components/HpsmConfirm';
+import { SessionWatcher } from './components/SessionWatcher';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,8 @@ const router = createBrowserRouter([
     element: (
       <AuthProvider>
         <ConfirmProvider>
+          {/* Sessao por inatividade: renova com atividade, avisa 2 min antes. */}
+          <SessionWatcher />
           <App />
         </ConfirmProvider>
       </AuthProvider>

@@ -6,6 +6,8 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL e obrigatoria'),
   SESSION_SECRET: z.string().min(16, 'SESSION_SECRET deve ter ao menos 16 caracteres'),
   SESSION_TTL_HOURS: z.coerce.number().default(168),
+  /** Expiracao por inatividade (min); o TTL acima vira o teto absoluto. */
+  SESSION_IDLE_MINUTES: z.coerce.number().min(5).max(1440).default(30),
   COOKIE_SECURE: z.enum(['true', 'false']).default('false'),
   ADMIN_EMAIL: z.string().email().default('admin@deeplook.local'),
   ADMIN_PASSWORD: z.string().min(6).default('admin12345'),

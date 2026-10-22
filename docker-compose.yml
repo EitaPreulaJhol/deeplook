@@ -42,6 +42,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-deeplook}:${POSTGRES_PASSWORD:-deeplook}@db:5432/${POSTGRES_DB:-deeplook}?schema=public
       SESSION_SECRET: ${SESSION_SECRET:-change-me-please-use-a-long-random-secret}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
+      SESSION_IDLE_MINUTES: ${SESSION_IDLE_MINUTES:-30}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@deeplook.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
