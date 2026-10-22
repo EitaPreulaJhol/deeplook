@@ -28,6 +28,9 @@ Expõe-se à internet via **Cloudflare Tunnel rodando no host (fora do Docker)**
    │  │ +React │         │ Prisma │   S3    ┌──────────────┐    │
    │  │ Carbon │         └───┬────┘────────▶│ minio        │    │
    │  └────────┘             │              └──────────────┘    │
+   │                         │  clamd :3310 ┌──────────────┐    │
+   │                         └─────────────▶│ clamav       │    │
+   │                                        └──────────────┘    │
    └───────────────────────────────────────────────────────────┘
 ```
 
@@ -35,6 +38,8 @@ Expõe-se à internet via **Cloudflare Tunnel rodando no host (fora do Docker)**
 - **api**: Fastify + Prisma. No boot aplica migrações, roda o seed do admin e garante o bucket no MinIO.
 - **db**: PostgreSQL 16.
 - **minio**: armazenamento S3-compatible das amostras (nunca exposto publicamente).
+- **clamav**: antivírus ClamAV (`clamd` + `freshclam`), só na rede interna; varre cada
+  arquivo enviado.
 - Porta publicada no host: **`127.0.0.1:8080`** (consumida pelo Cloudflare Tunnel).
 
 ---
@@ -118,6 +123,31 @@ curl -H "Authorization: Bearer dlk_..." -H "Content-Type: application/json" \
   API ou retira a liberação, o que revoga todos de uma vez. Suspender a conta também corta
   o acesso.
 
+## Antivírus (ClamAV)
+
+O serviço `clamav` do `docker-compose.yml` roda o `clamd` e o `freshclam` (que atualiza
+as assinaturas sozinho; a base fica em `./data/clamav`). A API conversa com ele pela rede
+interna (porta 3310, sem expor para fora), enviando o conteúdo pelo protocolo
+`INSTREAM`: nada é gravado em disco na API.
+
+- **Automático:** cada arquivo enviado (inclusive os extraídos de um `.zip`) é varrido
+  em segundo plano, sem atrasar o envio.
+- **Na ficha:** seção **Antivírus (ClamAV)** com Limpo / Infectado (nome da assinatura) /
+  Falha, motor, base e data. "Infectado" também aparece no topo. Analistas têm
+  "Escanear de novo" (ou "Escanear agora" para arquivos anteriores ao antivírus).
+- **Status do sistema:** linha "Antivírus (ClamAV)" com `clamd` respondendo, motor, base
+  de assinaturas (alerta com mais de 2 dias) e varreduras e infectados em 24 h.
+- **Memória:** o ClamAV usa cerca de 1,5 a 3 GB de RAM por causa da base.
+- **Primeira subida:** o `freshclam` baixa a base (alguns minutos). Se o `clamd` subir
+  antes de a base nova chegar, ele fica com a anterior até recarregar sozinho; o Status
+  do sistema avisa "base de assinaturas desatualizada" enquanto isso. Para recarregar na
+  hora: `docker compose exec clamav clamdscan --reload`.
+- **Limite:** arquivos acima do `StreamMaxLength` do `clamd` (100 MB na imagem atual,
+  menor que o `MAX_UPLOAD_MB` padrão de 200) aparecem como "Falha: arquivo maior que o
+  limite do ClamAV". O resto do envio segue normal.
+- **Desligar:** `CLAMAV_HOST=` (vazio) no `.env`; o serviço `clamav` pode sair do compose.
+- O resultado não muda o veredito: quem decide continua sendo o analista.
+
 ## Reputação externa
 
 Com as chaves no `.env`, cada amostra enviada é consultada **automaticamente** nos serviços
@@ -190,6 +220,9 @@ COOKIE_SECURE=true
 | `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |
 | `ABUSEIPDB_API_KEY` | chave do AbuseIPDB (IPs) | — |
+| `CLAMAV_HOST` | host do `clamd` (serviço `clamav` do compose); vazio desliga o antivírus | `clamav` |
+| `CLAMAV_PORT` | porta do `clamd` | `3310` |
+| `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot | — |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
@@ -473,7 +506,9 @@ Detalhes em [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-verificação-vi
 Melhorias de interface e usabilidade estão priorizadas em
 [`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
-- Scanners automáticos (ClamAV e/ou VirusTotal) por hash/URL.
-- Múltiplos anexos por envio (comentários já existem como "Atualizações" na aba Histórico).
-- Exportação de relatórios (PDF/Markdown).
-- 2FA e política de senha.
+- Política de senha (complexidade, expiração).
+- Notificações por e-mail (SMTP).
+
+Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
+envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa) e 2FA
+opcional (em andamento na quarta leva do backlog).

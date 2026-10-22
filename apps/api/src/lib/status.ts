@@ -1,6 +1,7 @@
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
+import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { prisma } from './prisma';
 import { pveTemplateExists, pveVersion } from './proxmox';
 import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
@@ -12,7 +13,7 @@ import { slaCutoff } from './sla';
 export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
 
 export interface StatusCheck {
-  id: 'api' | 'database' | 'storage' | 'sandbox' | 'queues' | 'reputation';
+  id: 'api' | 'database' | 'storage' | 'sandbox' | 'queues' | 'reputation' | 'antivirus';
   name: string;
   level: StatusLevel;
   summary: string;
@@ -276,6 +277,65 @@ async function queuesCheck(): Promise<StatusCheck> {
 const ORDER: StatusLevel[] = ['ok', 'off', 'warn', 'error'];
 
 /** Todas as verificacoes em paralelo + a situacao geral (a pior, ignorando "off"). */
+/** Base de assinaturas mais velha que isso fica em alerta (o freshclam atualiza varias vezes ao dia). */
+const AV_DB_MAX_AGE_MS = 2 * 24 * 3600 * 1000;
+
+/** Antivirus: clamd respondendo, versao, idade da base e varreduras em 24 h. */
+async function antivirusCheck(): Promise<StatusCheck> {
+  const name = 'Antivírus (ClamAV)';
+  if (!clamavEnabled()) {
+    return {
+      id: 'antivirus',
+      name,
+      level: 'off',
+      summary: 'desligado (CLAMAV_HOST vazio)',
+      details: [],
+    };
+  }
+  const details = [{ label: 'Endereço', value: clamavAddress() }];
+  const probe = await timed(async () => {
+    if (!(await clamPing())) throw new Error('o clamd não respondeu ao PING');
+    return clamVersion();
+  });
+  if (probe.error || !probe.value) {
+    return {
+      id: 'antivirus',
+      name,
+      level: 'error',
+      summary: probe.error ?? 'sem resposta',
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  const v = probe.value;
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [scans, infected, failed] = await Promise.all([
+    prisma.antivirusScan.count({ where: { scannedAt: { gt: since }, status: { not: 'PENDING' } } }),
+    prisma.antivirusScan.count({ where: { scannedAt: { gt: since }, status: 'INFECTED' } }),
+    prisma.antivirusScan.count({ where: { scannedAt: { gt: since }, status: 'ERROR' } }),
+  ]);
+  const stale = v.dbDate ? Date.now() - v.dbDate.getTime() > AV_DB_MAX_AGE_MS : true;
+  details.push(
+    { label: 'Motor', value: v.engine },
+    {
+      label: 'Base de assinaturas',
+      value: `${v.dbVersion ?? '?'} · ${v.dbDate ? v.dbDate.toLocaleString('pt-BR', { timeZone: 'UTC' }) + ' UTC' : 'data desconhecida'}`,
+    },
+    {
+      label: 'Varreduras em 24 h',
+      value: `${scans} · ${infected} infectada(s) · ${failed} falha(s)`,
+    },
+  );
+  return {
+    id: 'antivirus',
+    name,
+    level: stale || probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: stale ? 'respondendo, mas a base de assinaturas está desatualizada' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
 async function reputationCheck(): Promise<StatusCheck> {
   const enabled = enabledServices();
@@ -324,6 +384,7 @@ export async function systemStatus() {
     storageCheck(),
     sandboxCheck(),
     queuesCheck(),
+    antivirusCheck(),
     reputationCheck(),
   ]);
   const overall = checks

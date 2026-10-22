@@ -11,6 +11,7 @@ import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { reconcileOrphans, recoverStuckSessions, startSandboxReaper } from './lib/sandbox';
 import { adminRoutes } from './routes/admin';
+import { antivirusRoutes } from './routes/antivirus';
 import { apiTokenRoutes } from './routes/api-tokens';
 import { authRoutes } from './routes/auth';
 import { dashboardRoutes } from './routes/dashboard';
@@ -67,6 +68,7 @@ async function main() {
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(reputationRoutes);
+  await app.register(antivirusRoutes);
   await app.register(adminRoutes);
   await app.register(apiTokenRoutes);
   await app.register(trashRoutes);

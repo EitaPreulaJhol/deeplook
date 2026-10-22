@@ -18,6 +18,25 @@ export interface User {
   _count?: { entries: number; apiTokens?: number };
 }
 
+/** Ultima varredura do ClamAV (GET /api/entries/:id/antivirus). */
+export interface AntivirusScan {
+  status: 'PENDING' | 'CLEAN' | 'INFECTED' | 'ERROR';
+  signature: string | null;
+  error: string | null;
+  engine: string | null;
+  dbVersion: number | null;
+  dbDate: string | null;
+  scannedAt: string;
+}
+
+export interface AntivirusInfo {
+  /** ClamAV configurado (CLAMAV_HOST); falso = secao escondida. */
+  enabled: boolean;
+  /** Varredura em andamento (a ficha atualiza sozinha). */
+  pending: boolean;
+  scan: AntivirusScan | null;
+}
+
 /** Resultado de um servico de reputacao externa (GET /api/entries/:id/reputation). */
 export interface ReputationResult {
   service: string;

@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { api } from '../api/client';
 import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { copyText } from '../components/CopyButton';
 import { DuplicateDialog } from '../components/DuplicateDialog';
 import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
@@ -87,6 +88,8 @@ export function EntryDetailPage() {
 
   // Reputacao externa: resumo no topo (a secao da aba Detalhes usa a mesma consulta).
   const reputation = reputationSummary(useReputation(id).data);
+  // Antivirus: "Infectado" tambem aparece no topo.
+  const antivirus = useAntivirus(id, true).data;
 
   // Amostras relacionadas: o total aparece no rotulo da aba.
   const relatedQuery = useRelatedEntries(id);
@@ -476,6 +479,12 @@ export function EntryDetailPage() {
             <span className="dl-summary__label">Duplicatas:</span> {entry._count?.duplicates}
           </span>
         )}
+        {antivirus?.enabled && antivirus.scan?.status === 'INFECTED' && (
+          <span>
+            <span className="dl-summary__label">Antivírus:</span>{' '}
+            <StatusText tone="red">infectado ({antivirus.scan.signature})</StatusText>
+          </span>
+        )}
         {reputation && (
           <span>
             <span className="dl-summary__label">Reputação:</span>{' '}
@@ -597,6 +606,13 @@ export function EntryDetailPage() {
                 </HpsmField>
               </HpsmForm>
             </HpsmSection>
+          )}
+          {entry.type === 'FILE' && (
+            <AntivirusSection
+              entryId={entry.id}
+              canTriage={canTriage}
+              purged={Boolean(entry.filePurgedAt)}
+            />
           )}
           <ReputationSection entryId={entry.id} canTriage={canTriage} />
         </div>

@@ -50,6 +50,9 @@ services:
       VT_API_KEY: ${VT_API_KEY:-}
       ABUSECH_AUTH_KEY: ${ABUSECH_AUTH_KEY:-}
       ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      # Antivirus: o servico clamav abaixo; CLAMAV_HOST= (vazio) no .env desliga.
+      CLAMAV_HOST: ${CLAMAV_HOST-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@deeplook.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
@@ -82,6 +85,16 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+    networks:
+      - deeplook
+
+  # Antivirus ClamAV: clamd na rede interna (porta 3310, sem expor para fora) e o
+  # freshclam atualizando as assinaturas. Usa ~1,5-3 GB de RAM por causa da base.
+  clamav:
+    image: ${CLAMAV_IMAGE:-clamav/clamav:stable}
+    restart: unless-stopped
+    volumes:
+      - ./data/clamav:/var/lib/clamav
     networks:
       - deeplook
 

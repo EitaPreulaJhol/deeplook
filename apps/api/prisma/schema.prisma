@@ -171,6 +171,7 @@ model Entry {
   reportIocs      ReportIoc[]
   notifications   Notification[]
   reputation      ReputationResult[]
+  antivirus       AntivirusScan?
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -496,4 +497,28 @@ model ReputationResult {
   @@unique([entryId, service])
   /// Cache de 24 h: mesmo servico e indicador em outra amostra.
   @@index([service, indicator, checkedAt])
+}
+
+enum AvStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  ERROR
+}
+
+/// Varredura do ClamAV (src/lib/clamav.ts): a mais recente de cada amostra.
+model AntivirusScan {
+  id        String    @id @default(cuid())
+  entryId   String    @unique
+  entry     Entry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status    AvStatus
+  /// Nome da assinatura quando infectado (ex.: Win.Test.EICAR_HDB-1).
+  signature String?
+  error     String?
+  engine    String?
+  dbVersion Int?
+  dbDate    DateTime?
+  scannedAt DateTime  @default(now())
+
+  @@index([scannedAt])
 }

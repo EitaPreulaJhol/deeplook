@@ -158,6 +158,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Reputacao externa por amostra (GET) e quantas consultas a ficha fez. */
     reputation: {},
     reputationGets: 0,
+    /** Antivirus por amostra (GET; lista = sequencia) e quantas consultas a ficha fez. */
+    antivirus: {},
+    antivirusGets: 0,
   };
 }
 
@@ -416,6 +419,15 @@ export async function setupMock(context, state) {
           body: csv,
         });
       }
+      // Antivirus (ClamAV): mesma ideia da reputacao.
+      const av = p.match(/^\/api\/entries\/(\w+)\/antivirus$/);
+      if (av && req.method() === 'GET') {
+        state.antivirusGets += 1;
+        const r = state.antivirus[av[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { enabled: false, pending: false, scan: null });
+      }
+      if (av && req.method() === 'POST') return json(route, 202, { ok: true });
       // Reputacao externa: o roteiro define o que cada GET devolve (lista = sequencia).
       const rp = p.match(/^\/api\/entries\/(\w+)\/reputation$/);
       if (rp && req.method() === 'GET') {

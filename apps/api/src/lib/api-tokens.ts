@@ -31,6 +31,7 @@ const ALLOWED_ROUTES = new Set([
   'GET /api/entries/:id/iocs',
   'GET /api/entries/:id/iocs/export',
   'GET /api/entries/:id/reputation',
+  'GET /api/entries/:id/antivirus',
 ]);
 
 export function newTokenSecret(): string {

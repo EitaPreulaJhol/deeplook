@@ -1148,7 +1148,7 @@ obrigatória de senha e "Sair" sem aviso), antivírus em contêiner próprio e 2
 | 46 | Botão "Salvar" na alteração de senha | botões do formulário | ⚪ | P | ✅ |
 | 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ✅ |
 | 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ✅ |
-| 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ⬜ |
+| 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ✅ |
 | 50 | Autenticação em dois fatores (2FA) opcional | login com segundo fator | 🔴 | M–G | ⬜ |
 
 **Ordem (uma etapa por item, cada uma com testes, documentação e commit próprio):**
@@ -1249,6 +1249,37 @@ no login e prepara o terreno para a 50.
 - **Cuidados:** o ClamAV usa bastante memória (cerca de 1,5 a 3 GB por causa da base);
   arquivos acima do limite do `clamd` (`StreamMaxLength`) viram "Falha: arquivo grande
   demais" em vez de travar; o resultado não muda o veredito, que continua com o analista.
+- ✅ **Implementado:** migração `20261109000000_antivirus` (modelo `AntivirusScan`, a
+  varredura mais recente de cada amostra).
+  - **Contêiner:** serviço `clamav` no compose (`clamav/clamav:stable`, base em
+    `./data/clamav`, sem porta publicada). A API usa `CLAMAV_HOST=clamav`; vazio desliga.
+  - **Cliente** (`lib/clamav.ts`): TCP com `PING`, `VERSION` (motor, número e data da
+    base) e `INSTREAM` em blocos de 64 KB. Respostas:
+    - `stream: OK` vira Limpo;
+    - `… FOUND` vira Infectado com a assinatura;
+    - limite de tamanho, fora do ar e tempo esgotado viram Falha com o motivo.
+  - **Varredura:** no envio, em segundo plano, com o conteúdo já em memória; vale também
+    para os arquivos extraídos de um `.zip` e para envios por token.
+  - **API:**
+    - `GET /api/entries/:id/antivirus` → `{ enabled, pending, scan }`, também por token;
+    - `POST` "Escanear de novo", só analistas, lê do MinIO; responde 410 se o arquivo foi
+      expurgado.
+  - **Ficha:**
+    - **Seção "Antivírus (ClamAV)":** situação com cor, motor, base, data e o botão.
+    - **Topo:** "Antivírus: infectado (assinatura)".
+    - Atualiza sozinha só enquanto `pending`. Arquivos anteriores ao antivírus mostram
+      "Não escaneado" e "Escanear agora".
+  - **Status do sistema:** linha "Antivírus (ClamAV)". Erro quando o `clamd` não
+    responde; alerta quando a base tem mais de 2 dias.
+  - **Testes:**
+    - 23 testes de integração contra o **ClamAV real** em contêiner, com o arquivo de
+      teste EICAR montado em memória: limpo, infectado, `.zip`, nova varredura, expurgo e
+      status;
+    - casos de falha com um `clamd` falso: limite, fora do ar e base velha;
+    - `antivirus.mjs`.
+  - **Achado no teste:** na primeira subida, o `clamd` pode carregar a base antiga
+    enquanto o `freshclam` ainda baixa a nova. O Status do sistema mostrou o alerta
+    corretamente, e um `RELOAD` resolve; o README explica.
 
 ### 50. Autenticação em dois fatores (2FA) opcional
 - **Proposta:**

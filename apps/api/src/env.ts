@@ -39,6 +39,9 @@ const EnvSchema = z
     /** Uma chave da abuse.ch serve para MalwareBazaar, URLhaus e ThreatFox. */
     ABUSECH_AUTH_KEY: z.string().default(''),
     ABUSEIPDB_API_KEY: z.string().default(''),
+    /** Antivirus ClamAV (contenor clamav, protocolo clamd). Vazio = desligado. */
+    CLAMAV_HOST: z.string().default(''),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),

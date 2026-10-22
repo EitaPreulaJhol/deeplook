@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
 import { recordEvent, recordTriageChanges } from '../lib/events';
@@ -382,6 +383,7 @@ async function createFileEntry(
 
   await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
   checkReputationInBackground(entry.id, req.log);
+  scanInBackground(entry.id, buffer, req.log);
   const previous = await prisma.entry.findFirst({
     where: { sha256, id: { not: entry.id } },
     orderBy: { createdAt: 'asc' },
