@@ -1256,6 +1256,26 @@ h6 {
   color: var(--dl-text-muted);
 }
 
+/* Campo invalido (validacao): rotulo e borda vermelhos, fundo levemente rosado.
+   Fica depois das regras de foco/hover dos campos para valer tambem com foco. */
+.hpsm-field--invalid .hpsm-field__label {
+  color: var(--dl-status-red);
+  font-weight: 700;
+}
+
+.hpsm-field--invalid .cds--text-input,
+.hpsm-field--invalid .cds--text-input:hover,
+.hpsm-field--invalid .cds--text-input:focus,
+.hpsm-field--invalid .cds--text-area,
+.hpsm-field--invalid .cds--text-area:hover,
+.hpsm-field--invalid .cds--text-area:focus,
+.hpsm-field--invalid .cds--select-input,
+.hpsm-field--invalid .hpsm-filedrop__zone {
+  border: 1px solid var(--dl-status-red);
+  outline-color: var(--dl-status-red);
+  background-color: var(--dl-error-bg);
+}
+
 /* --- 11. Tabelas (estilo HPSM) ------------------------------------------ */
 .cds--data-table-container {
   padding-block-start: 0;

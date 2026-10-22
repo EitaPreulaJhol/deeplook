@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { Report, Verdict } from '../api/types';
-import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
+import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
 import { HpsmMessage } from './messages';
@@ -39,12 +39,13 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
   // Rascunho do relatorio: sair da aba/tela pede confirmacao.
   useUnsavedChanges(Boolean(summary || findings || iocs));
 
+  const reportCheck = useRequiredFields([
+    { id: 'report-summary', label: 'Resumo', ok: summary.trim().length >= 3 },
+  ]);
+
   const createReport = async () => {
     setError(null);
-    if (summary.trim().length < 3) {
-      setError('Descreva um resumo do relatório.');
-      return;
-    }
+    if (!reportCheck.check()) return;
     setSaving(true);
     try {
       await api.post(`/entries/${entryId}/reports`, {
@@ -121,8 +122,15 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
             />
           </HpsmToolbar>
           {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+          {reportCheck.message && <HpsmMessage kind="error">{reportCheck.message}</HpsmMessage>}
           <HpsmForm>
-            <HpsmField label="Resumo" htmlFor="report-summary" required top>
+            <HpsmField
+              label="Resumo"
+              htmlFor="report-summary"
+              required
+              top
+              invalid={reportCheck.isInvalid('report-summary')}
+            >
               <TextArea
                 id="report-summary"
                 labelText="Resumo"

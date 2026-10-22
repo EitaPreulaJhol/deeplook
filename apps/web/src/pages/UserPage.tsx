@@ -5,7 +5,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Preferences } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_PREFERENCES } from '../auth/preferences';
-import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
+import {
+  HpsmField,
+  HpsmForm,
+  HpsmReadonly,
+  HpsmSection,
+  useRequiredFields,
+} from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey, IconRefresh, IconSettings } from '../components/icons';
@@ -81,20 +87,19 @@ function PasswordTab() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const passwordCheck = useRequiredFields([
+    { id: 'pwd-current', label: 'Senha atual', ok: current.length > 0 },
+    { id: 'pwd-new', label: 'Nova senha (mínimo de 8 caracteres)', ok: next.length >= 8 },
+    {
+      id: 'pwd-confirm',
+      label: 'Confirmar senha (igual à nova)',
+      ok: confirm.length > 0 && confirm === next,
+    },
+  ]);
+
   const save = async () => {
     setError(null);
-    if (!current || !next || !confirm) {
-      setError('Preencha a senha atual, a nova senha e a confirmação.');
-      return;
-    }
-    if (next.length < 8) {
-      setError('A nova senha deve ter pelo menos 8 caracteres.');
-      return;
-    }
-    if (next !== confirm) {
-      setError('A confirmação não confere com a nova senha.');
-      return;
-    }
+    if (!passwordCheck.check()) return;
     setSaving(true);
     try {
       // A API encerra todas as sessoes: o usuario volta ao login.
@@ -125,8 +130,14 @@ function PasswordTab() {
         />
       </HpsmToolbar>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+      {passwordCheck.message && <HpsmMessage kind="error">{passwordCheck.message}</HpsmMessage>}
       <HpsmForm>
-        <HpsmField label="Senha atual" htmlFor="pwd-current" required>
+        <HpsmField
+          label="Senha atual"
+          htmlFor="pwd-current"
+          required
+          invalid={passwordCheck.isInvalid('pwd-current')}
+        >
           <PasswordInput
             id="pwd-current"
             labelText="Senha atual"
@@ -136,7 +147,13 @@ function PasswordTab() {
             onChange={(e) => setCurrent(e.target.value)}
           />
         </HpsmField>
-        <HpsmField label="Nova senha" htmlFor="pwd-new" required help="Mínimo de 8 caracteres.">
+        <HpsmField
+          label="Nova senha"
+          htmlFor="pwd-new"
+          required
+          help="Mínimo de 8 caracteres."
+          invalid={passwordCheck.isInvalid('pwd-new')}
+        >
           <PasswordInput
             id="pwd-new"
             labelText="Nova senha"
@@ -151,6 +168,8 @@ function PasswordTab() {
           htmlFor="pwd-confirm"
           required
           help="Ao salvar, todas as sessões são encerradas e você entra novamente."
+
+          invalid={passwordCheck.isInvalid('pwd-confirm')}
         >
           <PasswordInput
             id="pwd-confirm"

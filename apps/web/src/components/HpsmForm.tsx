@@ -53,6 +53,8 @@ interface HpsmFieldProps {
   top?: boolean;
   /** Texto de ajuda abaixo do controle. */
   help?: ReactNode;
+  /** Campo destacado em vermelho (validacao). */
+  invalid?: boolean;
   children: ReactNode;
 }
 
@@ -62,8 +64,22 @@ interface HpsmFieldProps {
  * `hideLabel`, que mantem o nome acessivel; por isso o rotulo visivel fica
  * fora da arvore de acessibilidade (sem leitura duplicada).
  */
-export function HpsmField({ label, htmlFor, required, wide, top, help, children }: HpsmFieldProps) {
-  const classes = ['hpsm-field', wide && 'hpsm-field--wide', top && 'hpsm-field--top']
+export function HpsmField({
+  label,
+  htmlFor,
+  required,
+  wide,
+  top,
+  help,
+  invalid,
+  children,
+}: HpsmFieldProps) {
+  const classes = [
+    'hpsm-field',
+    wide && 'hpsm-field--wide',
+    top && 'hpsm-field--top',
+    invalid && 'hpsm-field--invalid',
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -111,4 +127,39 @@ export function HpsmReadonly({
       {copyable && <CopyButton value={copyable.value} label={copyable.label} />}
     </div>
   );
+}
+
+export interface RequiredField {
+  /** id do controle (recebe o foco quando for o primeiro invalido). */
+  id: string;
+  /** Nome mostrado na mensagem ("Preencha ou corrija: ..."). */
+  label: string;
+  /** O valor atual e valido? */
+  ok: boolean;
+}
+
+/**
+ * Validacao no estilo HPSM: `check()` no salvar destaca os campos invalidos
+ * (borda/rotulo vermelhos), monta a mensagem para a barra e foca o primeiro.
+ * O destaque acompanha os valores: some quando o campo e corrigido.
+ */
+export function useRequiredFields(fields: RequiredField[]) {
+  const [shown, setShown] = useState(false);
+  const missing = fields.filter((f) => !f.ok);
+
+  return {
+    /** true se tudo esta valido; senao destaca, foca o 1o invalido e devolve false. */
+    check: () => {
+      if (missing.length === 0) return true;
+      setShown(true);
+      document.getElementById(missing[0].id)?.focus();
+      return false;
+    },
+    isInvalid: (id: string) => shown && missing.some((f) => f.id === id),
+    message:
+      shown && missing.length > 0
+        ? `Preencha ou corrija os campos destacados: ${missing.map((f) => f.label).join(', ')}.`
+        : null,
+    reset: () => setShown(false),
+  };
 }

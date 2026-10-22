@@ -19,6 +19,9 @@ export function formatFileSize(n?: number | null): string {
 interface HpsmFileDropProps {
   file: File | null;
   onChange: (file: File | null) => void;
+  /** id do botao "Selecionar arquivo" (foco na validacao). */
+  buttonId?: string;
+  invalid?: boolean;
 }
 
 /**
@@ -26,7 +29,7 @@ interface HpsmFileDropProps {
  * arquivo]" e, depois da escolha, a linha com nome, tamanho e "Remover". O input
  * nativo fica oculto, mas e ele que o botao (e o teclado) aciona.
  */
-export function HpsmFileDrop({ file, onChange }: HpsmFileDropProps) {
+export function HpsmFileDrop({ file, onChange, buttonId, invalid }: HpsmFileDropProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -63,7 +66,13 @@ export function HpsmFileDrop({ file, onChange }: HpsmFileDropProps) {
         onDrop={onDrop}
       >
         <span>{dragging ? 'Solte o arquivo para anexar' : 'Arraste o arquivo aqui ou'}</span>
-        <button type="button" className="dl-btn" onClick={() => inputRef.current?.click()}>
+        <button
+          id={buttonId}
+          type="button"
+          className="dl-btn"
+          aria-invalid={invalid || undefined}
+          onClick={() => inputRef.current?.click()}
+        >
           Selecionar arquivo
         </button>
         <input

@@ -123,6 +123,11 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
 </HpsmSection>
 ```
 
+**Validação:** `const check = useRequiredFields([{ id: 'report-summary', label: 'Resumo',
+ok: resumo.length >= 3 }])`; no salvar, `if (!check.check()) return;`, mostre
+`check.message` com `HpsmMessage` e passe `invalid={check.isInvalid('report-summary')}`
+ao `HpsmField` — rótulo/borda vermelhos, mensagem na barra e foco no primeiro inválido.
+
 > **Rótulos e acessibilidade:** o controle do Carbon recebe `labelText` + `hideLabel`
 > (o nome acessível continua no controle) e o `HpsmField` recebe o mesmo `htmlFor`.
 > O rótulo visível fica com `aria-hidden` para o leitor de tela não ler duas vezes.
@@ -377,6 +382,7 @@ banco nem da API rodando.
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
+| `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |
 | `detail-pane.mjs` | painel de detalhe: desligado o clique abre; ligado, seleção, setas, duplo clique, Enter e "Abrir amostra" |

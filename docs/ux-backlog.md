@@ -296,7 +296,7 @@ HP Service Manager 9 (indicados em cada item).
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ⬜ |
-| 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ⬜ |
+| 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ✅ |
 | 27 | Busca rápida no masthead | busca/ir para registro | ⚪ | P | ✅ |
 | 28 | Menu "Mais ▾" na toolbar | More Actions | ⚪ | P | ⬜ |
 | 29 | Ficha para impressão | impressão do registro | ⚪ | P | ⬜ |
@@ -408,6 +408,13 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
 - **Onde mexer:** `HpsmField` ganha `invalid`/`error` (`components/HpsmForm.tsx`);
   `SubmitPage.tsx`, `EntryReportsTab.tsx`, `UserPage.tsx`, formulário de chave do
   `AdminPage.tsx`.
+- ✅ **Implementado:** hook `useRequiredFields([{ id, label, ok }])` e prop `invalid` no
+  `HpsmField` (`components/HpsmForm.tsx`). No salvar: rótulo e borda vermelhos (também
+  com foco), mensagem "Preencha ou corrija os campos destacados: …" e foco no primeiro;
+  o destaque some quando o campo é corrigido. Aplicado em Enviar Amostra (arquivo e
+  URL, que agora exige `http(s)://`), Novo relatório (Resumo) e Alterar senha (atual,
+  nova ≥ 8 e confirmação igual). Pendente: formulário de chave do Admin e o
+  mapeamento dos erros de validação da API (`details` do zod) para os campos.
 
 ### 27. Busca rápida no masthead
 - **Proposta:** campo **Ir para…** no masthead (ou atalho `Ctrl+K`): um SHA-256

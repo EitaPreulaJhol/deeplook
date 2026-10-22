@@ -46,7 +46,10 @@ expect('Alt+N abre Enviar Amostra', path() === '/submit');
 await page.fill('#file-title', 'rascunho');
 await page.keyboard.press('Control+KeyS');
 await page.waitForTimeout(300);
-expect('Ctrl+S aciona o envio (pede o arquivo)', (await messages()).includes('Selecione um arquivo para enviar.'));
+expect(
+  'Ctrl+S aciona o envio (pede o arquivo)',
+  (await messages()).includes('Preencha ou corrija os campos destacados: Arquivo.'),
+);
 await page.keyboard.press('Alt+KeyW');
 expect('Alt+W com rascunho pede confirmação', await page.locator('[role=alertdialog]').isVisible());
 await page.locator('[role=alertdialog] button:has-text("Descartar")').click();

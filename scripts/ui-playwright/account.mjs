@@ -70,7 +70,9 @@ await page.click('.hpsm-toolbar__action:has-text("Salvar senha")');
 await page.waitForTimeout(300);
 expect(
   'confirmação diferente é recusada',
-  (await messages()).includes('A confirmação não confere com a nova senha.'),
+  (await messages()).includes(
+    'Preencha ou corrija os campos destacados: Confirmar senha (igual à nova).',
+  ),
 );
 
 await page.fill('#pwd-confirm', 'nova-senha-123');

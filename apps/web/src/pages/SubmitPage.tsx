@@ -5,7 +5,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
 import { HpsmFileDrop } from '../components/HpsmFileDrop';
-import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
+import {
+  HpsmField,
+  HpsmForm,
+  HpsmReadonly,
+  HpsmSection,
+  useRequiredFields,
+} from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconAdd, IconArrowLeft } from '../components/icons';
@@ -76,12 +82,16 @@ export function SubmitPage() {
     Boolean(file || title || description || tags || url || urlTitle || urlDescription || urlTags),
   );
 
+  // Validacao no estilo HPSM (campo destacado + mensagem + foco).
+  const fileCheck = useRequiredFields([{ id: 'file-pick', label: 'Arquivo', ok: Boolean(file) }]);
+  const urlCheck = useRequiredFields([
+    { id: 'url', label: 'URL suspeita', ok: /^https?:\/\/\S+\.\S+/i.test(url.trim()) },
+  ]);
+  const validation = tab === 'file' ? fileCheck.message : urlCheck.message;
+
   const submitFile = async () => {
     setError(null);
-    if (!file) {
-      setError('Selecione um arquivo para enviar.');
-      return;
-    }
+    if (!fileCheck.check() || !file) return;
     setLoading(true);
     try {
       const form = new FormData();
@@ -101,10 +111,7 @@ export function SubmitPage() {
 
   const submitUrl = async () => {
     setError(null);
-    if (!url) {
-      setError('Informe uma URL.');
-      return;
-    }
+    if (!urlCheck.check()) return;
     setLoading(true);
     try {
       const res = await api.post<{ entry: Entry }>('/entries/url', {
@@ -155,6 +162,7 @@ export function SubmitPage() {
       </HpsmToolbar>
 
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+      {validation && <HpsmMessage kind="error">{validation}</HpsmMessage>}
       {tab === 'file' && duplicate && (
         <HpsmMessage kind="warning">
           Esta amostra já foi enviada:{' '}
@@ -185,8 +193,15 @@ export function SubmitPage() {
                 required
                 top
                 help="Tamanho máximo conforme configurado no servidor."
+
+                invalid={fileCheck.isInvalid('file-pick')}
               >
-                <HpsmFileDrop file={file} onChange={setFile} />
+                <HpsmFileDrop
+                  file={file}
+                  onChange={setFile}
+                  buttonId="file-pick"
+                  invalid={fileCheck.isInvalid('file-pick')}
+                />
               </HpsmField>
               {file && (hashing || hash) && (
                 <HpsmField label="SHA-256">
@@ -235,7 +250,13 @@ export function SubmitPage() {
         ) : (
           <HpsmSection title="Dados do link" className="dl-form-col">
             <HpsmForm>
-              <HpsmField label="URL suspeita" htmlFor="url" required>
+              <HpsmField
+                label="URL suspeita"
+                htmlFor="url"
+                required
+                invalid={urlCheck.isInvalid('url')}
+                help="Endereço completo, com http:// ou https://."
+              >
                 <TextInput
                   id="url"
                   labelText="URL suspeita"
