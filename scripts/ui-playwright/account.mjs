@@ -64,9 +64,18 @@ await page.click('.hpsm-toolbar__action:has-text("Salvar senha")');
 await page.waitForTimeout(400);
 expect('senha atual errada é recusada', (await messages()).includes('Senha atual incorreta.'));
 
+// Botao "Salvar" no rodape do formulario (46): abaixo da confirmacao, alinhado aos campos.
+const footer = page.locator('.hpsm-form__buttons button:text-is("Salvar")');
+const footerBox = await footer.boundingBox();
+const confirmBox = await page.locator('#pwd-confirm').boundingBox();
+expect(
+  'botão Salvar no rodapé, alinhado aos campos',
+  footerBox && confirmBox && footerBox.y > confirmBox.y + confirmBox.height && Math.abs(footerBox.x - confirmBox.x) <= 2,
+  JSON.stringify({ footerBox, confirmBox }),
+);
 await page.fill('#pwd-current', 'senha-atual');
 await page.fill('#pwd-confirm', 'outra-coisa');
-await page.click('.hpsm-toolbar__action:has-text("Salvar senha")');
+await footer.click();
 await page.waitForTimeout(300);
 expect(
   'confirmação diferente é recusada',
@@ -76,7 +85,8 @@ expect(
 );
 
 await page.fill('#pwd-confirm', 'nova-senha-123');
-await page.click('.hpsm-toolbar__action:has-text("Salvar senha")');
+await page.screenshot({ path: `${OUT}/senha-botao-salvar.png` });
+await footer.click();
 await page.waitForURL('**/login');
 await page.waitForTimeout(300);
 expect(

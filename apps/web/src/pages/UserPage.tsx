@@ -9,6 +9,7 @@ import { ApiTokensTab } from '../components/ApiTokensTab';
 import {
   HpsmField,
   HpsmForm,
+  HpsmFormActions,
   HpsmReadonly,
   HpsmSection,
   useRequiredFields,
@@ -196,6 +197,16 @@ function PasswordTab() {
             onChange={(e) => setConfirm(e.target.value)}
           />
         </HpsmField>
+        <HpsmFormActions>
+          <button
+            type="button"
+            className="dl-btn dl-btn--primary"
+            disabled={saving}
+            onClick={() => void save()}
+          >
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </HpsmFormActions>
       </HpsmForm>
     </HpsmSection>
   );

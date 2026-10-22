@@ -1146,7 +1146,7 @@ obrigatória de senha e "Sair" sem aviso), antivírus em contêiner próprio e 2
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 46 | Botão "Salvar" na alteração de senha | botões do formulário | ⚪ | P | ⬜ |
+| 46 | Botão "Salvar" na alteração de senha | botões do formulário | ⚪ | P | ✅ |
 | 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ⬜ |
 | 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ⬜ |
 | 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ⬜ |
@@ -1164,6 +1164,11 @@ no login e prepara o terreno para a 50.
   "Salvando..." e fica desabilitado enquanto salva.
 - **Cuidados:** a barra continua (padrão das outras telas); os dois botões e o atalho
   chamam a mesma função.
+- ✅ **Implementado:** componente `HpsmFormActions` (`components/HpsmForm.tsx`), um rodapé
+  de formulário com os botões começando na coluna dos controles. Na aba Senha ele traz
+  **Salvar**, que vira "Salvando..." e fica desabilitado enquanto salva, igual à barra e
+  ao Ctrl+S. Teste em `account.mjs`: posição abaixo da confirmação, alinhamento com os
+  campos, validação e troca de senha pelo botão.
 
 ### 47. "Sair" com alterações não salvas
 - **Problema:** trocar de tela com um formulário alterado pergunta "Alterações não

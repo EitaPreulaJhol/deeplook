@@ -43,6 +43,19 @@ export function HpsmForm({ columns = 1, children }: { columns?: 1 | 2; children:
   return <div className={`hpsm-form${columns === 2 ? ' hpsm-form--2col' : ''}`}>{children}</div>;
 }
 
+/**
+ * Rodape do formulario: botoes alinhados aos campos (abaixo da coluna dos
+ * controles), para quem nao repara na barra da secao.
+ */
+export function HpsmFormActions({ children }: { children: ReactNode }) {
+  return (
+    <div className="hpsm-form__actions">
+      <span aria-hidden="true" />
+      <div className="hpsm-form__buttons">{children}</div>
+    </div>
+  );
+}
+
 interface HpsmFieldProps {
   label: string;
   /** id do controle (o rotulo foca o campo ao ser clicado). */

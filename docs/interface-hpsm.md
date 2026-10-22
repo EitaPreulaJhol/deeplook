@@ -108,6 +108,7 @@ Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
 | `HpsmSection` | grupo recolhível (+/−) com título |
 | `HpsmForm` | grade de campos; `columns={2}` divide em duas colunas a partir de 64rem |
 | `HpsmField` | rótulo à esquerda com `:` e controle ao lado; `required` (asterisco), `wide` (linha inteira), `top` (multilinha), `help` (texto abaixo) |
+| `HpsmFormActions` | rodapé do formulário: botões alinhados à coluna dos controles (ex.: **Salvar** da Alterar senha), além da barra da seção |
 | `HpsmReadonly` | valor travado em caixa cinza; `multiline`, `mono`, `copyable={{ value, label }}` (botão de copiar) |
 
 ```tsx
@@ -521,7 +522,7 @@ banco nem da API rodando.
 |---|---|
 | `screens.mjs` | screenshot de todas as telas em `out/` e medida do cabeçalho da lista |
 | `filters.mjs` | troca filtros, busca e Limpar; confere que os filtros sobrevivem a recarregar a página; falha se a tela ficar branca ou a contagem errar |
-| `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso) → novo login |
+| `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso, botão Salvar do rodapé alinhado aos campos) → novo login |
 | `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |
 | `copy-keyboard.mjs` | botões de copiar (confere a área de transferência) e grade navegável pelo teclado |

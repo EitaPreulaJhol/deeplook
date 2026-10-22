@@ -906,6 +906,20 @@ h6 {
   grid-column: 1 / -1;
 }
 
+/* Rodape do formulario: os botoes comecam na coluna dos controles. */
+.hpsm-form__actions {
+  display: grid;
+  grid-template-columns: var(--dl-field-label-w) minmax(0, 1fr);
+  column-gap: 0.5rem;
+  grid-column: 1 / -1;
+  margin-top: 0.4rem;
+}
+
+.hpsm-form__buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .hpsm-field--top {
   align-items: start;
 }
