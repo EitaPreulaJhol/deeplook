@@ -58,6 +58,7 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
       setSummary('');
       setFindings('');
       setIocs('');
+      reportCheck.reset();
       onCreated();
     } catch (err) {
       setError((err as Error).message);

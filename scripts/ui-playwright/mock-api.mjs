@@ -107,6 +107,8 @@ export function createState({ loggedIn = false } = {}) {
     favorites: [],
     /** Resposta de GET /api/entries/:id/related por amostra (padrao: nenhuma). */
     related: {},
+    /** Erro forcado em POST /api/entries/:id/comments (ex.: { status: 429, error }). */
+    commentError: null,
   };
 }
 
@@ -304,6 +306,21 @@ export async function setupMock(context, state) {
       }
       const rel = p.match(/^\/api\/entries\/([\w-]+)\/related$/);
       if (rel) return json(route, 200, state.related[rel[1]] ?? { items: [], total: 0, limit: 50 });
+      // Novo relatorio (aba Relatorios): so confirma o salvamento.
+      if (/^\/api\/entries\/[\w-]+\/reports$/.test(p) && req.method() === 'POST') {
+        return json(route, 201, { report: { id: `r-${Date.now()}`, ...body } });
+      }
+      const cm = p.match(/^\/api\/entries\/([\w-]+)\/comments$/);
+      if (cm && req.method() === 'POST') {
+        if (state.commentError) return json(route, state.commentError.status, { error: state.commentError.error });
+        const text = String(body.text ?? '').replace(/\r\n?/g, '\n').trim();
+        if (!text || text.length > 4000) return json(route, 400, { error: 'Escreva a atualização (até 4000 caracteres).' });
+        const list = events[cm[1]];
+        if (!list) return json(route, 404, { error: 'Amostra nao encontrada.' });
+        const event = { id: `${cm[1]}-ev${list.length}`, entryId: cm[1], type: 'COMMENT', detail: text, createdAt: new Date().toISOString(), actor: actorOf(users[0]) };
+        list.push(event);
+        return json(route, 201, { event });
+      }
       const ev = p.match(/^\/api\/entries\/(\w+)\/events$/);
       if (ev) return json(route, 200, { events: events[ev[1]] ?? [] });
       if (m) {

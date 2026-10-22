@@ -416,6 +416,6 @@ Melhorias de interface e usabilidade estão priorizadas em
 [`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
 - Scanners automáticos (ClamAV e/ou VirusTotal) por hash/URL.
-- Comentários nas amostras e múltiplos anexos por envio.
+- Múltiplos anexos por envio (comentários já existem como "Atualizações" na aba Histórico).
 - Exportação de relatórios (PDF/Markdown).
 - 2FA e política de senha.

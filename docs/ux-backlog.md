@@ -293,7 +293,7 @@ HP Service Manager 9 (indicados em cada item).
 | 20 | Atualização em massa | Mass Update | 🟡 | M | ✅ |
 | 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ✅ |
 | 22 | Registros relacionados | aba Related Records | 🟡 | M | 🟡 |
-| 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
+| 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ✅ |
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ✅ |
 | 26 | Validação de campos no estilo HPSM | campos obrigatórios destacados | 🟡 | P | ✅ |
@@ -406,6 +406,24 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   `EntryHistoryTab.tsx`.
 - **Cuidados:** texto puro (sem HTML), até 4000 caracteres; limite de tentativas como
   nas outras rotas de escrita.
+- ✅ **Implementado:** evento `COMMENT` (migração `20261027000000_comment_event`), com o
+  texto no `detail`, e `POST /api/entries/:id/comments { text }`.
+  - **Na API:**
+    - qualquer usuário logado registra, e todos veem;
+    - o texto é normalizado: quebras de linha unificadas, sem caracteres de controle,
+      espaços aparados, de 1 a 4000 caracteres;
+    - limite de 10 envios por minuto por sessão (`attemptLimit(sessionKey('comment'),
+      { max, windowMs })`; o limite da troca de senha passou a usar o mesmo
+      `sessionKey`);
+    - as atualizações não são editáveis: ficam como registro de auditoria.
+  - **Na aba Histórico:**
+    - seção **Nova atualização** com contador `n/4000`, validação HPSM, Ctrl+S e aviso
+      de alterações não salvas;
+    - na linha do tempo, "Atualização:" + texto, com quebras de linha preservadas e
+      fundo de nota (`--dl-note-bg`);
+    - caixa **Somente atualizações (n)**.
+  - **Correção junto:** o formulário de Novo relatório agora limpa o destaque de
+    validação depois de salvar (`reportCheck.reset()`).
 
 ### 24. Idade na fila e alerta de prazo
 - **Problema:** nada indica há quanto tempo uma amostra espera triagem.

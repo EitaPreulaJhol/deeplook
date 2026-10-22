@@ -1,9 +1,17 @@
 import type { RateLimitOptions } from '@fastify/rate-limit';
 import type { FastifyRequest } from 'fastify';
 
+import { SESSION_COOKIE } from './auth';
+
 /** Tentativas permitidas por janela nas rotas sensiveis (login, troca de senha). */
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 5 * 60 * 1000;
+
+/** Chave por sessao (cookie) para os limites de escrita do proprio usuario. */
+export function sessionKey(prefix: string) {
+  return (req: FastifyRequest) =>
+    `${prefix}:${(req as { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE] ?? req.ip}`;
+}
 
 /**
  * Limite de tentativas por rota (`config` da rota). A chave vem da propria
@@ -11,13 +19,16 @@ const WINDOW_MS = 5 * 60 * 1000;
  * X-Forwarded-For pode ser forjado pelo cliente. Roda no preHandler para o
  * corpo ja estar disponivel.
  */
-export function attemptLimit(key: (req: FastifyRequest) => string): {
+export function attemptLimit(
+  key: (req: FastifyRequest) => string,
+  { max = MAX_ATTEMPTS, windowMs = WINDOW_MS }: { max?: number; windowMs?: number } = {},
+): {
   rateLimit: RateLimitOptions;
 } {
   return {
     rateLimit: {
-      max: MAX_ATTEMPTS,
-      timeWindow: WINDOW_MS,
+      max,
+      timeWindow: windowMs,
       hook: 'preHandler',
       keyGenerator: key,
       errorResponseBuilder: (_req, context) => {

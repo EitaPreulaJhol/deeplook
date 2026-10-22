@@ -12,7 +12,25 @@ import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { prisma } from '../lib/prisma';
+import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { s3 } from '../lib/s3';
+
+/**
+ * Texto da atualizacao: texto puro (o front exibe escapado), quebras de linha
+ * normalizadas e sem caracteres de controle; 1 a 4000 caracteres.
+ */
+const CommentSchema = z.object({
+  text: z
+    .string()
+    .transform((value) =>
+      value
+        .replace(/\r\n?/g, '\n')
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '')
+        .trim(),
+    )
+    .pipe(z.string().min(1).max(4000)),
+});
 
 const ListQuery = z.object({
   scope: z.enum(['all', 'mine']).default('all'),
@@ -323,6 +341,30 @@ export async function entryRoutes(app: FastifyInstance) {
       select: { id: true, displayName: true },
     });
     return reply.send({ analysts });
+  });
+
+  // Nova atualizacao (comentario) na linha do tempo da amostra. Qualquer usuario
+  // logado pode registrar; fica visivel para todos e nao e editavel (auditoria).
+  // Ate 10 por minuto por sessao.
+  const commentLimit = attemptLimit(sessionKey('comment'), { max: 10, windowMs: 60_000 });
+  app.post('/api/entries/:id/comments', { config: commentLimit }, async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+
+    const parsed = CommentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'Escreva a atualização (até 4000 caracteres).' });
+    }
+
+    const { id } = req.params as { id: string };
+    const entry = await prisma.entry.findUnique({ where: { id }, select: { id: true } });
+    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+
+    const event = await prisma.entryEvent.create({
+      data: { entryId: id, actorId: user.id, type: 'COMMENT', detail: parsed.data.text },
+      include: { actor: { select: { id: true, displayName: true } } },
+    });
+    return reply.code(201).send({ event });
   });
 
   // Historico (auditoria) da amostra: quem fez o que e quando.

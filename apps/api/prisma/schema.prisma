@@ -208,6 +208,8 @@ enum EntryEventType {
   SANDBOX_OPENED
   SANDBOX_CLOSED
   SANDBOX_FAILED
+  /// Atualizacao/comentario livre (texto puro no `detail`).
+  COMMENT
 }
 
 /// Linha do tempo da amostra: quem fez o que e quando (aba "Historico").

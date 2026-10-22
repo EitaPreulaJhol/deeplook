@@ -5,7 +5,7 @@ import { requireUser, SESSION_COOKIE } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
-import { attemptLimit } from '../lib/rate-limit';
+import { attemptLimit, sessionKey } from '../lib/rate-limit';
 
 const PasswordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -65,10 +65,7 @@ export async function meRoutes(app: FastifyInstance) {
   });
 
   // 5 tentativas a cada 5 min por sessao: impede adivinhar a senha atual.
-  const passwordLimit = attemptLimit(
-    (req) =>
-      `password:${(req as { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE] ?? req.ip}`,
-  );
+  const passwordLimit = attemptLimit(sessionKey('password'));
 
   // Troca de senha: confere a atual e encerra TODAS as sessoes do usuario
   // (inclusive esta), obrigando um novo login com a senha nova.
