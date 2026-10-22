@@ -130,6 +130,21 @@ ao `HpsmField` — rótulo/borda vermelhos, mensagem na barra e foco no primeiro
 Se o formulário continua na tela depois de salvar (campos limpos), chame `check.reset()`
 para o destaque não voltar sobre os campos vazios.
 
+**Erros de validação da API:** na API, responda com `sendValidationError(reply,
+parsed.error)` (`lib/validation.ts`): 400 com `details` por campo, em português. No
+front, declare o campo com `api` (nome no `details`, se diferente do `id`) e `value`, e
+no `catch` use `if (!check.fromApi(err)) setError(...)`:
+
+```tsx
+const check = useRequiredFields([
+  { id: 'url-title', label: 'Título', ok: true, api: 'title', value: urlTitle },
+]);
+```
+
+O campo citado ganha o destaque e a mensagem "Corrija os campos destacados: Título
+(mínimo de 2 caracteres)."; o destaque some quando o valor muda. Nos formulários de
+login/cadastro, `AuthField` aceita `invalid`.
+
 > **Rótulos e acessibilidade:** o controle do Carbon recebe `labelText` + `hideLabel`
 > (o nome acessível continua no controle) e o `HpsmField` recebe o mesmo `htmlFor`.
 > O rótulo visível fica com `aria-hidden` para o leitor de tela não ler duas vezes.
@@ -460,6 +475,7 @@ banco nem da API rodando.
 | `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural, IOCs em comum com hash encurtado, "+N" e lista na dica), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
 | `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
+| `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |

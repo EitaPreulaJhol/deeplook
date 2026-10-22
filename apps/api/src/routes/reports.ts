@@ -5,6 +5,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { syncReportIocs } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
+import { sendValidationError } from '../lib/validation';
 
 const ReportSchema = z.object({
   summary: z.string().min(3).max(4000),
@@ -42,11 +43,7 @@ export async function reportRoutes(app: FastifyInstance) {
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
 
     const parsed = ReportSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: 'Dados invalidos.', details: parsed.error.flatten().fieldErrors });
-    }
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { summary, findings, iocs, verdict, published } = parsed.data;
 
     const report = await prisma.$transaction(async (tx) => {
@@ -96,7 +93,7 @@ export async function reportRoutes(app: FastifyInstance) {
     }
 
     const parsed = ReportSchema.partial().safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
     const data = parsed.data;
 
     const updated = await prisma.$transaction(async (tx) => {

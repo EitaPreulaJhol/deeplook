@@ -117,6 +117,8 @@ export function createState({ loggedIn = false } = {}) {
     related: {},
     /** Erro forcado em POST /api/entries/:id/comments (ex.: { status: 429, error }). */
     commentError: null,
+    /** 400 com `details` por campo para uma rota de escrita (ex.: { '/api/entries/url': { title: [...] } }). */
+    validationErrors: {},
   };
 }
 
@@ -171,6 +173,11 @@ export async function setupMock(context, state) {
         state.sessionExpiresAt = null;
         return json(route, 200, { ok: true });
       }
+      // Erros de validacao por campo (iguais aos da API: error + details).
+      if (req.method() !== 'GET' && state.validationErrors[p]) {
+        return json(route, 400, { error: 'Dados invalidos.', details: state.validationErrors[p] });
+      }
+      if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
       // Favoritos (mesmas regras da API: limite de 30, sem repetir visao/amostra).
@@ -364,6 +371,11 @@ export async function setupMock(context, state) {
       if (m && req.method() === 'DELETE') {
         keys.find((x) => x.id === m[1]).revoked = true;
         return json(route, 200, { ok: true });
+      }
+      if (p === '/api/admin/activation-keys' && req.method() === 'POST') {
+        const key = { id: `k${keys.length + 1}`, code: 'DL-NEW1-NEW2-NEW3', role: body.role, maxUses: body.maxUses, usesUsed: 0, expiresAt: null, revoked: false, createdAt: now };
+        state.lastKeyBody = body;
+        return json(route, 201, { key });
       }
       if (p === '/api/admin/activation-keys') return json(route, 200, { keys });
       return json(route, 404, { error: 'Mock sem rota: ' + p });

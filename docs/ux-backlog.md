@@ -513,8 +513,31 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   com foco), mensagem "Preencha ou corrija os campos destacados: …" e foco no primeiro;
   o destaque some quando o campo é corrigido. Aplicado em Enviar Amostra (arquivo e
   URL, que agora exige `http(s)://`), Novo relatório (Resumo) e Alterar senha (atual,
-  nova ≥ 8 e confirmação igual). Pendente: formulário de chave do Admin e o
-  mapeamento dos erros de validação da API (`details` do zod) para os campos.
+  nova ≥ 8 e confirmação igual).
+- ✅ **Sobras implementadas:**
+  - **Formulário de chave do Admin:**
+    - Máximo de usos aceita um inteiro de 1 a 1000;
+    - Validade aceita um inteiro de 1 a 3650 dias, ou em branco para sem prazo;
+    - destaque, mensagem e foco quando algo está errado;
+    - Ctrl+S gera a chave;
+    - a API agora exige inteiros (`.int()`).
+  - **Erros da API por campo:**
+    - `lib/validation.ts` (`sendValidationError`) responde 400 com `error` e
+      `details: { campo: [mensagem] }`, com as mensagens do zod em português
+      ("obrigatório", "mínimo de 3 caracteres", "URL inválida", "e-mail inválido",
+      "use um número inteiro"...);
+    - rotas que usam: chave, cadastro, envio de URL, edição da amostra, relatório
+      (criar/editar), troca de senha, atualização e favoritos.
+  - **No front:** `useRequiredFields` ganhou `fromApi(err)`.
+    - Destaca os campos citados (pelo `api` ou `id` do campo), com a mensagem
+      "Corrija os campos destacados: Título (mínimo de 2 caracteres)." e foco no
+      primeiro.
+    - O destaque some quando o valor (`value`) muda.
+    - Erros sem campo continuam na barra como antes.
+    - Ligado em chave, envio de URL (título, descrição, tags), relatório (resumo,
+      achados, IOCs), troca de senha, atualização e **cadastro**. No cadastro, o
+      `AuthField` ganhou `invalid`, e a confirmação de senha diferente virou destaque
+      no lugar do texto solto.
 
 ### 27. Busca rápida no masthead
 - **Proposta:** campo **Ir para…** no masthead (ou atalho `Ctrl+K`): um SHA-256

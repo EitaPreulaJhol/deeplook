@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from '../lib/crypto';
 import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
 import { attemptLimit } from '../lib/rate-limit';
+import { sendValidationError } from '../lib/validation';
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -64,11 +65,7 @@ export async function authRoutes(app: FastifyInstance) {
   // Cadastro somente via chave de ativacao gerada por um admin.
   app.post('/api/auth/register', async (req, reply) => {
     const parsed = RegisterSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: 'Dados invalidos.', details: parsed.error.flatten().fieldErrors });
-    }
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { email, displayName, password, activationKey } = parsed.data;
 
     const key = await prisma.activationKey.findUnique({

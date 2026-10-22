@@ -88,8 +88,20 @@ function PasswordTab() {
   const [saving, setSaving] = useState(false);
 
   const passwordCheck = useRequiredFields([
-    { id: 'pwd-current', label: 'Senha atual', ok: current.length > 0 },
-    { id: 'pwd-new', label: 'Nova senha (mínimo de 8 caracteres)', ok: next.length >= 8 },
+    {
+      id: 'pwd-current',
+      label: 'Senha atual',
+      ok: current.length > 0,
+      api: 'currentPassword',
+      value: current,
+    },
+    {
+      id: 'pwd-new',
+      label: 'Nova senha (mínimo de 8 caracteres)',
+      ok: next.length >= 8,
+      api: 'newPassword',
+      value: next,
+    },
     {
       id: 'pwd-confirm',
       label: 'Confirmar senha (igual à nova)',
@@ -111,7 +123,7 @@ function PasswordTab() {
         state: { notice: 'Senha alterada. Entre novamente com a nova senha.' },
       });
     } catch (err) {
-      setError((err as Error).message);
+      if (!passwordCheck.fromApi(err)) setError((err as Error).message);
       setSaving(false);
     }
   };

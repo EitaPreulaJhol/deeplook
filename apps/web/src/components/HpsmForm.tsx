@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 
+import { apiFieldErrors } from '../api/client';
 import { CopyButton } from './CopyButton';
 
 interface HpsmSectionProps {
@@ -136,30 +137,72 @@ export interface RequiredField {
   label: string;
   /** O valor atual e valido? */
   ok: boolean;
+  /** Nome do campo nos `details` do 400 da API, quando diferente do `id`. */
+  api?: string;
+  /** Valor atual: o destaque vindo da API some quando o valor muda. */
+  value?: unknown;
+}
+
+/** Rotulo sem a dica entre parenteses ("Nova senha (minimo...)" -> "Nova senha"). */
+function shortLabel(label: string): string {
+  return label.replace(/\s*\(.*\)$/, '');
 }
 
 /**
  * Validacao no estilo HPSM: `check()` no salvar destaca os campos invalidos
  * (borda/rotulo vermelhos), monta a mensagem para a barra e foca o primeiro.
  * O destaque acompanha os valores: some quando o campo e corrigido.
+ *
+ * Erros da API: no `catch`, `if (!check.fromApi(err)) setError(...)` destaca os
+ * campos citados nos `details` do 400 (pelo `api` ou `id` do campo) com a
+ * mensagem do servidor; o destaque some quando o valor (`value`) muda.
  */
 export function useRequiredFields(fields: RequiredField[]) {
   const [shown, setShown] = useState(false);
+  const [server, setServer] = useState<Record<string, { message: string; value: unknown }>>({});
   const missing = fields.filter((f) => !f.ok);
+  const serverActive = fields.filter((f) => {
+    const error = server[f.id];
+    return error && (f.value === undefined || Object.is(f.value, error.value));
+  });
 
   return {
     /** true se tudo esta valido; senao destaca, foca o 1o invalido e devolve false. */
     check: () => {
+      setServer({});
       if (missing.length === 0) return true;
       setShown(true);
       document.getElementById(missing[0].id)?.focus();
       return false;
     },
-    isInvalid: (id: string) => shown && missing.some((f) => f.id === id),
+    /** Destaca os campos citados no erro da API; false se o erro nao cita nenhum. */
+    fromApi: (err: unknown) => {
+      const details = apiFieldErrors(err);
+      if (!details) return false;
+      const next: Record<string, { message: string; value: unknown }> = {};
+      for (const field of fields) {
+        const messages = details[field.api ?? field.id];
+        if (messages?.length) next[field.id] = { message: messages[0], value: field.value };
+      }
+      const first = fields.find((f) => next[f.id]);
+      if (!first) return false;
+      setServer(next);
+      document.getElementById(first.id)?.focus();
+      return true;
+    },
+    isInvalid: (id: string) =>
+      (shown && missing.some((f) => f.id === id)) || serverActive.some((f) => f.id === id),
     message:
       shown && missing.length > 0
         ? `Preencha ou corrija os campos destacados: ${missing.map((f) => f.label).join(', ')}.`
-        : null,
-    reset: () => setShown(false),
+        : serverActive.length > 0
+          ? `Corrija os campos destacados: ${serverActive
+              .map((f) => `${shortLabel(f.label)} (${server[f.id].message})`)
+              .join(', ')}.`
+          : null,
+    reset: () => {
+      setShown(false);
+      setServer({});
+    },
   };
 }

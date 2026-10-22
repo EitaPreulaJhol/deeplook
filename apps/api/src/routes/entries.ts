@@ -15,6 +15,7 @@ import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { s3 } from '../lib/s3';
 import { slaConfig, slaCutoff } from '../lib/sla';
+import { sendValidationError } from '../lib/validation';
 
 /**
  * Texto da atualizacao: texto puro (o front exibe escapado), quebras de linha
@@ -378,7 +379,11 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const parsed = CommentSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: 'Escreva a atualização (até 4000 caracteres).' });
+      return sendValidationError(
+        reply,
+        parsed.error,
+        'Escreva a atualização (até 4000 caracteres).',
+      );
     }
 
     const { id } = req.params as { id: string };
@@ -488,11 +493,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const parsed = UrlSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: 'Dados invalidos.', details: parsed.error.flatten().fieldErrors });
-    }
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { url, title, description, tags: tagRaw } = parsed.data;
 
     const tags = await resolveTags(parseTags(tagRaw));
@@ -552,7 +553,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
 
     const parsed = PatchSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
     const data = parsed.data;
 
     const isOwner = entry.ownerId === user.id;

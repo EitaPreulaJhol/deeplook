@@ -15,6 +15,8 @@ interface AuthFieldProps {
   helperText?: string;
   required?: boolean;
   uppercase?: boolean;
+  /** Campo destacado em vermelho (validacao). */
+  invalid?: boolean;
 }
 
 /** Linha rotulo/campo da tela de login (rotulo a esquerda, campo em caixa, toggle de senha). */
@@ -29,6 +31,7 @@ export function AuthField({
   helperText,
   required,
   uppercase,
+  invalid,
 }: AuthFieldProps) {
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === 'password';
@@ -43,7 +46,7 @@ export function AuthField({
     .join(' ');
 
   return (
-    <div className="dl-field">
+    <div className={`dl-field${invalid ? ' dl-field--invalid' : ''}`}>
       <label className="dl-field__label" htmlFor={id}>
         {label}:{required && <span className="dl-field__req">*</span>}
       </label>
@@ -57,6 +60,7 @@ export function AuthField({
             placeholder={placeholder}
             autoComplete={autoComplete}
             required={required}
+            aria-invalid={invalid || undefined}
             onChange={(event) => onChange(event.target.value)}
           />
           {isPassword && (

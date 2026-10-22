@@ -188,6 +188,20 @@
   outline-offset: -1px;
 }
 
+/* Campo invalido (validacao HPSM): rotulo e borda vermelhos. */
+.dl-field--invalid .dl-field__label {
+  color: var(--dl-status-red);
+  font-weight: 700;
+}
+
+.dl-field--invalid .dl-field__input,
+.dl-field--invalid .dl-field__input:hover,
+.dl-field--invalid .dl-field__input:focus {
+  border-color: var(--dl-status-red);
+  outline-color: var(--dl-status-red);
+  background-color: var(--dl-error-bg);
+}
+
 .dl-field__input::placeholder {
   color: var(--dl-placeholder);
 }

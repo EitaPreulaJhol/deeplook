@@ -86,7 +86,13 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
   // Texto digitado e nao salvo: sair da aba/tela pede confirmacao.
   useUnsavedChanges(text.trim().length > 0);
   const check = useRequiredFields([
-    { id: 'comment-text', label: 'Atualização', ok: text.trim().length > 0 },
+    {
+      id: 'comment-text',
+      label: 'Atualização',
+      ok: text.trim().length > 0,
+      api: 'text',
+      value: text,
+    },
   ]);
 
   const addComment = async () => {
@@ -100,7 +106,7 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
       setResult({ ok: true, text: 'Atualização registrada no histórico.' });
       await queryClient.invalidateQueries({ queryKey });
     } catch (err) {
-      setResult({ ok: false, text: (err as Error).message });
+      if (!check.fromApi(err)) setResult({ ok: false, text: (err as Error).message });
     } finally {
       setSaving(false);
     }

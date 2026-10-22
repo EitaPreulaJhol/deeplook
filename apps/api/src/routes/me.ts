@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from '../lib/crypto';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
+import { sendValidationError } from '../lib/validation';
 
 const PasswordSchema = z.object({
   currentPassword: z.string().min(1),
@@ -75,7 +76,7 @@ export async function meRoutes(app: FastifyInstance) {
 
     const parsed = PasswordSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: 'A nova senha deve ter entre 8 e 200 caracteres.' });
+      return sendValidationError(reply, parsed.error);
     }
     const { currentPassword, newPassword } = parsed.data;
 

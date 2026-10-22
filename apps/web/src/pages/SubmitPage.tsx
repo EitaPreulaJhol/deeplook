@@ -85,7 +85,22 @@ export function SubmitPage() {
   // Validacao no estilo HPSM (campo destacado + mensagem + foco).
   const fileCheck = useRequiredFields([{ id: 'file-pick', label: 'Arquivo', ok: Boolean(file) }]);
   const urlCheck = useRequiredFields([
-    { id: 'url', label: 'URL suspeita', ok: /^https?:\/\/\S+\.\S+/i.test(url.trim()) },
+    {
+      id: 'url',
+      label: 'URL suspeita',
+      ok: /^https?:\/\/\S+\.\S+/i.test(url.trim()),
+      value: url,
+    },
+    // So a API valida estes (tamanhos): o destaque vem do `details` do 400.
+    { id: 'url-title', label: 'Título', ok: true, api: 'title', value: urlTitle },
+    {
+      id: 'url-description',
+      label: 'Descrição',
+      ok: true,
+      api: 'description',
+      value: urlDescription,
+    },
+    { id: 'url-tags', label: 'Tags', ok: true, api: 'tags', value: urlTags },
   ]);
   const validation = tab === 'file' ? fileCheck.message : urlCheck.message;
 
@@ -123,7 +138,7 @@ export function SubmitPage() {
       allowNavigation();
       navigate(`/entries/${res.entry.id}`);
     } catch (err) {
-      setError((err as Error).message);
+      if (!urlCheck.fromApi(err)) setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -266,7 +281,11 @@ export function SubmitPage() {
                   onChange={(e) => setUrl(e.target.value)}
                 />
               </HpsmField>
-              <HpsmField label="Título" htmlFor="url-title">
+              <HpsmField
+                label="Título"
+                htmlFor="url-title"
+                invalid={urlCheck.isInvalid('url-title')}
+              >
                 <TextInput
                   id="url-title"
                   labelText="Título"
@@ -276,7 +295,12 @@ export function SubmitPage() {
                   onChange={(e) => setUrlTitle(e.target.value)}
                 />
               </HpsmField>
-              <HpsmField label="Descrição" htmlFor="url-description" top>
+              <HpsmField
+                label="Descrição"
+                htmlFor="url-description"
+                top
+                invalid={urlCheck.isInvalid('url-description')}
+              >
                 <TextArea
                   id="url-description"
                   labelText="Descrição"
@@ -287,7 +311,12 @@ export function SubmitPage() {
                   rows={4}
                 />
               </HpsmField>
-              <HpsmField label="Tags" htmlFor="url-tags" help="Separadas por vírgula.">
+              <HpsmField
+                label="Tags"
+                htmlFor="url-tags"
+                help="Separadas por vírgula."
+                invalid={urlCheck.isInvalid('url-tags')}
+              >
                 <TextInput
                   id="url-tags"
                   labelText="Tags"

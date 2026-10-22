@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
+import { sendValidationError } from '../lib/validation';
 
 /** Limite de favoritos por usuario (a pasta precisa caber no navegador). */
 export const MAX_FAVORITES = 30;
@@ -57,9 +58,7 @@ export async function favoritesRoutes(app: FastifyInstance) {
 
     const parsed = CreateSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: 'Favorito invalido.', details: parsed.error.flatten().fieldErrors });
+      return sendValidationError(reply, parsed.error, 'Favorito invalido.');
     }
     const input = parsed.data;
 

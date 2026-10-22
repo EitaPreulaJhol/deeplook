@@ -37,6 +37,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+/**
+ * Erros por campo de uma resposta 400 da API (`details`: { campo: [mensagem] }),
+ * ou null se o erro nao trouxer detalhes.
+ */
+export function apiFieldErrors(err: unknown): Record<string, string[]> | null {
+  if (!(err instanceof ApiError)) return null;
+  const details = (err.data as { details?: unknown } | null)?.details;
+  if (!details || typeof details !== 'object') return null;
+  return details as Record<string, string[]>;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>

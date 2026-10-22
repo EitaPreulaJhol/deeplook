@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
+import { useRequiredFields } from '../components/HpsmForm';
 import { HpsmMessage } from '../components/messages';
 
 /** Formata a chave como DL-XXXX-XXXX-XXXX. */
@@ -28,14 +29,23 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Validacao HPSM: senha confirmada aqui; o resto vem dos `details` da API.
+  const check = useRequiredFields([
+    { id: 'displayName', label: 'Nome', ok: true, value: displayName },
+    { id: 'email', label: 'E-mail', ok: true, value: email },
+    { id: 'password', label: 'Senha', ok: true, value: password },
+    {
+      id: 'confirmPassword',
+      label: 'Confirme a senha (igual à senha)',
+      ok: confirmPassword === password,
+    },
+    { id: 'activationKey', label: 'Chave de ativação', ok: true, value: activationKey },
+  ]);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem.');
-      return;
-    }
+    if (!check.check()) return;
 
     setLoading(true);
     try {
@@ -47,7 +57,7 @@ export function RegisterPage() {
       });
       navigate('/');
     } catch (err) {
-      setError((err as Error).message || 'Falha no cadastro.');
+      if (!check.fromApi(err)) setError((err as Error).message || 'Falha no cadastro.');
     } finally {
       setLoading(false);
     }
@@ -57,9 +67,11 @@ export function RegisterPage() {
     <AuthLayout title="Cadastro" altLink={{ to: '/login', label: 'Entrar' }}>
       <form className="dl-auth__form" onSubmit={submit}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+        {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
 
         <AuthField
           id="displayName"
+          invalid={check.isInvalid('displayName')}
           label="Nome"
           value={displayName}
           onChange={setDisplayName}
@@ -68,6 +80,7 @@ export function RegisterPage() {
         />
         <AuthField
           id="email"
+          invalid={check.isInvalid('email')}
           label="E-mail"
           type="email"
           value={email}
@@ -77,6 +90,7 @@ export function RegisterPage() {
         />
         <AuthField
           id="password"
+          invalid={check.isInvalid('password')}
           label="Senha"
           type="password"
           value={password}
@@ -87,6 +101,7 @@ export function RegisterPage() {
         />
         <AuthField
           id="confirmPassword"
+          invalid={check.isInvalid('confirmPassword')}
           label="Confirme a senha"
           type="password"
           value={confirmPassword}
@@ -96,6 +111,7 @@ export function RegisterPage() {
         />
         <AuthField
           id="activationKey"
+          invalid={check.isInvalid('activationKey')}
           label="Chave de ativação"
           value={activationKey}
           onChange={(value) => setActivationKey(formatActivationKey(value))}

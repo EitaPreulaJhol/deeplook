@@ -4,11 +4,12 @@ import { z } from 'zod';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { prisma } from '../lib/prisma';
+import { sendValidationError } from '../lib/validation';
 
 const CreateKeySchema = z.object({
   role: z.enum(['USER', 'ANALYST', 'ADMIN']).default('USER'),
-  maxUses: z.coerce.number().min(1).max(1000).default(1),
-  expiresInDays: z.coerce.number().min(1).max(3650).optional(),
+  maxUses: z.coerce.number().int().min(1).max(1000).default(1),
+  expiresInDays: z.coerce.number().int().min(1).max(3650).optional(),
 });
 
 const PatchUserSchema = z.object({
@@ -110,7 +111,7 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const parsed = CreateKeySchema.safeParse(req.body ?? {});
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { role, maxUses, expiresInDays } = parsed.data;
 
     let code = generateActivationCode();

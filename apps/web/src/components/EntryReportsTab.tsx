@@ -40,7 +40,15 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
   useUnsavedChanges(Boolean(summary || findings || iocs));
 
   const reportCheck = useRequiredFields([
-    { id: 'report-summary', label: 'Resumo', ok: summary.trim().length >= 3 },
+    {
+      id: 'report-summary',
+      label: 'Resumo',
+      ok: summary.trim().length >= 3,
+      api: 'summary',
+      value: summary,
+    },
+    { id: 'report-findings', label: 'Achados', ok: true, api: 'findings', value: findings },
+    { id: 'report-iocs', label: 'IOCs', ok: true, api: 'iocs', value: iocs },
   ]);
 
   const createReport = async () => {
@@ -61,7 +69,7 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
       reportCheck.reset();
       onCreated();
     } catch (err) {
-      setError((err as Error).message);
+      if (!reportCheck.fromApi(err)) setError((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -141,7 +149,12 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
                 rows={3}
               />
             </HpsmField>
-            <HpsmField label="Achados" htmlFor="report-findings" top>
+            <HpsmField
+              label="Achados"
+              htmlFor="report-findings"
+              top
+              invalid={reportCheck.isInvalid('report-findings')}
+            >
               <TextArea
                 id="report-findings"
                 labelText="Achados"
@@ -155,7 +168,8 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
               label="IOCs"
               htmlFor="report-iocs"
               top
-              help="Indicadores de comprometimento."
+              help="Indicadores de comprometimento: domínios, IPs, hashes e e-mails (hxxp e [.] são aceitos). Entram na aba Relacionadas quando o relatório é publicado."
+              invalid={reportCheck.isInvalid('report-iocs')}
             >
               <TextArea
                 id="report-iocs"

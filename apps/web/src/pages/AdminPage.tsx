@@ -21,13 +21,21 @@ import type { ActivationKey, Role, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CopyButton } from '../components/CopyButton';
 import { useConfirm } from '../components/HpsmConfirm';
-import { HpsmField, HpsmForm, HpsmSection } from '../components/HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { useSaveShortcut } from '../components/shortcuts';
 import { RoleTag, StatusText } from '../components/tags';
+
+/** Inteiro entre min e max (campos numericos do formulario de chave). */
+function isIntBetween(value: string, min: number, max: number): boolean {
+  if (!/^\d+$/.test(value.trim())) return false;
+  const n = Number(value);
+  return n >= min && n <= max;
+}
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -74,23 +82,46 @@ export function AdminPage() {
     }
   };
 
+  // Validacao HPSM do formulario de chave (e dos erros por campo da API).
+  const keyCheck = useRequiredFields([
+    { id: 'key-role', label: 'Papel concedido', ok: true, api: 'role', value: keyRole },
+    {
+      id: 'key-maxuses',
+      label: 'Máximo de usos (1 a 1000)',
+      ok: isIntBetween(keyMaxUses, 1, 1000),
+      api: 'maxUses',
+      value: keyMaxUses,
+    },
+    {
+      id: 'key-days',
+      label: 'Validade (em branco ou 1 a 3650 dias)',
+      ok: keyDays.trim() === '' || isIntBetween(keyDays, 1, 3650),
+      api: 'expiresInDays',
+      value: keyDays,
+    },
+  ]);
+
   const createKey = async () => {
     setError(null);
+    setLastKey(null);
+    if (!keyCheck.check()) return;
     setCreating(true);
     try {
       const res = await api.post<{ key: ActivationKey }>('/admin/activation-keys', {
         role: keyRole,
-        maxUses: Number(keyMaxUses) || 1,
-        expiresInDays: keyDays ? Number(keyDays) : undefined,
+        maxUses: Number(keyMaxUses),
+        expiresInDays: keyDays.trim() ? Number(keyDays) : undefined,
       });
       setLastKey(res.key.code);
       await queryClient.invalidateQueries({ queryKey: ['admin', 'keys'] });
     } catch (err) {
-      setError((err as Error).message);
+      if (!keyCheck.fromApi(err)) setError((err as Error).message);
     } finally {
       setCreating(false);
     }
   };
+
+  useSaveShortcut(createKey, tab === 'keys' && !creating);
 
   // Senha temporaria gerada pela ultima redefinicao (mostrada uma unica vez).
   const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null);
@@ -287,17 +318,23 @@ export function AdminPage() {
               </HpsmMessage>
             )}
 
+            {keyCheck.message && <HpsmMessage kind="error">{keyCheck.message}</HpsmMessage>}
             <HpsmSection title="Gerar nova chave">
               <HpsmToolbar label="Ações da chave">
                 <HpsmToolbarButton
                   label={creating ? 'Gerando...' : 'Gerar chave'}
+                  title="Gerar chave (Ctrl+S)"
                   icon={IconKey}
                   disabled={creating}
                   onClick={createKey}
                 />
               </HpsmToolbar>
               <HpsmForm columns={2}>
-                <HpsmField label="Papel concedido" htmlFor="key-role">
+                <HpsmField
+                  label="Papel concedido"
+                  htmlFor="key-role"
+                  invalid={keyCheck.isInvalid('key-role')}
+                >
                   <Select
                     id="key-role"
                     labelText="Papel concedido"
@@ -310,7 +347,13 @@ export function AdminPage() {
                     <SelectItem value="ADMIN" text="Admin" />
                   </Select>
                 </HpsmField>
-                <HpsmField label="Máximo de usos" htmlFor="key-maxuses">
+                <HpsmField
+                  label="Máximo de usos"
+                  htmlFor="key-maxuses"
+                  required
+                  invalid={keyCheck.isInvalid('key-maxuses')}
+                  help="De 1 a 1000 cadastros com esta chave."
+                >
                   <TextInput
                     id="key-maxuses"
                     labelText="Máximo de usos"
@@ -320,7 +363,12 @@ export function AdminPage() {
                     onChange={(e) => setKeyMaxUses(e.target.value)}
                   />
                 </HpsmField>
-                <HpsmField label="Validade (dias)" htmlFor="key-days">
+                <HpsmField
+                  label="Validade (dias)"
+                  htmlFor="key-days"
+                  invalid={keyCheck.isInvalid('key-days')}
+                  help="Em branco = sem prazo; de 1 a 3650 dias."
+                >
                   <TextInput
                     id="key-days"
                     labelText="Validade (dias)"
