@@ -25,6 +25,8 @@ interface Props {
   canTriage: boolean;
   /** Chamado apos publicar um relatorio (o pai recarrega a amostra). */
   onCreated: () => void;
+  /** IOCs encontrados pela analise estatica (botao "Inserir IOCs sugeridos"). */
+  suggestedIocs?: string[];
 }
 
 /**
@@ -32,7 +34,13 @@ interface Props {
  * o formulario de novo relatorio. A captura de tela da VM fica na janela do
  * console (toolbar de controle da VM).
  */
-export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Props) {
+export function EntryReportsTab({
+  entryId,
+  reports,
+  canTriage,
+  onCreated,
+  suggestedIocs = [],
+}: Props) {
   const [summary, setSummary] = useState('');
   const [findings, setFindings] = useState('');
   const [iocs, setIocs] = useState('');
@@ -259,7 +267,29 @@ export function EntryReportsTab({ entryId, reports, canTriage, onCreated }: Prop
               label="IOCs"
               htmlFor="report-iocs"
               top
-              help="Indicadores de comprometimento: domínios, IPs, hashes e e-mails (hxxp e [.] são aceitos). Entram na aba Relacionadas quando o relatório é publicado."
+              help={
+                <>
+                  Indicadores de comprometimento: domínios, IPs, hashes e e-mails (hxxp e [.] são
+                  aceitos). Entram na aba Relacionadas quando o relatório é publicado.
+                  {suggestedIocs.length > 0 && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className="dl-link-button"
+                        onClick={() => {
+                          const present = new Set(iocs.split(/\r?\n/).map((l) => l.trim()));
+                          const extra = suggestedIocs.filter((v) => !present.has(v));
+                          if (extra.length)
+                            setIocs((iocs.trim() ? `${iocs.trim()}\n` : '') + extra.join('\n'));
+                        }}
+                      >
+                        Inserir IOCs sugeridos ({suggestedIocs.length})
+                      </button>
+                    </>
+                  )}
+                </>
+              }
               invalid={reportCheck.isInvalid('report-iocs')}
             >
               <TextArea

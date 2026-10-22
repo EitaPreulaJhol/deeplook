@@ -31,6 +31,39 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Analise estatica do arquivo enviado (Entry.staticInfo). */
+export interface StaticInfo {
+  version: 1;
+  analyzedAt: string;
+  size: number;
+  bytesAnalyzed: number;
+  detectedType: { id: string; label: string; extensions: string[]; executable: boolean } | null;
+  extensionMismatch: { declared: string; expected: string[]; dangerous: boolean } | null;
+  entropy: number;
+  entropyLevel: 'low' | 'normal' | 'high';
+  strings: {
+    total: number;
+    urls: string[];
+    ips: string[];
+    emails: string[];
+    paths: string[];
+    registry: string[];
+    suspicious: string[];
+  };
+  pe: {
+    machine: string;
+    is64: boolean;
+    isDll: boolean;
+    subsystem: string;
+    compiledAt: string | null;
+    sections: { name: string; virtualSize: number; rawSize: number; entropy: number }[];
+    imports: { dll: string; functions: number }[];
+    suspiciousImports: string[];
+    packer: string | null;
+  } | null;
+  iocCandidates: { kind: IocKind; value: string }[];
+}
+
 /** GET /api/dashboard (Painel). */
 export interface DashboardData {
   scope: 'all' | 'mine';
@@ -197,6 +230,8 @@ export interface Entry {
   tags: TagValue[];
   reports?: Report[];
   _count?: { reports: number; duplicates?: number };
+  /** Analise estatica do arquivo (so na ficha; as listas nao trazem). */
+  staticInfo?: StaticInfo | null;
   /** Duplicata de outra amostra (a principal). */
   duplicateOfId?: string | null;
   duplicateOf?: { id: string; title: string } | null;

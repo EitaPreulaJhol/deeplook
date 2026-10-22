@@ -39,6 +39,7 @@ import { PageHeader } from '../components/PageHeader';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { AgeText } from '../components/sla';
+import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
 
@@ -365,6 +366,8 @@ export function EntryDetailPage() {
         />
       )}
 
+      <DisguisedFileWarning info={entry.staticInfo} />
+
       {pinNotice && (
         <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
           {pinNotice.text}
@@ -496,7 +499,15 @@ export function EntryDetailPage() {
                 </HpsmField>
               </HpsmForm>
             </HpsmSection>
-          ) : (
+          ) : null}
+          {entry.type === 'FILE' && (
+            <StaticAnalysisSection
+              entryId={entry.id}
+              info={entry.staticInfo}
+              canTriage={canTriage}
+            />
+          )}
+          {entry.type !== 'FILE' && (
             <HpsmSection title="Link">
               <HpsmForm>
                 <HpsmField label="URL">
@@ -575,6 +586,7 @@ export function EntryDetailPage() {
             reports={reports}
             canTriage={canTriage}
             onCreated={reload}
+            suggestedIocs={entry.staticInfo?.iocCandidates.map((i) => i.value) ?? []}
           />
         </div>
       )}

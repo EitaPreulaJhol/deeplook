@@ -109,6 +109,16 @@ export function EntryPrintPage() {
                     {entry.originalFilename ?? '—'} ({formatFileSize(entry.fileSize)})
                   </Row>
                   <Row label="Tipo MIME">{entry.mimeType ?? '—'}</Row>
+                  {entry.staticInfo?.detectedType && (
+                    <Row label="Tipo real">
+                      {entry.staticInfo.detectedType.label}
+                      {entry.staticInfo.extensionMismatch?.dangerous &&
+                        ` (executável disfarçado de .${entry.staticInfo.extensionMismatch.declared})`}
+                    </Row>
+                  )}
+                  {entry.staticInfo && (
+                    <Row label="Entropia">{entry.staticInfo.entropy.toFixed(2)} de 8</Row>
+                  )}
                   <Row label="SHA-256">
                     <span className="dl-print__mono">{entry.sha256 ?? '—'}</span>
                   </Row>

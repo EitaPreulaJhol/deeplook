@@ -16,6 +16,7 @@ import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { s3 } from '../lib/s3';
 import { slaConfig, slaCutoff } from '../lib/sla';
+import { analyzeBuffer } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
 
 /**
@@ -349,6 +350,7 @@ export async function entryRoutes(app: FastifyInstance) {
         orderBy: listOrderBy(sort, dir),
         skip: offset,
         take: limit,
+        omit: { staticInfo: true },
         include: {
           owner: { select: { id: true, displayName: true, email: true } },
           assignee: { select: { id: true, displayName: true } },
@@ -459,6 +461,38 @@ export async function entryRoutes(app: FastifyInstance) {
     return reply.code(201).send({ event });
   });
 
+  // Analise estatica sob demanda (amostras enviadas antes do recurso): baixa o
+  // objeto do MinIO e analisa (so leitura). Analistas.
+  app.post('/api/entries/:id/static-analysis', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas reanalisam amostras.' });
+    }
+    const { id } = req.params as { id: string };
+    const entry = await prisma.entry.findUnique({ where: { id } });
+    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (entry.type !== 'FILE' || !entry.storageKey) {
+      return reply.code(400).send({ error: 'So arquivos tem analise estatica.' });
+    }
+    let buffer: Buffer;
+    try {
+      const obj = await s3.send(
+        new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }),
+      );
+      buffer = Buffer.from(await obj.Body!.transformToByteArray());
+    } catch (err) {
+      req.log.error({ err }, 'Falha ao ler a amostra no MinIO');
+      return reply.code(502).send({ error: 'Nao foi possivel ler o arquivo no armazenamento.' });
+    }
+    const staticInfo = analyzeBuffer(buffer, entry.originalFilename);
+    await prisma.entry.update({
+      where: { id },
+      data: { staticInfo: staticInfo as unknown as Prisma.InputJsonValue },
+    });
+    return reply.send({ staticInfo });
+  });
+
   // Historico (auditoria) da amostra: quem fez o que e quando.
   app.get('/api/entries/:id/events', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -512,6 +546,13 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const sha256 = sha256Hex(fileBuffer);
     const storageKey = `samples/${randomUUID()}`;
+    // Analise estatica (so leitura, com limites); falha nao impede o envio.
+    let staticInfo: ReturnType<typeof analyzeBuffer> | undefined;
+    try {
+      staticInfo = analyzeBuffer(fileBuffer, filename);
+    } catch (err) {
+      req.log.warn({ err }, 'Falha na analise estatica');
+    }
 
     await s3.send(
       new PutObjectCommand({
@@ -537,6 +578,7 @@ export async function entryRoutes(app: FastifyInstance) {
         fileSize: fileBuffer.length,
         mimeType: mimetype,
         sha256,
+        staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
         tags: { connect: tags },
       },
       include: {

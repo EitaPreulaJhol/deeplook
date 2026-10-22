@@ -133,6 +133,9 @@ model Entry {
   fileSize         Int?
   mimeType         String?
   sha256           String?
+  /// Analise estatica do arquivo no envio (src/lib/static-analysis.ts): tipo real,
+  /// entropia, strings e cabecalho PE. So leitura de bytes; null em URLs.
+  staticInfo       Json?
 
   url       String?
   urlDomain String?

@@ -426,6 +426,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
 | GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; devolve `sla: { warnHours, lateHours }` |
 | GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
+| POST | `/api/entries/:id/static-analysis` | reanalisa o arquivo (analistas); a análise do envio vem em `entry.staticInfo` |
 | POST | `/api/entries/:id/duplicate` | `{ of }` marca como duplicata da principal (analistas); conclui com o veredito dela |
 | DELETE | `/api/entries/:id/duplicate` | desfaz e restaura status/veredito anteriores |
 | GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas) |
@@ -510,6 +511,7 @@ banco nem da API rodando.
 | `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
+| `static-analysis.mjs` | análise estática: aviso de executável disfarçado, tipo real, entropia, PE (empacotador, funções suspeitas, seções, imports), strings por categoria, IOCs sugeridos (ficha e "Inserir" sem duplicar), "Analisar agora", ficha impressa |
 | `dashboard.mjs` | painel: indicadores e links, fuso enviado, gráfico (legenda, colunas, dica sem cobrir colunas, tabela), vereditos, carga e link por analista, etiqueta do período na lista, período na URL, escopo do usuário, preferência de página inicial |
 | `admin-status.mjs` | status do sistema: aba pelo navegador, rótulos e cores por situação, resumo/tempo/detalhes, linha com falha destacada, aviso geral e Atualizar |
 | `duplicates.mjs` | duplicatas: caixa com sugestões e foco, ID inválido (erro e foco), Esc, marcar (resumo, histórico, marca na grade, seção na principal), desfazer com confirmação, oculto para usuário comum |

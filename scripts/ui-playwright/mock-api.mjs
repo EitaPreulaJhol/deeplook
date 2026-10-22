@@ -131,6 +131,8 @@ export function createState({ loggedIn = false } = {}) {
     lastCommentBody: null,
     /** Modelos de relatorio (aba Modelos da Administracao / Novo relatorio). */
     templates: [],
+    /** Resultado de POST /api/entries/:id/static-analysis (reanalise). */
+    staticResult: null,
     /** Resposta de GET /api/dashboard e a ultima query recebida. */
     dashboard: null,
     lastDashboardQuery: null,
@@ -458,6 +460,14 @@ export async function setupMock(context, state) {
       }
       const rel = p.match(/^\/api\/entries\/([\w-]+)\/related$/);
       if (rel) return json(route, 200, state.related[rel[1]] ?? { items: [], total: 0, limit: 50 });
+      // Analise estatica sob demanda.
+      const sa = p.match(/^\/api\/entries\/([\w-]+)\/static-analysis$/);
+      if (sa && req.method() === 'POST') {
+        const e = entries.find((x) => x.id === sa[1]);
+        e.staticInfo = state.staticResult;
+        return json(route, 200, { staticInfo: e.staticInfo });
+      }
+
       // Duplicatas: marcar conclui com o veredito da principal; desfazer restaura.
       const dupm = p.match(/^\/api\/entries\/([\w-]+)\/duplicate$/);
       if (dupm) {

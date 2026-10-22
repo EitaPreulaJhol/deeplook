@@ -607,7 +607,7 @@ prazo, sandbox), mantendo o visual do HP Service Manager 9.
 |---|---|---|---|---|---|
 | 31 | Busca por IOC e ficha do indicador | registro de Configuration Item | 🔴 | P–M | ✅ |
 | 32 | Exportação de IOCs (CSV / STIX / MISP) | Export | 🔴 | P–M | ✅ |
-| 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ⬜ |
+| 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ✅ |
 | 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ✅ |
 | 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
 | 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ✅ |
@@ -708,6 +708,31 @@ precisam de uma decisão de segurança.
   limite de tamanho), coluna `Entry.staticInfo Json`, seção na aba Detalhes.
 - **Cuidados:** nunca executar o arquivo; ler com limite de bytes e tempo; strings que
   parecem IOC podem sugerir (não gravar) IOCs no relatório.
+- ✅ **Implementado:** `lib/static-analysis.ts`, só leitura de bytes (sem executar nem
+  descompactar), gravada em `Entry.staticInfo` (JSONB, migração
+  `20261102000000_entry_static_info`) no upload. Uma falha na análise não impede o
+  envio.
+  - **Tipo real** por assinatura: PE, ELF, Mach-O, PDF, ZIP (com DOCX/XLSX/PPTX, JAR e
+    APK pelos nomes internos), OLE, 7z, RAR, GZIP, CAB, CHM, LNK, ISO, imagens, RTF,
+    script e HTML. Extensão divergente gera alerta; executável com nome de outro tipo
+    é marcado como **disfarçado** e mostra um aviso no topo da ficha.
+  - **Entropia** (0 a 8) dos primeiros 16 MB, com nível baixo, normal ou alto (≥ 7,2:
+    provável compactação ou criptografia).
+  - **Strings** ASCII e UTF-16LE (nos dois alinhamentos), categorizadas em palavras
+    suspeitas, URLs, IPs públicos, e-mails, caminhos e chaves de registro; até 20 de
+    cada.
+  - **PE:** arquitetura, EXE/DLL, subsistema, data de compilação, seções com entropia,
+    empacotador pelo nome das seções (UPX, ASPack, Themida, VMProtect...), DLLs
+    importadas e funções da lista de atenção (`VirtualAllocEx`,
+    `WriteProcessMemory`...). Toda leitura do cabeçalho checa os limites do buffer:
+    300 arquivos MZ aleatórios no teste, nenhum erro.
+  - **IOCs sugeridos** das strings: links para a ficha do indicador e o botão
+    **Inserir IOCs sugeridos** no Novo relatório. Não entram no índice até constarem
+    de um relatório publicado.
+  - **Amostras antigas:** `POST /api/entries/:id/static-analysis` (analistas) relê o
+    arquivo do MinIO; na ficha, "Analisar agora".
+  - **Listas e exportação** não carregam o JSON (`omit`). A ficha impressa ganhou
+    "Tipo real" e "Entropia".
 
 ### 34. Marcar como duplicata
 - **Problema:** reenvios do mesmo golpe ocupam as filas e recebem triagem repetida.
