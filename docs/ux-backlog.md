@@ -292,7 +292,7 @@ HP Service Manager 9 (indicados em cada item).
 | 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ✅ |
 | 20 | Atualização em massa | Mass Update | 🟡 | M | ✅ |
 | 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ✅ |
-| 22 | Registros relacionados | aba Related Records | 🟡 | M | ⬜ |
+| 22 | Registros relacionados | aba Related Records | 🟡 | M | 🟡 |
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ⬜ |
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ⬜ |
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ✅ |
@@ -383,6 +383,18 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   índice em `Entry.urlDomain` (migração).
 - **Cuidados:** limitar o resultado (ex.: 50) e ordenar por relevância; IOCs exigem
   extrair e normalizar tokens dos relatórios (fase 2).
+- ✅ **Fase 1 implementada:** `GET /api/entries/:id/related` (`routes/related.ts`) junta
+  amostras com o **mesmo SHA-256**, o **mesmo host**, o **mesmo domínio-base**
+  (`lib/domains.ts`: `login.banco.com.br` ↔ `www.banco.com.br`, entendendo `com.br`,
+  `co.uk`...) e **tags em comum**. Pesos: SHA-256 100, host 60, domínio-base 40, 15 por
+  tag; empate → mais recente. Devolve as 50 mais relevantes, com `total`. Índice em
+  `Entry.urlDomain` (migração `20261026000000_entry_url_domain_index`).
+  - Aba **Relacionadas (n)** na ficha (`components/EntryRelatedTab.tsx`), com a coluna
+    **Motivo** (vários motivos na mesma linha) e rodapé "Exibindo as 50 mais
+    relevantes de N".
+  - Clique ou Enter abrem a amostra, e Anterior/Próxima passam a percorrer as
+    relacionadas.
+  - ⬜ **Fase 2 pendente:** IOCs coincidentes nos relatórios.
 
 ### 23. Atualizações / comentários na amostra
 - **Problema:** notas do analista ("pedi mais informações ao remetente") não têm lugar;

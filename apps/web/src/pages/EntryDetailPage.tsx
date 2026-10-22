@@ -8,6 +8,7 @@ import type { Entry, SandboxSession } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
+import { EntryRelatedTab, useRelatedEntries } from '../components/EntryRelatedTab';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { useFavorites } from '../components/favorites';
 import { formatFileSize } from '../components/HpsmFileDrop';
@@ -51,6 +52,9 @@ export function EntryDetailPage() {
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
     refetchOnWindowFocus: true,
   });
+
+  // Amostras relacionadas: o total aparece no rotulo da aba.
+  const relatedQuery = useRelatedEntries(id);
 
   // Analistas que podem ser responsaveis (select da triagem).
   const analystsQuery = useQuery({
@@ -168,6 +172,10 @@ export function EntryDetailPage() {
         ]
       : []),
     { id: 'relatorios', label: `Relatórios (${reports.length})` },
+    {
+      id: 'relacionadas',
+      label: relatedQuery.data ? `Relacionadas (${relatedQuery.data.total})` : 'Relacionadas',
+    },
     { id: 'historico', label: 'Histórico' },
   ];
   const tabParam = searchParams.get('tab');
@@ -408,6 +416,12 @@ export function EntryDetailPage() {
             canTriage={canTriage}
             onCreated={reload}
           />
+        </div>
+      )}
+
+      {activeTab === 'relacionadas' && (
+        <div className="hpsm-tabpanel">
+          <EntryRelatedTab entryId={id} />
         </div>
       )}
 

@@ -138,6 +138,8 @@ model Entry {
   @@index([assigneeId])
   @@index([sha256])
   @@index([createdAt])
+  /// Aba "Relacionadas": amostras do mesmo dominio.
+  @@index([urlDomain])
 }
 
 model Tag {

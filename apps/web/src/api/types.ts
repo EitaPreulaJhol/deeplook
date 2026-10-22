@@ -31,6 +31,20 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Por que uma amostra aparece na aba "Relacionadas". */
+export type RelatedReason =
+  | { kind: 'SAME_SHA256' }
+  | { kind: 'SAME_HOST'; detail: string }
+  | { kind: 'SAME_BASE_DOMAIN'; detail: string }
+  | { kind: 'SHARED_TAGS'; detail: string[] };
+
+/** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
+export interface RelatedEntry {
+  entry: Entry;
+  reasons: RelatedReason[];
+  score: number;
+}
+
 /** Item da pasta "Favoritos" do navegador (GET /api/me/favorites). */
 export interface Favorite {
   id: string;

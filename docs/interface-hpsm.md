@@ -363,6 +363,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
+| GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS` |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
 | POST | `/api/me/favorites` | `{ kind: 'VIEW', label, url }` ou `{ kind: 'ENTRY', entryId, label? }`; até 30; repetido → 409 |
 | PATCH | `/api/me/favorites/:id` | `{ label }` (1–60 caracteres) |
@@ -428,6 +429,7 @@ banco nem da API rodando.
 | `queues-nav.mjs` | filas com contadores (e atualização após a triagem) e Anterior / Próxima na mesma aba de documento |
 | `assign-history.mjs` | Assumir análise, troca de responsável, fila "Atribuídas a mim", coluna/filtro Responsável e aba Histórico (inclui falha do sandbox) |
 | `session-idle.mjs` | sessão por inatividade (relógio falso): renovação 1x/min, aviso aos 28 min com contagem, Continuar/Sair, renovação por outra janela e expiração com volta ao login |
+| `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
 | `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |

@@ -13,6 +13,7 @@ import { authRoutes } from './routes/auth';
 import { entryRoutes } from './routes/entries';
 import { favoritesRoutes } from './routes/favorites';
 import { meRoutes } from './routes/me';
+import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { sandboxRoutes } from './routes/sandbox';
 
@@ -47,6 +48,7 @@ async function main() {
   await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(favoritesRoutes);
+  await app.register(relatedRoutes);
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(adminRoutes);

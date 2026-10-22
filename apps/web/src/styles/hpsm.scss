@@ -1895,6 +1895,22 @@ h6 {
   white-space: nowrap;
 }
 
+/* --- 12f. Aba Relacionadas ------------------------------------------- */
+.dl-related-hint {
+  margin: 0 0 0.4rem;
+  color: var(--dl-text-muted);
+  font-size: var(--dl-font-size);
+  line-height: 1.4;
+}
+
+/* Motivos: um por linha, sem marcador (como os textos curtos da grade). */
+.dl-related-reasons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+
 /* --- 13. Status em texto (no lugar das "pilulas" do Carbon) ------------- */
 .hpsm-status {
   display: inline-flex;

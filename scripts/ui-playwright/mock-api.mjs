@@ -36,7 +36,7 @@ const users = [
   { id: 'u2', email: 'bruno@deeplook.test', displayName: 'Bruno Lima', role: 'ANALYST', status: 'ACTIVE', createdAt: now, _count: { entries: 5 } },
   { id: 'u3', email: 'carla@deeplook.test', displayName: 'Carla Dias', role: 'USER', status: 'SUSPENDED', createdAt: now, _count: { entries: 0 } },
 ];
-const entries = [
+export const entries = [
   { id: 'e1', ownerId: 'u2', owner, type: 'FILE', title: 'instalador_suspeito.exe', description: 'Recebido por e-mail de um remetente desconhecido.\nPede permissão de administrador.', status: 'IN_REVIEW', verdict: 'SUSPICIOUS', originalFilename: 'setup_v2.exe', fileSize: 2483712, mimeType: 'application/x-msdownload', sha256: DUPLICATE_SHA, storageKey: 'k1', createdAt: now, updatedAt: now, tags: [{ id: 't1', name: 'malware' }, { id: 't2', name: 'email' }], _count: { reports: 1 } },
   { id: 'e2', ownerId: 'u2', owner, type: 'URL', title: 'Página de login falsa do banco', status: 'COMPLETED', verdict: 'MALICIOUS', url: 'https://banco-seguro-login.example/acesso', createdAt: '2026-10-19T09:30:00.000Z', updatedAt: now, tags: [{ id: 't3', name: 'phishing' }], _count: { reports: 2 } },
   { id: 'e3', ownerId: 'u1', owner: { id: 'u1', displayName: 'Ana Souza', email: 'ana@deeplook.test' }, type: 'FILE', title: 'relatorio_trimestral.docm', status: 'PENDING', verdict: 'UNKNOWN', originalFilename: 'relatorio_trimestral.docm', fileSize: 88211, mimeType: 'application/vnd.ms-word', sha256: 'aa11', storageKey: 'k3', createdAt: '2026-10-18T16:10:00.000Z', updatedAt: now, tags: [], _count: { reports: 0 } },
@@ -105,6 +105,8 @@ export function createState({ loggedIn = false } = {}) {
     now: async () => Date.now(),
     /** Pasta Favoritos do navegador (visoes salvas e amostras fixadas), em ordem. */
     favorites: [],
+    /** Resposta de GET /api/entries/:id/related por amostra (padrao: nenhuma). */
+    related: {},
   };
 }
 
@@ -300,6 +302,8 @@ export async function setupMock(context, state) {
         }
         return json(route, 200, { entry: e });
       }
+      const rel = p.match(/^\/api\/entries\/([\w-]+)\/related$/);
+      if (rel) return json(route, 200, state.related[rel[1]] ?? { items: [], total: 0, limit: 50 });
       const ev = p.match(/^\/api\/entries\/(\w+)\/events$/);
       if (ev) return json(route, 200, { events: events[ev[1]] ?? [] });
       if (m) {
