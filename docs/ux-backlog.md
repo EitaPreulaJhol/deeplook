@@ -597,3 +597,194 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
   de ajuda). A lista única `SHORTCUT_GROUPS` (`components/shortcutList.tsx`) alimenta a
   caixa e as Dicas da Página Inicial (itens `tip`), que agora terminam com "Pressione
   ? / F1 para ver todos os atalhos.".
+
+## Terceira leva — ideias 31 a 45
+
+Funcionalidades que aproveitam o que o DeepLook já tem (índice de IOCs, histórico,
+prazo, sandbox), mantendo o visual do HP Service Manager 9.
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 31 | Busca por IOC e ficha do indicador | registro de Configuration Item | 🔴 | P–M | ⬜ |
+| 32 | Exportação de IOCs (CSV / STIX / MISP) | Export | 🔴 | P–M | ⬜ |
+| 33 | Análise estática no envio | campos calculados do registro | 🟡 | M–G | ⬜ |
+| 34 | Marcar como duplicata | registro pai/filho | 🟡 | P–M | ⬜ |
+| 35 | Reputação externa (opcional) | integrações | ⚪ | M | ⬜ (decisão) |
+| 36 | Caixa de entrada / notificações | To Do / Inbox | 🔴 | M | ⬜ |
+| 37 | Menções nas atualizações | notificação por atividade | 🟡 | P | ⬜ |
+| 38 | Modelos de relatório | Templates | 🟡 | P | ⬜ |
+| 39 | Revisão de relatório (quatro olhos) | aprovação | ⚪ | M | ⬜ |
+| 40 | Painel do analista | Dashboards | 🟡 | M | ⬜ |
+| 41 | Auditoria administrativa | log de auditoria | 🟡 | P–M | ⬜ |
+| 42 | Status do sistema | System Status | ⚪ | P | ⬜ |
+| 43 | Tokens de API pessoais | Web Services | ⚪ | M | ⬜ (decisão) |
+| 44 | Envio em lote | anexos múltiplos | 🟡 | M | ⬜ |
+| 45 | Retenção de amostras | arquivamento/expurgo | ⚪ | M | ⬜ |
+
+**Ordem sugerida:**
+1. 31 + 32 (o índice de IOCs já existe).
+2. 36 + 37 (fecham o ciclo de atribuição e atualizações).
+3. As pequenas: 38, 34 e 42.
+4. 40 e 33.
+
+**Antes de qualquer código:** 35 (falar com serviços externos) e 43 (acesso por token)
+precisam de uma decisão de segurança.
+
+### 31. Busca por IOC e ficha do indicador
+- **Problema:** "onde mais esse IP apareceu?" exige abrir amostra por amostra.
+- **Proposta:**
+  - O "Ir para:" do masthead reconhece IP, domínio, e-mail ou hash (inclusive
+    desarmados: `hxxp`, `[.]`) e abre a **ficha do indicador** em `/iocs/:tipo/:valor`.
+  - A ficha mostra o tipo e o valor, a primeira e a última aparição, e a grade de
+    amostras ligadas, com o motivo de cada uma: citado num relatório, é o arquivo
+    (SHA-256) ou é o domínio da amostra.
+  - Os indicadores na aba Relacionadas e nos relatórios viram links para a ficha.
+- **Onde mexer:**
+  - API: `GET /api/iocs/lookup?q=` (normaliza com a mesma extração de `lib/iocs.ts`) e
+    `GET /api/iocs/:kind/:value`.
+  - Front: `pages/IocPage.tsx`, `HpsmQuickSearch.tsx`.
+- **Cuidados:** a ficha só lista relatórios publicados; um hash que é o SHA-256 de uma
+  amostra aparece mesmo sem relatório.
+
+### 32. Exportação de IOCs (CSV / STIX / MISP)
+- **Problema:** levar os indicadores para firewall, SIEM ou MISP é copiar e colar.
+- **Proposta:**
+  - Item "Exportar IOCs ▸ CSV / STIX 2.1 / MISP" no menu "Mais ▾" da amostra (IOCs
+    dos relatórios publicados + o próprio arquivo ou domínio).
+  - O mesmo para o resultado da ficha do indicador.
+- **Onde mexer:** `GET /api/entries/:id/iocs.(csv|stix|misp)`, gerado na API;
+  `lib/ioc-export.ts`.
+- **Cuidados:**
+  - STIX 2.1: um `indicator` por IOC, com `pattern` no formato STIX, mais um `bundle`
+    com ids `indicator--<uuid v5>` estáveis.
+  - MISP: evento JSON com `Attribute` (`ip-dst`, `domain`, `email-src`, `md5`, `sha1`,
+    `sha256`).
+  - Só indicadores de relatórios publicados.
+
+### 33. Análise estática no envio
+- **Problema:** informações básicas do arquivo (tipo real, se é executável, entropia)
+  dependem de abrir o sandbox.
+- **Proposta:** ao receber o arquivo, a API calcula:
+  - o tipo real pelos *magic bytes*, com aviso quando a extensão engana
+    (`fatura.pdf` que é PE);
+  - a entropia (indício de empacotamento);
+  - as strings legíveis mais relevantes (URLs, IPs, caminhos);
+  - para PE: arquitetura, data de compilação, seções e DLLs importadas.
+  
+  Tudo aparece na seção "Análise estática" da ficha.
+- **Onde mexer:** `lib/static-analysis.ts` (leitura do objeto no MinIO em stream, com
+  limite de tamanho), coluna `Entry.staticInfo Json`, seção na aba Detalhes.
+- **Cuidados:** nunca executar o arquivo; ler com limite de bytes e tempo; strings que
+  parecem IOC podem sugerir (não gravar) IOCs no relatório.
+
+### 34. Marcar como duplicata
+- **Problema:** reenvios do mesmo golpe ocupam as filas e recebem triagem repetida.
+- **Proposta:**
+  - Ação "Marcar como duplicata de…" (analistas): escolhe a amostra principal, que pode
+    ser sugerida pelas Relacionadas.
+  - A duplicata herda o veredito, vai para Concluída e mostra "Duplicata de #X" no
+    resumo; a principal lista as suas duplicatas.
+  - Desfazer volta ao estado anterior.
+- **Onde mexer:** `Entry.duplicateOfId` + evento `MARKED_DUPLICATE` no histórico; filas
+  e contadores ignoram duplicatas.
+- **Cuidados:** impedir ciclos (A → B → A) e encadeamentos (duplicata de duplicata
+  aponta para a principal).
+
+### 35. Reputação externa (opcional)
+- **Proposta:** consulta VirusTotal, URLhaus ou AbuseIPDB por hash, domínio ou IP (nunca
+  o arquivo), com cache de 24 h; o resultado aparece numa seção "Reputação" da ficha.
+- **Onde mexer:** `lib/reputation/*`, chaves em variáveis de ambiente
+  (`VT_API_KEY`...), desligado por padrão.
+- **Decisão pendente:** o projeto pode enviar indicadores a terceiros? Mesmo só o hash
+  revela que a amostra está sendo analisada.
+
+### 36. Caixa de entrada / notificações
+- **Problema:** atribuições e conclusões só são vistas quando a pessoa abre a lista.
+- **Proposta:**
+  - Sininho no masthead com contador e lista: "X atribuiu a amostra Y a você", "sua
+    amostra Y foi concluída", "Z mencionou você".
+  - Marcar como lida (uma ou todas); clicar abre o registro.
+  - Página "Caixa de entrada" com histórico.
+- **Onde mexer:** modelo `Notification { userId, type, entryId, actorId, readAt }`
+  criado junto com os eventos do histórico; `GET/PATCH /api/me/notifications`; polling
+  leve (60 s, como as filas).
+- **Cuidados:** não notificar a própria ação; e-mail fica para depois (opcional, SMTP).
+
+### 37. Menções nas atualizações
+- **Proposta:** `@` no campo de atualização sugere usuários ativos; a menção vira link
+  e gera notificação (36) para a pessoa mencionada.
+- **Onde mexer:** autocompletar em `EntryHistoryTab.tsx`; menções gravadas como
+  `@[Nome](id)` no texto e exibidas como nome; a API valida os ids.
+- **Cuidados:** só usuários ativos; a menção não dá acesso a nada além do que a pessoa
+  já tem.
+
+### 38. Modelos de relatório
+- **Problema:** relatórios de casos comuns (phishing de credenciais, dropper, doc com
+  macro) são escritos do zero.
+- **Proposta:**
+  - Campo "Modelo" no Novo relatório preenche Resumo, Achados, IOCs e veredito sugerido;
+    pergunta antes de sobrescrever um texto já digitado.
+  - O admin mantém a lista numa aba "Modelos" da Administração.
+- **Onde mexer:** modelo `ReportTemplate`, rotas `/api/report-templates` (leitura para
+  analistas, escrita para admin).
+
+### 39. Revisão de relatório (quatro olhos)
+- **Proposta:**
+  - Opção (por configuração) para o relatório passar por **Em revisão** antes de
+    publicar: outro analista aprova ou devolve com comentário.
+  - Aprovar publica e conclui a amostra, como hoje.
+- **Onde mexer:** `Report.status` (DRAFT, IN_REVIEW, PUBLISHED) no lugar do booleano,
+  com migração; eventos no histórico; fila "Relatórios para revisar".
+- **Cuidados:** o autor não revisa o próprio relatório.
+
+### 40. Painel do analista
+- **Proposta:** página "Painel" no navegador com indicadores no estilo HPSM:
+  - amostras por status;
+  - atrasadas e em alerta;
+  - concluídas na semana;
+  - distribuição de vereditos;
+  - carga por analista.
+  
+  Cada número é um link para a lista já filtrada.
+- **Onde mexer:** `GET /api/dashboard` (agregações), `pages/DashboardPage.tsx`; gráficos
+  simples em SVG, sem biblioteca pesada.
+- **Cuidados:** usuários comuns veem só os próprios números.
+
+### 41. Auditoria administrativa
+- **Proposta:** aba "Auditoria" na Administração, com quem fez o quê e quando:
+  - suspender ou reativar usuário, mudar papel;
+  - gerar ou revogar chave, redefinir senha;
+  - logins com falha repetida.
+  
+  Com filtros e exportação CSV.
+- **Onde mexer:** modelo `AdminEvent`, gravado nas rotas de `admin.ts` e `auth.ts`.
+- **Cuidados:** nunca gravar senhas, nem as temporárias.
+
+### 42. Status do sistema
+- **Proposta:** página do admin com verde, laranja ou vermelho para:
+  - banco;
+  - MinIO (alcançável, espaço);
+  - Proxmox (alcançável, VMs do DeepLook em execução);
+  - versão e tempo no ar da API.
+- **Onde mexer:** `GET /api/admin/status` com tempo limite por verificação.
+
+### 43. Tokens de API pessoais
+- **Proposta:** na Minha Conta, gerar token com nome e validade para enviar e consultar
+  amostras por script.
+- **Escopo:** só envio e leitura; o token aparece uma única vez e é revogável.
+- **Onde mexer:** modelo `ApiToken` (hash do token), autenticação por
+  `Authorization: Bearer`.
+- **Decisão pendente:** abrir acesso fora do navegador.
+
+### 44. Envio em lote
+- **Proposta:** vários arquivos de uma vez no Enviar Amostra (uma amostra por arquivo,
+  com as mesmas tags), ou um `.zip` com senha `infected` desmembrado em amostras.
+- **Cuidados:** limite de arquivos e tamanho total; o zip é aberto só para listar e
+  extrair, nunca executar.
+
+### 45. Retenção de amostras
+- **Proposta:** expurgo automático do **arquivo** após N dias (`RETENTION_DAYS`),
+  mantendo ficha, relatórios, IOCs e hash; "lixeira" no admin para excluir ou
+  restaurar amostras inteiras.
+- **Cuidados:** aviso na ficha ("arquivo expurgado em…"); nunca expurgar amostra com
+  sandbox ativo.
