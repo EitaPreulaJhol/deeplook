@@ -292,7 +292,7 @@ HP Service Manager 9 (indicados em cada item).
 | 19 | Lista com painel de detalhe | lista e registro na mesma tela | 🟡 | M | ✅ |
 | 20 | Atualização em massa | Mass Update | 🟡 | M | ✅ |
 | 21 | Visões salvas e Favoritos | Favoritos e Painéis | 🟡 | M–G | ✅ |
-| 22 | Registros relacionados | aba Related Records | 🟡 | M | 🟡 |
+| 22 | Registros relacionados | aba Related Records | 🟡 | M | ✅ |
 | 23 | Atualizações / comentários na amostra | Activities → Update | 🟡 | M | ✅ |
 | 24 | Idade na fila e alerta de prazo | relógios de SLA | ⚪ | P–M | ✅ |
 | 25 | Aviso de sessão expirando | aviso de timeout | ⚪ | P | ✅ |
@@ -394,7 +394,29 @@ os pequenos 27, 26, 25 e 30. As ideias 21 e 23 envolvem banco; 22 depende de ín
     relevantes de N".
   - Clique ou Enter abrem a amostra, e Anterior/Próxima passam a percorrer as
     relacionadas.
-  - ⬜ **Fase 2 pendente:** IOCs coincidentes nos relatórios.
+- ✅ **Fase 2 implementada (IOCs em comum):** tabela `ReportIoc` (migração
+  `20261029000000_report_iocs`) com os indicadores do campo **IOCs** dos relatórios
+  **publicados**.
+  - **Indexação:** `lib/iocs.ts` refaz o índice a cada criação, edição, publicação ou
+    despublicação. Apagar o relatório limpa os IOCs (cascade). Na subida, a API indexa
+    os relatórios publicados que ainda não têm IOCs (bases antigas).
+  - **Extração:**
+    - desarma `hxxp`, `[.]`, `(.)`, `[dot]`, `[:]` e `[@]`;
+    - reconhece domínios (inclusive o host de URLs), IPv4 públicos (privados, loopback
+      e multicast ficam de fora), e-mails e hashes MD5/SHA-1/SHA-256;
+    - grava tudo em minúsculas;
+    - ignora "domínios" que são nomes de arquivo (`updater.exe`, `kernel32.dll`) e
+      alguns domínios onipresentes (google.com, microsoft.com...);
+    - guarda no máximo 200 por relatório.
+  - **Motivo `SHARED_IOCS`** na aba Relacionadas, em três casos:
+    - outro relatório publicado cita o mesmo indicador;
+    - outro relatório cita o arquivo ou o domínio desta amostra;
+    - um IOC dos relatórios desta é o arquivo ou o domínio de outra amostra.
+
+    Pesa 50 por indicador, até 3. Na grade aparece "IOCs em comum: a, b, c (+N)",
+    com hashes encurtados e a lista completa na dica.
+  - **Fora do escopo:** o campo Achados não é lido. A extração usa só o campo IOCs,
+    para evitar falsos positivos.
 
 ### 23. Atualizações / comentários na amostra
 - **Problema:** notas do analista ("pedi mais informações ao remetente") não têm lugar;

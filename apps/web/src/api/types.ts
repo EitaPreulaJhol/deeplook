@@ -36,7 +36,8 @@ export type RelatedReason =
   | { kind: 'SAME_SHA256' }
   | { kind: 'SAME_HOST'; detail: string }
   | { kind: 'SAME_BASE_DOMAIN'; detail: string }
-  | { kind: 'SHARED_TAGS'; detail: string[] };
+  | { kind: 'SHARED_TAGS'; detail: string[] }
+  | { kind: 'SHARED_IOCS'; detail: string[] };
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {

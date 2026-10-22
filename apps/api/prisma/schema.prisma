@@ -136,6 +136,7 @@ model Entry {
   sandboxSessions SandboxSession[]
   events          EntryEvent[]
   favorites       Favorite[]
+  reportIocs      ReportIoc[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -166,6 +167,9 @@ model Report {
   published Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Indicadores extraidos do campo `iocs` (so de relatorios publicados).
+  extractedIocs ReportIoc[]
 
   @@index([entryId])
 }
@@ -258,4 +262,30 @@ model Favorite {
 
   @@unique([userId, entryId])
   @@index([userId, position])
+}
+
+enum IocKind {
+  IPV4
+  DOMAIN
+  EMAIL
+  MD5
+  SHA1
+  SHA256
+}
+
+/// IOCs normalizados dos relatorios publicados (src/lib/iocs.ts): base do motivo
+/// "IOCs em comum" na aba Relacionadas. Reindexado a cada criacao/edicao do relatorio.
+model ReportIoc {
+  id       String  @id @default(cuid())
+  reportId String
+  report   Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  /// Copia do entryId do relatorio (agrupa por amostra sem join).
+  entryId  String
+  entry    Entry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  kind     IocKind
+  value    String
+
+  @@unique([reportId, kind, value])
+  @@index([kind, value])
+  @@index([entryId])
 }

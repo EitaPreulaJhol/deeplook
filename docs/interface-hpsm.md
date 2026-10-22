@@ -388,7 +388,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; devolve `sla: { warnHours, lateHours }` |
 | GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
-| GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS` |
+| GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`) |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
 | POST | `/api/me/favorites` | `{ kind: 'VIEW', label, url }` ou `{ kind: 'ENTRY', entryId, label? }`; até 30; repetido → 409 |
 | PATCH | `/api/me/favorites/:id` | `{ label }` (1–60 caracteres) |
@@ -457,7 +457,7 @@ banco nem da API rodando.
 | `more-print.mjs` | menu "Mais ▾" (mouse, teclado, Esc devolve o foco), copiar link, nova janela, exportar Markdown (e desabilitado sem relatório) e a ficha impressa (fora da casca, impressão automática, "Impresso por / em", seções, sem dados do sandbox, toolbar oculta no papel, PDF A4) |
 | `sla.mjs` | prazo: coluna Idade (formato, laranja/vermelho, "—", dica, leitor de tela), ordenar por idade, filtro Prazo, fila Atrasadas (N), "No status há" na ficha e idade zerada ao mudar o status |
 | `comments.mjs` | atualizações na aba Histórico: validação, Ctrl+S, texto puro com quebras de linha, fundo de nota, "Somente atualizações", erro da API, aviso de não salvo; destaque do relatório limpo após salvar |
-| `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
+| `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural, IOCs em comum com hash encurtado, "+N" e lista na dica), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
 | `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |

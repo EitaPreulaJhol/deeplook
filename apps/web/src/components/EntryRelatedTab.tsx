@@ -33,6 +33,14 @@ function describe(reason: RelatedReason): string {
       return `Mesmo domínio-base: ${reason.detail}`;
     case 'SHARED_TAGS':
       return `${reason.detail.length > 1 ? 'Tags' : 'Tag'} em comum: ${reason.detail.join(', ')}`;
+    case 'SHARED_IOCS': {
+      // Hashes longos e listas grandes: mostra 3 e o total (a lista toda fica na dica).
+      const shown = reason.detail
+        .slice(0, 3)
+        .map((v) => (v.length > 24 ? `${v.slice(0, 12)}…` : v));
+      const more = reason.detail.length > 3 ? ` (+${reason.detail.length - 3})` : '';
+      return `${reason.detail.length > 1 ? 'IOCs' : 'IOC'} em comum: ${shown.join(', ')}${more}`;
+    }
   }
 }
 
@@ -70,7 +78,7 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
   if (items.length === 0) {
     return (
       <HpsmMessage kind="info">
-        Nenhuma amostra relacionada (mesmo arquivo, domínio ou tags).
+        Nenhuma amostra relacionada (mesmo arquivo, domínio, tags ou IOCs).
       </HpsmMessage>
     );
   }
@@ -103,8 +111,8 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
   return (
     <>
       <p className="dl-related-hint">
-        Amostras ligadas a esta pelo mesmo arquivo (SHA-256), pelo mesmo domínio ou por tags em
-        comum, das mais relevantes para as menos.
+        Amostras ligadas a esta pelo mesmo arquivo (SHA-256), pelo mesmo domínio, por tags em comum
+        ou por IOCs em comum nos relatórios publicados, das mais relevantes para as menos.
       </p>
       <TableContainer>
         <Table size="xs" aria-label="Amostras relacionadas (setas navegam, Enter abre)">
@@ -134,7 +142,12 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
                 <TableCell>
                   <ul className="dl-related-reasons">
                     {reasons.map((reason) => (
-                      <li key={reason.kind}>{describe(reason)}</li>
+                      <li
+                        key={reason.kind}
+                        title={reason.kind === 'SHARED_IOCS' ? reason.detail.join('\n') : undefined}
+                      >
+                        {describe(reason)}
+                      </li>
                     ))}
                   </ul>
                 </TableCell>

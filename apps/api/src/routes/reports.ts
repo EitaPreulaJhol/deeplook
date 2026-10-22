@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { syncReportIocs } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
 
 const ReportSchema = z.object({
@@ -71,6 +72,8 @@ export async function reportRoutes(app: FastifyInstance) {
         await tx.entry.update({ where: { id }, data: { verdict, status: 'COMPLETED' } });
         await recordTriageChanges(tx, id, user.id, entry, { verdict, status: 'COMPLETED' });
       }
+      // IOCs do relatorio publicado entram na aba Relacionadas.
+      await syncReportIocs(tx, created.id);
       return created;
     });
 
@@ -131,6 +134,7 @@ export async function reportRoutes(app: FastifyInstance) {
           data: { verdict: r.verdict, status: 'COMPLETED' },
         });
       }
+      await syncReportIocs(tx, r.id);
       return r;
     });
 

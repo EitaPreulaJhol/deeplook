@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
 import { env, sandboxEnabled } from './env';
+import { backfillReportIocs } from './lib/iocs';
 import { prisma } from './lib/prisma';
 import { ensureBucket } from './lib/s3';
 import { reconcileOrphans, recoverStuckSessions, startSandboxReaper } from './lib/sandbox';
@@ -67,6 +68,14 @@ async function main() {
     }
     return reply.code(500).send({ error: 'Erro interno do servidor.' });
   });
+
+  // IOCs dos relatorios publicados ainda nao indexados (aba Relacionadas).
+  try {
+    const indexed = await backfillReportIocs();
+    if (indexed) app.log.info({ indexed }, 'IOCs de relatorios indexados');
+  } catch (err) {
+    app.log.error({ err }, 'Falha ao indexar IOCs dos relatorios');
+  }
 
   // Garante o bucket do MinIO (com tentativas, pois pode demorar a subir).
   try {
