@@ -98,8 +98,7 @@ As levas seguintes também foram concluídas e estão mais abaixo:
   "Alterações não salvas — [Descartar] [Continuar editando]". Vale para trocar de
   tela, trocar de aba interna (`?tab=`), Voltar e fechar a aba de documento — a aba
   ativa só sai da faixa quando a navegação acontece. Aplicado em Enviar Amostra, Novo
-  relatório, Alterar senha e Preferências. **Limite conhecido:** "Sair" (logout)
-  ainda não pergunta.
+  relatório, Alterar senha e Preferências. O "Sair" também pergunta desde o item 47.
 
 ### 5. Filtros, ordenação e página na URL
 - **Problema:** ao trocar de aba de documento a página é recriada e perde busca,
@@ -1147,7 +1146,7 @@ obrigatória de senha e "Sair" sem aviso), antivírus em contêiner próprio e 2
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
 | 46 | Botão "Salvar" na alteração de senha | botões do formulário | ⚪ | P | ✅ |
-| 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ⬜ |
+| 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ✅ |
 | 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ⬜ |
 | 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ⬜ |
 | 50 | Autenticação em dois fatores (2FA) opcional | login com segundo fator | 🔴 | M–G | ⬜ |
@@ -1182,6 +1181,17 @@ no login e prepara o terreno para a 50.
   o `handleLogout` da barra superior consulta esse registro antes de chamar a API.
 - **Cuidados:** o mesmo vale para o encerramento por inatividade? Não: a sessão expirada
   já expirou; o aviso de inatividade (item 24) continua como está.
+- ✅ **Implementado:**
+  - **Registro central:** `useUnsavedChanges` anota cada formulário com alteração
+    pendente (`hasUnsavedChanges()`). Sai do registro quando a alteração é desfeita ou
+    quando `allowNavigation()` é chamado depois de salvar.
+  - **Sair** (`HpsmTopBar`): com algo pendente, pergunta "Há alterações não salvas
+    nesta tela. Deseja sair mesmo assim e descartá-las?" [Sair] [Continuar editando].
+    Continuar mantém a tela e o texto; Sair encerra a sessão.
+  - **Sem aviso duplo:** a navegação para o login acontece dentro de
+    `discardUnsavedChanges()`, que libera o bloqueio de troca de tela.
+  - Sem alteração, ou com a alteração desfeita, o Sair sai direto como antes.
+  - Teste em `logout-unsaved.mjs`.
 
 ### 48. Troca obrigatória de senha após redefinição
 - **Problema:** quando o admin redefine a senha (item 2), a pessoa recebe uma senha

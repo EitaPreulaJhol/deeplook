@@ -335,6 +335,11 @@ Usa o `useBlocker` do React Router, que só funciona com *data router* — por i
 `main.tsx` usa `createBrowserRouter` com uma rota `*` que renderiza o `App`. Só um
 formulário com o hook pode estar montado por vez (limite do `useBlocker`).
 
+O **Sair** do menu do usuário também respeita o aviso: o hook registra os formulários
+com alteração pendente (`hasUnsavedChanges()`), e a barra superior pergunta antes de
+encerrar a sessão. Confirmado o descarte, `discardUnsavedChanges(fn)` libera a navegação
+para o login sem um segundo aviso.
+
 ### Estado das listas na URL — `components/useEntryListState.ts`
 
 Busca, filtros, ordenação e página das listas ficam na URL
@@ -522,6 +527,7 @@ banco nem da API rodando.
 |---|---|
 | `screens.mjs` | screenshot de todas as telas em `out/` e medida do cabeçalho da lista |
 | `filters.mjs` | troca filtros, busca e Limpar; confere que os filtros sobrevivem a recarregar a página; falha se a tela ficar branca ou a contagem errar |
+| `logout-unsaved.mjs` | Sair com alterações não salvas: pergunta, Continuar editando mantém tela e texto, Sair sem segundo aviso, sem alteração (ou desfeita) sai direto |
 | `account.mjs` | login → Página Inicial → menu do usuário → preferências aplicadas → troca de senha (erros e sucesso, botão Salvar do rodapé alinhado aos campos) → novo login |
 | `actions.mjs` | diálogo de confirmação (Esc/Não cancelam), redefinir senha, "Registro atualizado." na triagem e aviso de amostra duplicada |
 | `unsaved.mjs` | aviso de alterações não salvas: navegador, fechar aba de documento (cancelar mantém a aba), aba interna do relatório e preferências |

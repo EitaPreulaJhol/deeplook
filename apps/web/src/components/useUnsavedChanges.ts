@@ -1,8 +1,32 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 
 import { useConfirm } from './HpsmConfirm';
 import { useWorkspace } from './workspace';
+
+/** Formularios com alteracoes pendentes agora (o "Sair" consulta antes de encerrar). */
+const dirtyForms = new Set<symbol>();
+/** Descarte confirmado (ex.: Sair): a proxima navegacao nao pergunta de novo. */
+let discarding = false;
+
+/** Ha algum formulario com alteracoes nao salvas na tela? */
+export function hasUnsavedChanges(): boolean {
+  return dirtyForms.size > 0;
+}
+
+/**
+ * Libera as navegacoes ate `done` terminar, depois de a pessoa confirmar o
+ * descarte por outro caminho (o "Sair" do menu do usuario).
+ */
+export async function discardUnsavedChanges(done: () => Promise<void>): Promise<void> {
+  discarding = true;
+  try {
+    await done();
+  } finally {
+    dirtyForms.clear();
+    discarding = false;
+  }
+}
 
 /**
  * Aviso de alteracoes nao salvas (padrao HPSM). Enquanto `dirty` for true:
@@ -16,11 +40,24 @@ export function useUnsavedChanges(dirty: boolean) {
   const confirm = useConfirm();
   const { cancelClose } = useWorkspace();
   const bypass = useRef(false);
+  const [released, setReleased] = useState(false);
+  const pending = dirty && !released;
+
+  // Entra no registro enquanto houver alteracao pendente.
+  useEffect(() => {
+    if (!pending) return;
+    const id = Symbol('form');
+    dirtyForms.add(id);
+    return () => {
+      dirtyForms.delete(id);
+    };
+  }, [pending]);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
       !bypass.current &&
+      !discarding &&
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
   );
@@ -68,6 +105,7 @@ export function useUnsavedChanges(dirty: boolean) {
     /** Libera a proxima navegacao (ex.: depois de salvar e redirecionar). */
     allowNavigation: () => {
       bypass.current = true;
+      setReleased(true);
     },
   };
 }

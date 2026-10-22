@@ -2,11 +2,13 @@ import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { useConfirm } from './HpsmConfirm';
 import { HpsmInboxMenu } from './HpsmInboxMenu';
 import { HpsmQuickSearch } from './HpsmQuickSearch';
 import { HpsmUserMenu } from './HpsmUserMenu';
 import { IconMenu } from './icons';
 import { roleLabel } from './tags';
+import { discardUnsavedChanges, hasUnsavedChanges } from './useUnsavedChanges';
 import { clearWorkspaceTabs } from './workspace';
 
 interface TopBarProps {
@@ -17,16 +19,30 @@ interface TopBarProps {
 export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
 
   const goHome = (event: MouseEvent) => {
     event.preventDefault();
     navigate('/');
   };
 
+  // Com formulario alterado, o Sair pergunta antes (o mesmo aviso de trocar de tela).
   const handleLogout = async () => {
-    await logout();
-    clearWorkspaceTabs();
-    navigate('/login');
+    if (hasUnsavedChanges()) {
+      const ok = await confirm({
+        title: 'Alterações não salvas',
+        message: 'Há alterações não salvas nesta tela. Deseja sair mesmo assim e descartá-las?',
+        confirmLabel: 'Sair',
+        cancelLabel: 'Continuar editando',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    await discardUnsavedChanges(async () => {
+      await logout();
+      clearWorkspaceTabs();
+      navigate('/login');
+    });
   };
 
   return (
