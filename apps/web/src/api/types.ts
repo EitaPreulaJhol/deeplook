@@ -15,6 +15,10 @@ export interface User {
   apiAccess?: boolean;
   /** Senha redefinida pelo admin: precisa definir uma nova antes de entrar. */
   mustChangePassword?: boolean;
+  /** 2FA ativo (sessao atual). */
+  twoFactorEnabled?: boolean;
+  /** 2FA ativo desde (lista da Administracao). */
+  twoFactorEnabledAt?: string | null;
   _count?: { entries: number; apiTokens?: number };
 }
 
@@ -179,6 +183,10 @@ export type AuditAction =
   | 'API_ACCESS_REVOKED'
   | 'API_TOKEN_CREATED'
   | 'API_TOKEN_REVOKED'
+  | 'TWO_FACTOR_ENABLED'
+  | 'TWO_FACTOR_DISABLED'
+  | 'TWO_FACTOR_RECOVERY_CODES'
+  | 'TWO_FACTOR_RECOVERY_USED'
   | 'ENTRY_TRASHED'
   | 'ENTRY_RESTORED'
   | 'ENTRY_DELETED';

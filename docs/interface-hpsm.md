@@ -450,6 +450,11 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
 | GET | `/api/entries/:id/reputation` | reputação externa `{ services, indicator, pending, results: [{ service, name, status, verdict, summary, link, checkedAt }] }` (aceita token) |
 | POST | `/api/entries/:id/reputation` | analistas: consulta de novo, ignorando o cache (202) |
+| POST | `/api/auth/login/2fa` | segunda etapa do login com 2FA `{ challenge, code }` (código do aplicativo ou de recuperação) → `{ user, recoveryRemaining }`; o `POST /api/auth/login` de quem tem 2FA devolve `{ twoFactorRequired: true, challenge }` |
+| GET | `/api/me/2fa` | `{ enabled, enabledAt, recoveryRemaining }` |
+| POST | `/api/me/2fa/setup` · `/enable { code }` | ativar: segredo pendente `{ secret, otpauthUri, qrSvg }` e confirmação → `{ recoveryCodes }` (uma vez) |
+| POST | `/api/me/2fa/recovery-codes` · `/disable` | `{ password, code }`: novos códigos (invalida os anteriores) ou desativar |
+| POST | `/api/admin/users/:id/disable-2fa` | admin: desativa o 2FA de alguém (celular perdido) |
 | GET/POST | `/api/me/api-tokens` | tokens de API do usuário (`{ apiAccess, maxDays, tokens }`); POST `{ name, expiresInDays }` → `{ token, secret }` (secret só aqui); 403 sem liberação, 409 com 10 ativos |
 | DELETE | `/api/me/api-tokens/:id` | revoga um token próprio |
 | GET | `/api/admin/api-tokens?status=active\|all` | admin: tokens de todos com o usuário |
@@ -544,6 +549,7 @@ banco nem da API rodando.
 | `report-review.mjs` | revisão de relatório: fila com contador, situações e ações, devolver com comentário, aviso de devolução, enviar, aprovar, "Ao salvar" com e sem revisão obrigatória, usuário comum só vê publicados, notificação |
 | `static-analysis.mjs` | análise estática: aviso de executável disfarçado, tipo real, entropia, PE (empacotador, funções suspeitas, seções, imports), strings por categoria, IOCs sugeridos (ficha e "Inserir" sem duplicar), "Analisar agora", ficha impressa |
 | `dashboard.mjs` | painel: indicadores e links, fuso enviado, gráfico (legenda, colunas, dica sem cobrir colunas, tabela), vereditos, carga e link por analista, etiqueta do período na lista, período na URL, escopo do usuário, preferência de página inicial |
+| `two-factor.mjs` | 2FA: aba na Minha Conta (desativado, ativar com QR e chave, código incompleto/errado, códigos de recuperação com Baixar), login em duas etapas (código errado, Voltar, certo, recuperação leva à aba com aviso), gerar novos códigos e desativar (senha + código, confirmação) e Desativar 2FA do admin |
 | `antivirus.mjs` | antivírus: escaneando → infectado (topo e seção, motor e base), consulta única, Escanear de novo, limpo sem alerta, falha com motivo, sem varredura ("Escanear agora", sem consultar em loop), usuário sem botão, link e ClamAV desligado sem seção |
 | `reputation.mjs` | reputação externa: consultando e atualização automática, resumo no topo (malicioso em N de M; sem alertas com falha), nota do indicador, serviços na ordem com cores e resumo, link externo seguro, Consultar de novo só para analistas, seção escondida sem serviço |
 | `api-tokens.mjs` | tokens de API: aba da Minha Conta só com liberação, Liberar/Retirar API na aba Usuários (coluna, confirmação), gerar (validação, segredo uma vez, Copiar, aviso limpo), revogar, aba da Administração (ativos/todos, último uso com IP, revogar) e navegador |

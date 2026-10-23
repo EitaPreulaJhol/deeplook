@@ -1,6 +1,7 @@
+import { useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
-import { useAuth } from './auth/AuthContext';
+import { clearAfterLogin, peekAfterLogin, useAuth } from './auth/AuthContext';
 import { startPath } from './auth/preferences';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
@@ -32,6 +33,14 @@ function FullScreenLoader() {
   );
 }
 
+/** Raiz: destino pos-login (se houver) ou a pagina inicial escolhida nas preferencias. */
+function RootRedirect() {
+  const { preferences } = useAuth();
+  const target = peekAfterLogin();
+  useEffect(() => clearAfterLogin(), []);
+  return <Navigate to={target?.to ?? startPath(preferences)} state={target?.state} replace />;
+}
+
 /** Shell da aplicacao (topbar/sidebar/rodape) usado pelas rotas internas. */
 function ShellLayout() {
   return (
@@ -42,7 +51,7 @@ function ShellLayout() {
 }
 
 export default function App() {
-  const { user, preferences, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) return <FullScreenLoader />;
 
@@ -75,7 +84,7 @@ export default function App() {
 
       <Route element={<ShellLayout />}>
         {/* Raiz (e destino apos o login): a pagina inicial escolhida nas preferencias. */}
-        <Route path="/" element={<Navigate to={startPath(preferences)} replace />} />
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/inicio" element={<WelcomePage />} />
         <Route path="/user" element={<UserPage />} />
         <Route path="/history" element={<GlobalHistoryPage />} />

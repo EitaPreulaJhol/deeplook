@@ -3143,3 +3143,25 @@ body:has(.dl-print) {
   color: var(--dl-text-muted);
   white-space: nowrap;
 }
+
+/* 2FA (Minha Conta): QR code e codigos de recuperacao em grade. */
+.dl-2fa__qr {
+  display: block;
+  border: 1px solid var(--dl-field-border);
+  background: #fff;
+}
+
+.dl-2fa__codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.3rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-2fa__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}

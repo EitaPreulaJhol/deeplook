@@ -49,46 +49,53 @@ enum SandboxStatus {
 }
 
 model User {
-  id                 String     @id @default(cuid())
-  email              String     @unique
-  passwordHash       String
-  displayName        String
-  role               Role       @default(USER)
-  status             UserStatus @default(ACTIVE)
+  id                     String     @id @default(cuid())
+  email                  String     @unique
+  passwordHash           String
+  displayName            String
+  role                   Role       @default(USER)
+  status                 UserStatus @default(ACTIVE)
   /// Acesso por API: so um admin libera (aba Usuarios). Sem ele, nenhum token vale.
-  apiAccess          Boolean    @default(false)
+  apiAccess              Boolean    @default(false)
   /// Senha redefinida pelo admin: so entra depois de definir uma nova (item 48).
-  mustChangePassword Boolean    @default(false)
+  mustChangePassword     Boolean    @default(false)
+  /// 2FA (TOTP, opcional): segredo cifrado (AES-GCM), o pendente da ativacao,
+  /// quando foi ativado e o ultimo passo de 30 s aceito (nao repete codigo).
+  twoFactorSecret        String?
+  twoFactorPendingSecret String?
+  twoFactorEnabledAt     DateTime?
+  twoFactorLastStep      Int?
   /// Preferencias de uso (pagina inicial, registros por pagina...). Ver src/lib/preferences.ts.
-  preferences        Json       @default("{}")
+  preferences            Json       @default("{}")
   /// Ultima atividade (GET /api/auth/me) e a visita anterior a ela: base dos
   /// avisos "desde a sua ultima visita" da Pagina Inicial.
-  lastSeenAt         DateTime?
-  previousSeenAt     DateTime?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  lastSeenAt             DateTime?
+  previousSeenAt         DateTime?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
 
   sessions        Session[]
-  entries         Entry[]          @relation("EntryOwner")
+  entries         Entry[]                 @relation("EntryOwner")
   /// Amostras sob responsabilidade deste analista (atribuicao).
-  assignedEntries Entry[]          @relation("EntryAssignee")
+  assignedEntries Entry[]                 @relation("EntryAssignee")
   entryEvents     EntryEvent[]
-  reports         Report[]         @relation("ReportAuthor")
+  reports         Report[]                @relation("ReportAuthor")
   sandboxSessions SandboxSession[]
-  createdKeys     ActivationKey[]  @relation("KeyCreator")
-  usedKeys        ActivationKey[]  @relation("KeyUser")
+  createdKeys     ActivationKey[]         @relation("KeyCreator")
+  usedKeys        ActivationKey[]         @relation("KeyUser")
   favorites       Favorite[]
   /// Caixa de entrada: notificacoes recebidas e as causadas por este usuario.
-  notifications   Notification[]   @relation("NotificationRecipient")
-  notified        Notification[]   @relation("NotificationActor")
+  notifications   Notification[]          @relation("NotificationRecipient")
+  notified        Notification[]          @relation("NotificationActor")
   reportTemplates ReportTemplate[]
-  reviewedReports Report[]         @relation("ReportReviewer")
+  reviewedReports Report[]                @relation("ReportReviewer")
   /// Auditoria: acoes feitas por este usuario e as que o tiveram como alvo.
-  auditActions    AuditEvent[]     @relation("AuditActor")
-  auditTargets    AuditEvent[]     @relation("AuditTarget")
+  auditActions    AuditEvent[]            @relation("AuditActor")
+  auditTargets    AuditEvent[]            @relation("AuditTarget")
   /// Amostras que este usuario (admin) moveu para a lixeira.
-  trashedEntries  Entry[]          @relation("EntryDeletedBy")
+  trashedEntries  Entry[]                 @relation("EntryDeletedBy")
   apiTokens       ApiToken[]
+  recoveryCodes   TwoFactorRecoveryCode[]
 }
 
 model Session {
@@ -421,6 +428,10 @@ enum AuditAction {
   API_ACCESS_REVOKED
   API_TOKEN_CREATED
   API_TOKEN_REVOKED
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  TWO_FACTOR_RECOVERY_CODES
+  TWO_FACTOR_RECOVERY_USED
   ENTRY_TRASHED
   ENTRY_RESTORED
   ENTRY_DELETED
@@ -521,4 +532,16 @@ model AntivirusScan {
   scannedAt DateTime  @default(now())
 
   @@index([scannedAt])
+}
+
+/// Codigos de recuperacao do 2FA (uso unico; so o hash).
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, codeHash])
 }

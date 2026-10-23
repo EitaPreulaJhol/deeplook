@@ -161,6 +161,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Antivirus por amostra (GET; lista = sequencia) e quantas consultas a ficha fez. */
     antivirus: {},
     antivirusGets: 0,
+    /** 2FA: codigos de recuperacao restantes e corpos das ultimas chamadas. */
+    recoveryRemaining: 10,
+    twoFactorCalls: [],
   };
 }
 
@@ -207,9 +210,56 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/auth/login') {
         if (body.password !== state.password) return json(route, 401, { error: 'Credenciais invalidas.' });
+        // 2FA ativo: a senha certa so leva a etapa do codigo.
+        if (users[0].twoFactorEnabled) return json(route, 200, { twoFactorRequired: true, challenge: 'desafio-1' });
         state.loggedIn = true;
         await renewSession();
         return json(route, 200, { user: currentUser() });
+      }
+      // 2FA: codigo do aplicativo 123456; codigo de recuperacao abcd-efgh.
+      if (p === '/api/auth/login/2fa') {
+        state.twoFactorCalls.push(body);
+        if (body.challenge !== 'desafio-1') return json(route, 401, { error: 'A verificação expirou. Entre novamente.' });
+        if (body.code !== '123456' && body.code !== 'abcd-efgh') return json(route, 401, { error: 'Código inválido.' });
+        state.loggedIn = true;
+        await renewSession();
+        const recovery = body.code === 'abcd-efgh';
+        if (recovery) state.recoveryRemaining -= 1;
+        return json(route, 200, { user: currentUser(), recoveryRemaining: recovery ? state.recoveryRemaining : null });
+      }
+      if (p === '/api/me/2fa' && req.method() === 'GET') {
+        const on = Boolean(users[0].twoFactorEnabled);
+        return json(route, 200, { enabled: on, enabledAt: on ? '2026-10-22T12:00:00.000Z' : null, recoveryRemaining: on ? state.recoveryRemaining : 0 });
+      }
+      if (p.startsWith('/api/me/2fa/') && req.method() === 'POST') {
+        state.twoFactorCalls.push({ path: p, ...body });
+        const recoveryCodes = Array.from({ length: 10 }, (_, i) => `k7tm-q2x${i}`);
+        if (p === '/api/me/2fa/setup') {
+          return json(route, 200, {
+            secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+            otpauthUri: 'otpauth://totp/DeepLook:ana%40deeplook.test?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=DeepLook',
+            qrSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21"><rect width="21" height="21" fill="#fff"/><rect x="2" y="2" width="7" height="7"/><rect x="12" y="2" width="7" height="7"/><rect x="2" y="12" width="7" height="7"/></svg>',
+          });
+        }
+        if (p === '/api/me/2fa/enable') {
+          if (body.code !== '123456') return json(route, 400, { error: 'Dados invalidos.', details: { code: ['código inválido'] } });
+          users[0].twoFactorEnabled = true;
+          state.recoveryRemaining = 10;
+          return json(route, 200, { recoveryCodes });
+        }
+        if (body.password !== state.password) return json(route, 400, { error: 'Dados invalidos.', details: { password: ['senha incorreta'] } });
+        if (body.code !== '123456') return json(route, 400, { error: 'Dados invalidos.', details: { code: ['código inválido'] } });
+        if (p === '/api/me/2fa/recovery-codes') {
+          state.recoveryRemaining = 10;
+          return json(route, 200, { recoveryCodes: recoveryCodes.map((c) => c.replace('k7tm', 'zz99')) });
+        }
+        users[0].twoFactorEnabled = false;
+        return json(route, 200, { ok: true });
+      }
+      const d2 = p.match(/^\/api\/admin\/users\/(\w+)\/disable-2fa$/);
+      if (d2) {
+        users.find((u) => u.id === d2[1]).twoFactorEnabledAt = null;
+        return json(route, 200, { ok: true });
       }
       if (p === '/api/auth/logout') {
         state.loggedIn = false;

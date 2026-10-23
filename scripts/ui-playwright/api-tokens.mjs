@@ -37,13 +37,13 @@ expect('?tab=tokens cai em Dados', (await page.locator('[role=tab][aria-selected
 // 2. Admin libera na aba Usuarios.
 await page.goto(ORIGIN + '/admin', { waitUntil: 'networkidle' });
 expect('coluna "Acesso por API"', (await page.locator('thead th').allInnerTexts()).map((t) => t.trim()).includes('Acesso por API'));
-expect('sem acesso: travessão', (await rowOf('Ana Souza').locator('td').nth(5).innerText()).trim() === '—');
+expect('sem acesso: travessão', (await rowOf('Ana Souza').locator('td').nth(6).innerText()).trim() === '—');
 await rowOf('Ana Souza').locator('button:has-text("Liberar API")').click();
 expect('liberar pede confirmação', (await confirmDialog.innerText()).includes('A pessoa poderá gerar tokens em Minha Conta'));
 await confirmDialog.locator('button:has-text("Liberar")').click();
 await settle();
 expect('PATCH apiAccess', state.calls.includes('PATCH /api/admin/users/u1') && users[0].apiAccess === true);
-expect('coluna mostra liberado', (await rowOf('Ana Souza').locator('td').nth(5).innerText()).trim() === 'Liberado · 0 tokens ativos', await rowOf('Ana Souza').locator('td').nth(5).innerText());
+expect('coluna mostra liberado', (await rowOf('Ana Souza').locator('td').nth(6).innerText()).trim() === 'Liberado · 0 tokens ativos', await rowOf('Ana Souza').locator('td').nth(6).innerText());
 expect('botão vira "Retirar API"', (await rowOf('Ana Souza').locator('button:has-text("Retirar API")').count()) === 1);
 
 // 3. Minha Conta: gerar e revogar.
@@ -100,7 +100,7 @@ await rowOf('Ana Souza').locator('button:has-text("Retirar API")').click();
 expect('retirar avisa a revogação', (await confirmDialog.innerText()).includes('Todos os tokens ativos dessa pessoa (2) serão revogados imediatamente.'));
 await confirmDialog.locator('button.dl-btn--danger').click();
 await settle();
-expect('acesso retirado', users[0].apiAccess === false && (await rowOf('Ana Souza').locator('td').nth(5).innerText()).trim() === '—');
+expect('acesso retirado', users[0].apiAccess === false && (await rowOf('Ana Souza').locator('td').nth(6).innerText()).trim() === '—');
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\ntokens de API: tudo ok');

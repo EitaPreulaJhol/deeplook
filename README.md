@@ -93,6 +93,33 @@ O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 
 ---
 
+## Autenticação em dois fatores (2FA)
+
+Opcional, por usuário, em **Minha Conta > 2FA**:
+
+1. **Ativar 2FA** mostra um QR code (e a chave para digitar à mão) para um aplicativo
+   autenticador: Google Authenticator, Microsoft Authenticator, Aegis, 1Password etc.
+2. Um código de 6 dígitos do aplicativo confirma a ativação.
+3. Aparecem **10 códigos de recuperação**, uma única vez, com Copiar e Baixar. Cada um
+   substitui o código do aplicativo em um login (ex.: celular perdido).
+
+- **Login:** com 2FA ativo, depois da senha vem a etapa "Código". A sessão só é criada com
+  o código certo. Quem entra com um código de recuperação é levado à aba 2FA com um aviso.
+- **Gerar novos códigos** e **Desativar 2FA** pedem a senha e um código.
+- **Admin:** a aba Usuários mostra quem tem 2FA e tem **Desativar 2FA** para quem perdeu
+  o celular e os códigos (confirme a identidade antes).
+- **Segurança:**
+  - padrão TOTP (RFC 6238);
+  - segredo guardado cifrado (AES-GCM, chave derivada do `SESSION_SECRET`);
+  - códigos de recuperação só como hash;
+  - um código não vale duas vezes;
+  - 5 tentativas a cada 5 minutos na etapa do código;
+  - tudo entra na auditoria.
+- **Trocar o `SESSION_SECRET`** invalida os 2FA já ativados, porque o segredo não decifra
+  mais. O login avisa que o 2FA precisa ser reconfigurado; os códigos de recuperação
+  continuam valendo, e o admin pode desativar o 2FA para a pessoa ativar de novo.
+- **Tokens de API** não passam pelo 2FA (são para scripts).
+
 ## Acesso por API (tokens pessoais)
 
 Scripts podem enviar e consultar amostras com um token pessoal, sem passar pelo navegador.
@@ -511,4 +538,4 @@ Melhorias de interface e usabilidade estão priorizadas em
 
 Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
 envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa) e 2FA
-opcional (em andamento na quarta leva do backlog).
+opcional.

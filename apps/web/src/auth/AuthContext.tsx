@@ -18,7 +18,13 @@ interface AuthContextValue {
   /** Preferencias do usuario (padrao enquanto nao ha sessao). */
   preferences: Preferences;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Entra; com 2FA ativo devolve o desafio da etapa do codigo (sem sessao ainda). */
+  login: (email: string, password: string) => Promise<{ challenge: string } | null>;
+  /** Segunda etapa do login com 2FA; devolve quantos codigos de recuperacao restam se usou um. */
+  verifyTwoFactor: (
+    challenge: string,
+    code: string,
+  ) => Promise<{ recoveryRemaining: number | null }>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -39,6 +45,18 @@ interface AuthContextValue {
  * ate a tela "Definir nova senha" pegar (para nao pedir de novo).
  */
 let temporaryPassword: string | null = null;
+/** Senha da primeira etapa enquanto o 2FA confere o codigo (para a troca obrigatoria). */
+let pendingPassword: string | null = null;
+
+/**
+ * Destino logo depois do login, no lugar da pagina inicial das preferencias (ex.:
+ * entrou com codigo de recuperacao -> aba 2FA com aviso). A rota "/" respeita.
+ */
+let afterLogin: { to: string; state?: unknown } | null = null;
+export const peekAfterLogin = () => afterLogin;
+export const clearAfterLogin = () => {
+  afterLogin = null;
+};
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -61,9 +79,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const data = await api.post<{ user: CurrentUser }>('/auth/login', { email, password });
-      temporaryPassword = data.user.mustChangePassword ? password : null;
+      const data = await api.post<{
+        user?: CurrentUser;
+        twoFactorRequired?: boolean;
+        challenge?: string;
+      }>('/auth/login', { email, password });
+      if (data.twoFactorRequired && data.challenge) {
+        pendingPassword = password;
+        return { challenge: data.challenge };
+      }
+      temporaryPassword = data.user?.mustChangePassword ? password : null;
       queryClient.setQueryData(['me'], data.user);
+      return null;
     },
     [queryClient],
   );
@@ -123,6 +150,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [forgetSession],
   );
 
+  const verifyTwoFactor = useCallback(
+    async (challenge: string, code: string) => {
+      const data = await api.post<{ user: CurrentUser; recoveryRemaining: number | null }>(
+        '/auth/login/2fa',
+        { challenge, code },
+      );
+      temporaryPassword = data.user.mustChangePassword ? pendingPassword : null;
+      pendingPassword = null;
+      // Entrou com um codigo de recuperacao: provavelmente perdeu o celular.
+      afterLogin =
+        data.recoveryRemaining === null
+          ? null
+          : {
+              to: '/user?tab=2fa',
+              state: {
+                notice: `Você entrou com um código de recuperação. Restam ${data.recoveryRemaining}. Gere novos códigos ou reconfigure o 2FA se perdeu o celular.`,
+              },
+            };
+      queryClient.setQueryData(['me'], data.user);
+      return { recoveryRemaining: data.recoveryRemaining };
+    },
+    [queryClient],
+  );
+
   const takeTemporaryPassword = useCallback(() => {
     const value = temporaryPassword;
     temporaryPassword = null;
@@ -144,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       preferences: meQuery.data?.preferences ?? DEFAULT_PREFERENCES,
       loading: meQuery.isLoading,
       login,
+      verifyTwoFactor,
       register,
       logout,
       refresh,
@@ -157,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meQuery.data,
       meQuery.isLoading,
       login,
+      verifyTwoFactor,
       register,
       logout,
       refresh,

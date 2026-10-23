@@ -185,6 +185,30 @@ export function AdminPage() {
     await updateUser(u.id, { status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' });
   };
 
+  // 2FA: para quem perdeu o celular e os codigos de recuperacao.
+  const disableTwoFactor = async (u: User) => {
+    const ok = await confirm({
+      title: 'Desativar 2FA',
+      message: (
+        <>
+          Desativar o 2FA de <strong>{u.displayName}</strong>? O login dessa pessoa volta a pedir só
+          a senha, e ela pode ativar de novo em Minha Conta. Confirme a identidade antes (ex.:
+          perdeu o celular).
+        </>
+      ),
+      confirmLabel: 'Desativar',
+      danger: true,
+    });
+    if (!ok) return;
+    setError(null);
+    try {
+      await api.post(`/admin/users/${u.id}/disable-2fa`, {});
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   // Acesso por API: liberar e manual; retirar revoga na hora todos os tokens ativos.
   const toggleApi = async (u: User) => {
     const ok = await confirm({
@@ -283,6 +307,7 @@ export function AdminPage() {
                   { key: 'role', header: 'Papel' },
                   { key: 'status', header: 'Status' },
                   { key: 'entries', header: 'Envios' },
+                  { key: 'tfa', header: '2FA' },
                   { key: 'api', header: 'Acesso por API' },
                   { key: 'actions', header: 'Ações' },
                 ]}
@@ -323,6 +348,13 @@ export function AdminPage() {
                                 )}
                               </TableCell>
                               <TableCell>{u._count ? u._count.entries : 0}</TableCell>
+                              <TableCell>
+                                {u.twoFactorEnabledAt ? (
+                                  <StatusText tone="green">Ativo</StatusText>
+                                ) : (
+                                  '—'
+                                )}
+                              </TableCell>
                               <TableCell>
                                 {u.apiAccess ? (
                                   <StatusText tone="blue">
@@ -368,6 +400,15 @@ export function AdminPage() {
                                   >
                                     Redefinir senha
                                   </Button>
+                                  {u.twoFactorEnabledAt && (
+                                    <Button
+                                      size="sm"
+                                      kind="danger--tertiary"
+                                      onClick={() => disableTwoFactor(u)}
+                                    >
+                                      Desativar 2FA
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
                                     kind={u.apiAccess ? 'danger--tertiary' : 'tertiary'}

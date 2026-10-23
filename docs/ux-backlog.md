@@ -1149,7 +1149,7 @@ obrigatória de senha e "Sair" sem aviso), antivírus em contêiner próprio e 2
 | 47 | "Sair" com alterações não salvas | aviso de alterações pendentes | 🟡 | P | ✅ |
 | 48 | Troca obrigatória de senha após redefinição | expiração de senha | 🔴 | P–M | ✅ |
 | 49 | Antivírus ClamAV em contêiner próprio | integrações + System Status | 🟡 | M | ✅ |
-| 50 | Autenticação em dois fatores (2FA) opcional | login com segundo fator | 🔴 | M–G | ⬜ |
+| 50 | Autenticação em dois fatores (2FA) opcional | login com segundo fator | 🔴 | M–G | ✅ |
 
 **Ordem (uma etapa por item, cada uma com testes, documentação e commit próprio):**
 46 → 47 → 48 → 49 → 50. As duas primeiras são pequenas e só de interface; a 48 mexe
@@ -1307,3 +1307,43 @@ no login e prepara o terreno para a 50.
   código e depois pela troca.
 - **Tokens de API** continuam valendo sem 2FA (são para scripts); o 2FA protege o login
   pelo navegador.
+- ✅ **Implementado:** migração `20261110000000_two_factor`.
+  - **Banco:**
+    - campos `twoFactorSecret`, `twoFactorPendingSecret`, `twoFactorEnabledAt` e
+      `twoFactorLastStep` em `User`;
+    - modelo `TwoFactorRecoveryCode`;
+    - auditoria `TWO_FACTOR_ENABLED`, `TWO_FACTOR_DISABLED`,
+      `TWO_FACTOR_RECOVERY_CODES` e `TWO_FACTOR_RECOVERY_USED`.
+  - **`lib/two-factor.ts`** (sem dependência para o TOTP; `qrcode` só para o QR em SVG):
+    - Base32, HOTP/TOTP conferidos com os vetores do RFC 6238;
+    - janela de ±1 passo, sem repetir o mesmo passo;
+    - segredo cifrado com AES-256-GCM;
+    - códigos de recuperação "xxxx-xxxx" (sem 0/1/o/l) guardados como SHA-256;
+    - desafio do login assinado com HMAC, válido por 5 minutos.
+  - **Login:** a senha certa devolve `{ twoFactorRequired, challenge }`, sem sessão.
+    `POST /api/auth/login/2fa { challenge, code }` cria a sessão.
+    - Aceita o código do aplicativo ou um de recuperação.
+    - Código errado responde 401 e registra "código 2FA incorreto" na auditoria.
+    - 5 tentativas a cada 5 minutos por usuário; o bloqueio é auditado.
+  - **Minha Conta > 2FA** (`components/TwoFactorTab.tsx`):
+    - **Situação e recuperação:** situação e quantos códigos restam (laranja com 3 ou
+      menos).
+    - **Ativar:** QR, chave em grupos de 4 com Copiar e o campo do código. A ativação
+      mostra os códigos uma vez, com Copiar, Baixar (.txt) e "Guardei os códigos".
+    - **Gerar novos códigos / Desativar 2FA…:** pedem senha e código, e desativar pede
+      confirmação.
+  - **Tela de login:** a etapa "Verificação em duas etapas" tem o campo Código, Voltar
+    e a dica do código de recuperação.
+    - **Destino com código de recuperação:** o contexto de autenticação guarda o destino
+      pós-login e a rota "/" o respeita. Sem isso, a troca das rotas de visitante pelas
+      de usuário logado atropelava o `navigate`.
+  - **Administração > Usuários:** coluna 2FA e **Desativar 2FA** (confirmação, auditoria
+    "pelo admin").
+  - **Com o item 48:** a senha temporária digitada na primeira etapa segue para a troca
+    obrigatória depois do código.
+  - **`SESSION_SECRET` trocado:** o segredo não decifra mais. O login responde "O 2FA
+    desta conta precisa ser reconfigurado…" em vez de erro 500, e os códigos de
+    recuperação continuam entrando.
+  - **Testes:**
+    - 34 de integração (Postgres), com os códigos calculados como o aplicativo faria;
+    - `two-factor.mjs`.

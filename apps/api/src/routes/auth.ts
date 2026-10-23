@@ -7,13 +7,20 @@ import { hashPassword, verifyPassword } from '../lib/crypto';
 import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
 import { attemptLimit } from '../lib/rate-limit';
+import { newChallenge, readChallenge } from '../lib/two-factor';
 import { sendValidationError } from '../lib/validation';
+import { checkSecondFactor } from './two-factor';
 
 const RegisterSchema = z.object({
   email: z.string().email(),
   displayName: z.string().min(2).max(80),
   password: z.string().min(8).max(200),
   activationKey: z.string().min(6),
+});
+
+const TwoFactorSchema = z.object({
+  challenge: z.string().min(10).max(300),
+  code: z.string().trim().min(6).max(20),
 });
 
 const LoginSchema = z.object({
@@ -30,6 +37,7 @@ function publicUser(u: {
   createdAt: Date;
   apiAccess: boolean;
   mustChangePassword: boolean;
+  twoFactorEnabledAt: Date | null;
   preferences: unknown;
 }) {
   return {
@@ -41,6 +49,7 @@ function publicUser(u: {
     createdAt: u.createdAt,
     apiAccess: u.apiAccess,
     mustChangePassword: u.mustChangePassword,
+    twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
     preferences: resolvePreferences(u.preferences),
   };
 }
@@ -173,8 +182,71 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'Credenciais invalidas.' });
     }
 
+    // 2FA: a senha esta certa, mas a sessao so nasce depois do codigo.
+    if (user.twoFactorEnabledAt) {
+      return reply.send({ twoFactorRequired: true, challenge: newChallenge(user.id) });
+    }
+
     await createSession(reply, user.id);
     return reply.send({ user: publicUser(user) });
+  });
+
+  // Segunda etapa do login com 2FA: codigo do aplicativo ou de recuperacao.
+  const twoFactorLimit = attemptLimit(
+    (req) => {
+      const challenge = (req.body as { challenge?: unknown } | undefined)?.challenge;
+      return `2fa:${typeof challenge === 'string' ? (readChallenge(challenge) ?? '-') : '-'}`;
+    },
+    {
+      onExceeded: (req) => {
+        const challenge = (req.body as { challenge?: unknown } | undefined)?.challenge;
+        const userId = typeof challenge === 'string' ? readChallenge(challenge) : null;
+        void audit(prisma, req, {
+          action: 'LOGIN_LOCKED',
+          actorId: null,
+          targetUserId: userId,
+          detail: '5 códigos 2FA errados em 5 min',
+        }).catch((err) => req.log.error({ err }, 'Falha ao auditar bloqueio do 2FA'));
+      },
+    },
+  );
+
+  app.post('/api/auth/login/2fa', { config: twoFactorLimit }, async (req, reply) => {
+    const parsed = TwoFactorSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    const userId = readChallenge(parsed.data.challenge);
+    if (!userId) {
+      return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status !== 'ACTIVE' || !user.twoFactorEnabledAt) {
+      return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
+    }
+    const factor = await checkSecondFactor(prisma, user.id, parsed.data.code);
+    if (!factor.ok) {
+      await loginFailed(
+        req,
+        user.email,
+        user.id,
+        factor.broken ? '2FA ilegível (SESSION_SECRET trocado?)' : 'código 2FA incorreto',
+      );
+      return reply.code(401).send({
+        error: factor.broken
+          ? 'O 2FA desta conta precisa ser reconfigurado. Use um código de recuperação ou peça a um administrador para desativá-lo.'
+          : 'Código inválido.',
+      });
+    }
+    if (factor.via === 'recovery') {
+      await audit(prisma, req, {
+        action: 'TWO_FACTOR_RECOVERY_USED',
+        actorId: user.id,
+        targetUserId: user.id,
+        targetLabel: user.email,
+        detail: `login com código de recuperação · restam ${factor.remaining}`,
+      });
+    }
+    await createSession(reply, user.id);
+    return reply.send({ user: publicUser(user), recoveryRemaining: factor.remaining ?? null });
   });
 
   app.post('/api/auth/logout', async (req, reply) => {

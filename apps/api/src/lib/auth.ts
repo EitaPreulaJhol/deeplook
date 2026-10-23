@@ -20,6 +20,8 @@ export type PublicUser = {
   apiAccess: boolean;
   /** Senha redefinida pelo admin: precisa definir uma nova antes de usar o sistema. */
   mustChangePassword: boolean;
+  /** 2FA (TOTP) ativo na conta. */
+  twoFactorEnabled: boolean;
   preferences: Preferences;
 };
 
@@ -50,6 +52,7 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
     createdAt: u.createdAt,
     apiAccess: u.apiAccess,
     mustChangePassword: u.mustChangePassword,
+    twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
     preferences: resolvePreferences(u.preferences),
   };
 }

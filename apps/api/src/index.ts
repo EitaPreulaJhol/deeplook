@@ -27,6 +27,7 @@ import { reputationRoutes } from './routes/reputation';
 import { sandboxRoutes } from './routes/sandbox';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
+import { twoFactorRoutes } from './routes/two-factor';
 
 async function main() {
   const app = Fastify({
@@ -72,6 +73,7 @@ async function main() {
   await app.register(adminRoutes);
   await app.register(apiTokenRoutes);
   await app.register(trashRoutes);
+  await app.register(twoFactorRoutes);
   await app.register(sandboxRoutes);
 
   app.setNotFoundHandler((_request, reply) => {

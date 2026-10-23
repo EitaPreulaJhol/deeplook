@@ -21,6 +21,7 @@ import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
 import { roleLabel } from '../components/tags';
+import { TwoFactorTab } from '../components/TwoFactorTab';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { clearWorkspaceTabs } from '../components/workspace';
 
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'dados', label: 'Dados' },
   { id: 'senha', label: 'Senha' },
   { id: 'preferencias', label: 'Preferências' },
+  { id: '2fa', label: '2FA' },
 ];
 
 /** Minha Conta: dados (somente leitura), troca de senha e preferencias de uso. */
@@ -76,6 +78,7 @@ export function UserPage() {
         )}
         {tab === 'senha' && <PasswordTab />}
         {tab === 'preferencias' && <PreferencesTab />}
+        {tab === '2fa' && <TwoFactorTab />}
         {tab === 'tokens' && <ApiTokensTab />}
       </div>
     </>
