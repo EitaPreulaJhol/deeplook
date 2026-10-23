@@ -890,6 +890,48 @@ export async function entryRoutes(app: FastifyInstance) {
     return reply.send({ entry: updated });
   });
 
+  // "Pegar a proxima" (Next in queue): atribui ao analista a pendente sem
+  // responsavel mais antiga no status (as atrasadas primeiro) e a poe Em analise.
+  // A atualizacao so vale se ela ainda estiver livre: dois cliques ao mesmo tempo
+  // nunca pegam a mesma; quem perder a corrida tenta a seguinte.
+  app.post('/api/entries/next', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas pegam amostras da fila.' });
+    }
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = await prisma.entry.findFirst({
+        where: { status: 'PENDING', assigneeId: null, duplicateOfId: null },
+        orderBy: [{ statusChangedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true, title: true, status: true, verdict: true },
+      });
+      if (!candidate) {
+        return reply.code(404).send({ error: 'Nenhuma amostra pendente sem responsável.' });
+      }
+      const claimed = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.entry.updateMany({
+          where: { id: candidate.id, status: 'PENDING', assigneeId: null },
+          data: { assigneeId: user.id, status: 'IN_REVIEW' },
+        });
+        if (!count) return false;
+        await recordTriageChanges(tx, candidate.id, user.id, candidate, { status: 'IN_REVIEW' });
+        await recordEvent(tx, {
+          entryId: candidate.id,
+          actorId: user.id,
+          type: 'ASSIGNED',
+          fromValue: null,
+          toValue: user.displayName,
+        });
+        return true;
+      });
+      if (claimed) return reply.send({ entry: { id: candidate.id, title: candidate.title } });
+    }
+    return reply
+      .code(409)
+      .send({ error: 'Outros analistas pegaram as amostras ao mesmo tempo. Tente de novo.' });
+  });
+
   // Atualizacao em massa (analistas): mesmas regras do PATCH, em uma transacao,
   // com os eventos de historico de cada amostra.
   app.post('/api/entries/bulk', async (req, reply) => {

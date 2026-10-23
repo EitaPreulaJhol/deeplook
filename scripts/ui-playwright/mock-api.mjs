@@ -164,6 +164,8 @@ export function createState({ loggedIn = false } = {}) {
     /** 2FA: codigos de recuperacao restantes e corpos das ultimas chamadas. */
     recoveryRemaining: 10,
     twoFactorCalls: [],
+    /** "Pegar a proxima": ids que a fila entrega, na ordem (vazia = nenhuma pendente). */
+    nextQueue: [],
   };
 }
 
@@ -561,6 +563,13 @@ export async function setupMock(context, state) {
           entry: { id, title: fields.title || filename },
           previous: filename.includes('repetida') ? { id: 'e1', title: entries[0].title } : null,
         });
+      }
+      if (p === '/api/entries/next' && req.method() === 'POST') {
+        const id = state.nextQueue.shift();
+        if (!id) return json(route, 404, { error: 'Nenhuma amostra pendente sem responsável.' });
+        const e = entries.find((x) => x.id === id);
+        Object.assign(e, { status: 'IN_REVIEW', assignee: { id: 'u1', displayName: 'Ana Souza' } });
+        return json(route, 200, { entry: { id: e.id, title: e.title } });
       }
       if (p === '/api/entries/bulk' && req.method() === 'POST') {
         const targets = entries.filter((e) => body.ids.includes(e.id));

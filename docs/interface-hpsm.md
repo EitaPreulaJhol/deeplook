@@ -433,6 +433,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/entries/:id/events` | histórico da amostra (aba Histórico) |
 | POST | `/api/entries/file` | envio de arquivo (multipart: `file`, `title?`, `description?`, `tags?`) → `{ entry, previous }` (`previous` = primeira amostra com o mesmo SHA-256) |
 | POST | `/api/entries/zip` | `.zip` desmembrado (multipart: `file`, `password?`, `description?`, `tags?`) → `{ created: [{ name, path, entry, previous }], skipped: [{ name, path, reason }] }`; até 20 arquivos; senha errada → 400 com `details.password` |
+| POST | `/api/entries/next` | analistas: "Pegar a próxima" — atribui a pendente sem responsável mais antiga, põe Em análise e devolve `{ entry: { id, title } }`; 404 sem nenhuma |
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
@@ -566,6 +567,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `take-next.mjs` | "Pegar a próxima": botão na fila Pendentes e link na Página Inicial abrem a ficha pega; fila vazia avisa e fica na lista; usuário comum sem botão |
 | `password-policy.mjs` | política de senha: regra no cadastro e em Alterar senha (barra antes de enviar), validade na aba Senha (e "sem validade" para admin), aviso "Sua senha expira em N dias" no topo (e "hoje") com link, "senha expirada" na aba Usuários e a tela de senha vencida com o motivo e a regra |
 | `topbar-center.mjs` | "Ir para:" centralizado no masthead em 1440/1024/900 px (centro horizontal, meio da altura, sem encostar no logo nem no usuário) e fora do masthead em tela estreita |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |

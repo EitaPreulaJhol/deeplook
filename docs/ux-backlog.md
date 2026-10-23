@@ -1419,7 +1419,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ⬜ |
+| 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ✅ |
 | 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ⬜ |
 | 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ (decisão) |
 | 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
@@ -1453,6 +1453,20 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 - **Cuidados:** dois cliques ao mesmo tempo não podem pegar a mesma amostra (atribuição
   atômica no banco); sem nada na fila, avisa "Nenhuma amostra pendente sem responsável";
   duplicatas e amostras na lixeira ficam de fora; entra no histórico como atribuição.
+- ✅ **Implementado:** `POST /api/entries/next` (só analistas).
+  - **Ordem:** a pendente sem responsável mais antiga no status (`statusChangedAt`), então
+    as atrasadas vêm primeiro. Duplicatas e amostras na lixeira ficam de fora.
+  - **Sem disputa:** a atribuição só vale se a amostra ainda estiver pendente e sem dono
+    (`updateMany` com essas condições). Quem perder a corrida tenta a seguinte, até 5
+    vezes; o teste com 4 analistas ao mesmo tempo confere que cada amostra fica com um
+    dono só.
+  - **Efeito:** a amostra fica atribuída a quem pegou e Em análise, com os dois eventos
+    no histórico.
+  - **Fila vazia:** 404 "Nenhuma amostra pendente sem responsável."
+  - **Front** (`components/useTakeNext.ts`): botão **Pegar a próxima** na barra do
+    Histórico Global (todas as filas) e link na Página Inicial dos analistas. Abre a
+    ficha; com a fila vazia, o aviso aparece na barra e a tela não muda.
+  - **Testes:** 8 de integração (Postgres), inclusive a corrida, e `take-next.mjs`.
 
 ### 53. Prioridade P1–P4 com prazo próprio
 - **Proposta:** campo **Prioridade** (P1 Crítica, P2 Alta, P3 Média — padrão, P4 Baixa)

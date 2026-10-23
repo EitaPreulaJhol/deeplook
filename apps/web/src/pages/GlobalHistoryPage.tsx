@@ -7,10 +7,13 @@ import { useAuth } from '../auth/AuthContext';
 import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { suggestViewName } from '../components/favorites';
 import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
+import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
+import { IconPage } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { statusLabel, verdictLabel } from '../components/tags';
 import { useEntryListState } from '../components/useEntryListState';
+import { useTakeNext } from '../components/useTakeNext';
 
 export function GlobalHistoryPage() {
   const { user, preferences } = useAuth();
@@ -18,6 +21,7 @@ export function GlobalHistoryPage() {
   const pageSize = preferences.pageSize;
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
+  const next = useTakeNext();
   const { q, draftQ, setDraftQ, sort, offset } = list;
   const { type, status, verdict, assignee, age, submittedFrom, completedFrom } = list.filters;
   // Analistas do select "Responsável" (o Painel leva a um analista especifico).
@@ -102,6 +106,24 @@ export function GlobalHistoryPage() {
   return (
     <>
       <PageHeader title="Histórico Global" subtitle="Todas as amostras enviadas pela comunidade." />
+
+      {/* Analistas: "Pegar a proxima" em todas as filas (Next in queue do HPSM). */}
+      {canTriage && (
+        <HpsmToolbar label="Ações da fila">
+          <HpsmToolbarButton
+            label={next.taking ? 'Pegando...' : 'Pegar a próxima'}
+            icon={IconPage}
+            title="Atribui a você a amostra pendente sem responsável mais antiga e abre a ficha"
+            disabled={next.taking}
+            onClick={() => void next.take()}
+          />
+        </HpsmToolbar>
+      )}
+      {next.notice && (
+        <HpsmMessage key={next.notice.text} kind={next.notice.kind}>
+          {next.notice.text}
+        </HpsmMessage>
+      )}
 
       <HpsmFilterBar onClear={list.clear} exportHref={exportHref} viewName={viewName} chips={chips}>
         <HpsmFilterItem label="Buscar" htmlFor="q">

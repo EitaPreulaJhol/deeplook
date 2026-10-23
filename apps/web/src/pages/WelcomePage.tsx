@@ -19,6 +19,7 @@ import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { SHORTCUT_GROUPS, ShortcutKeys } from '../components/shortcutList';
 import { VerdictTag } from '../components/tags';
+import { useTakeNext } from '../components/useTakeNext';
 
 interface Updates {
   since: string | null;
@@ -33,6 +34,7 @@ const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1
 export function WelcomePage() {
   const { user } = useAuth();
   const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
+  const next = useTakeNext();
 
   // Amostras do usuario concluidas desde a visita anterior.
   const updatesQuery = useQuery({
@@ -53,6 +55,11 @@ export function WelcomePage() {
           {completed.length === 1
             ? '1 amostra sua foi concluída desde a sua última visita.'
             : `${completed.length} amostras suas foram concluídas desde a sua última visita.`}
+        </HpsmMessage>
+      )}
+      {next.notice && (
+        <HpsmMessage key={next.notice.text} kind={next.notice.kind}>
+          {next.notice.text}
         </HpsmMessage>
       )}
 
@@ -121,6 +128,19 @@ export function WelcomePage() {
               <li>
                 Na aba <strong>Análise</strong> de cada amostra você faz a triagem e pode abrir um
                 ambiente isolado para examinar o arquivo com segurança.
+              </li>
+            )}
+            {canTriage && (
+              <li>
+                <button
+                  type="button"
+                  className="dl-link-button"
+                  disabled={next.taking}
+                  onClick={() => void next.take()}
+                >
+                  {next.taking ? 'Pegando...' : 'Pegar a próxima'}
+                </button>{' '}
+                — atribui a você a amostra pendente sem responsável mais antiga e abre a ficha.
               </li>
             )}
           </ul>
