@@ -458,6 +458,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/me/2fa/setup` · `/enable { code }` | ativar: segredo pendente `{ secret, otpauthUri, qrSvg }` e confirmação → `{ recoveryCodes }` (uma vez) |
 | POST | `/api/me/2fa/recovery-codes` · `/disable` | `{ password, code }`: novos códigos (invalida os anteriores) ou desativar |
 | POST | `/api/admin/users/:id/disable-2fa` | admin: desativa o 2FA de alguém (celular perdido) |
+| POST/DELETE | `/api/iocs/:kind/:value/watch` | seguir / deixar de seguir um indicador (alertas de IOC); `GET /api/iocs/:kind/:value` traz `watching` |
+| GET | `/api/me/watches` | indicadores que a pessoa segue |
 | GET | `/api/me/sessions` | sessões abertas da conta `{ sessions: [{ handle, device, userAgent, ip, createdAt, lastSeenAt, current }] }` (`handle` = hash, nunca o id) |
 | DELETE | `/api/me/sessions/:handle` · POST `/api/me/sessions/revoke-others` | encerra uma sessão (não a atual) ou todas as outras |
 | GET/POST | `/api/me/api-tokens` | tokens de API do usuário (`{ apiAccess, maxDays, tokens }`); POST `{ name, expiresInDays }` → `{ token, secret }` (secret só aqui); 403 sem liberação, 409 com 10 ativos |
@@ -570,6 +572,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `ioc-watch.mjs` | alertas de IOC: Seguir/Deixar de seguir na ficha do indicador, aba Indicadores na Minha Conta (link, deixar de seguir) e notificação com texto e link para a aba Relatórios |
 | `sessions.mjs` | sessões: aba na Minha Conta, atual marcada sem ação, User-Agent na dica, encerrar uma (confirmação com dispositivo e IP), encerrar as outras e botão desabilitado sem outras |
 | `priority.mjs` | prioridade: coluna e prazo pela prioridade (P1 de 5 h atrasada, P3 de 5 h no prazo, dica), filtro, ordenação (mais urgente primeiro), atualização em massa, ficha (resumo, triagem com o prazo) e histórico |
 | `hex-viewer.mjs` | visualizador hexadecimal: carrega sob demanda, linha offset/hex/texto, cabeçalho MZ destacado, Mostrar mais até o fim, expurgado, link e usuário comum sem a seção |

@@ -181,6 +181,8 @@ export function createState({ loggedIn = false } = {}) {
     fileBytes: {},
     /** Sessoes abertas da conta (aba Sessoes da Minha Conta). */
     sessions: [],
+    /** Indicadores seguidos (alertas de IOC): "KIND:valor" -> data. */
+    watches: {},
   };
 }
 
@@ -685,12 +687,27 @@ export async function setupMock(context, state) {
         else if (/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(q)) ioc = { kind: 'DOMAIN', value: q };
         return ioc ? json(route, 200, { ioc }) : json(route, 404, { error: 'Nao e um indicador reconhecido.' });
       }
+      const iw = p.match(/^\/api\/iocs\/(\w+)\/(.+)\/watch$/);
+      if (iw) {
+        const key = `${iw[1].toUpperCase()}:${decodeURIComponent(iw[2])}`;
+        if (req.method() === 'DELETE') delete state.watches[key];
+        else state.watches[key] = new Date().toISOString();
+        return json(route, 200, { watching: req.method() !== 'DELETE' });
+      }
+      if (p === '/api/me/watches') {
+        const watches = Object.entries(state.watches).map(([key, createdAt]) => {
+          const i = key.indexOf(':');
+          return { kind: key.slice(0, i), value: key.slice(i + 1), createdAt };
+        });
+        return json(route, 200, { watches });
+      }
       const io = p.match(/^\/api\/iocs\/(\w+)\/(.+)$/);
       if (io) {
         const kind = io[1].toUpperCase();
         const value = decodeURIComponent(io[2]);
         if (!['IPV4', 'DOMAIN', 'EMAIL', 'MD5', 'SHA1', 'SHA256'].includes(kind)) return json(route, 400, { error: 'Indicador invalido.' });
-        return json(route, 200, state.iocDetails[`${kind}:${value}`] ?? { ioc: { kind, value }, items: [], total: 0, firstSeen: null, lastSeen: null });
+        const detail = state.iocDetails[`${kind}:${value}`] ?? { ioc: { kind, value }, items: [], total: 0, firstSeen: null, lastSeen: null };
+        return json(route, 200, { ...detail, watching: Boolean(state.watches[`${kind}:${value}`]) });
       }
       const ex = p.match(/^\/api\/entries\/([\w-]+)\/iocs\/export$/);
       if (ex) {

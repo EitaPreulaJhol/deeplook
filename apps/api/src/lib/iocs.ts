@@ -1,5 +1,6 @@
 import type { IocKind } from '@prisma/client';
 
+import { notifyWatchers } from './ioc-watch';
 import type { Db } from './prisma';
 import { prisma } from './prisma';
 
@@ -123,11 +124,21 @@ export function extractIocs(text: string | null | undefined): Ioc[] {
  * Reindexa os IOCs de um relatorio: so relatorios publicados contam (rascunhos
  * podem estar errados). Chamar apos criar/editar/publicar.
  */
-export async function syncReportIocs(db: Db, reportId: string): Promise<void> {
+export async function syncReportIocs(
+  db: Db,
+  reportId: string,
+  options: { actorId?: string | null; notify?: boolean } = {},
+): Promise<void> {
   const report = await db.report.findUnique({
     where: { id: reportId },
     select: { id: true, entryId: true, status: true, iocs: true },
   });
+  // Indicadores que ja estavam no relatorio: so os novos avisam quem os segue.
+  const before = new Set(
+    (await db.reportIoc.findMany({ where: { reportId }, select: { kind: true, value: true } })).map(
+      (i) => `${i.kind}:${i.value}`,
+    ),
+  );
   await db.reportIoc.deleteMany({ where: { reportId } });
   if (report?.status !== 'PUBLISHED') return;
   const iocs = extractIocs(report.iocs);
@@ -136,6 +147,9 @@ export async function syncReportIocs(db: Db, reportId: string): Promise<void> {
     data: iocs.map((ioc) => ({ reportId: report.id, entryId: report.entryId, ...ioc })),
     skipDuplicates: true,
   });
+  if (options.notify === false) return;
+  const fresh = iocs.filter((i) => !before.has(`${i.kind}:${i.value}`));
+  await notifyWatchers(db, fresh, report.entryId, options.actorId ?? null, 'report');
 }
 
 /**
@@ -147,6 +161,6 @@ export async function backfillReportIocs(): Promise<number> {
     where: { status: 'PUBLISHED', iocs: { not: null }, extractedIocs: { none: {} } },
     select: { id: true },
   });
-  for (const report of pending) await syncReportIocs(prisma, report.id);
+  for (const report of pending) await syncReportIocs(prisma, report.id, { notify: false });
   return pending.length;
 }

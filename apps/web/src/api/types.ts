@@ -226,7 +226,14 @@ export interface ReportTemplate {
 /** Notificacao da caixa de entrada (GET /api/me/notifications). */
 export interface AppNotification {
   id: string;
-  type: 'ASSIGNED' | 'COMPLETED' | 'MENTION' | 'COMMENT' | 'REPORT_APPROVED' | 'REPORT_RETURNED';
+  type:
+    | 'ASSIGNED'
+    | 'COMPLETED'
+    | 'MENTION'
+    | 'COMMENT'
+    | 'REPORT_APPROVED'
+    | 'REPORT_RETURNED'
+    | 'IOC_SEEN';
   /** Veredito (COMPLETED) ou trecho da atualizacao (MENTION/COMMENT). */
   detail: string | null;
   readAt: string | null;
@@ -246,6 +253,8 @@ export type IocSighting =
 
 /** GET /api/iocs/:kind/:value */
 export interface IocDetail {
+  /** A pessoa segue este indicador (alertas de IOC). */
+  watching?: boolean;
   ioc: { kind: IocKind; value: string };
   items: { entry: Entry; sightings: IocSighting[] }[];
   total: number;

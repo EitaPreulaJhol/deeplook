@@ -53,7 +53,7 @@ async function publish(tx: Tx, reportId: string, actorId: string) {
     verdict: report.verdict,
     status: 'COMPLETED',
   });
-  await syncReportIocs(tx, reportId);
+  await syncReportIocs(tx, reportId, { actorId });
 }
 
 /** Envia para revisao: some do rascunho, entra na fila "Relatorios para revisar". */
@@ -198,7 +198,7 @@ export async function reportRoutes(app: FastifyInstance) {
         // Publicado editado: o veredito da amostra acompanha.
         await tx.entry.update({ where: { id: report.entryId }, data: { verdict: data.verdict } });
       }
-      await syncReportIocs(tx, id);
+      await syncReportIocs(tx, id, { actorId: user.id });
       return tx.report.findUniqueOrThrow({ where: { id }, include: reportInclude });
     });
 

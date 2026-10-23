@@ -104,6 +104,54 @@ export async function iocRoutes(app: FastifyInstance) {
   });
 
   // Ficha do indicador: amostras em que ele aparece (relatorio, arquivo, dominio).
+  /** Indicador da URL (mesma validacao da ficha), ou null. */
+  const parseIoc = (params: { kind: string; value: string }) => {
+    const kind = KINDS[params.kind.toLowerCase()];
+    const value = params.value.trim().toLowerCase();
+    const valid = kind && extractIocs(value).some((i) => i.kind === kind && i.value === value);
+    return valid ? { kind, value } : null;
+  };
+
+  // Alertas de IOC (item 60): seguir / deixar de seguir um indicador.
+  app.post('/api/iocs/:kind/:value/watch', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const ioc = parseIoc(req.params as { kind: string; value: string });
+    if (!ioc) return reply.code(400).send({ error: 'Indicador invalido.' });
+    const count = await prisma.iocWatch.count({ where: { userId: user.id } });
+    if (count >= 200) {
+      return reply
+        .code(409)
+        .send({ error: 'Limite de 200 indicadores seguidos. Deixe de seguir algum.' });
+    }
+    await prisma.iocWatch.upsert({
+      where: { userId_kind_value: { userId: user.id, ...ioc } },
+      create: { userId: user.id, ...ioc },
+      update: {},
+    });
+    return reply.send({ watching: true });
+  });
+
+  app.delete('/api/iocs/:kind/:value/watch', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const ioc = parseIoc(req.params as { kind: string; value: string });
+    if (!ioc) return reply.code(400).send({ error: 'Indicador invalido.' });
+    await prisma.iocWatch.deleteMany({ where: { userId: user.id, ...ioc } });
+    return reply.send({ watching: false });
+  });
+
+  app.get('/api/me/watches', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const watches = await prisma.iocWatch.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      select: { kind: true, value: true, createdAt: true },
+    });
+    return reply.send({ watches });
+  });
+
   app.get('/api/iocs/:kind/:value', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
@@ -170,7 +218,12 @@ export async function iocRoutes(app: FastifyInstance) {
         s.kind === 'REPORT' ? s.createdAt.getTime() : e.createdAt.getTime(),
       ),
     ]);
+    const watching = await prisma.iocWatch.findUnique({
+      where: { userId_kind_value: { userId: user.id, kind, value } },
+      select: { id: true },
+    });
     return reply.send({
+      watching: Boolean(watching),
       ioc: { kind, value },
       items: entries.map((entry) => ({ entry, sightings: sightings.get(entry.id) ?? [] })),
       total: sightings.size,

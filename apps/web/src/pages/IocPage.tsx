@@ -7,9 +7,9 @@ import {
   TableHeader,
   TableRow,
 } from '@carbon/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { KeyboardEvent } from 'react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../api/client';
@@ -17,7 +17,7 @@ import type { IocDetail, IocSighting } from '../api/types';
 import { CopyButton } from '../components/CopyButton';
 import { saveEntrySequence } from '../components/entryNav';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
-import { IconArrowLeft } from '../components/icons';
+import { IconArrowLeft, IconBell } from '../components/icons';
 import { IOC_KIND_LABELS, shortIoc } from '../components/iocs';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
@@ -59,9 +59,49 @@ export function IocPage() {
   });
   useWorkspaceTitle(`IOC · ${shortIoc(value)}`);
 
+  // Alertas de IOC: seguir avisa na Caixa de entrada quando o indicador aparecer de novo.
+  const queryClient = useQueryClient();
+  const [watchBusy, setWatchBusy] = useState(false);
+  const [watchNotice, setWatchNotice] = useState<string | null>(null);
+  const watching = query.data?.watching ?? false;
+  const toggleWatch = async () => {
+    setWatchBusy(true);
+    setWatchNotice(null);
+    try {
+      const path = `/iocs/${encodeURIComponent(kind)}/${encodeURIComponent(value)}/watch`;
+      if (watching) await api.del(path);
+      else await api.post(path, {});
+      await queryClient.invalidateQueries({ queryKey: ['ioc', kind, value] });
+      await queryClient.invalidateQueries({ queryKey: ['me', 'watches'] });
+      setWatchNotice(
+        watching
+          ? 'Você deixou de seguir este indicador.'
+          : 'Seguindo: você será avisado quando ele aparecer numa amostra nova ou num relatório.',
+      );
+    } catch (err) {
+      setWatchNotice((err as Error).message);
+    } finally {
+      setWatchBusy(false);
+    }
+  };
+
   const toolbar = (
     <HpsmToolbar label="Ações do indicador">
       <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
+      {query.data && (
+        <HpsmToolbarButton
+          label={watching ? 'Deixar de seguir' : 'Seguir'}
+          icon={IconBell}
+          pressed={watching}
+          disabled={watchBusy}
+          title={
+            watching
+              ? 'Parar de receber avisos deste indicador'
+              : 'Avisar na Caixa de entrada quando este indicador aparecer de novo'
+          }
+          onClick={() => void toggleWatch()}
+        />
+      )}
     </HpsmToolbar>
   );
 
@@ -101,6 +141,11 @@ export function IocPage() {
   return (
     <>
       {toolbar}
+      {watchNotice && (
+        <HpsmMessage key={watchNotice} kind="success">
+          {watchNotice}
+        </HpsmMessage>
+      )}
       <PageHeader
         title={`${IOC_KIND_LABELS[ioc.kind]}: ${ioc.value}`}
         subtitle="Ficha do indicador: amostras e relatórios publicados em que ele aparece."

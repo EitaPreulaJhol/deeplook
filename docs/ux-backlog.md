@@ -1427,7 +1427,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
 | 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ⬜ |
-| 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ⬜ |
+| 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ✅ |
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
 | 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ⬜ |
 | 63 | Base de conhecimento | Knowledge Management | ⚪ | M–G | ⬜ (opcional) |
@@ -1555,6 +1555,28 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   indicador aparecer numa amostra nova (hash/domínio no envio) ou num relatório publicado,
   quem segue recebe uma notificação na Caixa de entrada. Lista "Indicadores que sigo" na
   Minha Conta.
+- ✅ **Implementado:** migração `20261114000000_ioc_watch` (modelo `IocWatch`, um por
+  pessoa e indicador; notificação `IOC_SEEN`).
+  - **Quando avisa** (`lib/ioc-watch.ts`):
+    - **amostra nova:** o SHA-256 do arquivo, ou o domínio/IP do link (inclusive os
+      arquivos de um `.zip` e os envios por token);
+    - **relatório publicado:** `syncReportIocs` compara os indicadores de antes e de
+      depois e só avisa pelos novos; editar o relatório sem indicador novo não repete.
+  - **Como avisa:** uma notificação por pessoa e por evento, com o primeiro indicador e
+    "(+N)". Quem fez a ação não é avisado, e a indexação inicial da subida não avisa
+    ninguém.
+  - **API:**
+    - `POST`/`DELETE /api/iocs/:kind/:value/watch`, com a mesma validação da ficha e no
+      máximo 200 por pessoa;
+    - `watching` em `GET /api/iocs/:kind/:value`;
+    - `GET /api/me/watches`.
+  - **Front:**
+    - **Seguir / Deixar de seguir** (com o sininho) na barra da ficha do indicador;
+    - aba **Indicadores** na Minha Conta, com tipo, link para a ficha, desde quando e
+      "Deixar de seguir";
+    - notificação "Indicador que você segue: Domínio x (+1) num relatório publicado",
+      que abre a aba Relatórios quando veio de um relatório.
+  - **Testes:** 16 de integração (Postgres e MinIO) e `ioc-watch.mjs`.
 
 ### 61. Sessões ativas
 - **Proposta:** aba **Sessões** na Minha Conta: cada sessão com navegador/sistema, IP,

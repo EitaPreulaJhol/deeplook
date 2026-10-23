@@ -12,6 +12,7 @@ import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
@@ -417,6 +418,7 @@ async function createFileEntry(
   await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
   checkReputationInBackground(entry.id, req.log);
   scanInBackground(entry.id, buffer, req.log);
+  await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
   const previous = await prisma.entry.findFirst({
     where: { sha256, id: { not: entry.id } },
     orderBy: { createdAt: 'asc' },
@@ -832,6 +834,7 @@ export async function entryRoutes(app: FastifyInstance) {
 
     await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
     checkReputationInBackground(entry.id, req.log);
+    await notifyWatchers(prisma, sampleIndicators(entry), entry.id, user.id, 'sample');
     return reply.code(201).send({ entry });
   });
 

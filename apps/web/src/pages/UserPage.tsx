@@ -25,6 +25,7 @@ import { useSaveShortcut } from '../components/shortcuts';
 import { roleLabel } from '../components/tags';
 import { TwoFactorTab } from '../components/TwoFactorTab';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
+import { WatchesTab } from '../components/WatchesTab';
 import { clearWorkspaceTabs } from '../components/workspace';
 
 const TABS = [
@@ -33,6 +34,7 @@ const TABS = [
   { id: 'preferencias', label: 'Preferências' },
   { id: '2fa', label: '2FA' },
   { id: 'sessoes', label: 'Sessões' },
+  { id: 'indicadores', label: 'Indicadores' },
 ];
 
 /** Minha Conta: dados (somente leitura), troca de senha e preferencias de uso. */
@@ -83,6 +85,7 @@ export function UserPage() {
         {tab === 'preferencias' && <PreferencesTab />}
         {tab === '2fa' && <TwoFactorTab />}
         {tab === 'sessoes' && <SessionsTab />}
+        {tab === 'indicadores' && <WatchesTab />}
         {tab === 'tokens' && <ApiTokensTab />}
       </div>
     </>

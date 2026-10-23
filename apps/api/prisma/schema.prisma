@@ -98,6 +98,7 @@ model User {
   trashedEntries  Entry[]                 @relation("EntryDeletedBy")
   apiTokens       ApiToken[]
   recoveryCodes   TwoFactorRecoveryCode[]
+  iocWatches      IocWatch[]
 }
 
 model Session {
@@ -384,6 +385,8 @@ enum NotificationType {
   /// Relatorio do destinatario aprovado na revisao / devolvido (detail = comentario).
   REPORT_APPROVED
   REPORT_RETURNED
+  /// Indicador seguido apareceu numa amostra nova ou num relatorio (detail = indicador).
+  IOC_SEEN
 }
 
 /// Caixa de entrada (sininho do masthead): criadas junto com os eventos do
@@ -564,4 +567,17 @@ enum Priority {
   P2
   P3
   P4
+}
+
+/// Alertas de IOC (item 60): indicadores que a pessoa segue.
+model IocWatch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      IocKind
+  value     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, value])
+  @@index([kind, value])
 }

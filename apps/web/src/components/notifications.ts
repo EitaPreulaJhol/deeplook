@@ -62,6 +62,8 @@ export function notificationText(n: AppNotification): string {
       return `${who} aprovou o seu relatório (publicado)`;
     case 'REPORT_RETURNED':
       return `${who} devolveu o seu relatório para ajustes`;
+    case 'IOC_SEEN':
+      return `Indicador que você segue: ${n.detail ?? 'apareceu numa amostra'}`;
   }
 }
 
@@ -70,7 +72,9 @@ export function notificationHref(n: AppNotification): string {
   const tab =
     n.type === 'MENTION' || n.type === 'COMMENT'
       ? '?tab=historico'
-      : n.type === 'REPORT_APPROVED' || n.type === 'REPORT_RETURNED'
+      : n.type === 'REPORT_APPROVED' ||
+          n.type === 'REPORT_RETURNED' ||
+          (n.type === 'IOC_SEEN' && n.detail?.endsWith('relatório publicado'))
         ? '?tab=relatorios'
         : '';
   return `/entries/${n.entry.id}${tab}`;
