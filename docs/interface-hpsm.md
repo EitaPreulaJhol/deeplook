@@ -15,9 +15,9 @@ gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com a
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ DeepLook                                             Ana Souza ▾ (Admin)   │  masthead
+│ DeepLook                  Ir para: [__________]      Ana Souza ▾ (Admin)   │  masthead
 ├──────────────────────┬────────────────────────────────────────────────────┤
-│ Navegador do Sistema │ [Página Inicial ×] [Histórico Global ×] [Amostra ×]│  abas de documento
+│ Navegação            │ [Página Inicial ×] [Histórico Global ×] [Amostra ×]│  abas de documento
 │  🏠 Página Inicial   ├────────────────────────────────────────────────────┤
 │  ⊟ 📁 Amostras       │ ⓘ Mensagens (erros, avisos, confirmações)          │  barra de mensagens
 │     Histórico Global │ ┌─ Título da página ───────────────────────────────┐│
@@ -35,7 +35,8 @@ gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com a
 | Abas de documento | `WorkspaceProvider` + `WorkspaceTabs` | `components/workspace.tsx` |
 | Barra de mensagens | `HpsmMessageBar` + `HpsmMessage` | `components/messages.tsx` |
 
-- **Masthead:** marca à esquerda; à direita, "Nome ▾ (Papel)". O nome do usuário
+- **Masthead:** marca à esquerda; "Ir para:" (rótulo e campo) centralizado na barra,
+  independente da largura do logo e do nome; à direita, "Nome ▾ (Papel)". O nome do usuário
   abre um submenu (Minha conta, Alterar senha, Preferências, Sair) — é o único lugar
   do "Sair". No celular, o papel "(Admin)" some e o nome continua abrindo o menu.
 - **Navegador do Sistema:** sempre visível no desktop (não recolhe). Abaixo de
@@ -565,6 +566,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `topbar-center.mjs` | "Ir para:" centralizado no masthead em 1440/1024/900 px (centro horizontal, meio da altura, sem encostar no logo nem no usuário) e fora do masthead em tela estreita |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |
 | `detail-pane.mjs` | painel de detalhe: desligado o clique abre; ligado, seleção, setas, duplo clique, Enter e "Abrir amostra" |
