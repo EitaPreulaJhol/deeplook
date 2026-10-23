@@ -3216,3 +3216,34 @@ body:has(.dl-print) {
 .dl-hex__text {
   color: var(--dl-text);
 }
+
+/* Regras YARA (/yara): editor monoespacado e saida do compilador. */
+.dl-code-input textarea,
+textarea.dl-code-input {
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  tab-size: 2;
+}
+
+.dl-compiler-output {
+  margin-block-start: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--dl-field-border);
+  border-inline-start: 3px solid var(--dl-success-border);
+  background: var(--dl-readonly-bg);
+  font-size: var(--dl-font-size);
+}
+
+.dl-compiler-output[data-ok='false'] {
+  border-inline-start-color: var(--dl-error-border);
+}
+
+.dl-compiler-output pre {
+  overflow: auto;
+  max-block-size: 16rem;
+  margin: 0.3rem 0 0;
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  white-space: pre;
+}

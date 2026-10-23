@@ -22,6 +22,7 @@ import { SandboxConsoleWindowPage } from './pages/SandboxConsoleWindowPage';
 import { SubmitPage } from './pages/SubmitPage';
 import { UserPage } from './pages/UserPage';
 import { WelcomePage } from './pages/WelcomePage';
+import { YaraRulesPage } from './pages/YaraRulesPage';
 
 function FullScreenLoader() {
   return (
@@ -95,6 +96,10 @@ export default function App() {
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/painel" element={<DashboardPage />} />
         <Route path="/revisoes" element={<ReviewQueuePage />} />
+        <Route
+          path="/yara"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <YaraRulesPage />}
+        />
         <Route
           path="/admin"
           element={user.role === 'ADMIN' ? <AdminPage /> : <Navigate to="/" replace />}

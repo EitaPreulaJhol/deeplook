@@ -22,6 +22,7 @@ import { s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
+import { yaraScanInBackground } from '../lib/yara';
 import type { ZipEntry } from '../lib/zip';
 import { extractZipEntry, listZip, ZipError } from '../lib/zip';
 import { reviewRequired } from './reports';
@@ -418,6 +419,7 @@ async function createFileEntry(
   await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
   checkReputationInBackground(entry.id, req.log);
   scanInBackground(entry.id, buffer, req.log);
+  yaraScanInBackground(entry.id, buffer, req.log);
   await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
   const previous = await prisma.entry.findFirst({
     where: { sha256, id: { not: entry.id } },

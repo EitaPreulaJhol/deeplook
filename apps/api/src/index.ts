@@ -30,6 +30,7 @@ import { sessionRoutes } from './routes/sessions';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
 import { twoFactorRoutes } from './routes/two-factor';
+import { yaraRoutes } from './routes/yara';
 
 async function main() {
   const app = Fastify({
@@ -73,6 +74,7 @@ async function main() {
   await app.register(reportRoutes);
   await app.register(reputationRoutes);
   await app.register(antivirusRoutes);
+  await app.register(yaraRoutes);
   await app.register(hexRoutes);
   await app.register(adminRoutes);
   await app.register(apiTokenRoutes);

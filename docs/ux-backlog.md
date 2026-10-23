@@ -1423,7 +1423,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ✅ |
 | 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ (decisão) |
 | 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
-| 56 | Regras YARA | regras de negócio | 🟡 | M | ⬜ |
+| 56 | Regras YARA | regras de negócio | 🟡 | M | ✅ |
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
 | 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ⬜ |
@@ -1521,6 +1521,42 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   na base dele) e cada acerto aparece na seção Antivírus da ficha ("YARA: nome_da_regra").
 - **Cuidados:** regra com erro de sintaxe nunca chega ao ClamAV (senão ele não recarrega);
   recarregar o ClamAV depois de salvar.
+- ✅ **Implementado** (com uma mudança de rota): em vez de gravar `.yar` na base do ClamAV,
+  a API compila e aplica as regras com o **YARA-X** (`@virustotal/yara-x`, o motor
+  oficial do VirusTotal, em WebAssembly e sem binário nativo).
+  - **Por que a mudança:** regra com erro é recusada na hora, com a linha, e nunca chega
+    a derrubar o antivírus. Não precisa recarregar o `clamd` nem compartilhar volume.
+    O resultado também sai mais rico: regra, conjunto, tags, descrição e ocorrências.
+  - **Banco:** migração `20261115000000_yara_rules`:
+    - `YaraRule`: nome único, descrição, fonte, ativa, autor e último editor;
+    - `YaraScan`: a última varredura por amostra, com os acertos em JSON;
+    - auditoria `YARA_RULE_CREATED`/`UPDATED`/`DELETED`.
+  - **Motor** (`lib/yara.ts`):
+    - as regras ativas são compiladas juntas, cada conjunto no próprio namespace (dois
+      conjuntos podem repetir o identificador);
+    - a compilação fica em cache e só refaz quando alguma regra muda;
+    - a varredura tem tempo-limite de 10 s e no máximo 100 ocorrências por string;
+    - um conjunto que deixe de compilar não derruba os outros.
+  - **Quando varre:** cada arquivo enviado (inclusive os de um `.zip` e os envios por
+    token), em segundo plano e só se houver regra ativa. Analistas têm "Escanear de novo"
+    na ficha. Regra nova vale para os próximos envios; não há varredura retroativa.
+  - **API** (`routes/yara.ts`, analistas e admins):
+    - `GET`/`POST /api/yara/rules`, `PATCH`/`DELETE /api/yara/rules/:id`;
+    - o `PATCH` só com `{ enabled }` ativa ou desativa;
+    - `POST /api/yara/validate` valida sem salvar;
+    - erro de compilação volta como 400 em `details.source`;
+    - `GET`/`POST /api/entries/:id/yara` traz o resultado e escaneia de novo.
+  - **Front:**
+    - tela **Regras YARA** (`/yara`), na pasta **Detecção** do navegador, só para
+      analistas e admins (usuário comum volta ao início);
+    - editor monoespaçado com **Validar**, **Salvar regra** (Ctrl+S) e o quadro
+      "Compilador" com a saída do YARA-X;
+    - a lista tem situação, editor e data, com Editar / Ativar / Desativar / Excluir;
+    - na ficha, a seção **Regras YARA** traz a situação, os conjuntos aplicados e a
+      tabela de acertos (regra, conjunto, tags, descrição, ocorrências);
+    - o topo da ficha mostra "YARA: regra, regra (+N)";
+    - a seção fica escondida enquanto não houver regra ativa nem varredura.
+  - **Testes:** 28 de integração (Postgres e MinIO, com o YARA-X de verdade) e `yara.mjs`.
 
 ### 57. Visualizador hexadecimal
 - **Proposta:** seção **Conteúdo (hex)** na aba Análise: os primeiros 4 KB do arquivo em

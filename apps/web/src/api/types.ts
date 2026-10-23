@@ -49,6 +49,46 @@ export interface AntivirusInfo {
   scan: AntivirusScan | null;
 }
 
+/** Regra YARA (item 56): conjunto de regras escrito pelos analistas. */
+export interface YaraRule {
+  id: string;
+  name: string;
+  description: string | null;
+  source: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: { id: string; displayName: string } | null;
+  updatedBy: { id: string; displayName: string } | null;
+}
+
+/** Acerto de uma regra YARA numa amostra. */
+export interface YaraHit {
+  /** Nome do conjunto (YaraRule.name). */
+  rule: string;
+  /** Identificador da regra dentro do conjunto. */
+  identifier: string;
+  tags: string[];
+  description: string | null;
+  /** Quantas ocorrencias das strings casaram. */
+  matches: number;
+}
+
+export interface YaraScan {
+  status: 'PENDING' | 'CLEAN' | 'MATCHED' | 'ERROR';
+  matches: YaraHit[];
+  rulesCount: number;
+  error: string | null;
+  scannedAt: string;
+}
+
+export interface YaraInfo {
+  /** Conjuntos ativos agora (0 = secao escondida se nunca varreu). */
+  activeRules: number;
+  pending: boolean;
+  scan: YaraScan | null;
+}
+
 /** Resultado de um servico de reputacao externa (GET /api/entries/:id/reputation). */
 export interface ReputationResult {
   service: string;
@@ -198,7 +238,10 @@ export type AuditAction =
   | 'TWO_FACTOR_RECOVERY_USED'
   | 'ENTRY_TRASHED'
   | 'ENTRY_RESTORED'
-  | 'ENTRY_DELETED';
+  | 'ENTRY_DELETED'
+  | 'YARA_RULE_CREATED'
+  | 'YARA_RULE_UPDATED'
+  | 'YARA_RULE_DELETED';
 
 /** Registro de auditoria (GET /api/admin/audit). */
 export interface AuditEvent {
@@ -331,6 +374,7 @@ export interface Report {
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface Entry {
   /** Prioridade (padrao P3). */

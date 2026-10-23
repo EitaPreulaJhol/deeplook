@@ -50,6 +50,7 @@ import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
+import { useYara, YaraSection } from '../components/YaraSection';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
@@ -91,6 +92,8 @@ export function EntryDetailPage() {
   const reputation = reputationSummary(useReputation(id).data);
   // Antivirus: "Infectado" tambem aparece no topo.
   const antivirus = useAntivirus(id, true).data;
+  // YARA: acertos tambem aparecem no topo.
+  const yara = useYara(id, true).data;
 
   // Amostras relacionadas: o total aparece no rotulo da aba.
   const relatedQuery = useRelatedEntries(id);
@@ -490,6 +493,18 @@ export function EntryDetailPage() {
             <StatusText tone="red">infectado ({antivirus.scan.signature})</StatusText>
           </span>
         )}
+        {yara?.scan?.status === 'MATCHED' && (
+          <span>
+            <span className="dl-summary__label">YARA:</span>{' '}
+            <StatusText tone="red">
+              {yara.scan.matches
+                .slice(0, 3)
+                .map((m) => m.identifier)
+                .join(', ')}
+              {yara.scan.matches.length > 3 ? ` (+${yara.scan.matches.length - 3})` : ''}
+            </StatusText>
+          </span>
+        )}
         {reputation && (
           <span>
             <span className="dl-summary__label">Reputação:</span>{' '}
@@ -614,6 +629,13 @@ export function EntryDetailPage() {
           )}
           {entry.type === 'FILE' && (
             <AntivirusSection
+              entryId={entry.id}
+              canTriage={canTriage}
+              purged={Boolean(entry.filePurgedAt)}
+            />
+          )}
+          {entry.type === 'FILE' && (
+            <YaraSection
               entryId={entry.id}
               canTriage={canTriage}
               purged={Boolean(entry.filePurgedAt)}

@@ -191,6 +191,21 @@ interna (porta 3310, sem expor para fora), enviando o conteúdo pelo protocolo
 - **Desligar:** `CLAMAV_HOST=` (vazio) no `.env`; o serviço `clamav` pode sair do compose.
 - O resultado não muda o veredito: quem decide continua sendo o analista.
 
+## Regras YARA
+
+Analistas mantêm regras YARA na tela **Regras YARA** (pasta Detecção do navegador). A
+API valida e aplica as regras com o **YARA-X** (`@virustotal/yara-x`, WebAssembly, sem
+binário nem serviço extra). Regra com erro de sintaxe é recusada na hora, com a linha do
+erro, e nunca chega a ser usada.
+
+- **Automático:** cada arquivo enviado passa pelas regras ativas em segundo plano. Regra
+  nova vale para os próximos envios; para uma amostra antiga, use "Escanear de novo".
+- **Na ficha:** seção **Regras YARA** com as regras que casaram (conjunto, tags,
+  descrição, ocorrências); o topo mostra "YARA: ...".
+- **Limites:** 10 s por varredura e 100 ocorrências por string; cada conjunto tem até
+  64 KB.
+- Criar, alterar e excluir regras fica na Auditoria.
+
 ## Reputação externa
 
 Com as chaves no `.env`, cada amostra enviada é consultada **automaticamente** nos serviços

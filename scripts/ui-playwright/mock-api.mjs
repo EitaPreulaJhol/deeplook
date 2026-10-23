@@ -183,6 +183,10 @@ export function createState({ loggedIn = false } = {}) {
     sessions: [],
     /** Indicadores seguidos (alertas de IOC): "KIND:valor" -> data. */
     watches: {},
+    /** Regras YARA (/yara), resultado por amostra (GET; lista = sequencia) e chamadas. */
+    yaraRules: [],
+    yara: {},
+    yaraCalls: [],
   };
 }
 
@@ -503,6 +507,55 @@ export async function setupMock(context, state) {
         return json(route, 200, value ?? { enabled: false, pending: false, scan: null });
       }
       if (av && req.method() === 'POST') return json(route, 202, { ok: true });
+      // Regras YARA: "$b" sem declarar = erro de compilacao (como o YARA-X).
+      const yaraErrors = (source) =>
+        /\$b\b/.test(source) && !/\$b\s*=/.test(source)
+          ? ['error[E025]: unknown pattern `$b`\n --> line:7:5\n  |\n7 |     $b\n  |     ^^ this pattern is not declared in the `strings` section']
+          : [];
+      const yr = p.match(/^\/api\/entries\/(\w+)\/yara$/);
+      if (yr && req.method() === 'GET') {
+        const r = state.yara[yr[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { activeRules: 0, pending: false, scan: null });
+      }
+      if (yr && req.method() === 'POST') {
+        state.yaraCalls.push({ rescan: yr[1] });
+        return json(route, 202, { ok: true });
+      }
+      if (p === '/api/yara/rules' && req.method() === 'GET') {
+        return json(route, 200, { rules: [...state.yaraRules].sort((a, b) => a.name.localeCompare(b.name)) });
+      }
+      if (p === '/api/yara/validate') {
+        state.yaraCalls.push({ validate: body.source });
+        const errors = yaraErrors(body.source ?? '');
+        return json(route, 200, { ok: errors.length === 0, errors, warnings: [] });
+      }
+      const yrule = p.match(/^\/api\/yara\/rules(?:\/(\w+))?$/);
+      if (yrule && ['POST', 'PATCH', 'DELETE'].includes(req.method())) {
+        state.yaraCalls.push({ method: req.method(), id: yrule[1] ?? null, body });
+        const existing = state.yaraRules.find((r) => r.id === yrule[1]);
+        if (req.method() === 'DELETE') {
+          state.yaraRules = state.yaraRules.filter((r) => r.id !== yrule[1]);
+          return json(route, 200, { ok: true });
+        }
+        const toggle = Object.keys(body).length === 1 && 'enabled' in body;
+        if (!toggle) {
+          const errors = yaraErrors(body.source ?? '');
+          if (errors.length) {
+            return json(route, 400, { error: 'A regra não compila. Corrija e salve de novo.', details: { source: errors } });
+          }
+          if (state.yaraRules.some((r) => r.name === body.name.trim() && r.id !== yrule[1])) {
+            return json(route, 409, { error: 'Já existe uma regra com este nome.', details: { name: ['nome em uso'] } });
+          }
+        }
+        const editor = { id: 'u1', displayName: 'Ana Souza' };
+        const at = '2026-10-23T15:00:00.000Z';
+        const rule = existing
+          ? Object.assign(existing, toggle ? { enabled: body.enabled } : { ...body, name: body.name.trim(), description: body.description || null }, { updatedBy: editor, updatedAt: at })
+          : { id: `y${state.yaraRules.length + 1}`, name: body.name.trim(), description: body.description || null, source: body.source, enabled: body.enabled, createdAt: at, updatedAt: at, createdBy: editor, updatedBy: editor };
+        if (!existing) state.yaraRules.push(rule);
+        return json(route, existing ? 200 : 201, { rule, warnings: [] });
+      }
       // Reputacao externa: o roteiro define o que cada GET devolve (lista = sequencia).
       const rp = p.match(/^\/api\/entries\/(\w+)\/reputation$/);
       if (rp && req.method() === 'GET') {

@@ -99,6 +99,8 @@ model User {
   apiTokens       ApiToken[]
   recoveryCodes   TwoFactorRecoveryCode[]
   iocWatches      IocWatch[]
+  yaraRules       YaraRule[]              @relation("YaraRuleAuthor")
+  yaraRulesEdited YaraRule[]              @relation("YaraRuleEditor")
 }
 
 model Session {
@@ -188,6 +190,7 @@ model Entry {
   notifications   Notification[]
   reputation      ReputationResult[]
   antivirus       AntivirusScan?
+  yara            YaraScan?
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -436,6 +439,9 @@ enum AuditAction {
   TEMPLATE_CREATED
   TEMPLATE_UPDATED
   TEMPLATE_DELETED
+  YARA_RULE_CREATED
+  YARA_RULE_UPDATED
+  YARA_RULE_DELETED
   LOGIN_FAILED
   LOGIN_LOCKED
   API_ACCESS_GRANTED
@@ -580,4 +586,41 @@ model IocWatch {
 
   @@unique([userId, kind, value])
   @@index([kind, value])
+}
+
+/// Regras YARA (item 56): escritas pelos analistas, validadas e aplicadas pela
+/// API com o YARA-X (src/lib/yara.ts) a cada arquivo enviado.
+model YaraRule {
+  id          String   @id @default(cuid())
+  /// Nome do conjunto (unico); o arquivo pode ter varias regras.
+  name        String   @unique
+  description String?
+  source      String
+  enabled     Boolean  @default(true)
+  createdById String?
+  createdBy   User?    @relation("YaraRuleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?    @relation("YaraRuleEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum YaraStatus {
+  PENDING
+  CLEAN
+  MATCHED
+  ERROR
+}
+
+/// Ultima varredura YARA da amostra (acertos em JSON: conjunto, regra, tags).
+model YaraScan {
+  id         String     @id @default(cuid())
+  entryId    String     @unique
+  entry      Entry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status     YaraStatus
+  matches    Json       @default("[]")
+  /// Quantos conjuntos ativos foram aplicados.
+  rulesCount Int        @default(0)
+  error      String?
+  scannedAt  DateTime   @default(now())
 }

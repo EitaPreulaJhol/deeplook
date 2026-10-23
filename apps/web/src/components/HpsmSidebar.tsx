@@ -81,6 +81,13 @@ const TREE: NavFolder[] = [
     ],
   },
   {
+    // Ferramentas de deteccao mantidas pelos analistas.
+    id: 'deteccao',
+    label: 'Detecção',
+    access: 'triage',
+    children: [{ to: '/yara', label: 'Regras YARA', icon: IconFilter }],
+  },
+  {
     id: 'amostras',
     label: 'Amostras',
     children: [

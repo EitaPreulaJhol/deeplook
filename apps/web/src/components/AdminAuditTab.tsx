@@ -49,6 +49,9 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   ENTRY_TRASHED: { label: 'Amostra movida para a lixeira', tone: 'orange' },
   ENTRY_RESTORED: { label: 'Amostra restaurada', tone: 'green' },
   ENTRY_DELETED: { label: 'Amostra excluída definitivamente', tone: 'red' },
+  YARA_RULE_CREATED: { label: 'Regra YARA criada', tone: 'gray' },
+  YARA_RULE_UPDATED: { label: 'Regra YARA alterada', tone: 'gray' },
+  YARA_RULE_DELETED: { label: 'Regra YARA excluída', tone: 'gray' },
 };
 
 const PERIODS = [

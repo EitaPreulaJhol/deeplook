@@ -52,6 +52,9 @@ const AuditQuery = z.object({
       'ENTRY_TRASHED',
       'ENTRY_RESTORED',
       'ENTRY_DELETED',
+      'YARA_RULE_CREATED',
+      'YARA_RULE_UPDATED',
+      'YARA_RULE_DELETED',
     ])
     .optional(),
   q: z.string().trim().max(100).optional(),
@@ -87,6 +90,9 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   ENTRY_TRASHED: 'Amostra movida para a lixeira',
   ENTRY_RESTORED: 'Amostra restaurada',
   ENTRY_DELETED: 'Amostra excluída definitivamente',
+  YARA_RULE_CREATED: 'Regra YARA criada',
+  YARA_RULE_UPDATED: 'Regra YARA alterada',
+  YARA_RULE_DELETED: 'Regra YARA excluída',
 };
 
 export async function adminRoutes(app: FastifyInstance) {

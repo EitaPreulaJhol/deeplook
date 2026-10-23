@@ -451,6 +451,11 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/admin/audit/export.csv` | admin: CSV da auditoria com os mesmos filtros |
 | GET | `/api/entries/:id/antivirus` | ClamAV: `{ enabled, pending, scan: { status, signature, error, engine, dbVersion, dbDate, scannedAt } }` (aceita token) |
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
+| GET/POST | `/api/yara/rules` | analistas: regras YARA `{ rules: [{ id, name, description, source, enabled, createdBy, updatedBy, updatedAt }] }`; POST `{ name, description?, source, enabled }` compila com o YARA-X antes (400 com `details.source` = saída do compilador; 409 nome em uso) |
+| PATCH/DELETE | `/api/yara/rules/:id` | analistas: edita (mesmo corpo do POST) ou só `{ enabled }` (ativar/desativar); exclui |
+| POST | `/api/yara/validate` | analistas: `{ source }` → `{ ok, errors, warnings }` sem salvar |
+| GET | `/api/entries/:id/yara` | `{ activeRules, pending, scan: { status (PENDING/CLEAN/MATCHED/ERROR), matches: [{ rule, identifier, tags, description, matches }], rulesCount, error, scannedAt } }` |
+| POST | `/api/entries/:id/yara` | analistas: aplica as regras ativas de novo (202); 409 sem regra ativa, 410 se expurgado |
 | GET | `/api/entries/:id/reputation` | reputação externa `{ services, indicator, pending, results: [{ service, name, status, verdict, summary, link, checkedAt }] }` (aceita token) |
 | POST | `/api/entries/:id/reputation` | analistas: consulta de novo, ignorando o cache (202) |
 | POST | `/api/auth/login/2fa` | segunda etapa do login com 2FA `{ challenge, code }` (código do aplicativo ou de recuperação) → `{ user, recoveryRemaining }`; o `POST /api/auth/login` de quem tem 2FA devolve `{ twoFactorRequired: true, challenge }` |
@@ -572,6 +577,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `yara.mjs` | regras YARA: item só para analistas no navegador, obrigatórios, Validar com erro (quadro do compilador com a linha), salvar recusado com o campo destacado, validar ok, Ctrl+S, nome em uso, editar (PATCH), desativar (só `enabled`), excluir com confirmação; ficha escaneando → acertos (tabela e topo), Escanear de novo, sem regras sem seção; usuário comum redirecionado |
 | `ioc-watch.mjs` | alertas de IOC: Seguir/Deixar de seguir na ficha do indicador, aba Indicadores na Minha Conta (link, deixar de seguir) e notificação com texto e link para a aba Relatórios |
 | `sessions.mjs` | sessões: aba na Minha Conta, atual marcada sem ação, User-Agent na dica, encerrar uma (confirmação com dispositivo e IP), encerrar as outras e botão desabilitado sem outras |
 | `priority.mjs` | prioridade: coluna e prazo pela prioridade (P1 de 5 h atrasada, P3 de 5 h no prazo, dica), filtro, ordenação (mais urgente primeiro), atualização em massa, ficha (resumo, triagem com o prazo) e histórico |
