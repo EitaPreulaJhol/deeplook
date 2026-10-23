@@ -134,6 +134,8 @@ model Entry {
   description     String?
   status          EntryStatus @default(PENDING)
   verdict         Verdict     @default(UNKNOWN)
+  /// Prioridade (item 53): define o prazo de alerta/atraso (src/lib/sla.ts).
+  priority        Priority    @default(P3)
   /// Quando a amostra entrou no status atual (idade na fila / prazo). Mantido por
   /// um trigger no Postgres a cada mudanca de status (migracao entry_status_changed_at).
   statusChangedAt DateTime    @default(now())
@@ -190,6 +192,7 @@ model Entry {
   @@index([urlDomain])
   /// Fila "Atrasadas" e ordenacao por idade.
   @@index([status, statusChangedAt])
+  @@index([priority, status, statusChangedAt])
   @@index([duplicateOfId])
   @@index([deletedAt])
 }
@@ -287,6 +290,8 @@ enum EntryEventType {
   MARKED_DUPLICATE
   /// Deixou de ser duplicata (detail: id da principal anterior).
   UNMARKED_DUPLICATE
+  /// Prioridade mudou (fromValue/toValue: P1..P4).
+  PRIORITY_CHANGED
   /// Arquivo expurgado pela retencao (detail: politica aplicada).
   FILE_PURGED
   /// Movida para a lixeira / restaurada (admin).
@@ -546,4 +551,12 @@ model TwoFactorRecoveryCode {
   createdAt DateTime  @default(now())
 
   @@index([userId, codeHash])
+}
+
+/// Prioridade da amostra: P1 Critica, P2 Alta, P3 Media (padrao), P4 Baixa.
+enum Priority {
+  P1
+  P2
+  P3
+  P4
 }

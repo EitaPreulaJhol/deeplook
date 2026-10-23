@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
-import type { EntryEvent, EntryStatus, Verdict } from '../api/types';
+import type { EntryEvent, EntryStatus, Priority, Verdict } from '../api/types';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
@@ -20,7 +20,7 @@ import type { Mention } from './MentionTextArea';
 import { MentionTextArea, renderMentions } from './MentionTextArea';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { useSaveShortcut } from './shortcuts';
-import { statusLabel, verdictLabel } from './tags';
+import { priorityLabel, statusLabel, verdictLabel } from './tags';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
 /** Tamanho maximo de uma atualizacao (mesmo limite da API). */
@@ -58,6 +58,8 @@ export function describeEvent(event: EntryEvent): string {
       return `Marcada como duplicata de "${to ?? 'outra amostra'}"`;
     case 'UNMARKED_DUPLICATE':
       return 'Deixou de ser duplicata';
+    case 'PRIORITY_CHANGED':
+      return `Prioridade: ${priorityLabel((from ?? 'P3') as Priority)} → ${priorityLabel((to ?? 'P3') as Priority)}`;
     case 'FILE_PURGED':
       return `Arquivo expurgado${event.detail ? ` (${event.detail})` : ''}; ficha, relatórios e hash mantidos`;
     case 'TRASHED':

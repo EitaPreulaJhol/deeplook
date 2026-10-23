@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import type { EntryStatus, Prisma, Verdict } from '@prisma/client';
+import type { EntryStatus, Priority, Prisma, Verdict } from '@prisma/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -18,7 +18,7 @@ import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { checkReputationInBackground } from '../lib/reputation';
 import { s3 } from '../lib/s3';
-import { slaConfig, slaCutoff } from '../lib/sla';
+import { slaConfig, slaWhere } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
 import type { ZipEntry } from '../lib/zip';
@@ -49,6 +49,7 @@ const ListQuery = z.object({
   type: z.enum(['FILE', 'URL']).optional(),
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
+  priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
   q: z.string().optional(),
   /** Responsavel: `me` (atribuidas a mim) ou `none` (sem responsavel). */
   assignee: z.union([z.enum(['me', 'none']), z.string().regex(/^c[a-z0-9]{20,32}$/)]).optional(),
@@ -73,6 +74,7 @@ const ListQuery = z.object({
       'assignee',
       'status',
       'age',
+      'priority',
       'verdict',
       'reports',
       'createdAt',
@@ -93,7 +95,12 @@ function listOrderBy(sort: z.infer<typeof ListQuery>['sort'], dir: 'asc' | 'desc
           : sort === 'age'
             ? // Idade decrescente = ha mais tempo no status (data mais antiga primeiro).
               { statusChangedAt: dir === 'desc' ? ('asc' as const) : ('desc' as const) }
-            : { [sort]: dir };
+            : sort === 'priority'
+              ? // Decrescente = mais urgente primeiro (P1); empate pela idade no status.
+                { priority: dir === 'desc' ? ('asc' as const) : ('desc' as const) }
+              : { [sort]: dir };
+  if (sort === 'priority')
+    return [primary, { statusChangedAt: 'asc' as const }, { id: 'asc' as const }];
   return [primary, { id: 'asc' as const }];
 }
 
@@ -109,6 +116,7 @@ const PatchSchema = z.object({
   description: z.string().max(4000).nullable().optional(),
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
+  priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
   /** Analista responsavel (id) ou null para remover a atribuicao. */
   assigneeId: z.string().min(1).nullable().optional(),
 });
@@ -153,6 +161,7 @@ function listWhere(
     | 'type'
     | 'status'
     | 'verdict'
+    | 'priority'
     | 'q'
     | 'sha256'
     | 'assignee'
@@ -162,13 +171,25 @@ function listWhere(
   >,
   userId: string,
 ): Prisma.EntryWhereInput {
-  const { scope, type, status, verdict, q, sha256, assignee, age, submittedFrom, completedFrom } =
-    filters;
+  const {
+    scope,
+    type,
+    status,
+    verdict,
+    priority,
+    q,
+    sha256,
+    assignee,
+    age,
+    submittedFrom,
+    completedFrom,
+  } = filters;
   const where: Prisma.EntryWhereInput = {};
   if (scope === 'mine') where.ownerId = userId;
   if (type) where.type = type;
   if (status) where.status = status;
   if (verdict) where.verdict = verdict;
+  if (priority) where.priority = priority;
   if (sha256) where.sha256 = sha256.toLowerCase();
   if (assignee === 'me') where.assigneeId = userId;
   if (assignee === 'none') where.assigneeId = null;
@@ -180,7 +201,8 @@ function listWhere(
     where.statusChangedAt = { gte: completedFrom };
   }
   if (age) {
-    where.AND = [{ status: { not: 'COMPLETED' } }, { statusChangedAt: { lt: slaCutoff(age) } }];
+    // Prazo da propria prioridade (P1 atrasa antes de P4).
+    where.AND = [slaWhere(age)];
   }
   if (q) {
     where.OR = [
@@ -223,7 +245,7 @@ async function applyTriage(
     include: { assignee: { select: { id: true; displayName: true } } };
   }>,
   actorId: string,
-  data: { status?: EntryStatus; verdict?: Verdict },
+  data: { status?: EntryStatus; verdict?: Verdict; priority?: Priority },
   updateData: Prisma.EntryUncheckedUpdateInput,
   newAssignee: Assignee | undefined,
 ) {
@@ -238,6 +260,15 @@ async function applyTriage(
     },
   });
   await recordTriageChanges(tx, entry.id, actorId, entry, data);
+  if (data.priority && data.priority !== entry.priority) {
+    await recordEvent(tx, {
+      entryId: entry.id,
+      actorId,
+      type: 'PRIORITY_CHANGED',
+      fromValue: entry.priority,
+      toValue: data.priority,
+    });
+  }
   if (newAssignee !== undefined && (newAssignee?.id ?? null) !== entry.assigneeId) {
     await recordEvent(tx, {
       entryId: entry.id,
@@ -260,6 +291,7 @@ const BulkSchema = z.object({
     .object({
       status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
       verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
+      priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
       assigneeId: z.string().min(1).nullable().optional(),
     })
     .strict()
@@ -269,6 +301,7 @@ const BulkSchema = z.object({
 /** Limite de linhas da exportacao CSV. */
 const EXPORT_MAX_ROWS = 10_000;
 
+const PRIORITY_LABELS = { P1: 'P1 Crítica', P2: 'P2 Alta', P3: 'P3 Média', P4: 'P4 Baixa' };
 const STATUS_LABELS = { PENDING: 'Pendente', IN_REVIEW: 'Em análise', COMPLETED: 'Concluído' };
 const VERDICT_LABELS = {
   UNKNOWN: 'Desconhecido',
@@ -420,6 +453,7 @@ export async function entryRoutes(app: FastifyInstance) {
         'Tipo',
         'Enviado por',
         'Responsável',
+        'Prioridade',
         'Status',
         'Veredito',
         'Relatórios',
@@ -435,6 +469,7 @@ export async function entryRoutes(app: FastifyInstance) {
         e.type === 'FILE' ? 'Arquivo' : 'Link',
         e.owner.displayName,
         e.assignee?.displayName ?? '',
+        PRIORITY_LABELS[e.priority],
         STATUS_LABELS[e.status],
         VERDICT_LABELS[e.verdict],
         e._count.reports,
@@ -497,7 +532,7 @@ export async function entryRoutes(app: FastifyInstance) {
       prisma.entry.count({ where: { assigneeId: user.id, status: { not: 'COMPLETED' } } }),
       // Fila "Atrasadas": nao concluidas ha mais de SLA_LATE_HOURS no status atual.
       prisma.entry.count({
-        where: { status: { not: 'COMPLETED' }, statusChangedAt: { lt: slaCutoff('late') } },
+        where: slaWhere('late'),
       }),
       // Fila "Relatorios para revisar": em revisao, de outros analistas.
       prisma.report.count({
@@ -865,12 +900,15 @@ export async function entryRoutes(app: FastifyInstance) {
       if (data.title !== undefined) updateData.title = data.title;
       if (data.description !== undefined) updateData.description = data.description;
     }
-    if (data.status !== undefined || data.verdict !== undefined) {
+    if (data.status !== undefined || data.verdict !== undefined || data.priority !== undefined) {
       if (!canTriage) {
-        return reply.code(403).send({ error: 'Somente analistas podem alterar status/veredito.' });
+        return reply
+          .code(403)
+          .send({ error: 'Somente analistas podem alterar status, veredito ou prioridade.' });
       }
       if (data.status !== undefined) updateData.status = data.status;
       if (data.verdict !== undefined) updateData.verdict = data.verdict;
+      if (data.priority !== undefined) updateData.priority = data.priority;
     }
 
     // Atribuicao: so analistas/admins atribuem, e so a analistas/admins ativos.
@@ -903,7 +941,13 @@ export async function entryRoutes(app: FastifyInstance) {
     for (let attempt = 0; attempt < 5; attempt++) {
       const candidate = await prisma.entry.findFirst({
         where: { status: 'PENDING', assigneeId: null, duplicateOfId: null },
-        orderBy: [{ statusChangedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        // Mais urgente primeiro (P1), depois ha mais tempo no status.
+        orderBy: [
+          { priority: 'asc' },
+          { statusChangedAt: 'asc' },
+          { createdAt: 'asc' },
+          { id: 'asc' },
+        ],
         select: { id: true, title: true, status: true, verdict: true },
       });
       if (!candidate) {
@@ -961,6 +1005,7 @@ export async function entryRoutes(app: FastifyInstance) {
         const updateData: Prisma.EntryUncheckedUpdateInput = {};
         if (patch.status !== undefined) updateData.status = patch.status;
         if (patch.verdict !== undefined) updateData.verdict = patch.verdict;
+        if (patch.priority !== undefined) updateData.priority = patch.priority;
         await applyTriage(tx, entry, user.id, patch, updateData, newAssignee);
       }
     });

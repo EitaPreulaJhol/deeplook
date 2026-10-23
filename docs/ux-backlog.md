@@ -1420,7 +1420,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
 | 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ✅ |
-| 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ⬜ |
+| 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ✅ |
 | 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ (decisão) |
 | 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ⬜ |
@@ -1475,6 +1475,33 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   P3 24 h/72 h, P4 72 h/120 h, configurável). As filas ordenam por prioridade e idade.
 - **Cuidados:** amostras antigas ficam P3 (o comportamento de hoje); mudança de
   prioridade entra no histórico.
+- ✅ **Implementado:** migração `20261112000000_priority` (enum `Priority`,
+  `Entry.priority` com padrão P3, índice com status e idade, evento
+  `PRIORITY_CHANGED`).
+  - **Prazos** (`lib/sla.ts`):
+    - P1 2 h / 4 h, P2 8 h / 24 h, P3 24 h / 72 h e P4 72 h / 120 h;
+    - o P3 continua em `SLA_WARN_HOURS` / `SLA_LATE_HOURS`, e os outros vêm de
+      `SLA_P1_HOURS`, `SLA_P2_HOURS` e `SLA_P4_HOURS` ("alerta/atraso");
+    - `slaWhere()` monta o filtro "passou do prazo da própria prioridade" e substitui o
+      corte único em todos os lugares: filtro Prazo, contador de Atrasadas, Painel e
+      Status do sistema.
+  - **API:**
+    - filtro `priority` e ordenação `sort=priority` (mais urgente primeiro, empate pela
+      idade);
+    - campo na triagem (`PATCH`) e na atualização em massa, só para analistas;
+    - coluna Prioridade no CSV;
+    - `sla.byPriority` nas respostas;
+    - "Pegar a próxima" (52) agora escolhe por prioridade e depois pela idade.
+  - **Front:**
+    - **Listas:** coluna Prioridade (P1 vermelho, P2 laranja, P3 azul, P4 cinza); o
+      primeiro clique na coluna mostra o mais urgente primeiro.
+    - **Filtro e prazo:** filtro Prioridade no Histórico Global; a Idade usa o prazo da
+      prioridade da amostra, e a dica mostra os limites dela.
+    - **Ficha:** prioridade no resumo, e na triagem o campo mostra o prazo da prioridade
+      escolhida.
+    - **Massa e histórico:** campo na atualização em massa; "Prioridade: P3 Média → P2
+      Alta" no histórico.
+  - **Testes:** 15 de integração (Postgres) e `priority.mjs`.
 
 ### 54. E-mail suspeito (.eml) — decisão pendente
 - **Proposta:** enviar o `.eml` de um phishing: a ficha mostra remetente, destinatários,

@@ -568,6 +568,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `priority.mjs` | prioridade: coluna e prazo pela prioridade (P1 de 5 h atrasada, P3 de 5 h no prazo, dica), filtro, ordenação (mais urgente primeiro), atualização em massa, ficha (resumo, triagem com o prazo) e histórico |
 | `hex-viewer.mjs` | visualizador hexadecimal: carrega sob demanda, linha offset/hex/texto, cabeçalho MZ destacado, Mostrar mais até o fim, expurgado, link e usuário comum sem a seção |
 | `take-next.mjs` | "Pegar a próxima": botão na fila Pendentes e link na Página Inicial abrem a ficha pega; fila vazia avisa e fica na lista; usuário comum sem botão |
 | `password-policy.mjs` | política de senha: regra no cadastro e em Alterar senha (barra antes de enviar), validade na aba Senha (e "sem validade" para admin), aviso "Sua senha expira em N dias" no topo (e "hoje") com link, "senha expirada" na aba Usuários e a tela de senha vencida com o motivo e a regra |

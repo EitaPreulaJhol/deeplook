@@ -18,7 +18,7 @@ import { saveEntrySequence } from './entryNav';
 import { EntryPreviewPane } from './EntryPreviewPane';
 import { HpsmMessage } from './messages';
 import { AgeText } from './sla';
-import { StatusTag, TypeTag, VerdictTag } from './tags';
+import { PriorityTag, StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR');
@@ -26,7 +26,16 @@ function fmtDate(iso: string): string {
 
 /** Colunas ordenaveis (mesmos nomes do parametro `sort` de GET /api/entries). */
 export type EntrySortKey =
-  'title' | 'type' | 'owner' | 'assignee' | 'status' | 'age' | 'verdict' | 'reports' | 'createdAt';
+  | 'title'
+  | 'type'
+  | 'owner'
+  | 'assignee'
+  | 'status'
+  | 'priority'
+  | 'age'
+  | 'verdict'
+  | 'reports'
+  | 'createdAt';
 
 export interface EntrySort {
   key: EntrySortKey;
@@ -152,6 +161,7 @@ export function EntriesTable({
     ...(showOwner ? [{ key: 'owner' as const, header: 'Enviado por' }] : []),
     { key: 'assignee', header: 'Responsável' },
     { key: 'status', header: 'Status' },
+    { key: 'priority', header: 'Prioridade' },
     { key: 'age', header: 'Idade' },
     { key: 'verdict', header: 'Veredito' },
     { key: 'reports', header: 'Relatórios' },
@@ -159,9 +169,12 @@ export function EntriesTable({
   ];
 
   // Clicar na coluna ativa inverte a ordem; outra coluna comeca em ascendente.
+  // Prioridade comeca pelo mais urgente (P1); as outras colunas, em ordem crescente.
   const toggleSort = (key: EntrySortKey) => {
     onSortChange(
-      sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' },
+      sort.key === key
+        ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: key === 'priority' ? 'desc' : 'asc' },
     );
   };
 
@@ -279,6 +292,9 @@ export function EntriesTable({
                 <TableCell>{entry.assignee?.displayName ?? '—'}</TableCell>
                 <TableCell>
                   <StatusTag status={entry.status} />
+                </TableCell>
+                <TableCell>
+                  <PriorityTag priority={entry.priority} />
                 </TableCell>
                 <TableCell>
                   <AgeText entry={entry} sla={sla} />

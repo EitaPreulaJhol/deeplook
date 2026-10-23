@@ -34,7 +34,8 @@ const bulletColor = async (title) => {
 // 1. Coluna Idade no Historico Global.
 await page.goto(ORIGIN + '/history', { waitUntil: 'networkidle' });
 const headers = await page.locator('thead th').allTextContents();
-expect('coluna Idade depois de Status', headers.findIndex((t) => t.startsWith('Idade')) === headers.findIndex((t) => t.startsWith('Status')) + 1, headers.join('|'));
+// Status | Prioridade (item 53) | Idade.
+expect('coluna Idade depois de Prioridade', headers.findIndex((t) => t.startsWith('Idade')) === headers.findIndex((t) => t.startsWith('Prioridade')) + 1 && headers.findIndex((t) => t.startsWith('Prioridade')) === headers.findIndex((t) => t.startsWith('Status')) + 1, headers.join('|'));
 const e1Age = (await (await ageCell('instalador_suspeito.exe')).textContent())?.trim();
 const e3Age = (await (await ageCell('relatorio_trimestral.docm')).textContent())?.trim();
 expect('idade formatada (30 h → 1 d 6 h)', e1Age?.startsWith('1 d 6 h'), e1Age);
@@ -48,18 +49,18 @@ const statusRed = await page.locator('.hpsm-status--red .hpsm-status__bullet').f
 expect('alerta (+24 h) com marcador laranja', orange !== null && orange === statusOrange, orange);
 expect('atrasada (+72 h) com marcador vermelho', red !== null && red === statusRed, red);
 const tip = await (await ageCell('relatorio_trimestral.docm')).locator('.dl-age').getAttribute('title');
-expect('dica com situação e limites', tip === 'No status atual há 4 d 4 h: atrasada (alerta acima de 24 h, atraso acima de 72 h)', tip);
+expect('dica com situação e limites', tip === 'No status atual há 4 d 4 h: atrasada (P3: alerta acima de 24 h, atraso acima de 72 h)', tip);
 const sr = await (await ageCell('relatorio_trimestral.docm')).locator('.cds--visually-hidden').textContent();
 expect('leitor de tela ouve "atrasada"', sr?.includes('atrasada'), sr);
 await page.screenshot({ path: `${OUT}/prazo-lista.png` });
 
 // 2. Ordenar por idade: mais antiga primeiro no clique (dir=asc → mais nova?).
-await page.click('thead button:has-text("Idade")');
+await page.locator('thead button').filter({ hasText: /^Idade/ }).click();
 await settle();
 const sortUrl = new URL(page.url()).searchParams;
 expect('ordenação vai para a URL', sortUrl.get('sort') === 'age', page.url());
 const order1 = await titles();
-await page.click('thead button:has-text("Idade")');
+await page.locator('thead button').filter({ hasText: /^Idade/ }).click();
 await settle();
 const order2 = await titles();
 expect('inverter a ordem inverte a lista', order1.join('|') === [...order2].reverse().join('|'), `${order1.join(',')} / ${order2.join(',')}`);

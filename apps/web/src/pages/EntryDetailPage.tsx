@@ -48,7 +48,7 @@ import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
-import { StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
+import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
 
 function fmtDate(iso?: string | null): string {
@@ -464,6 +464,10 @@ export function EntryDetailPage() {
           </span>
         )}
         <span>
+          <span className="dl-summary__label">Prioridade:</span>{' '}
+          <PriorityTag priority={entry.priority} />
+        </span>
+        <span>
           <span className="dl-summary__label">Veredito:</span>{' '}
           <VerdictTag verdict={entry.verdict} />
         </span>
@@ -651,6 +655,28 @@ export function EntryDetailPage() {
                   <SelectItem value="CLEAN" text="Limpo" />
                   <SelectItem value="SUSPICIOUS" text="Suspeito" />
                   <SelectItem value="MALICIOUS" text="Malicioso" />
+                </Select>
+              </HpsmField>
+              <HpsmField
+                label="Prioridade"
+                htmlFor="triage-priority"
+                help={
+                  query.data?.sla?.byPriority
+                    ? `Prazo: alerta acima de ${query.data.sla.byPriority[entry.priority ?? 'P3'].warnHours} h e atraso acima de ${query.data.sla.byPriority[entry.priority ?? 'P3'].lateHours} h no status.`
+                    : undefined
+                }
+              >
+                <Select
+                  id="triage-priority"
+                  labelText="Prioridade"
+                  hideLabel
+                  value={entry.priority ?? 'P3'}
+                  onChange={(e) => quickUpdate({ priority: e.target.value })}
+                >
+                  <SelectItem value="P1" text="P1 Crítica" />
+                  <SelectItem value="P2" text="P2 Alta" />
+                  <SelectItem value="P3" text="P3 Média" />
+                  <SelectItem value="P4" text="P4 Baixa" />
                 </Select>
               </HpsmField>
               <HpsmField label="Responsável" htmlFor="triage-assignee">

@@ -17,17 +17,26 @@ export function formatAge(ms: number): string {
 
 export type SlaLevel = 'ok' | 'warn' | 'late';
 
+/** Limites da amostra: os da prioridade dela (padrao P3). */
+export function limitsFor(
+  entry: Pick<Entry, 'priority'>,
+  sla: SlaConfig,
+): { warnHours: number; lateHours: number } {
+  return sla.byPriority?.[entry.priority ?? 'P3'] ?? sla;
+}
+
 /** Situacao do prazo da amostra (null = concluida, nao conta prazo). */
 export function slaLevel(
-  entry: Pick<Entry, 'status' | 'statusChangedAt'>,
+  entry: Pick<Entry, 'status' | 'statusChangedAt' | 'priority'>,
   sla: SlaConfig | undefined,
   now = Date.now(),
 ): SlaLevel | null {
   if (entry.status === 'COMPLETED' || !entry.statusChangedAt) return null;
   if (!sla) return 'ok';
+  const limits = limitsFor(entry, sla);
   const hours = (now - Date.parse(entry.statusChangedAt)) / HOUR;
-  if (hours >= sla.lateHours) return 'late';
-  if (hours >= sla.warnHours) return 'warn';
+  if (hours >= limits.lateHours) return 'late';
+  if (hours >= limits.warnHours) return 'warn';
   return 'ok';
 }
 
@@ -47,14 +56,15 @@ export function AgeText({
   entry,
   sla,
 }: {
-  entry: Pick<Entry, 'status' | 'statusChangedAt'>;
+  entry: Pick<Entry, 'status' | 'statusChangedAt' | 'priority'>;
   sla?: SlaConfig;
 }) {
   const level = slaLevel(entry, sla);
   if (!level || !entry.statusChangedAt) return <span>—</span>;
   const age = formatAge(Date.now() - Date.parse(entry.statusChangedAt));
-  const limits = sla
-    ? ` (alerta acima de ${sla.warnHours} h, atraso acima de ${sla.lateHours} h)`
+  const lim = sla ? limitsFor(entry, sla) : null;
+  const limits = lim
+    ? ` (${entry.priority ?? 'P3'}: alerta acima de ${lim.warnHours} h, atraso acima de ${lim.lateHours} h)`
     : '';
   return (
     <span className="dl-age" title={`No status atual há ${age}: ${LEVEL_TEXT[level]}${limits}`}>

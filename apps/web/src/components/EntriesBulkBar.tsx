@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
-import type { EntryStatus, Verdict } from '../api/types';
+import type { EntryStatus, Priority, Verdict } from '../api/types';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterItem } from './HpsmFilterBar';
-import { statusLabel, verdictLabel } from './tags';
+import { priorityLabel, statusLabel, verdictLabel } from './tags';
 
 /** Valor do select de responsavel que remove a atribuicao. */
 const NO_ASSIGNEE = '__none__';
@@ -27,6 +27,7 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState('');
   const [verdict, setVerdict] = useState('');
+  const [priority, setPriority] = useState('');
   const [assignee, setAssignee] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -47,6 +48,10 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
     if (verdict) {
       patch.verdict = verdict;
       changes.push(`veredito → ${verdictLabel(verdict as Verdict)}`);
+    }
+    if (priority) {
+      patch.priority = priority;
+      changes.push(`prioridade → ${priorityLabel(priority as Priority)}`);
     }
     if (assignee) {
       patch.assigneeId = assignee === NO_ASSIGNEE ? null : assignee;
@@ -125,6 +130,22 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
           <SelectItem value="CLEAN" text="Limpo" />
           <SelectItem value="SUSPICIOUS" text="Suspeito" />
           <SelectItem value="MALICIOUS" text="Malicioso" />
+        </Select>
+      </HpsmFilterItem>
+      <HpsmFilterItem label="Prioridade" htmlFor="bulk-priority">
+        <Select
+          id="bulk-priority"
+          labelText="Prioridade"
+          hideLabel
+          size="sm"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+        >
+          <SelectItem value="" text="(manter)" />
+          <SelectItem value="P1" text="P1 Crítica" />
+          <SelectItem value="P2" text="P2 Alta" />
+          <SelectItem value="P3" text="P3 Média" />
+          <SelectItem value="P4" text="P4 Baixa" />
         </Select>
       </HpsmFilterItem>
       <HpsmFilterItem label="Responsável" htmlFor="bulk-assignee">

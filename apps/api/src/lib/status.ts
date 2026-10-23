@@ -7,7 +7,7 @@ import { pveTemplateExists, pveVersion } from './proxmox';
 import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
 import { s3 } from './s3';
 import { countActive } from './sandbox';
-import { slaCutoff } from './sla';
+import { slaWhere } from './sla';
 
 /** ok = verde, warn = laranja (lento/perto do limite), error = vermelho, off = desligado. */
 export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
@@ -255,7 +255,7 @@ async function queuesCheck(): Promise<StatusCheck> {
     prisma.entry.count({ where: { status: 'PENDING' } }),
     prisma.entry.count({ where: { status: 'IN_REVIEW' } }),
     prisma.entry.count({
-      where: { status: { not: 'COMPLETED' }, statusChangedAt: { lt: slaCutoff('late') } },
+      where: slaWhere('late'),
     }),
   ]);
   return {

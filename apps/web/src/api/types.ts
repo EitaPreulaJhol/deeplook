@@ -3,6 +3,8 @@ export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 export type EntryType = 'FILE' | 'URL';
 export type EntryStatus = 'PENDING' | 'IN_REVIEW' | 'COMPLETED';
 export type Verdict = 'UNKNOWN' | 'CLEAN' | 'SUSPICIOUS' | 'MALICIOUS';
+/** Prioridade (item 53): P1 Critica, P2 Alta, P3 Media (padrao), P4 Baixa. */
+export type Priority = 'P1' | 'P2' | 'P3' | 'P4';
 
 export interface User {
   id: string;
@@ -321,6 +323,8 @@ export interface Report {
 }
 
 export interface Entry {
+  /** Prioridade (padrao P3). */
+  priority?: Priority;
   id: string;
   ownerId: string;
   owner: EntryOwner;
@@ -361,6 +365,8 @@ export interface Entry {
 export interface SlaConfig {
   warnHours: number;
   lateHours: number;
+  /** Prazos de cada prioridade (o par acima e o do P3). */
+  byPriority?: Record<Priority, { warnHours: number; lateHours: number }>;
 }
 
 export interface ActivationKey {
@@ -437,6 +443,7 @@ export type EntryEventType =
   | 'COMMENT'
   | 'MARKED_DUPLICATE'
   | 'UNMARKED_DUPLICATE'
+  | 'PRIORITY_CHANGED'
   | 'REPORT_SUBMITTED'
   | 'REPORT_APPROVED'
   | 'REPORT_RETURNED'

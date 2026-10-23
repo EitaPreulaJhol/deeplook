@@ -43,7 +43,18 @@ export const entries = [
   { id: 'e4', ownerId: 'u2', owner, type: 'FILE', title: 'driver_update.msi', status: 'COMPLETED', verdict: 'CLEAN', originalFilename: 'driver_update.msi', fileSize: 1048576, mimeType: 'application/x-msi', sha256: 'bb22', storageKey: 'k4', createdAt: '2026-10-17T08:00:00.000Z', updatedAt: now, tags: [], _count: { reports: 1 } },
 ];
 // Prazo (SLA): limites da API e a idade de cada amostra no status atual.
-export const SLA = { warnHours: 24, lateHours: 72 };
+export const SLA = {
+  warnHours: 24,
+  lateHours: 72,
+  byPriority: {
+    P1: { warnHours: 2, lateHours: 4 },
+    P2: { warnHours: 8, lateHours: 24 },
+    P3: { warnHours: 24, lateHours: 72 },
+    P4: { warnHours: 72, lateHours: 120 },
+  },
+};
+/** Limites da amostra pela prioridade dela (padrao P3). */
+const limitsOf = (e) => SLA.byPriority[e.priority ?? 'P3'];
 const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
 const STATUS_AGE_HOURS = { e1: 30, e2: 200, e3: 100, e4: 300 };
 for (const e of entries) e.statusChangedAt = hoursAgo(STATUS_AGE_HOURS[e.id] ?? 1);
@@ -453,7 +464,13 @@ export async function setupMock(context, state) {
           if (sp.get(k)) items = items.filter((e) => e[k] === sp.get(k));
         }
         const age = sp.get('age');
-        if (age) items = items.filter((e) => olderThan(e, age === 'late' ? SLA.lateHours : SLA.warnHours));
+        if (age) items = items.filter((e) => olderThan(e, age === 'late' ? limitsOf(e).lateHours : limitsOf(e).warnHours));
+        if (sp.get('priority')) items = items.filter((e) => (e.priority ?? 'P3') === sp.get('priority'));
+        state.lastListQuery = url.search;
+        if (sp.get('sort') === 'priority') {
+          const sign = sp.get('dir') === 'asc' ? -1 : 1;
+          items = [...items].sort((a, b) => sign * (a.priority ?? 'P3').localeCompare(b.priority ?? 'P3'));
+        }
         if (sp.get('sort') === 'age') {
           const sign = sp.get('dir') === 'asc' ? -1 : 1;
           items = [...items].sort((a, b) => sign * (Date.parse(a.statusChangedAt) - Date.parse(b.statusChangedAt)));
@@ -583,12 +600,14 @@ export async function setupMock(context, state) {
         return json(route, 200, { entry: { id: e.id, title: e.title } });
       }
       if (p === '/api/entries/bulk' && req.method() === 'POST') {
+        state.lastBulk = body;
         const targets = entries.filter((e) => body.ids.includes(e.id));
         for (const e of targets) {
           const { assigneeId, ...rest } = body.patch;
           for (const [key, type] of [['status', 'STATUS_CHANGED'], ['verdict', 'VERDICT_CHANGED']]) {
             if (rest[key] && rest[key] !== e[key]) pushEvent(e.id, type, e[key], rest[key]);
           }
+          if (rest.priority && rest.priority !== (e.priority ?? 'P3')) pushEvent(e.id, 'PRIORITY_CHANGED', e.priority ?? 'P3', rest.priority);
           if (rest.status && rest.status !== e.status) e.statusChangedAt = new Date().toISOString();
           Object.assign(e, rest);
           if (assigneeId !== undefined) {
@@ -603,7 +622,7 @@ export async function setupMock(context, state) {
         const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
         for (const e of entries) counts[e.status] += 1;
         const mine = entries.filter((e) => e.assignee?.id === 'u1' && e.status !== 'COMPLETED').length;
-        const late = entries.filter((e) => olderThan(e, SLA.lateHours)).length;
+        const late = entries.filter((e) => olderThan(e, limitsOf(e).lateHours)).length;
         const reviews = reports.filter((r) => r.status === 'IN_REVIEW' && r.analystId !== 'u1').length;
         return json(route, 200, { counts, mine, late, reviews });
       }
@@ -623,11 +642,13 @@ export async function setupMock(context, state) {
       }
       m = p.match(/^\/api\/entries\/(\w+)$/);
       if (m && req.method() === 'PATCH') {
+        state.lastPatch = body;
         const e = entries.find((x) => x.id === m[1]);
         const { assigneeId, ...rest } = body;
         for (const [key, type] of [['status', 'STATUS_CHANGED'], ['verdict', 'VERDICT_CHANGED']]) {
           if (rest[key] && rest[key] !== e[key]) pushEvent(e.id, type, e[key], rest[key]);
         }
+        if (rest.priority && rest.priority !== (e.priority ?? 'P3')) pushEvent(e.id, 'PRIORITY_CHANGED', e.priority ?? 'P3', rest.priority);
         if (rest.status && rest.status !== e.status) e.statusChangedAt = new Date().toISOString();
         Object.assign(e, rest);
         if (assigneeId !== undefined) {

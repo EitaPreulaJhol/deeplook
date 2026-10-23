@@ -2,7 +2,7 @@ import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
-import type { Entry, EntryStatus, SlaConfig, Verdict } from '../api/types';
+import type { Entry, EntryStatus, Priority, SlaConfig, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { suggestViewName } from '../components/favorites';
@@ -11,7 +11,7 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconPage } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
-import { statusLabel, verdictLabel } from '../components/tags';
+import { priorityLabel, statusLabel, verdictLabel } from '../components/tags';
 import { useEntryListState } from '../components/useEntryListState';
 import { useTakeNext } from '../components/useTakeNext';
 
@@ -23,7 +23,8 @@ export function GlobalHistoryPage() {
   const list = useEntryListState();
   const next = useTakeNext();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { type, status, verdict, assignee, age, submittedFrom, completedFrom } = list.filters;
+  const { type, status, verdict, priority, assignee, age, submittedFrom, completedFrom } =
+    list.filters;
   // Analistas do select "Responsável" (o Painel leva a um analista especifico).
   const analystsQuery = useQuery({
     queryKey: ['analysts'],
@@ -58,6 +59,7 @@ export function GlobalHistoryPage() {
   if (type) params.set('type', type);
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
+  if (priority) params.set('priority', priority);
   if (assignee) params.set('assignee', assignee);
   if (age) params.set('age', age);
   if (submittedFrom) params.set('submittedFrom', submittedFrom);
@@ -73,6 +75,7 @@ export function GlobalHistoryPage() {
   const viewName = suggestViewName('Histórico Global', [
     status && statusLabel(status as EntryStatus),
     verdict && verdictLabel(verdict as Verdict),
+    priority && priorityLabel(priority as Priority),
     type && (type === 'FILE' ? 'Arquivos' : 'URLs'),
     assignee === 'me' && 'Atribuídas a mim',
     assignee === 'none' && 'Sem responsável',
@@ -89,6 +92,7 @@ export function GlobalHistoryPage() {
       type,
       status,
       verdict,
+      priority,
       assignee,
       age,
       submittedFrom,
@@ -180,6 +184,22 @@ export function GlobalHistoryPage() {
             <SelectItem value="CLEAN" text="Limpo" />
             <SelectItem value="SUSPICIOUS" text="Suspeito" />
             <SelectItem value="MALICIOUS" text="Malicioso" />
+          </Select>
+        </HpsmFilterItem>
+        <HpsmFilterItem label="Prioridade" htmlFor="priority">
+          <Select
+            id="priority"
+            labelText="Prioridade"
+            hideLabel
+            size="sm"
+            value={priority}
+            onChange={(e) => list.setFilter('priority', e.target.value)}
+          >
+            <SelectItem value="" text="Todas" />
+            <SelectItem value="P1" text="P1 Crítica" />
+            <SelectItem value="P2" text="P2 Alta" />
+            <SelectItem value="P3" text="P3 Média" />
+            <SelectItem value="P4" text="P4 Baixa" />
           </Select>
         </HpsmFilterItem>
         <HpsmFilterItem label="Prazo" htmlFor="age">

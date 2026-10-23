@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
-import { slaConfig, slaCutoff } from '../lib/sla';
+import { slaConfig, slaWhere } from '../lib/sla';
 import { sendValidationError } from '../lib/validation';
 
 const Query = z.object({
@@ -112,8 +112,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
     ] = await Promise.all([
       prisma.entry.groupBy({ by: ['status'], where: scope, _count: { _all: true } }),
       prisma.entry.groupBy({ by: ['verdict'], where: scope, _count: { _all: true } }),
-      prisma.entry.count({ where: { ...open, statusChangedAt: { lt: slaCutoff('warn') } } }),
-      prisma.entry.count({ where: { ...open, statusChangedAt: { lt: slaCutoff('late') } } }),
+      prisma.entry.count({ where: { AND: [open, slaWhere('warn')] } }),
+      prisma.entry.count({ where: { AND: [open, slaWhere('late')] } }),
       prisma.entry.count({ where: { ...scope, createdAt: { gte: since } } }),
       prisma.entry.count({ where: completedInPeriod }),
       dayList(days, tz),
@@ -144,7 +144,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         prisma.entry.groupBy({ by: ['assigneeId', 'status'], where: open, _count: { _all: true } }),
         prisma.entry.groupBy({
           by: ['assigneeId'],
-          where: { ...open, statusChangedAt: { lt: slaCutoff('late') } },
+          where: { AND: [open, slaWhere('late')] },
           _count: { _all: true },
         }),
         prisma.entry.groupBy({

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { EntryStatus, EntryType, Role, Verdict } from '../api/types';
+import type { EntryStatus, EntryType, Priority, Role, Verdict } from '../api/types';
 
 /**
  * Cor do marcador ao lado do texto. `none` = texto puro (sem marcador).
@@ -30,6 +30,22 @@ const VERDICT_MAP: Record<Verdict, { label: string; tone: StatusTone }> = {
   SUSPICIOUS: { label: 'Suspeito', tone: 'orange' },
   MALICIOUS: { label: 'Malicioso', tone: 'red' },
 };
+
+const PRIORITY_MAP: Record<Priority, { label: string; tone: StatusTone }> = {
+  P1: { label: 'P1 Crítica', tone: 'red' },
+  P2: { label: 'P2 Alta', tone: 'orange' },
+  P3: { label: 'P3 Média', tone: 'blue' },
+  P4: { label: 'P4 Baixa', tone: 'gray' },
+};
+
+export function priorityLabel(priority: Priority): string {
+  return PRIORITY_MAP[priority].label;
+}
+
+export function PriorityTag({ priority = 'P3' }: { priority?: Priority }) {
+  const p = PRIORITY_MAP[priority];
+  return <StatusText tone={p.tone}>{p.label}</StatusText>;
+}
 
 const STATUS_MAP: Record<EntryStatus, { label: string; tone: StatusTone }> = {
   PENDING: { label: 'Pendente', tone: 'gray' },

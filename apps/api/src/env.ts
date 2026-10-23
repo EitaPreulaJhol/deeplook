@@ -12,6 +12,19 @@ const EnvSchema = z
     /** Prazo das amostras nao concluidas (horas no status atual): alerta e atraso. */
     SLA_WARN_HOURS: z.coerce.number().min(1).default(24),
     SLA_LATE_HOURS: z.coerce.number().min(1).default(72),
+    /** Prazos das outras prioridades ("alerta/atraso" em horas); o P3 usa os dois acima. */
+    SLA_P1_HOURS: z
+      .string()
+      .regex(/^\d+\/\d+$/, 'use "alerta/atraso", ex.: 2/4')
+      .default('2/4'),
+    SLA_P2_HOURS: z
+      .string()
+      .regex(/^\d+\/\d+$/, 'use "alerta/atraso", ex.: 8/24')
+      .default('8/24'),
+    SLA_P4_HOURS: z
+      .string()
+      .regex(/^\d+\/\d+$/, 'use "alerta/atraso", ex.: 72/120')
+      .default('72/120'),
     COOKIE_SECURE: z.enum(['true', 'false']).default('false'),
     ADMIN_EMAIL: z.string().email().default('admin@deeplook.local'),
     ADMIN_PASSWORD: z.string().min(6).default('admin12345'),

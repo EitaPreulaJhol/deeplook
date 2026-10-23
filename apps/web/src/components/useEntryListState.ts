@@ -9,6 +9,7 @@ const SORT_KEYS: EntrySortKey[] = [
   'owner',
   'assignee',
   'status',
+  'priority',
   'age',
   'verdict',
   'reports',
@@ -16,7 +17,14 @@ const SORT_KEYS: EntrySortKey[] = [
 ];
 
 export type EntryFilterKey =
-  'type' | 'status' | 'verdict' | 'assignee' | 'age' | 'submittedFrom' | 'completedFrom';
+  | 'type'
+  | 'status'
+  | 'verdict'
+  | 'priority'
+  | 'assignee'
+  | 'age'
+  | 'submittedFrom'
+  | 'completedFrom';
 
 /** Espera apos a ultima tecla antes de aplicar a busca por texto. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -35,6 +43,7 @@ export function useEntryListState() {
     type: searchParams.get('type') ?? '',
     status: searchParams.get('status') ?? '',
     verdict: searchParams.get('verdict') ?? '',
+    priority: searchParams.get('priority') ?? '',
     assignee: searchParams.get('assignee') ?? '',
     age: searchParams.get('age') ?? '',
     // Periodo (links do Painel): instante ISO; sem controle proprio, vira etiqueta.
@@ -110,6 +119,7 @@ export function useEntryListState() {
         type: null,
         status: null,
         verdict: null,
+        priority: null,
         assignee: null,
         age: null,
         submittedFrom: null,
