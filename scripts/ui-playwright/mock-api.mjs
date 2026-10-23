@@ -179,6 +179,8 @@ export function createState({ loggedIn = false } = {}) {
     nextQueue: [],
     /** Conteudo dos arquivos para o visualizador hexadecimal (Buffer por amostra). */
     fileBytes: {},
+    /** Sessoes abertas da conta (aba Sessoes da Minha Conta). */
+    sessions: [],
   };
 }
 
@@ -591,6 +593,17 @@ export async function setupMock(context, state) {
         const limit = Math.min(all.length, 65536);
         state.calls.push(`HEX ${hx[1]} ${offset}`);
         return json(route, 200, { offset, size: all.length, limit, data: all.subarray(offset, Math.min(offset + length, limit)).toString('base64') });
+      }
+      if (p === '/api/me/sessions' && req.method() === 'GET') return json(route, 200, { sessions: state.sessions });
+      if (p === '/api/me/sessions/revoke-others' && req.method() === 'POST') {
+        const before = state.sessions.length;
+        state.sessions = state.sessions.filter((x) => x.current);
+        return json(route, 200, { revoked: before - state.sessions.length });
+      }
+      const ss = p.match(/^\/api\/me\/sessions\/(\w+)$/);
+      if (ss && req.method() === 'DELETE') {
+        state.sessions = state.sessions.filter((x) => x.handle !== ss[1]);
+        return json(route, 200, { ok: true });
       }
       if (p === '/api/entries/next' && req.method() === 'POST') {
         const id = state.nextQueue.shift();

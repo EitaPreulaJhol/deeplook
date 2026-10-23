@@ -130,7 +130,7 @@ export async function authRoutes(app: FastifyInstance) {
       return created;
     });
 
-    await createSession(reply, user.id);
+    await createSession(reply, user.id, req);
     return reply.code(201).send({ user: publicUser(user) });
   });
 
@@ -189,7 +189,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({ twoFactorRequired: true, challenge: newChallenge(user.id) });
     }
 
-    await createSession(reply, user.id);
+    await createSession(reply, user.id, req);
     return reply.send({ user: publicUser(user) });
   });
 
@@ -247,7 +247,7 @@ export async function authRoutes(app: FastifyInstance) {
         detail: `login com código de recuperação · restam ${factor.remaining}`,
       });
     }
-    await createSession(reply, user.id);
+    await createSession(reply, user.id, req);
     return reply.send({ user: publicUser(user), recoveryRemaining: factor.remaining ?? null });
   });
 

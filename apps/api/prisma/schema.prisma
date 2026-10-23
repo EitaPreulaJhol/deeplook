@@ -101,11 +101,15 @@ model User {
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  /// Aba Sessoes da Minha Conta (item 61): de onde e quando foi usada por ultimo.
+  userAgent  String?
+  ip         String?
+  lastSeenAt DateTime @default(now())
 
   @@index([userId])
 }
@@ -435,6 +439,7 @@ enum AuditAction {
   API_ACCESS_REVOKED
   API_TOKEN_CREATED
   API_TOKEN_REVOKED
+  SESSION_REVOKED
   TWO_FACTOR_ENABLED
   TWO_FACTOR_DISABLED
   TWO_FACTOR_RECOVERY_CODES

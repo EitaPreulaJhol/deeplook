@@ -7,6 +7,8 @@ import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
 
 export const SESSION_COOKIE = 'dl_session';
+/** Intervalo minimo entre duas gravacoes do ultimo acesso da sessao. */
+const LAST_SEEN_EVERY_MS = 5 * 60 * 1000;
 
 export type RoleName = 'USER' | 'ANALYST' | 'ADMIN';
 
@@ -48,6 +50,13 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
   const u = session.user;
   if (u.status !== 'ACTIVE') return null;
 
+  // Ultimo acesso da sessao (aba Sessoes): no maximo uma escrita a cada 5 min.
+  if (Date.now() - session.lastSeenAt.getTime() >= LAST_SEEN_EVERY_MS || session.ip !== req.ip) {
+    void prisma.session
+      .update({ where: { id: sid }, data: { lastSeenAt: new Date(), ip: req.ip ?? session.ip } })
+      .catch(() => undefined);
+  }
+
   return {
     id: u.id,
     email: u.email,
@@ -75,9 +84,16 @@ function slidingExpiry(createdAt: Date, now = Date.now()): Date {
   return new Date(Math.min(idle, ceiling));
 }
 
-export async function createSession(reply: FastifyReply, userId: string): Promise<void> {
+export async function createSession(
+  reply: FastifyReply,
+  userId: string,
+  req: FastifyRequest,
+): Promise<void> {
   const expiresAt = slidingExpiry(new Date());
-  const session = await prisma.session.create({ data: { userId, expiresAt } });
+  const userAgent = req.headers['user-agent']?.slice(0, 300) ?? null;
+  const session = await prisma.session.create({
+    data: { userId, expiresAt, userAgent, ip: req.ip ?? null },
+  });
 
   reply.setCookie(SESSION_COOKIE, session.id, {
     path: '/',

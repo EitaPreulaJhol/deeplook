@@ -41,6 +41,7 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   API_ACCESS_REVOKED: { label: 'Acesso por API retirado', tone: 'orange' },
   API_TOKEN_CREATED: { label: 'Token de API gerado', tone: 'blue' },
   API_TOKEN_REVOKED: { label: 'Token de API revogado', tone: 'orange' },
+  SESSION_REVOKED: { label: 'Sessão encerrada', tone: 'orange' },
   TWO_FACTOR_ENABLED: { label: '2FA ativado', tone: 'green' },
   TWO_FACTOR_DISABLED: { label: '2FA desativado', tone: 'orange' },
   TWO_FACTOR_RECOVERY_CODES: { label: 'Códigos de recuperação gerados', tone: 'blue' },

@@ -20,6 +20,7 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey, IconRefresh, IconSettings } from '../components/icons';
 import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { SessionsTab } from '../components/SessionsTab';
 import { useSaveShortcut } from '../components/shortcuts';
 import { roleLabel } from '../components/tags';
 import { TwoFactorTab } from '../components/TwoFactorTab';
@@ -31,6 +32,7 @@ const TABS = [
   { id: 'senha', label: 'Senha' },
   { id: 'preferencias', label: 'Preferências' },
   { id: '2fa', label: '2FA' },
+  { id: 'sessoes', label: 'Sessões' },
 ];
 
 /** Minha Conta: dados (somente leitura), troca de senha e preferencias de uso. */
@@ -80,6 +82,7 @@ export function UserPage() {
         {tab === 'senha' && <PasswordTab />}
         {tab === 'preferencias' && <PreferencesTab />}
         {tab === '2fa' && <TwoFactorTab />}
+        {tab === 'sessoes' && <SessionsTab />}
         {tab === 'tokens' && <ApiTokensTab />}
       </div>
     </>

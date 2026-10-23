@@ -458,6 +458,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/me/2fa/setup` · `/enable { code }` | ativar: segredo pendente `{ secret, otpauthUri, qrSvg }` e confirmação → `{ recoveryCodes }` (uma vez) |
 | POST | `/api/me/2fa/recovery-codes` · `/disable` | `{ password, code }`: novos códigos (invalida os anteriores) ou desativar |
 | POST | `/api/admin/users/:id/disable-2fa` | admin: desativa o 2FA de alguém (celular perdido) |
+| GET | `/api/me/sessions` | sessões abertas da conta `{ sessions: [{ handle, device, userAgent, ip, createdAt, lastSeenAt, current }] }` (`handle` = hash, nunca o id) |
+| DELETE | `/api/me/sessions/:handle` · POST `/api/me/sessions/revoke-others` | encerra uma sessão (não a atual) ou todas as outras |
 | GET/POST | `/api/me/api-tokens` | tokens de API do usuário (`{ apiAccess, maxDays, tokens }`); POST `{ name, expiresInDays }` → `{ token, secret }` (secret só aqui); 403 sem liberação, 409 com 10 ativos |
 | DELETE | `/api/me/api-tokens/:id` | revoga um token próprio |
 | GET | `/api/admin/api-tokens?status=active\|all` | admin: tokens de todos com o usuário |
@@ -568,6 +570,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `sessions.mjs` | sessões: aba na Minha Conta, atual marcada sem ação, User-Agent na dica, encerrar uma (confirmação com dispositivo e IP), encerrar as outras e botão desabilitado sem outras |
 | `priority.mjs` | prioridade: coluna e prazo pela prioridade (P1 de 5 h atrasada, P3 de 5 h no prazo, dica), filtro, ordenação (mais urgente primeiro), atualização em massa, ficha (resumo, triagem com o prazo) e histórico |
 | `hex-viewer.mjs` | visualizador hexadecimal: carrega sob demanda, linha offset/hex/texto, cabeçalho MZ destacado, Mostrar mais até o fim, expurgado, link e usuário comum sem a seção |
 | `take-next.mjs` | "Pegar a próxima": botão na fila Pendentes e link na Página Inicial abrem a ficha pega; fila vazia avisa e fica na lista; usuário comum sem botão |

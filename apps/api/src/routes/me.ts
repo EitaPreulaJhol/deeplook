@@ -117,7 +117,7 @@ export async function meRoutes(app: FastifyInstance) {
     });
 
     if (forced) {
-      await createSession(reply, user.id);
+      await createSession(reply, user.id, req);
       return reply.send({ ok: true, signedIn: true });
     }
     reply.clearCookie(SESSION_COOKIE, { path: '/' });

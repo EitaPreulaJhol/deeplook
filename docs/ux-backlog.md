@@ -1428,7 +1428,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
 | 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ⬜ |
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ⬜ |
-| 61 | Sessões ativas | segurança da conta | ⚪ | P | ⬜ |
+| 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
 | 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ⬜ |
 | 63 | Base de conhecimento | Knowledge Management | ⚪ | M–G | ⬜ (opcional) |
 | 64 | Cota de envio | limites | ⚪ | P | ⬜ (opcional) |
@@ -1560,6 +1560,26 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 - **Proposta:** aba **Sessões** na Minha Conta: cada sessão com navegador/sistema, IP,
   início e último acesso, a atual marcada; "Encerrar" uma e "Encerrar as outras".
   Auditoria do encerramento.
+- ✅ **Implementado:** migração `20261113000000_session_details` (`Session.userAgent`,
+  `ip`, `lastSeenAt`; auditoria `SESSION_REVOKED`).
+  - **Gravação:** `createSession` grava o User-Agent e o IP (login, 2FA e troca
+    obrigatória). `loadUser` atualiza o último acesso no máximo a cada 5 minutos, ou na
+    hora se o IP mudar.
+  - **API** (`routes/sessions.ts`):
+    - `GET /api/me/sessions` com navegador e sistema (`lib/user-agent.ts`: Chrome,
+      Edge, Firefox, Safari, Opera; Windows, macOS, Linux, Android, iOS), IP, entrada,
+      último acesso e qual é a atual;
+    - `DELETE /api/me/sessions/:handle`; a atual sai pelo Sair;
+    - `POST /api/me/sessions/revoke-others`;
+    - auditoria com o dispositivo e o IP.
+  - **Segurança:** o id da sessão é o próprio segredo do cookie, então a lista usa só um
+    hash curto dele (`handle`). O teste confere que o id não aparece.
+  - **Minha Conta > Sessões** (`components/SessionsTab.tsx`):
+    - tabela com a atual marcada e o User-Agent completo na dica;
+    - **Encerrar…** com confirmação;
+    - **Encerrar as outras sessões**, desabilitado quando só há a atual.
+  - **Testes:** 18 de integração (Postgres), inclusive sessões de outra pessoa
+    intactas, e `sessions.mjs`.
 
 ### 62. Visões compartilhadas
 - **Proposta:** ao salvar uma visão (filtros), analistas escolhem "compartilhar com a
