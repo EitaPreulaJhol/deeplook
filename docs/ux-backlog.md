@@ -36,9 +36,9 @@ próprio HPSM.
 **Implementado** com o que mudou e os limites conhecidos.
 
 As levas seguintes também foram concluídas e estão mais abaixo:
-[Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30) e
-[Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45). A
-[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50) está em andamento.
+[Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30),
+[Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45) e
+[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50).
 
 ---
 
