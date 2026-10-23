@@ -425,7 +425,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/auth/touch` | atividade do usuário: renova a sessão por `SESSION_IDLE_MINUTES` e devolve `{ expiresAt }` (401 se já expirou) |
 | GET | `/api/auth/session` | `{ expiresAt }` da sessão atual, **sem** renovar |
 | PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
-| POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige 8–200 caracteres e senha diferente, e **encerra todas as sessões** do usuário. Na troca obrigatória (senha redefinida pelo admin) abre uma sessão nova e devolve `{ ok, signedIn: true }` |
+| POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige a política de senha (8+ caracteres, número e caractere especial) e senha diferente, e **encerra todas as sessões** do usuário. Na troca obrigatória (senha redefinida pelo admin) abre uma sessão nova e devolve `{ ok, signedIn: true }` |
 | POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez), encerra as sessões e marca a **troca obrigatória**: até trocar, as rotas respondem 403 `{ code: 'PASSWORD_CHANGE_REQUIRED' }` (inclusive para os tokens de API), exceto a troca de senha |
 
 | GET | `/api/analysts` | analistas/admins ativos (select de Responsável); só para analistas |
@@ -566,6 +566,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `password-policy.mjs` | política de senha: regra no cadastro e em Alterar senha (barra antes de enviar), validade na aba Senha (e "sem validade" para admin), aviso "Sua senha expira em N dias" no topo (e "hoje") com link, "senha expirada" na aba Usuários e a tela de senha vencida com o motivo e a regra |
 | `topbar-center.mjs` | "Ir para:" centralizado no masthead em 1440/1024/900 px (centro horizontal, meio da altura, sem encostar no logo nem no usuário) e fora do masthead em tela estreita |
 | `quick-search.mjs` | "Ir para:" do masthead: Ctrl+K, SHA-256 abre a amostra, hash desconhecido e texto abrem a lista filtrada |
 | `bulk-update.mjs` | atualização em massa: seleção, barra, confirmação, resultado, limpeza ao filtrar, Espaço/Enter e usuário comum sem a coluna |

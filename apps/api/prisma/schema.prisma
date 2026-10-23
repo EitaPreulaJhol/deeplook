@@ -59,6 +59,8 @@ model User {
   apiAccess              Boolean    @default(false)
   /// Senha redefinida pelo admin: so entra depois de definir uma nova (item 48).
   mustChangePassword     Boolean    @default(false)
+  /// Ultima troca de senha: base da validade (PASSWORD_MAX_AGE_DAYS; admins nao expiram).
+  passwordChangedAt      DateTime   @default(now())
   /// 2FA (TOTP, opcional): segredo cifrado (AES-GCM), o pendente da ativacao,
   /// quando foi ativado e o ultimo passo de 30 s aceito (nao repete codigo).
   twoFactorSecret        String?

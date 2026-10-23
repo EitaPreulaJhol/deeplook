@@ -38,8 +38,8 @@ próprio HPSM.
 As levas seguintes também foram concluídas e estão mais abaixo:
 [Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30),
 [Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45) e
-[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50). O item avulso
-[51. Política de senha](#51-política-de-senha) está em andamento.
+[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50), além do item avulso
+[51. Política de senha](#51-política-de-senha).
 
 ---
 
@@ -1353,7 +1353,7 @@ no login e prepara o terreno para a 50.
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 51 | Política de senha | política de senha / expiração | 🔴 | M | ⬜ |
+| 51 | Política de senha | política de senha / expiração | 🔴 | M | ✅ |
 
 ### 51. Política de senha
 - **Decisão:** mínimo de 8 caracteres, com ao menos um número e um caractere especial;
@@ -1378,3 +1378,35 @@ no login e prepara o terreno para a 50.
   - A senha temporária da redefinição pelo admin já obriga a troca (item 48), então não
     precisa seguir a regra.
   - A nova senha continua tendo de ser diferente da atual.
+- ✅ **Implementado:** migração `20261111000000_password_policy`
+  (`User.passwordChangedAt`).
+  - **Regra** (`lib/password-policy.ts`, espelhada em `web/src/auth/passwordPolicy.ts`):
+    - zod com mensagens próprias ("mínimo de 8 caracteres", "inclua ao menos um
+      número", "inclua ao menos um caractere especial");
+    - `issueMessage` passa a repassar a mensagem de regex personalizada;
+    - caractere especial = não é letra (inclusive acentuada), número nem espaço.
+  - **Onde vale:** cadastro, `POST /api/me/password` e a tela "Definir nova senha". O
+    front barra antes de enviar, com a regra no campo e o destaque.
+  - **Validade** (`PASSWORD_MAX_AGE_DAYS=90`):
+    - `passwordState()` calcula se a senha precisa ser trocada e por quê
+      (`reset` | `expired`), e a data de validade;
+    - admins não expiram;
+    - a sessão, o login e os tokens usam esse cálculo. Com a senha vencida, vale o mesmo
+      bloqueio do item 48: 403 `PASSWORD_CHANGE_REQUIRED` e tokens recusados, com
+      mensagem própria;
+    - a troca obrigatória abre sessão nova e renova a validade; a auditoria registra
+      "troca obrigatória (senha expirada)".
+  - **Avisos** (`components/PasswordExpiryNotice.tsx`):
+    - **topo do app, nos últimos 7 dias:** "Sua senha expira em N dias. Alterar senha",
+      ou "Sua senha expira hoje.";
+    - **aba Senha:** "Sua senha vale até … (N dias). Ao trocar, ganha mais 90 dias.", ou
+      "Sem validade" para admin.
+  - **Tela "Definir nova senha":** o texto muda quando a senha venceu ("sua senha
+    expirou (validade de 90 dias)").
+  - **Usuários (Administração):** "· senha expirada" (calculado na API, sem expor a data
+    da troca).
+  - **Testes:**
+    - 22 de integração (Postgres): regra, letras acentuadas e espaço, vencida, token,
+      admin, validade desligada, senha antiga fora da regra e prioridade do "reset";
+    - `password-policy.mjs`;
+    - `force-password.mjs` ajustado à regra.

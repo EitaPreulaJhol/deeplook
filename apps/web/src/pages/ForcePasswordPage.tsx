@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { apiFieldErrors } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { PASSWORD_HELP, passwordProblem } from '../auth/passwordPolicy';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
 import { HpsmMessage } from '../components/messages';
@@ -16,6 +17,8 @@ import { clearWorkspaceTabs } from '../components/workspace';
 export function ForcePasswordPage() {
   const { user, takeTemporaryPassword, completeForcedPasswordChange, logout } = useAuth();
   const navigate = useNavigate();
+  // Senha vencida (politica): a atual e a do login, mas o texto muda.
+  const expired = user?.passwordChangeReason === 'expired';
   const [current, setCurrent] = useState(() => takeTemporaryPassword() ?? '');
   const [askCurrent] = useState(() => current === '');
   const [next, setNext] = useState('');
@@ -29,13 +32,14 @@ export function ForcePasswordPage() {
     setError(null);
     const bad = new Set<string>();
     if (!current) bad.add('force-current');
-    if (next.length < 8) bad.add('force-new');
+    const problem = passwordProblem(next);
+    if (problem) bad.add('force-new');
     if (!confirm || confirm !== next) bad.add('force-confirm');
     setInvalid(bad);
     if (bad.size) {
       setError(
-        bad.has('force-new')
-          ? 'A nova senha precisa ter ao menos 8 caracteres.'
+        bad.has('force-new') && problem
+          ? `Nova senha: ${problem}.`
           : bad.has('force-confirm')
             ? 'A confirmação precisa ser igual à nova senha.'
             : 'Informe a senha temporária.',
@@ -65,7 +69,11 @@ export function ForcePasswordPage() {
     <AuthLayout
       hideBack
       title="Definir nova senha"
-      subtitle={`${user?.displayName ?? ''}, sua senha foi redefinida por um administrador. Defina uma senha nova para continuar.`}
+      subtitle={
+        expired
+          ? `${user?.displayName ?? ''}, sua senha expirou (validade de 90 dias). Defina uma senha nova para continuar.`
+          : `${user?.displayName ?? ''}, sua senha foi redefinida por um administrador. Defina uma senha nova para continuar.`
+      }
     >
       <form className="dl-auth__form" onSubmit={submit}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
@@ -88,7 +96,7 @@ export function ForcePasswordPage() {
           value={next}
           onChange={setNext}
           autoComplete="new-password"
-          helperText="Mínimo de 8 caracteres, diferente da temporária."
+          helperText={`${PASSWORD_HELP} Diferente da atual.`}
           invalid={invalid.has('force-new')}
           required
         />

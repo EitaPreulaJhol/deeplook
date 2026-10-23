@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../env';
 import { authenticateToken, bearerOf } from './api-tokens';
+import { type PasswordChangeReason, passwordState } from './password-policy';
 import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
 
@@ -18,8 +19,12 @@ export type PublicUser = {
   createdAt: Date;
   /** Acesso por API liberado por um admin (tokens pessoais). */
   apiAccess: boolean;
-  /** Senha redefinida pelo admin: precisa definir uma nova antes de usar o sistema. */
+  /** Precisa definir uma senha nova antes de usar o sistema (redefinida ou vencida). */
   mustChangePassword: boolean;
+  /** Por que: senha redefinida pelo admin ou vencida pela politica (item 51). */
+  passwordChangeReason: PasswordChangeReason;
+  /** Validade da senha (null para admins ou sem validade). */
+  passwordExpiresAt: Date | null;
   /** 2FA (TOTP) ativo na conta. */
   twoFactorEnabled: boolean;
   preferences: Preferences;
@@ -51,13 +56,13 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
     status: u.status as 'ACTIVE' | 'SUSPENDED',
     createdAt: u.createdAt,
     apiAccess: u.apiAccess,
-    mustChangePassword: u.mustChangePassword,
+    ...passwordState(u),
     twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
     preferences: resolvePreferences(u.preferences),
   };
 }
 
-/** Rotas liberadas enquanto a senha redefinida pelo admin nao for trocada. */
+/** Rotas liberadas enquanto a senha (redefinida ou vencida) nao for trocada. */
 const PASSWORD_CHANGE_ROUTES = new Set(['POST /api/me/password']);
 
 /**

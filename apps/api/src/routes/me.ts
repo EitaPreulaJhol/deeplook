@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { audit } from '../lib/audit';
 import { createSession, requireUser, SESSION_COOKIE } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
+import { passwordField, passwordState } from '../lib/password-policy';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
@@ -11,7 +12,7 @@ import { sendValidationError } from '../lib/validation';
 
 const PasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(200),
+  newPassword: passwordField,
 });
 
 /** Conta do proprio usuario: preferencias de uso e troca de senha. */
@@ -94,11 +95,12 @@ export async function meRoutes(app: FastifyInstance) {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    const forced = record.mustChangePassword;
+    // Troca obrigatoria: senha redefinida pelo admin ou vencida (segue logado).
+    const { mustChangePassword: forced, passwordChangeReason } = passwordState(record);
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: user.id },
-        data: { passwordHash, mustChangePassword: false },
+        data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
       });
       await tx.session.deleteMany({ where: { userId: user.id } });
       await audit(tx, req, {
@@ -106,7 +108,11 @@ export async function meRoutes(app: FastifyInstance) {
         actorId: user.id,
         targetUserId: user.id,
         targetLabel: record.email,
-        detail: forced ? 'troca obrigatória após redefinição' : 'sessões encerradas',
+        detail: !forced
+          ? 'sessões encerradas'
+          : passwordChangeReason === 'expired'
+            ? 'troca obrigatória (senha expirada)'
+            : 'troca obrigatória após redefinição',
       });
     });
 

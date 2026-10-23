@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 
 import type { PublicUser, RoleName } from './auth';
+import { passwordState } from './password-policy';
 import { resolvePreferences } from './preferences';
 import { prisma } from './prisma';
 
@@ -96,11 +97,15 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
   if (!token || token.revokedAt || token.expiresAt.getTime() <= now) return invalid;
   const u = token.user;
   if (u.status !== 'ACTIVE') return invalid;
-  if (u.mustChangePassword) {
+  const password = passwordState(u);
+  if (password.mustChangePassword) {
     return {
       ok: false,
       code: 403,
-      error: 'A conta precisa definir uma nova senha (redefinida pelo admin) antes de usar a API.',
+      error:
+        password.passwordChangeReason === 'expired'
+          ? 'A senha da conta expirou: defina uma nova pelo navegador antes de usar a API.'
+          : 'A conta precisa definir uma nova senha (redefinida pelo admin) antes de usar a API.',
     };
   }
   if (!u.apiAccess) {
@@ -135,7 +140,7 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
       status: 'ACTIVE',
       createdAt: u.createdAt,
       apiAccess: true,
-      mustChangePassword: false,
+      ...password,
       twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
       preferences: resolvePreferences(u.preferences),
     },

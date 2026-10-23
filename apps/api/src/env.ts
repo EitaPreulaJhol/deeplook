@@ -31,6 +31,8 @@ const EnvSchema = z
      * (ficha, relatorios, IOCs e hash ficam). 0 = desligada.
      */
     RETENTION_DAYS: z.coerce.number().int().min(0).max(36500).default(0),
+    /** Validade da senha em dias (admins nao expiram). 0 = sem validade. */
+    PASSWORD_MAX_AGE_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
     /**
      * Reputacao externa: consulta automatica no envio (so SHA-256 ou dominio/IP).
      * Cada servico liga com a sua chave; vazio = desligado.

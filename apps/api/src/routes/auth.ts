@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { audit } from '../lib/audit';
 import { createSession, currentSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
+import { passwordField, passwordState } from '../lib/password-policy';
 import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
 import { attemptLimit } from '../lib/rate-limit';
@@ -14,7 +15,7 @@ import { checkSecondFactor } from './two-factor';
 const RegisterSchema = z.object({
   email: z.string().email(),
   displayName: z.string().min(2).max(80),
-  password: z.string().min(8).max(200),
+  password: passwordField,
   activationKey: z.string().min(6),
 });
 
@@ -37,6 +38,7 @@ function publicUser(u: {
   createdAt: Date;
   apiAccess: boolean;
   mustChangePassword: boolean;
+  passwordChangedAt: Date;
   twoFactorEnabledAt: Date | null;
   preferences: unknown;
 }) {
@@ -48,7 +50,7 @@ function publicUser(u: {
     status: u.status,
     createdAt: u.createdAt,
     apiAccess: u.apiAccess,
-    mustChangePassword: u.mustChangePassword,
+    ...passwordState(u),
     twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
     preferences: resolvePreferences(u.preferences),
   };

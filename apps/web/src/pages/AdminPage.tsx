@@ -346,6 +346,9 @@ export function AdminPage() {
                                     · troca de senha pendente
                                   </span>
                                 )}
+                                {!u.mustChangePassword && u.passwordExpired && (
+                                  <span className="dl-user-pending"> · senha expirada</span>
+                                )}
                               </TableCell>
                               <TableCell>{u._count ? u._count.entries : 0}</TableCell>
                               <TableCell>

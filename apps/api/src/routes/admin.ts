@@ -6,6 +6,7 @@ import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
+import { passwordState } from '../lib/password-policy';
 import { prisma } from '../lib/prisma';
 import { systemStatus } from '../lib/status';
 import { sendValidationError } from '../lib/validation';
@@ -180,6 +181,7 @@ export async function adminRoutes(app: FastifyInstance) {
         createdAt: true,
         apiAccess: true,
         mustChangePassword: true,
+        passwordChangedAt: true,
         twoFactorEnabledAt: true,
         _count: {
           select: {
@@ -189,7 +191,14 @@ export async function adminRoutes(app: FastifyInstance) {
         },
       },
     });
-    return reply.send({ users });
+    // Senha vencida pela politica (calculada; admins nao expiram).
+    return reply.send({
+      users: users.map(({ passwordChangedAt, ...u }) => ({
+        ...u,
+        passwordExpired:
+          passwordState({ ...u, passwordChangedAt }).passwordChangeReason === 'expired',
+      })),
+    });
   });
 
   app.patch('/api/admin/users/:id', async (req, reply) => {

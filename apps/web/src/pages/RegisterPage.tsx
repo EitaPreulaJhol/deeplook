@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { PASSWORD_HELP, passwordProblem } from '../auth/passwordPolicy';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
 import { useRequiredFields } from '../components/HpsmForm';
@@ -33,7 +34,12 @@ export function RegisterPage() {
   const check = useRequiredFields([
     { id: 'displayName', label: 'Nome', ok: true, value: displayName },
     { id: 'email', label: 'E-mail', ok: true, value: email },
-    { id: 'password', label: 'Senha', ok: true, value: password },
+    {
+      id: 'password',
+      label: 'Senha (8+ caracteres, com número e caractere especial)',
+      ok: passwordProblem(password) === null,
+      value: password,
+    },
     {
       id: 'confirmPassword',
       label: 'Confirme a senha (igual à senha)',
@@ -96,7 +102,7 @@ export function RegisterPage() {
           value={password}
           onChange={setPassword}
           autoComplete="new-password"
-          helperText="Mínimo de 8 caracteres"
+          helperText={PASSWORD_HELP}
           required
         />
         <AuthField

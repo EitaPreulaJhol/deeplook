@@ -9,6 +9,8 @@ import { createState, ORIGIN, OUT, setupMock, users, watchErrors } from './mock-
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const state = createState({ loggedIn: false });
+// Temporaria dentro da politica de senha (item 51), para testar "igual a temporaria".
+state.password = 'temp-1234!';
 users[0].mustChangePassword = true;
 await setupMock(context, state);
 const page = await context.newPage();
@@ -31,7 +33,7 @@ page.on('request', (r) => {
 // 1. Login com a senha temporaria.
 await page.goto(ORIGIN + '/login', { waitUntil: 'networkidle' });
 await page.fill('#email', 'ana@deeplook.test');
-await page.fill('#password', 'senha-atual');
+await page.fill('#password', 'temp-1234!');
 await page.click('button[type=submit]');
 await settle(800);
 expect('abre "Definir nova senha"', (await title()) === 'Definir nova senha');
@@ -54,14 +56,14 @@ await page.fill('#force-new', 'curta');
 await page.fill('#force-confirm', 'curta');
 await page.click('button[type=submit]');
 await settle();
-expect('mínimo de 8', (await error()).includes('ao menos 8 caracteres') && (await page.locator('.dl-field:has(#force-new)').getAttribute('class')).includes('invalid'));
+expect('mínimo de 8', (await error()).includes('Nova senha: mínimo de 8 caracteres.') && (await page.locator('.dl-field:has(#force-new)').getAttribute('class')).includes('invalid'));
 await page.fill('#force-new', 'nova-senha-123');
 await page.fill('#force-confirm', 'outra-coisa');
 await page.click('button[type=submit]');
 await settle();
 expect('confirmação diferente', (await error()).includes('igual à nova senha'));
-await page.fill('#force-new', 'senha-atual');
-await page.fill('#force-confirm', 'senha-atual');
+await page.fill('#force-new', 'temp-1234!');
+await page.fill('#force-confirm', 'temp-1234!');
 await page.click('button[type=submit]');
 await settle();
 expect('igual à temporária: recusada pela API', (await error()).includes('A nova senha deve ser diferente da atual.'), await error());
@@ -71,7 +73,7 @@ await page.fill('#force-new', 'nova-senha-123');
 await page.fill('#force-confirm', 'nova-senha-123');
 await page.click('button[type=submit]');
 await page.waitForSelector('.hpsm-tree', { timeout: 8000 });
-expect('enviou a temporária do login', state.lastPasswordBody?.currentPassword === 'senha-atual' && state.lastPasswordBody?.newPassword === 'nova-senha-123');
+expect('enviou a temporária do login', state.lastPasswordBody?.currentPassword === 'temp-1234!' && state.lastPasswordBody?.newPassword === 'nova-senha-123');
 expect('entrou com o shell', new URL(page.url()).pathname === '/inicio' && users[0].mustChangePassword === false && state.loggedIn);
 
 // 5. Recarregada no meio da troca: pede a temporaria.

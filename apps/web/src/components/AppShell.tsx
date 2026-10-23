@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { HpsmSidebar } from './HpsmSidebar';
 import { HpsmTopBar } from './HpsmTopBar';
 import { HpsmMessageBar, MessageSlotProvider } from './messages';
+import { PasswordExpiryNotice } from './PasswordExpiryNotice';
 import { ShortcutsProvider } from './shortcuts';
 import { WorkspaceProvider, WorkspaceTabs } from './workspace';
 
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <main className="dl-content">
                   <WorkspaceTabs />
                   <HpsmMessageBar slotRef={setMessageSlot} />
+                  <PasswordExpiryNotice />
                   <div className="dl-content__body">{children}</div>
                 </main>
               </div>

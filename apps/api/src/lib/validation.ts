@@ -24,6 +24,10 @@ export function issueMessage(issue: ZodIssue): string {
     case 'invalid_string':
       if (issue.validation === 'email') return 'e-mail inválido';
       if (issue.validation === 'url') return 'URL inválida';
+      // Regex com mensagem propria (ex.: politica de senha).
+      if (issue.validation === 'regex' && issue.message && issue.message !== 'Invalid') {
+        return issue.message;
+      }
       return 'formato inválido';
     case 'invalid_enum_value':
       return 'opção inválida';

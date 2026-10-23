@@ -13,8 +13,14 @@ export interface User {
   createdAt: string;
   /** Acesso por API liberado por um admin (tokens pessoais). */
   apiAccess?: boolean;
-  /** Senha redefinida pelo admin: precisa definir uma nova antes de entrar. */
+  /** Precisa definir uma senha nova antes de entrar (redefinida pelo admin ou vencida). */
   mustChangePassword?: boolean;
+  /** Por que precisa trocar: redefinida pelo admin ou vencida (politica de senha). */
+  passwordChangeReason?: 'reset' | 'expired' | null;
+  /** Validade da senha da sessao atual (null para admins ou sem validade). */
+  passwordExpiresAt?: string | null;
+  /** Senha vencida pela politica (lista da Administracao). */
+  passwordExpired?: boolean;
   /** 2FA ativo (sessao atual). */
   twoFactorEnabled?: boolean;
   /** 2FA ativo desde (lista da Administracao). */

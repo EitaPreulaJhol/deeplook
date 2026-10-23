@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { Preferences } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { daysUntil, PASSWORD_HELP, passwordProblem } from '../auth/passwordPolicy';
 import { DEFAULT_PREFERENCES } from '../auth/preferences';
 import { ApiTokensTab } from '../components/ApiTokensTab';
 import {
@@ -85,8 +86,13 @@ export function UserPage() {
   );
 }
 
+/** Texto da validade da politica (a API decide; aqui so a mensagem). */
+const MAX_AGE_TEXT = '90 dias';
+
 function PasswordTab() {
-  const { changePassword } = useAuth();
+  const { changePassword, user } = useAuth();
+  const expiresAt = user?.passwordExpiresAt ?? null;
+  const daysLeft = daysUntil(expiresAt);
   const navigate = useNavigate();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -105,8 +111,8 @@ function PasswordTab() {
     },
     {
       id: 'pwd-new',
-      label: 'Nova senha (mínimo de 8 caracteres)',
-      ok: next.length >= 8,
+      label: 'Nova senha (8+ caracteres, com número e caractere especial)',
+      ok: passwordProblem(next) === null,
       api: 'newPassword',
       value: next,
     },
@@ -152,6 +158,13 @@ function PasswordTab() {
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {passwordCheck.message && <HpsmMessage kind="error">{passwordCheck.message}</HpsmMessage>}
       <HpsmForm>
+        <HpsmField label="Validade">
+          <HpsmReadonly>
+            {expiresAt
+              ? `Sua senha vale até ${new Date(expiresAt).toLocaleDateString('pt-BR')} (${daysLeft} dia${daysLeft === 1 ? '' : 's'}). Ao trocar, ganha mais ${MAX_AGE_TEXT}.`
+              : 'Sem validade (contas de administrador não expiram).'}
+          </HpsmReadonly>
+        </HpsmField>
         <HpsmField
           label="Senha atual"
           htmlFor="pwd-current"
@@ -171,7 +184,7 @@ function PasswordTab() {
           label="Nova senha"
           htmlFor="pwd-new"
           required
-          help="Mínimo de 8 caracteres."
+          help={PASSWORD_HELP}
           invalid={passwordCheck.isInvalid('pwd-new')}
         >
           <PasswordInput

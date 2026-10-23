@@ -93,6 +93,22 @@ O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 
 ---
 
+## Política de senha
+
+- **Formato:** mínimo de 8 caracteres, com ao menos um número e um caractere especial
+  (o que não é letra, inclusive acentuada, número nem espaço). Vale no cadastro, em
+  Alterar senha e na tela "Definir nova senha"; senhas antigas fora da regra continuam
+  valendo até a próxima troca.
+- **Validade:** 90 dias desde a última troca (`PASSWORD_MAX_AGE_DAYS`; `0` desliga).
+  Admins não expiram.
+  - **Antes de vencer:** nos últimos 7 dias, o topo do app avisa "Sua senha expira em N
+    dias. Alterar senha", e a aba Senha mostra a validade.
+  - **Vencida:** o login leva à tela "Definir nova senha". Até trocar, o resto do sistema
+    e os tokens de API da pessoa ficam bloqueados.
+- **Administração:** a aba Usuários mostra "senha expirada".
+- **Ao instalar a versão com a política,** a validade das contas existentes começa a
+  contar a partir daquele dia.
+
 ## Autenticação em dois fatores (2FA)
 
 Opcional, por usuário, em **Minha Conta > 2FA**:
@@ -244,6 +260,7 @@ COOKIE_SECURE=true
 | `SLA_LATE_HOURS` | Acima de N horas fica vermelha e entra na fila "Atrasadas" | `72` |
 | `REPORT_REVIEW_REQUIRED` | `true`: relatório só é publicado com a aprovação de outro analista (quatro olhos) | `false` |
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
+| `PASSWORD_MAX_AGE_DAYS` | validade da senha em dias (admins não expiram); `0` desliga | `90` |
 | `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |
 | `ABUSEIPDB_API_KEY` | chave do AbuseIPDB (IPs) | — |
@@ -533,9 +550,8 @@ Detalhes em [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-verificação-vi
 Melhorias de interface e usabilidade estão priorizadas em
 [`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
-- Política de senha (complexidade, expiração).
 - Notificações por e-mail (SMTP).
 
 Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
-envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa) e 2FA
-opcional.
+envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa), 2FA
+opcional e política de senha.
