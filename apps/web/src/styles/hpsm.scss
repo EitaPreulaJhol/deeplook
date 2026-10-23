@@ -3172,3 +3172,47 @@ body:has(.dl-print) {
   align-items: center;
   gap: 0.25rem;
 }
+
+/* Visualizador hexadecimal (aba Analise): offset | 16 bytes | texto. */
+.dl-hex__info {
+  margin: 0 0 0.4rem;
+  color: var(--dl-text-muted);
+  font-size: var(--dl-font-size);
+}
+
+.dl-hex__magic {
+  padding: 0 0.2rem;
+  background: var(--dl-warning-bg);
+  color: var(--dl-text);
+}
+
+.dl-hex {
+  max-block-size: 24rem;
+  overflow: auto;
+  margin: 0 0 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-readonly-bg);
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  white-space: pre;
+}
+
+.dl-hex__line {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.dl-hex__offset {
+  color: var(--dl-text-muted);
+}
+
+.dl-hex__byte.is-magic {
+  background: var(--dl-warning-bg);
+  font-weight: 700;
+}
+
+.dl-hex__text {
+  color: var(--dl-text);
+}

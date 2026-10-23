@@ -166,6 +166,8 @@ export function createState({ loggedIn = false } = {}) {
     twoFactorCalls: [],
     /** "Pegar a proxima": ids que a fila entrega, na ordem (vazia = nenhuma pendente). */
     nextQueue: [],
+    /** Conteudo dos arquivos para o visualizador hexadecimal (Buffer por amostra). */
+    fileBytes: {},
   };
 }
 
@@ -563,6 +565,15 @@ export async function setupMock(context, state) {
           entry: { id, title: fields.title || filename },
           previous: filename.includes('repetida') ? { id: 'e1', title: entries[0].title } : null,
         });
+      }
+      const hx = p.match(/^\/api\/entries\/(\w+)\/hex$/);
+      if (hx) {
+        const all = state.fileBytes[hx[1]] ?? Buffer.alloc(0);
+        const offset = Number(url.searchParams.get('offset') ?? 0);
+        const length = Number(url.searchParams.get('length') ?? 4096);
+        const limit = Math.min(all.length, 65536);
+        state.calls.push(`HEX ${hx[1]} ${offset}`);
+        return json(route, 200, { offset, size: all.length, limit, data: all.subarray(offset, Math.min(offset + length, limit)).toString('base64') });
       }
       if (p === '/api/entries/next' && req.method() === 'POST') {
         const id = state.nextQueue.shift();

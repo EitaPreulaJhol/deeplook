@@ -15,6 +15,7 @@ import { loadEntrySequence } from '../components/entryNav';
 import { EntryRelatedTab, useRelatedEntries } from '../components/EntryRelatedTab';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { useFavorites } from '../components/favorites';
+import { HexViewer } from '../components/HexViewer';
 import { useConfirm } from '../components/HpsmConfirm';
 import { formatFileSize } from '../components/HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from '../components/HpsmForm';
@@ -669,6 +670,9 @@ export function EntryDetailPage() {
             </HpsmForm>
           </HpsmSection>
 
+          {entry.type === 'FILE' && (
+            <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />
+          )}
           {entry.type === 'FILE' &&
             (entry.filePurgedAt ? (
               <HpsmSection title="Ambiente isolado">

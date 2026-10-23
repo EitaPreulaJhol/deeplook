@@ -18,6 +18,7 @@ import { dashboardRoutes } from './routes/dashboard';
 import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { favoritesRoutes } from './routes/favorites';
+import { hexRoutes } from './routes/hex';
 import { iocRoutes } from './routes/iocs';
 import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
@@ -70,6 +71,7 @@ async function main() {
   await app.register(reportRoutes);
   await app.register(reputationRoutes);
   await app.register(antivirusRoutes);
+  await app.register(hexRoutes);
   await app.register(adminRoutes);
   await app.register(apiTokenRoutes);
   await app.register(trashRoutes);

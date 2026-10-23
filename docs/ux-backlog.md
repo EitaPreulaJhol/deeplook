@@ -1424,7 +1424,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ (decisão) |
 | 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ⬜ |
-| 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ⬜ |
+| 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
 | 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ⬜ |
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ⬜ |
@@ -1501,6 +1501,17 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   conhecido (MZ, PK, %PDF...). Só analistas; nada é baixado nem executado.
 - **Cuidados:** lido do MinIO por faixa (sem trazer o arquivo inteiro); arquivo expurgado
   mostra o aviso da retenção.
+- ✅ **Implementado:** `GET /api/entries/:id/hex?offset=&length=` (só analistas).
+  - Lê do MinIO só a faixa pedida (`Range`), em blocos de até 4 KB, até 64 KB do começo
+    do arquivo. Devolve `{ offset, size, limit, data }`, com `data` em base64.
+  - Recusa link (400), arquivo expurgado (410) e quem não é analista (403).
+  - **Seção "Conteúdo (hex)"** na aba Análise (`components/HexViewer.tsx`):
+    - só carrega com **Mostrar conteúdo**;
+    - linhas com offset, 16 bytes (separados em 8 + 8) e texto, e **Mostrar mais 4 KB**;
+    - **cabeçalho conhecido** destacado e nomeado: MZ, ELF, PK, %PDF, OLE, RAR, 7z,
+      PNG, JPEG, GIF e GZIP.
+  - **Testes:** 10 de integração (MinIO real, conferindo os bytes de cada faixa) e
+    `hex-viewer.mjs`.
 
 ### 58. Comparar duas amostras
 - **Proposta:** "Comparar com…" no menu Mais da ficha (ou duas marcadas na lista): lado a
