@@ -39,7 +39,8 @@ As levas seguintes também foram concluídas e estão mais abaixo:
 [Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30),
 [Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45) e
 [Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50), além do item avulso
-[51. Política de senha](#51-política-de-senha).
+[51. Política de senha](#51-política-de-senha). A
+[Quinta leva — ideias 52 a 65](#quinta-leva--ideias-52-a-65) está em andamento.
 
 ---
 
@@ -1410,3 +1411,118 @@ no login e prepara o terreno para a 50.
       admin, validade desligada, senha antiga fora da regra e prioridade do "reset";
     - `password-policy.mjs`;
     - `force-password.mjs` ajustado à regra.
+
+## Quinta leva — ideias 52 a 65
+
+Mais valor na triagem do dia a dia, análise mais funda e alguns ajustes de conta e
+equipe, sempre no padrão visual do HP Service Manager 9.
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ⬜ |
+| 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ⬜ |
+| 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ (decisão) |
+| 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
+| 56 | Regras YARA | regras de negócio | 🟡 | M | ⬜ |
+| 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ⬜ |
+| 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
+| 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ⬜ |
+| 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ⬜ |
+| 61 | Sessões ativas | segurança da conta | ⚪ | P | ⬜ |
+| 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ⬜ |
+| 63 | Base de conhecimento | Knowledge Management | ⚪ | M–G | ⬜ (opcional) |
+| 64 | Cota de envio | limites | ⚪ | P | ⬜ (opcional) |
+| 65 | Webhooks de saída | integrações | ⚪ | M | ⬜ (decisão) |
+
+**Ordem (uma etapa por item, com testes, documentação e commit próprio):**
+52 → 57 → 53 → 61 → 60 → 56 → 59 → 58 → 62. Depois, 54, 55 e 65 conforme as decisões;
+63 e 64 se ainda fizerem sentido.
+
+**Antes de qualquer código:**
+- **54:** os e-mails trazem dados pessoais das vítimas; quem vê os cabeçalhos completos?
+- **55:** é a maior da leva (listas, Painel, relatórios); confirmar que cabe no fluxo.
+- **65:** manda dados para fora; quais destinos e o que pode sair?
+
+### 52. "Pegar a próxima"
+- **Problema:** com várias amostras pendentes, cada analista escolhe na mão e às vezes
+  dois pegam a mesma.
+- **Proposta:** botão **Pegar a próxima** na barra das filas (Pendentes, Atribuídas a
+  mim, Atrasadas) e na Página Inicial dos analistas. Atribui ao analista a amostra
+  **pendente sem responsável mais antiga** (as atrasadas primeiro), muda para Em
+  análise e abre a ficha.
+- **Cuidados:** dois cliques ao mesmo tempo não podem pegar a mesma amostra (atribuição
+  atômica no banco); sem nada na fila, avisa "Nenhuma amostra pendente sem responsável";
+  duplicatas e amostras na lixeira ficam de fora; entra no histórico como atribuição.
+
+### 53. Prioridade P1–P4 com prazo próprio
+- **Proposta:** campo **Prioridade** (P1 Crítica, P2 Alta, P3 Média — padrão, P4 Baixa)
+  na triagem, na atualização em massa e na coluna/filtro das listas; o prazo de alerta e
+  atraso (item 24) passa a depender da prioridade (padrão sugerido: P1 2 h/4 h, P2 8 h/24 h,
+  P3 24 h/72 h, P4 72 h/120 h, configurável). As filas ordenam por prioridade e idade.
+- **Cuidados:** amostras antigas ficam P3 (o comportamento de hoje); mudança de
+  prioridade entra no histórico.
+
+### 54. E-mail suspeito (.eml) — decisão pendente
+- **Proposta:** enviar o `.eml` de um phishing: a ficha mostra remetente, destinatários,
+  assunto, data, autenticação (SPF/DKIM/DMARC do cabeçalho), caminho dos servidores e os
+  links; cada anexo vira uma amostra "filha" ligada ao e-mail (e passa pelo antivírus e
+  pela reputação).
+- **Decisão:** dados pessoais das vítimas (destinatários, corpo).
+
+### 55. Casos — decisão pendente
+- **Proposta:** agrupar amostras da mesma campanha num **Caso** com título, status,
+  responsável, linha do tempo e relatório próprio; a ficha mostra o caso; lista de casos
+  no navegador.
+
+### 56. Regras YARA
+- **Proposta:** aba **Regras YARA** (analistas e admin): criar, editar, ativar/desativar
+  regras com validação de sintaxe; o ClamAV que já roda carrega as regras (arquivos `.yar`
+  na base dele) e cada acerto aparece na seção Antivírus da ficha ("YARA: nome_da_regra").
+- **Cuidados:** regra com erro de sintaxe nunca chega ao ClamAV (senão ele não recarrega);
+  recarregar o ClamAV depois de salvar.
+
+### 57. Visualizador hexadecimal
+- **Proposta:** seção **Conteúdo (hex)** na aba Análise: os primeiros 4 KB do arquivo em
+  hexadecimal + texto, com "Mostrar mais" de 4 em 4 KB (até 64 KB) e destaque do cabeçalho
+  conhecido (MZ, PK, %PDF...). Só analistas; nada é baixado nem executado.
+- **Cuidados:** lido do MinIO por faixa (sem trazer o arquivo inteiro); arquivo expurgado
+  mostra o aviso da retenção.
+
+### 58. Comparar duas amostras
+- **Proposta:** "Comparar com…" no menu Mais da ficha (ou duas marcadas na lista): lado a
+  lado tipo real, tamanho, entropia, SHA-256, strings e IOCs, com o que é comum e o que é
+  só de cada uma.
+
+### 59. MITRE ATT&CK nos relatórios
+- **Proposta:** campo de técnicas ATT&CK no relatório (busca por código ou nome, ex.:
+  T1566 Phishing); as técnicas aparecem na ficha, viram filtro nas listas e um quadro "mais
+  vistas" no Painel. Lista de técnicas embutida (sem buscar fora).
+
+### 60. Alertas de IOC (watchlist)
+- **Proposta:** "Seguir" na ficha do indicador (IP, domínio, e-mail, hash): quando o
+  indicador aparecer numa amostra nova (hash/domínio no envio) ou num relatório publicado,
+  quem segue recebe uma notificação na Caixa de entrada. Lista "Indicadores que sigo" na
+  Minha Conta.
+
+### 61. Sessões ativas
+- **Proposta:** aba **Sessões** na Minha Conta: cada sessão com navegador/sistema, IP,
+  início e último acesso, a atual marcada; "Encerrar" uma e "Encerrar as outras".
+  Auditoria do encerramento.
+
+### 62. Visões compartilhadas
+- **Proposta:** ao salvar uma visão (filtros), analistas escolhem "compartilhar com a
+  equipe": ela aparece numa pasta **Visões da equipe** no navegador de todos os analistas,
+  com contador. Só quem criou (ou admin) edita/remove.
+
+### 63. Base de conhecimento (opcional)
+- **Proposta:** artigos (Markdown) sobre famílias de malware e golpes, com busca, ligados
+  aos relatórios que os citam.
+
+### 64. Cota de envio (opcional)
+- **Proposta:** limite de envios por usuário comum por dia (`UPLOAD_DAILY_LIMIT`), com
+  mensagem clara ao atingir; analistas e admin sem limite.
+
+### 65. Webhooks de saída — decisão pendente
+- **Proposta:** avisar Slack/Teams/SIEM (POST JSON) quando uma amostra é concluída como
+  maliciosa ou suspeita.
+- **Decisão:** destinos permitidos e o que pode sair (só o hash? título? relatório?).
