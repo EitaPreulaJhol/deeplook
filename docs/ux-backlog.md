@@ -38,7 +38,8 @@ próprio HPSM.
 As levas seguintes também foram concluídas e estão mais abaixo:
 [Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30),
 [Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45) e
-[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50).
+[Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50). O item avulso
+[51. Política de senha](#51-política-de-senha) está em andamento.
 
 ---
 
@@ -1347,3 +1348,33 @@ no login e prepara o terreno para a 50.
   - **Testes:**
     - 34 de integração (Postgres), com os códigos calculados como o aplicativo faria;
     - `two-factor.mjs`.
+
+## Item avulso — 51
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 51 | Política de senha | política de senha / expiração | 🔴 | M | ⬜ |
+
+### 51. Política de senha
+- **Decisão:** mínimo de 8 caracteres, com ao menos um número e um caractere especial;
+  validade de 90 dias, exceto para admins. Sem e-mail por enquanto.
+- **Proposta:**
+  - **Regra de formato** em todo lugar onde alguém escolhe uma senha: cadastro com
+    chave, Alterar senha (Minha Conta) e a tela "Definir nova senha". A API recusa com
+    erro no campo ("inclua ao menos um número" / "…um caractere especial"); as telas
+    mostram a regra e destacam o campo.
+  - **Validade de 90 dias** (`PASSWORD_MAX_AGE_DAYS`, `0` desliga), contada da última
+    troca (`User.passwordChangedAt`). Admins não expiram.
+  - **Senha vencida:** no login, a pessoa cai na mesma tela "Definir nova senha" do item
+    48, com o texto "Sua senha expirou (90 dias)…". Até trocar, a API recusa o resto,
+    inclusive os tokens de API da pessoa.
+  - **Aviso antes de vencer:** nos últimos 7 dias, faixa no topo do app "Sua senha
+    expira em N dias. [Alterar senha]" e a data de validade na aba Senha (é o aviso
+    enquanto não há e-mail).
+  - **Admin:** "· senha expirada" ao lado do status na aba Usuários.
+- **Cuidados:**
+  - Senhas atuais fora da regra continuam valendo; a regra vale na próxima troca.
+  - Na migração, o prazo começa a contar da data da migração para todas as contas.
+  - A senha temporária da redefinição pelo admin já obriga a troca (item 48), então não
+    precisa seguir a regra.
+  - A nova senha continua tendo de ser diferente da atual.
