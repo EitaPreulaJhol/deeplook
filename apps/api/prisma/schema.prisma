@@ -108,6 +108,7 @@ model User {
   kbCreated         KbArticle[]             @relation("KbAuthor")
   kbUpdated         KbArticle[]             @relation("KbEditor")
   kbRevisions       KbArticleRevision[]
+  reportRevisions   ReportRevision[]
   casesAssigned     Case[]                  @relation("CaseAssignee")
   casesCreated      Case[]                  @relation("CaseAuthor")
   caseEntriesAdded  CaseEntry[]
@@ -267,10 +268,34 @@ model Report {
   kbArticles    KbArticle[] @relation("ReportKbArticles")
   /// Indicadores extraidos do campo `iocs` (so de relatorios publicados).
   extractedIocs ReportIoc[]
+  /// Versoes anteriores (item 75), uma por edicao do conteudo.
+  revisions     ReportRevision[]
 
   @@index([entryId])
   @@index([status])
   @@index([attackTechniques], type: Gin)
+}
+
+/// Versao anterior de um relatorio (item 75): guardada a cada edicao do conteudo.
+/// A versao N+1 e de quem fez a edicao (`editor`) em `createdAt`; a 1a e do autor.
+model ReportRevision {
+  id               String       @id @default(cuid())
+  reportId         String
+  report           Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  /// Quem fez a edicao que substituiu esta versao.
+  editorId         String?
+  editor           User?        @relation(fields: [editorId], references: [id], onDelete: SetNull)
+  summary          String
+  findings         String?
+  iocs             String?
+  verdict          Verdict
+  attackTechniques String[]     @default([])
+  /// Situacao do relatorio enquanto esta versao valia.
+  status           ReportStatus
+  /// Quando foi substituida.
+  createdAt        DateTime     @default(now())
+
+  @@index([reportId, createdAt])
 }
 
 enum ReportStatus {

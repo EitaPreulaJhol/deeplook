@@ -1,5 +1,5 @@
 import { Select, SelectItem, TextArea } from '@carbon/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -14,6 +14,8 @@ import { IconAdd } from './icons';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
 import { KbLinks, KbPicker, type KbRef } from './KbPicker';
 import { HpsmMessage } from './messages';
+import { ReportEditForm } from './ReportEditForm';
+import { ReportVersions } from './ReportVersions';
 import { useSaveShortcut } from './shortcuts';
 import { StatusText, VerdictTag } from './tags';
 import { useUnsavedChanges } from './useUnsavedChanges';
@@ -65,6 +67,17 @@ export function EntryReportsTab({
   const [saveAs, setSaveAs] = useState<ReportStatus>(reviewRequired ? 'IN_REVIEW' : 'PUBLISHED');
   const [actionMsg, setActionMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Item 75: relatorio em edicao e paineis de Versoes abertos.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [versionsOpen, setVersionsOpen] = useState<Set<string>>(new Set());
+  const queryClient = useQueryClient();
+  const toggleVersions = (id: string) =>
+    setVersionsOpen((open) => {
+      const next = new Set(open);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // Acoes da revisao num relatorio (enviar, publicar, aprovar, devolver).
   const reportAction = async (
@@ -213,8 +226,9 @@ export function EntryReportsTab({
   const suggestions = suggestedIocs.filter((v) => !allowedSet.has(v));
   const hiddenSuggestions = suggestedIocs.length - suggestions.length;
 
-  // Ctrl+S salva o novo relatorio (so quem pode criar relatorios).
-  useSaveShortcut(createReport, canTriage && !saving);
+  // Ctrl+S salva o novo relatorio (so quem pode criar relatorios); editando,
+  // o Ctrl+S e da edicao.
+  useSaveShortcut(createReport, canTriage && !saving && editingId === null);
 
   return (
     <>
@@ -230,10 +244,56 @@ export function EntryReportsTab({
         const mine = r.analystId === user?.id;
         const canEdit = mine || user?.role === 'ADMIN';
         const busy = busyId === r.id;
+        // Edita o conteudo: autor ou admin, fora de revisao; com revisao
+        // obrigatoria, publicado nao muda (a API recusa).
+        const canEditContent =
+          canTriage &&
+          canEdit &&
+          r.status !== 'IN_REVIEW' &&
+          !(reviewRequired && r.status === 'PUBLISHED');
+        const revisions = r._count?.revisions ?? 0;
+        if (editingId === r.id) {
+          return (
+            <HpsmSection
+              key={r.id}
+              title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)} (editando)`}
+            >
+              <ReportEditForm
+                report={r}
+                onCancel={() => setEditingId(null)}
+                onSaved={() => {
+                  setEditingId(null);
+                  setActionMsg({
+                    ok: true,
+                    text: 'Relatório atualizado. A versão anterior ficou em Versões.',
+                  });
+                  void queryClient.invalidateQueries({ queryKey: ['report', r.id, 'versions'] });
+                  onCreated();
+                }}
+              />
+            </HpsmSection>
+          );
+        }
         return (
           <HpsmSection key={r.id} title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)}`}>
-            {canTriage && r.status !== 'PUBLISHED' && (
+            {canTriage && (r.status !== 'PUBLISHED' || canEditContent || revisions > 0) && (
               <HpsmToolbar label="Ações do relatório">
+                {canEditContent && (
+                  <HpsmToolbarButton
+                    label="Editar"
+                    disabled={busy || editingId !== null}
+                    onClick={() => {
+                      setActionMsg(null);
+                      setEditingId(r.id);
+                    }}
+                  />
+                )}
+                {revisions > 0 && (
+                  <HpsmToolbarButton
+                    label={`${versionsOpen.has(r.id) ? 'Ocultar versões' : 'Versões'} (${revisions + 1})`}
+                    onClick={() => toggleVersions(r.id)}
+                  />
+                )}
                 {r.status === 'DRAFT' && canEdit && (
                   <>
                     <HpsmToolbarButton
@@ -326,6 +386,9 @@ export function EntryReportsTab({
                 </HpsmField>
               )}
             </HpsmForm>
+            {canTriage && revisions > 0 && versionsOpen.has(r.id) && (
+              <ReportVersions reportId={r.id} />
+            )}
           </HpsmSection>
         );
       })}

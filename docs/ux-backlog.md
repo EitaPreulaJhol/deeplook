@@ -2006,7 +2006,7 @@ Service Manager 9.
 | 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ✅ |
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ✅ |
-| 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ⬜ |
+| 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ✅ |
 | 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ⬜ |
 | 77 | Relatório gerencial | Reports | ⚪ | M | ⬜ |
 | 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ⬜ |
@@ -2300,6 +2300,38 @@ decisões.
   registro do que mudou.
 - **Proposta:** cada edição guarda a versão anterior; o relatório mostra "Versões (3)" e
   a diferença entre duas versões (linhas adicionadas e removidas), com quem e quando.
+- ✅ **Implementado** (migração `20261126000000_report_revisions`):
+  - **API:**
+    - `ReportRevision`: cada `PATCH /api/reports/:id` que muda o conteúdo (resumo,
+      achados, IOCs, veredito ou técnicas ATT&CK) guarda a versão anterior, com a
+      situação de então (rascunho/publicado). Mudar só a situação (Publicar) ou mandar
+      o mesmo conteúdo não gera versão. Os artigos da base citados não têm versão.
+    - `GET /api/reports/:id/versions` (só analistas, porque versões antigas podem ter
+      texto de rascunho) devolve da 1ª à atual, com autor e data: a 1ª é do autor na
+      criação, as seguintes de quem editou, quando editou.
+    - A lista de relatórios traz `_count.revisions`.
+  - **Editar na tela:** a aba Relatórios não tinha edição (só a API editava). Agora o
+    autor ou um admin tem **Editar**: resumo, achados, IOCs, ATT&CK, artigos e
+    veredito, com Ctrl+S, Cancelar e aviso de alteração não salva. Também serve para
+    ajustar um relatório devolvido. Fica fora em revisão e, com revisão obrigatória,
+    no publicado (a API já recusava).
+  - **Versões (N):** escolhe duas versões ("Versão 2 (atual) — Bruno Lima, data ·
+    publicado") e mostra:
+    - a diferença linha a linha de Resumo, Achados e IOCs (`components/textDiff.ts`,
+      maior subsequência comum), com contagem +/−, linhas verdes e vermelhas
+      riscadas, e texto para leitor de tela;
+    - o veredito "Desconhecido → Suspeito" e as técnicas ATT&CK adicionadas e removidas;
+    - "mesmo conteúdo" quando não há diferença.
+  - **Correção junto (commit `fix:` antes deste):** com o zod 4, o PATCH do relatório
+    voltava o veredito a "Desconhecido" e despublicava quando o campo não vinha
+    (`.partial()` mantém os `.default()`). O botão "Publicar" também gravava
+    "Desconhecido" na amostra.
+  - **Testes:**
+    - 19 checagens no Postgres: versão guardada com o conteúdo e a situação antigos,
+      autores e datas, sem versão para conteúdo igual ou só a situação, admin edita,
+      campo vazio, rascunho, permissões, em revisão, revisão obrigatória e contador;
+    - 9 checagens da correção do PATCH;
+    - `report-versions.mjs`.
 
 ### 76. Evidências no relatório
 - **Proposta:** anexar **imagens** ao relatório (prints da página falsa, da VM do

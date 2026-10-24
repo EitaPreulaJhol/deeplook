@@ -226,6 +226,9 @@ export function createState({ loggedIn = false } = {}) {
     /** IOCs por caso (GET /api/cases/:id/iocs) e formatos exportados. */
     caseIocs: {},
     caseExports: [],
+    /** Versoes anteriores por relatorio (item 75) e o ultimo PATCH de conteudo. */
+    reportRevisions: {},
+    lastReportPatch: null,
   };
 }
 
@@ -1113,6 +1116,22 @@ export async function setupMock(context, state) {
           .map((r) => ({ ...r, entry: { id: r.entryId, title: entries.find((e) => e.id === r.entryId).title, type: entries.find((e) => e.id === r.entryId).type } }));
         return json(route, 200, { reports: items });
       }
+      // Versoes do relatorio (item 75): as guardadas + a atual.
+      const vr = p.match(/^\/api\/reports\/([\w-]+)\/versions$/);
+      if (vr) {
+        if (state.role === 'USER') return json(route, 403, { error: 'Acesso negado.' });
+        const r = reports.find((x) => x.id === vr[1]);
+        const revs = state.reportRevisions[r.id] ?? [];
+        const content = (x) => ({ summary: x.summary, findings: x.findings ?? null, iocs: x.iocs ?? null, verdict: x.verdict, attackTechniques: x.attackTechniques ?? [], status: x.status });
+        const versions = [...revs.map(content), content(r)].map((v, i) => ({
+          number: i + 1,
+          current: i === revs.length,
+          author: i === 0 ? { id: r.analyst.id, displayName: r.analyst.displayName } : revs[i - 1].editor,
+          at: i === 0 ? r.createdAt : revs[i - 1].at,
+          ...v,
+        }));
+        return json(route, 200, { versions });
+      }
       const rv = p.match(/^\/api\/reports\/([\w-]+)(?:\/(submit|approve|return))?$/);
       if (rv && req.method() !== 'GET') {
         const r = reports.find((x) => x.id === rv[1]);
@@ -1121,6 +1140,12 @@ export async function setupMock(context, state) {
         if (rv[2] === 'approve') Object.assign(r, { status: 'PUBLISHED', reviewedBy: me, reviewedAt: new Date().toISOString() });
         if (rv[2] === 'return') Object.assign(r, { status: 'DRAFT', reviewedBy: me, reviewedAt: new Date().toISOString(), reviewNote: body.note });
         if (!rv[2] && body.status) r.status = body.status;
+        if (!rv[2] && 'summary' in body) {
+          const list = (state.reportRevisions[r.id] ??= []);
+          list.push({ summary: r.summary, findings: r.findings ?? null, iocs: r.iocs ?? null, verdict: r.verdict, attackTechniques: r.attackTechniques ?? [], status: r.status, editor: me, at: new Date().toISOString() });
+          Object.assign(r, { summary: body.summary, findings: body.findings || null, iocs: body.iocs || null, verdict: body.verdict ?? r.verdict, attackTechniques: body.attackTechniques ?? [], _count: { revisions: list.length } });
+          state.lastReportPatch = body;
+        }
         state.calls.push(`REPORT ${rv[2] ?? 'patch'} ${r.id}`);
         return json(route, 200, { report: r });
       }

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
-import type { Prisma, ReportStatus } from '../generated/prisma/client';
+import type { Prisma, ReportStatus, Verdict } from '../generated/prisma/client';
 import { findTechnique, normalizeTechniques, TECHNIQUE_ID } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
@@ -61,6 +61,7 @@ const reportInclude = {
   analyst: { select: { id: true, displayName: true, role: true } },
   reviewedBy: { select: { id: true, displayName: true } },
   kbArticles: { select: { id: true, title: true }, orderBy: { title: 'asc' } },
+  _count: { select: { revisions: true } },
 } satisfies Prisma.ReportInclude;
 
 /** Artigos citados que nao existem (400 no campo "Artigos da base"). */
@@ -229,13 +230,36 @@ export async function reportRoutes(app: FastifyInstance) {
         .send({ error: 'Este servidor exige revisão: publique pela aprovação de outro analista.' });
     }
 
+    // Versoes (item 75): mudou o conteudo, a versao anterior fica guardada.
+    const changed =
+      (data.summary !== undefined && data.summary !== report.summary) ||
+      (data.findings !== undefined && (data.findings || null) !== report.findings) ||
+      (data.iocs !== undefined && (data.iocs || null) !== report.iocs) ||
+      (data.verdict !== undefined && data.verdict !== report.verdict) ||
+      (data.attackTechniques !== undefined &&
+        data.attackTechniques.join() !== report.attackTechniques.join());
+
     const updated = await prisma.$transaction(async (tx) => {
+      if (changed) {
+        await tx.reportRevision.create({
+          data: {
+            reportId: id,
+            editorId: user.id,
+            summary: report.summary,
+            findings: report.findings,
+            iocs: report.iocs,
+            verdict: report.verdict,
+            attackTechniques: report.attackTechniques,
+            status: report.status,
+          },
+        });
+      }
       await tx.report.update({
         where: { id },
         data: {
           summary: data.summary,
-          findings: data.findings,
-          iocs: data.iocs,
+          findings: data.findings === undefined ? undefined : data.findings || null,
+          iocs: data.iocs === undefined ? undefined : data.iocs || null,
           verdict: data.verdict,
           attackTechniques: data.attackTechniques,
           ...(data.kbArticleIds && {
@@ -260,6 +284,52 @@ export async function reportRoutes(app: FastifyInstance) {
   });
 
   // Enviar rascunho para revisao (autor ou admin).
+  // Versoes do relatorio (item 75), da 1a (do autor) a atual. So analistas:
+  // versoes antigas podem ter texto de rascunho.
+  app.get('/api/reports/:id/versions', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) return reply.code(403).send({ error: 'Acesso negado.' });
+    const { id } = req.params as { id: string };
+    const report = await prisma.report.findUnique({
+      where: { id },
+      include: {
+        analyst: { select: { id: true, displayName: true } },
+        revisions: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: { editor: { select: { id: true, displayName: true } } },
+        },
+      },
+    });
+    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    const content = (r: {
+      summary: string;
+      findings: string | null;
+      iocs: string | null;
+      verdict: Verdict;
+      attackTechniques: string[];
+      status: ReportStatus;
+    }) => ({
+      summary: r.summary,
+      findings: r.findings,
+      iocs: r.iocs,
+      verdict: r.verdict,
+      attackTechniques: r.attackTechniques,
+      status: r.status,
+    });
+    const revs = report.revisions;
+    // Autor e data de cada versao: a 1a e do analista na criacao; as seguintes,
+    // de quem fez a edicao anterior, quando ela aconteceu.
+    const versions = [...revs.map(content), content(report)].map((v, i) => ({
+      number: i + 1,
+      current: i === revs.length,
+      author: i === 0 ? report.analyst : revs[i - 1].editor,
+      at: i === 0 ? report.createdAt : revs[i - 1].createdAt,
+      ...v,
+    }));
+    return reply.send({ versions });
+  });
+
   app.post('/api/reports/:id/submit', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;

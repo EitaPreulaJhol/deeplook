@@ -447,6 +447,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/entries/:id/duplicate` | desfaz e restaura status/veredito anteriores |
 | POST | `/api/reports/:id/submit` · `/approve` · `/return` | revisão de relatório: enviar, aprovar (publica) e devolver `{ note }`; o autor não revisa o próprio |
 | GET | `/api/reports/review-queue` | relatórios em revisão de outros analistas |
+| PATCH | `/api/reports/:id` | edita (autor ou admin): `{ summary?, findings?, iocs?, verdict?, attackTechniques?, kbArticleIds?, status? }`; só o que vier muda; mudou o conteúdo, a versão anterior fica guardada |
+| GET | `/api/reports/:id/versions` | versões do relatório (analistas), da 1ª à atual: `{ versions: [{ number, current, author, at, status, summary, findings, iocs, verdict, attackTechniques }] }` |
 | GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas), `techniques` (ATT&CK mais vistas: `{ id, name, tactics, count }`) |
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
 | GET | `/api/admin/audit?action=&days=&q=&limit=&offset=` | admin: `{ total, items: [{ action, actor, targetUser, targetLabel, detail, ip, createdAt }] }`, mais recentes primeiro |
@@ -508,7 +510,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/iocs/lookup?q=` | texto → indicador reconhecido `{ ioc: { kind, value } }` ou 404 |
 | GET | `/api/iocs/:kind/:value` | ficha: `{ ioc, items: [{ entry, sightings }], total, firstSeen, lastSeen }` |
 | GET | `/api/entries/:id/iocs` | indicadores da amostra (relatórios publicados + arquivo/URL/domínio) |
-| GET | `/api/entries/:id/iocs/export?format=` | `csv`, `| GET | `/api/cases/:id/iocs/export?format=` | IOCs do caso como anexo: `csv`, `stix` (com `grouping` do caso) ou `misp` |` (STIX 2.1) ou `misp` (evento JSON), como anexo |
+| GET | `/api/entries/:id/iocs/export?format=` | `csv`, `stix` (STIX 2.1) ou `misp` (evento JSON), como anexo |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text, mentions? }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
 | GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`), `SIMILAR` (arquivo parecido pelo TLSH, `detail` = similaridade em %); `?similarity=` 50–99 (padrão 70) |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
@@ -612,6 +614,7 @@ banco nem da API rodando.
 | `similar.mjs` | arquivos parecidos (TLSH): motivo com a %, filtro de similaridade (vai para a API, lista vazia mantém o filtro, Limpar volta a 70%), contador da aba no padrão, TLSH "T1…" na ficha com Copiar, "Não calculável" e "Calculando…" |
 | `sla-escalation.mjs` | escalonamento por prazo: avisos de alerta/atraso no painel do sininho (sem trecho, abre a ficha) e na página Caixa de entrada; histórico com autor Sistema, prazo e prioridade, prioridade subida "por atraso" |
 | `case-export.mjs` | exportar o caso: seção Indicadores das amostras (links, URL como texto), menu Exportar (Markdown com dados, amostras, relatórios, indicadores, técnicas e linha do tempo; IOCs CSV/STIX pela API), Imprimir (fora da casca, automática, seções, PDF), caso sem indicadores |
+| `report-versions.mjs` | versões do relatório: Editar (preenchido, Cancelar, resumo obrigatório, Ctrl+S salva a edição e não cria outro), Versões (N) com a diferença (+/−, linha adicionada, veredito, ATT&CK), versões iguais, ocultar, sem Editar com revisão obrigatória, usuário comum sem ações |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

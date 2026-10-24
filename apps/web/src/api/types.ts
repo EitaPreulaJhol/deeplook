@@ -456,6 +456,8 @@ export interface Report {
   attackTechniques?: string[];
   /** Artigos da base de conhecimento citados (item 63). */
   kbArticles?: { id: string; title: string }[];
+  /** Versoes anteriores guardadas (item 75). */
+  _count?: { revisions: number };
   createdAt: string;
   updatedAt: string;
 }

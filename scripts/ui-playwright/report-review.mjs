@@ -51,7 +51,7 @@ expect('em revisão (de outro): situação', (await situation('Macro baixa')) ==
 expect('em revisão (de outro): aprovar e devolver', (await section('Macro baixa').locator('.hpsm-toolbar__action').allTextContents()).join('|') === 'Aprovar e publicar|Devolver…');
 const note = (await section('Rascunho meu').locator('.dl-review-note').innerText()).replace(/\s+/g, ' ');
 expect('meu rascunho devolvido mostra o comentário', note.startsWith('Devolvido por Bruno Lima em') && note.endsWith('Faltou o hash do dropper.'), note);
-expect('meu rascunho: enviar e publicar', (await section('Rascunho meu').locator('.hpsm-toolbar__action').allTextContents()).join('|') === 'Enviar para revisão|Publicar');
+expect('meu rascunho: enviar e publicar', (await section('Rascunho meu').locator('.hpsm-toolbar__action').allTextContents()).join('|') === 'Editar|Enviar para revisão|Publicar');
 await page.screenshot({ path: `${OUT}/revisao-relatorios.png`, fullPage: true });
 
 // 3. Devolver com comentario.
@@ -76,7 +76,7 @@ await section('Macro baixa').locator('.hpsm-toolbar__action:has-text("Aprovar e 
 await settle(600);
 const approved = await situation('Macro baixa');
 expect('aprovado: publicado e revisado por', approved.startsWith('Publicado · revisado por Ana Souza em'), approved);
-expect('sem ações depois de publicado', (await section('Macro baixa').locator('.hpsm-toolbar__action').count()) === 0);
+expect('publicado: só Editar (admin; revisão e publicação saem)', (await section('Macro baixa').locator('.hpsm-toolbar__action').allTextContents()).join('|') === 'Editar');
 expect('contador da fila zera', (await leaf.innerText()).replace(/\s+/g, ' ').trim() === 'Relatórios para revisar (0)');
 
 // 6. "Ao salvar".
@@ -92,7 +92,7 @@ state.reviewRequired = true;
 reports.find((r) => r.id === 'r3').status = 'DRAFT';
 await page.reload({ waitUntil: 'networkidle' });
 expect('revisão obrigatória: sem "Publicar"', (await saveOptions()).join('|') === 'Enviar para revisão|Salvar como rascunho' && (await page.inputValue('#report-save-as')) === 'IN_REVIEW');
-expect('revisão obrigatória: rascunho só envia', (await section('Rascunho meu').locator('.hpsm-toolbar__action').allTextContents()).join('|') === 'Enviar para revisão');
+expect('revisão obrigatória: rascunho só envia', (await section('Rascunho meu').locator('.hpsm-toolbar__action').allTextContents()).join('|') === 'Editar|Enviar para revisão');
 expect('dica da regra', (await page.locator('.hpsm-field:has(#report-save-as) .hpsm-field__help').textContent())?.startsWith('Este servidor exige revisão'));
 
 // 7. Usuario comum so ve publicados.

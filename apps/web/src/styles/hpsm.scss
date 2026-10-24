@@ -3829,3 +3829,82 @@ table.dl-compare td {
   font-size: 0.75rem;
   white-space: pre;
 }
+
+/* ---- Versoes do relatorio (item 75) ---- */
+.dl-versions {
+  margin-block-start: 0.5rem;
+  padding-block-start: 0.4rem;
+  border-block-start: 1px dashed var(--dl-panel-border);
+}
+
+.dl-diff {
+  inline-size: 100%;
+  border: 1px solid var(--dl-grid-line);
+}
+
+.dl-diff__count {
+  padding: 0.15rem 0.4rem;
+  border-block-end: 1px solid var(--dl-grid-line);
+  background: var(--dl-section-head-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.dl-diff__count-add {
+  color: var(--dl-status-green);
+}
+
+.dl-diff__count-del {
+  color: var(--dl-status-red);
+}
+
+.dl-diff__body {
+  margin: 0;
+  max-block-size: 24rem;
+  overflow: auto;
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.dl-diff__line {
+  padding-inline-end: 0.4rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dl-diff__line--add {
+  background: var(--dl-success-bg);
+}
+
+.dl-diff__line--del {
+  background: var(--dl-error-bg);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--dl-status-red) 45%, transparent);
+}
+
+.dl-diff__sign {
+  display: inline-block;
+  inline-size: 1.4em;
+  text-align: center;
+  user-select: none;
+}
+
+.dl-diff__line--add .dl-diff__sign {
+  color: var(--dl-status-green);
+}
+
+.dl-diff__line--del .dl-diff__sign {
+  color: var(--dl-status-red);
+}
+
+.dl-diff__inline-add {
+  padding: 0 0.25rem;
+  background: var(--dl-success-bg);
+}
+
+.dl-diff__inline-del {
+  padding: 0 0.25rem;
+  background: var(--dl-error-bg);
+  text-decoration: line-through;
+}
