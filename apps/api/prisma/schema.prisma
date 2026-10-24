@@ -109,6 +109,7 @@ model User {
   kbUpdated         KbArticle[]             @relation("KbEditor")
   kbRevisions       KbArticleRevision[]
   reportRevisions   ReportRevision[]
+  reportEvidence    ReportEvidence[]
   casesAssigned     Case[]                  @relation("CaseAssignee")
   casesCreated      Case[]                  @relation("CaseAuthor")
   caseEntriesAdded  CaseEntry[]
@@ -270,6 +271,8 @@ model Report {
   extractedIocs ReportIoc[]
   /// Versoes anteriores (item 75), uma por edicao do conteudo.
   revisions     ReportRevision[]
+  /// Imagens de evidencia (item 76).
+  evidence      ReportEvidence[]
 
   @@index([entryId])
   @@index([status])
@@ -294,6 +297,26 @@ model ReportRevision {
   status           ReportStatus
   /// Quando foi substituida.
   createdAt        DateTime     @default(now())
+
+  @@index([reportId, createdAt])
+}
+
+/// Imagem de evidencia do relatorio (item 76): PNG/JPEG/WebP validada pelo tipo
+/// real e sem metadados (src/lib/evidence-image.ts), guardada no MinIO.
+model ReportEvidence {
+  id           String   @id @default(cuid())
+  reportId     String
+  report       Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  /// Chave no bucket S3_BUCKET (evidence/<relatorio>/<uuid>.<ext>).
+  storageKey   String
+  mimeType     String
+  width        Int
+  height       Int
+  size         Int
+  caption      String?
+  createdAt    DateTime @default(now())
 
   @@index([reportId, createdAt])
 }

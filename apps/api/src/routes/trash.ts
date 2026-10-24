@@ -9,6 +9,7 @@ import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
 import { activeSessionForEntry } from '../lib/sandbox';
 import { sendValidationError } from '../lib/validation';
+import { deleteEvidenceObjects } from './evidence';
 
 const TrashQuery = z.object({
   q: z.string().trim().max(200).optional(),
@@ -123,9 +124,15 @@ export async function trashRoutes(app: FastifyInstance) {
       select: { title: true, sha256: true, url: true, storageKey: true, bucket: true },
     });
     if (!entry) return reply.code(404).send({ error: 'A amostra não está na lixeira.' });
-    // Arquivo primeiro: se o MinIO falhar, a ficha continua na lixeira para tentar de novo.
+    // Imagens de evidencia dos relatorios (item 76) tambem saem do MinIO.
+    const evidence = await prisma.reportEvidence.findMany({
+      where: { report: { entryId: id } },
+      select: { storageKey: true },
+    });
+    // Arquivos primeiro: se o MinIO falhar, a ficha continua na lixeira para tentar de novo.
     try {
       await deleteStoredFile(entry);
+      await deleteEvidenceObjects(evidence.map((e) => e.storageKey));
     } catch (err) {
       req.log.error({ err }, 'Falha ao apagar o arquivo no MinIO');
       return reply

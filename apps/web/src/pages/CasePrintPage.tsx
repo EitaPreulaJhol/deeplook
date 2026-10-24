@@ -13,6 +13,7 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconPrint } from '../components/icons';
 import { IOC_KIND_LABELS } from '../components/iocs';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
+import { evidenceUrl } from '../components/ReportEvidence';
 import { PriorityTag, StatusTag, TypeTag, VerdictTag } from '../components/tags';
 
 function fmtDate(iso?: string | null): string {
@@ -166,6 +167,19 @@ export function CasePrintPage() {
                 <>
                   <h4>IOCs</h4>
                   <p className="dl-print__text dl-print__mono">{report.iocs}</p>
+                </>
+              )}
+              {report.evidence.length > 0 && (
+                <>
+                  <h4>Evidências ({report.evidence.length})</h4>
+                  <div className="dl-print__evidence">
+                    {report.evidence.map((e, i) => (
+                      <figure key={e.id}>
+                        <img src={evidenceUrl(e.id)} alt={e.caption || `Evidência ${i + 1}`} />
+                        <figcaption>{e.caption || `Evidência ${i + 1}`}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
                 </>
               )}
             </article>

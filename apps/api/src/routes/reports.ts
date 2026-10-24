@@ -62,6 +62,20 @@ const reportInclude = {
   reviewedBy: { select: { id: true, displayName: true } },
   kbArticles: { select: { id: true, title: true }, orderBy: { title: 'asc' } },
   _count: { select: { revisions: true } },
+  // Imagens de evidencia (item 76), na ordem em que entraram.
+  evidence: {
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      caption: true,
+      mimeType: true,
+      width: true,
+      height: true,
+      size: true,
+      createdAt: true,
+      uploadedBy: { select: { id: true, displayName: true } },
+    },
+  },
 } satisfies Prisma.ReportInclude;
 
 /** Artigos citados que nao existem (400 no campo "Artigos da base"). */

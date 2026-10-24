@@ -32,7 +32,7 @@ state.cases = [
     id: 'cs1', number: 1, code: 'CASO-0001', title: 'Campanha do boleto', description: 'Phishing com instalador.', status: 'IN_PROGRESS',
     createdAt: at, updatedAt: at, closedAt: null, assignee: ana, createdBy: ana,
     entries: [
-      ce(e1, [{ id: 'r1', summary: 'Baixa o segundo estágio.', findings: 'Persiste via chave Run.', iocs: 'updater-cdn.example\n185.0.2.10', verdict: 'MALICIOUS', updatedAt: at, analyst: { id: 'u2', displayName: 'Bruno Lima' }, attackTechniques: ['T1059.001'] }]),
+      ce(e1, [{ id: 'r1', summary: 'Baixa o segundo estágio.', findings: 'Persiste via chave Run.', iocs: 'updater-cdn.example\n185.0.2.10', verdict: 'MALICIOUS', updatedAt: at, analyst: { id: 'u2', displayName: 'Bruno Lima' }, attackTechniques: ['T1059.001'], evidence: [{ id: 'ev-c1', caption: 'Página falsa do boleto', width: 40, height: 30 }] }]),
       ce(e2),
     ],
     events: [
@@ -91,6 +91,7 @@ expect('Markdown: título e dados', text.startsWith('# CASO-0001 · Campanha do 
 expect('Markdown: amostras com hash e veredito', text.includes(`| ${e1.title} | Arquivo |`) && text.includes(e1.sha256) && text.includes('| Suspeito |'));
 expect('Markdown: relatório com achados e ATT&CK', text.includes('Persiste via chave Run.') && text.includes('ATT&CK: T1059.001'));
 expect('Markdown: indicadores sem repetir', text.includes('## Indicadores (3)') && text.includes(`| IPv4 | 185.0.2.10 | Relatório publicado | ${e1.title}, ${e2.title} |`), text.split('## Indicadores')[1]?.slice(0, 400));
+expect('Markdown: evidência pela legenda', text.includes('**Evidências (1)** — imagens no DeepLook:') && text.includes('- Página falsa do boleto (40×30)'));
 expect('Markdown: técnica com o nome', text.includes(`| T1059.001 | PowerShell | ${e1.title} |`));
 expect('Markdown: linha do tempo com comentário', text.includes('**Ana Souza** comentou: Mesmo remetente nas duas.'));
 
@@ -118,6 +119,7 @@ expect(
   sections.join('|'),
 );
 const printText = await print.locator('.dl-print').innerText();
+expect('impressão com a evidência', (await print.locator('.dl-print__evidence figcaption').allInnerTexts()).join('|') === 'Página falsa do boleto');
 expect('impressão com hash, técnica e comentário', printText.includes(e1.sha256) && printText.includes('PowerShell') && printText.includes('Mesmo remetente nas duas.'));
 await print.screenshot({ path: `${OUT}/caso-impressao.png`, fullPage: true });
 await print.emulateMedia({ media: 'print' });

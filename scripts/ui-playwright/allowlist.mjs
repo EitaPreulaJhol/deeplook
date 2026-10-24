@@ -67,7 +67,7 @@ expect('ficha marcada com o motivo', (await messages()).some((t) => t.startsWith
 entries[0].staticInfo = { ...(entries[0].staticInfo ?? {}), iocCandidates: [{ kind: 'URL', value: 'https://portal.banco.test/login' }, { kind: 'DOMAIN', value: 'evil.test' }, { kind: 'DOMAIN', value: 'banco.test' }] };
 await page.goto(ORIGIN + '/entries/e1?tab=relatorios', { waitUntil: 'networkidle' });
 const suggest = page.locator('button:has-text("Inserir IOCs sugeridos")');
-expect('só o que não é permitido', (await suggest.innerText()).includes('(1)') && (await page.locator('.dl-hint-muted').innerText()).includes('2 permitidos ocultos'), await suggest.innerText());
+expect('só o que não é permitido', (await suggest.innerText()).includes('(1)') && (await page.locator('.dl-hint-muted', { hasText: 'permitido' }).innerText()).includes('2 permitidos ocultos'), await suggest.innerText());
 await suggest.click();
 expect('insere só evil.test', (await page.inputValue('#report-iocs')) === 'evil.test', await page.inputValue('#report-iocs'));
 

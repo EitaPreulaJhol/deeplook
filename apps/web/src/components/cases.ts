@@ -60,6 +60,8 @@ export interface CaseDetail extends Omit<CaseSummary, 'entries'> {
         updatedAt: string;
         analyst: Person;
         attackTechniques: string[];
+        /** Imagens de evidencia (item 76). */
+        evidence: { id: string; caption: string | null; width: number; height: number }[];
       }[];
     };
   }[];

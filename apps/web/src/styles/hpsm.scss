@@ -3908,3 +3908,120 @@ table.dl-compare td {
   background: var(--dl-error-bg);
   text-decoration: line-through;
 }
+
+/* ---- Evidencias do relatorio (item 76) ---- */
+.dl-evidence {
+  display: grid;
+  gap: 0.5rem;
+  inline-size: 100%;
+}
+
+.dl-evidence__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-evidence__item {
+  display: grid;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+
+/* Miniatura: a imagem inteira cabe no quadro (sem cortar o que importa). */
+.dl-evidence__thumb {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0.15rem;
+  border: 1px solid var(--dl-grid-line);
+  background: var(--dl-surface-alt, var(--dl-surface));
+  cursor: zoom-in;
+}
+
+.dl-evidence__thumb:hover,
+.dl-evidence__thumb:focus-visible {
+  border-color: var(--dl-btn-hover-border);
+}
+
+.dl-evidence__thumb img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+
+.dl-evidence__caption {
+  overflow: hidden;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-evidence__actions {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.6875rem;
+}
+
+.dl-evidence__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.dl-evidence__add .cds--form-item {
+  flex: 0 1 18rem;
+}
+
+.dl-evidence-viewer {
+  max-width: min(64rem, 96vw);
+}
+
+.dl-evidence-viewer__img {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem;
+  background: var(--dl-surface-alt, var(--dl-surface));
+}
+
+/* Ocupa a area (amplia prints pequenos) sem distorcer. */
+.dl-evidence-viewer__img img {
+  inline-size: 100%;
+  block-size: min(70vh, 40rem);
+  object-fit: contain;
+}
+
+.dl-evidence-viewer__meta {
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+/* Na ficha impressa: duas por linha, sem quebrar a imagem entre paginas. */
+.dl-print__evidence {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.dl-print__evidence figure {
+  margin: 0;
+  break-inside: avoid;
+}
+
+.dl-print__evidence img {
+  display: block;
+  max-inline-size: 100%;
+  max-block-size: 9cm;
+  border: 1px solid var(--dl-grid-line);
+}
+
+.dl-print__evidence figcaption {
+  font-size: 0.6875rem;
+}

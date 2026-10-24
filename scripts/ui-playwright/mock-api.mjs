@@ -86,6 +86,9 @@ const keys = [
 ];
 
 /** Sessao de sandbox em execucao que expira em `minutes` minutos. */
+/** Imagem servida em GET /api/evidence/:id (PNG 40x30 de verdade). */
+export const EVIDENCE_PNG = 'iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAYAAABe3VzdAAAAAXNSR0IArs4c6QAAAHJJREFUWEftlbENwCAMBGEmdgozkZnYKTRJkYLI4qSI4qh5bJ3fT+6lXGnjk20QTkeCEGAKE6xHo7Ve+nbW0Hs2OMMkwZCBPi5JUII3AWPGmHkI+NVNvOCS/LYkNJhX9eERrxagOhuUICVA9XpQgpQA1Q8uTm7dHz6PWAAAAABJRU5ErkJggg==';
+
 /** Recorte do MITRE ATT&CK embutido (GET /api/attack). */
 export const ATTACK = {
   version: '20.0',
@@ -229,6 +232,8 @@ export function createState({ loggedIn = false } = {}) {
     /** Versoes anteriores por relatorio (item 75) e o ultimo PATCH de conteudo. */
     reportRevisions: {},
     lastReportPatch: null,
+    /** Evidencias (item 76): chamadas de escrita. */
+    evidenceCalls: [],
   };
 }
 
@@ -1115,6 +1120,42 @@ export async function setupMock(context, state) {
           .filter((r) => r.status === 'IN_REVIEW' && r.analystId !== 'u1')
           .map((r) => ({ ...r, entry: { id: r.entryId, title: entries.find((e) => e.id === r.entryId).title, type: entries.find((e) => e.id === r.entryId).type } }));
         return json(route, 200, { reports: items });
+      }
+      // Evidencias do relatorio (item 76): envio (multipart), legenda, exclusao e a imagem.
+      const evUp = p.match(/^\/api\/reports\/([\w-]+)\/evidence$/);
+      if (evUp && req.method() === 'POST') {
+        const r = reports.find((x) => x.id === evUp[1]);
+        const raw = req.postDataBuffer()?.toString('latin1') ?? '';
+        const caption = Buffer.from(raw.match(/name="caption"\r\n\r\n([^\r]*)\r\n/)?.[1] ?? '', 'latin1').toString('utf8');
+        const filename = raw.match(/filename="([^"]*)"/)?.[1] ?? '';
+        state.evidenceCalls.push({ method: 'POST', report: r.id, caption, filename });
+        if (/\.svg$/i.test(filename)) {
+          const error = 'Envie uma imagem PNG, JPEG ou WebP (o conteúdo não é de imagem).';
+          return json(route, 400, { error, details: { file: [error] } });
+        }
+        const evidence = { id: `ev${state.evidenceCalls.length}`, caption: caption || null, mimeType: 'image/png', width: 40, height: 30, size: 184, createdAt: '2026-10-24T12:00:00.000Z', uploadedBy: { id: 'u1', displayName: 'Ana Souza' } };
+        (r.evidence ??= []).push(evidence);
+        return json(route, 201, { evidence, metadataRemoved: 3 });
+      }
+      const evOne = p.match(/^\/api\/evidence\/([\w-]+)$/);
+      if (evOne) {
+        const r = reports.find((x) => (x.evidence ?? []).some((e) => e.id === evOne[1]));
+        const e = r?.evidence.find((x) => x.id === evOne[1]);
+        const inCase = state.cases.some((c) => c.entries.some((ce) => ce.entry.reports.some((rep) => (rep.evidence ?? []).some((x) => x.id === evOne[1]))));
+        if (!e && inCase && req.method() === 'GET') {
+          return route.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: Buffer.from(EVIDENCE_PNG, 'base64') });
+        }
+        if (!e) return json(route, 404, { error: 'Evidência não encontrada.' });
+        if (req.method() === 'GET') {
+          return route.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: Buffer.from(EVIDENCE_PNG, 'base64') });
+        }
+        state.evidenceCalls.push({ method: req.method(), id: e.id, body });
+        if (req.method() === 'PATCH') {
+          e.caption = body.caption || null;
+          return json(route, 200, { evidence: e });
+        }
+        r.evidence = r.evidence.filter((x) => x !== e);
+        return json(route, 200, { ok: true });
       }
       // Versoes do relatorio (item 75): as guardadas + a atual.
       const vr = p.match(/^\/api\/reports\/([\w-]+)\/versions$/);

@@ -458,8 +458,22 @@ export interface Report {
   kbArticles?: { id: string; title: string }[];
   /** Versoes anteriores guardadas (item 75). */
   _count?: { revisions: number };
+  /** Imagens de evidencia (item 76), na ordem em que entraram. */
+  evidence?: ReportEvidence[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** Imagem de evidencia do relatorio (item 76); a imagem fica em GET /api/evidence/:id. */
+export interface ReportEvidence {
+  id: string;
+  caption: string | null;
+  mimeType: string;
+  width: number;
+  height: number;
+  size: number;
+  createdAt: string;
+  uploadedBy: { id: string; displayName: string } | null;
 }
 
 /** Lista embutida do MITRE ATT&CK (GET /api/attack). */

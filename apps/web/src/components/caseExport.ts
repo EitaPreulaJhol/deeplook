@@ -60,6 +60,16 @@ export function caseMarkdown(
       ...block('Resumo', r.summary),
       ...block('Achados', r.findings),
       ...block('IOCs', r.iocs),
+      ...(r.evidence.length
+        ? [
+            `**Evidências (${r.evidence.length})** — imagens no DeepLook:`,
+            '',
+            ...r.evidence.map(
+              (e, i) => `- ${e.caption || `Evidência ${i + 1}`} (${e.width}×${e.height})`,
+            ),
+            '',
+          ]
+        : []),
     );
   }
   lines.push(

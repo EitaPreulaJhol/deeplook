@@ -2007,7 +2007,7 @@ Service Manager 9.
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ✅ |
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ✅ |
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ✅ |
-| 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ⬜ |
+| 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ✅ |
 | 77 | Relatório gerencial | Reports | ⚪ | M | ⬜ |
 | 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ⬜ |
 | 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⬜ (decisão) |
@@ -2339,6 +2339,56 @@ decisões.
   na ficha para impressão e na exportação do caso.
 - **Cuidados:** só imagens (PNG, JPEG, WebP), tamanho máximo, metadados EXIF removidos,
   verificação do tipo real (não confiar na extensão).
+- ✅ **Implementado** (migração `20261127000000_report_evidence`):
+  - **Imagem** (`lib/evidence-image.ts`, sem dependência nova): só lê e recorta bytes,
+    sem decodificar nada.
+    - **Tipo real** pela assinatura: PNG, JPEG ou WebP. SVG, GIF, executável com
+      extensão de imagem, arquivo truncado ou malformado são recusados.
+    - **Metadados removidos:**
+      - PNG: `eXIf`, `tEXt`, `zTXt`, `iTXt`, `tIME`;
+      - JPEG: APP1 (EXIF/XMP), APP3–APP13 (IPTC), APP15 e comentários. Ficam JFIF,
+        o perfil de cor ICC e o Adobe;
+      - WebP: `EXIF` e `XMP `, com os bits apagados no VP8X;
+      - em todos, os bytes depois do fim da imagem (dado escondido).
+    - Dimensões lidas do cabeçalho; lado acima de 12.000 px é recusado.
+    - **Conferido no Chromium:** imagens reais com EXIF/GPS, XMP, IPTC e lixo no fim
+      decodificam iguais (mesmos pixels) antes e depois da limpeza.
+  - **API** (`routes/evidence.ts`):
+    - `POST /api/reports/:id/evidence` (multipart com `file` e `caption`): até 10 MB
+      por imagem e 20 por relatório. Grava em `evidence/<relatório>/<uuid>.<ext>` no
+      bucket de amostras e responde com quantos metadados saíram;
+    - `PATCH /api/evidence/:id` muda a legenda (até 300 caracteres);
+    - `DELETE /api/evidence/:id` apaga a imagem no MinIO antes da linha;
+    - `GET /api/evidence/:id` serve a imagem com `nosniff`, `Content-Security-Policy:
+      sandbox` e `inline`. Usuário comum só vê as de relatório publicado; amostra na
+      lixeira não mostra.
+    - Quem altera é quem edita o relatório (autor ou admin): fora de revisão e, com
+      revisão obrigatória, não no publicado.
+    - O relatório (lista, caso) traz as evidências em ordem. Excluir a amostra de vez
+      na lixeira também apaga as imagens.
+  - **Tela:**
+    - campo **Evidências (N)** no relatório, com miniaturas (a imagem inteira cabe no
+      quadro) e legenda (sem legenda, "Evidência N");
+    - **visualização ampliada** com legenda, dimensões, tamanho, quem enviou e quando;
+      setas e botões trocam de imagem, Esc fecha e o foco volta à miniatura, e há
+      "Abrir em nova aba";
+    - para quem edita: legenda opcional e **Adicionar imagens…** (várias de uma vez,
+      com o motivo de cada recusa), "Legenda…" e "Excluir" com confirmação.
+  - **Impressão e exportação:**
+    - a ficha impressa e a impressão do caso mostram as imagens, duas por linha, sem
+      quebrar entre páginas;
+    - o Markdown do caso lista as evidências pela legenda (as imagens ficam no
+      DeepLook).
+  - **Miniaturas:** são a própria imagem reduzida no navegador. Gerar miniatura no
+    servidor exigiria decodificar a imagem (biblioteca nativa); fica para depois se o
+    tamanho pesar.
+  - **Testes:**
+    - 28 checagens no Postgres/MinIO: tipo real com nome trocado, metadados fora,
+      cabeçalhos, PNG/WebP, recusas (SVG, executável, 10 MB, legenda), permissões,
+      legenda, publicado/usuário comum, revisão obrigatória, em revisão, limite de 20,
+      excluir no MinIO, caso e lixeira;
+    - 28 checagens da limpeza com imagens reais;
+    - `evidence.mjs`; `case-export.mjs` com evidência.
 
 ### 77. Relatório gerencial
 - **Proposta:** tela **Relatórios** (admin e analistas) com o resumo de um período:

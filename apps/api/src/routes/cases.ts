@@ -241,6 +241,10 @@ export async function caseRoutes(app: FastifyInstance) {
                     updatedAt: true,
                     analyst: person,
                     attackTechniques: true,
+                    evidence: {
+                      orderBy: { createdAt: 'asc' },
+                      select: { id: true, caption: true, width: true, height: true },
+                    },
                   },
                 },
               },

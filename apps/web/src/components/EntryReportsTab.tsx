@@ -15,6 +15,7 @@ import { IOC_KIND_LABELS, iocHref } from './iocs';
 import { KbLinks, KbPicker, type KbRef } from './KbPicker';
 import { HpsmMessage } from './messages';
 import { ReportEditForm } from './ReportEditForm';
+import { ReportEvidence } from './ReportEvidence';
 import { ReportVersions } from './ReportVersions';
 import { useSaveShortcut } from './shortcuts';
 import { StatusText, VerdictTag } from './tags';
@@ -385,6 +386,12 @@ export function EntryReportsTab({
                   </HpsmReadonly>
                 </HpsmField>
               )}
+              <ReportEvidence
+                reportId={r.id}
+                items={r.evidence ?? []}
+                canEdit={canEditContent}
+                onChanged={onCreated}
+              />
             </HpsmForm>
             {canTriage && revisions > 0 && versionsOpen.has(r.id) && (
               <ReportVersions reportId={r.id} />
