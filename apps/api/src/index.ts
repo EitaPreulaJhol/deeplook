@@ -9,7 +9,7 @@ import { backfillReportIocs } from './lib/iocs';
 import { prisma } from './lib/prisma';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
-import { reconcileOrphans, recoverStuckSessions, startSandboxReaper } from './lib/sandbox';
+import { initSandbox } from './lib/sandbox';
 import { adminRoutes } from './routes/admin';
 import { antivirusRoutes } from './routes/antivirus';
 import { apiTokenRoutes } from './routes/api-tokens';
@@ -121,27 +121,6 @@ async function main() {
     app.log.error({ err }, 'Falha ao garantir bucket do MinIO');
   }
 
-  // Sandbox: recupera provisionamentos travados, limpa orfaos e liga o reaper.
-  if (sandboxEnabled) {
-    try {
-      const stuck = await recoverStuckSessions();
-      if (stuck)
-        app.log.warn(`[sandbox] ${stuck} provisionamento(s) travado(s) marcados como falha.`);
-      const orphans = await reconcileOrphans();
-      if (orphans.vms || orphans.isos) {
-        app.log.warn(
-          `[sandbox] limpeza inicial: ${orphans.vms} VM(s) e ${orphans.isos} ISO(s) removidos.`,
-        );
-      }
-      startSandboxReaper();
-      app.log.info(
-        `[sandbox] habilitado (node ${env.PROXMOX_NODE}, template ${env.PROXMOX_TEMPLATE_VMID}, ttl ${env.SANDBOX_TTL_MINUTES}min${env.PROXMOX_MOCK === 'true' ? ', MOCK' : ''})`,
-      );
-    } catch (err) {
-      app.log.error({ err }, '[sandbox] falha ao inicializar o sandbox');
-    }
-  }
-
   // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).
   startRetention(app.log);
   if (env.RETENTION_DAYS) {
@@ -152,6 +131,15 @@ async function main() {
 
   await app.listen({ host: '0.0.0.0', port: env.PORT });
   app.log.info(`DeepLook API ouvindo em http://0.0.0.0:${env.PORT}`);
+
+  // Sandbox: recupera provisionamentos travados, limpa orfaos e liga o reaper,
+  // em segundo plano (o Proxmox fora do ar nao segura o login).
+  if (sandboxEnabled) {
+    app.log.info(
+      `[sandbox] habilitado (node ${env.PROXMOX_NODE}, template ${env.PROXMOX_TEMPLATE_VMID}, ttl ${env.SANDBOX_TTL_MINUTES}min${env.PROXMOX_MOCK === 'true' ? ', MOCK' : ''}); limpeza inicial em andamento`,
+    );
+    void initSandbox(app.log);
+  }
 }
 
 main().catch((err) => {

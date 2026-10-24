@@ -27,6 +27,7 @@ import {
   dispose,
   getSession,
   listSessions,
+  sandboxReady,
 } from '../lib/sandbox';
 
 const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
@@ -176,6 +177,12 @@ export async function sandboxRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Somente analistas podem abrir um ambiente.' });
     }
     if (!sandboxEnabled) return notEnabled(reply);
+    // Limpeza inicial ainda rodando (API recem-iniciada): sem sessao nova ate acabar.
+    if (!sandboxReady()) {
+      return reply
+        .code(503)
+        .send({ error: 'O sandbox está iniciando. Tente de novo em alguns segundos.' });
+    }
 
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });

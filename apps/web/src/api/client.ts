@@ -27,10 +27,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // Pagina HTML do proxy (ex.: 502 com a API ainda subindo) ou resposta truncada.
+    const message =
+      res.status === 502 || res.status === 503 || res.status === 504
+        ? `A API não respondeu (erro ${res.status}). Se o DeepLook acabou de ser iniciado, aguarde alguns segundos e tente de novo.`
+        : `Resposta inesperada do servidor (erro ${res.status}).`;
+    throw new ApiError(message, res.status, null);
+  }
 
   if (!res.ok) {
-    const message = (data && typeof data.error === 'string' && data.error) || `Erro ${res.status}`;
+    const error = (data as { error?: unknown } | null)?.error;
+    const message = (typeof error === 'string' && error) || `Erro ${res.status}`;
     throw new ApiError(message, res.status, data);
   }
 

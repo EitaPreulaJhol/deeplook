@@ -596,6 +596,40 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
   return { vms, isos };
 }
 
+/**
+ * Inicializacao do sandbox, que roda DEPOIS de a API comecar a escutar: com o
+ * Proxmox fora do ar, cada chamada espera o tempo-limite, e o login nao pode
+ * ficar parado por isso. Ate a limpeza inicial terminar, nenhuma sessao nova e
+ * criada (senao a VM recem-criada pareceria orfa e seria apagada).
+ */
+let ready = false;
+
+export function sandboxReady(): boolean {
+  return ready;
+}
+
+export async function initSandbox(log: {
+  info: (msg: string) => void;
+  warn: (msg: string) => void;
+  error: (obj: object, msg: string) => void;
+}): Promise<void> {
+  try {
+    const stuck = await recoverStuckSessions();
+    if (stuck) log.warn(`[sandbox] ${stuck} provisionamento(s) travado(s) marcados como falha.`);
+    const orphans = await reconcileOrphans();
+    if (orphans.vms || orphans.isos) {
+      log.warn(
+        `[sandbox] limpeza inicial: ${orphans.vms} VM(s) e ${orphans.isos} ISO(s) removidos.`,
+      );
+    }
+    startSandboxReaper();
+  } catch (err) {
+    log.error({ err }, '[sandbox] falha ao inicializar o sandbox');
+  } finally {
+    ready = true;
+  }
+}
+
 /** Liga o reaper (roda a cada minuto enquanto a API estiver de pe). */
 export function startSandboxReaper(): void {
   const timer = setInterval(() => {
