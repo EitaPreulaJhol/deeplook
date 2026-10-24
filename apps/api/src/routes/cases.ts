@@ -4,9 +4,11 @@ import { z } from 'zod';
 import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent } from '../lib/events';
+import { caseIocsCsv, caseIocsMisp, caseIocsStix } from '../lib/ioc-export';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
+import { entriesIocs } from './iocs';
 
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'CLOSED'] as const;
 const MAX_ENTRIES_PER_REQUEST = 100;
@@ -225,12 +227,16 @@ export async function caseRoutes(app: FastifyInstance) {
                 verdict: true,
                 priority: true,
                 createdAt: true,
+                sha256: true,
+                url: true,
                 reports: {
                   where: { status: 'PUBLISHED' },
                   orderBy: { updatedAt: 'desc' },
                   select: {
                     id: true,
                     summary: true,
+                    findings: true,
+                    iocs: true,
                     verdict: true,
                     updatedAt: true,
                     analyst: person,
@@ -392,6 +398,54 @@ export async function caseRoutes(app: FastifyInstance) {
       prisma.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } }),
     ]);
     return reply.code(201).send({ ok: true });
+  });
+
+  // Indicadores de todas as amostras do caso, sem repetir (item 74).
+  const caseEntryIds = async (caseId: string) =>
+    (
+      await prisma.caseEntry.findMany({
+        where: { caseId, entry: { deletedAt: null } },
+        select: { entryId: true },
+      })
+    ).map((ce) => ce.entryId);
+
+  app.get('/api/cases/:id/iocs', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const current = await loadCase(req, reply);
+    if (!current) return;
+    return reply.send({ iocs: await entriesIocs(await caseEntryIds(current.id)) });
+  });
+
+  // Exportacao dos IOCs do caso: ?format=csv | stix | misp.
+  const ExportQuery = z.object({ format: z.enum(['csv', 'stix', 'misp']) });
+  app.get('/api/cases/:id/iocs/export', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const parsed = ExportQuery.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: 'Formato invalido.' });
+    const current = await loadCase(req, reply);
+    if (!current) return;
+    const iocs = await entriesIocs(await caseEntryIds(current.id));
+    const c = { ...current, code: caseCode(current.number) };
+    const base = `deeplook-${c.code.toLowerCase()}-iocs`;
+    switch (parsed.data.format) {
+      case 'csv':
+        return reply
+          .header('Content-Type', 'text/csv; charset=utf-8')
+          .header('Content-Disposition', `attachment; filename="${base}.csv"`)
+          .send(caseIocsCsv(c, iocs));
+      case 'stix':
+        return reply
+          .header('Content-Type', 'application/stix+json; charset=utf-8')
+          .header('Content-Disposition', `attachment; filename="${base}.stix.json"`)
+          .send(JSON.stringify(caseIocsStix(c, iocs), null, 2));
+      case 'misp':
+        return reply
+          .header('Content-Type', 'application/json; charset=utf-8')
+          .header('Content-Disposition', `attachment; filename="${base}.misp.json"`)
+          .send(JSON.stringify(caseIocsMisp(c, iocs), null, 2));
+    }
   });
 
   // Casos de uma amostra (ficha).

@@ -2072,6 +2072,12 @@ body:has(.dl-print) {
   white-space: nowrap;
 }
 
+/* Grade sem coluna "do tamanho do conteudo" (amostras do caso: titulos longos). */
+.dl-print__grid--wide :is(th, td):nth-child(n) {
+  inline-size: auto;
+  white-space: normal;
+}
+
 /* Paragrafos no corpo da ficha (o Carbon aumentaria a fonte do <p>). */
 .dl-print p {
   margin: 0;

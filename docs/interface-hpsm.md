@@ -410,6 +410,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
 | `/entries/:id/imprimir` | Ficha para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
+| `/casos/:id/imprimir` | Caso para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
 | `/admin` | Administração | só ADMIN; `?tab=keys`, `tokens`, `templates`, `status`, `audit`, `trash` |
 | `/user` | Minha Conta | `?tab=senha`, `?tab=preferencias` |
 | `/sandbox/entry/:entryId/console` | janela do console | fora da casca |
@@ -453,7 +454,9 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/entries/:id/antivirus` | ClamAV: `{ enabled, pending, scan: { status, signature, error, engine, dbVersion, dbDate, scannedAt } }` (aceita token) |
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
 | GET/POST | `/api/cases` | analistas: casos `{ total, items: [{ id, code, title, status, assignee, entries, updatedAt }] }` (`status=active\|OPEN\|IN_PROGRESS\|CLOSED`, `assignee=me\|none\|id`, `q`); POST `{ title, description?, entryIds[] }` (ao menos uma amostra) |
-| GET/PATCH | `/api/cases/:id` | caso com amostras (e relatórios publicados) e linha do tempo; PATCH `{ title?, description?, status?, assigneeId? }` |
+| GET/PATCH | `/api/cases/:id` | caso com amostras (SHA-256/URL e relatórios publicados) e linha do tempo; PATCH `{ title?, description?, status?, assigneeId? }` |
+| GET | `/api/cases/:id/iocs` | IOCs das amostras do caso sem repetir: `{ iocs: [{ kind, value, source, entries: [{ id, title, verdict }] }] }` |
+| GET | `/api/cases/:id/iocs/export?format=` | IOCs do caso como anexo: `csv`, `stix` (com `grouping` do caso) ou `misp` |
 | POST/DELETE | `/api/cases/:id/entries` · `/api/cases/:id/entries/:entryId` | incluir `{ entryIds[] }` / retirar (409 se for a última); `POST /api/cases/:id/comments { text }`; `GET /api/cases/counts`; `GET /api/entries/:id/cases` |
 | POST | `/api/entries/file` (`.eml`) | e-mail: grava `emailInfo` (cabeçalhos, `auth`, `received`, `links`, `body`, `attachments[{ filename, mimeType, size, entryId?, skipped? }]`) e cria cada anexo como amostra com `parentEntry`; `GET /api/entries/:id` traz `emailInfo` e `parentEntry` |
 | GET | `/api/kb?q=&category=&limit=&offset=` | base de conhecimento (todos): `{ total, items: [{ id, title, summary, category, tags, updatedAt, updatedBy, citations }] }` |
@@ -505,7 +508,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/iocs/lookup?q=` | texto → indicador reconhecido `{ ioc: { kind, value } }` ou 404 |
 | GET | `/api/iocs/:kind/:value` | ficha: `{ ioc, items: [{ entry, sightings }], total, firstSeen, lastSeen }` |
 | GET | `/api/entries/:id/iocs` | indicadores da amostra (relatórios publicados + arquivo/URL/domínio) |
-| GET | `/api/entries/:id/iocs/export?format=` | `csv`, `stix` (STIX 2.1) ou `misp` (evento JSON), como anexo |
+| GET | `/api/entries/:id/iocs/export?format=` | `csv`, `| GET | `/api/cases/:id/iocs/export?format=` | IOCs do caso como anexo: `csv`, `stix` (com `grouping` do caso) ou `misp` |` (STIX 2.1) ou `misp` (evento JSON), como anexo |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text, mentions? }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
 | GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`), `SIMILAR` (arquivo parecido pelo TLSH, `detail` = similaridade em %); `?similarity=` 50–99 (padrão 70) |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
@@ -608,6 +611,7 @@ banco nem da API rodando.
 | `document.mjs` | análise de documento: aviso no topo com risco alto, seção com risco, alertas coloridos, links só como texto, objeto embutido, macro (roda ao abrir, suspeitas, "Ver código" como texto), documento limpo, não documento sem seção |
 | `similar.mjs` | arquivos parecidos (TLSH): motivo com a %, filtro de similaridade (vai para a API, lista vazia mantém o filtro, Limpar volta a 70%), contador da aba no padrão, TLSH "T1…" na ficha com Copiar, "Não calculável" e "Calculando…" |
 | `sla-escalation.mjs` | escalonamento por prazo: avisos de alerta/atraso no painel do sininho (sem trecho, abre a ficha) e na página Caixa de entrada; histórico com autor Sistema, prazo e prioridade, prioridade subida "por atraso" |
+| `case-export.mjs` | exportar o caso: seção Indicadores das amostras (links, URL como texto), menu Exportar (Markdown com dados, amostras, relatórios, indicadores, técnicas e linha do tempo; IOCs CSV/STIX pela API), Imprimir (fora da casca, automática, seções, PDF), caso sem indicadores |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

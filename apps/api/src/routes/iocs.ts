@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { requireUser } from '../lib/auth';
-import type { ExportIoc } from '../lib/ioc-export';
+import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
 import { extractIocs } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
@@ -87,6 +87,52 @@ export async function entryIocs(entryId: string) {
       KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.value.localeCompare(b.value),
   );
   return { entry, iocs };
+}
+
+/**
+ * Indicadores de varias amostras (caso, item 74), sem repetir: cada um com as
+ * amostras onde aparece. "Relatorio publicado" vence "propria amostra".
+ */
+export async function entriesIocs(entryIds: string[]): Promise<CaseIoc[]> {
+  if (!entryIds.length) return [];
+  const [entries, rows] = await Promise.all([
+    prisma.entry.findMany({
+      where: { id: { in: entryIds } },
+      select: { id: true, title: true, verdict: true, sha256: true, url: true, urlDomain: true },
+    }),
+    prisma.reportIoc.findMany({
+      where: { entryId: { in: entryIds } },
+      select: { kind: true, value: true, entryId: true },
+    }),
+  ]);
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const found = new Map<string, CaseIoc>();
+  const add = (
+    kind: ExportIoc['kind'],
+    value: string | null,
+    source: ExportIoc['source'],
+    entryId: string,
+  ) => {
+    const entry = byId.get(entryId);
+    if (!value || !entry) return;
+    const key = `${kind}:${value}`;
+    const item = found.get(key) ?? { kind, value, source, entries: [] };
+    if (source === 'REPORT') item.source = 'REPORT';
+    if (!item.entries.some((e) => e.id === entryId)) {
+      item.entries.push({ id: entry.id, title: entry.title, verdict: entry.verdict });
+    }
+    found.set(key, item);
+  };
+  for (const row of rows) add(row.kind, row.value, 'REPORT', row.entryId);
+  for (const e of entries) {
+    add('SHA256', e.sha256?.toLowerCase() ?? null, 'SAMPLE', e.id);
+    add('URL', e.url, 'SAMPLE', e.id);
+    add('DOMAIN', e.urlDomain?.toLowerCase() ?? null, 'SAMPLE', e.id);
+  }
+  return [...found.values()].sort(
+    (a, b) =>
+      KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.value.localeCompare(b.value),
+  );
 }
 
 /**

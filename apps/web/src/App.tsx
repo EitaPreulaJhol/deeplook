@@ -8,6 +8,7 @@ import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
 import { AllowlistPage } from './pages/AllowlistPage';
 import { CasePage } from './pages/CasePage';
+import { CasePrintPage } from './pages/CasePrintPage';
 import { CasesPage } from './pages/CasesPage';
 import { ComparePage } from './pages/ComparePage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -89,6 +90,7 @@ export default function App() {
       <Route path="/sandbox/entry/:entryId/console" element={<SandboxConsoleWindowPage />} />
       {/* Ficha para impressao (menu "Mais" > Imprimir ficha), tambem sem o shell. */}
       <Route path="/entries/:id/imprimir" element={<EntryPrintPage />} />
+      <Route path="/casos/:id/imprimir" element={<CasePrintPage />} />
 
       <Route element={<ShellLayout />}>
         {/* Raiz (e destino apos o login): a pagina inicial escolhida nas preferencias. */}

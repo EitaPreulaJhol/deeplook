@@ -17,12 +17,22 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { CaseDetail, CaseStatus } from '../components/cases';
-import { CASE_STATUS } from '../components/cases';
+import { useAuth } from '../auth/AuthContext';
+import { useAttack } from '../components/attack';
+import { caseMarkdown } from '../components/caseExport';
+import type { CaseDetail, CaseIoc } from '../components/cases';
+import { CASE_STATUS, caseEventText } from '../components/cases';
+import { downloadText, downloadUrl } from '../components/entryExport';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
-import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
-import { IconAdd, IconArrowLeft } from '../components/icons';
+import {
+  HpsmToolbar,
+  HpsmToolbarButton,
+  HpsmToolbarDivider,
+  HpsmToolbarMenu,
+} from '../components/HpsmToolbar';
+import { IconAdd, IconArrowLeft, IconDownload, IconPrint } from '../components/icons';
+import { IOC_KIND_LABELS, iocHref } from '../components/iocs';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
@@ -38,30 +48,6 @@ function fmtDate(iso: string): string {
 function parseEntryId(text: string): string {
   const t = text.trim();
   return t.match(/\/entries\/([\w-]+)/)?.[1] ?? t;
-}
-
-type Event = CaseDetail['events'][number];
-
-/** Texto de um evento da linha do tempo do caso. */
-function eventText(e: Event, names: Map<string, string>): string {
-  switch (e.type) {
-    case 'CREATED':
-      return 'criou o caso';
-    case 'ENTRY_ADDED':
-      return `incluiu a amostra ${e.entry?.title ?? '(removida)'}`;
-    case 'ENTRY_REMOVED':
-      return `retirou a amostra ${e.entry?.title ?? '(removida)'}`;
-    case 'STATUS_CHANGED':
-      return `mudou o status: ${CASE_STATUS[e.fromValue as CaseStatus]?.label ?? e.fromValue} → ${CASE_STATUS[e.toValue as CaseStatus]?.label ?? e.toValue}`;
-    case 'ASSIGNED':
-      return e.toValue
-        ? `atribuiu a ${names.get(e.toValue) ?? 'outro analista'}`
-        : 'deixou o caso sem responsável';
-    case 'UPDATED':
-      return e.detail ? `renomeou para "${e.detail}"` : 'alterou a descrição';
-    case 'COMMENT':
-      return 'comentou';
-  }
 }
 
 /**
@@ -80,6 +66,14 @@ export function CasePage() {
   });
   const c = query.data?.case;
   useWorkspaceTitle(c ? `${c.code} · ${c.title}` : undefined);
+  const { user } = useAuth();
+  // Indicadores de todas as amostras, sem repetir (item 74).
+  const iocsQuery = useQuery({
+    queryKey: ['case', id, 'iocs'],
+    queryFn: () => api.get<{ iocs: CaseIoc[] }>(`/cases/${id}/iocs`),
+  });
+  const iocs = iocsQuery.data?.iocs ?? [];
+  const attack = useAttack();
 
   const analystsQuery = useQuery({
     queryKey: ['analysts'],
@@ -236,6 +230,41 @@ export function CasePage() {
           icon={IconAdd}
           disabled={busy || !dirty}
           onClick={() => void save()}
+        />
+        <HpsmToolbarDivider />
+        <HpsmToolbarButton
+          label="Imprimir"
+          icon={IconPrint}
+          onClick={() => window.open(`/casos/${c.id}/imprimir?auto=1`, '_blank')}
+        />
+        <HpsmToolbarMenu
+          label="Exportar"
+          items={[
+            {
+              label: 'Caso completo (Markdown)',
+              icon: IconDownload,
+              disabled: !iocsQuery.data,
+              action: () =>
+                downloadText(
+                  `deeplook-${c.code.toLowerCase()}.md`,
+                  caseMarkdown(c, iocs, attack.data, names, user?.displayName ?? '—'),
+                ),
+            },
+            // IOCs de todas as amostras, gerados na API.
+            ...(
+              [
+                ['csv', 'CSV'],
+                ['stix', 'STIX 2.1'],
+                ['misp', 'MISP'],
+              ] as const
+            ).map(([format, name], i) => ({
+              label: `IOCs do caso (${name})`,
+              icon: IconDownload,
+              separated: i === 0,
+              disabled: iocs.length === 0,
+              action: () => downloadUrl(`/api/cases/${c.id}/iocs/export?format=${format}`),
+            })),
+          ]}
         />
       </HpsmToolbar>
       <PageHeader title={`${c.code} · ${c.title}`} subtitle={c.description ?? undefined} />
@@ -436,12 +465,64 @@ export function CasePage() {
         )}
       </HpsmSection>
 
+      <HpsmSection title={`Indicadores das amostras (${iocs.length})`} className="dl-mt-lg">
+        {iocsQuery.isLoading ? (
+          <HpsmLoading text="Juntando os indicadores..." />
+        ) : iocs.length === 0 ? (
+          <p className="dl-static-empty">
+            Nenhum indicador nos relatórios publicados nem nas próprias amostras.
+          </p>
+        ) : (
+          <TableContainer>
+            <Table size="xs" aria-label="Indicadores das amostras do caso">
+              <TableHead>
+                <TableRow>
+                  <TableHeader scope="col">Tipo</TableHeader>
+                  <TableHeader scope="col">Indicador</TableHeader>
+                  <TableHeader scope="col">Origem</TableHeader>
+                  <TableHeader scope="col">Amostras</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {iocs.map((ioc) => (
+                  <TableRow key={`${ioc.kind}:${ioc.value}`}>
+                    <TableCell>{IOC_KIND_LABELS[ioc.kind]}</TableCell>
+                    <TableCell className="dl-mono">
+                      {ioc.kind === 'URL' ? (
+                        ioc.value
+                      ) : (
+                        <Link className="dl-link" to={iocHref(ioc.kind, ioc.value)}>
+                          {ioc.value}
+                        </Link>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra'}
+                    </TableCell>
+                    <TableCell>
+                      {ioc.entries.map((e, i) => (
+                        <span key={e.id}>
+                          {i > 0 && ', '}
+                          <Link className="dl-link" to={`/entries/${e.id}`}>
+                            {e.title}
+                          </Link>
+                        </span>
+                      ))}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </HpsmSection>
+
       <HpsmSection title="Linha do tempo" className="dl-mt-lg">
         <ol className="dl-case-timeline">
           {c.events.map((e) => (
             <li key={e.id}>
               <span className="dl-case-timeline__when">{fmtDate(e.createdAt)}</span>{' '}
-              <strong>{e.actor?.displayName ?? 'Alguém'}</strong> {eventText(e, names)}
+              <strong>{e.actor?.displayName ?? 'Alguém'}</strong> {caseEventText(e, names)}
               {e.type === 'COMMENT' && e.detail && (
                 <p className="dl-case-timeline__comment">{e.detail}</p>
               )}

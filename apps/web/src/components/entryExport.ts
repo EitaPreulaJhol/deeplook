@@ -7,12 +7,12 @@ function fmtDate(iso?: string | null): string {
 }
 
 /** Celula de tabela Markdown: sem quebras de linha e com "|" escapado. */
-function cell(value: string | null | undefined): string {
+export function cell(value: string | null | undefined): string {
   return (value ?? '—').replace(/\r?\n/g, ' ').replace(/\|/g, '\\|');
 }
 
 /** Bloco de texto livre em Markdown (cerca de codigo: preserva quebras e IOCs). */
-function block(title: string, text?: string | null): string[] {
+export function block(title: string, text?: string | null): string[] {
   if (!text?.trim()) return [];
   return [`**${title}**`, '', '```', text.trim(), '```', ''];
 }

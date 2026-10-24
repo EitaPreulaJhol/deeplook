@@ -1,4 +1,4 @@
-import type { EntryStatus, EntryType, Priority, Verdict } from '../api/types';
+import type { EntryStatus, EntryType, IocKind, Priority, Verdict } from '../api/types';
 import type { StatusTone } from './tags';
 
 /** Casos (item 55): agrupam amostras da mesma campanha (so analistas). */
@@ -49,9 +49,13 @@ export interface CaseDetail extends Omit<CaseSummary, 'entries'> {
       verdict: Verdict;
       priority: Priority;
       createdAt: string;
+      sha256: string | null;
+      url: string | null;
       reports: {
         id: string;
         summary: string;
+        findings: string | null;
+        iocs: string | null;
         verdict: Verdict;
         updatedAt: string;
         analyst: Person;
@@ -72,3 +76,53 @@ export interface CaseDetail extends Omit<CaseSummary, 'entries'> {
 }
 
 export const caseHref = (id: string) => `/casos/${id}`;
+
+/** Indicador das amostras do caso, sem repetir (GET /api/cases/:id/iocs). */
+export interface CaseIoc {
+  kind: IocKind | 'URL';
+  value: string;
+  source: 'REPORT' | 'SAMPLE';
+  entries: { id: string; title: string; verdict: Verdict }[];
+}
+
+type CaseEvent = CaseDetail['events'][number];
+
+/** Texto de um evento da linha do tempo do caso (sem o autor). */
+export function caseEventText(e: CaseEvent, names: Map<string, string>): string {
+  switch (e.type) {
+    case 'CREATED':
+      return 'criou o caso';
+    case 'ENTRY_ADDED':
+      return `incluiu a amostra ${e.entry?.title ?? '(removida)'}`;
+    case 'ENTRY_REMOVED':
+      return `retirou a amostra ${e.entry?.title ?? '(removida)'}`;
+    case 'STATUS_CHANGED':
+      return `mudou o status: ${CASE_STATUS[e.fromValue as CaseStatus]?.label ?? e.fromValue} → ${CASE_STATUS[e.toValue as CaseStatus]?.label ?? e.toValue}`;
+    case 'ASSIGNED':
+      return e.toValue
+        ? `atribuiu a ${names.get(e.toValue) ?? 'outro analista'}`
+        : 'deixou o caso sem responsável';
+    case 'UPDATED':
+      return e.detail ? `renomeou para "${e.detail}"` : 'alterou a descrição';
+    case 'COMMENT':
+      return 'comentou';
+  }
+}
+
+/**
+ * Tecnicas ATT&CK dos relatorios publicados do caso, sem repetir, com as
+ * amostras onde aparecem (na ordem de codigo).
+ */
+export function caseTechniques(c: CaseDetail): { id: string; entries: string[] }[] {
+  const found = new Map<string, Set<string>>();
+  for (const { entry } of c.entries) {
+    for (const report of entry.reports) {
+      for (const id of report.attackTechniques) {
+        found.set(id, (found.get(id) ?? new Set()).add(entry.title));
+      }
+    }
+  }
+  return [...found.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, entries]) => ({ id, entries: [...entries] }));
+}

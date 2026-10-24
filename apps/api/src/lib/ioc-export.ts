@@ -160,3 +160,114 @@ export function iocsMisp(entry: ExportEntry, iocs: ExportIoc[]): object {
     },
   };
 }
+
+// ------------------------------------------------------------------ Caso (item 74)
+
+export interface CaseIoc extends ExportIoc {
+  /** Amostras do caso onde o indicador aparece. */
+  entries: { id: string; title: string; verdict: Verdict }[];
+}
+
+export interface ExportCase {
+  id: string;
+  code: string;
+  title: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
+  createdAt: Date;
+}
+
+/** Pior veredito entre as amostras (desconhecido pesa mais que limpo). */
+const VERDICT_WEIGHT: Verdict[] = ['MALICIOUS', 'SUSPICIOUS', 'UNKNOWN', 'CLEAN'];
+export function worstVerdict(verdicts: Verdict[]): Verdict {
+  return VERDICT_WEIGHT.find((v) => verdicts.includes(v)) ?? 'UNKNOWN';
+}
+
+export function caseIocsCsv(c: ExportCase, iocs: CaseIoc[]): string {
+  return toCsv(
+    ['Tipo', 'Valor', 'Origem', 'Amostras', 'IDs das amostras', 'Caso'],
+    iocs.map((ioc) => [
+      KIND_LABELS[ioc.kind],
+      ioc.value,
+      ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra',
+      ioc.entries.map((e) => e.title).join(' | '),
+      ioc.entries.map((e) => e.id).join(' | '),
+      `${c.code} ${c.title}`,
+    ]),
+  );
+}
+
+/**
+ * Bundle STIX 2.1 do caso: identidade, um indicator por IOC (mesmos ids da
+ * exportacao da amostra) e um grouping com o caso apontando para todos.
+ */
+export function caseIocsStix(c: ExportCase, iocs: CaseIoc[], now = new Date()): object {
+  const ts = now.toISOString();
+  const identityId = `identity--${uuidV5('deeplook')}`;
+  const indicators = iocs.map((ioc) => ({
+    type: 'indicator',
+    spec_version: '2.1',
+    id: `indicator--${uuidV5(`${ioc.kind}:${ioc.value}`)}`,
+    created: ts,
+    modified: ts,
+    created_by_ref: identityId,
+    name: ioc.value,
+    description: `DeepLook ${c.code}: ${ioc.entries.map((e) => `${e.title} (${e.id})`).join(', ')}`,
+    indicator_types: STIX_INDICATOR_TYPES[worstVerdict(ioc.entries.map((e) => e.verdict))],
+    pattern: STIX_PATTERNS[ioc.kind](ioc.value),
+    pattern_type: 'stix',
+    valid_from: c.createdAt.toISOString(),
+  }));
+  return {
+    type: 'bundle',
+    id: `bundle--${randomUUID()}`,
+    objects: [
+      {
+        type: 'identity',
+        spec_version: '2.1',
+        id: identityId,
+        created: '2026-01-01T00:00:00.000Z',
+        modified: '2026-01-01T00:00:00.000Z',
+        name: 'DeepLook',
+        identity_class: 'system',
+      },
+      ...indicators,
+      ...(indicators.length
+        ? [
+            {
+              type: 'grouping',
+              spec_version: '2.1',
+              id: `grouping--${uuidV5(`case:${c.id}`)}`,
+              created: ts,
+              modified: ts,
+              created_by_ref: identityId,
+              name: `${c.code} ${c.title}`,
+              context: 'suspicious-activity',
+              object_refs: indicators.map((i) => i.id),
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
+/** Evento MISP do caso: um atributo por IOC, com as amostras no comentario. */
+export function caseIocsMisp(c: ExportCase, iocs: CaseIoc[]): object {
+  return {
+    Event: {
+      uuid: uuidV5(`case:${c.id}`),
+      info: `DeepLook ${c.code}: ${c.title}`,
+      date: c.createdAt.toISOString().slice(0, 10),
+      threat_level_id:
+        MISP_THREAT[worstVerdict(iocs.flatMap((i) => i.entries.map((e) => e.verdict)))],
+      analysis: c.status === 'CLOSED' ? '2' : c.status === 'IN_PROGRESS' ? '1' : '0',
+      distribution: '0',
+      Attribute: iocs.map((ioc) => ({
+        uuid: uuidV5(`${c.id}:${ioc.kind}:${ioc.value}`),
+        ...MISP_TYPES[ioc.kind],
+        value: ioc.value,
+        to_ids: ioc.kind !== 'EMAIL',
+        comment: `Amostras: ${ioc.entries.map((e) => e.title).join(', ')}`,
+      })),
+    },
+  };
+}

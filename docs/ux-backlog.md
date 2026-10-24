@@ -2005,7 +2005,7 @@ Service Manager 9.
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ✅ |
 | 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ✅ |
-| 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ⬜ |
+| 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ✅ |
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ⬜ |
 | 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ⬜ |
 | 77 | Relatório gerencial | Reports | ⚪ | M | ⬜ |
@@ -2264,6 +2264,36 @@ decisões.
   hash e veredito, relatórios publicados, IOCs de todas as amostras (sem repetir),
   técnicas ATT&CK e linha do tempo; IOCs do caso também em CSV/STIX.
 - **Cuidados:** mesmo visual da ficha para impressão.
+- ✅ **Implementado** (sem migração):
+  - **IOCs do caso** (`entriesIocs` em `routes/iocs.ts`): os dos relatórios publicados e
+    os das próprias amostras (SHA-256, URL, domínio), sem repetir, cada um com as
+    amostras onde aparece. "Relatório publicado" vence "própria amostra"; rascunhos e
+    amostras na lixeira ficam de fora.
+    - `GET /api/cases/:id/iocs`.
+    - `GET /api/cases/:id/iocs/export?format=csv|stix|misp` (`lib/ioc-export.ts`):
+      - **CSV:** coluna com as amostras;
+      - **STIX 2.1:** mesmos ids de indicador da exportação da amostra, tipo pelo pior
+        veredito entre as amostras, mais um `grouping` com o caso;
+      - **MISP:** ameaça pelo pior veredito e análise pelo status do caso.
+  - **Tela do caso:**
+    - nova seção **Indicadores das amostras (N)**, com link para a ficha do indicador
+      (a URL fica só como texto) e para as amostras;
+    - **Imprimir** e o menu **Exportar**: "Caso completo (Markdown)" e "IOCs do caso"
+      em CSV, STIX 2.1 e MISP (desligados sem indicadores).
+  - **Markdown** (`components/caseExport.ts`): dados, amostras com hash/URL, status,
+    prioridade e veredito, relatórios publicados (resumo, achados, IOCs, ATT&CK),
+    indicadores, técnicas ATT&CK com o nome e as amostras, e linha do tempo com os
+    comentários.
+  - **Impressão** (`/casos/:id/imprimir`, `pages/CasePrintPage.tsx`): as mesmas
+    seções, no visual da ficha impressa (fora da casca, `?auto=1`, "Impresso por /
+    em", aviso no rodapé).
+  - O detalhe do caso passou a trazer o SHA-256/URL das amostras e os achados/IOCs dos
+    relatórios.
+  - **Testes:**
+    - 17 checagens no Postgres: detalhe, IOCs sem repetir (ordem, origem, duas
+      amostras), rascunho e lixeira de fora, CSV, STIX (grouping, pior veredito, mesmo
+      id da amostra), MISP (ameaça, análise), permissões e erros;
+    - `case-export.mjs`.
 
 ### 75. Versões do relatório
 - **Problema:** relatório publicado pode ser editado (sem revisão obrigatória) e não fica

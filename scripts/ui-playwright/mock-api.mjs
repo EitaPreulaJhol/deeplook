@@ -223,6 +223,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Casos (detalhe completo, como GET /api/cases/:id) e chamadas de escrita. */
     cases: [],
     caseCalls: [],
+    /** IOCs por caso (GET /api/cases/:id/iocs) e formatos exportados. */
+    caseIocs: {},
+    caseExports: [],
   };
 }
 
@@ -340,7 +343,7 @@ export async function setupMock(context, state) {
         const summary = (c) => ({ id: c.id, number: c.number, code: c.code, title: c.title, status: c.status, createdAt: c.createdAt, updatedAt: c.updatedAt, closedAt: c.closedAt, assignee: c.assignee, createdBy: c.createdBy, entries: c.entries.length });
         const caseEntry = (id) => {
           const e = entries.find((x) => x.id === id);
-          return e && { addedAt: at, addedBy: me, entry: { id: e.id, title: e.title, type: e.type, status: e.status, verdict: e.verdict, priority: e.priority ?? 'P3', createdAt: e.createdAt, reports: [] } };
+          return e && { addedAt: at, addedBy: me, entry: { id: e.id, title: e.title, type: e.type, status: e.status, verdict: e.verdict, priority: e.priority ?? 'P3', createdAt: e.createdAt, sha256: e.sha256 ?? null, url: e.url ?? null, reports: [] } };
         };
         const byEntry = p.match(/^\/api\/entries\/(\w+)\/cases$/);
         if (byEntry) {
@@ -367,11 +370,17 @@ export async function setupMock(context, state) {
           state.cases.push(c);
           return json(route, 201, { case: summary(c) });
         }
-        const m = p.match(/^\/api\/cases\/(\w+)(?:\/(entries|comments)(?:\/(\w+))?)?$/);
+        const m = p.match(/^\/api\/cases\/(\w+)(?:\/(entries|comments|iocs)(?:\/(\w+))?)?$/);
         const c = m && state.cases.find((x) => x.id === m[1]);
         if (!c) return json(route, 404, { error: 'Caso não encontrado.' });
         const event = (type, extra = {}) => c.events.push({ id: `ev${Date.now()}${c.events.length}`, type, detail: null, fromValue: null, toValue: null, createdAt: at, actor: me, entry: null, ...extra });
         if (!m[2] && req.method() === 'GET') return json(route, 200, { case: c });
+        if (m[2] === 'iocs' && !m[3]) return json(route, 200, { iocs: state.caseIocs[c.id] ?? [] });
+        if (m[2] === 'iocs' && m[3] === 'export') {
+          const format = url.searchParams.get('format');
+          state.caseExports.push(format);
+          return route.fulfill({ status: 200, headers: { 'content-type': 'text/plain; charset=utf-8', 'content-disposition': `attachment; filename="deeplook-${c.code.toLowerCase()}-iocs.${format}"` }, body: `iocs ${format}` });
+        }
         if (!m[2] && req.method() === 'PATCH') {
           if (body.status && body.status !== c.status) event('STATUS_CHANGED', { fromValue: c.status, toValue: body.status });
           if (body.title && body.title !== c.title) event('UPDATED', { detail: body.title });
