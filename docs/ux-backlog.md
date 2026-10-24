@@ -1421,8 +1421,8 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 |---|---|---|---|---|---|
 | 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ✅ |
 | 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ✅ |
-| 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ (decisão) |
-| 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
+| 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ |
+| 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ |
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ✅ |
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ✅ |
@@ -1430,13 +1430,21 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ✅ |
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
 | 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ✅ |
-| 63 | Base de conhecimento | Knowledge Management | ⚪ | M–G | ⬜ (opcional) |
-| 64 | Cota de envio | limites | ⚪ | P | ⬜ (opcional) |
-| 65 | Webhooks de saída | integrações | ⚪ | M | ⬜ (decisão) |
+| 63 | Base de conhecimento | Knowledge Management | 🔴 | M–G | ⬜ |
+| 64 | Cota de envio | limites | ⚪ | P | ⬜ |
+| 65 | Webhooks de saída | integrações | ⚪ | M | ❌ (fora, por enquanto) |
 
 **Ordem (uma etapa por item, com testes, documentação e commit próprio):**
 52 → 57 → 53 → 61 → 60 → 56 → 59 → 58 → 62. Depois, 54, 55 e 65 conforme as decisões;
 63 e 64 se ainda fizerem sentido.
+
+**Decisões (23/10/2026) e segunda etapa da leva:** 64 → 63 → 54 → 55.
+- **54:** remetente, destinatários e corpo do e-mail aparecem para todos.
+- **55:** casos só para analistas e admins; uma amostra pode estar em vários casos; o
+  caso não tem relatório próprio e sempre tem ao menos uma amostra.
+- **63:** prioridade alta.
+- **64:** 20 envios por dia para usuários comuns; analistas e admins sem limite.
+- **65:** sem webhooks por enquanto.
 
 **Antes de qualquer código:**
 - **54:** os e-mails trazem dados pessoais das vítimas; quem vê os cabeçalhos completos?
@@ -1509,11 +1517,36 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   links; cada anexo vira uma amostra "filha" ligada ao e-mail (e passa pelo antivírus e
   pela reputação).
 - **Decisão:** dados pessoais das vítimas (destinatários, corpo).
+- **Decidido:** remetente, destinatários e corpo aparecem para todos que veem a amostra.
+- **Como vai ser:**
+  - `.eml` (ou `message/rfc822`) enviado como arquivo é lido na API com a `mailparser`
+    (MIT); nada é executado e o HTML nunca é renderizado (vira texto);
+  - a ficha ganha a seção **E-mail**: remetente, Reply-To, destinatários (Para/Cc), assunto,
+    data, Message-ID, resultado de SPF/DKIM/DMARC (do `Authentication-Results`), o
+    caminho dos servidores (`Received`, do mais antigo ao mais novo), os links do corpo e o
+    corpo em texto;
+  - cada anexo vira uma amostra **filha** ("Anexo de: …"), com antivírus, reputação,
+    YARA e análise estática como qualquer envio; a ficha do e-mail lista os anexos;
+  - os links e o domínio do remetente entram como IOCs sugeridos do relatório;
+  - a cota de envio (64) conta o e-mail e cada anexo.
 
 ### 55. Casos — decisão pendente
 - **Proposta:** agrupar amostras da mesma campanha num **Caso** com título, status,
   responsável, linha do tempo e relatório próprio; a ficha mostra o caso; lista de casos
   no navegador.
+- **Decidido:** só analistas e admins veem e mexem; uma amostra pode estar em vários
+  casos; **sem relatório próprio** (o caso mostra os relatórios das amostras); todo caso
+  tem ao menos uma amostra.
+- **Como vai ser:**
+  - caso com título, descrição, status (Aberto → Em andamento → Encerrado) e responsável;
+  - criar a partir da ficha ("Mais ▾ > Adicionar a caso…", novo ou existente) ou das
+    amostras marcadas na lista ("Criar caso com as N"); não existe caso vazio: tirar a
+    última amostra é recusado (encerre o caso);
+  - tela do caso: dados editáveis, amostras (com veredito e status), relatórios
+    publicados das amostras, linha do tempo (criado, amostra incluída/retirada, status,
+    responsável, comentários) e comentários;
+  - a ficha da amostra mostra os casos dela; pasta **Casos** no navegador (abertos,
+    meus, todos) com contador; histórico da amostra registra a inclusão/retirada.
 
 ### 56. Regras YARA
 - **Proposta:** aba **Regras YARA** (analistas e admin): criar, editar, ativar/desativar
@@ -1724,12 +1757,31 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 ### 63. Base de conhecimento (opcional)
 - **Proposta:** artigos (Markdown) sobre famílias de malware e golpes, com busca, ligados
   aos relatórios que os citam.
+- **Decidido:** importante (sobe para prioridade alta).
+- **Como vai ser:**
+  - artigo com título, resumo, categoria (Família de malware, Golpe, Técnica, Procedimento),
+    tags e corpo em Markdown; analistas e admins escrevem, todos leem;
+  - Markdown desenhado por um renderizador próprio e seguro (títulos, parágrafos,
+    listas, negrito/itálico, código, citações, links http/https e para o próprio app);
+    nenhum HTML do texto é aceito;
+  - tela **Base de conhecimento** (`/kb`) com busca (título, resumo, tags e corpo) e
+    filtro por categoria; artigo com "Editar" (pré-visualização ao lado) e histórico de
+    quem alterou;
+  - relatórios citam artigos (campo "Artigos da base" com busca); o relatório mostra os
+    links e o artigo lista as amostras/relatórios publicados que o citam;
+  - "Ir para:" acha artigos pelo título.
 
 ### 64. Cota de envio (opcional)
 - **Proposta:** limite de envios por usuário comum por dia (`UPLOAD_DAILY_LIMIT`), com
   mensagem clara ao atingir; analistas e admin sem limite.
+- **Decidido:** 20 por dia para usuários comuns; analistas e admins sem limite.
+- **Como vai ser:** `UPLOAD_DAILY_LIMIT=20` (0 desliga), contado nas últimas 24 horas
+  (arquivo, link, cada arquivo de um `.zip` e envios por token); acima do limite, 429
+  com "você já enviou 20 amostras nas últimas 24 horas; a próxima libera às HH:MM";
+  "Enviar Amostra" mostra quantos envios restam.
 
 ### 65. Webhooks de saída — decisão pendente
 - **Proposta:** avisar Slack/Teams/SIEM (POST JSON) quando uma amostra é concluída como
   maliciosa ou suspeita.
 - **Decisão:** destinos permitidos e o que pode sair (só o hash? título? relatório?).
+- **Decidido (23/10/2026):** sem webhooks por enquanto.
