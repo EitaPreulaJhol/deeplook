@@ -10,6 +10,7 @@ import { prisma } from './lib/prisma';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
+import { failInterruptedRetroscans } from './lib/yara-retro';
 import { adminRoutes } from './routes/admin';
 import { antivirusRoutes } from './routes/antivirus';
 import { apiTokenRoutes } from './routes/api-tokens';
@@ -128,6 +129,11 @@ async function main() {
       `[retencao] ligada: arquivos expurgados ${env.RETENTION_DAYS} dia(s) após a conclusão`,
     );
   }
+
+  // YARA retroativo interrompido por reinicio: marcado como falha (nao continua sozinho).
+  const interrupted = await failInterruptedRetroscans();
+  if (interrupted)
+    app.log.warn(`[yara] ${interrupted} varredura(s) retroativa(s) interrompida(s).`);
 
   await app.listen({ host: '0.0.0.0', port: env.PORT });
   app.log.info(`DeepLook API ouvindo em http://0.0.0.0:${env.PORT}`);

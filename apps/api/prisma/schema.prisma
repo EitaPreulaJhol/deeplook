@@ -112,6 +112,7 @@ model User {
   casesCreated     Case[]                  @relation("CaseAuthor")
   caseEntriesAdded CaseEntry[]
   caseEvents       CaseEvent[]
+  yaraRetroscans   YaraRetroscan[]
 }
 
 model Session {
@@ -211,6 +212,7 @@ model Entry {
   yara            YaraScan?
   caseLinks       CaseEntry[]
   caseEvents      CaseEvent[]
+  yaraRetroHits   YaraRetroscanHit[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -619,18 +621,19 @@ model IocWatch {
 /// Regras YARA (item 56): escritas pelos analistas, validadas e aplicadas pela
 /// API com o YARA-X (src/lib/yara.ts) a cada arquivo enviado.
 model YaraRule {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   /// Nome do conjunto (unico); o arquivo pode ter varias regras.
-  name        String   @unique
+  name        String          @unique
   description String?
   source      String
-  enabled     Boolean  @default(true)
+  enabled     Boolean         @default(true)
   createdById String?
-  createdBy   User?    @relation("YaraRuleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?           @relation("YaraRuleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById String?
-  updatedBy   User?    @relation("YaraRuleEditor", fields: [updatedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedBy   User?           @relation("YaraRuleEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  retroscans  YaraRetroscan[]
 }
 
 enum YaraStatus {
@@ -777,4 +780,50 @@ model CaseEvent {
   createdAt DateTime      @default(now())
 
   @@index([caseId, createdAt])
+}
+
+enum YaraRetroStatus {
+  RUNNING
+  DONE
+  CANCELLED
+  FAILED
+}
+
+/// Varredura retroativa de uma regra YARA nas amostras ja guardadas (item 67).
+/// Uma por vez; progresso em scanned/total (lib/yara-retro.ts).
+model YaraRetroscan {
+  id          String             @id @default(cuid())
+  ruleId      String?
+  rule        YaraRule?          @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  /// Nome da regra no inicio (fica mesmo se a regra for excluida).
+  ruleName    String
+  status      YaraRetroStatus    @default(RUNNING)
+  total       Int
+  scanned     Int                @default(0)
+  matched     Int                @default(0)
+  /// Arquivos que nao puderam ser lidos ou varridos.
+  failed      Int                @default(0)
+  /// Arquivos acima do limite de tamanho da varredura retroativa.
+  skipped     Int                @default(0)
+  startedById String?
+  startedBy   User?              @relation(fields: [startedById], references: [id], onDelete: SetNull)
+  startedAt   DateTime           @default(now())
+  finishedAt  DateTime?
+  error       String?
+  hits        YaraRetroscanHit[]
+
+  @@index([startedAt])
+}
+
+/// Amostra que casou numa varredura retroativa.
+model YaraRetroscanHit {
+  retroscanId String
+  retroscan   YaraRetroscan @relation(fields: [retroscanId], references: [id], onDelete: Cascade)
+  entryId     String
+  entry       Entry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  /// Regras (identificadores) do conjunto que casaram.
+  identifiers String[]
+  createdAt   DateTime      @default(now())
+
+  @@id([retroscanId, entryId])
 }

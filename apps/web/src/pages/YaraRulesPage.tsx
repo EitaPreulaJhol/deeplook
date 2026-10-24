@@ -25,6 +25,7 @@ import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
 import { StatusText } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
+import { useRetroscans, YaraRetroscans } from '../components/YaraRetroscans';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR');
@@ -196,6 +197,33 @@ export function YaraRulesPage() {
     }
   };
 
+  // YARA retroativo (item 67): aplica a regra as amostras ja guardadas.
+  const retro = useRetroscans();
+  const retroRunning = retro.data?.items.some((r) => r.status === 'RUNNING') ?? false;
+  const startRetro = async (rule: YaraRule) => {
+    const ok = await confirm({
+      title: 'Aplicar às amostras existentes',
+      message: `Varrer todos os arquivos já guardados com a regra "${rule.name}"? Roda em segundo plano; dá para cancelar. Os acertos aparecem aqui e na ficha de cada amostra.`,
+      confirmLabel: 'Aplicar',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    setNotice(null);
+    try {
+      const res = await api.post<{ retroscan: { total: number } }>(
+        `/yara/rules/${rule.id}/retroscan`,
+        {},
+      );
+      await queryClient.invalidateQueries({ queryKey: ['yara-retroscans'] });
+      setNotice({
+        ok: true,
+        text: `Varredura retroativa de "${rule.name}" iniciada: ${res.retroscan.total.toLocaleString('pt-BR')} amostra(s).`,
+      });
+    } catch (err) {
+      setNotice({ ok: false, text: (err as Error).message });
+    }
+  };
+
   const remove = async (rule: YaraRule) => {
     const ok = await confirm({
       title: 'Excluir regra',
@@ -348,6 +376,19 @@ export function YaraRulesPage() {
                     </Button>{' '}
                     <Button
                       size="sm"
+                      kind="tertiary"
+                      disabled={retroRunning}
+                      title={
+                        retroRunning
+                          ? 'Já há uma varredura retroativa em andamento'
+                          : 'Varrer os arquivos já guardados com esta regra'
+                      }
+                      onClick={() => void startRetro(rule)}
+                    >
+                      Aplicar às existentes…
+                    </Button>{' '}
+                    <Button
+                      size="sm"
                       kind="danger--tertiary"
                       aria-label={`Excluir a regra ${rule.name}`}
                       onClick={() => void remove(rule)}
@@ -361,6 +402,7 @@ export function YaraRulesPage() {
           </Table>
         </TableContainer>
       )}
+      <YaraRetroscans onNotice={setNotice} />
     </>
   );
 }

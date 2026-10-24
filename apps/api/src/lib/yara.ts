@@ -80,11 +80,24 @@ async function compiledRules(): Promise<CompiledSet | null> {
   cache?.rules.free();
   cache = null;
   if (active.length === 0) return null;
+  cache = { version, ...compileRuleSets(active) };
+  return cache;
+}
+
+/**
+ * Compila conjuntos de regras juntos, cada um no proprio namespace (`r_<id>`).
+ * Conjunto que deixou de compilar (ex.: mudanca do motor) nao derruba os outros.
+ * Quem chama libera `rules` com `.free()` quando nao precisar mais.
+ */
+export function compileRuleSets(sets: { id: string; name: string; source: string }[]): {
+  rules: Rules;
+  names: Map<string, string>;
+  count: number;
+} {
   init();
   const compiler = new Compiler();
   const names = new Map<string, string>();
-  for (const rule of active) {
-    // Regra que deixou de compilar (ex.: mudanca do motor) nao derruba as outras.
+  for (const rule of sets) {
     try {
       compiler.newNamespace(`r_${rule.id}`);
       compiler.addSource(rule.source);
@@ -95,8 +108,7 @@ async function compiledRules(): Promise<CompiledSet | null> {
   }
   const rules = compiler.build();
   compiler.free();
-  cache = { version, rules, names, count: names.size };
-  return cache;
+  return { rules, names, count: names.size };
 }
 
 export interface YaraHit {
@@ -113,6 +125,14 @@ export async function scanWithYara(
 ): Promise<{ hits: YaraHit[]; rulesCount: number; version: string | null }> {
   const set = await compiledRules();
   if (!set) return { hits: [], rulesCount: 0, version: null };
+  return { hits: scanBuffer(set, buffer), rulesCount: set.count, version: set.version };
+}
+
+/** Varre o conteudo com regras ja compiladas (limites de tempo e de ocorrencias). */
+export function scanBuffer(
+  set: { rules: Rules; names: Map<string, string> },
+  buffer: Buffer,
+): YaraHit[] {
   const scanner = set.rules.scanner();
   scanner.setTimeoutMs(SCAN_TIMEOUT_MS);
   scanner.setMaxMatchesPerPattern(MAX_MATCHES_PER_PATTERN);
@@ -126,7 +146,7 @@ export async function scanWithYara(
         patterns: { matches: unknown[] }[];
       }[];
     };
-    const hits = result.matches.map((m) => ({
+    return result.matches.map((m) => ({
       rule: set.names.get(m.namespace) ?? m.identifier,
       identifier: m.identifier,
       tags: m.tags,
@@ -135,7 +155,6 @@ export async function scanWithYara(
         null,
       matches: m.patterns.reduce((n, p) => n + p.matches.length, 0),
     }));
-    return { hits, rulesCount: set.count, version: set.version };
   } finally {
     scanner.free();
   }

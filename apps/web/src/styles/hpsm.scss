@@ -3677,3 +3677,50 @@ table.dl-compare td {
 .dl-case-search {
   margin-block-start: 0.5rem;
 }
+
+/* YARA retroativo (item 67): progresso e acertos. */
+.dl-retro-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-retro-progress__track {
+  display: inline-block;
+  inline-size: 6rem;
+  block-size: 0.5rem;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-surface);
+}
+
+.dl-retro-progress__bar {
+  display: block;
+  block-size: 100%;
+  background: var(--dl-series-1);
+}
+
+.dl-retro-note {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-retro-hits {
+  padding: 0.5rem 0.75rem;
+}
+
+.dl-retro-hits__head {
+  margin: 0 0 0.3rem;
+  font-size: var(--dl-font-size);
+  font-weight: 600;
+}
+
+.dl-retro-hits ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-retro-hits li {
+  padding: 0.15rem 0;
+}

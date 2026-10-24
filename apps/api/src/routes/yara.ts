@@ -7,6 +7,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 import { validateRule, yaraScanEntry } from '../lib/yara';
+import { cancelRetroscan, startRetroscan } from '../lib/yara-retro';
 
 const RuleSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -169,6 +170,60 @@ export async function yaraRoutes(app: FastifyInstance) {
       }
       throw err;
     }
+  });
+
+  // YARA retroativo (item 67): aplicar uma regra as amostras ja guardadas.
+  app.post('/api/yara/rules/:id/retroscan', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const { id } = req.params as { id: string };
+    const result = await startRetroscan(id, user.id, req.log);
+    if (!result.ok) return reply.code(result.code).send({ error: result.error });
+    return reply.code(202).send({ retroscan: result.retroscan });
+  });
+
+  app.get('/api/yara/retroscans', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const items = await prisma.yaraRetroscan.findMany({
+      orderBy: { startedAt: 'desc' },
+      take: 10,
+      include: { startedBy: { select: { id: true, displayName: true } } },
+    });
+    return reply.send({ items });
+  });
+
+  app.get('/api/yara/retroscans/:id', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const { id } = req.params as { id: string };
+    const retroscan = await prisma.yaraRetroscan.findUnique({
+      where: { id },
+      include: {
+        startedBy: { select: { id: true, displayName: true } },
+        hits: {
+          orderBy: { createdAt: 'asc' },
+          take: 500,
+          where: { entry: { deletedAt: null } },
+          select: {
+            identifiers: true,
+            entry: { select: { id: true, title: true, verdict: true, status: true } },
+          },
+        },
+      },
+    });
+    if (!retroscan) return reply.code(404).send({ error: 'Varredura não encontrada.' });
+    return reply.send({ retroscan });
+  });
+
+  app.post('/api/yara/retroscans/:id/cancel', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const { id } = req.params as { id: string };
+    if (!(await cancelRetroscan(id))) {
+      return reply.code(409).send({ error: 'A varredura não está em andamento.' });
+    }
+    return reply.send({ ok: true });
   });
 
   app.delete('/api/yara/rules/:id', async (req, reply) => {

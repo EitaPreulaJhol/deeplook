@@ -207,6 +207,9 @@ export function createState({ loggedIn = false } = {}) {
     yaraRules: [],
     yara: {},
     yaraCalls: [],
+    /** YARA retroativo: varreduras (mais recente primeiro) e acertos por varredura. */
+    retroscans: [],
+    retroHits: {},
     /** Visoes da equipe (pasta do navegador) e as chamadas de escrita. */
     teamViews: [],
     teamViewCalls: [],
@@ -719,6 +722,31 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/yara/rules' && req.method() === 'GET') {
         return json(route, 200, { rules: [...state.yaraRules].sort((a, b) => a.name.localeCompare(b.name)) });
+      }
+      // YARA retroativo: uma por vez; o roteiro avanca o progresso no estado.
+      const retroStart = p.match(/^\/api\/yara\/rules\/(\w+)\/retroscan$/);
+      if (retroStart) {
+        state.yaraCalls.push({ retroscan: retroStart[1] });
+        if (state.retroscans.some((r) => r.status === 'RUNNING')) {
+          return json(route, 409, { error: 'Já há uma varredura retroativa em andamento.' });
+        }
+        const rule = state.yaraRules.find((r) => r.id === retroStart[1]);
+        const item = { id: `rs${state.retroscans.length + 1}`, ruleId: rule.id, ruleName: rule.name, status: 'RUNNING', total: 3000, scanned: 0, matched: 0, failed: 0, skipped: 2, startedAt: '2026-10-24T14:00:00.000Z', finishedAt: null, error: null, startedBy: { id: 'u1', displayName: 'Ana Souza' } };
+        state.retroscans.unshift(item);
+        return json(route, 202, { retroscan: { id: item.id, total: item.total, skipped: item.skipped } });
+      }
+      if (p === '/api/yara/retroscans') return json(route, 200, { items: state.retroscans });
+      const retroOne = p.match(/^\/api\/yara\/retroscans\/(\w+)(\/cancel)?$/);
+      if (retroOne) {
+        const item = state.retroscans.find((r) => r.id === retroOne[1]);
+        if (!item) return json(route, 404, { error: 'Varredura não encontrada.' });
+        if (retroOne[2]) {
+          if (item.status !== 'RUNNING') return json(route, 409, { error: 'A varredura não está em andamento.' });
+          item.status = 'CANCELLED';
+          item.finishedAt = '2026-10-24T14:05:00.000Z';
+          return json(route, 200, { ok: true });
+        }
+        return json(route, 200, { retroscan: { ...item, hits: state.retroHits[item.id] ?? [] } });
       }
       if (p === '/api/yara/validate') {
         state.yaraCalls.push({ validate: body.source });

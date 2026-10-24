@@ -1998,7 +1998,7 @@ Service Manager 9.
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 67 | YARA retroativo (regra nova nas amostras antigas) | regras de negócio | 🔴 | M | ⬜ |
+| 67 | YARA retroativo (regra nova nas amostras antigas) | regras de negócio | 🔴 | M | ✅ |
 | 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ⬜ |
 | 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ⬜ |
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ⬜ |
@@ -2025,6 +2025,38 @@ decisões.
   e lista as amostras que casaram, com link. O resultado fica na seção YARA da ficha.
 - **Cuidados:** uma varredura retroativa por vez; arquivos expurgados ficam de fora;
   cancelar a qualquer momento; limite de tamanho por arquivo; não trava a API.
+- ✅ **Implementado:** migração `20261121000000_yara_retroscan`:
+  - `YaraRetroscan`: regra, nome da regra no início, situação, total, varridas,
+    casaram, ilegíveis, acima do limite, quem iniciou, início e fim;
+  - `YaraRetroscanHit`: as amostras que casaram, com os identificadores.
+  - **Execução** (`lib/yara-retro.ts`):
+    - em segundo plano, **uma por vez** (a segunda dá 409);
+    - entram os arquivos ainda guardados, fora da lixeira e até 100 MB. Os expurgados
+      ficam de fora, e os maiores são contados como "acima de 100 MB";
+    - lê do MinIO em páginas de 100 e grava o progresso a cada 10 amostras;
+    - arquivo que não pode ser lido conta como "ilegível" e não interrompe a
+      varredura;
+    - o cancelamento é checado a cada amostra; se a API reiniciar no meio, a
+      varredura fica "Falhou: interrompida (API reiniciada)".
+  - **Ficha:** os acertos entram na seção Regras YARA, mesclados com os das outras
+    regras. Acertos antigos da mesma regra que não casam mais saem.
+  - **Reaproveitamento:** a compilação e a varredura do `lib/yara.ts` viraram
+    `compileRuleSets` e `scanBuffer`, usados pelo envio e pela varredura retroativa.
+  - **API** (analistas):
+    - `POST /api/yara/rules/:id/retroscan` (202);
+    - `GET /api/yara/retroscans`, as últimas 10;
+    - `GET /api/yara/retroscans/:id`, com até 500 acertos;
+    - `POST /api/yara/retroscans/:id/cancel`;
+    - se a regra for excluída, o histórico fica com o nome.
+  - **Front:**
+    - "Aplicar às existentes…" em cada regra, com confirmação; fica desabilitado
+      enquanto outra varredura roda;
+    - seção **Varreduras retroativas**: situação, barra de progresso ("1.240 de 3.000
+      (41%)"), ilegíveis e acima do limite, quantas casaram e quem iniciou. Atualiza a
+      cada 2 s enquanto roda;
+    - "Ver acertos" mostra as amostras (link, veredito, status, identificadores), e
+      há "Cancelar".
+  - **Testes:** 15 de integração (Postgres e MinIO) e `yara-retro.mjs`.
 
 ### 68. Busca avançada
 - **Problema:** a busca da lista só olha título, hash, URL e nome do arquivo; o que está
