@@ -25,7 +25,7 @@ const ReportSchema = z.object({
       const unknown = ids.filter((id) => !TECHNIQUE_ID.test(id) || !findTechnique(id));
       if (unknown.length) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `técnica desconhecida: ${unknown.slice(0, 3).join(', ')}`,
         });
       }

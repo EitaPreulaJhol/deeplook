@@ -1,35 +1,36 @@
 import type { FastifyReply } from 'fastify';
 import type { ZodError, ZodIssue } from 'zod';
 
-/** Mensagem curta em portugues para um problema de validacao do zod. */
+/** Mensagem curta em portugues para um problema de validacao do zod (v4). */
 export function issueMessage(issue: ZodIssue): string {
   switch (issue.code) {
     case 'invalid_type':
-      if (issue.received === 'undefined' || issue.received === 'null') return 'obrigatório';
-      if (issue.expected === 'integer') return 'use um número inteiro';
+      // O zod 4 nao traz o valor recebido no problema, so no texto padrao.
+      if (/received (undefined|null)$/.test(issue.message)) return 'obrigatório';
+      if (issue.expected === 'int') return 'use um número inteiro';
       if (issue.expected === 'number') return 'informe um número';
       return 'valor inválido';
     case 'too_small':
-      if (issue.type === 'string') {
+      if (issue.origin === 'string') {
         return Number(issue.minimum) <= 1 ? 'obrigatório' : `mínimo de ${issue.minimum} caracteres`;
       }
-      if (issue.type === 'number') return `mínimo ${issue.minimum}`;
-      if (issue.type === 'array') return `ao menos ${issue.minimum}`;
+      if (issue.origin === 'number' || issue.origin === 'int') return `mínimo ${issue.minimum}`;
+      if (issue.origin === 'array') return `ao menos ${issue.minimum}`;
       return 'valor muito pequeno';
     case 'too_big':
-      if (issue.type === 'string') return `máximo de ${issue.maximum} caracteres`;
-      if (issue.type === 'number') return `máximo ${issue.maximum}`;
-      if (issue.type === 'array') return `no máximo ${issue.maximum}`;
+      if (issue.origin === 'string') return `máximo de ${issue.maximum} caracteres`;
+      if (issue.origin === 'number' || issue.origin === 'int') return `máximo ${issue.maximum}`;
+      if (issue.origin === 'array') return `no máximo ${issue.maximum}`;
       return 'valor muito grande';
-    case 'invalid_string':
-      if (issue.validation === 'email') return 'e-mail inválido';
-      if (issue.validation === 'url') return 'URL inválida';
+    case 'invalid_format':
+      if (issue.format === 'email') return 'e-mail inválido';
+      if (issue.format === 'url') return 'URL inválida';
       // Regex com mensagem propria (ex.: politica de senha).
-      if (issue.validation === 'regex' && issue.message && issue.message !== 'Invalid') {
+      if (issue.format === 'regex' && !issue.message.startsWith('Invalid string')) {
         return issue.message;
       }
       return 'formato inválido';
-    case 'invalid_enum_value':
+    case 'invalid_value':
       return 'opção inválida';
     case 'custom':
       // superRefine/refine com mensagem propria (ex.: tecnica ATT&CK desconhecida).

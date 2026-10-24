@@ -88,7 +88,7 @@ const EnvSchema = z
     for (const [name, val] of required) {
       if (!val) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: [name],
           message: `${name} e obrigatoria quando SANDBOX_ENABLED=true sem PROXMOX_MOCK`,
         });
@@ -96,7 +96,7 @@ const EnvSchema = z
     }
     if (!value.PROXMOX_TEMPLATE_VMID) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['PROXMOX_TEMPLATE_VMID'],
         message: 'PROXMOX_TEMPLATE_VMID e obrigatorio quando SANDBOX_ENABLED=true sem PROXMOX_MOCK',
       });
