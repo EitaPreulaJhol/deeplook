@@ -11,6 +11,7 @@ import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { attackHref } from '../components/attack';
 import { caseHref } from '../components/cases';
 import { copyText } from '../components/CopyButton';
+import { DocumentSection, DocumentWarning } from '../components/DocumentSection';
 import { DuplicateDialog, EntryPickDialog } from '../components/DuplicateDialog';
 import { EmailSection } from '../components/EmailSection';
 import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
@@ -494,6 +495,7 @@ export function EntryDetailPage() {
       )}
 
       <DisguisedFileWarning info={entry.staticInfo} />
+      <DocumentWarning info={entry.staticInfo} />
 
       {pinNotice && (
         <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
@@ -715,6 +717,7 @@ export function EntryDetailPage() {
               purged={Boolean(entry.filePurgedAt)}
             />
           )}
+          {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {entry.type !== 'FILE' && (
             <HpsmSection title="Link">
               <HpsmForm>

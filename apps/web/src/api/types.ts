@@ -173,6 +173,40 @@ export interface EmailInfo {
 }
 
 /** Analise estatica do arquivo enviado (Entry.staticInfo). */
+/** Analise de documento (item 70): PDF, Office e RTF. */
+export interface DocumentInfo {
+  format: 'pdf' | 'ooxml' | 'ole' | 'rtf';
+  risk: 'high' | 'medium' | 'low';
+  alerts: { level: 'high' | 'medium' | 'info'; text: string }[];
+  pdf?: {
+    pages: number | null;
+    javascript: boolean;
+    openAction: boolean;
+    additionalActions: boolean;
+    launch: boolean;
+    embeddedFiles: number;
+    forms: boolean;
+    xfa: boolean;
+    encrypted: boolean;
+  };
+  office?: {
+    macros: boolean;
+    modules: {
+      name: string;
+      lines: number;
+      autoExec: string[];
+      suspicious: string[];
+      code: string;
+      truncated: boolean;
+    }[];
+    externalLinks: string[];
+    remoteTemplate: string | null;
+    embedded: string[];
+    dde: boolean;
+  };
+  links: string[];
+}
+
 export interface StaticInfo {
   version: 1;
   analyzedAt: string;
@@ -202,6 +236,8 @@ export interface StaticInfo {
     suspiciousImports: string[];
     packer: string | null;
   } | null;
+  /** PDF, Office e RTF (item 70). */
+  document?: DocumentInfo | null;
   iocCandidates: { kind: IocKind; value: string }[];
 }
 

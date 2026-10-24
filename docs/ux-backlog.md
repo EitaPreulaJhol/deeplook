@@ -2001,7 +2001,7 @@ Service Manager 9.
 | 67 | YARA retroativo (regra nova nas amostras antigas) | regras de negócio | 🔴 | M | ✅ |
 | 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ✅ |
 | 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ✅ |
-| 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ⬜ |
+| 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ✅ |
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ⬜ |
 | 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ⬜ |
@@ -2150,6 +2150,40 @@ decisões.
   links externos (template remoto). Seção "Documento" na ficha, com alertas.
 - **Cuidados:** só leitura de bytes, com limites (zip-bomb, recursão); nada é executado;
   falha na análise não impede o envio.
+- ✅ **Implementado** (sem migração: o resultado vai em `staticInfo.document`):
+  - **Análise** (`lib/doc-analysis.ts`), sem dependência nova. Só lê bytes, com
+    limites; falha vira "sem dados", nunca exceção:
+    - **PDF:** JavaScript, OpenAction/AA, Launch, arquivos embutidos, AcroForm/XFA,
+      criptografia, páginas e links (`/URI`). Decodifica nomes ofuscados
+      (`/J#61vaScript`) e abre os streams FlateDecode, até 8 MB por stream e 32 MB no
+      total, onde o conteúdo malicioso costuma ficar escondido;
+    - **Office moderno (OOXML):**
+      - macros (`vbaProject.bin`);
+      - links externos e **template remoto** (`attachedTemplate`) das `.rels`;
+      - objetos embutidos (`/embeddings/`) e campos DDE;
+    - **Office antigo (OLE):** leitor próprio do formato OLE/CFB (setores, FAT,
+      mini stream, árvore de diretórios) e da compressão do VBA (**MS-OVBA**, validada
+      com o vetor da especificação). Os **módulos de macro** saem com o código-fonte
+      (até 20 KB por módulo e 100 KB no total), as rotinas que rodam ao abrir
+      (AutoOpen, Document_Open, Workbook_Open…) e as chamadas suspeitas (Shell,
+      CreateObject, URLDownloadToFile, PowerShell, Environ, Chr…);
+    - **RTF:** objetos OLE embutidos (`\objupdate` = atualização automática), DDE e
+      HYPERLINK.
+  - **Risco:** alto quando há algo que roda sozinho ou baixa conteúdo; médio para
+    objetos embutidos, XFA e macros sem nada suspeito; baixo no resto.
+  - **IOCs:** os links do documento entram nos IOCs sugeridos.
+  - **Ficha:**
+    - aviso no topo quando o risco é alto ("documento com conteúdo ativo…");
+    - seção **Documento** com risco, alertas coloridos, links (só como texto, com
+      Copiar) e objetos embutidos;
+    - **Macros VBA**, com linhas, "roda ao abrir", chamadas suspeitas e **Ver código**
+      (o texto do código aparece cru: um `<script>` aparece como texto);
+    - amostras enviadas antes ganham a análise com "Analisar agora" / reanálise.
+  - **Testes:**
+    - 20 checagens com arquivos montados no próprio teste: PDF com JavaScript
+      ofuscado e link num stream comprimido, `.doc` OLE com projeto VBA, `.docm` com
+      `vbaProject.bin`, template remoto e DDE, `.docx` limpo, RTF e corrompidos;
+    - `document.mjs`.
 
 ### 71. Similaridade por hash difuso (TLSH)
 - **Problema:** variantes de um mesmo malware têm SHA-256 diferente e não aparecem como

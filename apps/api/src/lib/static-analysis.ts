@@ -1,3 +1,4 @@
+import { analyzeDocument, type DocumentInfo } from './doc-analysis';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
 
@@ -62,6 +63,8 @@ export interface StaticInfo {
     suspicious: string[];
   };
   pe: PeInfo | null;
+  /** PDF, Office (OOXML/OLE) e RTF: macros, scripts, links e objetos (item 70). */
+  document?: DocumentInfo | null;
   /** Indicadores encontrados nas strings: so sugestao (nao entram no indice). */
   iocCandidates: Ioc[];
 }
@@ -454,8 +457,10 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
       pe = null;
     }
   }
+  // Documentos (item 70): macros, scripts, links e objetos; os links viram sugestao.
+  const document = analyzeDocument(buf, detectedType?.id);
   const iocCandidates = extractIocs(
-    [...strings.urls, ...strings.ips, ...strings.emails].join('\n'),
+    [...strings.urls, ...strings.ips, ...strings.emails, ...(document?.links ?? [])].join('\n'),
   );
   return {
     version: 1,
@@ -468,6 +473,7 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
     entropyLevel: e >= 7.2 ? 'high' : e < 4 ? 'low' : 'normal',
     strings,
     pe,
+    document,
     iocCandidates: iocCandidates.slice(0, 50),
   };
 }

@@ -3771,3 +3771,55 @@ table.dl-compare td {
   color: var(--dl-text);
   font-weight: 600;
 }
+
+/* Analise de documentos (item 70): alertas e macros VBA. */
+.dl-doc-alerts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-doc-alerts li {
+  padding: 0.1rem 0;
+}
+
+.dl-doc-macros {
+  padding: 0.25rem 0.75rem 0.6rem;
+}
+
+.dl-doc-macros__head {
+  margin: 0 0 0.3rem;
+  font-size: var(--dl-font-size);
+  font-weight: 600;
+}
+
+.dl-doc-macros ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-doc-macros__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+}
+
+.dl-doc-macros__meta {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-doc-macros__code {
+  max-block-size: 24rem;
+  overflow: auto;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-readonly-bg);
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  white-space: pre;
+}
