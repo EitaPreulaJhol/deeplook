@@ -12,11 +12,14 @@ import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
+const VerdictSchema = z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']);
+const StatusSchema = z.enum(['DRAFT', 'IN_REVIEW', 'PUBLISHED']);
+
 const ReportSchema = z.object({
   summary: z.string().min(3).max(4000),
   findings: z.string().max(20000).optional(),
   iocs: z.string().max(20000).optional(),
-  verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).default('UNKNOWN'),
+  verdict: VerdictSchema.default('UNKNOWN'),
   /** Tecnicas MITRE ATT&CK (lista embutida). */
   attackTechniques: z
     .array(z.string().trim().toUpperCase())
@@ -39,7 +42,15 @@ const ReportSchema = z.object({
     .transform((ids) => [...new Set(ids)])
     .optional(),
   /** Ao salvar: rascunho, enviar para revisao ou publicar direto. */
-  status: z.enum(['DRAFT', 'IN_REVIEW', 'PUBLISHED']).default('DRAFT'),
+  status: StatusSchema.default('DRAFT'),
+});
+/**
+ * Edicao: so o que veio. No zod 4 o `.partial()` mantem os `.default()`, e um
+ * PATCH so com o resumo voltaria o veredito a "Desconhecido" e despublicaria.
+ */
+const ReportPatchSchema = ReportSchema.partial().extend({
+  verdict: VerdictSchema.optional(),
+  status: StatusSchema.optional(),
 });
 const ReturnSchema = z.object({ note: z.string().trim().min(3).max(2000) });
 
@@ -208,7 +219,7 @@ export async function reportRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: 'Relatório em revisão não pode ser alterado.' });
     }
 
-    const parsed = ReportSchema.partial().safeParse(req.body);
+    const parsed = ReportPatchSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const data = parsed.data;
     if (await missingKbArticles(data.kbArticleIds)) return reply.code(400).send(kbNotFound);
