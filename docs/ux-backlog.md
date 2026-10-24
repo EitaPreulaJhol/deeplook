@@ -1901,3 +1901,48 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   maliciosa ou suspeita.
 - **Decisão:** destinos permitidos e o que pode sair (só o hash? título? relatório?).
 - **Decidido (23/10/2026):** sem webhooks por enquanto.
+
+## Item técnico — 66. Migração para o Prisma 7
+
+- **Por quê:** o `npm audit` da API aponta o `deepmerge-ts` < 8 (alerta alto), que vem
+  fixado dentro do Prisma 6.19.3. A correção só existe no Prisma 7.10.1, que usa o
+  `deepmerge-ts` 8.0.2.
+- **O que muda no Prisma 7** (guia oficial de atualização):
+  - o gerador `prisma-client-js` dá lugar ao `prisma-client`, com `output` obrigatório
+    (o cliente sai do `node_modules` e passa a ser gerado no projeto);
+  - todo banco precisa de um **driver adapter** (PostgreSQL: `@prisma/adapter-pg`, com o
+    `pg`);
+  - a URL do banco, as migrações e o seed saem do `schema.prisma` e do `package.json` e
+    vão para o `prisma.config.ts`;
+  - o `.env` não é mais carregado sozinho, e o `migrate diff` troca
+    `--shadow-database-url` pela configuração;
+  - Node ≥ 20.19 / 22.12 e TypeScript ≥ 5.4 (já atendemos: Node 22 no Docker,
+    TypeScript 5.6).
+- **Plano (por etapas, sem mudar o comportamento):**
+  1. **Pacotes:** `prisma` e `@prisma/client` 7.10.1 e `@prisma/adapter-pg` 7.10.1,
+     com versões fixas.
+  2. **Schema e configuração:**
+     - gerador `prisma-client` com `output = "../src/generated/prisma"` e
+       `moduleFormat = "cjs"`. A API continua em CommonJS, sem converter tudo para ESM;
+     - `prisma.config.ts` com o schema, as migrações, o seed e `DATABASE_URL` (e
+       `SHADOW_DATABASE_URL` para quem gera migrações);
+     - sem `url` no `datasource` do schema; o bloco `prisma.seed` sai do `package.json`.
+  3. **Cliente:** `lib/prisma.ts` cria o `PrismaClient` com o `PrismaPg`, preservando o
+     filtro da lixeira (`$extends`). O pool fica próximo do Prisma 6: tempo-limite de
+     conexão de 5 s, porque o `pg` não tem limite por padrão.
+  4. **Imports:** os 29 arquivos que importam de `@prisma/client` passam a importar do
+     cliente gerado (`src/generated/prisma/client`), incluindo o `prisma/seed.ts`.
+  5. **Build e Docker:**
+     - o código gerado fica fora do git, do lint e do prettier;
+     - o Dockerfile copia o `prisma.config.ts` antes do `prisma generate`;
+     - o entrypoint continua com `migrate deploy` e `db seed`.
+  6. **Verificação:**
+     - typecheck, lint e build;
+     - migrações do zero num banco novo e `migrate diff` sem diferenças entre o schema e
+       as migrações;
+     - os testes de integração (Postgres e MinIO) das áreas mais sensíveis: transações,
+       SQL cru do Painel, JSON, arrays, enums, filtro da lixeira;
+     - o "Status do sistema" com o banco fora do ar (mensagem de erro do adapter);
+     - a suíte completa de Playwright e o `npm audit` sem o `deepmerge-ts`.
+  7. **Documentação:** README (como gerar o cliente e as migrações) e este item com o
+     Implementado.
