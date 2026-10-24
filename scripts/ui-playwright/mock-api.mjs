@@ -207,6 +207,9 @@ export function createState({ loggedIn = false } = {}) {
     yaraRules: [],
     yara: {},
     yaraCalls: [],
+    /** Visoes da equipe (pasta do navegador) e as chamadas de escrita. */
+    teamViews: [],
+    teamViewCalls: [],
   };
 }
 
@@ -316,6 +319,32 @@ export async function setupMock(context, state) {
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
+      // Visoes da equipe: so analistas; mesma URL = 409.
+      if (p === '/api/team-views' || /^\/api\/team-views\/\w+$/.test(p)) {
+        if (state.role === 'USER') {
+          state.teamViewGetsAsUser = true;
+          return json(route, 403, { error: 'Somente analistas usam as visões da equipe.' });
+        }
+        if (req.method() === 'GET') {
+          return json(route, 200, { views: [...state.teamViews].sort((a, b) => a.label.localeCompare(b.label)) });
+        }
+        state.teamViewCalls.push({ method: req.method(), ...(req.method() === 'DELETE' ? { id: p.split('/').pop() } : { body }) });
+        if (req.method() === 'POST') {
+          const same = state.teamViews.find((v) => v.url === body.url);
+          if (same) return json(route, 409, { error: `Esta visão já está nas Visões da equipe como "${same.label}".` });
+          const view = { id: `tv${Date.now()}`, label: body.label, url: body.url, createdAt: '2026-10-23T15:00:00.000Z', createdBy: { id: 'u1', displayName: 'Ana Souza' }, count: 1, canEdit: true };
+          state.teamViews.push(view);
+          return json(route, 201, { view });
+        }
+        const view = state.teamViews.find((v) => v.id === p.split('/').pop());
+        if (!view) return json(route, 404, { error: 'Visão não encontrada.' });
+        if (req.method() === 'PATCH') {
+          view.label = body.label;
+          return json(route, 200, { view });
+        }
+        state.teamViews = state.teamViews.filter((v) => v !== view);
+        return json(route, 200, { ok: true });
+      }
       // Comparar amostras: o roteiro define as listas; os lados vem de `entries`.
       if (p === '/api/entries/compare') {
         state.lastCompare = url.search;

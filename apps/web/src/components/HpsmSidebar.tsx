@@ -26,6 +26,7 @@ import {
 import { HpsmMessage } from './messages';
 import { useNotificationCount } from './notifications';
 import type { StatusTone } from './tags';
+import { type TeamView, useTeamViews } from './teamViews';
 
 interface SidebarProps {
   /** Controle do drawer no mobile (a sidebar fica off-canvas). */
@@ -45,6 +46,8 @@ interface NavLeaf {
    * `late` (atrasadas), `reviews` (relatorios para revisar) ou `unread` (caixa de entrada).
    */
   count?: EntryStatus | 'mine' | 'late' | 'reviews' | 'unread';
+  /** Contador ja calculado (visoes da equipe). */
+  value?: number | null;
 }
 
 interface NavFolder {
@@ -148,6 +151,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const confirm = useConfirm();
   const prompt = usePrompt();
   const [menu, setMenu] = useState<{ favorite: Favorite; x: number; y: number } | null>(null);
+  const [teamMenu, setTeamMenu] = useState<{ view: TeamView; x: number; y: number } | null>(null);
   const [favError, setFavError] = useState<string | null>(null);
   const favRefs = useRef(new Map<string, HTMLAnchorElement>());
 
@@ -156,6 +160,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
 
   const isAdmin = user?.role === 'ADMIN';
   const canTriage = isAdmin || user?.role === 'ANALYST';
+  const team = useTeamViews(canTriage);
 
   // Contadores das filas: atualizam a cada minuto (e apos cada triagem).
   const countsQuery = useQuery({
@@ -187,8 +192,19 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     (folder) => !folder.access || (folder.access === 'admin' ? isAdmin : canTriage),
   );
   const favoriteLeaves = favs.favorites.map(favoriteLeaf);
+  const teamLeaves: NavLeaf[] = team.views.map((view) => ({
+    to: view.url,
+    label: view.label,
+    icon: IconFilter,
+    value: view.count,
+  }));
   const active = activeLeaf(
-    [...ROOT_LEAVES, ...favoriteLeaves, ...folders.flatMap((folder) => folder.children)],
+    [
+      ...ROOT_LEAVES,
+      ...favoriteLeaves,
+      ...(canTriage ? teamLeaves : []),
+      ...folders.flatMap((folder) => folder.children),
+    ],
     pathname,
     search,
   );
@@ -236,6 +252,27 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     if (ok) await runFav(() => favs.remove(favorite.id));
   };
 
+  const renameTeamView = async (view: TeamView) => {
+    const label = await prompt({
+      title: 'Renomear visão da equipe',
+      label: 'Nome',
+      defaultValue: view.label,
+      confirmLabel: 'Renomear',
+    });
+    if (label && label !== view.label) await runFav(() => team.rename(view.id, label));
+  };
+
+  const removeTeamView = async (view: TeamView) => {
+    const ok = await confirm({
+      title: 'Remover visão da equipe',
+      message: `Remover "${view.label}" das Visões da equipe? Ela some do navegador de todos os analistas.`,
+      danger: true,
+      confirmLabel: 'Remover',
+      cancelLabel: 'Cancelar',
+    });
+    if (ok) await runFav(() => team.remove(view.id));
+  };
+
   const closeMenu = useCallback(
     (restoreFocus: boolean) => {
       if (restoreFocus && menu) favRefs.current.get(menu.favorite.id)?.focus();
@@ -260,10 +297,42 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     }
   };
 
+  // Visao da equipe: quem compartilhou no title; menu so para quem pode alterar.
+  const teamViewProps = (view: TeamView) => ({
+    title: `${view.label} — compartilhada por ${view.createdBy?.displayName ?? 'alguém'}${
+      view.canEdit ? ' (clique direito: renomear, remover)' : ''
+    }`,
+    ...(view.canEdit && {
+      'aria-keyshortcuts': 'Shift+F10 F2 Delete',
+      onContextMenu: (event: MouseEvent) => {
+        event.preventDefault();
+        setTeamMenu({ view, x: event.clientX, y: event.clientY });
+      },
+      onKeyDown: (event: KeyboardEvent<HTMLAnchorElement>) => {
+        if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          setTeamMenu({ view, x: rect.left + 16, y: rect.bottom });
+        } else if (event.key === 'F2') {
+          event.preventDefault();
+          void renameTeamView(view);
+        } else if (event.key === 'Delete') {
+          event.preventDefault();
+          void removeTeamView(view);
+        }
+      },
+    }),
+  });
+
   // Folha da arvore; na raiz ganha um espaco no lugar do +/- das pastas.
-  const renderLeaf = (leaf: NavLeaf, root = false, favorite?: Favorite) => {
+  const renderLeaf = (
+    leaf: NavLeaf,
+    root = false,
+    favorite?: Favorite,
+    extra?: ReturnType<typeof teamViewProps>,
+  ) => {
     const isActive = leaf.to === active;
-    const count = leaf.count ? counts[leaf.count] : undefined;
+    const count = leaf.count ? counts[leaf.count] : (leaf.value ?? undefined);
     return (
       <a
         href={leaf.to}
@@ -283,6 +352,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           },
           onKeyDown: onFavoriteKeyDown(favorite),
         })}
+        {...extra}
       >
         {root && <span className="hpsm-tree__spacer" aria-hidden="true" />}
         {leaf.icon ? (
@@ -363,6 +433,23 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
                   </li>
                 )),
           )}
+          {/* Visoes do Historico Global compartilhadas pelos analistas (item 62). */}
+          {canTriage &&
+            renderFolder(
+              'equipe',
+              'Visões da equipe',
+              team.views.length === 0
+                ? !team.loading && (
+                    <li className="hpsm-tree__empty">
+                      Nenhuma. Use “Compartilhar visão” no Histórico Global.
+                    </li>
+                  )
+                : team.views.map((view, index) => (
+                    <li key={view.id}>
+                      {renderLeaf(teamLeaves[index], false, undefined, teamViewProps(view))}
+                    </li>
+                  )),
+            )}
           {folders.map((folder) =>
             renderFolder(
               folder.id,
@@ -375,6 +462,24 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
 
       {favError && <HpsmMessage kind="error">{favError}</HpsmMessage>}
 
+      {teamMenu && (
+        <HpsmContextMenu
+          x={teamMenu.x}
+          y={teamMenu.y}
+          label={`Visão da equipe ${teamMenu.view.label}`}
+          onClose={() => setTeamMenu(null)}
+          items={[
+            { label: 'Abrir', action: () => navigate(teamMenu.view.url) },
+            { label: 'Renomear… (F2)', action: () => void renameTeamView(teamMenu.view) },
+            {
+              label: 'Remover da equipe (Del)',
+              icon: IconTrash,
+              separated: true,
+              action: () => void removeTeamView(teamMenu.view),
+            },
+          ]}
+        />
+      )}
       {menu && (
         <HpsmContextMenu
           x={menu.x}

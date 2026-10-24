@@ -29,6 +29,7 @@ import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
 import { sandboxRoutes } from './routes/sandbox';
 import { sessionRoutes } from './routes/sessions';
+import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
 import { twoFactorRoutes } from './routes/two-factor';
@@ -78,6 +79,7 @@ async function main() {
   await app.register(antivirusRoutes);
   await app.register(attackRoutes);
   await app.register(compareRoutes);
+  await app.register(teamViewRoutes);
   await app.register(yaraRoutes);
   await app.register(hexRoutes);
   await app.register(adminRoutes);

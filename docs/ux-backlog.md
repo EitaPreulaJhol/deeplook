@@ -1429,7 +1429,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ✅ |
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ✅ |
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
-| 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ⬜ |
+| 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ✅ |
 | 63 | Base de conhecimento | Knowledge Management | ⚪ | M–G | ⬜ (opcional) |
 | 64 | Cota de envio | limites | ⚪ | P | ⬜ (opcional) |
 | 65 | Webhooks de saída | integrações | ⚪ | M | ⬜ (decisão) |
@@ -1699,6 +1699,27 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 - **Proposta:** ao salvar uma visão (filtros), analistas escolhem "compartilhar com a
   equipe": ela aparece numa pasta **Visões da equipe** no navegador de todos os analistas,
   com contador. Só quem criou (ou admin) edita/remove.
+- ✅ **Implementado:** migração `20261117000000_team_views` (`TeamView`: nome, endereço
+  único, quem compartilhou).
+  - **API** (`routes/team-views.ts`, só analistas e admins):
+    - `GET /api/team-views` traz as visões em ordem alfabética, com `count` e `canEdit`;
+    - o `count` é calculado com o mesmo filtro da lista (`ListQuery`/`listWhere`) para
+      quem está vendo, então "Atribuídas a mim" conta as de cada um. A lixeira não
+      entra, e um endereço que não vale mais vira `null`;
+    - `POST` aceita só visões do Histórico Global (`/history?…`). Endereço repetido
+      dá 409 com o nome já usado; o limite é de 30;
+    - `PATCH` (renomear) e `DELETE` só para quem compartilhou ou um admin (403 para os
+      outros). Se o autor for apagado, a visão fica e só o admin a altera.
+  - **Front:**
+    - botão **Compartilhar visão** na barra de filtros do Histórico Global, só para
+      analistas, com o nome sugerido como no "Salvar visão";
+    - pasta **Visões da equipe** no navegador de todos os analistas, com o contador
+      (atualiza a cada minuto) e "compartilhada por …" no title;
+    - quem pode alterar tem menu de contexto (Abrir, Renomear, Remover da equipe) e
+      as teclas Shift+F10, F2 e Delete. Remover pede confirmação, avisando que some
+      para todos;
+    - usuário comum não vê a pasta nem o botão e não consulta a API.
+  - **Testes:** 20 de integração (Postgres) e `team-views.mjs`.
 
 ### 63. Base de conhecimento (opcional)
 - **Proposta:** artigos (Markdown) sobre famílias de malware e golpes, com busca, ligados

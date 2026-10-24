@@ -101,6 +101,7 @@ model User {
   iocWatches      IocWatch[]
   yaraRules       YaraRule[]              @relation("YaraRuleAuthor")
   yaraRulesEdited YaraRule[]              @relation("YaraRuleEditor")
+  teamViews       TeamView[]
 }
 
 model Session {
@@ -626,4 +627,17 @@ model YaraScan {
   rulesCount Int        @default(0)
   error      String?
   scannedAt  DateTime   @default(now())
+}
+
+/// Visoes da equipe (item 62): visoes do Historico Global compartilhadas pelos
+/// analistas (pasta "Visoes da equipe" do navegador, com contador).
+model TeamView {
+  id          String   @id @default(cuid())
+  label       String
+  /// Caminho relativo (/history?...): uma visao por endereco.
+  url         String   @unique
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

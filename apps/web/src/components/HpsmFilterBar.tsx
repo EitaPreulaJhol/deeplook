@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
+import { useAuth } from '../auth/AuthContext';
 import { currentViewUrl, useFavorites } from './favorites';
 import { usePrompt } from './HpsmConfirm';
 import type { HpsmMessageKind } from './messages';
 import { HpsmMessage } from './messages';
+import { useTeamViews } from './teamViews';
 
 /**
  * Linha de filtro fixa acima da lista (como os seletores "Fila:" / "Visao:"
@@ -29,7 +31,11 @@ export function HpsmFilterBar({
   children: ReactNode;
 }) {
   const { pathname, search } = useLocation();
+  const { user } = useAuth();
   const { addView } = useFavorites();
+  // Visoes da equipe (item 62): so analistas, so no Historico Global.
+  const canShare = (user?.role === 'ANALYST' || user?.role === 'ADMIN') && pathname === '/history';
+  const team = useTeamViews(false);
   const prompt = usePrompt();
   const [notice, setNotice] = useState<{ kind: HpsmMessageKind; text: string } | null>(null);
 
@@ -48,6 +54,24 @@ export function HpsmFilterBar({
     try {
       await addView(label, currentViewUrl(pathname, search));
       setNotice({ kind: 'success', text: `Visão "${label}" salva nos Favoritos.` });
+    } catch (err) {
+      setNotice({ kind: 'error', text: (err as Error).message });
+    }
+  };
+
+  const shareView = async () => {
+    const label = await prompt({
+      title: 'Compartilhar visão',
+      message:
+        'A busca, os filtros e a ordenação atuais vão para a pasta Visões da equipe, no navegador de todos os analistas.',
+      label: 'Nome',
+      defaultValue: viewName,
+      confirmLabel: 'Compartilhar',
+    });
+    if (!label) return;
+    try {
+      await team.share(label, currentViewUrl(pathname, search));
+      setNotice({ kind: 'success', text: `Visão "${label}" compartilhada com a equipe.` });
     } catch (err) {
       setNotice({ kind: 'error', text: (err as Error).message });
     }
@@ -86,6 +110,16 @@ export function HpsmFilterBar({
           title="Guardar esta busca e filtros na pasta Favoritos do navegador"
         >
           Salvar visão
+        </Button>
+      )}
+      {viewName !== undefined && canShare && (
+        <Button
+          kind="secondary"
+          size="sm"
+          onClick={() => void shareView()}
+          title="Mostrar esta busca e filtros na pasta Visões da equipe de todos os analistas"
+        >
+          Compartilhar visão
         </Button>
       )}
       {exportHref && (

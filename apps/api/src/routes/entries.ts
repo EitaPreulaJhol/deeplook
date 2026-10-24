@@ -47,7 +47,7 @@ const CommentSchema = z.object({
   mentions: z.array(z.string().min(1).max(40)).max(20).optional(),
 });
 
-const ListQuery = z.object({
+export const ListQuery = z.object({
   scope: z.enum(['all', 'mine']).default('all'),
   type: z.enum(['FILE', 'URL']).optional(),
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
@@ -164,7 +164,7 @@ async function resolveTags(names: string[]) {
 }
 
 /** Filtros da lista (tambem usados na exportacao CSV). */
-function listWhere(
+export function listWhere(
   filters: Pick<
     z.infer<typeof ListQuery>,
     | 'scope'
