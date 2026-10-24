@@ -6,6 +6,7 @@ import { startPath } from './auth/preferences';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
+import { AllowlistPage } from './pages/AllowlistPage';
 import { CasePage } from './pages/CasePage';
 import { CasesPage } from './pages/CasesPage';
 import { ComparePage } from './pages/ComparePage';
@@ -116,6 +117,10 @@ export default function App() {
         <Route
           path="/comparar"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <ComparePage />}
+        />
+        <Route
+          path="/permitidos"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <AllowlistPage />}
         />
         <Route
           path="/yara"

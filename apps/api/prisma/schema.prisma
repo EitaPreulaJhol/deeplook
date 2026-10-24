@@ -79,40 +79,41 @@ model User {
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 
-  sessions         Session[]
-  entries          Entry[]                 @relation("EntryOwner")
+  sessions          Session[]
+  entries           Entry[]                 @relation("EntryOwner")
   /// Amostras sob responsabilidade deste analista (atribuicao).
-  assignedEntries  Entry[]                 @relation("EntryAssignee")
-  entryEvents      EntryEvent[]
-  reports          Report[]                @relation("ReportAuthor")
-  sandboxSessions  SandboxSession[]
-  createdKeys      ActivationKey[]         @relation("KeyCreator")
-  usedKeys         ActivationKey[]         @relation("KeyUser")
-  favorites        Favorite[]
+  assignedEntries   Entry[]                 @relation("EntryAssignee")
+  entryEvents       EntryEvent[]
+  reports           Report[]                @relation("ReportAuthor")
+  sandboxSessions   SandboxSession[]
+  createdKeys       ActivationKey[]         @relation("KeyCreator")
+  usedKeys          ActivationKey[]         @relation("KeyUser")
+  favorites         Favorite[]
   /// Caixa de entrada: notificacoes recebidas e as causadas por este usuario.
-  notifications    Notification[]          @relation("NotificationRecipient")
-  notified         Notification[]          @relation("NotificationActor")
-  reportTemplates  ReportTemplate[]
-  reviewedReports  Report[]                @relation("ReportReviewer")
+  notifications     Notification[]          @relation("NotificationRecipient")
+  notified          Notification[]          @relation("NotificationActor")
+  reportTemplates   ReportTemplate[]
+  reviewedReports   Report[]                @relation("ReportReviewer")
   /// Auditoria: acoes feitas por este usuario e as que o tiveram como alvo.
-  auditActions     AuditEvent[]            @relation("AuditActor")
-  auditTargets     AuditEvent[]            @relation("AuditTarget")
+  auditActions      AuditEvent[]            @relation("AuditActor")
+  auditTargets      AuditEvent[]            @relation("AuditTarget")
   /// Amostras que este usuario (admin) moveu para a lixeira.
-  trashedEntries   Entry[]                 @relation("EntryDeletedBy")
-  apiTokens        ApiToken[]
-  recoveryCodes    TwoFactorRecoveryCode[]
-  iocWatches       IocWatch[]
-  yaraRules        YaraRule[]              @relation("YaraRuleAuthor")
-  yaraRulesEdited  YaraRule[]              @relation("YaraRuleEditor")
-  teamViews        TeamView[]
-  kbCreated        KbArticle[]             @relation("KbAuthor")
-  kbUpdated        KbArticle[]             @relation("KbEditor")
-  kbRevisions      KbArticleRevision[]
-  casesAssigned    Case[]                  @relation("CaseAssignee")
-  casesCreated     Case[]                  @relation("CaseAuthor")
-  caseEntriesAdded CaseEntry[]
-  caseEvents       CaseEvent[]
-  yaraRetroscans   YaraRetroscan[]
+  trashedEntries    Entry[]                 @relation("EntryDeletedBy")
+  apiTokens         ApiToken[]
+  recoveryCodes     TwoFactorRecoveryCode[]
+  iocWatches        IocWatch[]
+  yaraRules         YaraRule[]              @relation("YaraRuleAuthor")
+  yaraRulesEdited   YaraRule[]              @relation("YaraRuleEditor")
+  teamViews         TeamView[]
+  kbCreated         KbArticle[]             @relation("KbAuthor")
+  kbUpdated         KbArticle[]             @relation("KbEditor")
+  kbRevisions       KbArticleRevision[]
+  casesAssigned     Case[]                  @relation("CaseAssignee")
+  casesCreated      Case[]                  @relation("CaseAuthor")
+  caseEntriesAdded  CaseEntry[]
+  caseEvents        CaseEvent[]
+  yaraRetroscans    YaraRetroscan[]
+  allowedIndicators AllowedIndicator[]
 }
 
 model Session {
@@ -472,6 +473,8 @@ enum AuditAction {
   YARA_RULE_CREATED
   YARA_RULE_UPDATED
   YARA_RULE_DELETED
+  ALLOWLIST_ADDED
+  ALLOWLIST_REMOVED
   LOGIN_FAILED
   LOGIN_LOCKED
   API_ACCESS_GRANTED
@@ -826,4 +829,19 @@ model YaraRetroscanHit {
   createdAt   DateTime      @default(now())
 
   @@id([retroscanId, entryId])
+}
+
+/// Lista de permissoes (item 69): indicadores legitimos que nao ligam amostras,
+/// nao disparam alertas e somem das sugestoes. IPV4 aceita faixa CIDR
+/// (ex.: 10.0.0.0/8); DOMAIN vale tambem para os subdominios.
+model AllowedIndicator {
+  id          String   @id @default(cuid())
+  kind        IocKind
+  value       String
+  reason      String
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@unique([kind, value])
 }

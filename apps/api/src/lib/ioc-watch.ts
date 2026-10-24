@@ -1,6 +1,7 @@
 import { isIP } from 'node:net';
 
 import type { IocKind } from '../generated/prisma/client';
+import { allowedBy, loadAllowlist } from './allowlist';
 import { notify } from './notifications';
 import type { Db } from './prisma';
 
@@ -43,6 +44,8 @@ export async function notifyWatchers(
   actorId: string | null,
   origin: 'sample' | 'report',
 ): Promise<void> {
+  const list = await loadAllowlist();
+  indicators = indicators.filter((i) => !allowedBy(list, i.kind, i.value));
   if (indicators.length === 0) return;
   const watches = await db.iocWatch.findMany({
     where: { OR: indicators.map((i) => ({ kind: i.kind, value: i.value })) },

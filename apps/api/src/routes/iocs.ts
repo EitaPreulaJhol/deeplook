@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
+import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { requireUser } from '../lib/auth';
 import type { ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
@@ -218,12 +219,23 @@ export async function iocRoutes(app: FastifyInstance) {
         s.kind === 'REPORT' ? s.createdAt.getTime() : e.createdAt.getTime(),
       ),
     ]);
-    const watching = await prisma.iocWatch.findUnique({
-      where: { userId_kind_value: { userId: user.id, kind, value } },
-      select: { id: true },
-    });
+    const [watching, list] = await Promise.all([
+      prisma.iocWatch.findUnique({
+        where: { userId_kind_value: { userId: user.id, kind, value } },
+        select: { id: true },
+      }),
+      loadAllowlist(),
+    ]);
+    // Lista de permissoes (item 69): qual item cobre o indicador e o motivo.
+    const allowedKey = allowedBy(list, kind, value);
     return reply.send({
       watching: Boolean(watching),
+      allowed: allowedKey
+        ? {
+            by: allowedKey.slice(allowedKey.indexOf(':') + 1),
+            reason: list.reasons.get(allowedKey) ?? '',
+          }
+        : null,
       ioc: { kind, value },
       items: entries.map((entry) => ({ entry, sightings: sightings.get(entry.id) ?? [] })),
       total: sightings.size,

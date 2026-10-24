@@ -12,6 +12,7 @@ import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
 import { failInterruptedRetroscans } from './lib/yara-retro';
 import { adminRoutes } from './routes/admin';
+import { allowlistRoutes } from './routes/allowlist';
 import { antivirusRoutes } from './routes/antivirus';
 import { apiTokenRoutes } from './routes/api-tokens';
 import { attackRoutes } from './routes/attack';
@@ -85,6 +86,7 @@ async function main() {
   await app.register(teamViewRoutes);
   await app.register(kbRoutes);
   await app.register(caseRoutes);
+  await app.register(allowlistRoutes);
   await app.register(yaraRoutes);
   await app.register(hexRoutes);
   await app.register(adminRoutes);

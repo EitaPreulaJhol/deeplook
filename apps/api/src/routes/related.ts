@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
+import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { requireUser } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
 import { prisma } from '../lib/prisma';
@@ -62,7 +63,9 @@ async function sharedIocs(
   const own: { kind: IocKind; value: string }[] = [];
   if (ownHash) own.push({ kind: 'SHA256', value: ownHash });
   if (host) own.push({ kind: 'DOMAIN', value: host });
-  const probes = [...mine, ...own];
+  // Lista de permissoes (item 69): indicador legitimo nao liga amostras.
+  const list = await loadAllowlist();
+  const probes = [...mine, ...own].filter((p) => !allowedBy(list, p.kind, p.value));
 
   const matches = new Map<string, Set<string>>();
   const note = (otherId: string, value: string) => {
@@ -87,8 +90,11 @@ async function sharedIocs(
 
   // O proprio arquivo/dominio ja vira "Mesmo arquivo"/"Mesmo dominio"; aqui so
   // os IOCs que apontam para OUTRA amostra.
-  const hashes = mine.filter((i) => i.kind === 'SHA256' && i.value !== ownHash).map((i) => i.value);
-  const domains = mine.filter((i) => i.kind === 'DOMAIN' && i.value !== host).map((i) => i.value);
+  const usable = mine.filter((i) => !allowedBy(list, i.kind, i.value));
+  const hashes = usable
+    .filter((i) => i.kind === 'SHA256' && i.value !== ownHash)
+    .map((i) => i.value);
+  const domains = usable.filter((i) => i.kind === 'DOMAIN' && i.value !== host).map((i) => i.value);
   if (hashes.length || domains.length) {
     const direct = await prisma.entry.findMany({
       where: {
@@ -133,7 +139,9 @@ export async function relatedRoutes(app: FastifyInstance) {
 
     const notSelf = { id: { not: entry.id } };
     const host = entry.urlDomain?.toLowerCase() ?? null;
-    const base = host ? baseDomain(host) : null;
+    // Dominio permitido (ex.: docs.google.com) nao liga amostras pelo dominio.
+    const hostAllowed = host ? Boolean(allowedBy(await loadAllowlist(), 'DOMAIN', host)) : false;
+    const base = host && !hostAllowed ? baseDomain(host) : null;
     const tagIds = entry.tags.map((t) => t.id);
 
     const [sameFile, sameDomain, sharedTags] = await Promise.all([

@@ -210,6 +210,9 @@ export function createState({ loggedIn = false } = {}) {
     /** YARA retroativo: varreduras (mais recente primeiro) e acertos por varredura. */
     retroscans: [],
     retroHits: {},
+    /** Lista de permissoes (indicadores legitimos) e chamadas de escrita. */
+    allowlist: [],
+    allowlistCalls: [],
     /** Visoes da equipe (pasta do navegador) e as chamadas de escrita. */
     teamViews: [],
     teamViewCalls: [],
@@ -723,6 +726,36 @@ export async function setupMock(context, state) {
       if (p === '/api/yara/rules' && req.method() === 'GET') {
         return json(route, 200, { rules: [...state.yaraRules].sort((a, b) => a.name.localeCompare(b.name)) });
       }
+      // Lista de permissoes: dominio vale para subdominios; o filtro so olha dominios e valores exatos.
+      if (p === '/api/allowlist' && req.method() === 'GET') return json(route, 200, { items: state.allowlist });
+      if (p === '/api/allowlist/filter') {
+        const covered = (v) => {
+          let host = v.toLowerCase();
+          try { if (/^https?:/.test(host)) host = new URL(host).hostname; } catch { /* texto */ }
+          if (host.includes('@')) host = host.split('@')[1];
+          return state.allowlist.some((a) => a.value === v.toLowerCase() || (a.kind === 'DOMAIN' && (host === a.value || host.endsWith(`.${a.value}`))));
+        };
+        return json(route, 200, { allowed: (body.values ?? []).filter(covered) });
+      }
+      if (p === '/api/allowlist' && req.method() === 'POST') {
+        state.allowlistCalls.push({ method: 'POST', body });
+        if (body.kind === 'IPV4' && !/^\d+\.\d+\.\d+\.\d+(\/\d+)?$/.test(body.value)) {
+          return json(route, 400, { error: 'Dados invalidos.', details: { value: ['use um IP ou uma faixa, ex.: 10.0.0.0/8'] } });
+        }
+        const value = body.value.trim().toLowerCase();
+        if (state.allowlist.some((a) => a.kind === body.kind && a.value === value)) {
+          return json(route, 409, { error: 'Este indicador já está na lista de permissões.', details: { value: ['já está na lista'] } });
+        }
+        const item = { id: `al${state.allowlist.length + 1}`, kind: body.kind, value, reason: body.reason, createdAt: '2026-10-24T16:00:00.000Z', createdBy: { id: 'u1', displayName: 'Ana Souza' } };
+        state.allowlist.push(item);
+        return json(route, 201, { item });
+      }
+      const allowDel = p.match(/^\/api\/allowlist\/(\w+)$/);
+      if (allowDel && req.method() === 'DELETE') {
+        state.allowlistCalls.push({ method: 'DELETE', id: allowDel[1] });
+        state.allowlist = state.allowlist.filter((a) => a.id !== allowDel[1]);
+        return json(route, 200, { ok: true });
+      }
       // YARA retroativo: uma por vez; o roteiro avanca o progresso no estado.
       const retroStart = p.match(/^\/api\/yara\/rules\/(\w+)\/retroscan$/);
       if (retroStart) {
@@ -983,7 +1016,8 @@ export async function setupMock(context, state) {
         const value = decodeURIComponent(io[2]);
         if (!['IPV4', 'DOMAIN', 'EMAIL', 'MD5', 'SHA1', 'SHA256'].includes(kind)) return json(route, 400, { error: 'Indicador invalido.' });
         const detail = state.iocDetails[`${kind}:${value}`] ?? { ioc: { kind, value }, items: [], total: 0, firstSeen: null, lastSeen: null };
-        return json(route, 200, { ...detail, watching: Boolean(state.watches[`${kind}:${value}`]) });
+        const cover = state.allowlist.find((x) => x.kind === kind && (x.value === value || (kind === 'DOMAIN' && value.endsWith(`.${x.value}`))));
+        return json(route, 200, { ...detail, watching: Boolean(state.watches[`${kind}:${value}`]), allowed: cover ? { by: cover.value, reason: cover.reason } : null });
       }
       const ex = p.match(/^\/api\/entries\/([\w-]+)\/iocs\/export$/);
       if (ex) {

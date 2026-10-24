@@ -150,6 +150,14 @@ export function IocPage() {
         title={`${IOC_KIND_LABELS[ioc.kind]}: ${ioc.value}`}
         subtitle="Ficha do indicador: amostras e relatórios publicados em que ele aparece."
       />
+      {query.data?.allowed && (
+        <HpsmMessage kind="info">
+          Indicador permitido
+          {query.data.allowed.by !== ioc.value
+            ? ` (coberto por ${query.data.allowed.by})`
+            : ''}: {query.data.allowed.reason}. Não liga amostras nas Relacionadas nem gera alertas.
+        </HpsmMessage>
+      )}
       <div className="dl-summary dl-mb-lg">
         <span>
           <span className="dl-summary__label">Tipo:</span> {IOC_KIND_LABELS[ioc.kind]}

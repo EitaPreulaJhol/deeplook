@@ -275,7 +275,9 @@ export type AuditAction =
   | 'ENTRY_DELETED'
   | 'YARA_RULE_CREATED'
   | 'YARA_RULE_UPDATED'
-  | 'YARA_RULE_DELETED';
+  | 'YARA_RULE_DELETED'
+  | 'ALLOWLIST_ADDED'
+  | 'ALLOWLIST_REMOVED';
 
 /** Registro de auditoria (GET /api/admin/audit). */
 export interface AuditEvent {
@@ -332,6 +334,8 @@ export type IocSighting =
 export interface IocDetail {
   /** A pessoa segue este indicador (alertas de IOC). */
   watching?: boolean;
+  /** Coberto pela lista de permissoes (item 69): item que cobre e o motivo. */
+  allowed?: { by: string; reason: string } | null;
   ioc: { kind: IocKind; value: string };
   items: { entry: Entry; sightings: IocSighting[] }[];
   total: number;

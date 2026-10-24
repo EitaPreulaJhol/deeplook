@@ -201,6 +201,18 @@ export function EntryReportsTab({
   });
   const recognized = iocsQuery.data?.iocs ?? [];
 
+  // Lista de permissoes (item 69): indicadores legitimos somem das sugestoes.
+  const allowedQuery = useQuery({
+    queryKey: ['allowlist-filter', suggestedIocs],
+    queryFn: () =>
+      api.post<{ allowed: string[] }>('/allowlist/filter', { values: suggestedIocs.slice(0, 500) }),
+    enabled: canTriage && suggestedIocs.length > 0,
+    staleTime: 30_000,
+  });
+  const allowedSet = new Set(allowedQuery.data?.allowed ?? []);
+  const suggestions = suggestedIocs.filter((v) => !allowedSet.has(v));
+  const hiddenSuggestions = suggestedIocs.length - suggestions.length;
+
   // Ctrl+S salva o novo relatorio (so quem pode criar relatorios).
   useSaveShortcut(createReport, canTriage && !saving);
 
@@ -417,7 +429,7 @@ export function EntryReportsTab({
                 <>
                   Indicadores de comprometimento: domínios, IPs, hashes e e-mails (hxxp e [.] são
                   aceitos). Entram na aba Relacionadas quando o relatório é publicado.
-                  {suggestedIocs.length > 0 && (
+                  {suggestions.length > 0 && (
                     <>
                       {' '}
                       <button
@@ -425,13 +437,20 @@ export function EntryReportsTab({
                         className="dl-link-button"
                         onClick={() => {
                           const present = new Set(iocs.split(/\r?\n/).map((l) => l.trim()));
-                          const extra = suggestedIocs.filter((v) => !present.has(v));
+                          const extra = suggestions.filter((v) => !present.has(v));
                           if (extra.length)
                             setIocs((iocs.trim() ? `${iocs.trim()}\n` : '') + extra.join('\n'));
                         }}
                       >
-                        Inserir IOCs sugeridos ({suggestedIocs.length})
+                        Inserir IOCs sugeridos ({suggestions.length})
                       </button>
+                      {hiddenSuggestions > 0 && (
+                        <span className="dl-hint-muted">
+                          {' '}
+                          ({hiddenSuggestions} permitido{hiddenSuggestions > 1 ? 's' : ''} oculto
+                          {hiddenSuggestions > 1 ? 's' : ''})
+                        </span>
+                      )}
                     </>
                   )}
                 </>

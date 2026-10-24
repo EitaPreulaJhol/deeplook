@@ -107,7 +107,11 @@ const TREE: NavFolder[] = [
     id: 'deteccao',
     label: 'Detecção',
     access: 'triage',
-    children: [{ to: '/yara', label: 'Regras YARA', icon: IconFilter }],
+    children: [
+      { to: '/yara', label: 'Regras YARA', icon: IconFilter },
+      // Lista de permissoes (item 69).
+      { to: '/permitidos', label: 'Indicadores permitidos', icon: IconPage },
+    ],
   },
   {
     id: 'amostras',

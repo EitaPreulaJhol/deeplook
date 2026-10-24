@@ -3724,3 +3724,8 @@ table.dl-compare td {
 .dl-retro-hits li {
   padding: 0.15rem 0;
 }
+
+/* Observacao discreta ao lado de um botao/link (ex.: sugestoes ocultas). */
+.dl-hint-muted {
+  color: var(--dl-text-muted);
+}

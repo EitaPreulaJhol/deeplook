@@ -2000,7 +2000,7 @@ Service Manager 9.
 |---|---|---|---|---|---|
 | 67 | YARA retroativo (regra nova nas amostras antigas) | regras de negócio | 🔴 | M | ✅ |
 | 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ⬜ |
-| 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ⬜ |
+| 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ✅ |
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ⬜ |
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ⬜ |
 | 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
@@ -2077,6 +2077,37 @@ decisões.
   indicador.
 - **Cuidados:** nunca escondem o que foi digitado no relatório; auditoria de quem
   incluiu; lista inicial vazia (sem "lista mágica").
+- ✅ **Implementado:** migração `20261122000000_allowlist`:
+  - `AllowedIndicator`: tipo, valor normalizado, motivo e autor; um por tipo e valor;
+  - auditoria `ALLOWLIST_ADDED`/`ALLOWLIST_REMOVED`.
+  - **Regras** (`lib/allowlist.ts`):
+    - domínio vale para os subdomínios;
+    - IPv4 aceita um IP ou uma faixa CIDR, guardada pelo endereço de rede
+      (`10.1.2.3/8` vira `10.0.0.0/8`);
+    - hashes e e-mails são exatos; um e-mail também é coberto pelo domínio dele, e uma
+      URL pelo host;
+    - a lista fica em cache por 30 s e é descartada a cada alteração.
+  - **Onde vale:**
+    - não liga amostras nas **Relacionadas**, nem pelo domínio (inclusive o
+      domínio-base) nem por IOC em comum;
+    - não dispara **alertas de IOC**;
+    - a **ficha do indicador** mostra "Indicador permitido (coberto por …): motivo",
+      para todos;
+    - some dos **IOCs sugeridos** do relatório, com a contagem dos ocultos;
+    - o que o analista escreve no relatório não muda.
+  - **Detalhe:** a lista fixa de domínios onipresentes do extrator (google.com,
+    microsoft.com…) continua; a lista de permissões é a parte da equipe.
+  - **API** (analistas):
+    - `GET`/`POST /api/allowlist` e `DELETE /api/allowlist/:id`. Valor inválido dá
+      400 no campo, com dica para faixa; repetido dá 409;
+    - `POST /api/allowlist/filter { values }` diz quais sugestões estão cobertas;
+    - `allowed` em `GET /api/iocs/:kind/:value`.
+  - **Front:**
+    - tela **Indicadores permitidos** (`/permitidos`, pasta Detecção, só analistas),
+      com tipo (a dica muda com ele), indicador e motivo; incluir com Ctrl+S; o tipo
+      fica para o próximo;
+    - tabela com autor e "Remover" (com confirmação).
+  - **Testes:** 21 de integração (Postgres) e `allowlist.mjs`.
 
 ### 70. Análise de documentos (PDF e Office)
 - **Problema:** phishing chega muito como PDF e Office; hoje só vemos tipo, entropia e
