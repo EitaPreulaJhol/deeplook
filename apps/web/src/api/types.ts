@@ -375,6 +375,8 @@ export interface Report {
   reviewNote?: string | null;
   /** Tecnicas MITRE ATT&CK (ex.: T1566.001). */
   attackTechniques?: string[];
+  /** Artigos da base de conhecimento citados (item 63). */
+  kbArticles?: { id: string; title: string }[];
   createdAt: string;
   updatedAt: string;
 }

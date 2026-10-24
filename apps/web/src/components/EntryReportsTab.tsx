@@ -12,6 +12,7 @@ import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } fro
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
+import { KbLinks, KbPicker, type KbRef } from './KbPicker';
 import { HpsmMessage } from './messages';
 import { useSaveShortcut } from './shortcuts';
 import { StatusText, VerdictTag } from './tags';
@@ -58,6 +59,7 @@ export function EntryReportsTab({
   const [findings, setFindings] = useState('');
   const [iocs, setIocs] = useState('');
   const [attack, setAttack] = useState<string[]>([]);
+  const [kb, setKb] = useState<KbRef[]>([]);
   const [verdict, setVerdict] = useState<Verdict>('SUSPICIOUS');
   // "Ao salvar": rascunho, enviar para revisao ou publicar (sem revisao obrigatoria).
   const [saveAs, setSaveAs] = useState<ReportStatus>(reviewRequired ? 'IN_REVIEW' : 'PUBLISHED');
@@ -135,7 +137,7 @@ export function EntryReportsTab({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Rascunho do relatorio: sair da aba/tela pede confirmacao.
-  useUnsavedChanges(Boolean(summary || findings || iocs || attack.length));
+  useUnsavedChanges(Boolean(summary || findings || iocs || attack.length || kb.length));
 
   const reportCheck = useRequiredFields([
     {
@@ -154,6 +156,13 @@ export function EntryReportsTab({
       api: 'attackTechniques',
       value: attack.join(','),
     },
+    {
+      id: 'report-kb',
+      label: 'Artigos da base',
+      ok: true,
+      api: 'kbArticleIds',
+      value: kb.map((a) => a.id).join(','),
+    },
   ]);
 
   const createReport = async () => {
@@ -168,11 +177,13 @@ export function EntryReportsTab({
         verdict,
         status: saveAs,
         attackTechniques: attack,
+        kbArticleIds: kb.map((a) => a.id),
       });
       setSummary('');
       setFindings('');
       setIocs('');
       setAttack([]);
+      setKb([]);
       setTemplateId('');
       reportCheck.reset();
       onCreated();
@@ -292,6 +303,13 @@ export function EntryReportsTab({
                 <HpsmField label="ATT&CK" wide top>
                   <HpsmReadonly>
                     <AttackTechniqueLinks ids={r.attackTechniques ?? []} />
+                  </HpsmReadonly>
+                </HpsmField>
+              )}
+              {(r.kbArticles?.length ?? 0) > 0 && (
+                <HpsmField label="Base de conhecimento" wide top>
+                  <HpsmReadonly>
+                    <KbLinks articles={r.kbArticles ?? []} />
                   </HpsmReadonly>
                 </HpsmField>
               )}
@@ -437,6 +455,15 @@ export function EntryReportsTab({
               help="MITRE ATT&CK: busque pelo código ou pelo nome. Viram filtro nas listas e entram no Painel."
             >
               <AttackPicker id="report-attack" value={attack} onChange={setAttack} />
+            </HpsmField>
+            <HpsmField
+              label="Artigos da base"
+              htmlFor="report-kb"
+              top
+              invalid={reportCheck.isInvalid('report-kb')}
+              help="Artigos da base de conhecimento sobre a família ou o golpe; o artigo passa a listar este relatório."
+            >
+              <KbPicker id="report-kb" value={kb} onChange={setKb} />
             </HpsmField>
             <HpsmField label="Veredito" htmlFor="report-verdict">
               <Select

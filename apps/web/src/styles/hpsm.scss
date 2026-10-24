@@ -3416,3 +3416,155 @@ table.dl-compare td {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Base de conhecimento (/kb, item 63): lista, artigo, editor e Markdown. */
+.dl-kb-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-kb-card {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--dl-panel-border);
+  background: var(--dl-surface);
+}
+
+.dl-kb-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dl-kb-card__title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.dl-kb-card__summary {
+  margin: 0.25rem 0;
+}
+
+.dl-kb-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-kb-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0 0.6rem 0.6rem;
+}
+
+.dl-kb-preview {
+  max-block-size: 34rem;
+  overflow-y: auto;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-surface);
+}
+
+.dl-kb-preview__label {
+  margin-block-end: 0.3rem;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+}
+
+.dl-kb-body {
+  max-inline-size: 60rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.dl-kb-picker__cat {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-markdown {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.dl-markdown h2,
+.dl-markdown h3,
+.dl-markdown h4,
+.dl-markdown h5,
+.dl-markdown h6 {
+  margin: 1rem 0 0.4rem;
+  font-weight: 600;
+}
+
+.dl-markdown h2 {
+  font-size: 1rem;
+}
+
+.dl-markdown h3 {
+  font-size: 0.9rem;
+}
+
+.dl-markdown p,
+.dl-markdown ul,
+.dl-markdown ol,
+.dl-markdown blockquote,
+.dl-markdown pre {
+  margin: 0 0 0.6rem;
+}
+
+.dl-markdown ul,
+.dl-markdown ol {
+  padding-inline-start: 1.4rem;
+}
+
+.dl-markdown ul {
+  list-style: disc;
+}
+
+.dl-markdown ol {
+  list-style: decimal;
+}
+
+.dl-markdown blockquote {
+  padding: 0.2rem 0.75rem;
+  border-inline-start: 3px solid var(--dl-panel-border);
+  color: var(--dl-text-muted);
+}
+
+.dl-markdown code {
+  padding: 0 0.2rem;
+  background: var(--dl-readonly-bg);
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+}
+
+.dl-markdown pre {
+  overflow-x: auto;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-readonly-bg);
+}
+
+.dl-markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.dl-markdown hr {
+  margin: 0.8rem 0;
+  border: 0;
+  border-block-start: 1px solid var(--dl-panel-border);
+}
+
+@media (max-width: 900px) {
+  .dl-kb-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

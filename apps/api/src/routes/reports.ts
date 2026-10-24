@@ -32,6 +32,12 @@ const ReportSchema = z.object({
     })
     .transform(normalizeTechniques)
     .optional(),
+  /** Artigos da base de conhecimento citados (item 63). */
+  kbArticleIds: z
+    .array(z.string().min(1).max(40))
+    .max(10, 'no máximo 10 artigos')
+    .transform((ids) => [...new Set(ids)])
+    .optional(),
   /** Ao salvar: rascunho, enviar para revisao ou publicar direto. */
   status: z.enum(['DRAFT', 'IN_REVIEW', 'PUBLISHED']).default('DRAFT'),
 });
@@ -43,7 +49,19 @@ export const reviewRequired = () => env.REPORT_REVIEW_REQUIRED === 'true';
 const reportInclude = {
   analyst: { select: { id: true, displayName: true, role: true } },
   reviewedBy: { select: { id: true, displayName: true } },
+  kbArticles: { select: { id: true, title: true }, orderBy: { title: 'asc' } },
 } satisfies Prisma.ReportInclude;
+
+/** Artigos citados que nao existem (400 no campo "Artigos da base"). */
+async function missingKbArticles(ids: string[] | undefined): Promise<boolean> {
+  if (!ids?.length) return false;
+  return (await prisma.kbArticle.count({ where: { id: { in: ids } } })) !== ids.length;
+}
+
+const kbNotFound = {
+  error: 'Dados invalidos.',
+  details: { kbArticleIds: ['artigo da base não encontrado'] },
+};
 
 /**
  * Publica o relatorio (direto ou na aprovacao da revisao): conclui a amostra com
@@ -135,7 +153,9 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const parsed = ReportSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
-    const { summary, findings, iocs, verdict, status, attackTechniques } = parsed.data;
+    const { summary, findings, iocs, verdict, status, attackTechniques, kbArticleIds } =
+      parsed.data;
+    if (await missingKbArticles(kbArticleIds)) return reply.code(400).send(kbNotFound);
     if (status === 'PUBLISHED' && reviewRequired()) {
       return reply
         .code(400)
@@ -152,6 +172,7 @@ export async function reportRoutes(app: FastifyInstance) {
           iocs: iocs || null,
           verdict,
           attackTechniques: attackTechniques ?? [],
+          kbArticles: { connect: (kbArticleIds ?? []).map((kbId) => ({ id: kbId })) },
         },
       });
       await recordEvent(tx, {
@@ -190,6 +211,7 @@ export async function reportRoutes(app: FastifyInstance) {
     const parsed = ReportSchema.partial().safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const data = parsed.data;
+    if (await missingKbArticles(data.kbArticleIds)) return reply.code(400).send(kbNotFound);
     if (reviewRequired() && (report.status === 'PUBLISHED' || data.status === 'PUBLISHED')) {
       return reply
         .code(400)
@@ -205,6 +227,9 @@ export async function reportRoutes(app: FastifyInstance) {
           iocs: data.iocs,
           verdict: data.verdict,
           attackTechniques: data.attackTechniques,
+          ...(data.kbArticleIds && {
+            kbArticles: { set: data.kbArticleIds.map((kbId) => ({ id: kbId })) },
+          }),
           // Despublicar (sem revisao obrigatoria) volta a rascunho.
           ...(data.status === 'DRAFT' ? { status: 'DRAFT' as ReportStatus } : {}),
         },

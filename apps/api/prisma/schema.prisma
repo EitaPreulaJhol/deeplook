@@ -102,6 +102,9 @@ model User {
   yaraRules       YaraRule[]              @relation("YaraRuleAuthor")
   yaraRulesEdited YaraRule[]              @relation("YaraRuleEditor")
   teamViews       TeamView[]
+  kbCreated       KbArticle[]             @relation("KbAuthor")
+  kbUpdated       KbArticle[]             @relation("KbEditor")
+  kbRevisions     KbArticleRevision[]
 }
 
 model Session {
@@ -235,6 +238,8 @@ model Report {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
+  /// Artigos da base de conhecimento citados (item 63).
+  kbArticles    KbArticle[] @relation("ReportKbArticles")
   /// Indicadores extraidos do campo `iocs` (so de relatorios publicados).
   extractedIocs ReportIoc[]
 
@@ -640,4 +645,46 @@ model TeamView {
   createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+enum KbCategory {
+  MALWARE_FAMILY
+  SCAM
+  TECHNIQUE
+  PROCEDURE
+}
+
+/// Base de conhecimento (item 63): artigos em Markdown; todos leem, analistas escrevem.
+model KbArticle {
+  id          String              @id @default(cuid())
+  title       String              @unique
+  summary     String
+  category    KbCategory
+  tags        String[]            @default([])
+  body        String
+  createdById String?
+  createdBy   User?               @relation("KbAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?               @relation("KbEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  revisions   KbArticleRevision[]
+  reports     Report[]            @relation("ReportKbArticles")
+
+  @@index([category, updatedAt])
+}
+
+/// Versao anterior de um artigo (guardada a cada edicao; o artigo mostra quem e quando).
+model KbArticleRevision {
+  id        String    @id @default(cuid())
+  articleId String
+  article   KbArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  editorId  String?
+  editor    User?     @relation(fields: [editorId], references: [id], onDelete: SetNull)
+  title     String
+  summary   String
+  body      String
+  createdAt DateTime  @default(now())
+
+  @@index([articleId, createdAt])
 }

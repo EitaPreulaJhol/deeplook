@@ -206,6 +206,13 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## Base de conhecimento
+
+Artigos em Markdown sobre famílias de malware, golpes, técnicas e procedimentos
+(**Base de conhecimento**, no topo do navegador). Todos leem; analistas e admins escrevem,
+com pré-visualização. Os relatórios citam artigos, e cada artigo lista os relatórios
+publicados que o citam. O Markdown é desenhado sem HTML, e URLs soltas não viram link.
+
 ## MITRE ATT&CK
 
 Os relatórios podem citar técnicas do **MITRE ATT&CK** (Enterprise v20.0), por código ou

@@ -16,6 +16,7 @@ import {
   IconChart,
   IconFilter,
   IconFolder,
+  IconHelp,
   IconHistory,
   IconHome,
   IconKey,
@@ -63,6 +64,8 @@ const ROOT_LEAVES: NavLeaf[] = [
   { to: '/inicio', label: 'Página Inicial', icon: IconHome },
   { to: '/painel', label: 'Painel', icon: IconChart },
   { to: '/inbox', label: 'Caixa de entrada', icon: IconBell, count: 'unread' },
+  // Artigos da equipe sobre malware, golpes e procedimentos (item 63).
+  { to: '/kb', label: 'Base de conhecimento', icon: IconHelp },
 ];
 
 /* Arvore do "Navegador do Sistema": pastas com as telas da aplicacao. */

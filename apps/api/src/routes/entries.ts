@@ -906,6 +906,7 @@ export async function entryRoutes(app: FastifyInstance) {
           include: {
             analyst: { select: { id: true, displayName: true, role: true } },
             reviewedBy: { select: { id: true, displayName: true } },
+            kbArticles: { select: { id: true, title: true }, orderBy: { title: 'asc' } },
           },
         },
       },

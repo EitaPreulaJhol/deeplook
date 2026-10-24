@@ -22,6 +22,7 @@ import { entryRoutes } from './routes/entries';
 import { favoritesRoutes } from './routes/favorites';
 import { hexRoutes } from './routes/hex';
 import { iocRoutes } from './routes/iocs';
+import { kbRoutes } from './routes/kb';
 import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
 import { relatedRoutes } from './routes/related';
@@ -80,6 +81,7 @@ async function main() {
   await app.register(attackRoutes);
   await app.register(compareRoutes);
   await app.register(teamViewRoutes);
+  await app.register(kbRoutes);
   await app.register(yaraRoutes);
   await app.register(hexRoutes);
   await app.register(adminRoutes);

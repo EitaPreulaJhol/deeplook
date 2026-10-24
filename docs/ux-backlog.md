@@ -1430,7 +1430,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ✅ |
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
 | 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ✅ |
-| 63 | Base de conhecimento | Knowledge Management | 🔴 | M–G | ⬜ |
+| 63 | Base de conhecimento | Knowledge Management | 🔴 | M–G | ✅ |
 | 64 | Cota de envio | limites | ⚪ | P | ✅ |
 | 65 | Webhooks de saída | integrações | ⚪ | M | ❌ (fora, por enquanto) |
 
@@ -1770,6 +1770,37 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   - relatórios citam artigos (campo "Artigos da base" com busca); o relatório mostra os
     links e o artigo lista as amostras/relatórios publicados que o citam;
   - "Ir para:" acha artigos pelo título.
+- ✅ **Implementado:** migração `20261118000000_knowledge_base`:
+  - `KbArticle`: título único, resumo, categoria, tags, corpo, autor e último editor;
+  - `KbArticleRevision`: a versão anterior, guardada a cada edição;
+  - ligação muitos-para-muitos `Report.kbArticles`.
+  - **API** (`routes/kb.ts`):
+    - `GET /api/kb?q=&category=` (todos): busca sem caixa em título, resumo, texto e
+      tags; os títulos que batem vêm primeiro; traz `citations` (relatórios publicados);
+    - `GET /api/kb/:id`: corpo, autor, as últimas 20 edições (quem e quando) e os
+      relatórios **publicados** que citam o artigo, sem as amostras da lixeira;
+    - `POST`/`PATCH` só para analistas e admins. Título repetido dá 409, e as tags vão
+      em minúsculas, sem repetir (até 10). Cada `PATCH` guarda a versão anterior;
+    - `DELETE`: quem criou ou um admin. Os relatórios perdem só o link;
+    - relatórios: `kbArticleIds` no `POST`/`PATCH` (até 10; artigo inexistente dá 400
+      no campo), e `kbArticles` (id e título) no relatório e na ficha.
+  - **Front:**
+    - **Base de conhecimento** no topo do navegador, para todos;
+    - lista `/kb` com busca e categoria (ficam na URL) e cartões com categoria, tags,
+      atualização e "Citado em N relatórios";
+    - artigo `/kb/:id`, com o título na aba do workspace, Editar, Excluir (para quem
+      pode), "Citado em" e "Alterações";
+    - editor `/kb/novo` e `/kb/:id/editar`: obrigatórios destacados, Ctrl+S,
+      confirmação ao sair sem salvar e **pré-visualização ao lado**;
+    - **Markdown** (`components/Markdown.tsx`): renderizador próprio, sem HTML e sem
+      dependência nova. Desenha títulos, listas, citações, código, negrito/itálico e
+      links. Só viram link endereços http/https (em nova aba, sem opener) e caminhos do
+      app; uma URL solta fica como texto, para ninguém clicar num domínio malicioso por
+      engano, e `<script>` aparece como texto;
+    - relatório: campo **Artigos da base** (busca, setas + Enter, etiquetas) e links na
+      leitura;
+    - "Ir para:" com o título exato abre o artigo, e `kb: termo` busca na base.
+  - **Testes:** 24 de integração (Postgres) e `kb.mjs`.
 
 ### 64. Cota de envio (opcional)
 - **Proposta:** limite de envios por usuário comum por dia (`UPLOAD_DAILY_LIMIT`), com

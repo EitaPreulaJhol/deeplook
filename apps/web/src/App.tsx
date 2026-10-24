@@ -15,6 +15,8 @@ import { GlobalHistoryPage } from './pages/GlobalHistoryPage';
 import { HomePage } from './pages/HomePage';
 import { InboxPage } from './pages/InboxPage';
 import { IocPage } from './pages/IocPage';
+import { KbArticlePage } from './pages/KbArticlePage';
+import { KbListPage } from './pages/KbListPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyUploadsPage } from './pages/MyUploadsPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -95,6 +97,10 @@ export default function App() {
         <Route path="/entries/:id" element={<EntryDetailPage />} />
         <Route path="/iocs/:kind/:value" element={<IocPage />} />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/kb" element={<KbListPage />} />
+        <Route path="/kb/novo" element={<KbArticlePage key="new" mode="new" />} />
+        <Route path="/kb/:id" element={<KbArticlePage key="view" mode="view" />} />
+        <Route path="/kb/:id/editar" element={<KbArticlePage key="edit" mode="edit" />} />
         <Route path="/painel" element={<DashboardPage />} />
         <Route path="/revisoes" element={<ReviewQueuePage />} />
         <Route

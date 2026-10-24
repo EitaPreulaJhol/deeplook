@@ -210,6 +210,10 @@ export function createState({ loggedIn = false } = {}) {
     /** Visoes da equipe (pasta do navegador) e as chamadas de escrita. */
     teamViews: [],
     teamViewCalls: [],
+    /** Base de conhecimento: artigos completos, chamadas de escrita e ultimas buscas. */
+    kbArticles: [],
+    kbCalls: [],
+    kbQueries: [],
   };
 }
 
@@ -319,6 +323,41 @@ export async function setupMock(context, state) {
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
+      // Base de conhecimento: todos leem; escrita registrada em kbCalls.
+      if (p === '/api/kb' && req.method() === 'GET') {
+        state.kbQueries.push(url.search);
+        const q = (url.searchParams.get('q') || '').toLowerCase();
+        const category = url.searchParams.get('category');
+        const items = state.kbArticles
+          .filter((a) => !category || a.category === category)
+          .filter((a) => !q || [a.title, a.summary, a.body, ...a.tags].some((t) => t.toLowerCase().includes(q)))
+          .map(({ body: _body, revisions: _r, reports: _rep, createdBy: _c, canDelete: _d, ...a }) => a);
+        return json(route, 200, { total: items.length, items });
+      }
+      if ((p === '/api/kb' && req.method() === 'POST') || /^\/api\/kb\/\w+$/.test(p)) {
+        const article = state.kbArticles.find((a) => a.id === p.split('/').pop());
+        if (req.method() === 'GET') {
+          return article ? json(route, 200, { article }) : json(route, 404, { error: 'Artigo não encontrado.' });
+        }
+        state.kbCalls.push({ method: req.method(), id: article?.id ?? null, body });
+        if (req.method() === 'DELETE') {
+          state.kbArticles = state.kbArticles.filter((a) => a !== article);
+          return json(route, 200, { ok: true });
+        }
+        if (state.kbArticles.some((a) => a.title === body.title && a !== article)) {
+          return json(route, 409, { error: 'Já existe um artigo com este título.', details: { title: ['título em uso'] } });
+        }
+        const at = '2026-10-23T18:00:00.000Z';
+        const me = { id: 'u1', displayName: 'Ana Souza' };
+        if (article) {
+          Object.assign(article, body, { updatedAt: at, updatedBy: me });
+          article.revisions = [{ id: `rv${Date.now()}`, createdAt: at, editor: me }, ...article.revisions];
+          return json(route, 200, { article });
+        }
+        const created = { id: `kb${state.kbArticles.length + 1}`, ...body, createdAt: at, updatedAt: at, createdBy: me, updatedBy: me, canDelete: true, revisions: [], reports: [], citations: 0 };
+        state.kbArticles.push(created);
+        return json(route, 201, { article: created });
+      }
       // Visoes da equipe: so analistas; mesma URL = 409.
       if (p === '/api/team-views' || /^\/api\/team-views\/\w+$/.test(p)) {
         if (state.role === 'USER') {

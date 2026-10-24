@@ -451,6 +451,9 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/admin/audit/export.csv` | admin: CSV da auditoria com os mesmos filtros |
 | GET | `/api/entries/:id/antivirus` | ClamAV: `{ enabled, pending, scan: { status, signature, error, engine, dbVersion, dbDate, scannedAt } }` (aceita token) |
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
+| GET | `/api/kb?q=&category=&limit=&offset=` | base de conhecimento (todos): `{ total, items: [{ id, title, summary, category, tags, updatedAt, updatedBy, citations }] }` |
+| GET | `/api/kb/:id` | artigo `{ ..., body, createdBy, canDelete, revisions: [{ createdAt, editor }], reports: [{ id, updatedAt, analyst, entry }] }` (só relatórios publicados) |
+| POST/PATCH/DELETE | `/api/kb` · `/api/kb/:id` | analistas: `{ title, summary, category (MALWARE_FAMILY/SCAM/TECHNIQUE/PROCEDURE), tags[], body }`; 409 título em uso; excluir: autor ou admin. Relatórios aceitam `kbArticleIds` |
 | GET | `/api/me/upload-quota` | cota de envio `{ limit, used, remaining, resetAt }` (`limit` null = sem limite); envios acima dela dão 429 `{ error, resetAt }` |
 | GET/POST | `/api/team-views` | analistas: visões da equipe `{ views: [{ id, label, url, createdBy, count, canEdit }] }`; POST `{ label, url }` (só `/history?…`; 409 repetida ou acima de 30) |
 | PATCH/DELETE | `/api/team-views/:id` | renomear `{ label }` / remover: quem compartilhou ou admin |
@@ -582,6 +585,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `kb.mjs` | base de conhecimento: navegador, novo artigo (obrigatórios, pré-visualização: título, ênfase, lista, URL solta sem link, só http(s)/internos, HTML como texto), Ctrl+S, leitura e aba, editar (PATCH, alterações), busca e categoria, citações, "Ir para:" pelo título e `kb:`, campo do relatório e links, excluir, usuário comum só lê |
 | `quota.mjs` | cota de envio: analista sem aviso, "Restam N envios" (e singular), 429 da API, esgotada com horário local e botão desabilitado |
 | `team-views.mjs` | visões da equipe: pasta com contador e autor, sem menu para quem não pode, abrir e destacar, Compartilhar visão (nome sugerido, envio, aviso), repetida, renomear pelo menu, remover pelo Delete com confirmação, sem botão fora do Histórico Global, usuário comum sem pasta e sem consulta |
 | `compare.mjs` | comparar: "Comparar as 2" só com duas marcadas, lado a lado (difere destacado, linhas vazias escondidas, link), listas só com itens (contagens, tipo do IOC), trocar os lados, mesmo conteúdo, "Comparar com…" da ficha (mesma amostra recusada, ID), inexistente, sem parâmetros, usuário comum sem acesso |
