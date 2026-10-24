@@ -541,6 +541,8 @@ enum AuditAction {
   YARA_RULE_DELETED
   ALLOWLIST_ADDED
   ALLOWLIST_REMOVED
+  /// Lista importada (item 78): targetLabel = quantos, detail = motivo.
+  ALLOWLIST_IMPORTED
   LOGIN_FAILED
   LOGIN_LOCKED
   API_ACCESS_GRANTED

@@ -54,6 +54,7 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   YARA_RULE_DELETED: { label: 'Regra YARA excluída', tone: 'gray' },
   ALLOWLIST_ADDED: { label: 'Indicador permitido incluído', tone: 'gray' },
   ALLOWLIST_REMOVED: { label: 'Indicador permitido removido', tone: 'gray' },
+  ALLOWLIST_IMPORTED: { label: 'Indicadores permitidos importados', tone: 'gray' },
 };
 
 const PERIODS = [

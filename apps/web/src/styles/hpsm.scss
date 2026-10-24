@@ -4034,3 +4034,70 @@ table.dl-compare td {
 .dl-print--management .hpsm-section {
   break-inside: avoid;
 }
+
+/* ---- Importar indicadores (item 78) ---- */
+.dl-import {
+  display: flex;
+  flex-direction: column;
+  max-width: min(52rem, 96vw);
+  max-block-size: 90vh;
+}
+
+.dl-import__body {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  overflow: auto;
+}
+
+.dl-import__hint {
+  margin: 0;
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+}
+
+.dl-import__row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dl-import__error {
+  margin: 0;
+  color: var(--dl-status-red);
+  font-weight: 600;
+}
+
+.dl-import__summary {
+  margin: 0;
+  font-size: var(--dl-font-size);
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.dl-import__subhead {
+  margin: 0.4rem 0 0;
+  font-size: var(--dl-font-size);
+  font-weight: 700;
+}
+
+.dl-import__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.dl-import__table :is(th, td) {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--dl-grid-line);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.dl-import__table thead th {
+  background: var(--dl-section-head-2);
+}
+
+/* Ja existentes, cobertos e sem vaga ficam apagados: so os novos entram. */
+.dl-import__table tr:is(.is-exists, .is-covered, .is-limit) td {
+  color: var(--dl-text-muted);
+}

@@ -313,7 +313,8 @@ export type AuditAction =
   | 'YARA_RULE_UPDATED'
   | 'YARA_RULE_DELETED'
   | 'ALLOWLIST_ADDED'
-  | 'ALLOWLIST_REMOVED';
+  | 'ALLOWLIST_REMOVED'
+  | 'ALLOWLIST_IMPORTED';
 
 /** Registro de auditoria (GET /api/admin/audit). */
 export interface AuditEvent {

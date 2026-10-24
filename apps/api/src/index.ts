@@ -27,6 +27,7 @@ import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
 import { favoritesRoutes } from './routes/favorites';
 import { hexRoutes } from './routes/hex';
+import { iocImportRoutes } from './routes/ioc-import';
 import { iocRoutes } from './routes/iocs';
 import { kbRoutes } from './routes/kb';
 import { managementRoutes } from './routes/management';
@@ -87,6 +88,8 @@ async function main() {
   await app.register(evidenceRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
+  // Importar indicadores (item 78).
+  await app.register(iocImportRoutes);
   await app.register(reputationRoutes);
   await app.register(antivirusRoutes);
   await app.register(attackRoutes);

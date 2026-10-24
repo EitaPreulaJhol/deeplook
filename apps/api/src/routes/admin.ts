@@ -57,6 +57,7 @@ const AuditQuery = z.object({
       'YARA_RULE_DELETED',
       'ALLOWLIST_ADDED',
       'ALLOWLIST_REMOVED',
+      'ALLOWLIST_IMPORTED',
     ])
     .optional(),
   q: z.string().trim().max(100).optional(),
@@ -97,6 +98,7 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   YARA_RULE_DELETED: 'Regra YARA excluída',
   ALLOWLIST_ADDED: 'Indicador permitido incluído',
   ALLOWLIST_REMOVED: 'Indicador permitido removido',
+  ALLOWLIST_IMPORTED: 'Indicadores permitidos importados',
 };
 
 export async function adminRoutes(app: FastifyInstance) {

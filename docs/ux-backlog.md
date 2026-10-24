@@ -2009,7 +2009,7 @@ Service Manager 9.
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ✅ |
 | 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ✅ |
 | 77 | Relatório gerencial | Reports | ⚪ | M | ✅ |
-| 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ⬜ |
+| 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ✅ |
 | 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⬜ (decisão) |
 | 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ⬜ (decisão) |
 
@@ -2431,6 +2431,37 @@ decisões.
   reconhecido antes de confirmar.
 - **Cuidados:** limite de linhas; indicadores inválidos listados à parte; nada é buscado
   na internet.
+- ✅ **Implementado** (migração `20261128000000_audit_allowlist_import`: ação de auditoria
+  `ALLOWLIST_IMPORTED`):
+  - **Leitura** (`lib/ioc-import.ts`, só texto, nada é buscado na internet):
+    - **CSV/lista:** um indicador por linha, com ou sem coluna de tipo ("ip;1.2.3.4",
+      "domain,x.test"). Separador `;`, `,` ou tab; cabeçalho e BOM do Excel aceitos;
+      hxxp e [.] desfeitos; uma URL vira o host;
+    - **STIX 2.1:** `indicator` com pattern (`ipv4-addr`, `domain-name`, `email-addr`,
+      `url` e hashes de `file`, com OR/AND) e os observáveis soltos (`ipv4-addr`,
+      `domain-name`, `email-addr`, `url`, `file`). Pattern sem indicador suportado ou de
+      outra linguagem vai para os inválidos;
+    - limites: 5000 linhas ou objetos e 2 MB; repetidos contam uma vez.
+    - **Validação por destino:** seguir só aceita o que pode aparecer nos relatórios (sem
+      faixa CIDR e sem IP privado); a lista de permissões aceita faixas.
+  - **API** (`routes/ioc-import.ts`):
+    - `POST /api/iocs/import/preview { target, text }` → reconhecidos com a situação
+      ("novo", "já seguido/permitido", "já coberto" por domínio ou faixa, "sem vaga"
+      acima do limite de 200 seguidos), inválidos com o motivo, repetidos e vagas;
+    - `POST /api/iocs/import { target, items, reason? }` revalida tudo no servidor e
+      grava só os novos. Seguir é por usuário (qualquer um); permitidos são só para
+      analistas, com motivo obrigatório e uma linha na auditoria com a quantidade.
+  - **Tela:** diálogo **Importar indicadores**, aberto pela Minha Conta > Indicadores
+    ("importe uma lista") e pelo botão **Importar…** dos Indicadores permitidos:
+    - colar ou **Escolher arquivo…** (.csv, .txt, .json);
+    - **Pré-visualizar**: resumo, tabela dos reconhecidos (os que não entram ficam
+      apagados) e "Não importados" com o motivo;
+    - motivo (permitidos) e **Importar N**. Esc fecha.
+  - **Testes:**
+    - 24 checagens no Postgres: CSV (tipo na coluna, URL, faixa, IP privado, texto,
+      repetido), situação, revalidação, limite de 200, permitidos (já, coberto, faixa,
+      motivo, autor, auditoria, lista recarregada), STIX e erros;
+    - `ioc-import.mjs`.
 
 ### 79. Notificações por e-mail — decisão pendente
 - **Proposta:** enviar por e-mail (SMTP) o que hoje vai só para a Caixa de entrada

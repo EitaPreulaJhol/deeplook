@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { IocKind } from '../api/types';
 import { HpsmSection } from './HpsmForm';
+import { IocImportDialog } from './IocImportDialog';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
 import { HpsmLoading, HpsmMessage } from './messages';
 
@@ -31,6 +32,7 @@ interface Watch {
 export function WatchesTab() {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [importing, setImporting] = useState(false);
   const query = useQuery({
     queryKey: ['me', 'watches'],
     queryFn: () => api.get<{ watches: Watch[] }>('/me/watches'),
@@ -61,8 +63,24 @@ export function WatchesTab() {
         <p className="dl-static-empty">
           Você recebe um aviso na Caixa de entrada quando um destes indicadores aparece numa amostra
           nova ou num relatório publicado. Para seguir outro, abra a ficha dele (pelo "Ir para:" ou
-          pelos IOCs de uma amostra) e clique em Seguir.
+          pelos IOCs de uma amostra) e clique em Seguir, ou{' '}
+          <button type="button" className="dl-link-button" onClick={() => setImporting(true)}>
+            importe uma lista (CSV ou STIX)
+          </button>
+          .
         </p>
+        {importing && (
+          <IocImportDialog
+            target="watch"
+            onClose={() => setImporting(false)}
+            onDone={(text) => {
+              setImporting(false);
+              setNotice({ ok: true, text });
+              void queryClient.invalidateQueries({ queryKey: ['me', 'watches'] });
+              void queryClient.invalidateQueries({ queryKey: ['ioc'] });
+            }}
+          />
+        )}
         {watches.length > 0 && (
           <TableContainer>
             <Table size="xs" aria-label="Indicadores que sigo">

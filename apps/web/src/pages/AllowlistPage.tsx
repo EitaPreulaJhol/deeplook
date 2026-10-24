@@ -19,7 +19,8 @@ import type { IocKind } from '../api/types';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
-import { IconAdd } from '../components/icons';
+import { IconAdd, IconDownload } from '../components/icons';
+import { IocImportDialog } from '../components/IocImportDialog';
 import { IOC_KIND_LABELS } from '../components/iocs';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
@@ -62,6 +63,7 @@ export function AllowlistPage() {
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [importing, setImporting] = useState(false);
   const { allowNavigation } = useUnsavedChanges(Boolean(form.value || form.reason));
   const kind = KINDS.find((k) => k.id === form.kind)!;
 
@@ -132,7 +134,24 @@ export function AllowlistPage() {
           disabled={busy}
           onClick={() => void add()}
         />
+        <HpsmToolbarButton
+          label="Importar…"
+          title="Importar uma lista (CSV) ou um pacote STIX 2.1"
+          icon={IconDownload}
+          onClick={() => setImporting(true)}
+        />
       </HpsmToolbar>
+      {importing && (
+        <IocImportDialog
+          target="allow"
+          onClose={() => setImporting(false)}
+          onDone={(text) => {
+            setImporting(false);
+            setNotice({ ok: true, text });
+            void queryClient.invalidateQueries({ queryKey: ['allowlist'] });
+          }}
+        />
+      )}
       <PageHeader
         title="Indicadores permitidos"
         subtitle="Legítimos conhecidos: não ligam amostras nas Relacionadas, não geram alertas de IOC e somem dos IOCs sugeridos. O que for escrito no relatório não muda."
