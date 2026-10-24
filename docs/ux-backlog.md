@@ -1988,3 +1988,139 @@ equipe, sempre no padrão visual do HP Service Manager 9.
     - a **imagem Docker** aplicando as migrações, o seed e subindo contra um banco vazio;
     - as falhas do banco traduzidas;
     - a suíte completa de Playwright.
+
+## Sexta leva — ideias 67 a 80
+
+Aprofundar a análise (documentos, similaridade, YARA retroativo), achar as coisas mais
+rápido (busca avançada), dividir o trabalho da equipe sozinho (atribuição e
+escalonamento) e fechar as pontas dos casos e relatórios, sempre no padrão visual do HP
+Service Manager 9.
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 67 | YARA retroativo (regra nova nas amostras antigas) | regras de negócio | 🔴 | M | ⬜ |
+| 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ⬜ |
+| 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ⬜ |
+| 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ⬜ |
+| 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ⬜ |
+| 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
+| 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ⬜ |
+| 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ⬜ |
+| 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ⬜ |
+| 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ⬜ |
+| 77 | Relatório gerencial | Reports | ⚪ | M | ⬜ |
+| 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ⬜ |
+| 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⬜ (decisão) |
+| 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ⬜ (decisão) |
+
+**Ordem sugerida (uma etapa por item, com testes, documentação e commit próprio):**
+67 → 69 → 68 → 70 → 71 → 73 → 74 → 75 → 76 → 77 → 78. Depois, 72, 79 e 80 conforme as
+decisões.
+
+### 67. YARA retroativo
+- **Problema:** uma regra YARA nova só vale para os próximos envios; para saber se ela
+  pega amostras antigas, é preciso "Escanear de novo" uma por uma.
+- **Proposta:** na tela Regras YARA, **Aplicar às amostras existentes** (por regra):
+  varre em segundo plano os arquivos ainda guardados, com progresso ("1.240 de 3.000"),
+  e lista as amostras que casaram, com link. O resultado fica na seção YARA da ficha.
+- **Cuidados:** uma varredura retroativa por vez; arquivos expurgados ficam de fora;
+  cancelar a qualquer momento; limite de tamanho por arquivo; não trava a API.
+
+### 68. Busca avançada
+- **Problema:** a busca da lista só olha título, hash, URL e nome do arquivo; o que está
+  nos relatórios, comentários, base de conhecimento e casos não aparece.
+- **Proposta:** tela **Busca** com um campo só e resultados agrupados por tipo: amostras,
+  relatórios (resumo, achados, IOCs), comentários, artigos e casos, cada um com o trecho
+  que casou destacado. Filtros por tipo e período; o "Ir para:" leva a ela quando o
+  texto não é ID, hash nem indicador.
+- **Cuidados:** busca textual do Postgres (dicionário português, com índice),
+  respeitando o que cada pessoa pode ver (usuário comum não vê casos nem rascunhos).
+
+### 69. Lista de permissões de indicadores
+- **Problema:** domínios e IPs legítimos (microsoft.com, google.com, o próprio domínio da
+  empresa) aparecem nos IOCs sugeridos, nas Relacionadas e nos alertas, gerando ruído.
+- **Proposta:** aba **Indicadores permitidos** (analistas): domínio (com subdomínios),
+  IP/faixa ou hash, com motivo. Indicadores permitidos somem das sugestões, não ligam
+  amostras nas Relacionadas, não disparam alertas de IOC e aparecem marcados na ficha do
+  indicador.
+- **Cuidados:** nunca escondem o que foi digitado no relatório; auditoria de quem
+  incluiu; lista inicial vazia (sem "lista mágica").
+
+### 70. Análise de documentos (PDF e Office)
+- **Problema:** phishing chega muito como PDF e Office; hoje só vemos tipo, entropia e
+  strings.
+- **Proposta:** na análise estática, para **PDF**: JavaScript, ações automáticas
+  (OpenAction/AA), arquivos embutidos, formulários e links; para **Office** (OOXML e o
+  formato antigo OLE): presença de **macros VBA** (nomes dos módulos e trechos
+  suspeitos: AutoOpen, Shell, CreateObject, URLDownloadToFile), objetos OLE embutidos e
+  links externos (template remoto). Seção "Documento" na ficha, com alertas.
+- **Cuidados:** só leitura de bytes, com limites (zip-bomb, recursão); nada é executado;
+  falha na análise não impede o envio.
+
+### 71. Similaridade por hash difuso (TLSH)
+- **Problema:** variantes de um mesmo malware têm SHA-256 diferente e não aparecem como
+  relacionadas.
+- **Proposta:** calcular o **TLSH** de cada arquivo no envio e mostrar na aba
+  Relacionadas as amostras parecidas ("94% parecida"), com limiar ajustável.
+- **Cuidados:** cálculo em JavaScript puro ou WASM (sem binário nativo); comparação
+  eficiente (pré-filtro por tamanho e tipo); amostras antigas calculadas em segundo plano.
+
+### 72. Regras de atribuição automática — decisão pendente
+- **Proposta:** regras "quando chegar amostra com tipo/tag/prioridade X, atribuir ao
+  analista Y" ou **rodízio** entre analistas de um grupo, pulando quem está ausente.
+- **Decisão:** grupos de analistas (ex.: Phishing, Malware) ou só rodízio geral? Quem
+  configura (só admin)?
+
+### 73. Escalonamento por prazo
+- **Problema:** amostra atrasada só aparece na fila "Atrasadas"; ninguém é avisado.
+- **Proposta:** ao entrar em alerta, avisar o responsável na Caixa de entrada; ao
+  atrasar, avisar também os admins e, se ligado, subir a prioridade um nível. Tudo no
+  histórico da amostra.
+- **Cuidados:** um aviso por mudança de estado (sem repetir a cada minuto); sem
+  responsável, avisa os analistas.
+
+### 74. Exportar o caso
+- **Proposta:** no caso, **Exportar (Markdown)** e **Imprimir**: dados, amostras com
+  hash e veredito, relatórios publicados, IOCs de todas as amostras (sem repetir),
+  técnicas ATT&CK e linha do tempo; IOCs do caso também em CSV/STIX.
+- **Cuidados:** mesmo visual da ficha para impressão.
+
+### 75. Versões do relatório
+- **Problema:** relatório publicado pode ser editado (sem revisão obrigatória) e não fica
+  registro do que mudou.
+- **Proposta:** cada edição guarda a versão anterior; o relatório mostra "Versões (3)" e
+  a diferença entre duas versões (linhas adicionadas e removidas), com quem e quando.
+
+### 76. Evidências no relatório
+- **Proposta:** anexar **imagens** ao relatório (prints da página falsa, da VM do
+  sandbox, do e-mail), guardadas no MinIO, com miniaturas e visualização ampliada; entram
+  na ficha para impressão e na exportação do caso.
+- **Cuidados:** só imagens (PNG, JPEG, WebP), tamanho máximo, metadados EXIF removidos,
+  verificação do tipo real (não confiar na extensão).
+
+### 77. Relatório gerencial
+- **Proposta:** tela **Relatórios** (admin e analistas) com o resumo de um período:
+  amostras recebidas e concluídas, tempo médio até concluir (por prioridade), vereditos,
+  técnicas mais vistas, casos abertos e encerrados e carga por analista; exportar em CSV
+  e imprimir.
+
+### 78. Importar indicadores
+- **Proposta:** importar uma lista de indicadores (CSV ou pacote STIX 2.1) para **seguir**
+  (alertas de IOC) ou para a **lista de permissões**, com pré-visualização do que foi
+  reconhecido antes de confirmar.
+- **Cuidados:** limite de linhas; indicadores inválidos listados à parte; nada é buscado
+  na internet.
+
+### 79. Notificações por e-mail — decisão pendente
+- **Proposta:** enviar por e-mail (SMTP) o que hoje vai só para a Caixa de entrada
+  (menções, atribuições, relatório devolvido, alerta de IOC), com opção por pessoa;
+  também "Esqueci a senha" por e-mail.
+- **Decisão:** há servidor SMTP disponível? Quais avisos vão por e-mail por padrão?
+
+### 80. Captura da página de um link — decisão pendente
+- **Proposta:** para amostras do tipo link, abrir a página num **navegador isolado**
+  (contêiner próprio, sem acesso à rede interna) e guardar captura de tela, HTML,
+  redirecionamentos e certificado, como evidência e para o analista não precisar abrir o
+  link.
+- **Decisão:** a rede do servidor pode acessar links maliciosos (saída para a internet,
+  talvez por proxy ou VPN)? Captura automática no envio ou só sob demanda?
