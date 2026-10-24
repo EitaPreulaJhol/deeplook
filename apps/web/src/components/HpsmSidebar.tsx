@@ -66,6 +66,8 @@ const ROOT_LEAVES: NavLeaf[] = [
   { to: '/inbox', label: 'Caixa de entrada', icon: IconBell, count: 'unread' },
   // Artigos da equipe sobre malware, golpes e procedimentos (item 63).
   { to: '/kb', label: 'Base de conhecimento', icon: IconHelp },
+  // Busca em amostras, relatorios, comentarios, base e casos (item 68).
+  { to: '/busca', label: 'Busca', icon: IconFilter },
 ];
 
 /* Arvore do "Navegador do Sistema": pastas com as telas da aplicacao. */

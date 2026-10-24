@@ -3729,3 +3729,45 @@ table.dl-compare td {
 .dl-hint-muted {
   color: var(--dl-text-muted);
 }
+
+/* Busca avancada (/busca, item 68): resultados com o trecho destacado. */
+.dl-search-list {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  list-style: none;
+}
+
+.dl-search-list li {
+  padding: 0.35rem 0;
+  border-block-end: 1px solid var(--dl-panel-border);
+}
+
+.dl-search-list li:last-child {
+  border-block-end: 0;
+}
+
+.dl-search-list__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dl-search-list__meta {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-search-snippet {
+  display: block;
+  margin-block-start: 0.15rem;
+  color: var(--dl-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.dl-search-snippet mark {
+  padding: 0 0.1rem;
+  background: var(--dl-warning-bg);
+  color: var(--dl-text);
+  font-weight: 600;
+}

@@ -97,9 +97,9 @@ expect('URL desarmada abre a ficha do domínio', url() === '/iocs/domain/evil-cd
 await quick('185.0.2.10');
 expect('IP abre a ficha', url() === '/iocs/ipv4/185.0.2.10', url());
 await quick('192.168.0.1');
-expect('IP privado cai na busca por texto', url() === '/history?q=192.168.0.1', url());
+expect('IP privado cai na busca por texto', url() === '/busca?q=192.168.0.1', url());
 await quick('driver');
-expect('texto continua indo para a lista', url() === '/history?q=driver', url());
+expect('texto vai para a Busca', url() === '/busca?q=driver', url());
 expect('placeholder cita IOC', (await page.getAttribute('#dl-quick-search', 'placeholder')) === 'ID, SHA-256, IOC ou texto (Ctrl+K)');
 
 // 5. Relacionadas: IOCs em comum viram links (sem abrir a amostra da linha).

@@ -53,6 +53,7 @@ function routeTitle(pathname: string): string | null {
   if (pathname === '/permitidos') return 'Indicadores permitidos';
   if (pathname === '/casos') return 'Casos';
   if (pathname.startsWith('/casos/')) return 'Caso';
+  if (pathname === '/busca') return 'Busca';
   if (pathname === '/kb') return 'Base de conhecimento';
   if (pathname === '/kb/novo') return 'Novo artigo';
   if (pathname.startsWith('/kb/')) return 'Artigo';

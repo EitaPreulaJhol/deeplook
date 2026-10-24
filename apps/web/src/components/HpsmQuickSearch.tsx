@@ -15,8 +15,8 @@ const ENTRY_ID = /^c[a-z0-9]{20,32}$/;
  * "Ir para…" no masthead (Ctrl+K): ID ou SHA-256 de uma amostra abrem a amostra
  * direto; um indicador (IP, dominio, e-mail, hash, URL - inclusive desarmado)
  * abre a ficha do indicador; o titulo exato de um artigo abre o artigo ("kb:
- * termo" busca na base); qualquer outro texto abre o Historico Global com a
- * busca preenchida.
+ * termo" busca na base); qualquer outro texto abre a Busca (item 68), que procura
+ * em amostras, relatorios, comentarios, base e casos.
  */
 export function HpsmQuickSearch() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export function HpsmQuickSearch() {
     const text = value.trim();
     if (!text) return;
     setBusy(true);
-    let target = `/history?q=${encodeURIComponent(text)}`;
+    let target = `/busca?q=${encodeURIComponent(text)}`;
     try {
       if (SHA256.test(text)) {
         const res = await api.get<{ items: Entry[]; total: number }>(

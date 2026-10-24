@@ -32,6 +32,7 @@ import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
 import { sandboxRoutes } from './routes/sandbox';
+import { searchRoutes } from './routes/search';
 import { sessionRoutes } from './routes/sessions';
 import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
@@ -87,6 +88,7 @@ async function main() {
   await app.register(kbRoutes);
   await app.register(caseRoutes);
   await app.register(allowlistRoutes);
+  await app.register(searchRoutes);
   await app.register(yaraRoutes);
   await app.register(hexRoutes);
   await app.register(adminRoutes);

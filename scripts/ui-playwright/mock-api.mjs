@@ -726,6 +726,15 @@ export async function setupMock(context, state) {
       if (p === '/api/yara/rules' && req.method() === 'GET') {
         return json(route, 200, { rules: [...state.yaraRules].sort((a, b) => a.name.localeCompare(b.name)) });
       }
+      // Busca avancada: o roteiro pode fixar a resposta; senao, amostras pelo titulo.
+      if (p === '/api/search') {
+        state.lastSearch = url.search;
+        if (state.searchResult) return json(route, 200, state.searchResult);
+        const q = (url.searchParams.get('q') || '').toLowerCase();
+        const found = entries.filter((e) => e.title.toLowerCase().includes(q));
+        const items = found.map((e) => ({ id: e.id, title: e.title, type: e.type, status: e.status, verdict: e.verdict, snippet: e.title.replace(new RegExp(q, 'i'), (m) => `⟦${m}⟧`) }));
+        return json(route, 200, { q, type: 'all', groups: { entries: { total: items.length, items } } });
+      }
       // Lista de permissoes: dominio vale para subdominios; o filtro so olha dominios e valores exatos.
       if (p === '/api/allowlist' && req.method() === 'GET') return json(route, 200, { items: state.allowlist });
       if (p === '/api/allowlist/filter') {

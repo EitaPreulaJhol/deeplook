@@ -1999,7 +1999,7 @@ Service Manager 9.
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
 | 67 | YARA retroativo (regra nova nas amostras antigas) | regras de negócio | 🔴 | M | ✅ |
-| 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ⬜ |
+| 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ✅ |
 | 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ✅ |
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ⬜ |
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ⬜ |
@@ -2067,6 +2067,37 @@ decisões.
   texto não é ID, hash nem indicador.
 - **Cuidados:** busca textual do Postgres (dicionário português, com índice),
   respeitando o que cada pessoa pode ver (usuário comum não vê casos nem rascunhos).
+- ✅ **Implementado:** migração `20261123000000_search_unaccent`, que só habilita a
+  extensão `unaccent` do Postgres.
+  - **Busca** (`routes/search.ts`, `GET /api/search?q=&type=&days=`):
+    - busca textual do Postgres com o dicionário português, sem diferenciar acentos:
+      "cobranca codigo" acha "cobrança … código", e a forma digitada aparece
+      destacada;
+    - sintaxe de buscador: aspas para frase exata e `-` para excluir uma palavra;
+    - grupos:
+      - amostras: título, descrição, arquivo e URL;
+      - relatórios: resumo, achados e IOCs;
+      - comentários;
+      - base de conhecimento: título, resumo, texto e tags;
+      - casos: título e descrição;
+    - cada resultado vem com o trecho encontrado, marcado com `⟦ ⟧`. O front destaca
+      sem HTML; um `<script>` no texto aparece como texto;
+    - ordem por relevância; 10 por grupo em "Tudo" e 50 num grupo só; filtro de
+      período;
+    - amostras na lixeira ficam de fora; o usuário comum vê só relatórios publicados
+      e não vê casos.
+  - **Sem índice por enquanto:** um índice sobre expressão ficaria fora do schema do
+    Prisma, e cada nova migração tentaria apagá-lo. Com o volume atual a busca direta
+    basta; se crescer, criar uma coluna `tsvector` com índice GIN.
+  - **Front:**
+    - tela **Busca** (`/busca`, no topo do navegador) com Buscar, Em (Tudo ou um
+      grupo) e Período, todos na URL;
+    - grupos com contagem, links (o relatório abre na aba Relatórios, o comentário no
+      Histórico) e "Ver todos os N em …";
+    - o **"Ir para:"** com texto que não é ID, hash nem indicador abre a Busca (antes
+      ia para o Histórico Global filtrado).
+  - **Testes:** 16 de integração (Postgres) e `search.mjs`. O `quick-search.mjs` e o
+    `iocs.mjs` foram ajustados ao novo destino do "Ir para:".
 
 ### 69. Lista de permissões de indicadores
 - **Problema:** domínios e IPs legítimos (microsoft.com, google.com, o próprio domínio da

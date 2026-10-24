@@ -44,13 +44,13 @@ await input.press('Enter');
 await page.waitForURL('**/iocs/**');
 expect('hash desconhecido abre a ficha do indicador', url() === `/iocs/sha256/${unknown}`, url());
 
-// 4. Texto livre abre o Historico com a busca preenchida.
+// 4. Texto livre abre a Busca (68) com o termo.
 await input.fill('driver');
 await input.press('Enter');
 await page.waitForTimeout(800);
-expect('texto abre o Histórico com ?q=', url() === '/history?q=driver', url());
-expect('campo de busca da lista preenchido', (await page.inputValue('.hpsm-filterbar #q')) === 'driver');
-expect('lista filtrada', (await page.locator('tbody tr').count()) === 1);
+expect('texto abre a Busca com ?q=', url() === '/busca?q=driver', url());
+expect('campo da Busca preenchido', (await page.inputValue('#search-q')) === 'driver');
+expect('amostra encontrada', (await page.locator('.dl-search-list li').count()) === 1);
 
 await browser.close();
 process.exit(failures ? 1 : 0);

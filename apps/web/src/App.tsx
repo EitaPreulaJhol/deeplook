@@ -25,6 +25,7 @@ import { MyUploadsPage } from './pages/MyUploadsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ReviewQueuePage } from './pages/ReviewQueuePage';
 import { SandboxConsoleWindowPage } from './pages/SandboxConsoleWindowPage';
+import { SearchPage } from './pages/SearchPage';
 import { SubmitPage } from './pages/SubmitPage';
 import { UserPage } from './pages/UserPage';
 import { WelcomePage } from './pages/WelcomePage';
@@ -108,6 +109,7 @@ export default function App() {
           path="/casos/:id"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <CasePage />}
         />
+        <Route path="/busca" element={<SearchPage />} />
         <Route path="/kb" element={<KbListPage />} />
         <Route path="/kb/novo" element={<KbArticlePage key="new" mode="new" />} />
         <Route path="/kb/:id" element={<KbArticlePage key="view" mode="view" />} />
