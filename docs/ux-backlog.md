@@ -1421,7 +1421,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 |---|---|---|---|---|---|
 | 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ✅ |
 | 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ✅ |
-| 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ⬜ |
+| 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ✅ |
 | 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ |
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ✅ |
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
@@ -1529,6 +1529,43 @@ equipe, sempre no padrão visual do HP Service Manager 9.
     YARA e análise estática como qualquer envio; a ficha do e-mail lista os anexos;
   - os links e o domínio do remetente entram como IOCs sugeridos do relatório;
   - a cota de envio (64) conta o e-mail e cada anexo.
+- ✅ **Implementado:** migração `20261119000000_email_samples` (`Entry.emailInfo`,
+  `Entry.parentEntryId`).
+  - **Biblioteca:** trocamos a `mailparser` pela **`postal-mime` 2.7.6** (MIT-0, mesmo
+    autor, sem dependências), fixada numa versão de agosto/2026.
+    - Por que a troca: a `mailparser` até a 3.9.10 traz dependências com alertas
+      (`linkify-it` com DoS quadrático, `nodemailer` antigo), e um e-mail de phishing é
+      conteúdo de atacante. As versões corrigidas saíram nesta semana.
+  - **Leitura** (`lib/eml.ts`):
+    - um arquivo `.eml` ou `message/rfc822` só é tratado como e-mail se tiver ao menos
+      um cabeçalho típico (From, To, Subject, Date, Received ou Message-ID);
+    - o que é lido: assunto, remetente, Reply-To, Para/Cc (até 50), data, Message-ID,
+      SPF/DKIM/DMARC do primeiro `Authentication-Results` e o caminho dos `Received`,
+      do primeiro servidor ao último;
+    - links http(s) do texto e dos `href` (até 100);
+    - corpo em **texto**, até 20 mil caracteres. O HTML vira texto: script, style e
+      tags saem, e as entidades viram letras, inclusive as acentuadas.
+  - **Envio** (`createFileEntry`):
+    - cada anexo vira uma amostra filha (`parentEntryId`), com antivírus, reputação,
+      YARA e análise estática;
+    - o e-mail encaminhado como anexo também é lido, até 3 níveis;
+    - limites: 20 anexos por e-mail, `MAX_UPLOAD_MB` por anexo; o que fica de fora
+      aparece com o motivo;
+    - cada anexo gasta uma vaga da cota (64): os que passam do limite ficam "não
+      enviados: cota de envio atingida";
+    - sem título próprio, a amostra recebe "E-mail: <assunto>";
+    - a lista não carrega o `emailInfo`.
+  - **Ficha:**
+    - seção **E-mail**: assunto, De, Responder para (com aviso quando o domínio é
+      diferente do remetente), Para/Cc, data, Message-ID, SPF/DKIM/DMARC com cores, o
+      caminho numerado, os links só como texto (com Copiar) e o corpo em texto;
+    - seção **Anexos**, com link para cada amostra filha ou o motivo de não ter sido
+      enviada;
+    - a filha mostra "Anexo de: …" no topo;
+    - "Inserir IOCs sugeridos" no relatório inclui os links e os domínios do remetente
+      e do Reply-To.
+  - **Testes:** 15 de integração (Postgres e MinIO, com `.eml` de verdade) e
+    `email.mjs`.
 
 ### 55. Casos — decisão pendente
 - **Proposta:** agrupar amostras da mesma campanha num **Caso** com título, status,

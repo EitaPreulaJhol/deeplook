@@ -140,6 +140,38 @@ export interface CurrentUser extends User {
   preferences: Preferences;
 }
 
+/** Remetente/destinatario de um e-mail. */
+export interface EmailParty {
+  name: string | null;
+  address: string | null;
+}
+
+/** E-mail suspeito lido no envio (Entry.emailInfo, item 54). */
+export interface EmailInfo {
+  version: 1;
+  subject: string | null;
+  from: EmailParty | null;
+  sender: EmailParty | null;
+  replyTo: EmailParty[];
+  to: EmailParty[];
+  cc: EmailParty[];
+  date: string | null;
+  messageId: string | null;
+  returnPath: string | null;
+  auth: { spf: string | null; dkim: string | null; dmarc: string | null };
+  received: { from: string | null; by: string | null; date: string | null }[];
+  links: string[];
+  body: string;
+  bodyTruncated: boolean;
+  attachments: {
+    filename: string;
+    mimeType: string;
+    size: number;
+    entryId?: string;
+    skipped?: string;
+  }[];
+}
+
 /** Analise estatica do arquivo enviado (Entry.staticInfo). */
 export interface StaticInfo {
   version: 1;
@@ -424,6 +456,10 @@ export interface Entry {
   _count?: { reports: number; duplicates?: number };
   /** Analise estatica do arquivo (so na ficha; as listas nao trazem). */
   staticInfo?: StaticInfo | null;
+  /** E-mail (.eml) lido no envio (item 54). */
+  emailInfo?: EmailInfo | null;
+  /** E-mail de onde veio este anexo (item 54). */
+  parentEntry?: { id: string; title: string } | null;
   /** Duplicata de outra amostra (a principal). */
   duplicateOfId?: string | null;
   duplicateOf?: { id: string; title: string } | null;

@@ -12,6 +12,7 @@ import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
+import { isEmailFile, parseEmail } from '../lib/eml';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
@@ -388,7 +389,12 @@ async function createFileEntry(
     title: string;
     description: string | null;
     tags: { id: string }[];
+    /** Anexo de um e-mail (item 54): amostra pai. */
+    parentEntryId?: string;
   },
+  /** Cota restante (usuario comum): cada anexo de e-mail tambem conta. */
+  quota: { remaining: number | null } = { remaining: null },
+  depth = 0,
 ) {
   const { buffer, filename, mimetype } = input;
   const sha256 = sha256Hex(buffer);
@@ -424,6 +430,7 @@ async function createFileEntry(
       mimeType: mimetype,
       sha256,
       staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
+      parentEntryId: input.parentEntryId ?? null,
       tags: { connect: input.tags },
     },
     include: {
@@ -437,12 +444,73 @@ async function createFileEntry(
   scanInBackground(entry.id, buffer, req.log);
   yaraScanInBackground(entry.id, buffer, req.log);
   await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
+  if (quota.remaining !== null) quota.remaining -= 1;
+  // E-mail (.eml): le e transforma cada anexo numa amostra filha (ate 3 niveis
+  // de e-mail encaminhado como anexo).
+  if (isEmailFile(filename, mimetype) && depth < 3) {
+    await readEmail(req, ownerId, entry, buffer, input, quota, depth);
+  }
   const previous = await prisma.entry.findFirst({
     where: { sha256, id: { not: entry.id } },
     orderBy: { createdAt: 'asc' },
     select: { id: true, title: true },
   });
   return { entry, previous };
+}
+
+/** Le o .eml enviado, cria os anexos como amostras filhas e grava `emailInfo`. */
+async function readEmail(
+  req: FastifyRequest,
+  ownerId: string,
+  entry: { id: string; title: string; originalFilename: string | null },
+  buffer: Buffer,
+  input: { title: string; tags: { id: string }[] },
+  quota: { remaining: number | null },
+  depth: number,
+) {
+  let parsed;
+  try {
+    parsed = await parseEmail(buffer, env.MAX_UPLOAD_MB * 1024 * 1024);
+  } catch (err) {
+    req.log.warn({ err }, 'Falha ao ler o e-mail');
+    return;
+  }
+  const { info, files } = parsed;
+  // Sem titulo proprio (veio o nome do arquivo): o assunto identifica melhor.
+  const title =
+    input.title === entry.originalFilename && info.subject ? `E-mail: ${info.subject}` : undefined;
+  for (const file of files) {
+    const item = info.attachments.find(
+      (a) => a.filename === file.filename && !a.entryId && !a.skipped,
+    );
+    if (quota.remaining !== null && quota.remaining <= 0) {
+      if (item) item.skipped = 'cota de envio atingida';
+      continue;
+    }
+    const { entry: child } = await createFileEntry(
+      req,
+      ownerId,
+      {
+        buffer: file.content,
+        filename: file.filename,
+        mimetype: file.mimeType,
+        title: file.filename,
+        description: `Anexo do e-mail "${info.subject ?? entry.title}".`,
+        tags: input.tags,
+        parentEntryId: entry.id,
+      },
+      quota,
+      depth + 1,
+    );
+    if (item) item.entryId = child.id;
+  }
+  await prisma.entry.update({
+    where: { id: entry.id },
+    data: {
+      emailInfo: info as unknown as Prisma.InputJsonValue,
+      ...(title && { title: title.slice(0, 200) }),
+    },
+  });
 }
 
 export async function entryRoutes(app: FastifyInstance) {
@@ -526,7 +594,7 @@ export async function entryRoutes(app: FastifyInstance) {
         orderBy: listOrderBy(sort, dir),
         skip: offset,
         take: limit,
-        omit: { staticInfo: true },
+        omit: { staticInfo: true, emailInfo: true },
         include: {
           owner: { select: { id: true, displayName: true, email: true } },
           assignee: { select: { id: true, displayName: true } },
@@ -707,18 +775,24 @@ export async function entryRoutes(app: FastifyInstance) {
   app.post('/api/entries/file', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    if (!(await checkQuota(user, reply))) return;
+    const quota = await checkQuota(user, reply);
+    if (!quota) return;
     const upload = await readUpload(req, reply);
     if (!upload) return;
 
-    const { entry, previous } = await createFileEntry(req, user.id, {
-      buffer: upload.buffer,
-      filename: upload.filename,
-      mimetype: upload.mimetype,
-      title: upload.fields.title || upload.filename,
-      description: upload.fields.description || null,
-      tags: await resolveTags(parseTags(upload.fields.tags)),
-    });
+    const { entry, previous } = await createFileEntry(
+      req,
+      user.id,
+      {
+        buffer: upload.buffer,
+        filename: upload.filename,
+        mimetype: upload.mimetype,
+        title: upload.fields.title || upload.filename,
+        description: upload.fields.description || null,
+        tags: await resolveTags(parseTags(upload.fields.tags)),
+      },
+      { remaining: quota.remaining },
+    );
     return reply.code(201).send({ entry, previous });
   });
 
@@ -763,9 +837,11 @@ export async function entryRoutes(app: FastifyInstance) {
     let total = 0;
     let passwordError: string | null = null;
 
+    // Vagas da cota: cada arquivo (e cada anexo de um .eml de dentro) gasta uma.
+    const left = { remaining: quota.remaining };
     for (const file of files) {
       // Cota do usuario comum: o resto do pacote fica de fora (cada arquivo conta).
-      if (quota.remaining !== null && created.length >= quota.remaining) {
+      if (left.remaining !== null && left.remaining <= 0) {
         skipped.push({
           name: file.name,
           path: file.path,
@@ -812,14 +888,19 @@ export async function entryRoutes(app: FastifyInstance) {
       }
       total += buffer.length;
       const origin = `Extraído de ${upload.filename}${file.path !== file.name ? ` (${file.path})` : ''}.`;
-      const { entry, previous } = await createFileEntry(req, user.id, {
-        buffer,
-        filename: file.name,
-        mimetype: 'application/octet-stream',
-        title: file.name,
-        description: base ? `${base}\n\n${origin}` : origin,
-        tags,
-      });
+      const { entry, previous } = await createFileEntry(
+        req,
+        user.id,
+        {
+          buffer,
+          filename: file.name,
+          mimetype: 'application/octet-stream',
+          title: file.name,
+          description: base ? `${base}\n\n${origin}` : origin,
+          tags,
+        },
+        left,
+      );
       created.push({
         name: file.name,
         path: file.path,
@@ -892,6 +973,7 @@ export async function entryRoutes(app: FastifyInstance) {
         assignee: { select: { id: true, displayName: true } },
         tags: true,
         duplicateOf: { select: { id: true, title: true } },
+        parentEntry: { select: { id: true, title: true } },
         duplicates: {
           where: { deletedAt: null },
           select: { id: true, title: true, createdAt: true },

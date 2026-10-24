@@ -10,6 +10,7 @@ import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { attackHref } from '../components/attack';
 import { copyText } from '../components/CopyButton';
 import { DuplicateDialog, EntryPickDialog } from '../components/DuplicateDialog';
+import { EmailSection } from '../components/EmailSection';
 import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
@@ -251,6 +252,17 @@ export function EntryDetailPage() {
   }
 
   const reports = entry.reports ?? [];
+  // IOCs sugeridos: analise estatica e, num e-mail, os links e os dominios de
+  // quem enviou / para quem responder.
+  const suggestedIocs = [
+    ...new Set([
+      ...(entry.staticInfo?.iocCandidates.map((i) => i.value) ?? []),
+      ...(entry.emailInfo?.links ?? []),
+      ...[entry.emailInfo?.from, ...(entry.emailInfo?.replyTo ?? [])]
+        .map((p) => p?.address?.split('@')[1]?.toLowerCase())
+        .filter((d): d is string => Boolean(d)),
+    ]),
+  ];
   // Tecnicas ATT&CK dos relatorios publicados (resumo do topo).
   const attackIds = [
     ...new Set(
@@ -533,6 +545,14 @@ export function EntryDetailPage() {
             </StatusText>
           </span>
         )}
+        {entry.parentEntry && (
+          <span>
+            <span className="dl-summary__label">Anexo de:</span>{' '}
+            <Link className="dl-link" to={`/entries/${entry.parentEntry.id}`}>
+              {entry.parentEntry.title}
+            </Link>
+          </span>
+        )}
         {attackIds.length > 0 && (
           <span className="dl-summary__attack">
             <span className="dl-summary__label">ATT&amp;CK:</span>{' '}
@@ -669,6 +689,7 @@ export function EntryDetailPage() {
               </HpsmForm>
             </HpsmSection>
           )}
+          {entry.emailInfo && <EmailSection info={entry.emailInfo} />}
           {entry.type === 'FILE' && (
             <AntivirusSection
               entryId={entry.id}
@@ -784,7 +805,7 @@ export function EntryDetailPage() {
             canTriage={canTriage}
             onCreated={reload}
             reviewRequired={query.data?.reviewRequired ?? false}
-            suggestedIocs={entry.staticInfo?.iocCandidates.map((i) => i.value) ?? []}
+            suggestedIocs={suggestedIocs}
           />
         </div>
       )}

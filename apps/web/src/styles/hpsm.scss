@@ -3568,3 +3568,49 @@ table.dl-compare td {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* E-mail suspeito (.eml, item 54): autenticacao, caminho, corpo e anexos. */
+.dl-email-auth {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.dl-email-hops {
+  margin: 0;
+  padding-inline-start: 1.4rem;
+  list-style: decimal;
+  font-size: var(--dl-font-size);
+}
+
+.dl-email-hops li {
+  padding: 0.1rem 0;
+  overflow-wrap: anywhere;
+}
+
+.dl-email-hops__date {
+  color: var(--dl-text-muted);
+}
+
+.dl-email-body {
+  display: block;
+  max-block-size: 24rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dl-email-attachments {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+}
+
+.dl-email-attachments li {
+  padding: 0.15rem 0;
+}
+
+.dl-email-attachments__meta {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}

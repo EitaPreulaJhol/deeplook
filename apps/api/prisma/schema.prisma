@@ -169,6 +169,13 @@ model Entry {
   /// Analise estatica do arquivo no envio (src/lib/static-analysis.ts): tipo real,
   /// entropia, strings e cabecalho PE. So leitura de bytes; null em URLs.
   staticInfo       Json?
+  /// E-mail (.eml) lido no envio (src/lib/eml.ts): cabecalhos, autenticacao,
+  /// caminho, links e corpo em texto. Cada anexo vira uma amostra filha.
+  emailInfo        Json?
+  /// Anexo de um e-mail enviado (amostra pai = o .eml).
+  parentEntryId    String?
+  parentEntry      Entry?    @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  attachmentsOf    Entry[]   @relation("EntryAttachments")
   /// Arquivo apagado do armazenamento pela retencao (RETENTION_DAYS); ficha,
   /// relatorios, IOCs e hash continuam (src/lib/retention.ts).
   filePurgedAt     DateTime?

@@ -206,6 +206,14 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## E-mail suspeito (.eml)
+
+Envie o `.eml` de um phishing como arquivo comum. A ficha mostra a seção **E-mail**:
+remetente, Responder para, destinatários, SPF/DKIM/DMARC, o caminho dos servidores, os
+links (só como texto) e o corpo em texto; o HTML nunca é exibido. Cada anexo vira uma
+amostra própria ("Anexo de: …"), com antivírus, reputação e YARA. A leitura usa a
+`postal-mime` (sem dependências).
+
 ## Base de conhecimento
 
 Artigos em Markdown sobre famílias de malware, golpes, técnicas e procedimentos
