@@ -1431,7 +1431,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
 | 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ✅ |
 | 63 | Base de conhecimento | Knowledge Management | 🔴 | M–G | ⬜ |
-| 64 | Cota de envio | limites | ⚪ | P | ⬜ |
+| 64 | Cota de envio | limites | ⚪ | P | ✅ |
 | 65 | Webhooks de saída | integrações | ⚪ | M | ❌ (fora, por enquanto) |
 
 **Ordem (uma etapa por item, com testes, documentação e commit próprio):**
@@ -1779,6 +1779,21 @@ equipe, sempre no padrão visual do HP Service Manager 9.
   (arquivo, link, cada arquivo de um `.zip` e envios por token); acima do limite, 429
   com "você já enviou 20 amostras nas últimas 24 horas; a próxima libera às HH:MM";
   "Enviar Amostra" mostra quantos envios restam.
+- ✅ **Implementado** (sem migração):
+  - **Regra** (`lib/quota.ts`): `UPLOAD_DAILY_LIMIT` (padrão 20; 0 desliga) envios por
+    usuário comum nas **últimas 24 horas**; analistas e admins não têm limite. Conta
+    arquivo, link, cada arquivo extraído de um `.zip` e os envios por token, que passam
+    pelas mesmas rotas;
+  - **Acima do limite:** `POST /api/entries/file`, `/url` e `/zip` devolvem 429 com
+    `resetAt` e a mensagem "Você já enviou 20 amostras nas últimas 24 horas (limite
+    para usuários comuns). A próxima libera em 2 h 5 min.". O `.zip` cria só os
+    arquivos que cabem; os outros aparecem como ignorados com o motivo ("cota de 20
+    envios em 24 horas atingida");
+  - **`GET /api/me/upload-quota`** devolve `{ limit, used, remaining, resetAt }`;
+  - **Enviar Amostra:** "Restam N envios de 20 nas próximas 24 horas" na barra. Com a
+    cota esgotada, aparece o aviso com o horário local da próxima vaga e o botão Enviar
+    fica desabilitado;
+  - **Testes:** 13 de integração (Postgres e MinIO) e `quota.mjs`.
 
 ### 65. Webhooks de saída — decisão pendente
 - **Proposta:** avisar Slack/Teams/SIEM (POST JSON) quando uma amostra é concluída como

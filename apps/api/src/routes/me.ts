@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword } from '../lib/crypto';
 import { passwordField, passwordState } from '../lib/password-policy';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
+import { uploadQuota } from '../lib/quota';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { sendValidationError } from '../lib/validation';
 
@@ -27,6 +28,13 @@ export async function meRoutes(app: FastifyInstance) {
     const preferences = { ...user.preferences, ...parsed.data };
     await prisma.user.update({ where: { id: user.id }, data: { preferences } });
     return reply.send({ preferences: resolvePreferences(preferences) });
+  });
+
+  // Cota de envio (item 64): quanto ainda pode enviar nas proximas 24 horas.
+  app.get('/api/me/upload-quota', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    return reply.send(await uploadQuota(user));
   });
 
   // Novidades desde a visita anterior: amostras do usuario concluidas por outra

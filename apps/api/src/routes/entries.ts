@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { withSubtechniques } from '../lib/attack';
-import { isAnalyst, requireUser } from '../lib/auth';
+import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
@@ -17,6 +17,7 @@ import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
+import { quotaMessage, uploadQuota } from '../lib/quota';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { checkReputationInBackground } from '../lib/reputation';
 import { s3 } from '../lib/s3';
@@ -693,9 +694,20 @@ export async function entryRoutes(app: FastifyInstance) {
     return reply.send({ events });
   });
 
+  /** Cota de envio esgotada (item 64): 429 com a espera; devolve as vagas restantes. */
+  const checkQuota = async (user: PublicUser, reply: FastifyReply) => {
+    const quota = await uploadQuota(user);
+    if (quota.remaining === 0) {
+      reply.code(429).send({ error: quotaMessage(quota), resetAt: quota.resetAt });
+      return null;
+    }
+    return quota;
+  };
+
   app.post('/api/entries/file', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
+    if (!(await checkQuota(user, reply))) return;
     const upload = await readUpload(req, reply);
     if (!upload) return;
 
@@ -716,6 +728,8 @@ export async function entryRoutes(app: FastifyInstance) {
   app.post('/api/entries/zip', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
+    const quota = await checkQuota(user, reply);
+    if (!quota) return;
     const upload = await readUpload(req, reply);
     if (!upload) return;
 
@@ -750,6 +764,15 @@ export async function entryRoutes(app: FastifyInstance) {
     let passwordError: string | null = null;
 
     for (const file of files) {
+      // Cota do usuario comum: o resto do pacote fica de fora (cada arquivo conta).
+      if (quota.remaining !== null && created.length >= quota.remaining) {
+        skipped.push({
+          name: file.name,
+          path: file.path,
+          reason: `cota de ${quota.limit} envios em 24 horas atingida`,
+        });
+        continue;
+      }
       if (created.length >= ZIP_MAX_FILES) {
         skipped.push({
           name: file.name,
@@ -829,6 +852,7 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const parsed = UrlSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
+    if (!(await checkQuota(user, reply))) return;
     const { url, title, description, tags: tagRaw } = parsed.data;
 
     const tags = await resolveTags(parseTags(tagRaw));

@@ -10,6 +10,7 @@ import {
   TextArea,
   TextInput,
 } from '@carbon/react';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -220,6 +221,19 @@ export function SubmitPage() {
   const [urlDescription, setUrlDescription] = useState('');
   const [urlTags, setUrlTags] = useState('');
   const [tab, setTab] = useState('file');
+  // Cota de envio (item 64): usuarios comuns, ultimas 24 horas.
+  const quotaQuery = useQuery({
+    queryKey: ['me', 'upload-quota'],
+    queryFn: () =>
+      api.get<{
+        limit: number | null;
+        used: number;
+        remaining: number | null;
+        resetAt: string | null;
+      }>('/me/upload-quota'),
+  });
+  const quota = quotaQuery.data?.limit ? quotaQuery.data : null;
+  const quotaFull = quota?.remaining === 0;
   const { hash, hashing, duplicate } = useDuplicateCheck(file);
   const zipMode = Boolean(file && isZipName(file.name) && unzip);
   // Um arquivo vira uma amostra com titulo proprio; varios (ou o .zip
@@ -335,6 +349,7 @@ export function SubmitPage() {
         else await submitBatch(files);
       } finally {
         setLoading(false);
+        void quotaQuery.refetch();
       }
       return;
     }
@@ -401,7 +416,7 @@ export function SubmitPage() {
           }
           title="Enviar (Ctrl+S)"
           icon={IconAdd}
-          disabled={loading}
+          disabled={loading || quotaFull}
           onClick={tab === 'file' ? submitFile : submitUrl}
         />
         <HpsmToolbarButton
@@ -410,6 +425,12 @@ export function SubmitPage() {
           disabled={loading}
           onClick={() => navigate(-1)}
         />
+        {quota && !quotaFull && (
+          <span className="hpsm-toolbar__info dl-quota">
+            {quota.remaining === 1 ? 'Resta 1 envio' : `Restam ${quota.remaining} envios`} de{' '}
+            {quota.limit} nas próximas 24 horas
+          </span>
+        )}
         {loading && (
           <HpsmLoading
             className="hpsm-toolbar__loading"
@@ -418,6 +439,19 @@ export function SubmitPage() {
         )}
       </HpsmToolbar>
 
+      {quotaFull && quota && (
+        <HpsmMessage kind="warning">
+          Você já enviou {quota.limit} amostras nas últimas 24 horas (limite para usuários comuns).
+          A próxima libera às{' '}
+          {quota.resetAt
+            ? new Date(quota.resetAt).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '—'}
+          .
+        </HpsmMessage>
+      )}
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {validation && <HpsmMessage kind="error">{validation}</HpsmMessage>}
       {tab === 'file' && duplicate && !zipMode && (
