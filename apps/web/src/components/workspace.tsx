@@ -50,6 +50,8 @@ function routeTitle(pathname: string): string | null {
   if (pathname === '/painel') return 'Painel';
   if (pathname === '/revisoes') return 'Relatórios para revisar';
   if (pathname === '/yara') return 'Regras YARA';
+  if (pathname === '/casos') return 'Casos';
+  if (pathname.startsWith('/casos/')) return 'Caso';
   if (pathname === '/kb') return 'Base de conhecimento';
   if (pathname === '/kb/novo') return 'Novo artigo';
   if (pathname.startsWith('/kb/')) return 'Artigo';

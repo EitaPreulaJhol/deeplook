@@ -1422,7 +1422,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 52 | "Pegar a próxima" | Next in queue | 🔴 | P | ✅ |
 | 53 | Prioridade P1–P4 com prazo próprio | Priority / SLA por prioridade | 🔴 | M | ✅ |
 | 54 | E-mail suspeito (.eml) | anexos do registro | 🔴 | M–G | ✅ |
-| 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ |
+| 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ✅ |
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ✅ |
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ✅ |
@@ -1584,6 +1584,39 @@ equipe, sempre no padrão visual do HP Service Manager 9.
     responsável, comentários) e comentários;
   - a ficha da amostra mostra os casos dela; pasta **Casos** no navegador (abertos,
     meus, todos) com contador; histórico da amostra registra a inclusão/retirada.
+- ✅ **Implementado:** migração `20261120000000_cases`:
+  - `Case`: número sequencial exibido como `CASO-0001`, título, descrição, status,
+    responsável, autor e `closedAt`;
+  - `CaseEntry` (amostra ↔ caso, com quem incluiu e quando) e `CaseEvent` (linha do
+    tempo);
+  - eventos `CASE_ADDED`/`CASE_REMOVED` no histórico da amostra.
+  - **API** (`routes/cases.ts`, só analistas e admins; usuário comum recebe 403):
+    - `GET /api/cases?status=&assignee=&q=` (`active` = não encerrados; a busca aceita
+      o código, ex.: `caso-0002`) e `GET /api/cases/counts` (`{ active, mine }`);
+    - `POST /api/cases { title, description?, entryIds[] }` exige ao menos uma amostra
+      e cria o caso com quem criou como responsável;
+    - `GET /api/cases/:id` traz as amostras (veredito, status, prioridade, quem
+      incluiu) com os relatórios **publicados** de cada uma, e a linha do tempo;
+    - `PATCH` muda título, descrição, status (encerrar grava a data; reabrir a limpa)
+      e responsável (só analista ativo). Cada mudança vira evento;
+    - `POST /:id/entries` inclui só as amostras novas; `DELETE /:id/entries/:entryId`
+      recusa retirar a última (409: "encerre o caso");
+    - `POST /:id/comments`; `GET /api/entries/:id/cases` traz os casos da amostra.
+  - **Front:**
+    - pasta **Casos** no navegador (só analistas): "Casos ativos (n)", "Meus casos
+      (n)" e "Todos os casos";
+    - lista `/casos` com busca, status e responsável, todos na URL;
+    - tela `/casos/:id`, com o código na aba do workspace:
+      - dados editáveis (Ctrl+S, confirmação ao sair sem salvar);
+      - amostras com "Retirar…" (com confirmação, desabilitado na última) e "Incluir
+        amostra" por ID ou link;
+      - relatórios publicados das amostras (veredito, analista, ATT&CK, resumo);
+      - linha do tempo e comentários;
+    - caixa **Adicionar a caso…** (caso ativo ou novo, com busca), no menu Mais da ficha
+      e na barra das amostras marcadas;
+    - a ficha mostra "Casos: CASO-0001" no topo;
+    - usuário comum não vê a pasta, o menu nem a tela.
+  - **Testes:** 28 de integração (Postgres) e `cases.mjs`.
 
 ### 56. Regras YARA
 - **Proposta:** aba **Regras YARA** (analistas e admin): criar, editar, ativar/desativar

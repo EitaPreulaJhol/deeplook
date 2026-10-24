@@ -206,6 +206,13 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## Casos
+
+Analistas agrupam amostras da mesma campanha em **casos** (`CASO-0001`), pela ficha
+("Mais ▾ > Adicionar a caso…") ou pelas amostras marcadas na lista. O caso tem status,
+responsável, as amostras com os relatórios publicados delas e uma linha do tempo com
+comentários. Uma amostra pode estar em vários casos; um caso nunca fica vazio.
+
 ## E-mail suspeito (.eml)
 
 Envie o `.eml` de um phishing como arquivo comum. A ficha mostra a seção **E-mail**:

@@ -46,7 +46,7 @@ interface NavLeaf {
    * Contador ao lado do nome: um status, `mine` (atribuidas a mim e abertas),
    * `late` (atrasadas), `reviews` (relatorios para revisar) ou `unread` (caixa de entrada).
    */
-  count?: EntryStatus | 'mine' | 'late' | 'reviews' | 'unread';
+  count?: EntryStatus | 'mine' | 'late' | 'reviews' | 'unread' | 'cases' | 'mycases';
   /** Contador ja calculado (visoes da equipe). */
   value?: number | null;
 }
@@ -84,6 +84,22 @@ const TREE: NavFolder[] = [
       { to: '/history?age=late', label: 'Atrasadas', tone: 'red', count: 'late' },
       // Relatorios de outros analistas aguardando aprovacao.
       { to: '/revisoes', label: 'Relatórios para revisar', icon: IconPage, count: 'reviews' },
+    ],
+  },
+  {
+    // Casos (item 55): amostras da mesma campanha agrupadas.
+    id: 'casos',
+    label: 'Casos',
+    access: 'triage',
+    children: [
+      { to: '/casos?status=active', label: 'Casos ativos', icon: IconFolder, count: 'cases' },
+      {
+        to: '/casos?status=active&assignee=me',
+        label: 'Meus casos',
+        icon: IconFolder,
+        count: 'mycases',
+      },
+      { to: '/casos', label: 'Todos os casos', icon: IconPage },
     ],
   },
   {
@@ -178,6 +194,12 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     enabled: canTriage,
     refetchInterval: 60_000,
   });
+  const casesQuery = useQuery({
+    queryKey: ['cases', 'counts'],
+    queryFn: () => api.get<{ active: number; mine: number }>('/cases/counts'),
+    enabled: canTriage,
+    refetchInterval: 60_000,
+  });
   const unread = useNotificationCount();
   const counts = {
     ...(countsQuery.data
@@ -188,6 +210,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           reviews: countsQuery.data.reviews,
         }
       : {}),
+    ...(casesQuery.data ? { cases: casesQuery.data.active, mycases: casesQuery.data.mine } : {}),
     unread,
   } as Partial<Record<NonNullable<NavLeaf['count']>, number>>;
 

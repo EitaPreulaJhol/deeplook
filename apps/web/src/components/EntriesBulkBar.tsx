@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { EntryStatus, Priority, Verdict } from '../api/types';
+import { AddToCaseDialog } from './AddToCaseDialog';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterItem } from './HpsmFilterBar';
 import { priorityLabel, statusLabel, verdictLabel } from './tags';
@@ -32,6 +33,7 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
   const [priority, setPriority] = useState('');
   const [assignee, setAssignee] = useState('');
   const [busy, setBusy] = useState(false);
+  const [caseOpen, setCaseOpen] = useState(false);
 
   const analystsQuery = useQuery({
     queryKey: ['analysts'],
@@ -169,6 +171,27 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
       <Button kind="primary" size="sm" disabled={busy} onClick={apply}>
         {busy ? 'Aplicando...' : 'Aplicar'}
       </Button>
+      {/* Casos (item 55): incluir as marcadas num caso ativo ou num novo. */}
+      <Button kind="tertiary" size="sm" disabled={busy} onClick={() => setCaseOpen(true)}>
+        Adicionar a caso…
+      </Button>
+      {caseOpen && (
+        <AddToCaseDialog
+          entryIds={ids}
+          onClose={(result) => {
+            setCaseOpen(false);
+            if (!result) return;
+            const n = ids.length;
+            onDone({
+              kind: 'success',
+              text: result.created
+                ? `Caso ${result.code} criado com ${n === 1 ? '1 amostra' : `${n} amostras`}.`
+                : `${n === 1 ? '1 amostra incluída' : `${n} amostras incluídas`} no caso ${result.code}.`,
+            });
+            onClear();
+          }}
+        />
+      )}
       {/* Exatamente duas marcadas: comparar lado a lado (item 58). */}
       {ids.length === 2 && (
         <Button

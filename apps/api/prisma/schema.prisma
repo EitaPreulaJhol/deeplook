@@ -76,35 +76,39 @@ model User {
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 
-  sessions        Session[]
-  entries         Entry[]                 @relation("EntryOwner")
+  sessions         Session[]
+  entries          Entry[]                 @relation("EntryOwner")
   /// Amostras sob responsabilidade deste analista (atribuicao).
-  assignedEntries Entry[]                 @relation("EntryAssignee")
-  entryEvents     EntryEvent[]
-  reports         Report[]                @relation("ReportAuthor")
-  sandboxSessions SandboxSession[]
-  createdKeys     ActivationKey[]         @relation("KeyCreator")
-  usedKeys        ActivationKey[]         @relation("KeyUser")
-  favorites       Favorite[]
+  assignedEntries  Entry[]                 @relation("EntryAssignee")
+  entryEvents      EntryEvent[]
+  reports          Report[]                @relation("ReportAuthor")
+  sandboxSessions  SandboxSession[]
+  createdKeys      ActivationKey[]         @relation("KeyCreator")
+  usedKeys         ActivationKey[]         @relation("KeyUser")
+  favorites        Favorite[]
   /// Caixa de entrada: notificacoes recebidas e as causadas por este usuario.
-  notifications   Notification[]          @relation("NotificationRecipient")
-  notified        Notification[]          @relation("NotificationActor")
-  reportTemplates ReportTemplate[]
-  reviewedReports Report[]                @relation("ReportReviewer")
+  notifications    Notification[]          @relation("NotificationRecipient")
+  notified         Notification[]          @relation("NotificationActor")
+  reportTemplates  ReportTemplate[]
+  reviewedReports  Report[]                @relation("ReportReviewer")
   /// Auditoria: acoes feitas por este usuario e as que o tiveram como alvo.
-  auditActions    AuditEvent[]            @relation("AuditActor")
-  auditTargets    AuditEvent[]            @relation("AuditTarget")
+  auditActions     AuditEvent[]            @relation("AuditActor")
+  auditTargets     AuditEvent[]            @relation("AuditTarget")
   /// Amostras que este usuario (admin) moveu para a lixeira.
-  trashedEntries  Entry[]                 @relation("EntryDeletedBy")
-  apiTokens       ApiToken[]
-  recoveryCodes   TwoFactorRecoveryCode[]
-  iocWatches      IocWatch[]
-  yaraRules       YaraRule[]              @relation("YaraRuleAuthor")
-  yaraRulesEdited YaraRule[]              @relation("YaraRuleEditor")
-  teamViews       TeamView[]
-  kbCreated       KbArticle[]             @relation("KbAuthor")
-  kbUpdated       KbArticle[]             @relation("KbEditor")
-  kbRevisions     KbArticleRevision[]
+  trashedEntries   Entry[]                 @relation("EntryDeletedBy")
+  apiTokens        ApiToken[]
+  recoveryCodes    TwoFactorRecoveryCode[]
+  iocWatches       IocWatch[]
+  yaraRules        YaraRule[]              @relation("YaraRuleAuthor")
+  yaraRulesEdited  YaraRule[]              @relation("YaraRuleEditor")
+  teamViews        TeamView[]
+  kbCreated        KbArticle[]             @relation("KbAuthor")
+  kbUpdated        KbArticle[]             @relation("KbEditor")
+  kbRevisions      KbArticleRevision[]
+  casesAssigned    Case[]                  @relation("CaseAssignee")
+  casesCreated     Case[]                  @relation("CaseAuthor")
+  caseEntriesAdded CaseEntry[]
+  caseEvents       CaseEvent[]
 }
 
 model Session {
@@ -202,6 +206,8 @@ model Entry {
   reputation      ReputationResult[]
   antivirus       AntivirusScan?
   yara            YaraScan?
+  caseLinks       CaseEntry[]
+  caseEvents      CaseEvent[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -321,6 +327,9 @@ enum EntryEventType {
   /// Movida para a lixeira / restaurada (admin).
   TRASHED
   RESTORED
+  /// Incluida num caso / retirada dele (detail: codigo do caso, ex.: CASO-0007).
+  CASE_ADDED
+  CASE_REMOVED
 }
 
 /// Linha do tempo da amostra: quem fez o que e quando (aba "Historico").
@@ -694,4 +703,75 @@ model KbArticleRevision {
   createdAt DateTime  @default(now())
 
   @@index([articleId, createdAt])
+}
+
+enum CaseStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+/// Casos (item 55): amostras da mesma campanha (so analistas). Sem relatorio
+/// proprio e nunca vazio (routes/cases.ts).
+model Case {
+  id          String      @id @default(cuid())
+  /// Numero sequencial exibido como CASO-0001.
+  number      Int         @unique @default(autoincrement())
+  title       String
+  description String?
+  status      CaseStatus  @default(OPEN)
+  assigneeId  String?
+  assignee    User?       @relation("CaseAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?       @relation("CaseAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  closedAt    DateTime?
+  entries     CaseEntry[]
+  events      CaseEvent[]
+
+  @@index([status, updatedAt])
+  @@index([assigneeId, status])
+}
+
+/// Amostra num caso (uma amostra pode estar em varios).
+model CaseEntry {
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  entryId   String
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  addedById String?
+  addedBy   User?    @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  addedAt   DateTime @default(now())
+
+  @@id([caseId, entryId])
+  @@index([entryId])
+}
+
+enum CaseEventType {
+  CREATED
+  ENTRY_ADDED
+  ENTRY_REMOVED
+  STATUS_CHANGED
+  ASSIGNED
+  UPDATED
+  COMMENT
+}
+
+/// Linha do tempo do caso (inclusoes, status, responsavel, comentarios).
+model CaseEvent {
+  id        String        @id @default(cuid())
+  caseId    String
+  case      Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  type      CaseEventType
+  detail    String?
+  fromValue String?
+  toValue   String?
+  entryId   String?
+  entry     Entry?        @relation(fields: [entryId], references: [id], onDelete: SetNull)
+  createdAt DateTime      @default(now())
+
+  @@index([caseId, createdAt])
 }

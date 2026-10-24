@@ -214,6 +214,9 @@ export function createState({ loggedIn = false } = {}) {
     kbArticles: [],
     kbCalls: [],
     kbQueries: [],
+    /** Casos (detalhe completo, como GET /api/cases/:id) e chamadas de escrita. */
+    cases: [],
+    caseCalls: [],
   };
 }
 
@@ -323,6 +326,72 @@ export async function setupMock(context, state) {
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
+      // Casos: so analistas; o caso nunca fica vazio (409 ao retirar a ultima).
+      if (p.startsWith('/api/cases') || /^\/api\/entries\/\w+\/cases$/.test(p)) {
+        if (state.role === 'USER') return json(route, 403, { error: 'Somente analistas trabalham com casos.' });
+        const at = '2026-10-24T09:00:00.000Z';
+        const me = { id: 'u1', displayName: 'Ana Souza' };
+        const summary = (c) => ({ id: c.id, number: c.number, code: c.code, title: c.title, status: c.status, createdAt: c.createdAt, updatedAt: c.updatedAt, closedAt: c.closedAt, assignee: c.assignee, createdBy: c.createdBy, entries: c.entries.length });
+        const caseEntry = (id) => {
+          const e = entries.find((x) => x.id === id);
+          return e && { addedAt: at, addedBy: me, entry: { id: e.id, title: e.title, type: e.type, status: e.status, verdict: e.verdict, priority: e.priority ?? 'P3', createdAt: e.createdAt, reports: [] } };
+        };
+        const byEntry = p.match(/^\/api\/entries\/(\w+)\/cases$/);
+        if (byEntry) {
+          return json(route, 200, { cases: state.cases.filter((c) => c.entries.some((x) => x.entry.id === byEntry[1])).map((c) => ({ id: c.id, number: c.number, code: c.code, title: c.title, status: c.status })) });
+        }
+        if (p === '/api/cases/counts') {
+          const active = state.cases.filter((c) => c.status !== 'CLOSED');
+          return json(route, 200, { active: active.length, mine: active.filter((c) => c.assignee?.id === 'u1').length });
+        }
+        if (p === '/api/cases' && req.method() === 'GET') {
+          const st = url.searchParams.get('status');
+          const q = (url.searchParams.get('q') || '').toLowerCase();
+          const items = state.cases
+            .filter((c) => !st || (st === 'active' ? c.status !== 'CLOSED' : c.status === st))
+            .filter((c) => url.searchParams.get('assignee') !== 'me' || c.assignee?.id === 'u1')
+            .filter((c) => !q || c.title.toLowerCase().includes(q) || c.code.toLowerCase() === q)
+            .map(summary);
+          return json(route, 200, { total: items.length, items });
+        }
+        if (req.method() !== 'GET') state.caseCalls.push({ method: req.method(), path: p, body });
+        if (p === '/api/cases' && req.method() === 'POST') {
+          const n = state.cases.length + 1;
+          const c = { id: `cs${n}`, number: n, code: `CASO-${String(n).padStart(4, '0')}`, title: body.title, description: null, status: 'OPEN', createdAt: at, updatedAt: at, closedAt: null, assignee: me, createdBy: me, entries: body.entryIds.map(caseEntry).filter(Boolean), events: [{ id: `ev${Date.now()}`, type: 'CREATED', detail: body.title, fromValue: null, toValue: null, createdAt: at, actor: me, entry: null }] };
+          state.cases.push(c);
+          return json(route, 201, { case: summary(c) });
+        }
+        const m = p.match(/^\/api\/cases\/(\w+)(?:\/(entries|comments)(?:\/(\w+))?)?$/);
+        const c = m && state.cases.find((x) => x.id === m[1]);
+        if (!c) return json(route, 404, { error: 'Caso não encontrado.' });
+        const event = (type, extra = {}) => c.events.push({ id: `ev${Date.now()}${c.events.length}`, type, detail: null, fromValue: null, toValue: null, createdAt: at, actor: me, entry: null, ...extra });
+        if (!m[2] && req.method() === 'GET') return json(route, 200, { case: c });
+        if (!m[2] && req.method() === 'PATCH') {
+          if (body.status && body.status !== c.status) event('STATUS_CHANGED', { fromValue: c.status, toValue: body.status });
+          if (body.title && body.title !== c.title) event('UPDATED', { detail: body.title });
+          Object.assign(c, { title: body.title ?? c.title, description: body.description || null, status: body.status ?? c.status, assignee: body.assigneeId ? users.find((u) => u.id === body.assigneeId) && { id: body.assigneeId, displayName: users.find((u) => u.id === body.assigneeId).displayName } : null, updatedAt: '2026-10-24T09:30:00.000Z' });
+          return json(route, 200, { case: summary(c) });
+        }
+        if (m[2] === 'entries' && req.method() === 'POST') {
+          const fresh = body.entryIds.filter((id) => !c.entries.some((x) => x.entry.id === id)).map(caseEntry).filter(Boolean);
+          if (body.entryIds.some((id) => !entries.some((e) => e.id === id))) {
+            return json(route, 400, { error: 'Amostra não encontrada.', details: { entryIds: ['amostra não encontrada'] } });
+          }
+          for (const f of fresh) { c.entries.push(f); event('ENTRY_ADDED', { entry: { id: f.entry.id, title: f.entry.title } }); }
+          return json(route, 200, { added: fresh.length });
+        }
+        if (m[2] === 'entries' && req.method() === 'DELETE') {
+          if (c.entries.length <= 1) return json(route, 409, { error: 'O caso precisa de ao menos uma amostra. Para desfazê-lo, encerre o caso.' });
+          const gone = c.entries.find((x) => x.entry.id === m[3]);
+          c.entries = c.entries.filter((x) => x !== gone);
+          event('ENTRY_REMOVED', { entry: { id: gone.entry.id, title: gone.entry.title } });
+          return json(route, 200, { ok: true });
+        }
+        if (m[2] === 'comments') {
+          event('COMMENT', { detail: body.text });
+          return json(route, 201, { ok: true });
+        }
+      }
       // Base de conhecimento: todos leem; escrita registrada em kbCalls.
       if (p === '/api/kb' && req.method() === 'GET') {
         state.kbQueries.push(url.search);

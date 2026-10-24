@@ -451,6 +451,9 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/admin/audit/export.csv` | admin: CSV da auditoria com os mesmos filtros |
 | GET | `/api/entries/:id/antivirus` | ClamAV: `{ enabled, pending, scan: { status, signature, error, engine, dbVersion, dbDate, scannedAt } }` (aceita token) |
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
+| GET/POST | `/api/cases` | analistas: casos `{ total, items: [{ id, code, title, status, assignee, entries, updatedAt }] }` (`status=active\|OPEN\|IN_PROGRESS\|CLOSED`, `assignee=me\|none\|id`, `q`); POST `{ title, description?, entryIds[] }` (ao menos uma amostra) |
+| GET/PATCH | `/api/cases/:id` | caso com amostras (e relatórios publicados) e linha do tempo; PATCH `{ title?, description?, status?, assigneeId? }` |
+| POST/DELETE | `/api/cases/:id/entries` · `/api/cases/:id/entries/:entryId` | incluir `{ entryIds[] }` / retirar (409 se for a última); `POST /api/cases/:id/comments { text }`; `GET /api/cases/counts`; `GET /api/entries/:id/cases` |
 | POST | `/api/entries/file` (`.eml`) | e-mail: grava `emailInfo` (cabeçalhos, `auth`, `received`, `links`, `body`, `attachments[{ filename, mimeType, size, entryId?, skipped? }]`) e cria cada anexo como amostra com `parentEntry`; `GET /api/entries/:id` traz `emailInfo` e `parentEntry` |
 | GET | `/api/kb?q=&category=&limit=&offset=` | base de conhecimento (todos): `{ total, items: [{ id, title, summary, category, tags, updatedAt, updatedBy, citations }] }` |
 | GET | `/api/kb/:id` | artigo `{ ..., body, createdBy, canDelete, revisions: [{ createdAt, editor }], reports: [{ id, updatedAt, analyst, entry }] }` (só relatórios publicados) |
@@ -586,6 +589,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `cases.mjs` | casos: pasta com contadores, caso novo pela ficha (título curto, aviso, topo), marcadas num caso existente, lista e folha ativa, tela (Ctrl+S, incluir por link, retirar com confirmação, comentário, linha do tempo), última amostra não sai, usuário comum sem acesso |
 | `email.mjs` | e-mail: cabeçalhos, Responder para de outro domínio, SPF/DKIM/DMARC com cores, caminho em ordem, links só como texto, corpo sem HTML, anexos (link e ignorado), IOCs sugeridos com links e domínios, "Anexo de" na filha |
 | `kb.mjs` | base de conhecimento: navegador, novo artigo (obrigatórios, pré-visualização: título, ênfase, lista, URL solta sem link, só http(s)/internos, HTML como texto), Ctrl+S, leitura e aba, editar (PATCH, alterações), busca e categoria, citações, "Ir para:" pelo título e `kb:`, campo do relatório e links, excluir, usuário comum só lê |
 | `quota.mjs` | cota de envio: analista sem aviso, "Restam N envios" (e singular), 429 da API, esgotada com horário local e botão desabilitado |

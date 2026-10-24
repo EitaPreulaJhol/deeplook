@@ -47,7 +47,7 @@ const labels = (await menu.locator('button').allTextContents()).map((t) => t.tri
 expect(
   'itens do menu',
   labels.join('|') ===
-    'Copiar link do registro|Abrir em nova janela|Marcar como duplicata…|Comparar com…|Imprimir ficha…|Exportar relatórios (Markdown)|Exportar IOCs (CSV)|Exportar IOCs (STIX 2.1)|Exportar IOCs (MISP)|Mover para a lixeira…',
+    'Copiar link do registro|Abrir em nova janela|Marcar como duplicata…|Comparar com…|Adicionar a caso…|Imprimir ficha…|Exportar relatórios (Markdown)|Exportar IOCs (CSV)|Exportar IOCs (STIX 2.1)|Exportar IOCs (MISP)|Mover para a lixeira…',
   labels.join('|'),
 );
 const box = await menu.boundingBox();

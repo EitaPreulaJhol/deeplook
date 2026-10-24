@@ -6,8 +6,10 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 import { api } from '../api/client';
 import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AddToCaseDialog } from '../components/AddToCaseDialog';
 import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { attackHref } from '../components/attack';
+import { caseHref } from '../components/cases';
 import { copyText } from '../components/CopyButton';
 import { DuplicateDialog, EntryPickDialog } from '../components/DuplicateDialog';
 import { EmailSection } from '../components/EmailSection';
@@ -94,6 +96,13 @@ export function EntryDetailPage() {
   const reputation = reputationSummary(useReputation(id).data);
   // Antivirus: "Infectado" tambem aparece no topo.
   const antivirus = useAntivirus(id, true).data;
+  // Casos da amostra (analistas; item 55).
+  const entryCases = useQuery({
+    queryKey: ['entry-cases', id],
+    queryFn: () =>
+      api.get<{ cases: { id: string; code: string; title: string }[] }>(`/entries/${id}/cases`),
+    enabled: canTriage,
+  });
   // YARA: acertos tambem aparecem no topo.
   const yara = useYara(id, true).data;
 
@@ -118,6 +127,7 @@ export function EntryDetailPage() {
   // Duplicata: caixa de escolha da principal e "Desfazer".
   const [dupOpen, setDupOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [caseOpen, setCaseOpen] = useState(false);
   const confirm = useConfirm();
   const reloadAfterDuplicate = () =>
     Promise.all([
@@ -383,6 +393,7 @@ export function EntryDetailPage() {
                         action: () => setDupOpen(true),
                       },
                   { label: 'Comparar com…', action: () => setCompareOpen(true) },
+                  { label: 'Adicionar a caso…', action: () => setCaseOpen(true) },
                 ]
               : []),
             {
@@ -434,6 +445,22 @@ export function EntryDetailPage() {
         )}
       </HpsmToolbar>
 
+      {caseOpen && (
+        <AddToCaseDialog
+          entryIds={[entry.id]}
+          defaultTitle={entry.title}
+          onClose={(result) => {
+            setCaseOpen(false);
+            if (!result) return;
+            setPinNotice({
+              ok: true,
+              text: result.created
+                ? `Caso ${result.code} criado com esta amostra.`
+                : `Amostra incluída no caso ${result.code}.`,
+            });
+          }}
+        />
+      )}
       {compareOpen && (
         <EntryPickDialog
           entryId={entry.id}
@@ -543,6 +570,19 @@ export function EntryDetailPage() {
                 .join(', ')}
               {yara.scan.matches.length > 3 ? ` (+${yara.scan.matches.length - 3})` : ''}
             </StatusText>
+          </span>
+        )}
+        {(entryCases.data?.cases.length ?? 0) > 0 && (
+          <span className="dl-summary__cases">
+            <span className="dl-summary__label">Casos:</span>{' '}
+            {entryCases.data!.cases.map((c, i) => (
+              <span key={c.id}>
+                {i > 0 && ', '}
+                <Link className="dl-link" to={caseHref(c.id)} title={c.title}>
+                  {c.code}
+                </Link>
+              </span>
+            ))}
           </span>
         )}
         {entry.parentEntry && (

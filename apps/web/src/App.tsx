@@ -6,6 +6,8 @@ import { startPath } from './auth/preferences';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
+import { CasePage } from './pages/CasePage';
+import { CasesPage } from './pages/CasesPage';
 import { ComparePage } from './pages/ComparePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
@@ -97,6 +99,14 @@ export default function App() {
         <Route path="/entries/:id" element={<EntryDetailPage />} />
         <Route path="/iocs/:kind/:value" element={<IocPage />} />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route
+          path="/casos"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <CasesPage />}
+        />
+        <Route
+          path="/casos/:id"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <CasePage />}
+        />
         <Route path="/kb" element={<KbListPage />} />
         <Route path="/kb/novo" element={<KbArticlePage key="new" mode="new" />} />
         <Route path="/kb/:id" element={<KbArticlePage key="view" mode="view" />} />

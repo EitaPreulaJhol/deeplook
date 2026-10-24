@@ -3614,3 +3614,66 @@ table.dl-compare td {
   color: var(--dl-text-muted);
   font-size: 0.6875rem;
 }
+
+/* Casos (/casos, item 55): incluir amostra, relatorios e linha do tempo. */
+.dl-case-add,
+.dl-case-comment {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.dl-case-add > :first-child,
+.dl-case-comment > :first-child {
+  flex: 1;
+}
+
+.dl-case-reports,
+.dl-case-timeline {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+}
+
+.dl-case-reports li {
+  padding: 0.35rem 0;
+  border-block-end: 1px solid var(--dl-panel-border);
+}
+
+.dl-case-reports li:last-child {
+  border-block-end: 0;
+}
+
+.dl-case-reports p {
+  margin: 0.2rem 0 0;
+}
+
+.dl-case-reports__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dl-case-reports__meta,
+.dl-case-timeline__when {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-case-timeline li {
+  padding: 0.2rem 0;
+}
+
+.dl-case-timeline__comment {
+  margin: 0.15rem 0 0.2rem 1rem;
+  padding: 0.25rem 0.5rem;
+  border-inline-start: 3px solid var(--dl-panel-border);
+  font-size: var(--dl-font-size);
+  white-space: pre-wrap;
+}
+
+.dl-case-search {
+  margin-block-start: 0.5rem;
+}
