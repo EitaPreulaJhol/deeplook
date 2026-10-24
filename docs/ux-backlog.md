@@ -2004,7 +2004,7 @@ Service Manager 9.
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ✅ |
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ✅ |
 | 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
-| 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ⬜ |
+| 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ✅ |
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ⬜ |
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ⬜ |
 | 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ⬜ |
@@ -2233,6 +2233,31 @@ decisões.
   histórico da amostra.
 - **Cuidados:** um aviso por mudança de estado (sem repetir a cada minuto); sem
   responsável, avisa os analistas.
+- ✅ **Implementado** (migração `20261125000000_sla_escalation`):
+  - **Rodada** (`lib/sla-escalation.ts`): ao subir e a cada 5 minutos, usando os
+    prazos de cada prioridade (`lib/sla.ts`). O atraso é tratado antes: quem pulou
+    direto para atrasada recebe só o aviso de atraso.
+  - **Um aviso por nível e por status:** `Entry.slaStage` (alerta/atraso) guarda até
+    onde já avisou. O mesmo trigger que mantém `statusChangedAt` zera o campo quando o
+    status muda; outras mudanças não zeram. A marcação só vale se a amostra não mudou
+    no meio, então duas rodadas ao mesmo tempo avisam uma vez só.
+  - **Quem recebe** (notificações `SLA_WARN` / `SLA_LATE` na Caixa de entrada,
+    "Prazo em alerta: mais de 24 h no mesmo status" / "Amostra atrasada: …"):
+    - **alerta:** o responsável; sem responsável, os analistas ativos;
+    - **atraso:** o responsável (ou os analistas) e os admins ativos.
+  - **Prioridade:** com `SLA_ESCALATE_PRIORITY=true` (padrão `false`), ao atrasar a
+    prioridade sobe um nível (P4 → P3 → P2 → P1), com o evento "Prioridade: P3 Média →
+    P2 Alta (escalonamento por atraso)". O prazo mais curto da nova prioridade não gera
+    novo aviso.
+  - **Histórico:** "Prazo em alerta: mais de 24 h no status atual (P3 Média)" /
+    "Atrasada: …", com autor **Sistema**.
+  - **Sem enxurrada:** prazo cruzado há mais de 24 h (primeira subida com a fila cheia,
+    API parada por dias) só é marcado, sem aviso, sem evento e sem subir a prioridade.
+  - **Testes:**
+    - 25 checagens no Postgres: quem recebe, inativos e concluídas fora, lixeira, não
+      repetir, atraso direto, prioridade (e P1), antigas só marcadas, trigger zerando
+      ao mudar de status, rodadas simultâneas;
+    - `sla-escalation.mjs`.
 
 ### 74. Exportar o caso
 - **Proposta:** no caso, **Exportar (Markdown)** e **Imprimir**: dados, amostras com

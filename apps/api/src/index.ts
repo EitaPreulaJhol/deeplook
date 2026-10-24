@@ -10,6 +10,7 @@ import { prisma } from './lib/prisma';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
+import { startSlaEscalation } from './lib/sla-escalation';
 import { backfillTlsh } from './lib/tlsh-backfill';
 import { failInterruptedRetroscans } from './lib/yara-retro';
 import { adminRoutes } from './routes/admin';
@@ -145,6 +146,9 @@ async function main() {
 
   // TLSH das amostras antigas (item 71), em segundo plano.
   void backfillTlsh(app.log);
+
+  // Escalonamento por prazo (item 73): avisos de alerta/atraso a cada 5 minutos.
+  startSlaEscalation(app.log);
 
   // Sandbox: recupera provisionamentos travados, limpa orfaos e liga o reaper,
   // em segundo plano (o Proxmox fora do ar nao segura o login).

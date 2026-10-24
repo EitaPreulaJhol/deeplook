@@ -307,6 +307,7 @@ COOKIE_SECURE=true
 | `SLA_WARN_HOURS` | Amostra não concluída há mais de N horas no status atual ganha bolinha laranja (alerta) | `24` |
 | `SLA_LATE_HOURS` | Acima de N horas fica vermelha e entra na fila "Atrasadas" | `72` |
 | `SLA_P1_HOURS` · `SLA_P2_HOURS` · `SLA_P4_HOURS` | prazos das prioridades P1, P2 e P4 ("alerta/atraso" em horas); o P3 usa `SLA_WARN_HOURS`/`SLA_LATE_HOURS` | `2/4` · `8/24` · `72/120` |
+| `SLA_ESCALATE_PRIORITY` | ao entrar em alerta o responsável é avisado (sem responsável, os analistas); ao atrasar, também os admins. `true`: ao atrasar, a prioridade sobe um nível | `false` |
 | `REPORT_REVIEW_REQUIRED` | `true`: relatório só é publicado com a aprovação de outro analista (quatro olhos) | `false` |
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
 | `PASSWORD_MAX_AGE_DAYS` | validade da senha em dias (admins não expiram); `0` desliga | `90` |

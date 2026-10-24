@@ -59,7 +59,13 @@ export function describeEvent(event: EntryEvent): string {
     case 'UNMARKED_DUPLICATE':
       return 'Deixou de ser duplicata';
     case 'PRIORITY_CHANGED':
-      return `Prioridade: ${priorityLabel((from ?? 'P3') as Priority)} → ${priorityLabel((to ?? 'P3') as Priority)}`;
+      return `Prioridade: ${priorityLabel((from ?? 'P3') as Priority)} → ${priorityLabel((to ?? 'P3') as Priority)}${
+        event.detail === 'escalonamento' ? ' (escalonamento por atraso)' : ''
+      }`;
+    case 'SLA_WARN':
+      return `Prazo em alerta: mais de ${event.detail ?? '?'} h no status atual (${priorityLabel((from ?? 'P3') as Priority)})`;
+    case 'SLA_LATE':
+      return `Atrasada: mais de ${event.detail ?? '?'} h no status atual (${priorityLabel((from ?? 'P3') as Priority)})`;
     case 'FILE_PURGED':
       return `Arquivo expurgado${event.detail ? ` (${event.detail})` : ''}; ficha, relatórios e hash mantidos`;
     case 'TRASHED':

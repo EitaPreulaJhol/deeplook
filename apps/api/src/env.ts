@@ -25,6 +25,8 @@ const EnvSchema = z
       .string()
       .regex(/^\d+\/\d+$/, 'use "alerta/atraso", ex.: 72/120')
       .default('72/120'),
+    /** Escalonamento (item 73): ao atrasar, sobe a prioridade um nivel (P4 -> P3...). */
+    SLA_ESCALATE_PRIORITY: z.enum(['true', 'false']).default('false'),
     COOKIE_SECURE: z.enum(['true', 'false']).default('false'),
     ADMIN_EMAIL: z.string().email().default('admin@deeplook.local'),
     ADMIN_PASSWORD: z.string().min(6).default('admin12345'),

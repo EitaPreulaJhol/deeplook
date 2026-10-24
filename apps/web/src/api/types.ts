@@ -348,8 +348,13 @@ export interface AppNotification {
     | 'COMMENT'
     | 'REPORT_APPROVED'
     | 'REPORT_RETURNED'
-    | 'IOC_SEEN';
-  /** Veredito (COMPLETED) ou trecho da atualizacao (MENTION/COMMENT). */
+    | 'IOC_SEEN'
+    | 'SLA_WARN'
+    | 'SLA_LATE';
+  /**
+   * Veredito (COMPLETED), trecho da atualizacao (MENTION/COMMENT) ou horas do
+   * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null).
+   */
   detail: string | null;
   readAt: string | null;
   createdAt: string;
@@ -603,7 +608,9 @@ export type EntryEventType =
   | 'TRASHED'
   | 'RESTORED'
   | 'CASE_ADDED'
-  | 'CASE_REMOVED';
+  | 'CASE_REMOVED'
+  | 'SLA_WARN'
+  | 'SLA_LATE';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {

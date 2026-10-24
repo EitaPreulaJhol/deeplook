@@ -64,6 +64,10 @@ export function notificationText(n: AppNotification): string {
       return `${who} devolveu o seu relatório para ajustes`;
     case 'IOC_SEEN':
       return `Indicador que você segue: ${n.detail ?? 'apareceu numa amostra'}`;
+    case 'SLA_WARN':
+      return `Prazo em alerta: mais de ${n.detail ?? '?'} h no mesmo status`;
+    case 'SLA_LATE':
+      return `Amostra atrasada: mais de ${n.detail ?? '?'} h no mesmo status`;
   }
 }
 

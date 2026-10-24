@@ -290,6 +290,7 @@ Na API, notifique com `notify(tx, [{ userId, type, entryId, actorId, detail }])`
 da mesma transação do evento; ele ignora a própria pessoa e destinatários repetidos. No
 front, `useNotificationCount()` (contador compartilhado), `useNotifications(limit,
 somenteNaoLidas)`, `useMarkRead()`, `notificationText(n)` e `notificationHref(n)`.
+Avisos do sistema (prazo, `lib/sla-escalation.ts`) usam `actorId: null`.
 
 ### Menções — `components/MentionTextArea.tsx`
 
@@ -497,7 +498,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/admin/trash/:id` | admin: exclui de vez (arquivo no MinIO + ficha e tudo ligado a ela) |
 | GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
 | POST/PATCH/DELETE | `/api/report-templates[/:id]` | admin: `{ name, summary, findings?, iocs?, verdict }`; nome repetido → 409 |
-| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT) |
+| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT, REPORT_APPROVED, REPORT_RETURNED, IOC_SEEN, SLA_WARN, SLA_LATE; nos de prazo `actor` é null e `detail` são as horas do prazo) |
 | GET | `/api/me/notifications/count` | `{ unread }` (sininho, a cada minuto) |
 | POST | `/api/me/notifications/read` | `{ ids? }` marca como lidas (sem `ids`: todas) |
 | GET | `/api/users/mentionable?q=` | pessoas ativas para o "@" (nome, sem e-mail; até 8) |
@@ -606,6 +607,7 @@ banco nem da API rodando.
 | `attack.mjs` | ATT&CK: topo da ficha e relatório com links, campo do relatório (busca por nome e código, setas + Enter, clique, ordem do ATT&CK, ×, Backspace, envio), link → Histórico filtrado, filtro (trocar, código incompleto, apagar, Limpar), etiqueta em Meus Uploads, quadro do Painel (barras proporcionais, link, vazio) |
 | `document.mjs` | análise de documento: aviso no topo com risco alto, seção com risco, alertas coloridos, links só como texto, objeto embutido, macro (roda ao abrir, suspeitas, "Ver código" como texto), documento limpo, não documento sem seção |
 | `similar.mjs` | arquivos parecidos (TLSH): motivo com a %, filtro de similaridade (vai para a API, lista vazia mantém o filtro, Limpar volta a 70%), contador da aba no padrão, TLSH "T1…" na ficha com Copiar, "Não calculável" e "Calculando…" |
+| `sla-escalation.mjs` | escalonamento por prazo: avisos de alerta/atraso no painel do sininho (sem trecho, abre a ficha) e na página Caixa de entrada; histórico com autor Sistema, prazo e prioridade, prioridade subida "por atraso" |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

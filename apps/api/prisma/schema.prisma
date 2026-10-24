@@ -159,6 +159,9 @@ model Entry {
   /// Quando a amostra entrou no status atual (idade na fila / prazo). Mantido por
   /// um trigger no Postgres a cada mudanca de status (migracao entry_status_changed_at).
   statusChangedAt DateTime    @default(now())
+  /// Escalonamento por prazo (item 73): ate onde ja avisou no status atual
+  /// (src/lib/sla-escalation.ts). O trigger de status volta para null.
+  slaStage        SlaStage?
 
   /// Analista responsavel pela amostra (atribuicao); null = sem responsavel.
   assigneeId String?
@@ -339,6 +342,15 @@ enum EntryEventType {
   /// Incluida num caso / retirada dele (detail: codigo do caso, ex.: CASO-0007).
   CASE_ADDED
   CASE_REMOVED
+  /// Prazo em alerta / atrasada (item 73; fromValue = prioridade, detail = horas do prazo).
+  SLA_WARN
+  SLA_LATE
+}
+
+/// Ate onde o escalonamento por prazo ja avisou (item 73).
+enum SlaStage {
+  WARN
+  LATE
 }
 
 /// Linha do tempo da amostra: quem fez o que e quando (aba "Historico").
@@ -424,6 +436,9 @@ enum NotificationType {
   REPORT_RETURNED
   /// Indicador seguido apareceu numa amostra nova ou num relatorio (detail = indicador).
   IOC_SEEN
+  /// Prazo em alerta / atrasada (item 73; detail = horas do prazo).
+  SLA_WARN
+  SLA_LATE
 }
 
 /// Caixa de entrada (sininho do masthead): criadas junto com os eventos do
