@@ -3345,3 +3345,74 @@ textarea.dl-code-input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Comparar amostras (/comparar, item 58): linhas que diferem e as tres colunas. */
+/* Colunas A e B do mesmo tamanho (hash longo quebra em vez de alargar). */
+table.dl-compare {
+  table-layout: fixed;
+}
+
+table.dl-compare th:first-child {
+  inline-size: 11rem;
+}
+
+table.dl-compare td {
+  overflow-wrap: anywhere;
+}
+
+.dl-compare tr.is-diff td {
+  background: var(--dl-warning-bg);
+}
+
+.dl-compare__differs {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-compare__kind {
+  color: var(--dl-text-muted);
+  font-family: var(--dl-font-sans);
+  font-size: 0.6875rem;
+}
+
+.dl-compare-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.dl-compare-list__head {
+  margin: 0 0 0.3rem;
+  padding-block-end: 0.2rem;
+  border-block-end: 2px solid var(--dl-panel-border);
+  font-size: var(--dl-font-size);
+  font-weight: 600;
+}
+
+.dl-compare-list__col--a .dl-compare-list__head {
+  border-block-end-color: var(--dl-series-1);
+}
+
+.dl-compare-list__col--b .dl-compare-list__head {
+  border-block-end-color: var(--dl-series-2, var(--dl-series-1));
+}
+
+.dl-compare-list ul {
+  max-block-size: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-compare-list li {
+  padding: 0.1rem 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .dl-compare-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

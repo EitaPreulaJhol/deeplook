@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { attackHref } from '../components/attack';
 import { copyText } from '../components/CopyButton';
-import { DuplicateDialog } from '../components/DuplicateDialog';
+import { DuplicateDialog, EntryPickDialog } from '../components/DuplicateDialog';
 import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
 import { EntryHistoryTab } from '../components/EntryHistoryTab';
 import { loadEntrySequence } from '../components/entryNav';
@@ -116,6 +116,7 @@ export function EntryDetailPage() {
   const pinned = favs.favorites.find((f) => f.kind === 'ENTRY' && f.entryId === id);
   // Duplicata: caixa de escolha da principal e "Desfazer".
   const [dupOpen, setDupOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const confirm = useConfirm();
   const reloadAfterDuplicate = () =>
     Promise.all([
@@ -369,6 +370,7 @@ export function EntryDetailPage() {
                         separated: true,
                         action: () => setDupOpen(true),
                       },
+                  { label: 'Comparar com…', action: () => setCompareOpen(true) },
                 ]
               : []),
             {
@@ -420,6 +422,25 @@ export function EntryDetailPage() {
         )}
       </HpsmToolbar>
 
+      {compareOpen && (
+        <EntryPickDialog
+          entryId={entry.id}
+          title="Comparar com outra amostra"
+          message="Escolha a amostra para ver lado a lado: tipo, tamanho, entropia, hash, strings, IOCs, regras YARA e técnicas ATT&CK."
+          legend="Comparar com:"
+          otherLabel="ID ou link da outra amostra"
+          submitLabel="Comparar"
+          busyLabel="Abrindo..."
+          emptyChoice="Escolha uma amostra ou informe o ID."
+          onPick={async (target) => {
+            if (target === entry.id) return 'Escolha uma amostra diferente desta.';
+            setCompareOpen(false);
+            navigate(`/comparar?a=${entry.id}&b=${encodeURIComponent(target)}`);
+            return null;
+          }}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
       {dupOpen && (
         <DuplicateDialog
           entryId={entry.id}

@@ -1425,7 +1425,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 55 | Casos (agrupar amostras) | Incident ligado a Interactions | 🔴 | G | ⬜ (decisão) |
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ✅ |
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
-| 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
+| 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ✅ |
 | 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ✅ |
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ✅ |
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
@@ -1580,6 +1580,31 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 - **Proposta:** "Comparar com…" no menu Mais da ficha (ou duas marcadas na lista): lado a
   lado tipo real, tamanho, entropia, SHA-256, strings e IOCs, com o que é comum e o que é
   só de cada uma.
+- ✅ **Implementado** (sem migração; só analistas e admins):
+  - **API** `GET /api/entries/compare?a=&b=` (`routes/compare.ts`):
+    - os campos de cada lado: tipo, tipo real, arquivo, tamanho, SHA-256, entropia,
+      total de strings, resumo do PE, URL, veredito, status, prioridade, quem enviou e
+      quando;
+    - `sameContent` quando o SHA-256 é igual;
+    - para cada lista, `{ common, onlyA, onlyB }` (até 200 itens). As listas são os IOCs
+      (relatórios publicados + o próprio hash/domínio), as URLs, IPs, e-mails, caminhos,
+      chaves de registro e strings suspeitas da análise estática, as DLLs e funções
+      importadas suspeitas, as seções do PE, as regras YARA (56) e as técnicas ATT&CK
+      (59, só de relatórios publicados);
+    - mesma amostra dá 400; inexistente, 404; usuário comum, 403.
+    - Nada é executado nem lido do MinIO: usa a análise guardada no envio.
+  - **Front:**
+    - "Comparar as 2" na barra de seleção da lista, só com exatamente duas marcadas;
+    - "Comparar com…" no menu Mais da ficha, com a mesma caixa da duplicata:
+      relacionadas sugeridas ou ID/link. A caixa virou `EntryPickDialog`, que as duas
+      usam;
+    - tela **Comparar amostras** (`/comparar?a=&b=`, aba própria no workspace):
+      - tabela "Lado a lado" com as linhas que diferem destacadas e marcadas
+        "(difere)"; linhas vazias dos dois lados não aparecem;
+      - uma seção por lista com três colunas: "Só em A", "Em comum" e "Só em B";
+      - "Trocar os lados" e aviso de mesmo conteúdo;
+    - usuário comum volta ao início.
+  - **Testes:** 17 de integração (Postgres) e `compare.mjs`.
 
 ### 59. MITRE ATT&CK nos relatórios
 - **Proposta:** campo de técnicas ATT&CK no relatório (busca por código ou nome, ex.:

@@ -1,6 +1,7 @@
 import { Button, Select, SelectItem } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { EntryStatus, Priority, Verdict } from '../api/types';
@@ -24,6 +25,7 @@ interface EntriesBulkBarProps {
  */
 export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
   const confirm = useConfirm();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState('');
   const [verdict, setVerdict] = useState('');
@@ -167,6 +169,17 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
       <Button kind="primary" size="sm" disabled={busy} onClick={apply}>
         {busy ? 'Aplicando...' : 'Aplicar'}
       </Button>
+      {/* Exatamente duas marcadas: comparar lado a lado (item 58). */}
+      {ids.length === 2 && (
+        <Button
+          kind="tertiary"
+          size="sm"
+          disabled={busy}
+          onClick={() => navigate(`/comparar?a=${ids[0]}&b=${ids[1]}`)}
+        >
+          Comparar as 2
+        </Button>
+      )}
       <Button kind="ghost" size="sm" disabled={busy} onClick={onClear}>
         Limpar seleção
       </Button>

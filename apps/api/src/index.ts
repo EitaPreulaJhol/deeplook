@@ -13,6 +13,7 @@ import { reconcileOrphans, recoverStuckSessions, startSandboxReaper } from './li
 import { adminRoutes } from './routes/admin';
 import { antivirusRoutes } from './routes/antivirus';
 import { attackRoutes } from './routes/attack';
+import { compareRoutes } from './routes/compare';
 import { apiTokenRoutes } from './routes/api-tokens';
 import { authRoutes } from './routes/auth';
 import { dashboardRoutes } from './routes/dashboard';
@@ -76,6 +77,7 @@ async function main() {
   await app.register(reputationRoutes);
   await app.register(antivirusRoutes);
   await app.register(attackRoutes);
+  await app.register(compareRoutes);
   await app.register(yaraRoutes);
   await app.register(hexRoutes);
   await app.register(adminRoutes);

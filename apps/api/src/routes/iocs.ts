@@ -40,7 +40,7 @@ export type Sighting =
  * Indicadores da amostra: os dos relatorios publicados (indice ReportIoc) e os
  * da propria amostra (SHA-256 do arquivo, URL e dominio).
  */
-async function entryIocs(entryId: string) {
+export async function entryIocs(entryId: string) {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
     select: {

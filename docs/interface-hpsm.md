@@ -451,6 +451,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/admin/audit/export.csv` | admin: CSV da auditoria com os mesmos filtros |
 | GET | `/api/entries/:id/antivirus` | ClamAV: `{ enabled, pending, scan: { status, signature, error, engine, dbVersion, dbDate, scannedAt } }` (aceita token) |
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
+| GET | `/api/entries/compare?a=&b=` | analistas: `{ a, b, sameContent, lists: { iocs, yara, attack, urls, ips, emails, paths, registry, suspicious, imports, suspiciousImports, sections } }`, cada lista `{ common, onlyA, onlyB }` (até 200); 400 mesma amostra, 404 inexistente |
 | GET | `/api/attack` | MITRE ATT&CK embutido `{ version, tactics: [{ id, name }], techniques: [{ id, name, tactics }] }` (cache de 1 dia) |
 | GET/POST | `/api/yara/rules` | analistas: regras YARA `{ rules: [{ id, name, description, source, enabled, createdBy, updatedBy, updatedAt }] }`; POST `{ name, description?, source, enabled }` compila com o YARA-X antes (400 com `details.source` = saída do compilador; 409 nome em uso) |
 | PATCH/DELETE | `/api/yara/rules/:id` | analistas: edita (mesmo corpo do POST) ou só `{ enabled }` (ativar/desativar); exclui |
@@ -578,6 +579,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `compare.mjs` | comparar: "Comparar as 2" só com duas marcadas, lado a lado (difere destacado, linhas vazias escondidas, link), listas só com itens (contagens, tipo do IOC), trocar os lados, mesmo conteúdo, "Comparar com…" da ficha (mesma amostra recusada, ID), inexistente, sem parâmetros, usuário comum sem acesso |
 | `attack.mjs` | ATT&CK: topo da ficha e relatório com links, campo do relatório (busca por nome e código, setas + Enter, clique, ordem do ATT&CK, ×, Backspace, envio), link → Histórico filtrado, filtro (trocar, código incompleto, apagar, Limpar), etiqueta em Meus Uploads, quadro do Painel (barras proporcionais, link, vazio) |
 | `yara.mjs` | regras YARA: item só para analistas no navegador, obrigatórios, Validar com erro (quadro do compilador com a linha), salvar recusado com o campo destacado, validar ok, Ctrl+S, nome em uso, editar (PATCH), desativar (só `enabled`), excluir com confirmação; ficha escaneando → acertos (tabela e topo), Escanear de novo, sem regras sem seção; usuário comum redirecionado |
 | `ioc-watch.mjs` | alertas de IOC: Seguir/Deixar de seguir na ficha do indicador, aba Indicadores na Minha Conta (link, deixar de seguir) e notificação com texto e link para a aba Relatórios |

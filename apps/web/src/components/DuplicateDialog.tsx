@@ -22,9 +22,73 @@ interface Props {
 /**
  * Caixa "Marcar como duplicata" (registro pai/filho do HPSM): escolhe a amostra
  * principal entre as relacionadas (mais relevantes primeiro) ou por id/link.
- * Esc ou Cancelar fecham; Tab circula dentro da caixa.
  */
 export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
+  return (
+    <EntryPickDialog
+      entryId={entryId}
+      excludeIds={excludeIds}
+      title="Marcar como duplicata"
+      message="Escolha a amostra principal. Esta amostra será concluída com o veredito da principal, passará a acompanhá-lo e sairá das filas."
+      legend="Amostra principal:"
+      otherLabel="ID ou link da amostra principal"
+      submitLabel="Marcar"
+      busyLabel="Marcando..."
+      emptyChoice="Escolha a amostra principal ou informe o ID."
+      onPick={async (target) => {
+        try {
+          const res = await api.post<{ principal: { id: string; title: string } }>(
+            `/entries/${entryId}/duplicate`,
+            { of: target },
+          );
+          onClose(res.principal);
+          return null;
+        } catch (err) {
+          const details = apiFieldErrors(err);
+          return details?.of?.length
+            ? `Amostra principal: ${details.of[0]}.`
+            : (err as Error).message;
+        }
+      }}
+      onClose={() => onClose()}
+    />
+  );
+}
+
+interface PickProps {
+  entryId: string;
+  excludeIds?: string[];
+  title: string;
+  message: string;
+  legend: string;
+  /** aria-label do campo "Outra amostra". */
+  otherLabel: string;
+  submitLabel: string;
+  busyLabel: string;
+  emptyChoice: string;
+  /** Usa a amostra escolhida; devolve a mensagem de erro (ou null se deu certo). */
+  onPick: (target: string) => Promise<string | null>;
+  onClose: () => void;
+}
+
+/**
+ * Escolher outra amostra (duplicata, comparar): sugere as relacionadas (mais
+ * relevantes primeiro) ou aceita id/link. Esc ou Cancelar fecham; Tab circula
+ * dentro da caixa.
+ */
+export function EntryPickDialog({
+  entryId,
+  excludeIds = [],
+  title,
+  message,
+  legend,
+  otherLabel,
+  submitLabel,
+  busyLabel,
+  emptyChoice,
+  onPick,
+  onClose,
+}: PickProps) {
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const related = useRelatedEntries(entryId);
@@ -66,22 +130,14 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!target) {
-      setError('Escolha a amostra principal ou informe o ID.');
+      setError(emptyChoice);
       return;
     }
     setSaving(true);
     setError(null);
-    try {
-      const res = await api.post<{ principal: { id: string; title: string } }>(
-        `/entries/${entryId}/duplicate`,
-        { of: target },
-      );
-      onClose(res.principal);
-    } catch (err) {
-      const details = apiFieldErrors(err);
-      setError(
-        details?.of?.length ? `Amostra principal: ${details.of[0]}.` : (err as Error).message,
-      );
+    const failure = await onPick(target);
+    if (failure) {
+      setError(failure);
       setSaving(false);
       // O botao desabilitado tirou o foco da caixa: volta para a opcao escolhida.
       const selector = choice === 'other' ? '.hpsm-modal__input' : 'input[type="radio"]:checked';
@@ -129,21 +185,18 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
         onKeyDown={onKeyDown}
       >
         <h2 id={titleId} className="hpsm-modal__head">
-          Marcar como duplicata
+          {title}
         </h2>
         <form onSubmit={submit}>
           <div className="hpsm-modal__prompt">
-            <div className="hpsm-modal__message">
-              Escolha a amostra principal. Esta amostra será concluída com o veredito da principal,
-              passará a acompanhá-lo e sairá das filas.
-            </div>
+            <div className="hpsm-modal__message">{message}</div>
             {error && (
               <div className="dl-dup-error" role="alert">
                 {error}
               </div>
             )}
             <fieldset className="dl-dup-options">
-              <legend className="hpsm-modal__label">Amostra principal:</legend>
+              <legend className="hpsm-modal__label">{legend}</legend>
               {related.isLoading && (
                 <div className="dl-related-hint">Procurando relacionadas...</div>
               )}
@@ -151,7 +204,7 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
                 <label key={entry.id} className="dl-dup-option">
                   <input
                     type="radio"
-                    name="dup-principal"
+                    name={`${titleId}-choice`}
                     value={entry.id}
                     checked={choice === entry.id}
                     onChange={() => setChoice(entry.id)}
@@ -164,7 +217,7 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
               <label className="dl-dup-option">
                 <input
                   type="radio"
-                  name="dup-principal"
+                  name={`${titleId}-choice`}
                   value="other"
                   checked={choice === 'other'}
                   onChange={() => setChoice('other')}
@@ -173,7 +226,7 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
               </label>
               <input
                 className="hpsm-modal__input"
-                aria-label="ID ou link da amostra principal"
+                aria-label={otherLabel}
                 placeholder="Ex.: cm3x9... ou https://.../entries/cm3x9..."
                 value={other}
                 onFocus={() => setChoice('other')}
@@ -186,7 +239,7 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
           </div>
           <div className="hpsm-modal__actions">
             <button type="submit" className="dl-btn dl-btn--primary" disabled={saving || !target}>
-              {saving ? 'Marcando...' : 'Marcar'}
+              {saving ? busyLabel : submitLabel}
             </button>
             <button type="button" className="dl-btn" onClick={() => onClose()}>
               Cancelar

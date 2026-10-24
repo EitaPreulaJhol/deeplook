@@ -6,6 +6,7 @@ import { startPath } from './auth/preferences';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
+import { ComparePage } from './pages/ComparePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
 import { EntryPrintPage } from './pages/EntryPrintPage';
@@ -96,6 +97,10 @@ export default function App() {
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/painel" element={<DashboardPage />} />
         <Route path="/revisoes" element={<ReviewQueuePage />} />
+        <Route
+          path="/comparar"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <ComparePage />}
+        />
         <Route
           path="/yara"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <YaraRulesPage />}

@@ -316,6 +316,25 @@ export async function setupMock(context, state) {
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
+      // Comparar amostras: o roteiro define as listas; os lados vem de `entries`.
+      if (p === '/api/entries/compare') {
+        state.lastCompare = url.search;
+        const ea = entries.find((e) => e.id === url.searchParams.get('a'));
+        const eb = entries.find((e) => e.id === url.searchParams.get('b'));
+        if (!ea || !eb) return json(route, 404, { error: 'Amostra nao encontrada.' });
+        const side = (e) => ({
+          id: e.id, title: e.title, type: e.type, status: e.status, verdict: e.verdict, priority: e.priority ?? 'P3',
+          createdAt: e.createdAt, owner: { id: e.owner.id, displayName: e.owner.displayName },
+          originalFilename: e.originalFilename ?? null, fileSize: e.fileSize ?? null, mimeType: e.mimeType ?? null,
+          sha256: e.sha256 ?? null, url: e.url ?? null, urlDomain: e.urlDomain ?? null,
+          detectedType: e.staticInfo?.detectedType?.label ?? null, entropy: e.staticInfo?.entropy ?? null,
+          entropyLevel: e.staticInfo?.entropyLevel ?? null, stringsTotal: e.staticInfo?.strings?.total ?? null, pe: null,
+        });
+        const empty = { common: [], onlyA: [], onlyB: [] };
+        const keys = ['iocs', 'yara', 'attack', 'urls', 'ips', 'emails', 'paths', 'registry', 'suspicious', 'imports', 'suspiciousImports', 'sections'];
+        const lists = Object.fromEntries(keys.map((k) => [k, state.compareLists?.[k] ?? empty]));
+        return json(route, 200, { a: side(ea), b: side(eb), sameContent: Boolean(ea.sha256 && ea.sha256 === eb.sha256), lists });
+      }
       if (p === '/api/attack') {
         state.attackGets = (state.attackGets ?? 0) + 1;
         return json(route, 200, ATTACK);
