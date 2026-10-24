@@ -22,6 +22,8 @@ import { IocPage } from './pages/IocPage';
 import { KbArticlePage } from './pages/KbArticlePage';
 import { KbListPage } from './pages/KbListPage';
 import { LoginPage } from './pages/LoginPage';
+import { ManagementPage } from './pages/ManagementPage';
+import { ManagementPrintPage } from './pages/ManagementPrintPage';
 import { MyUploadsPage } from './pages/MyUploadsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ReviewQueuePage } from './pages/ReviewQueuePage';
@@ -91,6 +93,7 @@ export default function App() {
       {/* Ficha para impressao (menu "Mais" > Imprimir ficha), tambem sem o shell. */}
       <Route path="/entries/:id/imprimir" element={<EntryPrintPage />} />
       <Route path="/casos/:id/imprimir" element={<CasePrintPage />} />
+      <Route path="/gerencial/imprimir" element={<ManagementPrintPage />} />
 
       <Route element={<ShellLayout />}>
         {/* Raiz (e destino apos o login): a pagina inicial escolhida nas preferencias. */}
@@ -125,6 +128,10 @@ export default function App() {
         <Route
           path="/permitidos"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <AllowlistPage />}
+        />
+        <Route
+          path="/gerencial"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <ManagementPage />}
         />
         <Route
           path="/yara"

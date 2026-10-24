@@ -29,6 +29,7 @@ import { favoritesRoutes } from './routes/favorites';
 import { hexRoutes } from './routes/hex';
 import { iocRoutes } from './routes/iocs';
 import { kbRoutes } from './routes/kb';
+import { managementRoutes } from './routes/management';
 import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
 import { relatedRoutes } from './routes/related';
@@ -84,6 +85,8 @@ async function main() {
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(evidenceRoutes);
+  // Relatorio gerencial (item 77).
+  await app.register(managementRoutes);
   await app.register(reputationRoutes);
   await app.register(antivirusRoutes);
   await app.register(attackRoutes);

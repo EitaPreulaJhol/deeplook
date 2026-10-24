@@ -407,6 +407,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
+| `/gerencial` | Relatório gerencial (analistas) | `?de=AAAA-MM-DD&ate=AAAA-MM-DD`; `/gerencial/imprimir` para impressão |
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
 | `/entries/:id/imprimir` | Ficha para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
@@ -451,6 +452,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/reports/:id/evidence` | evidência (multipart `file` + `caption`): PNG/JPEG/WebP pelo tipo real, até 10 MB e 20 por relatório, metadados removidos → `{ evidence, metadataRemoved }` |
 | GET · PATCH · DELETE | `/api/evidence/:id` | a imagem (com `nosniff` e CSP `sandbox`; usuário comum só de relatório publicado) · `{ caption }` · exclui no MinIO |
 | GET | `/api/reports/:id/versions` | versões do relatório (analistas), da 1ª à atual: `{ versions: [{ number, current, author, at, status, summary, findings, iocs, verdict, attackTechniques }] }` |
+| GET | `/api/management?from=&to=&tz=&format=` | relatório gerencial (analistas): `received`, `completed`, `timeToComplete` (`all`, `byPriority`: `{ n, avgHours, medianHours }`), `verdicts`, `techniques`, `cases`, `workload`; `format=csv` baixa o CSV |
 | GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas), `techniques` (ATT&CK mais vistas: `{ id, name, tactics, count }`) |
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
 | GET | `/api/admin/audit?action=&days=&q=&limit=&offset=` | admin: `{ total, items: [{ action, actor, targetUser, targetLabel, detail, ip, createdAt }] }`, mais recentes primeiro |
@@ -618,6 +620,7 @@ banco nem da API rodando.
 | `case-export.mjs` | exportar o caso: seção Indicadores das amostras (links, URL como texto), menu Exportar (Markdown com dados, amostras, relatórios, indicadores, técnicas e linha do tempo; IOCs CSV/STIX pela API), Imprimir (fora da casca, automática, seções, PDF), caso sem indicadores |
 | `report-versions.mjs` | versões do relatório: Editar (preenchido, Cancelar, resumo obrigatório, Ctrl+S salva a edição e não cria outro), Versões (N) com a diferença (+/−, linha adicionada, veredito, ATT&CK), versões iguais, ocultar, sem Editar com revisão obrigatória, usuário comum sem ações |
 | `evidence.mjs` | evidências: miniaturas e legendas, ampliada (setas, Esc, foco de volta), envio com legenda, SVG recusado com o motivo, legenda e exclusão, imagens na ficha impressa, revisão obrigatória e usuário comum só veem |
+| `management.mjs` | relatório gerencial: pasta Gestão, padrão de 30 dias com o fuso, indicadores, tempo por prioridade (dias acima de 48 h), carga por analista, mês anterior e data livre na URL, CSV, impressão automática com o período, usuário comum sem acesso |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

@@ -4025,3 +4025,12 @@ table.dl-compare td {
 .dl-print__evidence figcaption {
   font-size: 0.6875rem;
 }
+
+/* ---- Relatorio gerencial impresso (item 77) ---- */
+.dl-print--management .dl-kpis {
+  margin-block: 0.5rem;
+}
+
+.dl-print--management .hpsm-section {
+  break-inside: avoid;
+}

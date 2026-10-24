@@ -2008,7 +2008,7 @@ Service Manager 9.
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ✅ |
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ✅ |
 | 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ✅ |
-| 77 | Relatório gerencial | Reports | ⚪ | M | ⬜ |
+| 77 | Relatório gerencial | Reports | ⚪ | M | ✅ |
 | 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ⬜ |
 | 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⬜ (decisão) |
 | 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ⬜ (decisão) |
@@ -2395,6 +2395,35 @@ decisões.
   amostras recebidas e concluídas, tempo médio até concluir (por prioridade), vereditos,
   técnicas mais vistas, casos abertos e encerrados e carga por analista; exportar em CSV
   e imprimir.
+- ✅ **Implementado** (sem migração):
+  - **API** (`routes/management.ts`): `GET /api/management?from=&to=&tz=` (analistas e
+    admins). As datas são dias inteiros no fuso do navegador (inválido cai em UTC), até
+    366 dias. Traz:
+    - recebidas (arquivos e links) e concluídas no período: as que chegaram a Concluído,
+      sem duplicatas, que não tiveram análise;
+    - **tempo até concluir** (do envio à conclusão): média e mediana, no total e por
+      prioridade;
+    - vereditos das concluídas e técnicas ATT&CK dos relatórios publicados escritos no
+      período;
+    - casos abertos, encerrados e em aberto hoje;
+    - **carga por analista:** concluídas como responsável e tempo médio, relatórios
+      publicados e revisões feitas. Os ativos aparecem sempre; os inativos, só com
+      atividade.
+    - `&format=csv`: CSV do Excel com uma linha por indicador (seção, item, quantidade,
+      tempos, relatórios, revisões).
+  - **Tela** `/gerencial` (pasta **Gestão** no navegador):
+    - atalhos de período (7, 30 e 90 dias, mês atual, mês anterior, ano atual) e datas
+      De/Até, que ficam na URL; padrão: últimos 30 dias;
+    - indicadores, tabela por prioridade (acima de 48 h mostra em dias), barras de
+      vereditos e técnicas e a tabela por analista;
+    - **Exportar CSV** e **Imprimir** (`/gerencial/imprimir`, no visual da ficha
+      impressa, com a explicação das contas no rodapé).
+  - **Testes:**
+    - 23 checagens no Postgres: contagens com duplicata, lixeira e outro mês de fora,
+      média e mediana por prioridade, total, técnicas, casos, carga (inativo, admin
+      zerado, ordem), limite do dia no fuso de São Paulo, fuso inválido, CSV e
+      validações;
+    - `management.mjs`.
 
 ### 78. Importar indicadores
 - **Proposta:** importar uma lista de indicadores (CSV ou pacote STIX 2.1) para **seguir**

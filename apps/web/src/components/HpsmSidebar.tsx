@@ -116,6 +116,13 @@ const TREE: NavFolder[] = [
     ],
   },
   {
+    // Resumo de um periodo para a gestao (item 77).
+    id: 'gestao',
+    label: 'Gestão',
+    access: 'triage',
+    children: [{ to: '/gerencial', label: 'Relatório gerencial', icon: IconChart }],
+  },
+  {
     id: 'amostras',
     label: 'Amostras',
     children: [
