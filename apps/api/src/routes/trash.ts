@@ -124,15 +124,25 @@ export async function trashRoutes(app: FastifyInstance) {
       select: { title: true, sha256: true, url: true, storageKey: true, bucket: true },
     });
     if (!entry) return reply.code(404).send({ error: 'A amostra não está na lixeira.' });
-    // Imagens de evidencia dos relatorios (item 76) tambem saem do MinIO.
+    // Imagens de evidencia dos relatorios (item 76) e capturas de pagina (item 80)
+    // tambem saem do MinIO.
     const evidence = await prisma.reportEvidence.findMany({
       where: { report: { entryId: id } },
       select: { storageKey: true },
     });
+    const captures = await prisma.pageCapture.findMany({
+      where: { entryId: id },
+      select: { screenshotKey: true, htmlKey: true },
+    });
     // Arquivos primeiro: se o MinIO falhar, a ficha continua na lixeira para tentar de novo.
     try {
       await deleteStoredFile(entry);
-      await deleteEvidenceObjects(evidence.map((e) => e.storageKey));
+      await deleteEvidenceObjects([
+        ...evidence.map((e) => e.storageKey),
+        ...captures
+          .flatMap((c) => [c.screenshotKey, c.htmlKey])
+          .filter((k): k is string => Boolean(k)),
+      ]);
     } catch (err) {
       req.log.error({ err }, 'Falha ao apagar o arquivo no MinIO');
       return reply

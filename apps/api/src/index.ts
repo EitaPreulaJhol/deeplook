@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 
 import { env, sandboxEnabled } from './env';
 import { backfillReportIocs } from './lib/iocs';
+import { failInterruptedCaptures } from './lib/page-capture';
 import { prisma } from './lib/prisma';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
@@ -20,6 +21,7 @@ import { apiTokenRoutes } from './routes/api-tokens';
 import { assignmentRoutes } from './routes/assignment';
 import { attackRoutes } from './routes/attack';
 import { authRoutes } from './routes/auth';
+import { captureRoutes } from './routes/captures';
 import { caseRoutes } from './routes/cases';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
@@ -89,6 +91,8 @@ async function main() {
   await app.register(evidenceRoutes);
   // Atribuicao automatica (item 72).
   await app.register(assignmentRoutes);
+  // Captura da pagina de um link (item 80).
+  await app.register(captureRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
   // Importar indicadores (item 78).
@@ -151,6 +155,9 @@ async function main() {
   const interrupted = await failInterruptedRetroscans();
   if (interrupted)
     app.log.warn(`[yara] ${interrupted} varredura(s) retroativa(s) interrompida(s).`);
+  // Captura de pagina interrompida por reinicio (item 80): marcada como falha.
+  const captures = await failInterruptedCaptures();
+  if (captures) app.log.warn(`[captura] ${captures} captura(s) interrompida(s).`);
 
   await app.listen({ host: '0.0.0.0', port: env.PORT });
   app.log.info(`DeepLook API ouvindo em http://0.0.0.0:${env.PORT}`);

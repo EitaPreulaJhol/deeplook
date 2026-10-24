@@ -1,0 +1,14 @@
+{
+  "name": "deeplook-capture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Navegador isolado que captura a página de um link (item 80).",
+  "type": "module",
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.49.0"
+  }
+}

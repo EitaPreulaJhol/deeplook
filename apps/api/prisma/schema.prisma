@@ -113,6 +113,7 @@ model User {
   reportRevisions   ReportRevision[]
   reportEvidence    ReportEvidence[]
   assignmentGroups  AssignmentGroupMember[]
+  pageCaptures      PageCapture[]
   casesAssigned     Case[]                  @relation("CaseAssignee")
   casesCreated      Case[]                  @relation("CaseAuthor")
   caseEntriesAdded  CaseEntry[]
@@ -225,6 +226,7 @@ model Entry {
   caseLinks       CaseEntry[]
   caseEvents      CaseEvent[]
   yaraRetroHits   YaraRetroscanHit[]
+  pageCaptures    PageCapture[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -433,6 +435,44 @@ enum EntryEventType {
   /// Prazo em alerta / atrasada (item 73; fromValue = prioridade, detail = horas do prazo).
   SLA_WARN
   SLA_LATE
+  /// Pagina do link capturada (item 80; toValue = HTTP, detail = redirecionamentos).
+  PAGE_CAPTURED
+}
+
+enum CaptureStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+/// Captura da pagina de um link (item 80) pelo navegador isolado (servico capture):
+/// print e HTML no MinIO (captures/<amostra>/<id>.png | .html.txt).
+model PageCapture {
+  id            String        @id @default(cuid())
+  entryId       String
+  entry         Entry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  requestedById String?
+  requestedBy   User?         @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  status        CaptureStatus @default(PENDING)
+  /// Endereco pedido (o da amostra no momento).
+  url           String
+  finalUrl      String?
+  title         String?
+  httpStatus    Int?
+  /// [{ url, status }] do pedido inicial ao final.
+  redirects     Json?
+  /// { subject, issuer, protocol, validFrom, validTo } (null = sem HTTPS).
+  certificate   Json?
+  /// [{ host, reason }] do que o proxy recusou (rede interna, esquemas).
+  blocked       Json?
+  screenshotKey String?
+  htmlKey       String?
+  htmlTruncated Boolean       @default(false)
+  error         String?
+  createdAt     DateTime      @default(now())
+  finishedAt    DateTime?
+
+  @@index([entryId, createdAt])
 }
 
 /// Ate onde o escalonamento por prazo ja avisou (item 73).

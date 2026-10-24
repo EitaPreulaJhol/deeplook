@@ -43,6 +43,7 @@ import {
   IconTrash,
 } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
+import { PageCaptureSection } from '../components/PageCaptureSection';
 import { PageHeader } from '../components/PageHeader';
 import {
   ReputationSection,
@@ -764,6 +765,7 @@ export function EntryDetailPage() {
             />
           )}
           <ReputationSection entryId={entry.id} canTriage={canTriage} />
+          {entry.type === 'URL' && <PageCaptureSection entryId={entry.id} canTriage={canTriage} />}
         </div>
       )}
 

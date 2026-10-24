@@ -1,0 +1,134 @@
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+
+import { env } from '../env';
+import type { Prisma } from '../generated/prisma/client';
+import { recordEvent } from './events';
+import { prisma } from './prisma';
+import { s3 } from './s3';
+
+/** Tempo maximo de uma captura (o servico tem 20 s de navegacao + print). */
+const CAPTURE_TIMEOUT_MS = 90_000;
+
+/** Captura de pagina ligada (servico do navegador isolado configurado). */
+export function captureEnabled(): boolean {
+  return Boolean(env.CAPTURE_URL && env.CAPTURE_TOKEN);
+}
+
+interface ServiceResult {
+  ok: boolean;
+  error?: string;
+  finalUrl?: string;
+  title?: string;
+  status?: number | null;
+  redirects?: { url: string; status: number | null }[];
+  certificate?: Record<string, string | null> | null;
+  html?: string;
+  htmlTruncated?: boolean;
+  screenshot?: string;
+  blocked?: { host: string; reason: string }[];
+}
+
+/**
+ * Captura da pagina de um link (item 80): pede ao navegador isolado (servico
+ * `capture`), guarda print e HTML no MinIO e o resto na ficha da captura. O
+ * HTML so e baixado como texto, nunca aberto. Falha vira FAILED com o motivo.
+ */
+export async function runCapture(
+  captureId: string,
+  log: { error: (obj: object, msg: string) => void },
+): Promise<void> {
+  const capture = await prisma.pageCapture.findUnique({ where: { id: captureId } });
+  if (!capture) return;
+  const fail = (error: string, blocked?: ServiceResult['blocked']) =>
+    prisma.pageCapture.update({
+      where: { id: captureId },
+      data: {
+        status: 'FAILED',
+        error: error.slice(0, 300),
+        blocked: (blocked ?? []) as unknown as Prisma.InputJsonValue,
+        finishedAt: new Date(),
+      },
+    });
+
+  let result: ServiceResult;
+  try {
+    const res = await fetch(`${env.CAPTURE_URL.replace(/\/$/, '')}/capture`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${env.CAPTURE_TOKEN}` },
+      body: JSON.stringify({ url: capture.url }),
+      signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
+    });
+    if (!res.ok && res.status !== 200) {
+      await fail(`serviço de captura respondeu ${res.status}`);
+      return;
+    }
+    result = (await res.json()) as ServiceResult;
+  } catch (err) {
+    log.error({ err }, '[captura] serviço indisponível');
+    await fail('serviço de captura indisponível');
+    return;
+  }
+  if (!result.ok) {
+    await fail(result.error ?? 'falha na captura', result.blocked);
+    return;
+  }
+
+  try {
+    const base = `captures/${capture.entryId}/${capture.id}`;
+    const screenshot = Buffer.from(result.screenshot ?? '', 'base64');
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.S3_BUCKET,
+        Key: `${base}.png`,
+        Body: screenshot,
+        ContentType: 'image/png',
+      }),
+    );
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.S3_BUCKET,
+        Key: `${base}.html.txt`,
+        Body: Buffer.from(result.html ?? '', 'utf8'),
+        ContentType: 'text/plain; charset=utf-8',
+      }),
+    );
+    const redirects = result.redirects ?? [];
+    await prisma.$transaction(async (tx) => {
+      await tx.pageCapture.update({
+        where: { id: captureId },
+        data: {
+          status: 'DONE',
+          finalUrl: result.finalUrl?.slice(0, 2000) ?? null,
+          title: result.title?.slice(0, 300) || null,
+          httpStatus: result.status ?? null,
+          redirects: redirects as unknown as Prisma.InputJsonValue,
+          certificate: (result.certificate ?? undefined) as Prisma.InputJsonValue | undefined,
+          blocked: (result.blocked ?? []) as unknown as Prisma.InputJsonValue,
+          screenshotKey: `${base}.png`,
+          htmlKey: `${base}.html.txt`,
+          htmlTruncated: Boolean(result.htmlTruncated),
+          finishedAt: new Date(),
+        },
+      });
+      await recordEvent(tx, {
+        entryId: capture.entryId,
+        actorId: capture.requestedById,
+        type: 'PAGE_CAPTURED',
+        toValue: result.status ? String(result.status) : null,
+        detail: `${Math.max(0, redirects.length - 1)} redirecionamento(s)`,
+      });
+    });
+  } catch (err) {
+    log.error({ err }, '[captura] falha ao guardar');
+    await fail('falha ao guardar a captura');
+  }
+}
+
+/** Capturas em andamento quando a API reiniciou: marcadas como falha. */
+export async function failInterruptedCaptures(): Promise<number> {
+  const { count } = await prisma.pageCapture.updateMany({
+    where: { status: 'PENDING' },
+    data: { status: 'FAILED', error: 'interrompida (a API reiniciou)', finishedAt: new Date() },
+  });
+  return count;
+}

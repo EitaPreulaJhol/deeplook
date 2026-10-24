@@ -2,6 +2,7 @@ import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
+import { captureEnabled } from './page-capture';
 import { prisma } from './prisma';
 import { pveTemplateExists, pveVersion } from './proxmox';
 import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
@@ -13,7 +14,8 @@ import { slaWhere } from './sla';
 export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
 
 export interface StatusCheck {
-  id: 'api' | 'database' | 'storage' | 'sandbox' | 'queues' | 'reputation' | 'antivirus';
+  id:
+    'api' | 'database' | 'storage' | 'sandbox' | 'queues' | 'reputation' | 'antivirus' | 'capture';
   name: string;
   level: StatusLevel;
   summary: string;
@@ -351,6 +353,51 @@ async function antivirusCheck(): Promise<StatusCheck> {
   };
 }
 
+/** Captura de pagina (item 80): servico do navegador isolado e capturas em 24 h. */
+async function captureCheck(): Promise<StatusCheck> {
+  const name = 'Captura de página';
+  if (!captureEnabled()) {
+    return {
+      id: 'capture',
+      name,
+      level: 'off',
+      summary: 'desligada (CAPTURE_URL vazio)',
+      details: [],
+    };
+  }
+  const details = [{ label: 'Endereço', value: env.CAPTURE_URL }];
+  const probe = await timed(async () => {
+    const res = await fetch(`${env.CAPTURE_URL.replace(/\/$/, '')}/health`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+  });
+  if (probe.error) {
+    return {
+      id: 'capture',
+      name,
+      level: 'error',
+      summary: probe.error,
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [done, failed] = await Promise.all([
+    prisma.pageCapture.count({ where: { createdAt: { gt: since }, status: 'DONE' } }),
+    prisma.pageCapture.count({ where: { createdAt: { gt: since }, status: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Capturas em 24 h', value: `${done} · ${failed} falha(s)` });
+  return {
+    id: 'capture',
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
 async function reputationCheck(): Promise<StatusCheck> {
   const enabled = enabledServices();
@@ -400,6 +447,7 @@ export async function systemStatus() {
     sandboxCheck(),
     queuesCheck(),
     antivirusCheck(),
+    captureCheck(),
     reputationCheck(),
   ]);
   const overall = checks

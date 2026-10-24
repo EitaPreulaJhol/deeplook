@@ -58,6 +58,9 @@ services:
       # Antivirus: o servico clamav abaixo; CLAMAV_HOST= (vazio) no .env desliga.
       CLAMAV_HOST: ${CLAMAV_HOST-clamav}
       CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      # Captura de pagina: o servico capture abaixo; CAPTURE_URL= (vazio) no .env desliga.
+      CAPTURE_URL: ${CAPTURE_URL-http://capture:3100}
+      CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@deeplook.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
@@ -93,6 +96,7 @@ services:
         condition: service_started
     networks:
       - deeplook
+      - capture
 
   # Antivirus ClamAV: clamd na rede interna (porta 3310, sem expor para fora) e o
   # freshclam atualizando as assinaturas. Usa ~1,5-3 GB de RAM por causa da base.
@@ -103,6 +107,22 @@ services:
       - ./data/clamav:/var/lib/clamav
     networks:
       - deeplook
+
+  # Navegador isolado da captura de pagina (item 80). Fica so na rede "capture"
+  # (sem banco, MinIO ou ClamAV) e o proxy interno recusa qualquer endereco
+  # privado, loopback ou de metadados: o navegador so alcanca a internet.
+  capture:
+    build:
+      context: ./apps/capture
+    restart: unless-stopped
+    environment:
+      CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
+    shm_size: 512m
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - capture
 
   web:
     build:
@@ -117,4 +137,7 @@ services:
 
 networks:
   deeplook:
+    driver: bridge
+  # So a API e o navegador isolado; a saida para a internet e da captura.
+  capture:
     driver: bridge

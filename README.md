@@ -191,6 +191,29 @@ interna (porta 3310, sem expor para fora), enviando o conteúdo pelo protocolo
 - **Desligar:** `CLAMAV_HOST=` (vazio) no `.env`; o serviço `clamav` pode sair do compose.
 - O resultado não muda o veredito: quem decide continua sendo o analista.
 
+## Captura da página de um link
+
+Nas amostras do tipo link, o analista clica em **Capturar página** e um navegador isolado
+(serviço `capture`, Chromium do Playwright) abre o link. Ficam guardados o print, o HTML,
+os redirecionamentos, o certificado e o que foi bloqueado.
+
+- **Isolamento:**
+  - o contêiner `capture` fica só na rede `capture`, junto da API, sem banco, MinIO ou
+    ClamAV;
+  - todo o tráfego do navegador passa por um proxy interno que resolve o nome uma vez e
+    **recusa endereços privados, loopback, link-local e de metadados de nuvem**
+    (169.254.169.254), sem nova resolução de DNS;
+  - WebRTC e QUIC desligados, sem downloads, contexto novo a cada captura;
+  - roda como usuário sem privilégios, com `no-new-privileges`.
+- **Saída para a internet:** o servidor precisa alcançar os links. Para sair por um proxy
+  ou VPN, use a rede do contêiner `capture`.
+- **HTML:** só baixa como texto (`.html.txt`), nunca abre no navegador.
+- **Limites:** 20 s para abrir a página, print de até 6.000 px de altura, HTML de até 2 MB,
+  uma captura por vez.
+- **Desligar:** `CAPTURE_URL=` (vazio) no `.env`; o serviço `capture` pode sair do compose.
+- **Token:** troque o `CAPTURE_TOKEN` (16+ caracteres), que vale para a API e para o
+  serviço.
+
 ## Regras YARA
 
 Analistas mantêm regras YARA na tela **Regras YARA** (pasta Detecção do navegador). A
@@ -316,6 +339,8 @@ COOKIE_SECURE=true
 | `ABUSEIPDB_API_KEY` | chave do AbuseIPDB (IPs) | — |
 | `CLAMAV_HOST` | host do `clamd` (serviço `clamav` do compose); vazio desliga o antivírus | `clamav` |
 | `CLAMAV_PORT` | porta do `clamd` | `3310` |
+| `CAPTURE_URL` | serviço do navegador isolado (captura de página de link); vazio desliga | `http://capture:3100` |
+| `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot | — |

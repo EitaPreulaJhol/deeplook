@@ -72,6 +72,8 @@ export function describeEvent(event: EntryEvent): string {
       return 'Movida para a lixeira';
     case 'RESTORED':
       return 'Restaurada da lixeira';
+    case 'PAGE_CAPTURED':
+      return `Página capturada no navegador isolado (HTTP ${to ?? '—'}${event.detail ? `, ${event.detail}` : ''})`;
     case 'CASE_ADDED':
       return `Incluída no caso ${event.detail ?? ''}`.trim();
     case 'CASE_REMOVED':

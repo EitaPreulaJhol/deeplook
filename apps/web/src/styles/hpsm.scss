@@ -4137,3 +4137,56 @@ table.dl-compare td {
 tr.is-off td {
   color: var(--dl-text-muted);
 }
+
+/* ---- Captura da pagina de um link (item 80) ---- */
+.dl-capture__grid {
+  display: grid;
+  grid-template-columns: minmax(12rem, 22rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.dl-capture__shot {
+  display: block;
+  max-block-size: 26rem;
+  overflow: hidden;
+  border: 1px solid var(--dl-grid-line);
+  background: var(--dl-surface-alt);
+  cursor: zoom-in;
+}
+
+.dl-capture__shot img {
+  display: block;
+  inline-size: 100%;
+}
+
+.dl-capture__chain,
+.dl-capture__blocked {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.dl-capture__chain {
+  list-style: decimal;
+}
+
+.dl-capture__blocked {
+  list-style: disc;
+}
+
+.dl-capture__older {
+  margin-block-start: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.dl-capture__older summary {
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .dl-capture__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

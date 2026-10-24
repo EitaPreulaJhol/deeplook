@@ -61,6 +61,15 @@ const EnvSchema = z
     /** Antivirus ClamAV (contenor clamav, protocolo clamd). Vazio = desligado. */
     CLAMAV_HOST: z.string().default(''),
     CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
+    /**
+     * Captura da pagina de um link (item 80): servico do navegador isolado
+     * (conteiner capture) e o token compartilhado. Vazio = desligada.
+     */
+    CAPTURE_URL: z.string().default(''),
+    CAPTURE_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),

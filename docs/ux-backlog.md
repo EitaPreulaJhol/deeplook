@@ -2011,7 +2011,7 @@ Service Manager 9.
 | 77 | Relatório gerencial | Reports | ⚪ | M | ✅ |
 | 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ✅ |
 | 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⏸ (sem SMTP) |
-| 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ⬜ |
+| 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ✅ |
 
 **Ordem sugerida (uma etapa por item, com testes, documentação e commit próprio):**
 67 → 69 → 68 → 70 → 71 → 73 → 74 → 75 → 76 → 77 → 78. Depois, 72, 79 e 80 conforme as
@@ -2518,3 +2518,48 @@ decisões.
 - **Decisão (24/10/2026):** o servidor pode acessar os links; captura **sob demanda**
   ("Capturar página" na ficha do link), num navegador isolado em contêiner próprio, sem
   acesso à rede interna (só internet), com tempo e tamanho limitados.
+- ✅ **Implementado** (migração `20261130000000_page_capture`: `PageCapture` e o evento
+  `PAGE_CAPTURED`):
+  - **Serviço `capture`** (`apps/capture`): Chromium da imagem do Playwright 1.49.0 com um
+    servidor HTTP mínimo (`POST /capture` com token, `GET /health`).
+    - **Proxy de saída** (`src/proxy.mjs`): todo o tráfego do navegador passa por ele, que
+      resolve o nome uma vez e recusa endereços privados, loopback, link-local,
+      CGNAT, reservados e de metadados de nuvem (169.254.169.254), inclusive IPv6 e
+      IPv4 mapeado. A conexão vai para o IP conferido, sem nova resolução de DNS
+      (sem DNS rebinding); o que foi recusado volta na resposta.
+    - **Navegador:** WebRTC/QUIC e prefetch de DNS desligados, só `http(s)` (file:, ftp:…
+      recusados), sem downloads e sem service workers; contexto novo a cada captura;
+      certificado inválido aceito e registrado.
+    - **Limites:** 20 s para abrir, print de 1280 px de largura e até 6.000 px de altura,
+      HTML de até 2 MB, uma captura por vez; erros do Chromium traduzidos ("a página
+      não respondeu em 20 s", "domínio não encontrado").
+    - **docker-compose:** contêiner só na rede `capture` (sem banco, MinIO ou ClamAV),
+      `no-new-privileges`, usuário sem privilégios, `shm_size` 512 MB e 1 GB de
+      memória.
+  - **API** (`lib/page-capture.ts`, `routes/captures.ts`):
+    - `POST /api/entries/:id/capture` (analistas, só links, uma em andamento por
+      amostra) roda em segundo plano;
+    - print e HTML vão para o MinIO (`captures/<amostra>/<id>.png | .html.txt`);
+      redirecionamentos, certificado e bloqueados ficam no banco; o histórico registra
+      "Página capturada";
+    - `GET /api/entries/:id/captures` (todos que veem a amostra);
+    - `GET /api/captures/:id/screenshot` serve com `nosniff` e CSP `sandbox`;
+      `GET /api/captures/:id/html` **só como anexo de texto**;
+    - capturas em andamento quando a API reinicia viram falha; serviço fora do ar ou
+      token errado viram falha com o motivo; excluir de vez na lixeira apaga os
+      arquivos;
+    - `CAPTURE_URL`/`CAPTURE_TOKEN` (vazio = desligada); o **Status do sistema** ganhou
+      a linha "Captura de página".
+  - **Tela** (ficha do link, aba Detalhes): **Capturar página** / "Capturar de novo",
+    com acompanhamento enquanto roda. Mostra:
+    - o print (clique abre inteiro);
+    - título, **endereço final como texto** (com Copiar, nunca link) e resposta HTTP;
+    - a cadeia de redirecionamentos e o certificado (emissor, validade, "vencido");
+    - o que foi bloqueado, **Baixar HTML (texto)** e as capturas anteriores.
+  - **Testes:**
+    - 21 checagens ponta a ponta com o serviço real em contêiner e um site de teste:
+      redirecionamentos 302→301→200, título, print PNG, HTML como anexo, IP interno,
+      169.254.169.254 e loopback bloqueados, alvo interno recusado, HTML cortado em
+      2 MB, arquivo sem página, token errado, serviço fora do ar, desligada,
+      reinício;
+    - `capture.mjs`.
