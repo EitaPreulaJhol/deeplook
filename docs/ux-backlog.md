@@ -2003,15 +2003,15 @@ Service Manager 9.
 | 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ✅ |
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ✅ |
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ✅ |
-| 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
+| 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ |
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ✅ |
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ✅ |
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ✅ |
 | 76 | Evidências no relatório (imagens) | anexos do registro | 🟡 | M | ✅ |
 | 77 | Relatório gerencial | Reports | ⚪ | M | ✅ |
 | 78 | Importar indicadores (CSV e STIX) | importação de dados | ⚪ | M | ✅ |
-| 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⬜ (decisão) |
-| 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ⬜ (decisão) |
+| 79 | Notificações por e-mail (SMTP) | notificações | ⚪ | M | ⏸ (sem SMTP) |
+| 80 | Captura da página de um link (navegador isolado) | integrações | ⚪ | G | ⬜ |
 
 **Ordem sugerida (uma etapa por item, com testes, documentação e commit próprio):**
 67 → 69 → 68 → 70 → 71 → 73 → 74 → 75 → 76 → 77 → 78. Depois, 72, 79 e 80 conforme as
@@ -2220,11 +2220,17 @@ decisões.
       cálculo das antigas, expurgada/ilegível e não repetir;
     - `similar.mjs`.
 
-### 72. Regras de atribuição automática — decisão pendente
+### 72. Regras de atribuição automática
 - **Proposta:** regras "quando chegar amostra com tipo/tag/prioridade X, atribuir ao
   analista Y" ou **rodízio** entre analistas de um grupo, pulando quem está ausente.
-- **Decisão:** grupos de analistas (ex.: Phishing, Malware) ou só rodízio geral? Quem
-  configura (só admin)?
+- **Decisão (24/10/2026):** **grupos + regras**, que **analistas e admins** configuram.
+  - Grupos de analistas (ex.: Phishing, Malware), cada um com os seus membros.
+  - Regras em ordem: "amostra do tipo / com a tag / da prioridade X → grupo". A primeira
+    que casar vale; sem regra, a amostra fica sem responsável (como hoje).
+  - Dentro do grupo, **rodízio** entre os membros, pulando quem está **ausente** (marcado
+    na Minha Conta ou por um admin) e quem está inativo.
+  - Tudo no histórico da amostra, com autor "Sistema" e a regra aplicada; o responsável
+    recebe o aviso de atribuição como hoje.
 
 ### 73. Escalonamento por prazo
 - **Problema:** amostra atrasada só aparece na fila "Atrasadas"; ninguém é avisado.
@@ -2463,16 +2469,18 @@ decisões.
       motivo, autor, auditoria, lista recarregada), STIX e erros;
     - `ioc-import.mjs`.
 
-### 79. Notificações por e-mail — decisão pendente
+### 79. Notificações por e-mail — adiado
 - **Proposta:** enviar por e-mail (SMTP) o que hoje vai só para a Caixa de entrada
   (menções, atribuições, relatório devolvido, alerta de IOC), com opção por pessoa;
   também "Esqueci a senha" por e-mail.
-- **Decisão:** há servidor SMTP disponível? Quais avisos vão por e-mail por padrão?
+- **Decisão (24/10/2026):** **adiado** — não há servidor SMTP por enquanto. Os avisos
+  continuam só na Caixa de entrada; a senha continua sendo redefinida pelo admin.
 
-### 80. Captura da página de um link — decisão pendente
+### 80. Captura da página de um link
 - **Proposta:** para amostras do tipo link, abrir a página num **navegador isolado**
   (contêiner próprio, sem acesso à rede interna) e guardar captura de tela, HTML,
   redirecionamentos e certificado, como evidência e para o analista não precisar abrir o
   link.
-- **Decisão:** a rede do servidor pode acessar links maliciosos (saída para a internet,
-  talvez por proxy ou VPN)? Captura automática no envio ou só sob demanda?
+- **Decisão (24/10/2026):** o servidor pode acessar os links; captura **sob demanda**
+  ("Capturar página" na ficha do link), num navegador isolado em contêiner próprio, sem
+  acesso à rede interna (só internet), com tempo e tamanho limitados.
