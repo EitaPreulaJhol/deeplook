@@ -1,6 +1,6 @@
-import type { IocKind, Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
+import type { IocKind, Prisma } from '../generated/prisma/client';
 import { requireUser } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
 import { prisma } from '../lib/prisma';

@@ -1,7 +1,7 @@
-import type { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent } from '../lib/events';
 import type { Tx } from '../lib/prisma';
@@ -174,12 +174,10 @@ export async function caseRoutes(app: FastifyInstance) {
     const { title, description, entryIds } = parsed.data;
     const missing = await missingEntries(entryIds);
     if (missing.length) {
-      return reply
-        .code(400)
-        .send({
-          error: 'Amostra não encontrada.',
-          details: { entryIds: ['amostra não encontrada'] },
-        });
+      return reply.code(400).send({
+        error: 'Amostra não encontrada.',
+        details: { entryIds: ['amostra não encontrada'] },
+      });
     }
     const created = await prisma.$transaction(async (tx) => {
       const c = await tx.case.create({
@@ -278,12 +276,10 @@ export async function caseRoutes(app: FastifyInstance) {
         select: { role: true, status: true },
       });
       if (!assignee || assignee.role === 'USER' || assignee.status !== 'ACTIVE') {
-        return reply
-          .code(400)
-          .send({
-            error: 'Responsável inválido.',
-            details: { assigneeId: ['escolha um analista ativo'] },
-          });
+        return reply.code(400).send({
+          error: 'Responsável inválido.',
+          details: { assigneeId: ['escolha um analista ativo'] },
+        });
       }
     }
     await prisma.$transaction(async (tx) => {
@@ -331,12 +327,10 @@ export async function caseRoutes(app: FastifyInstance) {
     const current = await loadCase(req, reply);
     if (!current) return;
     if ((await missingEntries(parsed.data.entryIds)).length) {
-      return reply
-        .code(400)
-        .send({
-          error: 'Amostra não encontrada.',
-          details: { entryIds: ['amostra não encontrada'] },
-        });
+      return reply.code(400).send({
+        error: 'Amostra não encontrada.',
+        details: { entryIds: ['amostra não encontrada'] },
+      });
     }
     const added = await prisma.$transaction(async (tx) => {
       const n = await addEntries(
@@ -364,11 +358,9 @@ export async function caseRoutes(app: FastifyInstance) {
     if (!link) return reply.code(404).send({ error: 'A amostra não está neste caso.' });
     // Caso nunca fica vazio: para desfazer, encerre o caso.
     if ((await prisma.caseEntry.count({ where: { caseId: current.id } })) <= 1) {
-      return reply
-        .code(409)
-        .send({
-          error: 'O caso precisa de ao menos uma amostra. Para desfazê-lo, encerre o caso.',
-        });
+      return reply.code(409).send({
+        error: 'O caso precisa de ao menos uma amostra. Para desfazê-lo, encerre o caso.',
+      });
     }
     await prisma.$transaction(async (tx) => {
       await tx.caseEntry.delete({ where: { caseId_entryId: { caseId: current.id, entryId } } });

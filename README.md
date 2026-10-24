@@ -352,8 +352,8 @@ deeplook/
 ├─ README.md
 ├─ apps/
 │  ├─ api/            # Fastify + Prisma + S3 (MinIO)
-│  │  ├─ prisma/      # schema, migrações, seed
-│  │  └─ src/         # env, lib, routes
+│  │  ├─ prisma/      # schema, migrações, seed (configuração em prisma.config.ts)
+│  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf
 │     └─ src/         # api, auth, components, pages, styles
@@ -367,16 +367,31 @@ deeplook/
 ## Desenvolvimento local (sem Docker)
 
 ```bash
-# API
+# API (Prisma 7: as variáveis vêm do ambiente; o .env não é lido sozinho)
 cd apps/api
 npm install
+export DATABASE_URL=postgresql://deeplook:deeplook@localhost:5432/deeplook
+export SESSION_SECRET=troque-por-um-segredo-com-20-caracteres
+npx prisma generate         # cliente em src/generated/prisma (rodar após mudar o schema)
 npx prisma migrate deploy   # precisa de um Postgres acessível
+npx prisma db seed          # cria o admin (ADMIN_EMAIL / ADMIN_PASSWORD)
 npm run dev                 # http://localhost:3000
 
 # Web
 cd apps/web
 npm install
 npm run dev                 # http://localhost:5173 (proxy /api -> :3000)
+```
+
+**Nova migração:** altere o `schema.prisma` e gere o SQL contra um banco sombra vazio
+(`SHADOW_DATABASE_URL`, usado só aqui):
+
+```bash
+export SHADOW_DATABASE_URL=postgresql://postgres:pg@localhost:55432/shadow
+mkdir prisma/migrations/AAAAMMDDHHMMSS_nome
+npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma \
+  --script > prisma/migrations/AAAAMMDDHHMMSS_nome/migration.sql
+npx prisma generate
 ```
 
 ---

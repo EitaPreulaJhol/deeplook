@@ -6,3 +6,4 @@ package-lock.json
 *.png
 *.svg
 apps/api/src/lib/attack-enterprise.json
+apps/api/src/generated

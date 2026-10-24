@@ -1,9 +1,9 @@
 import net from 'node:net';
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import type { AvStatus } from '@prisma/client';
 
 import { env } from '../env';
+import type { AvStatus } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 

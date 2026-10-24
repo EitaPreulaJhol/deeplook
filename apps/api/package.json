@@ -16,16 +16,14 @@
     "format": "prettier --write . --ignore-path ../../.prettierignore",
     "format:check": "prettier --check . --ignore-path ../../.prettierignore"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
     "@fastify/cookie": "^11.0.1",
     "@fastify/multipart": "^9.0.1",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/websocket": "^11.3.1",
-    "@prisma/client": "^6.1.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@virustotal/yara-x": "^1.21.0",
     "bcryptjs": "^2.4.3",
     "fastify": "^5.12.7",
@@ -45,7 +43,7 @@
     "eslint-plugin-simple-import-sort": "^14.0.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
-    "prisma": "^6.1.0",
+    "prisma": "7.10.1",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.71.0"

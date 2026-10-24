@@ -1,7 +1,7 @@
-import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import type { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { recordEvent } from '../lib/events';

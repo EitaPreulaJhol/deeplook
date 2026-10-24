@@ -19,3 +19,6 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# cliente do Prisma 7 (gerado por `npx prisma generate`)
+apps/api/src/generated/

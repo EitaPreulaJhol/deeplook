@@ -1,7 +1,7 @@
-import type { IocKind, Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import type { IocKind, Prisma } from '../generated/prisma/client';
 import { requireUser } from '../lib/auth';
 import type { ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';

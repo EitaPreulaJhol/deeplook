@@ -1946,3 +1946,45 @@ equipe, sempre no padrão visual do HP Service Manager 9.
      - a suíte completa de Playwright e o `npm audit` sem o `deepmerge-ts`.
   7. **Documentação:** README (como gerar o cliente e as migrações) e este item com o
      Implementado.
+- ✅ **Implementado** (sem migração de banco):
+  - **Pacotes:**
+    - `prisma` e `@prisma/client` 7.10.1 e `@prisma/adapter-pg` 7.10.1, fixos;
+    - o `npm audit` da API ficou com **0 vulnerabilidades** (`deepmerge-ts` 8.0.2).
+  - **Schema e configuração:**
+    - gerador `prisma-client` com saída em `src/generated/prisma`, CommonJS;
+    - `prisma.config.ts` com o schema, as migrações, o seed (`tsx prisma/seed.ts`),
+      `DATABASE_URL` e `SHADOW_DATABASE_URL`;
+    - sem `url` no schema; o `prisma.seed` saiu do `package.json`. Sem
+      `DATABASE_URL`, o `prisma generate` continua funcionando (build da imagem).
+  - **Cliente** (`lib/prisma.ts`):
+    - `createPrismaClient()` usa o `PrismaPg` com tempo-limite de conexão de 5 s, como
+      no Prisma 6;
+    - o filtro da lixeira continua igual, e o seed usa a mesma função.
+  - **Imports:** 29 arquivos passaram de `@prisma/client` para o cliente gerado. A API
+    exporta os mesmos nomes (enums, `Prisma`, tipos dos modelos), sem outra mudança de
+    código.
+  - **Status do sistema:** com o adapter, falhas do banco chegam como "Raw query
+    failed… Code: …". O `describeError` traduz os códigos comuns do Postgres:
+    - senha recusada;
+    - banco inexistente;
+    - banco em manutenção;
+    - limite de conexões;
+    - servidor inalcançável.
+  - **Build e Docker:**
+    - o Dockerfile copia o `prisma.config.ts` e gera o cliente depois de copiar o
+      código;
+    - `src/generated` fica fora do git, do lint, do prettier e do contexto do Docker.
+  - **Ajuste à parte:** erro de lint antigo no `lib/eml.ts` (espaço não separável
+    literal virou `\u00a0`).
+  - **Verificação:**
+    - typecheck, lint e build;
+    - as 33 migrações aplicadas do zero, e `migrate diff` vazio entre schema,
+      migrações e banco;
+    - seed idempotente;
+    - 9 testes de integração (183 checagens: Painel com SQL cru, JSON, arrays,
+      transações, filtro da lixeira, P2002/P2025, e-mail, YARA, cota, casos, base de
+      conhecimento);
+    - a API de verdade subindo, com login, Status do sistema e Painel;
+    - a **imagem Docker** aplicando as migrações, o seed e subindo contra um banco vazio;
+    - as falhas do banco traduzidas;
+    - a suíte completa de Playwright.

@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import type { EntryStatus, Priority, Prisma, Verdict } from '@prisma/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
+import type { EntryStatus, Priority, Prisma, Verdict } from '../generated/prisma/client';
 import { withSubtechniques } from '../lib/attack';
 import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
 import { scanInBackground } from '../lib/clamav';

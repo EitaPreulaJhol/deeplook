@@ -8,9 +8,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { promisify } from 'node:util';
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import type { Entry, Prisma, SandboxSession } from '@prisma/client';
 
 import { env } from '../env';
+import type { Entry, Prisma, SandboxSession } from '../generated/prisma/client';
 import { recordEvent } from './events';
 import { prisma } from './prisma';
 import { pve, pveNode, pveUploadIso, waitTask } from './proxmox';

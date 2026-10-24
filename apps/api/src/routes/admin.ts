@@ -1,7 +1,7 @@
-import type { AuditAction, Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import type { AuditAction, Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';

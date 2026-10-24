@@ -1,12 +1,15 @@
 // DeepLook - Prisma schema
 
+// Cliente gerado em src/generated/prisma (fora do git; `npx prisma generate`).
+// CommonJS, como o resto da API. A URL do banco fica no prisma.config.ts.
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {

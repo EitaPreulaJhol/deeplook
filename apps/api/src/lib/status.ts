@@ -55,10 +55,19 @@ const NETWORK_ERRORS: Record<string, string> = {
   DEPTH_ZERO_SELF_SIGNED_CERT: 'certificado TLS não confiável',
 };
 
+/** Codigos do Postgres (SQLSTATE) mais comuns ao conectar. */
+const POSTGRES_ERRORS: Record<string, string> = {
+  '28P01': 'usuário ou senha do banco recusados',
+  '28000': 'acesso ao banco negado',
+  '3D000': 'banco de dados inexistente',
+  '57P03': 'banco iniciando ou em manutenção',
+  '53300': 'limite de conexões do banco atingido',
+};
+
 /**
  * Motivo legivel de uma falha: codigo de rede (inclusive dentro de um
- * AggregateError, como o do fetch com IPv4+IPv6), status HTTP do S3 ou a
- * mensagem original.
+ * AggregateError, como o do fetch com IPv4+IPv6), codigo do Postgres (Prisma 7
+ * com o driver adapter), status HTTP do S3 ou a mensagem original.
  */
 export function describeError(err: unknown): string {
   const e = err as {
@@ -71,6 +80,12 @@ export function describeError(err: unknown): string {
   };
   const code = e?.code ?? e?.cause?.code ?? e?.errors?.find((x) => x?.code)?.code;
   if (code && NETWORK_ERRORS[code]) return NETWORK_ERRORS[code];
+  // Prisma 7 (driver adapter): "Raw query failed. Code: `28P01`. Message: `...`".
+  const raw = /Raw query failed\. Code: `([^`]*)`\. Message: `([^`]*)`/.exec(e?.message ?? '');
+  if (raw)
+    return (
+      POSTGRES_ERRORS[raw[1]] ?? (/can't reach/i.test(raw[2]) ? 'servidor inalcançável' : raw[2])
+    );
   const status = e?.$metadata?.httpStatusCode;
   if (status === 403) return 'acesso negado (confira as credenciais)';
   if (status === 404) return 'não encontrado (bucket inexistente?)';

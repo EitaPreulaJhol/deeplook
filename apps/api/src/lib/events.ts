@@ -1,5 +1,4 @@
-import type { EntryEventType, EntryStatus, Verdict } from '@prisma/client';
-
+import type { EntryEventType, EntryStatus, Verdict } from '../generated/prisma/client';
 import { notify } from './notifications';
 import type { Db } from './prisma';
 

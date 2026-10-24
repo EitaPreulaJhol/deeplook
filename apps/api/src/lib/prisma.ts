@@ -1,4 +1,18 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+
+import { PrismaClient } from '../generated/prisma/client';
+
+/**
+ * Conexao com o Postgres pelo driver `pg` (Prisma 7 exige um driver adapter).
+ * O `pg` nao tem tempo-limite de conexao por padrao: 5 s, como no Prisma 6.
+ */
+export function createPrismaClient(): PrismaClient {
+  const adapter = new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 5_000,
+  });
+  return new PrismaClient({ adapter });
+}
 
 /** Operacoes de Entry que leem (ou alteram em massa) e respeitam a lixeira. */
 const LIVE_ONLY = new Set([
@@ -19,7 +33,7 @@ const LIVE_ONLY = new Set([
  * (a aba Lixeira pede `deletedAt: { not: null }`). Relacoes aninhadas (ex.:
  * favoritos -> entry) nao passam por aqui e filtram `entry.deletedAt` na rota.
  */
-export const prisma = new PrismaClient().$extends({
+export const prisma = createPrismaClient().$extends({
   query: {
     entry: {
       $allOperations({ operation, args, query }) {

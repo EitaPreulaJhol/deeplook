@@ -1,8 +1,7 @@
 import { isIP } from 'node:net';
 
-import type { Prisma, ReputationKind, ReputationStatus, Verdict } from '@prisma/client';
-
 import { env } from '../env';
+import type { Prisma, ReputationKind, ReputationStatus, Verdict } from '../generated/prisma/client';
 import { prisma } from './prisma';
 
 /**

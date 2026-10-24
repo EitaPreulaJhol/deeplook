@@ -1,7 +1,7 @@
-import { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { Prisma } from '../generated/prisma/client';
 import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';

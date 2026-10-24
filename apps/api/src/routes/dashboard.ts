@@ -1,8 +1,8 @@
-import type { EntryStatus, Verdict } from '@prisma/client';
-import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import type { EntryStatus, Verdict } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { findTechnique } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';

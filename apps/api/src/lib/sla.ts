@@ -1,6 +1,5 @@
-import type { Priority, Prisma } from '@prisma/client';
-
 import { env } from '../env';
+import type { Priority, Prisma } from '../generated/prisma/client';
 
 export const PRIORITIES: Priority[] = ['P1', 'P2', 'P3', 'P4'];
 

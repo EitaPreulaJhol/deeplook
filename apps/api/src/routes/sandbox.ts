@@ -1,8 +1,8 @@
-import type { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import WebSocket from 'ws';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
+import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, loadUser, requireUser } from '../lib/auth';
 import { recordEvent } from '../lib/events';
 import { attachMockVnc } from '../lib/mock-vnc';

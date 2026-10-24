@@ -10,11 +10,11 @@ RUN apt-get update \
 COPY package.json ./
 RUN npm install --include=dev
 
-COPY prisma ./prisma
-RUN npx prisma generate
-
-COPY tsconfig.json ./
+COPY tsconfig.json prisma.config.ts ./
 COPY src ./src
+COPY prisma ./prisma
+# Prisma 7: o cliente e gerado em src/generated/prisma e compilado junto.
+RUN npx prisma generate
 RUN npm run build
 
 COPY docker-entrypoint.sh ./

@@ -1,7 +1,7 @@
-import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { isAnalyst, requireAdmin, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';

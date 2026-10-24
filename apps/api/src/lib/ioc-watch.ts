@@ -1,7 +1,6 @@
 import { isIP } from 'node:net';
 
-import type { IocKind } from '@prisma/client';
-
+import type { IocKind } from '../generated/prisma/client';
 import { notify } from './notifications';
 import type { Db } from './prisma';
 

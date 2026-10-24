@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import type { Prisma } from '@prisma/client';
 import { Compiler, initSync, type Rules } from '@virustotal/yara-x';
 
 import { env } from '../env';
+import type { Prisma } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 

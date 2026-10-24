@@ -1,8 +1,8 @@
-import type { Prisma, ReportStatus } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
+import type { Prisma, ReportStatus } from '../generated/prisma/client';
 import { findTechnique, normalizeTechniques, TECHNIQUE_ID } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';

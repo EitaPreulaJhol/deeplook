@@ -1,6 +1,6 @@
-import type { AuditAction } from '@prisma/client';
 import type { FastifyRequest } from 'fastify';
 
+import type { AuditAction } from '../generated/prisma/client';
 import type { Db } from './prisma';
 
 export interface AuditInput {

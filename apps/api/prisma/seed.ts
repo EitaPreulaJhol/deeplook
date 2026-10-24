@@ -1,7 +1,9 @@
-import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+import { Role } from '../src/generated/prisma/client';
+import { createPrismaClient } from '../src/lib/prisma';
+
+const prisma = createPrismaClient();
 
 async function main() {
   const email = (process.env.ADMIN_EMAIL || 'admin@deeplook.local').trim().toLowerCase();

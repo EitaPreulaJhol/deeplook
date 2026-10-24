@@ -1,5 +1,4 @@
-import type { IocKind } from '@prisma/client';
-
+import type { IocKind } from '../generated/prisma/client';
 import { notifyWatchers } from './ioc-watch';
 import type { Db } from './prisma';
 import { prisma } from './prisma';

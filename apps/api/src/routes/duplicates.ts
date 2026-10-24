@@ -1,7 +1,7 @@
-import type { EntryStatus, Verdict } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import type { EntryStatus, Verdict } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { prisma } from '../lib/prisma';

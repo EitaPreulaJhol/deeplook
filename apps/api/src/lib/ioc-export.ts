@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { EntryStatus, Verdict } from '@prisma/client';
-
+import type { EntryStatus, Verdict } from '../generated/prisma/client';
 import { toCsv } from './csv';
 
 /** Tipos exportados: os do indice (IocKind) mais a URL da propria amostra. */
