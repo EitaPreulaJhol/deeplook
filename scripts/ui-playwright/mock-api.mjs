@@ -1050,7 +1050,12 @@ export async function setupMock(context, state) {
         return json(route, 200, { iocs: state.entryIocs[ei[1]] ?? own });
       }
       const rel = p.match(/^\/api\/entries\/([\w-]+)\/related$/);
-      if (rel) return json(route, 200, state.related[rel[1]] ?? { items: [], total: 0, limit: 50 });
+      if (rel) {
+        // Funcao = resposta conforme a similaridade minima do TLSH (?similarity=, padrao 70).
+        const found = state.related[rel[1]];
+        const res = typeof found === 'function' ? found(Number(url.searchParams.get('similarity') ?? 70)) : found;
+        return json(route, 200, res ?? { items: [], total: 0, limit: 50 });
+      }
       // Analise estatica sob demanda.
       const sa = p.match(/^\/api\/entries\/([\w-]+)\/static-analysis$/);
       if (sa && req.method() === 'POST') {

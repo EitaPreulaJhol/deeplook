@@ -10,6 +10,7 @@ import { prisma } from './lib/prisma';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
+import { backfillTlsh } from './lib/tlsh-backfill';
 import { failInterruptedRetroscans } from './lib/yara-retro';
 import { adminRoutes } from './routes/admin';
 import { allowlistRoutes } from './routes/allowlist';
@@ -141,6 +142,9 @@ async function main() {
 
   await app.listen({ host: '0.0.0.0', port: env.PORT });
   app.log.info(`DeepLook API ouvindo em http://0.0.0.0:${env.PORT}`);
+
+  // TLSH das amostras antigas (item 71), em segundo plano.
+  void backfillTlsh(app.log);
 
   // Sandbox: recupera provisionamentos travados, limpa orfaos e liga o reaper,
   // em segundo plano (o Proxmox fora do ar nao segura o login).

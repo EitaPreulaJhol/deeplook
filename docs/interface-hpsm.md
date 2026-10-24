@@ -506,7 +506,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/entries/:id/iocs` | indicadores da amostra (relatórios publicados + arquivo/URL/domínio) |
 | GET | `/api/entries/:id/iocs/export?format=` | `csv`, `stix` (STIX 2.1) ou `misp` (evento JSON), como anexo |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text, mentions? }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
-| GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`) |
+| GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`), `SIMILAR` (arquivo parecido pelo TLSH, `detail` = similaridade em %); `?similarity=` 50–99 (padrão 70) |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
 | POST | `/api/me/favorites` | `{ kind: 'VIEW', label, url }` ou `{ kind: 'ENTRY', entryId, label? }`; até 30; repetido → 409 |
 | PATCH | `/api/me/favorites/:id` | `{ label }` (1–60 caracteres) |
@@ -605,6 +605,7 @@ banco nem da API rodando.
 | `compare.mjs` | comparar: "Comparar as 2" só com duas marcadas, lado a lado (difere destacado, linhas vazias escondidas, link), listas só com itens (contagens, tipo do IOC), trocar os lados, mesmo conteúdo, "Comparar com…" da ficha (mesma amostra recusada, ID), inexistente, sem parâmetros, usuário comum sem acesso |
 | `attack.mjs` | ATT&CK: topo da ficha e relatório com links, campo do relatório (busca por nome e código, setas + Enter, clique, ordem do ATT&CK, ×, Backspace, envio), link → Histórico filtrado, filtro (trocar, código incompleto, apagar, Limpar), etiqueta em Meus Uploads, quadro do Painel (barras proporcionais, link, vazio) |
 | `document.mjs` | análise de documento: aviso no topo com risco alto, seção com risco, alertas coloridos, links só como texto, objeto embutido, macro (roda ao abrir, suspeitas, "Ver código" como texto), documento limpo, não documento sem seção |
+| `similar.mjs` | arquivos parecidos (TLSH): motivo com a %, filtro de similaridade (vai para a API, lista vazia mantém o filtro, Limpar volta a 70%), contador da aba no padrão, TLSH "T1…" na ficha com Copiar, "Não calculável" e "Calculando…" |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

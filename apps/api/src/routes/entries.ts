@@ -24,6 +24,7 @@ import { checkReputationInBackground } from '../lib/reputation';
 import { s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
+import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
 import { sendValidationError } from '../lib/validation';
 import { yaraScanInBackground } from '../lib/yara';
 import type { ZipEntry } from '../lib/zip';
@@ -398,6 +399,8 @@ async function createFileEntry(
 ) {
   const { buffer, filename, mimetype } = input;
   const sha256 = sha256Hex(buffer);
+  // TLSH (item 71): ate 32 MB (~0,5 s); vazio = nao calculavel.
+  const fuzzy = buffer.length <= TLSH_MAX_BYTES ? (tlsh(buffer) ?? '') : '';
   const storageKey = `samples/${randomUUID()}`;
   // Analise estatica (so leitura, com limites); falha nao impede o envio.
   let staticInfo: ReturnType<typeof analyzeBuffer> | undefined;
@@ -429,6 +432,7 @@ async function createFileEntry(
       fileSize: buffer.length,
       mimeType: mimetype,
       sha256,
+      tlsh: fuzzy,
       staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
       parentEntryId: input.parentEntryId ?? null,
       tags: { connect: input.tags },

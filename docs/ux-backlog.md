@@ -2002,7 +2002,7 @@ Service Manager 9.
 | 68 | Busca avançada (amostras, relatórios, comentários, base, casos) | Advanced Search | 🔴 | M | ✅ |
 | 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ✅ |
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ✅ |
-| 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ⬜ |
+| 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ✅ |
 | 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ (decisão) |
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ⬜ |
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ⬜ |
@@ -2192,6 +2192,33 @@ decisões.
   Relacionadas as amostras parecidas ("94% parecida"), com limiar ajustável.
 - **Cuidados:** cálculo em JavaScript puro ou WASM (sem binário nativo); comparação
   eficiente (pré-filtro por tamanho e tipo); amostras antigas calculadas em segundo plano.
+- ✅ **Implementado** (migração `20261124000000_entry_tlsh`: coluna `Entry.tlsh`):
+  - **Hash** (`lib/tlsh.ts`): implementação própria em TypeScript com arrays tipados,
+    sem dependência nova. Gera o mesmo digest da referência (conferido com o tlsh-js em
+    62 arquivos e com o vetor do README); 16 MB em ~0,3 s.
+    - Arquivo com menos de 512 bytes, sem variedade ou acima de 32 MB fica com `''`
+      ("não calculável"); `null` = ainda não calculado.
+    - Distância TLSH (0 = iguais) vira **similaridade** = 100 − distância (mínimo 0).
+  - **Envio:** o TLSH é calculado junto com o SHA-256.
+  - **Amostras antigas** (`lib/tlsh-backfill.ts`): calculadas em segundo plano depois
+    de a API subir, um arquivo por vez, lendo do MinIO. Expurgada ou ilegível fica `''`
+    para não repetir.
+  - **Relacionadas:**
+    - novo motivo `SIMILAR` ("Arquivo parecido (TLSH): 85%"), com peso 0,9 × a %;
+    - `?similarity=` de 50 a 99 (padrão 70, ou seja, distância até 30);
+    - compara com os 20 mil hashes mais recentes. A distância é uma conta de 35 bytes,
+      então o pré-filtro por tamanho e tipo não foi necessário;
+    - a cópia idêntica continua só como "Mesmo arquivo (SHA-256)".
+  - **Tela:**
+    - aba Relacionadas com o filtro **Arquivos parecidos a partir de** (50–90%, Limpar
+      volta a 70%); a lista vazia mantém o filtro para baixar o limiar;
+    - ficha com o **TLSH** ("T1…", com Copiar) na seção Arquivo, ou "Não calculável" /
+      "Calculando…".
+  - **Testes:**
+    - 10 checagens no Postgres/MinIO: cálculo no envio, arquivo pequeno, variante
+      parecida (90%), aleatório fora, cópia idêntica sem `SIMILAR`, limiar mais alto,
+      cálculo das antigas, expurgada/ilegível e não repetir;
+    - `similar.mjs`.
 
 ### 72. Regras de atribuição automática — decisão pendente
 - **Proposta:** regras "quando chegar amostra com tipo/tag/prioridade X, atribuir ao

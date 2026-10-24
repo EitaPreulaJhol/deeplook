@@ -706,6 +706,22 @@ export function EntryDetailPage() {
                     {entry.sha256 || '—'}
                   </HpsmReadonly>
                 </HpsmField>
+                <HpsmField
+                  label="TLSH"
+                  wide
+                  help="Hash parecido: arquivos com TLSH próximo aparecem na aba Relacionadas."
+                >
+                  <HpsmReadonly
+                    mono={Boolean(entry.tlsh)}
+                    copyable={entry.tlsh ? { value: `T1${entry.tlsh}`, label: 'TLSH' } : undefined}
+                  >
+                    {entry.tlsh
+                      ? `T1${entry.tlsh}`
+                      : entry.tlsh === ''
+                        ? 'Não calculável (arquivo pequeno, sem variedade ou acima de 32 MB)'
+                        : 'Calculando…'}
+                  </HpsmReadonly>
+                </HpsmField>
               </HpsmForm>
             </HpsmSection>
           ) : null}

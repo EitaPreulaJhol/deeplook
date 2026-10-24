@@ -175,6 +175,9 @@ model Entry {
   fileSize         Int?
   mimeType         String?
   sha256           String?
+  /// Hash parecido (TLSH, item 71; 70 hex sem o "T1"). Vazio = nao calculavel
+  /// (arquivo pequeno/simples demais ou acima de 32 MB); null = ainda nao calculado.
+  tlsh             String?
   /// Analise estatica do arquivo no envio (src/lib/static-analysis.ts): tipo real,
   /// entropia, strings e cabecalho PE. So leitura de bytes; null em URLs.
   staticInfo       Json?

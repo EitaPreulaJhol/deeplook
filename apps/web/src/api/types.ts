@@ -393,7 +393,9 @@ export type RelatedReason =
   | { kind: 'SAME_HOST'; detail: string }
   | { kind: 'SAME_BASE_DOMAIN'; detail: string }
   | { kind: 'SHARED_TAGS'; detail: string[] }
-  | { kind: 'SHARED_IOCS'; detail: string[] };
+  | { kind: 'SHARED_IOCS'; detail: string[] }
+  /** Arquivo parecido pelo TLSH: similaridade em % (100 - distancia). */
+  | { kind: 'SIMILAR'; detail: number };
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {
@@ -481,6 +483,8 @@ export interface Entry {
   fileSize?: number | null;
   mimeType?: string | null;
   sha256?: string | null;
+  /** Hash parecido (TLSH, sem o "T1"): '' = nao calculavel; null = ainda nao calculado. */
+  tlsh?: string | null;
   storageKey?: string | null;
   /** Arquivo apagado pela retencao (RETENTION_DAYS); ficha e hash continuam. */
   filePurgedAt?: string | null;

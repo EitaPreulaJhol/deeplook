@@ -1,4 +1,6 @@
 import {
+  Select,
+  SelectItem,
   Table,
   TableBody,
   TableCell,
@@ -7,14 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from '@carbon/react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { KeyboardEvent } from 'react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { RelatedEntry, RelatedReason } from '../api/types';
 import { saveEntrySequence } from './entryNav';
+import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { iocHref, iocKindOf, shortIoc } from './iocs';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
@@ -42,8 +45,14 @@ export function describeReason(reason: RelatedReason): string {
       const more = reason.detail.length > 3 ? ` (+${reason.detail.length - 3})` : '';
       return `${reason.detail.length > 1 ? 'IOCs' : 'IOC'} em comum: ${shown.join(', ')}${more}`;
     }
+    case 'SIMILAR':
+      return `Arquivo parecido (TLSH): ${reason.detail}%`;
   }
 }
+
+/** Similaridade minima do TLSH na aba (a API usa 70 quando nao vem nada). */
+export const DEFAULT_SIMILARITY = 70;
+const SIMILARITY_OPTIONS = [50, 60, 70, 80, 90];
 
 /**
  * "IOCs em comum: a, b, c (+N)" com cada indicador ligado a sua ficha. O clique
@@ -73,25 +82,50 @@ function IocLinks({ values }: { values: string[] }) {
 }
 
 /** Mesma consulta da aba e do contador no rotulo da aba (cache compartilhado). */
-export function useRelatedEntries(entryId: string) {
+export function useRelatedEntries(entryId: string, similarity = DEFAULT_SIMILARITY) {
   return useQuery({
-    queryKey: ['entry', entryId, 'related'],
+    queryKey: ['entry', entryId, 'related', similarity],
     queryFn: () =>
       api.get<{ items: RelatedEntry[]; total: number; limit: number }>(
-        `/entries/${entryId}/related`,
+        `/entries/${entryId}/related${similarity === DEFAULT_SIMILARITY ? '' : `?similarity=${similarity}`}`,
       ),
+    placeholderData: keepPreviousData,
   });
 }
 
 /**
- * Aba "Relacionadas": amostras com o mesmo arquivo, o mesmo dominio ou tags em
- * comum, das mais relevantes para as menos. Clique ou Enter abre a amostra;
- * Anterior/Proxima na ficha percorrem esta lista.
+ * Aba "Relacionadas": amostras com o mesmo arquivo, um arquivo parecido (TLSH),
+ * o mesmo dominio, tags ou IOCs em comum, das mais relevantes para as menos.
+ * Clique ou Enter abre a amostra; Anterior/Proxima na ficha percorrem esta lista.
  */
 export function EntryRelatedTab({ entryId }: { entryId: string }) {
   const navigate = useNavigate();
-  const query = useRelatedEntries(entryId);
+  const [similarity, setSimilarity] = useState(DEFAULT_SIMILARITY);
+  const query = useRelatedEntries(entryId, similarity);
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
+
+  const filter = (
+    <HpsmFilterBar onClear={() => setSimilarity(DEFAULT_SIMILARITY)}>
+      <HpsmFilterItem label="Arquivos parecidos a partir de" htmlFor="related-similarity">
+        <Select
+          id="related-similarity"
+          labelText="Arquivos parecidos a partir de"
+          hideLabel
+          size="sm"
+          value={String(similarity)}
+          onChange={(e) => setSimilarity(Number(e.target.value))}
+        >
+          {SIMILARITY_OPTIONS.map((value) => (
+            <SelectItem
+              key={value}
+              value={String(value)}
+              text={`${value}%${value === DEFAULT_SIMILARITY ? ' (padrão)' : ''}`}
+            />
+          ))}
+        </Select>
+      </HpsmFilterItem>
+    </HpsmFilterBar>
+  );
 
   if (query.isLoading) return <HpsmLoading text="Procurando amostras relacionadas..." />;
   if (query.isError) {
@@ -105,9 +139,12 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
   const total = query.data?.total ?? 0;
   if (items.length === 0) {
     return (
-      <HpsmMessage kind="info">
-        Nenhuma amostra relacionada (mesmo arquivo, domínio, tags ou IOCs).
-      </HpsmMessage>
+      <>
+        {filter}
+        <HpsmMessage kind="info">
+          Nenhuma amostra relacionada (mesmo arquivo, arquivo parecido, domínio, tags ou IOCs).
+        </HpsmMessage>
+      </>
     );
   }
 
@@ -139,9 +176,11 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
   return (
     <>
       <p className="dl-related-hint">
-        Amostras ligadas a esta pelo mesmo arquivo (SHA-256), pelo mesmo domínio, por tags em comum
-        ou por IOCs em comum nos relatórios publicados, das mais relevantes para as menos.
+        Amostras ligadas a esta pelo mesmo arquivo (SHA-256), por um arquivo parecido (TLSH), pelo
+        mesmo domínio, por tags em comum ou por IOCs em comum nos relatórios publicados, das mais
+        relevantes para as menos.
       </p>
+      {filter}
       <TableContainer>
         <Table size="xs" aria-label="Amostras relacionadas (setas navegam, Enter abre)">
           <TableHead>

@@ -5,18 +5,23 @@ import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { requireUser } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
 import { prisma } from '../lib/prisma';
+import { tlshDistance, tlshSimilarity } from '../lib/tlsh';
 
 /** Maximo de amostras relacionadas devolvidas (as mais relevantes). */
 export const RELATED_LIMIT = 50;
 /** Candidatas lidas por criterio antes de pontuar. */
 const CANDIDATES = 100;
+/** Hashes TLSH comparados por consulta (os mais recentes). */
+const SIMILAR_SCAN = 20_000;
 
 export type RelatedReason =
   | { kind: 'SAME_SHA256' }
   | { kind: 'SAME_HOST'; detail: string }
   | { kind: 'SAME_BASE_DOMAIN'; detail: string }
   | { kind: 'SHARED_TAGS'; detail: string[] }
-  | { kind: 'SHARED_IOCS'; detail: string[] };
+  | { kind: 'SHARED_IOCS'; detail: string[] }
+  /** Arquivo parecido pelo TLSH (item 71): similaridade em % (100 - distancia). */
+  | { kind: 'SIMILAR'; detail: number };
 
 /** Peso de cada motivo na ordenacao (arquivo identico pesa mais que uma tag). */
 function weight(reason: RelatedReason): number {
@@ -32,6 +37,9 @@ function weight(reason: RelatedReason): number {
     case 'SHARED_IOCS':
       // Indicador em comum e evidencia forte; ate 3 contam.
       return 50 * Math.min(reason.detail.length, 3);
+    case 'SIMILAR':
+      // 100% parecida pesa quase como o mesmo arquivo.
+      return Math.round(reason.detail * 0.9);
   }
 }
 
@@ -126,11 +134,17 @@ export async function relatedRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const { id } = req.params as { id: string };
+    // Similaridade minima do TLSH (padrao 70%, ou seja, distancia ate 30).
+    const minSimilarity = Math.min(
+      99,
+      Math.max(50, Number((req.query as { similarity?: string }).similarity) || 70),
+    );
     const entry = await prisma.entry.findUnique({
       where: { id },
       select: {
         id: true,
         sha256: true,
+        tlsh: true,
         urlDomain: true,
         tags: { select: { id: true, name: true } },
       },
@@ -214,6 +228,39 @@ export async function relatedRoutes(app: FastifyInstance) {
       for (const [otherId, values] of iocMatches) {
         const item = known.get(otherId);
         if (item) add(item, { kind: 'SHARED_IOCS', detail: [...values].sort() });
+      }
+    }
+
+    // Parecidas pelo TLSH (item 71): compara com os hashes ja calculados.
+    if (entry.tlsh) {
+      const others = await prisma.entry.findMany({
+        where: { id: { not: entry.id }, tlsh: { not: null }, NOT: { tlsh: '' } },
+        select: { id: true, tlsh: true, sha256: true },
+        take: SIMILAR_SCAN,
+        orderBy: { createdAt: 'desc' },
+      });
+      const similar = others
+        .filter((o) => !entry.sha256 || o.sha256 !== entry.sha256)
+        .map((o) => ({ id: o.id, distance: tlshDistance(entry.tlsh!, o.tlsh!) }))
+        .filter((o): o is { id: string; distance: number } => o.distance !== null)
+        .map((o) => ({ id: o.id, similarity: tlshSimilarity(o.distance) }))
+        .filter((o) => o.similarity >= minSimilarity)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, CANDIDATES);
+      if (similar.length) {
+        const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
+        const missing = similar.map((s) => s.id).filter((sid) => !known.has(sid));
+        if (missing.length) {
+          const extra = await prisma.entry.findMany({
+            where: { id: { in: missing } },
+            include: listInclude,
+          });
+          for (const item of extra) known.set(item.id, item);
+        }
+        for (const s of similar) {
+          const item = known.get(s.id);
+          if (item) add(item, { kind: 'SIMILAR', detail: s.similarity });
+        }
       }
     }
 
