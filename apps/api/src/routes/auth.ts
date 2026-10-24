@@ -40,6 +40,7 @@ function publicUser(u: {
   mustChangePassword: boolean;
   passwordChangedAt: Date;
   twoFactorEnabledAt: Date | null;
+  away: boolean;
   preferences: unknown;
 }) {
   return {
@@ -52,6 +53,7 @@ function publicUser(u: {
     apiAccess: u.apiAccess,
     ...passwordState(u),
     twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
+    away: u.away,
     preferences: resolvePreferences(u.preferences),
   };
 }

@@ -407,6 +407,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
+| `/atribuicao` | Atribuição automática (analistas): regras, grupos e ausências | pasta Gestão |
 | `/gerencial` | Relatório gerencial (analistas) | `?de=AAAA-MM-DD&ate=AAAA-MM-DD`; `/gerencial/imprimir` para impressão |
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
 | `/iocs/:tipo/:valor` | Ficha do indicador (ipv4, domain, email, md5, sha1, sha256) | aberta pelo "Ir para:" e pelos links de IOCs |
@@ -454,6 +455,10 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/reports/:id/versions` | versões do relatório (analistas), da 1ª à atual: `{ versions: [{ number, current, author, at, status, summary, findings, iocs, verdict, attackTechniques }] }` |
 | POST | `/api/iocs/import/preview` | `{ target: 'watch' \| 'allow', text }` (CSV/lista ou STIX 2.1) → `{ format, items: [{ kind, value, where, fromUrl?, status }], invalid, repeated, counts, room }` |
 | POST | `/api/iocs/import` | `{ target, items: [{ kind, value }], reason? }` → `{ added, rejected, exists, covered, limit }` (permitidos: analistas, motivo obrigatório) |
+| GET | `/api/assignment` | atribuição automática (analistas): `{ groups: [{ id, name, rules, members: [{ id, displayName, away, available, lastAssignedAt }] }], rules: [{ id, position, groupId, entryType, tag, priority, enabled, label, group }], analysts }` |
+| POST · PATCH · DELETE | `/api/assignment/groups[/:id]` | `{ name }` · `{ name? , memberIds? }` · exclui (com as regras) |
+| POST · PATCH · DELETE | `/api/assignment/rules[/:id]` | `{ groupId, entryType?, tag?, priority? }` · `{ enabled }` · exclui; `POST /rules/:id/move { direction: 'up' \| 'down' }` |
+| PUT | `/api/assignment/away/:userId` | `{ away }`: a própria pessoa ou um admin |
 | GET | `/api/management?from=&to=&tz=&format=` | relatório gerencial (analistas): `received`, `completed`, `timeToComplete` (`all`, `byPriority`: `{ n, avgHours, medianHours }`), `verdicts`, `techniques`, `cases`, `workload`; `format=csv` baixa o CSV |
 | GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas), `techniques` (ATT&CK mais vistas: `{ id, name, tactics, count }`) |
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
@@ -624,6 +629,7 @@ banco nem da API rodando.
 | `evidence.mjs` | evidências: miniaturas e legendas, ampliada (setas, Esc, foco de volta), envio com legenda, SVG recusado com o motivo, legenda e exclusão, imagens na ficha impressa, revisão obrigatória e usuário comum só veem |
 | `management.mjs` | relatório gerencial: pasta Gestão, padrão de 30 dias com o fuso, indicadores, tempo por prioridade (dias acima de 48 h), carga por analista, mês anterior e data livre na URL, CSV, impressão automática com o período, usuário comum sem acesso |
 | `ioc-import.mjs` | importar indicadores: pela Minha Conta (seguir) e pelos permitidos, foco, pré-visualização com resumo, situação e inválidos, importa só os novos, arquivo, erro de leitura, Esc, motivo obrigatório nos permitidos |
+| `assignment.mjs` | atribuição automática: pasta Gestão, regras (ordem, desligada apagada, descer, ligar, incluir sem grupo/com campos, excluir), grupos (ausente marcado, grupo vazio, membros, criar, excluir com aviso), disponibilidade (admin e analista), histórico "automática: grupo…", usuário comum sem acesso |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

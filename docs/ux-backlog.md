@@ -2003,7 +2003,7 @@ Service Manager 9.
 | 69 | Lista de permissões de indicadores (falsos positivos) | listas de exceção | 🟡 | P–M | ✅ |
 | 70 | Análise de documentos (PDF e Office) | campos calculados do registro | 🔴 | M–G | ✅ |
 | 71 | Similaridade por hash difuso (TLSH) | registros relacionados | 🟡 | M | ✅ |
-| 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ⬜ |
+| 72 | Regras de atribuição automática | Assignment Groups | 🟡 | M | ✅ |
 | 73 | Escalonamento por prazo | SLA escalation | 🟡 | P–M | ✅ |
 | 74 | Exportar o caso (Markdown e impressão) | impressão do registro | 🟡 | P–M | ✅ |
 | 75 | Versões do relatório (histórico e diferenças) | histórico de alterações | 🟡 | P–M | ✅ |
@@ -2231,6 +2231,40 @@ decisões.
     na Minha Conta ou por um admin) e quem está inativo.
   - Tudo no histórico da amostra, com autor "Sistema" e a regra aplicada; o responsável
     recebe o aviso de atribuição como hoje.
+- ✅ **Implementado** (migração `20261129000000_auto_assignment`: `AssignmentGroup`,
+  `AssignmentGroupMember`, `AssignmentRule` e `User.away`):
+  - **Rodízio** (`lib/auto-assign.ts`), chamado ao criar qualquer amostra (arquivo,
+    link, anexo de e-mail, conteúdo de ZIP):
+    - vale a primeira regra **ligada** que casar: tipo, tag e prioridade, com campo vazio
+      valendo qualquer valor;
+    - dentro do grupo, recebe o membro ativo, analista ou admin, **não ausente**, que
+      recebeu há mais tempo (quem nunca recebeu vem primeiro);
+    - uma trava por grupo no Postgres impede que envios simultâneos caiam na mesma
+      pessoa;
+    - nunca troca um responsável já definido. Sem regra ou sem ninguém disponível, a
+      amostra fica sem responsável. Uma falha na atribuição não impede o envio;
+    - no histórico: "Responsável: — → Ana (automática: grupo Phishing (tipo link, tag
+      phishing))", autor Sistema, e o aviso "O sistema atribuiu a amostra a você".
+  - **API** (`routes/assignment.ts`, analistas e admins):
+    - `GET /api/assignment` traz grupos com membros e disponibilidade, regras com a
+      descrição e os analistas;
+    - grupos: criar, renomear, definir membros (só analistas e admins ativos; quem
+      fica mantém a vez) e excluir, o que leva as regras do grupo;
+    - regras: criar no fim, ligar/desligar, subir/descer e excluir;
+    - `PUT /api/assignment/away/:userId`: a pessoa marca a si mesma, um admin marca
+      qualquer analista. O `auth/me` traz `away`.
+  - **Tela** `/atribuicao` (pasta Gestão):
+    - **Regras** em ordem, com Subir/Descer, Ligar/Desligar e Excluir; a regra
+      desligada aparece apagada; incluir por grupo, tipo, tag e prioridade;
+    - **Grupos**, com os membros (ausentes e inativos marcados) e quantas regras;
+      Membros…, Renomear… e Excluir (avisa das regras);
+    - **Disponibilidade**: caixa "Ausente" por analista (o admin marca qualquer um).
+  - **Testes:**
+    - 28 checagens no Postgres: sem regra, permissões, nome repetido, membros válidos,
+      ordem, rodízio entre três, histórico e aviso, ausente/inativo pulados, ninguém
+      disponível, ordem e regra desligada, não troca responsável, envios simultâneos
+      sem repetir, leitura e exclusão do grupo;
+    - `assignment.mjs`.
 
 ### 73. Escalonamento por prazo
 - **Problema:** amostra atrasada só aparece na fila "Atrasadas"; ninguém é avisado.

@@ -9,6 +9,7 @@ import { env } from '../env';
 import type { EntryStatus, Priority, Prisma, Verdict } from '../generated/prisma/client';
 import { withSubtechniques } from '../lib/attack';
 import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
+import { autoAssign } from '../lib/auto-assign';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
@@ -380,6 +381,15 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
  * Grava o arquivo no MinIO e cria a amostra (envio unico, lote e .zip). Devolve
  * tambem a primeira amostra ja enviada com o mesmo SHA-256, se houver.
  */
+/** Atribuicao automatica (item 72); falha nao impede o envio. */
+async function assignOnArrival(entryId: string, req: FastifyRequest) {
+  try {
+    await autoAssign(entryId);
+  } catch (err) {
+    req.log.error({ err }, 'Falha na atribuição automática');
+  }
+}
+
 async function createFileEntry(
   req: FastifyRequest,
   ownerId: string,
@@ -444,6 +454,7 @@ async function createFileEntry(
   });
 
   await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
+  await assignOnArrival(entry.id, req);
   checkReputationInBackground(entry.id, req.log);
   scanInBackground(entry.id, buffer, req.log);
   yaraScanInBackground(entry.id, buffer, req.log);
@@ -959,6 +970,7 @@ export async function entryRoutes(app: FastifyInstance) {
     });
 
     await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
+    await assignOnArrival(entry.id, req);
     checkReputationInBackground(entry.id, req.log);
     await notifyWatchers(prisma, sampleIndicators(entry), entry.id, user.id, 'sample');
     return reply.code(201).send({ entry });

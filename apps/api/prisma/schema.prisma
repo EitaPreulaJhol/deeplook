@@ -76,6 +76,8 @@ model User {
   /// avisos "desde a sua ultima visita" da Pagina Inicial.
   lastSeenAt             DateTime?
   previousSeenAt         DateTime?
+  /// Ausente (item 72): o rodizio da atribuicao automatica pula a pessoa.
+  away                   Boolean    @default(false)
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 
@@ -110,6 +112,7 @@ model User {
   kbRevisions       KbArticleRevision[]
   reportRevisions   ReportRevision[]
   reportEvidence    ReportEvidence[]
+  assignmentGroups  AssignmentGroupMember[]
   casesAssigned     Case[]                  @relation("CaseAssignee")
   casesCreated      Case[]                  @relation("CaseAuthor")
   caseEntriesAdded  CaseEntry[]
@@ -240,6 +243,43 @@ model Tag {
   id      String  @id @default(cuid())
   name    String  @unique
   entries Entry[]
+}
+
+/// Grupo de analistas da atribuicao automatica (item 72), ex.: Phishing, Malware.
+model AssignmentGroup {
+  id        String                  @id @default(cuid())
+  name      String                  @unique
+  createdAt DateTime                @default(now())
+  members   AssignmentGroupMember[]
+  rules     AssignmentRule[]
+}
+
+/// Membro de um grupo; o rodizio escolhe quem recebeu ha mais tempo.
+model AssignmentGroupMember {
+  groupId        String
+  group          AssignmentGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Ultima amostra recebida por este grupo (null = nunca: vem primeiro).
+  lastAssignedAt DateTime?
+
+  @@id([groupId, userId])
+}
+
+/// Regra: amostra nova do tipo / com a tag / da prioridade -> grupo. Campos
+/// vazios valem para qualquer valor; a primeira regra ativa que casar vale.
+model AssignmentRule {
+  id        String          @id @default(cuid())
+  position  Int
+  groupId   String
+  group     AssignmentGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entryType EntryType?
+  tag       String?
+  priority  Priority?
+  enabled   Boolean         @default(true)
+  createdAt DateTime        @default(now())
+
+  @@index([position])
 }
 
 model Report {

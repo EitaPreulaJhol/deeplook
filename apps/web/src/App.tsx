@@ -7,6 +7,7 @@ import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
 import { AllowlistPage } from './pages/AllowlistPage';
+import { AssignmentPage } from './pages/AssignmentPage';
 import { CasePage } from './pages/CasePage';
 import { CasePrintPage } from './pages/CasePrintPage';
 import { CasesPage } from './pages/CasesPage';
@@ -128,6 +129,10 @@ export default function App() {
         <Route
           path="/permitidos"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <AllowlistPage />}
+        />
+        <Route
+          path="/atribuicao"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <AssignmentPage />}
         />
         <Route
           path="/gerencial"

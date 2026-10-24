@@ -29,6 +29,8 @@ export type PublicUser = {
   passwordExpiresAt: Date | null;
   /** 2FA (TOTP) ativo na conta. */
   twoFactorEnabled: boolean;
+  /** Ausente: fora do rodizio da atribuicao automatica (item 72). */
+  away: boolean;
   preferences: Preferences;
 };
 
@@ -67,6 +69,7 @@ export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> 
     apiAccess: u.apiAccess,
     ...passwordState(u),
     twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
+    away: u.away,
     preferences: resolvePreferences(u.preferences),
   };
 }

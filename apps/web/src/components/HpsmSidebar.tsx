@@ -22,6 +22,7 @@ import {
   IconKey,
   IconPage,
   IconScreen,
+  IconSettings,
   IconTrash,
 } from './icons';
 import { HpsmMessage } from './messages';
@@ -120,7 +121,11 @@ const TREE: NavFolder[] = [
     id: 'gestao',
     label: 'Gestão',
     access: 'triage',
-    children: [{ to: '/gerencial', label: 'Relatório gerencial', icon: IconChart }],
+    children: [
+      { to: '/gerencial', label: 'Relatório gerencial', icon: IconChart },
+      // Grupos, regras e ausencias da atribuicao automatica (item 72).
+      { to: '/atribuicao', label: 'Atribuição automática', icon: IconSettings },
+    ],
   },
   {
     id: 'amostras',

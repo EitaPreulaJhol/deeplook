@@ -17,6 +17,7 @@ import { adminRoutes } from './routes/admin';
 import { allowlistRoutes } from './routes/allowlist';
 import { antivirusRoutes } from './routes/antivirus';
 import { apiTokenRoutes } from './routes/api-tokens';
+import { assignmentRoutes } from './routes/assignment';
 import { attackRoutes } from './routes/attack';
 import { authRoutes } from './routes/auth';
 import { caseRoutes } from './routes/cases';
@@ -86,6 +87,8 @@ async function main() {
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(evidenceRoutes);
+  // Atribuicao automatica (item 72).
+  await app.register(assignmentRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
   // Importar indicadores (item 78).

@@ -142,6 +142,7 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
       apiAccess: true,
       ...password,
       twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
+      away: u.away,
       preferences: resolvePreferences(u.preferences),
     },
   };

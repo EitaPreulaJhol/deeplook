@@ -77,7 +77,7 @@ export function describeEvent(event: EntryEvent): string {
     case 'CASE_REMOVED':
       return `Retirada do caso ${event.detail ?? ''}`.trim();
     case 'ASSIGNED':
-      return `Responsável: ${from ?? '—'} → ${to ?? '—'}`;
+      return `Responsável: ${from ?? '—'} → ${to ?? '—'}${event.detail ? ` (${event.detail})` : ''}`;
     case 'REPORT_CREATED':
       return `Relatório salvo como rascunho (veredito ${verdictLabel(to as Verdict)})`;
     case 'REPORT_PUBLISHED':

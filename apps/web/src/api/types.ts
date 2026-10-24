@@ -25,6 +25,8 @@ export interface User {
   passwordExpired?: boolean;
   /** 2FA ativo (sessao atual). */
   twoFactorEnabled?: boolean;
+  /** Ausente: fora do rodizio da atribuicao automatica (item 72). */
+  away?: boolean;
   /** 2FA ativo desde (lista da Administracao). */
   twoFactorEnabledAt?: string | null;
   _count?: { entries: number; apiTokens?: number };

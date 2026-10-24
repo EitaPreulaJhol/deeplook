@@ -4101,3 +4101,39 @@ table.dl-compare td {
 .dl-import__table tr:is(.is-exists, .is-covered, .is-limit) td {
   color: var(--dl-text-muted);
 }
+
+/* ---- Atribuicao automatica (item 72) ---- */
+.dl-row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.dl-inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dl-inline-form .cds--form-item {
+  flex: 0 1 18rem;
+}
+
+.dl-members {
+  display: grid;
+  gap: 0.2rem;
+  margin-block-start: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--dl-grid-line);
+  background: var(--dl-surface-alt);
+}
+
+.dl-members legend {
+  font-weight: 700;
+}
+
+/* Regra desligada: apagada na lista. */
+tr.is-off td {
+  color: var(--dl-text-muted);
+}
