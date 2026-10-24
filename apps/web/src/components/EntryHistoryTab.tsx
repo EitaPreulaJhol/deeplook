@@ -66,6 +66,10 @@ export function describeEvent(event: EntryEvent): string {
       return 'Movida para a lixeira';
     case 'RESTORED':
       return 'Restaurada da lixeira';
+    case 'CASE_ADDED':
+      return `Incluída no caso ${event.detail ?? ''}`.trim();
+    case 'CASE_REMOVED':
+      return `Retirada do caso ${event.detail ?? ''}`.trim();
     case 'ASSIGNED':
       return `Responsável: ${from ?? '—'} → ${to ?? '—'}`;
     case 'REPORT_CREATED':

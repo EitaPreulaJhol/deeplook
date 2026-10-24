@@ -2,7 +2,7 @@
 // e aba Historico da amostra.
 import { chromium } from 'playwright';
 
-import { createState, ORIGIN, OUT, setupMock, watchErrors } from './mock-api.mjs';
+import { createState, events, ORIGIN, OUT, setupMock, watchErrors } from './mock-api.mjs';
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -71,6 +71,19 @@ expect(
     (await failRow.locator('td').nth(2).textContent()).includes('Template 9000 nao encontrado'),
 );
 await page.screenshot({ path: `${OUT}/historico-falha-sandbox.png` });
+
+// 6. Inclusao/retirada de caso com texto (e nao o codigo do evento).
+events.e4.push(
+  { id: 'e4-ca', entryId: 'e4', type: 'CASE_ADDED', detail: 'CASO-0007', createdAt: '2026-10-22T10:00:00.000Z', actor: { id: 'u2', displayName: 'Bruno Lima' } },
+  { id: 'e4-cr', entryId: 'e4', type: 'CASE_REMOVED', detail: 'CASO-0007', createdAt: '2026-10-22T11:00:00.000Z', actor: { id: 'u2', displayName: 'Bruno Lima' } },
+);
+await page.goto(ORIGIN + '/entries/e4?tab=historico', { waitUntil: 'networkidle' });
+const historyText = await page.locator('.hpsm-tabpanel tbody').innerText();
+expect(
+  'caso no histórico com texto',
+  historyText.includes('Incluída no caso CASO-0007') && historyText.includes('Retirada do caso CASO-0007') && !historyText.includes('CASE_'),
+  historyText,
+);
 
 await browser.close();
 process.exit(failures ? 1 : 0);

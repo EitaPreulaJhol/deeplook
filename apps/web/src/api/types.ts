@@ -601,7 +601,9 @@ export type EntryEventType =
   | 'REPORT_RETURNED'
   | 'FILE_PURGED'
   | 'TRASHED'
-  | 'RESTORED';
+  | 'RESTORED'
+  | 'CASE_ADDED'
+  | 'CASE_REMOVED';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {
