@@ -1426,7 +1426,7 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 | 56 | Regras YARA | regras de negócio | 🟡 | M | ✅ |
 | 57 | Visualizador hexadecimal | anexo visualizado no registro | 🟡 | P | ✅ |
 | 58 | Comparar duas amostras | comparação de registros | 🟡 | M | ⬜ |
-| 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ⬜ |
+| 59 | MITRE ATT&CK nos relatórios | categorização | 🟡 | M | ✅ |
 | 60 | Alertas de IOC (watchlist) | Alerts | 🟡 | P–M | ✅ |
 | 61 | Sessões ativas | segurança da conta | ⚪ | P | ✅ |
 | 62 | Visões compartilhadas | filas da equipe | ⚪ | P–M | ⬜ |
@@ -1585,6 +1585,37 @@ equipe, sempre no padrão visual do HP Service Manager 9.
 - **Proposta:** campo de técnicas ATT&CK no relatório (busca por código ou nome, ex.:
   T1566 Phishing); as técnicas aparecem na ficha, viram filtro nas listas e um quadro "mais
   vistas" no Painel. Lista de técnicas embutida (sem buscar fora).
+- ✅ **Implementado:** migração `20261116000000_attack_techniques`
+  (`Report.attackTechniques`, `text[]` com índice GIN).
+  - **Lista embutida:** `lib/attack-enterprise.json` traz o ATT&CK Enterprise v20.0:
+    706 técnicas e subtécnicas (sem as revogadas ou obsoletas) e 15 táticas. Foi extraído
+    do repositório oficial `mitre-attack/attack-stix-data`, com código, nome e táticas.
+    Nada é buscado fora em tempo de execução. Para atualizar, troque o arquivo.
+  - **API:**
+    - `GET /api/attack` devolve a lista, com cache de um dia no navegador;
+    - `attackTechniques` no `POST /api/entries/:id/reports` e no `PATCH /api/reports/:id`:
+      no máximo 30, normalizadas (maiúsculas, sem repetir, na ordem do ATT&CK);
+    - código desconhecido volta como 400 em `details.attackTechniques`;
+    - filtro `attack=T1566` em `GET /api/entries` e no CSV: amostras com relatório
+      **publicado** com a técnica. O código da técnica-mãe acha também as subtécnicas;
+    - `techniques` no `GET /api/dashboard`: as 10 mais vistas em relatórios publicados
+      ou editados no período, contando cada amostra uma vez e sem a lixeira. Usuário
+      comum vê só as próprias amostras.
+  - **Front:**
+    - campo **Técnicas ATT&CK** no novo relatório, um combobox: busca por código ou por
+      nome (sem acento e sem caixa), setas + Enter ou clique para escolher, etiquetas com
+      ×, e Backspace no campo vazio remove a última;
+    - no relatório, as técnicas aparecem como links ("T1566.001 Spearphishing
+      Attachment", com as táticas no title) para o Histórico Global filtrado;
+    - o topo da ficha mostra "ATT&CK: …" com as técnicas dos relatórios publicados;
+    - filtro **ATT&CK** no Histórico Global, com sugestões do navegador; só aplica um
+      código que existe;
+    - em Meus Uploads, o filtro aparece como etiqueta removível;
+    - no Painel, o quadro **Técnicas ATT&CK mais vistas no período**: barras, e o
+      número leva à lista filtrada.
+  - **Também:** mensagens de `refine`/`superRefine` passam a chegar ao campo (antes
+    viravam "valor inválido").
+  - **Testes:** 24 de integração (Postgres) e `attack.mjs`.
 
 ### 60. Alertas de IOC (watchlist)
 - **Proposta:** "Seguir" na ficha do indicador (IP, domínio, e-mail, hash): quando o

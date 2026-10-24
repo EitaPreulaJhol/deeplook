@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Entry, EntryStatus, Priority, SlaConfig, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AttackFilterInput } from '../components/attack';
 import { EntriesTable, entryListParams } from '../components/EntriesTable';
 import { suggestViewName } from '../components/favorites';
 import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
@@ -23,7 +24,7 @@ export function GlobalHistoryPage() {
   const list = useEntryListState();
   const next = useTakeNext();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { type, status, verdict, priority, assignee, age, submittedFrom, completedFrom } =
+  const { type, status, verdict, priority, attack, assignee, age, submittedFrom, completedFrom } =
     list.filters;
   // Analistas do select "Responsável" (o Painel leva a um analista especifico).
   const analystsQuery = useQuery({
@@ -60,6 +61,7 @@ export function GlobalHistoryPage() {
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
   if (priority) params.set('priority', priority);
+  if (attack) params.set('attack', attack);
   if (assignee) params.set('assignee', assignee);
   if (age) params.set('age', age);
   if (submittedFrom) params.set('submittedFrom', submittedFrom);
@@ -76,6 +78,7 @@ export function GlobalHistoryPage() {
     status && statusLabel(status as EntryStatus),
     verdict && verdictLabel(verdict as Verdict),
     priority && priorityLabel(priority as Priority),
+    attack && `ATT&CK ${attack}`,
     type && (type === 'FILE' ? 'Arquivos' : 'URLs'),
     assignee === 'me' && 'Atribuídas a mim',
     assignee === 'none' && 'Sem responsável',
@@ -93,6 +96,7 @@ export function GlobalHistoryPage() {
       status,
       verdict,
       priority,
+      attack,
       assignee,
       age,
       submittedFrom,
@@ -201,6 +205,13 @@ export function GlobalHistoryPage() {
             <SelectItem value="P3" text="P3 Média" />
             <SelectItem value="P4" text="P4 Baixa" />
           </Select>
+        </HpsmFilterItem>
+        <HpsmFilterItem label="ATT&CK" htmlFor="attack">
+          <AttackFilterInput
+            id="attack"
+            value={attack}
+            onChange={(value) => list.setFilter('attack', value)}
+          />
         </HpsmFilterItem>
         <HpsmFilterItem label="Prazo" htmlFor="age">
           <Select

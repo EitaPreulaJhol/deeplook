@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
+import { findTechnique, normalizeTechniques, TECHNIQUE_ID } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { syncReportIocs } from '../lib/iocs';
@@ -16,6 +17,21 @@ const ReportSchema = z.object({
   findings: z.string().max(20000).optional(),
   iocs: z.string().max(20000).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).default('UNKNOWN'),
+  /** Tecnicas MITRE ATT&CK (lista embutida). */
+  attackTechniques: z
+    .array(z.string().trim().toUpperCase())
+    .max(30, 'no máximo 30 técnicas')
+    .superRefine((ids, ctx) => {
+      const unknown = ids.filter((id) => !TECHNIQUE_ID.test(id) || !findTechnique(id));
+      if (unknown.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `técnica desconhecida: ${unknown.slice(0, 3).join(', ')}`,
+        });
+      }
+    })
+    .transform(normalizeTechniques)
+    .optional(),
   /** Ao salvar: rascunho, enviar para revisao ou publicar direto. */
   status: z.enum(['DRAFT', 'IN_REVIEW', 'PUBLISHED']).default('DRAFT'),
 });
@@ -119,7 +135,7 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const parsed = ReportSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
-    const { summary, findings, iocs, verdict, status } = parsed.data;
+    const { summary, findings, iocs, verdict, status, attackTechniques } = parsed.data;
     if (status === 'PUBLISHED' && reviewRequired()) {
       return reply
         .code(400)
@@ -135,6 +151,7 @@ export async function reportRoutes(app: FastifyInstance) {
           findings: findings || null,
           iocs: iocs || null,
           verdict,
+          attackTechniques: attackTechniques ?? [],
         },
       });
       await recordEvent(tx, {
@@ -187,6 +204,7 @@ export async function reportRoutes(app: FastifyInstance) {
           findings: data.findings,
           iocs: data.iocs,
           verdict: data.verdict,
+          attackTechniques: data.attackTechniques,
           // Despublicar (sem revisao obrigatoria) volta a rascunho.
           ...(data.status === 'DRAFT' ? { status: 'DRAFT' as ReportStatus } : {}),
         },

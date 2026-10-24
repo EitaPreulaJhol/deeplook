@@ -1,7 +1,9 @@
-import type { EntryStatus, Prisma, Verdict } from '@prisma/client';
+import type { EntryStatus, Verdict } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { findTechnique } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { slaConfig, slaWhere } from '../lib/sla';
@@ -54,6 +56,34 @@ async function daily(
   );
   return new Map(rows.map((r) => [r.day, Number(r.n)]));
 }
+/**
+ * Tecnicas ATT&CK mais vistas (item 59): relatorios publicados (ou editados)
+ * no periodo, contando cada amostra uma vez por tecnica.
+ */
+async function topTechniques(since: Date, ownerId: string | null) {
+  const rows = await prisma.$queryRaw<{ id: string; n: bigint }[]>`
+    SELECT t AS id, count(DISTINCT r."entryId") AS n
+      FROM "Report" r
+      JOIN "Entry" e ON e."id" = r."entryId"
+      CROSS JOIN LATERAL unnest(r."attackTechniques") AS t
+     WHERE r."status" = 'PUBLISHED'
+       AND r."updatedAt" >= ${since}
+       AND e."deletedAt" IS NULL
+       ${ownerId ? Prisma.sql`AND e."ownerId" = ${ownerId}` : Prisma.empty}
+     GROUP BY t
+     ORDER BY n DESC, t
+     LIMIT 10`;
+  return rows.map((r) => {
+    const technique = findTechnique(r.id);
+    return {
+      id: r.id,
+      name: technique?.name ?? r.id,
+      tactics: technique?.tactics ?? [],
+      count: Number(r.n),
+    };
+  });
+}
+
 /** Dias (YYYY-MM-DD no fuso) do periodo, do mais antigo ao de hoje. */
 async function dayList(days: number, tz: string): Promise<string[]> {
   const rows = await prisma.$queryRaw<{ day: string }[]>`
@@ -109,6 +139,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       days_,
       subDaily,
       doneDaily,
+      techniques,
     ] = await Promise.all([
       prisma.entry.groupBy({ by: ['status'], where: scope, _count: { _all: true } }),
       prisma.entry.groupBy({ by: ['verdict'], where: scope, _count: { _all: true } }),
@@ -119,6 +150,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       dayList(days, tz),
       daily('createdAt', since, tz, ownerId, false),
       daily('statusChangedAt', since, tz, ownerId, true),
+      topTechniques(since, ownerId),
     ]);
 
     const byStatus: Record<EntryStatus, number> = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
@@ -200,6 +232,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         completed: doneDaily.get(day) ?? 0,
       })),
       workload,
+      techniques,
     });
   });
 }

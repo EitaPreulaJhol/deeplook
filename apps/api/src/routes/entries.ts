@@ -7,6 +7,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
+import { withSubtechniques } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
@@ -52,6 +53,13 @@ const ListQuery = z.object({
   status: z.enum(['PENDING', 'IN_REVIEW', 'COMPLETED']).optional(),
   verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
   priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
+  /** Tecnica ATT&CK de um relatorio publicado (inclui as subtecnicas). */
+  attack: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^T\d{4}(\.\d{3})?$/)
+    .optional(),
   q: z.string().optional(),
   /** Responsavel: `me` (atribuidas a mim) ou `none` (sem responsavel). */
   assignee: z.union([z.enum(['me', 'none']), z.string().regex(/^c[a-z0-9]{20,32}$/)]).optional(),
@@ -164,6 +172,7 @@ function listWhere(
     | 'status'
     | 'verdict'
     | 'priority'
+    | 'attack'
     | 'q'
     | 'sha256'
     | 'assignee'
@@ -179,6 +188,7 @@ function listWhere(
     status,
     verdict,
     priority,
+    attack,
     q,
     sha256,
     assignee,
@@ -192,6 +202,11 @@ function listWhere(
   if (status) where.status = status;
   if (verdict) where.verdict = verdict;
   if (priority) where.priority = priority;
+  if (attack) {
+    where.reports = {
+      some: { status: 'PUBLISHED', attackTechniques: { hasSome: withSubtechniques(attack) } },
+    };
+  }
   if (sha256) where.sha256 = sha256.toLowerCase();
   if (assignee === 'me') where.assigneeId = userId;
   if (assignee === 'none') where.assigneeId = null;

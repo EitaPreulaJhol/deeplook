@@ -21,6 +21,7 @@ export type EntryFilterKey =
   | 'status'
   | 'verdict'
   | 'priority'
+  | 'attack'
   | 'assignee'
   | 'age'
   | 'submittedFrom'
@@ -44,6 +45,8 @@ export function useEntryListState() {
     status: searchParams.get('status') ?? '',
     verdict: searchParams.get('verdict') ?? '',
     priority: searchParams.get('priority') ?? '',
+    // Tecnica ATT&CK de um relatorio publicado (inclui as subtecnicas).
+    attack: searchParams.get('attack') ?? '',
     assignee: searchParams.get('assignee') ?? '',
     age: searchParams.get('age') ?? '',
     // Periodo (links do Painel): instante ISO; sem controle proprio, vira etiqueta.
@@ -120,6 +123,7 @@ export function useEntryListState() {
         status: null,
         verdict: null,
         priority: null,
+        attack: null,
         assignee: null,
         age: null,
         submittedFrom: null,

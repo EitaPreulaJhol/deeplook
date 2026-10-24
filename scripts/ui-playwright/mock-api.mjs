@@ -86,6 +86,26 @@ const keys = [
 ];
 
 /** Sessao de sandbox em execucao que expira em `minutes` minutos. */
+/** Recorte do MITRE ATT&CK embutido (GET /api/attack). */
+export const ATTACK = {
+  version: '20.0',
+  tactics: [
+    { id: 'initial-access', name: 'Initial Access' },
+    { id: 'execution', name: 'Execution' },
+    { id: 'impact', name: 'Impact' },
+  ],
+  techniques: [
+    { id: 'T1059', name: 'Command and Scripting Interpreter', tactics: ['execution'] },
+    { id: 'T1059.001', name: 'PowerShell', tactics: ['execution'] },
+    { id: 'T1204', name: 'User Execution', tactics: ['execution'] },
+    { id: 'T1204.002', name: 'Malicious File', tactics: ['execution'] },
+    { id: 'T1486', name: 'Data Encrypted for Impact', tactics: ['impact'] },
+    { id: 'T1566', name: 'Phishing', tactics: ['initial-access'] },
+    { id: 'T1566.001', name: 'Spearphishing Attachment', tactics: ['initial-access'] },
+    { id: 'T1566.002', name: 'Spearphishing Link', tactics: ['initial-access'] },
+  ],
+};
+
 export function runningSandbox(entryId, minutes) {
   return {
     id: `sb-${entryId}`,
@@ -296,6 +316,10 @@ export async function setupMock(context, state) {
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
+      if (p === '/api/attack') {
+        state.attackGets = (state.attackGets ?? 0) + 1;
+        return json(route, 200, ATTACK);
+      }
       if (p === '/api/dashboard') {
         state.lastDashboardQuery = url.search;
         const days = Number(url.searchParams.get('days') || 7);
@@ -474,6 +498,14 @@ export async function setupMock(context, state) {
         const age = sp.get('age');
         if (age) items = items.filter((e) => olderThan(e, age === 'late' ? limitsOf(e).lateHours : limitsOf(e).warnHours));
         if (sp.get('priority')) items = items.filter((e) => (e.priority ?? 'P3') === sp.get('priority'));
+        // Tecnica ATT&CK de relatorio publicado (T1566 inclui T1566.xxx).
+        const attack = sp.get('attack');
+        if (attack) {
+          const match = (t) => t === attack || t.startsWith(`${attack}.`);
+          items = items.filter((e) =>
+            reports.some((r) => r.entryId === e.id && r.status === 'PUBLISHED' && (r.attackTechniques ?? []).some(match)),
+          );
+        }
         state.lastListQuery = url.search;
         if (sp.get('sort') === 'priority') {
           const sign = sp.get('dir') === 'asc' ? -1 : 1;
@@ -820,6 +852,10 @@ export async function setupMock(context, state) {
       // Novo relatorio (aba Relatorios): so confirma o salvamento.
       if (/^\/api\/entries\/[\w-]+\/reports$/.test(p) && req.method() === 'POST') {
         state.lastReportBody = body;
+        const unknown = (body.attackTechniques ?? []).filter((t) => !ATTACK.techniques.some((x) => x.id === t));
+        if (unknown.length) {
+          return json(route, 400, { error: 'Dados invalidos.', details: { attackTechniques: [`técnica desconhecida: ${unknown.join(', ')}`] } });
+        }
         return json(route, 201, { report: { id: `r-${Date.now()}`, ...body } });
       }
       // Revisao de relatorio (quatro olhos).

@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import type { Entry, SandboxSession, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
+import { attackHref } from '../components/attack';
 import { copyText } from '../components/CopyButton';
 import { DuplicateDialog } from '../components/DuplicateDialog';
 import { downloadText, downloadUrl, entryReportsMarkdown } from '../components/entryExport';
@@ -249,6 +250,12 @@ export function EntryDetailPage() {
   }
 
   const reports = entry.reports ?? [];
+  // Tecnicas ATT&CK dos relatorios publicados (resumo do topo).
+  const attackIds = [
+    ...new Set(
+      reports.filter((r) => r.status === 'PUBLISHED').flatMap((r) => r.attackTechniques ?? []),
+    ),
+  ].sort();
 
   const tabs: HpsmTabItem[] = [
     { id: 'detalhes', label: 'Detalhes' },
@@ -503,6 +510,20 @@ export function EntryDetailPage() {
                 .join(', ')}
               {yara.scan.matches.length > 3 ? ` (+${yara.scan.matches.length - 3})` : ''}
             </StatusText>
+          </span>
+        )}
+        {attackIds.length > 0 && (
+          <span className="dl-summary__attack">
+            <span className="dl-summary__label">ATT&amp;CK:</span>{' '}
+            {attackIds.slice(0, 4).map((techniqueId, i) => (
+              <span key={techniqueId}>
+                {i > 0 && ', '}
+                <Link className="dl-link dl-mono" to={attackHref(techniqueId)}>
+                  {techniqueId}
+                </Link>
+              </span>
+            ))}
+            {attackIds.length > 4 && ` (+${attackIds.length - 4})`}
           </span>
         )}
         {reputation && (

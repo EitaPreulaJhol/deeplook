@@ -206,6 +206,17 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## MITRE ATT&CK
+
+Os relatórios podem citar técnicas do **MITRE ATT&CK** (Enterprise v20.0), por código ou
+nome. As técnicas viram links e filtro (`?attack=T1566`) nas listas e aparecem no Painel
+("mais vistas"). A lista vem embutida em `apps/api/src/lib/attack-enterprise.json`,
+extraída de [mitre-attack/attack-stix-data](https://github.com/mitre-attack/attack-stix-data);
+nada é consultado fora. Para atualizar a versão, troque o arquivo e publique a API.
+
+ATT&CK® é marca registrada da The MITRE Corporation; o conteúdo é © MITRE e usado conforme
+os [termos de uso do ATT&CK](https://attack.mitre.org/resources/legal-and-branding/terms-of-use/).
+
 ## Reputação externa
 
 Com as chaves no `.env`, cada amostra enviada é consultada **automaticamente** nos serviços

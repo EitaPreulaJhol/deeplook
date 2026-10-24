@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { EntryIoc, Report, ReportStatus, ReportTemplate, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { AttackPicker, AttackTechniqueLinks } from './attack';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
@@ -56,6 +57,7 @@ export function EntryReportsTab({
   const [summary, setSummary] = useState('');
   const [findings, setFindings] = useState('');
   const [iocs, setIocs] = useState('');
+  const [attack, setAttack] = useState<string[]>([]);
   const [verdict, setVerdict] = useState<Verdict>('SUSPICIOUS');
   // "Ao salvar": rascunho, enviar para revisao ou publicar (sem revisao obrigatoria).
   const [saveAs, setSaveAs] = useState<ReportStatus>(reviewRequired ? 'IN_REVIEW' : 'PUBLISHED');
@@ -133,7 +135,7 @@ export function EntryReportsTab({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Rascunho do relatorio: sair da aba/tela pede confirmacao.
-  useUnsavedChanges(Boolean(summary || findings || iocs));
+  useUnsavedChanges(Boolean(summary || findings || iocs || attack.length));
 
   const reportCheck = useRequiredFields([
     {
@@ -145,6 +147,13 @@ export function EntryReportsTab({
     },
     { id: 'report-findings', label: 'Achados', ok: true, api: 'findings', value: findings },
     { id: 'report-iocs', label: 'IOCs', ok: true, api: 'iocs', value: iocs },
+    {
+      id: 'report-attack',
+      label: 'Técnicas ATT&CK',
+      ok: true,
+      api: 'attackTechniques',
+      value: attack.join(','),
+    },
   ]);
 
   const createReport = async () => {
@@ -158,10 +167,12 @@ export function EntryReportsTab({
         iocs,
         verdict,
         status: saveAs,
+        attackTechniques: attack,
       });
       setSummary('');
       setFindings('');
       setIocs('');
+      setAttack([]);
       setTemplateId('');
       reportCheck.reset();
       onCreated();
@@ -274,6 +285,13 @@ export function EntryReportsTab({
                 <HpsmField label="IOCs" wide top>
                   <HpsmReadonly multiline mono copyable={{ value: r.iocs, label: 'IOCs' }}>
                     {r.iocs}
+                  </HpsmReadonly>
+                </HpsmField>
+              )}
+              {(r.attackTechniques?.length ?? 0) > 0 && (
+                <HpsmField label="ATT&CK" wide top>
+                  <HpsmReadonly>
+                    <AttackTechniqueLinks ids={r.attackTechniques ?? []} />
                   </HpsmReadonly>
                 </HpsmField>
               )}
@@ -410,6 +428,15 @@ export function EntryReportsTab({
                 onChange={(e) => setIocs(e.target.value)}
                 rows={3}
               />
+            </HpsmField>
+            <HpsmField
+              label="Técnicas ATT&CK"
+              htmlFor="report-attack"
+              top
+              invalid={reportCheck.isInvalid('report-attack')}
+              help="MITRE ATT&CK: busque pelo código ou pelo nome. Viram filtro nas listas e entram no Painel."
+            >
+              <AttackPicker id="report-attack" value={attack} onChange={setAttack} />
             </HpsmField>
             <HpsmField label="Veredito" htmlFor="report-verdict">
               <Select

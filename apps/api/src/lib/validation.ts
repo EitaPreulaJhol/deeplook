@@ -31,6 +31,9 @@ export function issueMessage(issue: ZodIssue): string {
       return 'formato inválido';
     case 'invalid_enum_value':
       return 'opção inválida';
+    case 'custom':
+      // superRefine/refine com mensagem propria (ex.: tecnica ATT&CK desconhecida).
+      return issue.message && issue.message !== 'Invalid input' ? issue.message : 'valor inválido';
     default:
       return 'valor inválido';
   }

@@ -194,6 +194,8 @@ export interface DashboardData {
     late: number;
     completed: number;
   }[];
+  /** Tecnicas ATT&CK mais vistas nos relatorios publicados do periodo. */
+  techniques?: (AttackTechnique & { count: number })[];
 }
 
 /** Situacao de um componente: verde, laranja, vermelho ou desligado. */
@@ -371,10 +373,24 @@ export interface Report {
   reviewedAt?: string | null;
   /** Comentario de quem devolveu o relatorio. */
   reviewNote?: string | null;
+  /** Tecnicas MITRE ATT&CK (ex.: T1566.001). */
+  attackTechniques?: string[];
   createdAt: string;
   updatedAt: string;
 }
 
+/** Lista embutida do MITRE ATT&CK (GET /api/attack). */
+export interface AttackTechnique {
+  id: string;
+  name: string;
+  tactics: string[];
+}
+
+export interface AttackData {
+  version: string;
+  tactics: { id: string; name: string }[];
+  techniques: AttackTechnique[];
+}
 
 export interface Entry {
   /** Prioridade (padrao P3). */

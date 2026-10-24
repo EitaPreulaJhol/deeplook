@@ -438,19 +438,20 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
-| GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; devolve `sla: { warnHours, lateHours }` |
+| GET | `/api/entries` | aceita também `age=warn\|late` (não concluídas há mais de `SLA_WARN_HOURS`/`SLA_LATE_HOURS` no status) e `sort=age`; `attack=T1566` (relatório publicado com a técnica ou subtécnicas); devolve `sla: { warnHours, lateHours }` |
 | GET | `/api/entries/counts` | inclui `late` (fila Atrasadas) |
 | POST | `/api/entries/:id/static-analysis` | reanalisa o arquivo (analistas); a análise do envio vem em `entry.staticInfo` |
 | POST | `/api/entries/:id/duplicate` | `{ of }` marca como duplicata da principal (analistas); conclui com o veredito dela |
 | DELETE | `/api/entries/:id/duplicate` | desfaz e restaura status/veredito anteriores |
 | POST | `/api/reports/:id/submit` · `/approve` · `/return` | revisão de relatório: enviar, aprovar (publica) e devolver `{ note }`; o autor não revisa o próprio |
 | GET | `/api/reports/review-queue` | relatórios em revisão de outros analistas |
-| GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas) |
+| GET | `/api/dashboard?days=&tz=` | painel: `byStatus`, `byVerdict`, `open`, `period`, `daily` (dias no fuso), `workload` (analistas), `techniques` (ATT&CK mais vistas: `{ id, name, tactics, count }`) |
 | GET | `/api/admin/status` | admin: `{ checkedAt, overall, checks: [{ id, name, level, summary, latencyMs?, details }] }` (ok/warn/error/off) |
 | GET | `/api/admin/audit?action=&days=&q=&limit=&offset=` | admin: `{ total, items: [{ action, actor, targetUser, targetLabel, detail, ip, createdAt }] }`, mais recentes primeiro |
 | GET | `/api/admin/audit/export.csv` | admin: CSV da auditoria com os mesmos filtros |
 | GET | `/api/entries/:id/antivirus` | ClamAV: `{ enabled, pending, scan: { status, signature, error, engine, dbVersion, dbDate, scannedAt } }` (aceita token) |
 | POST | `/api/entries/:id/antivirus` | analistas: escaneia de novo a partir do MinIO (202); 410 se expurgado |
+| GET | `/api/attack` | MITRE ATT&CK embutido `{ version, tactics: [{ id, name }], techniques: [{ id, name, tactics }] }` (cache de 1 dia) |
 | GET/POST | `/api/yara/rules` | analistas: regras YARA `{ rules: [{ id, name, description, source, enabled, createdBy, updatedBy, updatedAt }] }`; POST `{ name, description?, source, enabled }` compila com o YARA-X antes (400 com `details.source` = saída do compilador; 409 nome em uso) |
 | PATCH/DELETE | `/api/yara/rules/:id` | analistas: edita (mesmo corpo do POST) ou só `{ enabled }` (ativar/desativar); exclui |
 | POST | `/api/yara/validate` | analistas: `{ source }` → `{ ok, errors, warnings }` sem salvar |
@@ -577,6 +578,7 @@ banco nem da API rodando.
 | `shortcuts-help.mjs` | ajuda de atalhos: `?` (texto dentro de campos), F1 (em qualquer lugar, sem a ajuda do navegador), Esc/Fechar, foco devolvido, menu do usuário e Dicas vindas da mesma lista |
 | `validation-api.mjs` | formulário de chave do Admin (validação, Ctrl+S, números enviados) e erros por campo da API em chave, envio de URL, relatório, atualização, troca de senha e cadastro (destaque, mensagem, foco, some ao corrigir) |
 | `validation.mjs` | validação: destaque vermelho (cor conferida, também com foco), mensagem, foco no 1º inválido e destaque que some ao corrigir |
+| `attack.mjs` | ATT&CK: topo da ficha e relatório com links, campo do relatório (busca por nome e código, setas + Enter, clique, ordem do ATT&CK, ×, Backspace, envio), link → Histórico filtrado, filtro (trocar, código incompleto, apagar, Limpar), etiqueta em Meus Uploads, quadro do Painel (barras proporcionais, link, vazio) |
 | `yara.mjs` | regras YARA: item só para analistas no navegador, obrigatórios, Validar com erro (quadro do compilador com a linha), salvar recusado com o campo destacado, validar ok, Ctrl+S, nome em uso, editar (PATCH), desativar (só `enabled`), excluir com confirmação; ficha escaneando → acertos (tabela e topo), Escanear de novo, sem regras sem seção; usuário comum redirecionado |
 | `ioc-watch.mjs` | alertas de IOC: Seguir/Deixar de seguir na ficha do indicador, aba Indicadores na Minha Conta (link, deixar de seguir) e notificação com texto e link para a aba Relatórios |
 | `sessions.mjs` | sessões: aba na Minha Conta, atual marcada sem ação, User-Agent na dica, encerrar uma (confirmação com dispositivo e IP), encerrar as outras e botão desabilitado sem outras |

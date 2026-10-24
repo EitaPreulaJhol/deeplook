@@ -19,7 +19,7 @@ export function MyUploadsPage() {
   // Busca, filtros, ordenacao e pagina ficam na URL (ver useEntryListState).
   const list = useEntryListState();
   const { q, draftQ, setDraftQ, sort, offset } = list;
-  const { status, verdict, age, submittedFrom, completedFrom } = list.filters;
+  const { status, verdict, attack, age, submittedFrom, completedFrom } = list.filters;
   // Filtros de periodo (links do Painel) aparecem como etiquetas removiveis.
   const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
   const chips = [
@@ -39,6 +39,10 @@ export function MyUploadsPage() {
           },
         ]
       : []),
+    // Tecnica ATT&CK (link de um relatorio): sem controle proprio aqui.
+    ...(attack
+      ? [{ label: `ATT&CK ${attack}`, onRemove: () => list.setFilter('attack', '') }]
+      : []),
   ];
 
   const params = new URLSearchParams();
@@ -46,6 +50,7 @@ export function MyUploadsPage() {
   if (q) params.set('q', q);
   if (status) params.set('status', status);
   if (verdict) params.set('verdict', verdict);
+  if (attack) params.set('attack', attack);
   if (age) params.set('age', age);
   if (submittedFrom) params.set('submittedFrom', submittedFrom);
   if (completedFrom) params.set('completedFrom', completedFrom);
@@ -72,6 +77,7 @@ export function MyUploadsPage() {
       q,
       status,
       verdict,
+      attack,
       age,
       submittedFrom,
       completedFrom,

@@ -212,31 +212,34 @@ model Tag {
 }
 
 model Report {
-  id           String       @id @default(cuid())
-  entryId      String
-  entry        Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  analystId    String
-  analyst      User         @relation("ReportAuthor", fields: [analystId], references: [id])
-  summary      String
-  findings     String?
-  iocs         String?
-  verdict      Verdict      @default(UNKNOWN)
+  id               String       @id @default(cuid())
+  entryId          String
+  entry            Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  analystId        String
+  analyst          User         @relation("ReportAuthor", fields: [analystId], references: [id])
+  summary          String
+  findings         String?
+  iocs             String?
+  verdict          Verdict      @default(UNKNOWN)
+  /// Tecnicas MITRE ATT&CK (ex.: T1566.001), validadas na lista embutida (src/lib/attack.ts).
+  attackTechniques String[]     @default([])
   /// Rascunho -> (Em revisao ->) Publicado. Ver REPORT_REVIEW_REQUIRED.
-  status       ReportStatus @default(DRAFT)
+  status           ReportStatus @default(DRAFT)
   /// Revisao (quatro olhos): quem aprovou/devolveu, quando e o comentario da devolucao.
-  submittedAt  DateTime?
-  reviewedById String?
-  reviewedBy   User?        @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt   DateTime?
-  reviewNote   String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  submittedAt      DateTime?
+  reviewedById     String?
+  reviewedBy       User?        @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime?
+  reviewNote       String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   /// Indicadores extraidos do campo `iocs` (so de relatorios publicados).
   extractedIocs ReportIoc[]
 
   @@index([entryId])
   @@index([status])
+  @@index([attackTechniques], type: Gin)
 }
 
 enum ReportStatus {

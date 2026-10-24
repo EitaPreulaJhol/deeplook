@@ -94,6 +94,7 @@ export function DashboardPage() {
   const sinceLabel = d ? new Date(d.since).toLocaleDateString('pt-BR') : '';
   const verdictTotal = d ? VERDICTS.reduce((sum, v) => sum + d.byVerdict[v], 0) : 0;
   const verdictMax = d ? Math.max(1, ...VERDICTS.map((v) => d.byVerdict[v])) : 1;
+  const techniqueMax = Math.max(1, ...(d?.techniques ?? []).map((t) => t.count));
 
   return (
     <>
@@ -215,6 +216,37 @@ export function DashboardPage() {
               </ul>
             </HpsmSection>
           </div>
+
+          <HpsmSection title="Técnicas ATT&CK mais vistas no período" className="dl-mt-lg">
+            {(d.techniques ?? []).length === 0 ? (
+              <p className="dl-static-empty">
+                Nenhuma técnica registrada nos relatórios publicados desde {sinceLabel}.
+              </p>
+            ) : (
+              <ul className="dl-hbars dl-hbars--wide" aria-label="Técnicas ATT&CK mais vistas">
+                {(d.techniques ?? []).map((t) => (
+                  <li key={t.id}>
+                    <span className="dl-hbars__label" title={t.name}>
+                      <span className="dl-mono">{t.id}</span> {t.name}
+                    </span>
+                    <span className="dl-hbars__track">
+                      <span
+                        className="dl-hbars__bar"
+                        style={{ width: `${(t.count / techniqueMax) * 100}%` }}
+                      />
+                    </span>
+                    <span className="dl-hbars__value">
+                      <Num
+                        value={t.count}
+                        label={`${t.id} ${t.name}`}
+                        to={link(`attack=${t.id}`)}
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HpsmSection>
 
           {!mine && d.workload.length > 0 && (
             <HpsmSection title="Carga por analista" className="dl-mt-lg">
