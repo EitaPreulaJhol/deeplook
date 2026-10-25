@@ -438,7 +438,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/file` | envio de arquivo (multipart: `file`, `title?`, `description?`, `tags?`) → `{ entry, previous }` (`previous` = primeira amostra com o mesmo SHA-256) |
 | POST | `/api/entries/zip` | `.zip` desmembrado (multipart: `file`, `password?`, `description?`, `tags?`) → `{ created: [{ name, path, entry, previous }], skipped: [{ name, path, reason }] }`; até 20 arquivos; senha errada → 400 com `details.password` |
 | GET | `/api/entries/:id/hex?offset=&length=` | analistas: bytes do arquivo para o visualizador hexadecimal (`Range` no MinIO, blocos de até 4 KB, até 64 KB) |
-| POST | `/api/entries/next` | analistas: "Pegar a próxima" — atribui a pendente sem responsável mais antiga, põe Em análise e devolve `{ entry: { id, title } }`; 404 sem nenhuma |
+| POST | `/api/entries/next` | analistas: "Pegar a próxima" - atribui a pendente sem responsável mais antiga, põe Em análise e devolve `{ entry: { id, title } }`; 404 sem nenhuma |
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |

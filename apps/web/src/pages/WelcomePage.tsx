@@ -140,7 +140,7 @@ export function WelcomePage() {
                 >
                   {next.taking ? 'Pegando...' : 'Pegar a próxima'}
                 </button>{' '}
-                — atribui a você a amostra pendente sem responsável mais antiga e abre a ficha.
+                - atribui a você a amostra pendente sem responsável mais antiga e abre a ficha.
               </li>
             )}
           </ul>
