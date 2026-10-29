@@ -1,6 +1,8 @@
+import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
+import { analyzeLnk, type LnkInfo } from './lnk-analysis';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
 
 /**
@@ -68,6 +70,12 @@ export interface StaticInfo {
   document?: DocumentInfo | null;
   /** PowerShell, JS, VBS, BAT e HTA: chamadas suspeitas e camadas decodificadas (item 83). */
   script?: ScriptInfo | null;
+  /** Atalho do Windows (item 84): destino, argumentos, maquina de origem. */
+  lnk?: LnkInfo | null;
+  /** Imagem de disco (item 84): ISO/IMG/VHD com a lista de arquivos. */
+  diskImage?:
+    | (Omit<DiskImageInfo, 'files'> & { files: { path: string; size: number; hidden: boolean }[] })
+    | null;
   /** Indicadores encontrados nas strings: so sugestao (nao entram no indice). */
   iocCandidates: Ioc[];
 }
@@ -469,6 +477,13 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
   } catch {
     script = null;
   }
+  // Atalho .lnk e imagem de disco (item 84). Da imagem guarda so caminho,
+  // tamanho e oculto (a extracao le o arquivo de novo).
+  const lnk = analyzeLnk(buf);
+  const image = lnk ? null : analyzeDiskImage(buf);
+  const diskImage = image
+    ? { ...image, files: image.files.map(({ path, size, hidden }) => ({ path, size, hidden })) }
+    : null;
   const iocCandidates = extractIocs(
     [
       ...strings.urls,
@@ -476,6 +491,7 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
       ...strings.emails,
       ...(document?.links ?? []),
       ...(script?.urls ?? []),
+      lnk?.arguments ?? '',
     ].join('\n'),
   );
   return {
@@ -491,6 +507,8 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
     pe,
     document,
     script,
+    lnk,
+    diskImage,
     iocCandidates: iocCandidates.slice(0, 50),
   };
 }

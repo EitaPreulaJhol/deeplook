@@ -2581,7 +2581,7 @@ Service Manager 9.
 | 81 | Backup em ZIP para baixar | administração do sistema | 🔴 | M | ⬜ |
 | 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ↩ já existe (item 44) |
 | 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ✅ |
-| 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ⬜ |
+| 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ✅ |
 | 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ✅ |
 | 86 | Tags e prioridade automáticas por regra | regras de negócio | 🟡 | M | ⬜ |
 | 87 | Resolução para quem enviou | Solution / Resolution | 🟡 | P–M | ⬜ |
@@ -2668,6 +2668,47 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   - **ISO/IMG (ISO 9660 e UDF) e VHD:** lista de arquivos com tamanho e, opcionalmente,
     "Extrair como amostras filhas" (como o ZIP).
 - **Cuidados:** leitura direta dos bytes, com limites; arquivos ocultos marcados.
+- ✅ **Implementado** (migração `20261201000000_files_extracted`: evento `FILES_EXTRACTED`):
+  - **Atalho** (`lib/lnk-analysis.ts`, formato MS-SHLLINK):
+    - destino (pelo LinkInfo ou pela lista de itens do Shell, com o nome longo da
+      extensão BEEF0004), argumentos, diretório, descrição, ícone e como a janela abre;
+    - variável de ambiente do destino, máquina NetBIOS e MAC de origem (TrackerDataBlock)
+      e as datas;
+    - **alertas:** interpretador ou binário do sistema (PowerShell, cmd, mshta,
+      rundll32…), argumentos longos ou escondidos atrás de espaços, URL nos argumentos,
+      janela minimizada, ícone de outro tipo de arquivo. A URL dos argumentos entra nos
+      IOCs sugeridos.
+  - **Imagem de disco** (`lib/disk-image.ts`):
+    - **ISO 9660** com os nomes longos do **Joliet** (cobre `.iso` e `.img`, que costuma
+      ser ISO renomeada);
+    - **FAT12/16/32**, com nomes longos (VFAT), pastas e atributo oculto, numa imagem
+      crua ou num **VHD fixo** com MBR;
+    - VHDX, VHD dinâmico, NTFS e UDF puro são reconhecidos e marcados como "não listado";
+    - até 500 arquivos (cortes indicados), 16 níveis de pasta;
+    - alertas para executáveis ou scripts dentro da imagem, ocultos e ".lnk visível com
+      arquivos ocultos".
+  - **Extrair como amostras** (`POST /api/entries/:id/extract-image`, analistas):
+    - até 50 arquivos por vez; cada um vira uma amostra **filha** do mesmo dono, com as
+      tags da imagem e analisada como um envio (antivírus, YARA, análise estática);
+    - uma vez por imagem (409 na segunda); arquivo expurgado = 410; o histórico
+      registra quantos saíram;
+    - `GET /api/entries/:id/children` lista as filhas (também as de e-mail).
+  - **Ficha:**
+    - aviso no topo para atalho perigoso;
+    - seção **Atalho do Windows (.lnk)** (argumentos só como texto, Copiar do comando
+      completo);
+    - seção **Imagem de disco** com formato, rótulo, alertas e a tabela de arquivos
+      (ocultos marcados; depois de extrair, cada linha leva à amostra com status e
+      veredito);
+    - a filha mostra **"Extraído de:"** (e continua "Anexo de:" quando o pai é um
+      e-mail).
+  - **Testes:**
+    - 32 checagens com arquivos gerados por ferramentas reais (`xorriso`, `mkfs.fat`,
+      `mtools`, `sfdisk`, `pylnk3`): ISO com Joliet e acentos, FAT16 com nome longo,
+      pasta e oculto, FAT32, VHD fixo com MBR, VHDX, LNK com destino, argumentos,
+      janela e alertas, arquivos truncados, análise estática, envio, extração (dono,
+      tags, título com o caminho), filhas, 409, histórico, não imagem, expurgado;
+    - `disk.mjs`.
 
 ### 85. Decodificador (Base64, hex, XOR, PowerShell, gzip)
 - **Problema:** para decodificar um trecho, o analista copia para outra ferramenta fora

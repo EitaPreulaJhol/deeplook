@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "EntryEventType" ADD VALUE 'FILES_EXTRACTED';
+

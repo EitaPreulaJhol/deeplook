@@ -437,6 +437,8 @@ enum EntryEventType {
   SLA_LATE
   /// Pagina do link capturada (item 80; toValue = HTTP, detail = redirecionamentos).
   PAGE_CAPTURED
+  /// Arquivos extraidos de uma imagem de disco como amostras filhas (item 84; detail = quantos).
+  FILES_EXTRACTED
 }
 
 enum CaptureStatus {

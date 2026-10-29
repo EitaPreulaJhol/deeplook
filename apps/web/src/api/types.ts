@@ -175,6 +175,35 @@ export interface EmailInfo {
 }
 
 /** Analise estatica do arquivo enviado (Entry.staticInfo). */
+/** Atalho do Windows (.lnk) (item 84). */
+export interface LnkInfo {
+  target: string | null;
+  arguments: string | null;
+  workingDir: string | null;
+  relativePath: string | null;
+  description: string | null;
+  iconLocation: string | null;
+  window: 'normal' | 'maximized' | 'minimized';
+  envTarget: string | null;
+  machine: string | null;
+  mac: string | null;
+  created: string | null;
+  modified: string | null;
+  accessed: string | null;
+  targetSize: number | null;
+  alerts: string[];
+}
+
+/** Imagem de disco (item 84): ISO 9660, FAT ou VHD (FAT). */
+export interface DiskImageInfo {
+  format: 'iso9660' | 'fat' | 'vhd-fat' | 'unsupported';
+  note: string | null;
+  label: string | null;
+  files: { path: string; size: number; hidden: boolean }[];
+  truncated: boolean;
+  alerts: string[];
+}
+
 /** Script (item 83): PowerShell, JS, VBS, BAT e HTA. */
 export interface ScriptInfo {
   language: 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta';
@@ -259,6 +288,8 @@ export interface StaticInfo {
   /** PDF, Office e RTF (item 70). */
   document?: DocumentInfo | null;
   script?: ScriptInfo | null;
+  lnk?: LnkInfo | null;
+  diskImage?: DiskImageInfo | null;
   iocCandidates: { kind: IocKind; value: string }[];
 }
 
@@ -546,7 +577,7 @@ export interface Entry {
   /** E-mail (.eml) lido no envio (item 54). */
   emailInfo?: EmailInfo | null;
   /** E-mail de onde veio este anexo (item 54). */
-  parentEntry?: { id: string; title: string } | null;
+  parentEntry?: { id: string; title: string; originalFilename?: string | null } | null;
   /** Duplicata de outra amostra (a principal). */
   duplicateOfId?: string | null;
   duplicateOf?: { id: string; title: string } | null;

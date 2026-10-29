@@ -13,6 +13,7 @@ import { autoAssign } from '../lib/auto-assign';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
+import { analyzeDiskImage, extractDiskFile } from '../lib/disk-image';
 import { isEmailFile, parseEmail } from '../lib/eml';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
@@ -528,7 +529,111 @@ async function readEmail(
   });
 }
 
+/** Arquivos extraidos por vez de uma imagem de disco (item 84). */
+const EXTRACT_MAX_FILES = 50;
+
 export async function entryRoutes(app: FastifyInstance) {
+  // Imagem de disco (item 84): extrai os arquivos como amostras filhas (analistas).
+  app.post('/api/entries/:id/extract-image', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas extraem arquivos.' });
+    }
+    const { id } = req.params as { id: string };
+    const entry = await prisma.entry.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        ownerId: true,
+        storageKey: true,
+        bucket: true,
+        filePurgedAt: true,
+        tags: { select: { id: true } },
+      },
+    });
+    if (!entry || entry.type !== 'FILE')
+      return reply.code(404).send({ error: 'Amostra não encontrada.' });
+    if (entry.filePurgedAt || !entry.storageKey) {
+      return reply.code(410).send({ error: 'O arquivo foi expurgado pela política de retenção.' });
+    }
+    if (await prisma.entry.count({ where: { parentEntryId: id } })) {
+      return reply.code(409).send({ error: 'Os arquivos desta imagem já foram extraídos.' });
+    }
+    const obj = await s3.send(
+      new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }),
+    );
+    const buffer = Buffer.from(await obj.Body!.transformToByteArray());
+    const image = analyzeDiskImage(buffer);
+    if (!image || !image.files.length) {
+      return reply
+        .code(400)
+        .send({ error: 'Não é uma imagem de disco com arquivos que o DeepLook consiga listar.' });
+    }
+    const maxBytes = env.MAX_UPLOAD_MB * 1024 * 1024;
+    const skipped: { path: string; reason: string }[] = [];
+    const children: { id: string; title: string }[] = [];
+    for (const file of image.files) {
+      if (children.length >= EXTRACT_MAX_FILES) {
+        skipped.push({
+          path: file.path,
+          reason: `limite de ${EXTRACT_MAX_FILES} arquivos por vez`,
+        });
+        continue;
+      }
+      if (file.size > maxBytes) {
+        skipped.push({ path: file.path, reason: `maior que ${env.MAX_UPLOAD_MB} MB` });
+        continue;
+      }
+      const data = extractDiskFile(buffer, file, maxBytes);
+      if (!data) {
+        skipped.push({ path: file.path, reason: 'não foi possível ler os bytes' });
+        continue;
+      }
+      const filename = file.path.split('/').pop() || 'arquivo';
+      // A filha e do mesmo dono da imagem (aparece nos Meus Uploads de quem enviou).
+      const { entry: child } = await createFileEntry(
+        req,
+        entry.ownerId,
+        {
+          buffer: data,
+          filename,
+          mimetype: 'application/octet-stream',
+          title: file.path.slice(0, 200),
+          description: `Extraído da imagem "${entry.title}" (${file.path}).`,
+          tags: entry.tags,
+          parentEntryId: entry.id,
+        },
+        { remaining: null },
+        1,
+      );
+      children.push({ id: child.id, title: child.title });
+    }
+    await recordEvent(prisma, {
+      entryId: entry.id,
+      actorId: user.id,
+      type: 'FILES_EXTRACTED',
+      detail: `${children.length} arquivo(s)`,
+    });
+    return reply.send({ created: children.length, children, skipped });
+  });
+
+  // Amostras filhas (anexos de e-mail, arquivos extraidos de imagem).
+  app.get('/api/entries/:id/children', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const { id } = req.params as { id: string };
+    const children = await prisma.entry.findMany({
+      where: { parentEntryId: id },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+      select: { id: true, title: true, originalFilename: true, status: true, verdict: true },
+    });
+    return reply.send({ children });
+  });
+
   // Exportacao CSV da lista filtrada/ordenada (sem paginacao, ate 10 mil linhas).
   app.get('/api/entries/export.csv', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -989,7 +1094,7 @@ export async function entryRoutes(app: FastifyInstance) {
         assignee: { select: { id: true, displayName: true } },
         tags: true,
         duplicateOf: { select: { id: true, title: true } },
-        parentEntry: { select: { id: true, title: true } },
+        parentEntry: { select: { id: true, title: true, originalFilename: true } },
         duplicates: {
           where: { deletedAt: null },
           select: { id: true, title: true, createdAt: true },
