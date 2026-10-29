@@ -144,6 +144,7 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
       apiAccess: true,
       ...password,
       twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
+      ldap: u.authSource === 'LDAP',
       away: u.away,
       preferences: resolvePreferences(u.preferences),
     },

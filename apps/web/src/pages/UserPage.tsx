@@ -81,7 +81,15 @@ export function UserPage() {
             </HpsmForm>
           </HpsmSection>
         )}
-        {tab === 'senha' && <PasswordTab />}
+        {tab === 'senha' &&
+          (user?.ldap ? (
+            <HpsmMessage kind="info">
+              Sua conta é da rede (AD): a senha e a validade dela são as do AD. Para trocá-la, use
+              o processo da empresa. O 2FA do DeepLook continua valendo.
+            </HpsmMessage>
+          ) : (
+            <PasswordTab />
+          ))}
         {tab === 'preferencias' && <PreferencesTab />}
         {tab === '2fa' && <TwoFactorTab />}
         {tab === 'sessoes' && <SessionsTab />}

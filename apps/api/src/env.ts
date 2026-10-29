@@ -51,6 +51,24 @@ const EnvSchema = z
     /** Backup em ZIP (item 81): dias ate o ZIP expirar e o comando do pg_dump (16+). */
     BACKUP_RETENTION_DAYS: z.coerce.number().int().min(1).max(90).default(7),
     BACKUP_PG_DUMP: z.string().min(1).default('pg_dump'),
+    /**
+     * Login pelo AD/LDAP (item 94), opcional: vazio = desligado. So com TLS
+     * (ldaps:// ou ldap:// + LDAP_STARTTLS=true) e certificado verificado
+     * (LDAP_TLS_CA = PEM da CA, se nao for uma CA do sistema).
+     */
+    LDAP_URL: z.string().default(''),
+    LDAP_STARTTLS: z.enum(['true', 'false']).default('false'),
+    LDAP_TLS_CA: z.string().default(''),
+    LDAP_BIND_DN: z.string().default(''),
+    LDAP_BIND_PASSWORD: z.string().default(''),
+    LDAP_BASE_DN: z.string().default(''),
+    /** `{login}` = o que a pessoa digitou (escapado). Vazio = padrao do AD. */
+    LDAP_USER_FILTER: z.string().default(''),
+    LDAP_ATTR_NAME: z.string().default('displayName'),
+    LDAP_ATTR_MAIL: z.string().default('mail'),
+    /** DNs dos grupos (memberOf) que dao o papel; sem grupo = usuario comum. */
+    LDAP_ANALYST_GROUP: z.string().default(''),
+    LDAP_ADMIN_GROUP: z.string().default(''),
     /** Validade da senha em dias (admins nao expiram). 0 = sem validade. */
     PASSWORD_MAX_AGE_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
     /**

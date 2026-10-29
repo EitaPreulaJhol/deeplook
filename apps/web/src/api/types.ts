@@ -15,6 +15,9 @@ export interface User {
   createdAt: string;
   /** Acesso por API liberado por um admin (tokens pessoais). */
   apiAccess?: boolean;
+  /** Conta do AD/LDAP (item 94): sem senha local; na lista do admin, `authSource`. */
+  ldap?: boolean;
+  authSource?: 'LOCAL' | 'LDAP';
   /** Precisa definir uma senha nova antes de entrar (redefinida pelo admin ou vencida). */
   mustChangePassword?: boolean;
   /** Por que precisa trocar: redefinida pelo admin ou vencida (politica de senha). */

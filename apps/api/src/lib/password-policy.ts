@@ -25,11 +25,13 @@ interface Account {
   role: string;
   passwordChangedAt: Date;
   mustChangePassword: boolean;
+  /** Contas do AD (item 94): a senha e a politica ficam no AD. */
+  authSource?: string;
 }
 
 /** Quando a senha vence (null para admins ou sem validade configurada). */
 export function passwordExpiresAt(u: Account): Date | null {
-  if (u.role === 'ADMIN' || !env.PASSWORD_MAX_AGE_DAYS) return null;
+  if (u.role === 'ADMIN' || u.authSource === 'LDAP' || !env.PASSWORD_MAX_AGE_DAYS) return null;
   return new Date(u.passwordChangedAt.getTime() + env.PASSWORD_MAX_AGE_DAYS * 86400000);
 }
 
@@ -40,7 +42,8 @@ export function passwordExpiresAt(u: Account): Date | null {
 export function passwordState(u: Account, now = Date.now()) {
   const expiresAt = passwordExpiresAt(u);
   const expired = Boolean(expiresAt && expiresAt.getTime() <= now);
-  const reason: PasswordChangeReason = u.mustChangePassword ? 'reset' : expired ? 'expired' : null;
+  const reason: PasswordChangeReason =
+    u.authSource === 'LDAP' ? null : u.mustChangePassword ? 'reset' : expired ? 'expired' : null;
   return {
     mustChangePassword: reason !== null,
     passwordChangeReason: reason,

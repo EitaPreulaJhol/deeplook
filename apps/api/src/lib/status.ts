@@ -2,6 +2,7 @@ import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
+import { ldapConfig, ldapProbe } from './ldap';
 import { captureEnabled } from './page-capture';
 import { prisma } from './prisma';
 import { pveTemplateExists, pveVersion } from './proxmox';
@@ -15,7 +16,15 @@ export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
 
 export interface StatusCheck {
   id:
-    'api' | 'database' | 'storage' | 'sandbox' | 'queues' | 'reputation' | 'antivirus' | 'capture';
+    | 'api'
+    | 'database'
+    | 'storage'
+    | 'sandbox'
+    | 'queues'
+    | 'reputation'
+    | 'antivirus'
+    | 'capture'
+    | 'ldap';
   name: string;
   level: StatusLevel;
   summary: string;
@@ -399,6 +408,37 @@ async function captureCheck(): Promise<StatusCheck> {
 }
 
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
+/** AD/LDAP (item 94): conecta com TLS e faz o bind da conta de servico. */
+async function ldapCheck(): Promise<StatusCheck> {
+  const name = 'AD/LDAP';
+  const c = ldapConfig();
+  if (!c) {
+    return { id: 'ldap', name, level: 'off', summary: 'desligado (LDAP_URL vazio)', details: [] };
+  }
+  const details = [
+    { label: 'Servidor', value: c.url + (c.startTls ? ' (StartTLS)' : '') },
+    { label: 'Base', value: c.baseDn || '—' },
+    {
+      label: 'Grupos',
+      value: `analistas: ${c.analystGroup ?? '—'} · admins: ${c.adminGroup ?? '—'}`,
+    },
+  ];
+  const accounts = await prisma.user.count({ where: { authSource: 'LDAP' } });
+  details.push({ label: 'Contas do AD', value: String(accounts) });
+  const probe = await timed(() => ldapProbe());
+  if (probe.error) {
+    return { id: 'ldap', name, level: 'error', summary: probe.error, latencyMs: probe.ms, details };
+  }
+  return {
+    id: 'ldap',
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: probe.ms > SLOW_MS ? 'lento' : 'conectado (TLS verificado)',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 async function reputationCheck(): Promise<StatusCheck> {
   const enabled = enabledServices();
   const all = Object.keys(SERVICE_NAMES) as ServiceId[];
@@ -449,6 +489,7 @@ export async function systemStatus() {
     antivirusCheck(),
     captureCheck(),
     reputationCheck(),
+    ldapCheck(),
   ]);
   const overall = checks
     .map((c) => (c.level === 'off' ? 'ok' : c.level))

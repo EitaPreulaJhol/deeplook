@@ -341,6 +341,8 @@ export async function setupMock(context, state) {
         return json(route, 400, { error: 'Dados invalidos.', details: state.validationErrors[p] });
       }
       if (p === '/api/auth/register') return json(route, 400, { error: 'Chave de ativacao invalida.' });
+      // Login pelo AD (item 94): desligado, a menos que o roteiro ligue.
+      if (p === '/api/auth/options') return json(route, 200, { ldap: Boolean(state.ldap) });
       if (!state.loggedIn) return json(route, 401, { error: 'Nao autenticado.' });
 
       // Casos: so analistas; o caso nunca fica vazio (409 ao retirar a ultima).

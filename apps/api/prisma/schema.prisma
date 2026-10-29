@@ -62,6 +62,10 @@ model User {
   apiAccess              Boolean    @default(false)
   /// Senha redefinida pelo admin: so entra depois de definir uma nova (item 48).
   mustChangePassword     Boolean    @default(false)
+  /// Conta do AD/LDAP (item 94): sem senha local (a do passwordHash nunca vale),
+  /// papel pelos grupos a cada login.
+  authSource             AuthSource @default(LOCAL)
+  ldapDn                 String?    @unique
   /// Ultima troca de senha: base da validade (PASSWORD_MAX_AGE_DAYS; admins nao expiram).
   passwordChangedAt      DateTime   @default(now())
   /// 2FA (TOTP, opcional): segredo cifrado (AES-GCM), o pendente da ativacao,
@@ -1157,4 +1161,10 @@ model Backup {
   expiresAt      DateTime?
 
   @@index([status, createdAt])
+}
+
+/// Onde a senha e conferida (item 94).
+enum AuthSource {
+  LOCAL
+  LDAP
 }

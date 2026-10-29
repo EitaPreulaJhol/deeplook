@@ -1,9 +1,12 @@
+import { randomBytes } from 'node:crypto';
+
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { audit } from '../lib/audit';
 import { createSession, currentSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
+import { ldapAuthenticate, ldapConfig } from '../lib/ldap';
 import { passwordField, passwordState } from '../lib/password-policy';
 import { resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
@@ -25,8 +28,9 @@ const TwoFactorSchema = z.object({
 });
 
 const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  /** E-mail; com o AD ligado (item 94), tambem o usuario do AD. */
+  email: z.string().trim().min(1).max(254),
+  password: z.string().min(1).max(1024),
 });
 
 function publicUser(u: {
@@ -40,6 +44,7 @@ function publicUser(u: {
   mustChangePassword: boolean;
   passwordChangedAt: Date;
   twoFactorEnabledAt: Date | null;
+  authSource: string;
   away: boolean;
   preferences: unknown;
 }) {
@@ -53,6 +58,7 @@ function publicUser(u: {
     apiAccess: u.apiAccess,
     ...passwordState(u),
     twoFactorEnabled: Boolean(u.twoFactorEnabledAt),
+    ldap: u.authSource === 'LDAP',
     away: u.away,
     preferences: resolvePreferences(u.preferences),
   };
@@ -162,29 +168,102 @@ export async function authRoutes(app: FastifyInstance) {
       detail: reason,
     });
 
+  /**
+   * Conta local de quem entrou pelo AD: criada no primeiro acesso, com nome,
+   * e-mail e papel (pelos grupos) atualizados a cada login. Null se o e-mail do
+   * AD ja e de uma conta local (nao assume a conta de outra pessoa).
+   */
+  const ldapAccount = async (
+    req: FastifyRequest,
+    ad: { dn: string; email: string; name: string; role: 'USER' | 'ANALYST' | 'ADMIN' },
+  ) => {
+    const existing =
+      (await prisma.user.findUnique({ where: { ldapDn: ad.dn } })) ??
+      (await prisma.user.findUnique({ where: { email: ad.email } }));
+    if (existing?.authSource === 'LOCAL') return null;
+    if (!existing) {
+      return prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email: ad.email,
+            displayName: ad.name.slice(0, 120),
+            role: ad.role,
+            authSource: 'LDAP',
+            ldapDn: ad.dn,
+            // Nunca confere: a senha e a do AD.
+            passwordHash: await hashPassword(randomBytes(32).toString('hex')),
+          },
+        });
+        await audit(tx, req, {
+          action: 'USER_REGISTERED',
+          actorId: created.id,
+          targetUserId: created.id,
+          targetLabel: created.email,
+          detail: `primeiro acesso pelo AD · ${ad.role}`,
+        });
+        return created;
+      });
+    }
+    const updated = await prisma.user.update({
+      where: { id: existing.id },
+      data: { displayName: ad.name.slice(0, 120), email: ad.email, ldapDn: ad.dn, role: ad.role },
+    });
+    if (existing.role !== ad.role) {
+      await audit(prisma, req, {
+        action: 'USER_ROLE_CHANGED',
+        actorId: null,
+        targetUserId: existing.id,
+        targetLabel: updated.email,
+        detail: `${existing.role} → ${ad.role} (grupos do AD)`,
+      });
+    }
+    return updated;
+  };
+
   app.post('/api/auth/login', { config: loginLimit }, async (req, reply) => {
     const parsed = LoginSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
     const { email, password } = parsed.data;
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
-    });
-    const normalized = email.trim().toLowerCase();
-    if (!user) {
-      await loginFailed(req, normalized, null, 'e-mail não cadastrado');
+    const normalized = email.toLowerCase();
+    const local = await prisma.user.findUnique({ where: { email: normalized } });
+    let user = local;
+    if (local?.authSource === 'LOCAL') {
+      if (local.status !== 'ACTIVE') {
+        await loginFailed(req, normalized, local.id, 'conta suspensa');
+        return reply.code(403).send({ error: 'Conta suspensa.' });
+      }
+      if (!(await verifyPassword(password, local.passwordHash))) {
+        await loginFailed(req, normalized, local.id, 'senha incorreta');
+        return reply.code(401).send({ error: 'Credenciais invalidas.' });
+      }
+    } else if (ldapConfig()) {
+      // AD (item 94): sem conta local, ou conta do AD. A mesma mensagem para tudo.
+      const result = await ldapAuthenticate(email, password);
+      if (!result.ok) {
+        await loginFailed(req, normalized, local?.id ?? null, result.reason);
+        return reply.code(401).send({ error: 'Credenciais invalidas.' });
+      }
+      user = await ldapAccount(req, result);
+      if (!user) {
+        await loginFailed(req, normalized, null, `e-mail do AD (${result.email}) já é de uma conta local`);
+        return reply.code(401).send({ error: 'Credenciais invalidas.' });
+      }
+      // Suspensa no DeepLook nao entra, mesmo com a senha certa no AD.
+      if (user.status !== 'ACTIVE') {
+        await loginFailed(req, normalized, user.id, 'conta suspensa');
+        return reply.code(403).send({ error: 'Conta suspensa.' });
+      }
+    } else {
+      await loginFailed(
+        req,
+        normalized,
+        local?.id ?? null,
+        local ? 'conta do AD com o AD desligado' : 'e-mail não cadastrado',
+      );
       return reply.code(401).send({ error: 'Credenciais invalidas.' });
     }
-    if (user.status !== 'ACTIVE') {
-      await loginFailed(req, normalized, user.id, 'conta suspensa');
-      return reply.code(403).send({ error: 'Conta suspensa.' });
-    }
-
-    const ok = await verifyPassword(password, user.passwordHash);
-    if (!ok) {
-      await loginFailed(req, normalized, user.id, 'senha incorreta');
-      return reply.code(401).send({ error: 'Credenciais invalidas.' });
-    }
+    if (!user) return reply.code(401).send({ error: 'Credenciais invalidas.' });
 
     // 2FA: a senha esta certa, mas a sessao so nasce depois do codigo.
     if (user.twoFactorEnabledAt) {
@@ -265,6 +344,9 @@ export async function authRoutes(app: FastifyInstance) {
     if (!session) return reply.code(401).send({ error: 'Sessao expirada.' });
     return reply.send({ expiresAt: session.expiresAt });
   });
+
+  // Tela de login (item 94): com o AD ligado, o campo aceita o usuario do AD.
+  app.get('/api/auth/options', async (_req, reply) => reply.send({ ldap: Boolean(ldapConfig()) }));
 
   // Validade atual sem renovar (o front confere antes de avisar/encerrar,
   // pois outra janela pode ter renovado a sessao).

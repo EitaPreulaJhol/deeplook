@@ -430,6 +430,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 
 | Método | Rota | Função |
 |---|---|---|
+| GET | `/api/auth/options` | público: `{ ldap }` (login pelo AD ligado: o campo aceita o usuário da rede) |
 | GET | `/api/auth/me` | usuário da sessão, incluindo `preferences` (já completadas com os padrões) |
 | POST | `/api/auth/touch` | atividade do usuário: renova a sessão por `SESSION_IDLE_MINUTES` e devolve `{ expiresAt }` (401 se já expirou) |
 | GET | `/api/auth/session` | `{ expiresAt }` da sessão atual, **sem** renovar |
@@ -656,6 +657,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `ldap-login.mjs` | login pelo AD: sem AD igual a antes; com AD, "E-mail ou usuário da rede" (campo texto) e explicação, envia o usuário da rede; conta do AD sem troca de senha; Administração com a marcação "AD" e sem redefinir a senha |
 | `backup.mjs` | backup: pasta Administração, lista (pronto, falha com motivo, vencido apagado, malware marcado), gerar com amostras com confirmação, progresso até pronto, um por vez, Baixar, excluir com confirmação |
 | `api-docs.mjs` | documentação da API: link na aba Tokens, exemplos em curl com o endereço e Copiar, rotas da especificação (método, caminho, campos com tipo e obrigatório, respostas), baixar o `openapi.json`, nada que chame a API, aviso sem acesso liberado |
 | `lookalike.mjs` | domínios parecidos: aviso na ficha (domínio, motivo, onde, texto puro), sem achados sem aviso, pasta Detecção, variações vistas (motivo, onde, amostras com veredito e "+N"), incluir (obrigatório, erro da API no campo, Enter), excluir com confirmação, analista só vê, usuário comum sem a tela |

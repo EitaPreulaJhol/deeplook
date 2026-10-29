@@ -3052,3 +3052,46 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
 - **Cuidados:** LDAPS/StartTLS com verificação de certificado; sem enumerar usuários
   ("usuário ou senha inválidos" igual para tudo); limite de tentativas igual ao login;
   conta suspensa no DeepLook não entra mesmo com a senha certa no AD.
+- ✅ **Implementado** (migração `20261208000000_ldap_accounts`: `User.authSource`
+  LOCAL/LDAP e `ldapDn`; dependência nova `ldapts` 9.2.0, versão exata):
+  - **Configuração** (`lib/ldap.ts`): `LDAP_URL`, `LDAP_STARTTLS`, `LDAP_TLS_CA`, conta de
+    serviço, base, filtro (`{login}`; padrão do AD com sAMAccountName, userPrincipalName
+    ou mail), atributos de nome e e-mail, e grupos de analistas e admins (por
+    `memberOf`).
+  - **Só com TLS:** `ldaps://` ou StartTLS, com o certificado verificado contra a CA
+    informada; `ldap://` sem StartTLS é recusado (e o Status mostra o erro).
+  - **Login:** conta local entra como sempre. Sem conta local (ou com conta do AD):
+    - bind da conta de serviço e busca com o valor escapado (RFC 4515);
+    - exatamente uma conta encontrada, depois bind com a senha da pessoa (senha vazia
+      nunca: seria bind anônimo).
+    - No primeiro acesso a conta é criada (nome, e-mail, papel pelos grupos; auditado).
+      Nos seguintes, nome, e-mail e papel são atualizados, e a mudança de papel é
+      auditada.
+    - O 2FA do DeepLook vale igual.
+  - **Cuidados:**
+    - toda falha responde "Credenciais inválidas", com o motivo real só na Auditoria;
+    - o limite de tentativas é o mesmo do login;
+    - conta suspensa não entra, mesmo com a senha certa (com a errada, 401 como
+      qualquer outra);
+    - e-mail do AD que já é de uma conta local: o AD não assume a conta.
+  - **Contas do AD:** sem senha local (o hash é aleatório e nunca confere), sem validade
+    nem troca obrigatória. Trocar a senha (Minha Conta) e "Redefinir senha" (admin)
+    respondem 409.
+  - **Tela:**
+    - com o AD ligado, o login pede "E-mail ou usuário da rede" (campo texto), com uma
+      explicação (`GET /api/auth/options`);
+    - a aba Senha da conta do AD explica que a senha é a da rede;
+    - a lista de usuários marca "AD" e desliga "Redefinir senha".
+  - **Status do sistema:** linha "AD/LDAP" (conexão e TLS, base, grupos, contas do AD).
+  - README, `.env.example` e compose com as variáveis.
+  - **Testes:**
+    - 34 checagens com um **OpenLDAP real** (LDAPS e StartTLS com CA própria):
+      - sem AD nada muda;
+      - primeiro acesso, por usuário e por e-mail, papéis pelos grupos;
+      - mesma resposta para senha errada e usuário inexistente, injeção no filtro,
+        conta sem e-mail (motivo só na auditoria);
+      - conta local não assumida, suspensa, 2FA, troca e redefinição recusadas;
+      - papel atualizado ao sair do grupo;
+      - sem TLS recusado, CA errada recusada, Status;
+      - senha vazia e limite de tentativas;
+    - `ldap-login.mjs`.

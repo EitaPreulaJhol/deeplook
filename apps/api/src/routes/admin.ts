@@ -203,6 +203,7 @@ export async function adminRoutes(app: FastifyInstance) {
         mustChangePassword: true,
         passwordChangedAt: true,
         twoFactorEnabledAt: true,
+        authSource: true,
         _count: {
           select: {
             entries: true,
@@ -302,9 +303,12 @@ export async function adminRoutes(app: FastifyInstance) {
 
     const target = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true },
+      select: { id: true, email: true, authSource: true },
     });
     if (!target) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+    if (target.authSource === 'LDAP') {
+      return reply.code(409).send({ error: 'Conta do AD: a senha é redefinida no AD.' });
+    }
 
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);

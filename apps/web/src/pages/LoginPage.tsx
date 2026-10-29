@@ -1,6 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
@@ -12,6 +14,14 @@ export function LoginPage() {
   // Aviso vindo de outra tela (ex.: "Senha alterada. Entre novamente...").
   const { state } = useLocation() as { state: { notice?: string } | null };
   const [email, setEmail] = useState('');
+  // Com o AD ligado (item 94), o campo aceita tambem o usuario do AD.
+  const options = useQuery({
+    queryKey: ['auth', 'options'],
+    queryFn: () => api.get<{ ldap: boolean }>('/auth/options'),
+    staleTime: Infinity,
+    retry: false,
+  });
+  const ldap = Boolean(options.data?.ldap);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(state?.notice ?? null);
@@ -115,14 +125,19 @@ export function LoginPage() {
 
         <AuthField
           id="email"
-          label="E-mail"
-          type="email"
+          label={ldap ? 'E-mail ou usuário da rede' : 'E-mail'}
+          type={ldap ? 'text' : 'email'}
           value={email}
           onChange={setEmail}
-          placeholder="nome@exemplo.com"
-          autoComplete="email"
+          placeholder={ldap ? 'nome@exemplo.com ou usuário' : 'nome@exemplo.com'}
+          autoComplete={ldap ? 'username' : 'email'}
           required
         />
+        {ldap && (
+          <p className="dl-auth__hint">
+            Contas da rede (AD) entram com o usuário e a senha da rede.
+          </p>
+        )}
         <AuthField
           id="password"
           label="Senha"

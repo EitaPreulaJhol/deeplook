@@ -109,6 +109,42 @@ O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 - **Ao instalar a versão com a política,** a validade das contas existentes começa a
   contar a partir daquele dia.
 
+## Login pelo AD/LDAP (opcional)
+
+Sem `LDAP_URL`, nada muda. Com o AD configurado, a chave de ativação e o cadastro normal
+continuam valendo.
+
+- **Quem entra:**
+  - quem tem conta local entra como sempre;
+  - quem não tem entra com o usuário (ou e-mail) e a senha da rede. A conta é criada no
+    primeiro acesso, com nome e e-mail do AD.
+- **Papel pelos grupos:** `LDAP_ADMIN_GROUP` dá admin, `LDAP_ANALYST_GROUP` dá
+  analista; sem grupo, usuário comum. O papel é atualizado a cada login e a mudança vai
+  para a Auditoria.
+- **Senha e 2FA:** contas do AD não têm senha local. Troca, validade e redefinição
+  ficam no AD; o 2FA do DeepLook continua valendo.
+- **Segurança:**
+  - só com TLS: `ldaps://`, ou `ldap://` com `LDAP_STARTTLS=true`, e certificado
+    verificado (`LDAP_TLS_CA` com o PEM da CA interna, montado no container da API);
+  - a busca usa a conta de serviço, com o valor digitado escapado no filtro;
+  - toda falha mostra "Credenciais inválidas", e o motivo real vai para a Auditoria;
+  - vale o mesmo limite de tentativas do login;
+  - conta suspensa no DeepLook não entra, mesmo com a senha certa;
+  - se o e-mail do AD já é de uma conta local, o AD **não** assume essa conta.
+- **Status:** o Status do sistema mostra a linha "AD/LDAP" (conexão, TLS e quantas
+  contas do AD existem).
+
+```env
+LDAP_URL=ldaps://dc01.empresa.local:636
+LDAP_TLS_CA=/run/secrets/ca-empresa.pem
+LDAP_BIND_DN=CN=svc-deeplook,OU=Servicos,DC=empresa,DC=local
+LDAP_BIND_PASSWORD=...
+LDAP_BASE_DN=DC=empresa,DC=local
+LDAP_ANALYST_GROUP=CN=SOC-Analistas,OU=Grupos,DC=empresa,DC=local
+LDAP_ADMIN_GROUP=CN=SOC-Admins,OU=Grupos,DC=empresa,DC=local
+# opcional: LDAP_USER_FILTER (padrão: sAMAccountName, userPrincipalName ou mail = {login})
+```
+
 ## Autenticação em dois fatores (2FA)
 
 Opcional, por usuário, em **Minha Conta > 2FA**:
@@ -371,6 +407,10 @@ COOKIE_SECURE=true
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
 | `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket | `7` |
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
+| `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | login pelo AD (vazio desliga); `ldaps://` ou `ldap://` + StartTLS; PEM da CA que assina o certificado do AD | — · `false` · — |
+| `LDAP_BIND_DN` · `LDAP_BIND_PASSWORD` · `LDAP_BASE_DN` | conta de serviço e base da busca | — |
+| `LDAP_USER_FILTER` · `LDAP_ATTR_NAME` · `LDAP_ATTR_MAIL` | filtro (`{login}` = o digitado) e atributos de nome e e-mail | padrão do AD · `displayName` · `mail` |
+| `LDAP_ANALYST_GROUP` · `LDAP_ADMIN_GROUP` | DNs dos grupos que dão o papel (sem grupo, usuário comum) | — |
 | `PASSWORD_MAX_AGE_DAYS` | validade da senha em dias (admins não expiram); `0` desliga | `90` |
 | `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |

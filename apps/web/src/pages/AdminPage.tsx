@@ -337,7 +337,14 @@ export function AdminPage() {
                           if (!u) return null;
                           return (
                             <TableRow {...getRowProps({ row })} key={row.id}>
-                              <TableCell>{u.displayName}</TableCell>
+                              <TableCell>
+                                {u.displayName}
+                                {u.authSource === 'LDAP' && (
+                                  <span className="dl-dup-tag" title="Conta do AD: senha e papel vêm do AD">
+                                    AD
+                                  </span>
+                                )}
+                              </TableCell>
                               <TableCell>{u.email}</TableCell>
                               <TableCell>
                                 <RoleTag role={u.role} />
@@ -399,11 +406,13 @@ export function AdminPage() {
                                   <Button
                                     size="sm"
                                     kind="tertiary"
-                                    disabled={u.id === currentUser?.id}
+                                    disabled={u.id === currentUser?.id || u.authSource === 'LDAP'}
                                     title={
                                       u.id === currentUser?.id
                                         ? 'Use Minha conta > Alterar senha'
-                                        : undefined
+                                        : u.authSource === 'LDAP'
+                                          ? 'Conta do AD: a senha é redefinida no AD'
+                                          : undefined
                                     }
                                     onClick={() => resetPassword(u)}
                                   >
