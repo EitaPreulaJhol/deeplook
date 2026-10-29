@@ -1,6 +1,7 @@
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
+import { analyzeScript, type ScriptInfo } from './script-analysis';
 
 /**
  * Analise estatica do arquivo enviado: SO LEITURA de bytes (nunca executa, nunca
@@ -65,6 +66,8 @@ export interface StaticInfo {
   pe: PeInfo | null;
   /** PDF, Office (OOXML/OLE) e RTF: macros, scripts, links e objetos (item 70). */
   document?: DocumentInfo | null;
+  /** PowerShell, JS, VBS, BAT e HTA: chamadas suspeitas e camadas decodificadas (item 83). */
+  script?: ScriptInfo | null;
   /** Indicadores encontrados nas strings: so sugestao (nao entram no indice). */
   iocCandidates: Ioc[];
 }
@@ -459,8 +462,21 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
   }
   // Documentos (item 70): macros, scripts, links e objetos; os links viram sugestao.
   const document = analyzeDocument(buf, detectedType?.id);
+  // Scripts (item 83): as URLs das camadas decodificadas tambem viram sugestao.
+  let script: ScriptInfo | null;
+  try {
+    script = analyzeScript(buf, filename);
+  } catch {
+    script = null;
+  }
   const iocCandidates = extractIocs(
-    [...strings.urls, ...strings.ips, ...strings.emails, ...(document?.links ?? [])].join('\n'),
+    [
+      ...strings.urls,
+      ...strings.ips,
+      ...strings.emails,
+      ...(document?.links ?? []),
+      ...(script?.urls ?? []),
+    ].join('\n'),
   );
   return {
     version: 1,
@@ -474,6 +490,7 @@ export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo
     strings,
     pe,
     document,
+    script,
     iocCandidates: iocCandidates.slice(0, 50),
   };
 }

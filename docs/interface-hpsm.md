@@ -438,7 +438,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/file` | envio de arquivo (multipart: `file`, `title?`, `description?`, `tags?`) → `{ entry, previous }` (`previous` = primeira amostra com o mesmo SHA-256) |
 | POST | `/api/entries/zip` | `.zip` desmembrado (multipart: `file`, `password?`, `description?`, `tags?`) → `{ created: [{ name, path, entry, previous }], skipped: [{ name, path, reason }] }`; até 20 arquivos; senha errada → 400 com `details.password` |
 | GET | `/api/entries/:id/hex?offset=&length=` | analistas: bytes do arquivo para o visualizador hexadecimal (`Range` no MinIO, blocos de até 4 KB, até 64 KB) |
-| POST | `/api/entries/next` | analistas: "Pegar a próxima" - atribui a pendente sem responsável mais antiga, põe Em análise e devolve `{ entry: { id, title } }`; 404 sem nenhuma |
+| POST | `/api/entries/next` | analistas: "Pegar a próxima" — atribui a pendente sem responsável mais antiga, põe Em análise e devolve `{ entry: { id, title } }`; 404 sem nenhuma |
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, assigneeId? } }` (analistas) |
 | GET | `/api/entries/export.csv` | lista filtrada/ordenada em CSV (mesmos parâmetros da lista, sem paginação) |
 | GET | `/api/me/updates` | amostras do usuário concluídas desde a visita anterior (Página Inicial) |
@@ -634,6 +634,7 @@ banco nem da API rodando.
 | `ioc-import.mjs` | importar indicadores: pela Minha Conta (seguir) e pelos permitidos, foco, pré-visualização com resumo, situação e inválidos, importa só os novos, arquivo, erro de leitura, Esc, motivo obrigatório nos permitidos |
 | `assignment.mjs` | atribuição automática: pasta Gestão, regras (ordem, desligada apagada, descer, ligar, incluir sem grupo/com campos, excluir), grupos (ausente marcado, grupo vazio, membros, criar, excluir com aviso), disponibilidade (admin e analista), histórico "automática: grupo…", usuário comum sem acesso |
 | `capture.mjs` | captura da página: seção só em links, capturar (em andamento → concluída por consulta), print, endereço final como texto, redirecionamentos, certificado, bloqueados, HTML só para baixar, falha com motivo, anteriores, histórico, desligada, usuário comum só vê |
+| `script.mjs` | análise de script: aviso no topo, seção com linguagem e risco, achados com o porquê e a camada, URL só como texto, camada decodificada como texto puro (sem executar HTML), ocultar, benigno sem aviso, arquivo sem script sem seção |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

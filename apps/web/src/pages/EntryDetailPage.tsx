@@ -52,6 +52,7 @@ import {
 } from '../components/ReputationSection';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
+import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
@@ -497,6 +498,7 @@ export function EntryDetailPage() {
 
       <DisguisedFileWarning info={entry.staticInfo} />
       <DocumentWarning info={entry.staticInfo} />
+      <ScriptWarning info={entry.staticInfo} />
 
       {pinNotice && (
         <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
@@ -735,6 +737,7 @@ export function EntryDetailPage() {
             />
           )}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
+          {entry.type === 'FILE' && <ScriptSection info={entry.staticInfo} />}
           {entry.type !== 'FILE' && (
             <HpsmSection title="Link">
               <HpsmForm>

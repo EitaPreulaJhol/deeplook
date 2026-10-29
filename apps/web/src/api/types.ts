@@ -175,6 +175,24 @@ export interface EmailInfo {
 }
 
 /** Analise estatica do arquivo enviado (Entry.staticInfo). */
+/** Script (item 83): PowerShell, JS, VBS, BAT e HTA. */
+export interface ScriptInfo {
+  language: 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta';
+  lines: number;
+  risk: 'high' | 'medium' | 'low';
+  findings: {
+    name: string;
+    why: string;
+    kind: 'download' | 'execute' | 'evasion' | 'persistence' | 'obfuscation' | 'other';
+    /** 0 = o arquivo; N = a camada N. */
+    layer: number;
+  }[];
+  layers: { method: string; from: number; text: string; truncated: boolean }[];
+  urls: string[];
+  /** Codificado com o Script Encoder (#@~^): nao decodificado. */
+  encoded: boolean;
+}
+
 /** Analise de documento (item 70): PDF, Office e RTF. */
 export interface DocumentInfo {
   format: 'pdf' | 'ooxml' | 'ole' | 'rtf';
@@ -240,6 +258,7 @@ export interface StaticInfo {
   } | null;
   /** PDF, Office e RTF (item 70). */
   document?: DocumentInfo | null;
+  script?: ScriptInfo | null;
   iocCandidates: { kind: IocKind; value: string }[];
 }
 

@@ -2580,7 +2580,7 @@ Service Manager 9.
 |---|---|---|---|---|---|
 | 81 | Backup em ZIP para baixar | administração do sistema | 🔴 | M | ⬜ |
 | 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ↩ já existe (item 44) |
-| 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ⬜ |
+| 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ✅ |
 | 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ⬜ |
 | 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ⬜ |
 | 86 | Tags e prioridade automáticas por regra | regras de negócio | 🟡 | M | ⬜ |
@@ -2620,6 +2620,44 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   - URLs e domínios achados nas camadas, nos IOCs sugeridos.
 - **Cuidados:** só leitura e decodificação; nada é executado; limite de camadas e de
   tamanho; texto mostrado sempre como texto.
+- ✅ **Implementado** (sem migração: o resultado vai em `staticInfo.script`):
+  - **Análise** (`lib/script-analysis.ts`, sem dependência nova):
+    - **Linguagem** pela extensão (`.ps1`, `.js`/`.jse`/`.wsf`, `.vbs`/`.vbe`,
+      `.bat`/`.cmd`, `.hta`) ou, sem ela, pelo conteúdo (`@echo off`,
+      `<hta:application`, `CreateObject`, `$var =`). Aceita UTF-8 e UTF-16 com BOM;
+      binário e texto comum ficam de fora.
+    - **Achados** (27 regras), cada um com o porquê e o tipo:
+      - baixar: DownloadString, Invoke-WebRequest, Net.WebClient, BITS,
+        certutil, XMLHTTP, ADODB.Stream;
+      - executar: IEX, Start-Process, WScript.Shell, .Run, eval, ActiveX,
+        CreateObject, mshta/rundll32/regsvr32/wmic;
+      - evasão: janela oculta, ExecutionPolicy Bypass, exclusão no Defender, desvio
+        do AMSI, apagar cópias de sombra, `attrib +h`;
+      - persistência: Run, tarefa agendada;
+      - ofuscação: -EncodedCommand, FromBase64String, fromCharCode, unescape/atob,
+        Chr() em série.
+    - **Camadas decodificadas**, em cadeia, até 5 níveis e 12 camadas: `-EncodedCommand`
+      (UTF-16LE), `FromBase64String` (com GZip/Deflate/zlib), `atob`,
+      `String.fromCharCode`, `unescape`/`decodeURIComponent`, `Chr() & Chr()` e blocos
+      Base64 longos. Repetidas são reconhecidas pelo hash do texto inteiro.
+    - URLs do arquivo e das camadas entram nos IOCs sugeridos. Arquivo do Script
+      Encoder (`#@~^`) é marcado, mas não decodificado.
+    - **Risco:** alto quando baixa e executa, tenta evasão, ou quando uma camada
+      escondida baixa ou executa; médio com só uma dessas coisas ou só ofuscação;
+      baixo no resto.
+  - **Ficha:**
+    - aviso no topo com risco alto ("script … com comportamento malicioso (…). Não
+      execute fora do ambiente isolado");
+    - seção **Script** com linguagem, risco, linhas, achados (o porquê e onde: no
+      arquivo ou na camada N), URLs só como texto (com Copiar) e as camadas com
+      método, origem e tamanho. **Ver texto** mostra o texto puro: HTML dentro do
+      script não vira HTML.
+  - **Testes:**
+    - 25 checagens com scripts montados no teste: BAT com `-enc`, PowerShell com
+      Base64 + GZip em duas camadas, JScript, VBScript sem extensão, HTA com
+      `eval(atob)`, UTF-16 com BOM, benigno, texto comum, binário, Script Encoder,
+      limite de profundidade e o envio pela API gravando a análise;
+    - `script.mjs`.
 
 ### 84. Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd)
 - **Problema:** atalhos `.lnk` e imagens `.iso`/`.img` são vetores comuns (burlam o Mark
