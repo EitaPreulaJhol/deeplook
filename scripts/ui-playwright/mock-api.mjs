@@ -564,6 +564,9 @@ export async function setupMock(context, state) {
         return json(route, 200, { template });
       }
 
+      // Avisos gerais (item 88): faixa vazia por padrao; broadcasts.mjs simula os seus.
+      if (p === '/api/broadcasts/active') return json(route, 200, { items: [] });
+
       // Caixa de entrada.
       const unreadCount = () => state.notifications.filter((n) => !n.readAt).length;
       if (p === '/api/me/notifications/count') return json(route, 200, { unread: unreadCount() });

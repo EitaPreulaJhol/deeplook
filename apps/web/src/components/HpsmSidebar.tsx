@@ -127,6 +127,8 @@ const TREE: NavFolder[] = [
       { to: '/gerencial', label: 'Relatório gerencial', icon: IconChart },
       // Grupos, regras e ausencias da atribuicao automatica (item 72).
       { to: '/atribuicao', label: 'Atribuição automática', icon: IconSettings },
+      // Faixa de avisos para todos (item 88).
+      { to: '/avisos', label: 'Avisos gerais', icon: IconBell },
     ],
   },
   {

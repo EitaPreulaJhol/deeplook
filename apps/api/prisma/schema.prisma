@@ -121,6 +121,8 @@ model User {
   caseEvents        CaseEvent[]
   yaraRetroscans    YaraRetroscan[]
   allowedIndicators AllowedIndicator[]
+  broadcasts        Broadcast[]
+  broadcastsSeen    BroadcastDismissal[]
 }
 
 model Session {
@@ -309,7 +311,7 @@ model Report {
   updatedAt        DateTime     @updatedAt
 
   /// Artigos da base de conhecimento citados (item 63).
-  kbArticles    KbArticle[] @relation("ReportKbArticles")
+  kbArticles    KbArticle[]      @relation("ReportKbArticles")
   /// Indicadores extraidos do campo `iocs` (so de relatorios publicados).
   extractedIocs ReportIoc[]
   /// Versoes anteriores (item 75), uma por edicao do conteudo.
@@ -921,6 +923,7 @@ model Case {
   closedAt    DateTime?
   entries     CaseEntry[]
   events      CaseEvent[]
+  broadcasts  Broadcast[]
 
   @@index([status, updatedAt])
   @@index([assigneeId, status])
@@ -1027,4 +1030,39 @@ model AllowedIndicator {
   createdAt   DateTime @default(now())
 
   @@unique([kind, value])
+}
+
+enum BroadcastLevel {
+  INFO
+  WARNING
+}
+
+/// Aviso geral (item 88): mensagem dos analistas para todos numa faixa no topo,
+/// ate vencer ou a pessoa dispensar. No maximo 3 ativos (routes/broadcasts.ts).
+model Broadcast {
+  id          String               @id @default(cuid())
+  text        String
+  level       BroadcastLevel       @default(INFO)
+  caseId      String?
+  case        Case?                @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  startsAt    DateTime             @default(now())
+  /// "Encerrar" antecipa a validade para agora.
+  expiresAt   DateTime
+  createdById String?
+  createdBy   User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime             @default(now())
+  dismissals  BroadcastDismissal[]
+
+  @@index([expiresAt])
+}
+
+/// Quem dispensou qual aviso (some so para essa pessoa).
+model BroadcastDismissal {
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@id([broadcastId, userId])
 }

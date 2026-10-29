@@ -408,6 +408,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
 | `/regras-triagem` | Regras de triagem (analistas): tags e prioridade automáticas | pasta Detecção |
+| `/avisos` | Avisos gerais (analistas): publicar, lista e encerrar | pasta Gestão; a faixa aparece no topo de todas as telas |
 | `/atribuicao` | Atribuição automática (analistas): regras, grupos e ausências | pasta Gestão |
 | `/gerencial` | Relatório gerencial (analistas) | `?de=AAAA-MM-DD&ate=AAAA-MM-DD`; `/gerencial/imprimir` para impressão |
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
@@ -462,6 +463,10 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/:id/extract-image` | imagem de disco (ISO/FAT/VHD): extrai até 50 arquivos como amostras filhas (analistas; 409 se já extraiu; 410 expurgado) → `{ created, children, skipped }` |
 | GET | `/api/entries/:id/children` | amostras filhas (anexos de e-mail, arquivos extraídos): `{ children: [{ id, title, originalFilename, status, verdict }] }` |
 | GET · POST · PATCH · DELETE | `/api/triage-rules[/:id]` | regras de triagem (analistas): `{ name, condition, value?, tags, priority? }` · `{ enabled }`; a lista traz `label` ("domínio do link .top") |
+| GET | `/api/broadcasts/active` | avisos gerais ativos que a pessoa não dispensou (todos): `{ items: [{ id, text, level, expiresAt, createdBy, case }] }` |
+| POST | `/api/broadcasts/:id/dismiss` | dispensar o aviso só para a pessoa |
+| GET · POST | `/api/broadcasts` | analistas: últimos 30 dias com `active` e `_count.dismissals` · publicar `{ text, level, hours, caseId? }` (409 com 3 ativos) |
+| POST | `/api/broadcasts/:id/end` | encerrar agora (analistas; 404 se já encerrado) |
 | GET | `/api/assignment` | atribuição automática (analistas): `{ groups: [{ id, name, rules, members: [{ id, displayName, away, available, lastAssignedAt }] }], rules: [{ id, position, groupId, entryType, tag, priority, enabled, label, group }], analysts }` |
 | POST · PATCH · DELETE | `/api/assignment/groups[/:id]` | `{ name }` · `{ name? , memberIds? }` · exclui (com as regras) |
 | POST · PATCH · DELETE | `/api/assignment/rules[/:id]` | `{ groupId, entryType?, tag?, priority? }` · `{ enabled }` · exclui; `POST /rules/:id/move { direction: 'up' \| 'down' }` |
@@ -642,6 +647,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `broadcasts.mjs` | avisos gerais: faixa (alerta primeiro, caso, autor, validade), dispensar só aquele, Página Inicial, pasta Gestão, lista com dispensas, texto obrigatório, publicar, limite de 3, encerrar com confirmação, usuário comum vê a faixa sem a gestão |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

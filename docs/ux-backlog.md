@@ -2803,6 +2803,27 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   ligado a um caso. Aparece numa faixa no topo e na Página Inicial até vencer ou a pessoa
   dispensar.
 - **Cuidados:** no máximo três avisos ativos; texto puro.
+- ✅ **Implementado** (migração `20261203000000_broadcasts`: `Broadcast` e
+  `BroadcastDismissal`):
+  - **Faixa** no topo da área de trabalho, em todas as telas (inclusive a Página
+    Inicial), para todos os perfis:
+    - alertas primeiro, em laranja; informação em azul;
+    - texto puro, o caso ligado como link ("(CASO-0001)"), quem publicou e até quando;
+    - "×" dispensa **só para a pessoa**; atualiza a cada 2 minutos e ao voltar à janela.
+  - **Gestão** `/avisos` (pasta Gestão, analistas):
+    - publicar com texto (5 a 300 caracteres), nível, validade (4 horas a 30 dias) e
+      caso opcional;
+    - com 3 avisos ativos o formulário avisa o limite em vez de aparecer;
+    - lista dos últimos 30 dias com nível, autor, validade e quantas pessoas dispensaram;
+    - "Encerrar" (com confirmação) antecipa a validade para agora: sai da faixa de
+      todos e fica na lista, apagado.
+  - **API** (`routes/broadcasts.ts`): ativos não dispensados para todos; dispensar;
+    lista, publicar (409 com 3 ativos, 400 se o caso não existe) e encerrar para
+    analistas.
+  - **Testes:**
+    - 19 checagens no Postgres: permissões, validações, caso, ordem, dispensa por
+      pessoa, limite de 3, encerrar, lista com dispensas, vencido some sozinho;
+    - `broadcasts.mjs`.
 
 ### 89. Menções e avisos nos casos
 - **Proposta:** "@" nos comentários do caso, como nas atualizações da amostra; o

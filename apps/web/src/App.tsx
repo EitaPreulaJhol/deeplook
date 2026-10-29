@@ -8,6 +8,7 @@ import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
 import { AllowlistPage } from './pages/AllowlistPage';
 import { AssignmentPage } from './pages/AssignmentPage';
+import { BroadcastsPage } from './pages/BroadcastsPage';
 import { CasePage } from './pages/CasePage';
 import { CasePrintPage } from './pages/CasePrintPage';
 import { CasesPage } from './pages/CasesPage';
@@ -138,6 +139,10 @@ export default function App() {
         <Route
           path="/gerencial"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <ManagementPage />}
+        />
+        <Route
+          path="/avisos"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <BroadcastsPage />}
         />
         <Route
           path="/regras-triagem"

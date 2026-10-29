@@ -2,6 +2,7 @@ import { Theme } from '@carbon/react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
+import { BroadcastBanner } from './BroadcastBanner';
 import { HpsmSidebar } from './HpsmSidebar';
 import { HpsmTopBar } from './HpsmTopBar';
 import { HpsmMessageBar, MessageSlotProvider } from './messages';
@@ -35,6 +36,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
                 <main className="dl-content">
                   <WorkspaceTabs />
+                  {/* Avisos gerais da equipe (item 88). */}
+                  <BroadcastBanner />
                   <HpsmMessageBar slotRef={setMessageSlot} />
                   <PasswordExpiryNotice />
                   <div className="dl-content__body">{children}</div>

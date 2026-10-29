@@ -4286,3 +4286,54 @@ tr.is-off td {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ---- Avisos gerais (item 88) ---- */
+.dl-broadcasts {
+  display: grid;
+  gap: 0.25rem;
+  margin-block-end: 0.4rem;
+}
+
+.dl-broadcast {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--dl-info-border, var(--dl-panel-border));
+  background: var(--dl-info-bg);
+}
+
+.dl-broadcast--warning {
+  border-color: var(--dl-warning-border, var(--dl-panel-border));
+  background: var(--dl-warning-bg);
+}
+
+.dl-broadcast__icon {
+  font-weight: 700;
+}
+
+.dl-broadcast__text {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.dl-broadcast__meta {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.dl-broadcast__close {
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--dl-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dl-broadcast__close:hover,
+.dl-broadcast__close:focus-visible {
+  color: var(--dl-text);
+}

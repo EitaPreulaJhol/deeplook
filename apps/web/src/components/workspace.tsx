@@ -50,6 +50,7 @@ function routeTitle(pathname: string): string | null {
   if (pathname === '/painel') return 'Painel';
   if (pathname === '/gerencial') return 'Relatório gerencial';
   if (pathname === '/atribuicao') return 'Atribuição automática';
+  if (pathname === '/avisos') return 'Avisos gerais';
   if (pathname === '/revisoes') return 'Relatórios para revisar';
   if (pathname === '/yara') return 'Regras YARA';
   if (pathname === '/permitidos') return 'Indicadores permitidos';

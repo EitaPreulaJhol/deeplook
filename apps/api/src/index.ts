@@ -21,6 +21,7 @@ import { apiTokenRoutes } from './routes/api-tokens';
 import { assignmentRoutes } from './routes/assignment';
 import { attackRoutes } from './routes/attack';
 import { authRoutes } from './routes/auth';
+import { broadcastRoutes } from './routes/broadcasts';
 import { captureRoutes } from './routes/captures';
 import { caseRoutes } from './routes/cases';
 import { compareRoutes } from './routes/compare';
@@ -92,6 +93,8 @@ async function main() {
   await app.register(evidenceRoutes);
   // Regras de triagem (item 86).
   await app.register(triageRuleRoutes);
+  // Avisos gerais (item 88).
+  await app.register(broadcastRoutes);
   // Atribuicao automatica (item 72).
   await app.register(assignmentRoutes);
   // Captura da pagina de um link (item 80).
