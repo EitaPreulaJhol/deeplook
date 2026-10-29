@@ -2579,7 +2579,7 @@ Service Manager 9.
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
 | 81 | Backup em ZIP para baixar | administração do sistema | 🔴 | M | ⬜ |
-| 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ⬜ |
+| 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ↩ já existe (item 44) |
 | 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ⬜ |
 | 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ⬜ |
 | 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ⬜ |
@@ -2593,7 +2593,7 @@ Service Manager 9.
 | 94 | Login pelo AD/LDAP (opcional) | autenticação externa | ⚪ | M–G | ⬜ |
 
 **Ordem (uma etapa por item, com testes, documentação e commit próprio):**
-82 → 83 → 85 → 84 → 86 → 87 → 88 → 89 → 91 → 92 → 93 → 81 → 94.
+83 → 85 → 84 → 86 → 87 → 88 → 89 → 91 → 92 → 93 → 81 → 94 (o 82 já existia).
 
 **Decisões (29/10/2026):** 81 vira um ZIP gerado na tela e baixado; 90 (expediente e
 feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
@@ -2606,6 +2606,8 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   ZIP comum. Errou a senha: aviso claro e o ZIP fica como amostra única.
 - **Cuidados:** os mesmos limites do ZIP comum (zip-bomb, quantidade, tamanho); a senha
   não é guardada; nada é executado.
+- ↩ **Já existe:** o envio em lote do [item 44](#44-envio-em-lote) já desmembra um `.zip`
+  com senha (padrão `infected`, ZipCrypto e AES) em amostras. Nada a fazer.
 
 ### 83. Análise de scripts (PowerShell, JS, VBS, BAT, HTA)
 - **Problema:** scripts maliciosos chegam ofuscados (`-EncodedCommand`, `FromBase64String`,
