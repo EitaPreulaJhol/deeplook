@@ -114,6 +114,7 @@ model User {
   reportEvidence    ReportEvidence[]
   assignmentGroups  AssignmentGroupMember[]
   pageCaptures      PageCapture[]
+  triageRules       TriageRule[]
   casesAssigned     Case[]                  @relation("CaseAssignee")
   casesCreated      Case[]                  @relation("CaseAuthor")
   caseEntriesAdded  CaseEntry[]
@@ -439,6 +440,38 @@ enum EntryEventType {
   PAGE_CAPTURED
   /// Arquivos extraidos de uma imagem de disco como amostras filhas (item 84; detail = quantos).
   FILES_EXTRACTED
+  /// Regra de triagem aplicada (item 86; toValue = nome da regra, detail = o que mudou).
+  TRIAGE_RULE
+}
+
+/// Condicao de uma regra de triagem (item 86).
+enum TriageCondition {
+  DETECTED_TYPE
+  YARA
+  ANTIVIRUS
+  DOMAIN
+  SENDER
+  MACRO
+  DISGUISED
+  SCRIPT_RISK
+  DOCUMENT_RISK
+  LNK
+}
+
+/// Regra de triagem (item 86): quando a analise achar X, incluir tags e subir a
+/// prioridade. Todas as regras ativas que casarem valem (src/lib/triage-rules.ts).
+model TriageRule {
+  id          String          @id @default(cuid())
+  name        String
+  condition   TriageCondition
+  /// Tipo real, regra YARA, assinatura, dominio ou remetente (conforme a condicao).
+  value       String?
+  tags        String[]        @default([])
+  priority    Priority?
+  enabled     Boolean         @default(true)
+  createdById String?
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
 }
 
 enum CaptureStatus {

@@ -114,6 +114,8 @@ const TREE: NavFolder[] = [
       { to: '/yara', label: 'Regras YARA', icon: IconFilter },
       // Lista de permissoes (item 69).
       { to: '/permitidos', label: 'Indicadores permitidos', icon: IconPage },
+      // Tags e prioridade automaticas (item 86).
+      { to: '/regras-triagem', label: 'Regras de triagem', icon: IconFilter },
     ],
   },
   {

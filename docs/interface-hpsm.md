@@ -407,6 +407,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
+| `/regras-triagem` | Regras de triagem (analistas): tags e prioridade automáticas | pasta Detecção |
 | `/atribuicao` | Atribuição automática (analistas): regras, grupos e ausências | pasta Gestão |
 | `/gerencial` | Relatório gerencial (analistas) | `?de=AAAA-MM-DD&ate=AAAA-MM-DD`; `/gerencial/imprimir` para impressão |
 | `/inbox` | Caixa de entrada (notificações) | também na raiz do navegador, com o contador |
@@ -460,6 +461,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/captures/:id/screenshot` · `/html` | print (PNG) · HTML só como anexo de texto |
 | POST | `/api/entries/:id/extract-image` | imagem de disco (ISO/FAT/VHD): extrai até 50 arquivos como amostras filhas (analistas; 409 se já extraiu; 410 expurgado) → `{ created, children, skipped }` |
 | GET | `/api/entries/:id/children` | amostras filhas (anexos de e-mail, arquivos extraídos): `{ children: [{ id, title, originalFilename, status, verdict }] }` |
+| GET · POST · PATCH · DELETE | `/api/triage-rules[/:id]` | regras de triagem (analistas): `{ name, condition, value?, tags, priority? }` · `{ enabled }`; a lista traz `label` ("domínio do link .top") |
 | GET | `/api/assignment` | atribuição automática (analistas): `{ groups: [{ id, name, rules, members: [{ id, displayName, away, available, lastAssignedAt }] }], rules: [{ id, position, groupId, entryType, tag, priority, enabled, label, group }], analysts }` |
 | POST · PATCH · DELETE | `/api/assignment/groups[/:id]` | `{ name }` · `{ name? , memberIds? }` · exclui (com as regras) |
 | POST · PATCH · DELETE | `/api/assignment/rules[/:id]` | `{ groupId, entryType?, tag?, priority? }` · `{ enabled }` · exclui; `POST /rules/:id/move { direction: 'up' \| 'down' }` |
@@ -639,6 +641,7 @@ banco nem da API rodando.
 | `script.mjs` | análise de script: aviso no topo, seção com linguagem e risco, achados com o porquê e a camada, URL só como texto, camada decodificada como texto puro (sem executar HTML), ocultar, benigno sem aviso, arquivo sem script sem seção |
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
+| `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
 | `yara-retro.mjs` | YARA retroativo: confirmação, aviso com o total, progresso que atualiza sozinho (barra, ilegíveis, acima do limite), acertos com link e identificadores, botões desabilitados durante a varredura, cancelar, concluída sem acertos |

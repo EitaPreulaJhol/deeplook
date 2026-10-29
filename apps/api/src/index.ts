@@ -45,6 +45,7 @@ import { sessionRoutes } from './routes/sessions';
 import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
+import { triageRuleRoutes } from './routes/triage-rules';
 import { twoFactorRoutes } from './routes/two-factor';
 import { yaraRoutes } from './routes/yara';
 
@@ -89,6 +90,8 @@ async function main() {
   await app.register(entryRoutes);
   await app.register(reportRoutes);
   await app.register(evidenceRoutes);
+  // Regras de triagem (item 86).
+  await app.register(triageRuleRoutes);
   // Atribuicao automatica (item 72).
   await app.register(assignmentRoutes);
   // Captura da pagina de um link (item 80).

@@ -31,6 +31,7 @@ import { ReviewQueuePage } from './pages/ReviewQueuePage';
 import { SandboxConsoleWindowPage } from './pages/SandboxConsoleWindowPage';
 import { SearchPage } from './pages/SearchPage';
 import { SubmitPage } from './pages/SubmitPage';
+import { TriageRulesPage } from './pages/TriageRulesPage';
 import { UserPage } from './pages/UserPage';
 import { WelcomePage } from './pages/WelcomePage';
 import { YaraRulesPage } from './pages/YaraRulesPage';
@@ -137,6 +138,10 @@ export default function App() {
         <Route
           path="/gerencial"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <ManagementPage />}
+        />
+        <Route
+          path="/regras-triagem"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <TriageRulesPage />}
         />
         <Route
           path="/yara"

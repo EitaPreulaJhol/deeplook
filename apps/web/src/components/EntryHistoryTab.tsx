@@ -60,7 +60,11 @@ export function describeEvent(event: EntryEvent): string {
       return 'Deixou de ser duplicata';
     case 'PRIORITY_CHANGED':
       return `Prioridade: ${priorityLabel((from ?? 'P3') as Priority)} → ${priorityLabel((to ?? 'P3') as Priority)}${
-        event.detail === 'escalonamento' ? ' (escalonamento por atraso)' : ''
+        event.detail === 'escalonamento'
+          ? ' (escalonamento por atraso)'
+          : event.detail === 'regra de triagem'
+            ? ' (regra de triagem)'
+            : ''
       }`;
     case 'SLA_WARN':
       return `Prazo em alerta: mais de ${event.detail ?? '?'} h no status atual (${priorityLabel((from ?? 'P3') as Priority)})`;
@@ -72,6 +76,8 @@ export function describeEvent(event: EntryEvent): string {
       return 'Movida para a lixeira';
     case 'RESTORED':
       return 'Restaurada da lixeira';
+    case 'TRIAGE_RULE':
+      return `Regra de triagem "${to ?? '—'}": ${event.detail ?? ''}`;
     case 'PAGE_CAPTURED':
       return `Página capturada no navegador isolado (HTTP ${to ?? '—'}${event.detail ? `, ${event.detail}` : ''})`;
     case 'CASE_ADDED':

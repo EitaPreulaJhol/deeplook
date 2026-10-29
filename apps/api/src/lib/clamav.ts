@@ -6,6 +6,7 @@ import { env } from '../env';
 import type { AvStatus } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
+import { applyTriageRulesQuietly } from './triage-rules';
 
 /**
  * Antivirus ClamAV (contenor proprio, item 49): a API fala com o clamd pela
@@ -167,6 +168,8 @@ export async function scanEntry(entryId: string, buffer?: Buffer): Promise<void>
       scannedAt: new Date(),
     },
   });
+  // Regras de triagem que dependem do antivirus (item 86).
+  if (outcome.status === 'INFECTED') await applyTriageRulesQuietly(entryId);
 }
 
 /** Dispara a varredura sem segurar a resposta do envio. */

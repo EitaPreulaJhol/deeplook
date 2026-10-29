@@ -680,7 +680,8 @@ export type EntryEventType =
   | 'CASE_REMOVED'
   | 'SLA_WARN'
   | 'SLA_LATE'
-  | 'PAGE_CAPTURED';
+  | 'PAGE_CAPTURED'
+  | 'TRIAGE_RULE';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {

@@ -27,6 +27,7 @@ import { s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
+import { applyTriageRules } from '../lib/triage-rules';
 import { sendValidationError } from '../lib/validation';
 import { yaraScanInBackground } from '../lib/yara';
 import type { ZipEntry } from '../lib/zip';
@@ -382,8 +383,16 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
  * Grava o arquivo no MinIO e cria a amostra (envio unico, lote e .zip). Devolve
  * tambem a primeira amostra ja enviada com o mesmo SHA-256, se houver.
  */
-/** Atribuicao automatica (item 72); falha nao impede o envio. */
+/**
+ * Regras de triagem (item 86) e depois a atribuicao automatica (item 72), que ja
+ * usa as tags e a prioridade das regras. Falha nao impede o envio.
+ */
 async function assignOnArrival(entryId: string, req: FastifyRequest) {
+  try {
+    await applyTriageRules(entryId);
+  } catch (err) {
+    req.log.error({ err }, 'Falha nas regras de triagem');
+  }
   try {
     await autoAssign(entryId);
   } catch (err) {

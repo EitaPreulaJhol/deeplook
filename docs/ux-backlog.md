@@ -2583,7 +2583,7 @@ Service Manager 9.
 | 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ✅ |
 | 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ✅ |
 | 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ✅ |
-| 86 | Tags e prioridade automáticas por regra | regras de negócio | 🟡 | M | ⬜ |
+| 86 | Tags e prioridade automáticas por regra | regras de negócio | 🟡 | M | ✅ |
 | 87 | Resolução para quem enviou | Solution / Resolution | 🟡 | P–M | ⬜ |
 | 88 | Mensagens do sistema (aviso geral) | Broadcast messages | 🟡 | P | ⬜ |
 | 89 | Menções e avisos nos casos | Activities / Notifications | 🟡 | P | ⬜ |
@@ -2754,6 +2754,38 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   - tudo no histórico ("tag macro pela regra Documento com macro").
 - **Cuidados:** nunca tira tag nem baixa prioridade definida por pessoa; mantida por
   analistas, como as regras de atribuição.
+- ✅ **Implementado** (migração `20261202000000_triage_rules`: `TriageRule` e o evento
+  `TRIAGE_RULE`):
+  - **Regras** (`lib/triage-rules.ts`), com nome, condição, valor, tags e prioridade.
+    Valem **todas** as regras ligadas que casarem (não só a primeira). Condições:
+    - tipo real (`pe`, `ole`, `pdf`…);
+    - regra YARA que casou (nome ou qualquer) e antivírus que detectou (assinatura ou
+      qualquer);
+    - domínio do link (igual, subdomínio ou `.top`) e remetente do e-mail (endereço ou
+      domínio);
+    - documento com macro, executável disfarçado, script ou documento com risco alto,
+      atalho suspeito.
+  - **Ações:** incluir tags (normalizadas, sem repetir) e **subir** a prioridade. Nunca
+    tira tag nem rebaixa: P1 continua P1.
+  - **Quando roda:**
+    - na chegada, logo depois das análises e **antes da atribuição automática**
+      (item 72), que já enxerga as tags e a prioridade novas;
+    - de novo quando o **YARA** casa ou o **antivírus** detecta, porque essas
+      varreduras terminam em segundo plano.
+    - Aplicar de novo não repete nada.
+  - **Histórico:** "Regra de triagem "Documento com macro": tags macro; prioridade P2"
+    e "Prioridade: P3 Média → P2 Alta (regra de triagem)", com autor Sistema.
+  - **API** (`routes/triage-rules.ts`, analistas): listar (com a descrição da
+    condição), criar (valor obrigatório para tipo real, domínio e remetente; ao menos
+    uma tag ou a prioridade), ligar/desligar e excluir (as tags já aplicadas ficam).
+  - **Tela** `/regras-triagem` (pasta Detecção): lista com condição, tags, prioridade e
+    situação (desligada apagada). A nova regra só mostra o campo Valor quando a
+    condição pede, com a dica do formato.
+  - **Testes:**
+    - 20 checagens no Postgres: validações, chegada com tags e prioridade, atribuição
+      automática pela tag da regra, histórico, não repetir, cada condição, regra
+      desligada, nunca rebaixar, YARA real no fim da varredura, antivírus, exclusão;
+    - `triage-rules.mjs`.
 
 ### 87. Resolução para quem enviou
 - **Problema:** quem enviou vê o veredito, mas não sabe o que fazer ("posso abrir?",

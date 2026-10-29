@@ -9,6 +9,7 @@ import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
+import { applyTriageRulesQuietly } from './triage-rules';
 
 /**
  * Regras YARA (item 56) com o YARA-X oficial do VirusTotal (WebAssembly, sem
@@ -190,6 +191,8 @@ export async function yaraScanEntry(entryId: string, buffer?: Buffer): Promise<v
         scannedAt: new Date(),
       },
     });
+    // Regras de triagem que dependem do YARA (item 86).
+    if (hits.length) await applyTriageRulesQuietly(entryId);
   } catch (err) {
     await prisma.yaraScan.update({
       where: { entryId },
