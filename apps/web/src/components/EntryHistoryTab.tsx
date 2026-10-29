@@ -78,6 +78,10 @@ export function describeEvent(event: EntryEvent): string {
       return 'Restaurada da lixeira';
     case 'TRIAGE_RULE':
       return `Regra de triagem "${to ?? '—'}": ${event.detail ?? ''}`;
+    case 'RESOLUTION_SET':
+      return `${to ? `Resolução para quem enviou: "${to}"` : 'Resolução para quem enviou removida'}${
+        event.detail === 'principal' ? ' (da principal)' : ''
+      }`;
     case 'PAGE_CAPTURED':
       return `Página capturada no navegador isolado (HTTP ${to ?? '—'}${event.detail ? `, ${event.detail}` : ''})`;
     case 'CASE_ADDED':

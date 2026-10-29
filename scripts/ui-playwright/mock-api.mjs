@@ -668,7 +668,8 @@ export async function setupMock(context, state) {
       if (p === '/api/entries') {
         const sp = url.searchParams;
         state.lastLimit = sp.get('limit');
-        let items = sp.get('scope') === 'mine' ? [] : entries;
+        // Meus Uploads: vazio, a menos que o roteiro defina `state.mine` (ids).
+        let items = sp.get('scope') === 'mine' ? entries.filter((e) => state.mine?.includes(e.id)) : entries;
         const q = (sp.get('q') || '').toLowerCase();
         if (q) items = items.filter((e) => e.title.toLowerCase().includes(q));
         if (sp.get('sha256')) items = entries.filter((e) => e.sha256 === sp.get('sha256'));
@@ -1003,6 +1004,7 @@ export async function setupMock(context, state) {
         }
         if (rest.priority && rest.priority !== (e.priority ?? 'P3')) pushEvent(e.id, 'PRIORITY_CHANGED', e.priority ?? 'P3', rest.priority);
         if (rest.status && rest.status !== e.status) e.statusChangedAt = new Date().toISOString();
+        if (rest.resolution !== undefined && rest.resolution !== (e.resolution ?? null)) pushEvent(e.id, 'RESOLUTION_SET', null, rest.resolution);
         Object.assign(e, rest);
         if (assigneeId !== undefined) {
           const next = assigneeId ? actorOf(users.find((u) => u.id === assigneeId)) : null;

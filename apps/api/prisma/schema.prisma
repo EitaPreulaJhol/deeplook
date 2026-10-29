@@ -165,6 +165,9 @@ model Entry {
   verdict         Verdict     @default(UNKNOWN)
   /// Prioridade (item 53): define o prazo de alerta/atraso (src/lib/sla.ts).
   priority        Priority    @default(P3)
+  /// Resolucao para quem enviou (item 87): o que fazer, em texto curto e sem
+  /// detalhes tecnicos. Escrita pelos analistas; as duplicatas herdam a da principal.
+  resolution      String?
   /// Quando a amostra entrou no status atual (idade na fila / prazo). Mantido por
   /// um trigger no Postgres a cada mudanca de status (migracao entry_status_changed_at).
   statusChangedAt DateTime    @default(now())
@@ -444,6 +447,8 @@ enum EntryEventType {
   FILES_EXTRACTED
   /// Regra de triagem aplicada (item 86; toValue = nome da regra, detail = o que mudou).
   TRIAGE_RULE
+  /// Resolucao para quem enviou escrita/alterada (item 87; toValue = texto, null = removida).
+  RESOLUTION_SET
 }
 
 /// Condicao de uma regra de triagem (item 86).
@@ -604,6 +609,8 @@ enum NotificationType {
   /// Prazo em alerta / atrasada (item 73; detail = horas do prazo).
   SLA_WARN
   SLA_LATE
+  /// Resolucao escrita numa amostra ja concluida do destinatario (item 87; detail = texto).
+  RESOLUTION
 }
 
 /// Caixa de entrada (sininho do masthead): criadas junto com os eventos do

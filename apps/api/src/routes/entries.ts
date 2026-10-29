@@ -127,6 +127,9 @@ const UrlSchema = z.object({
   tags: z.string().optional(),
 });
 
+/** Resolucao para quem enviou: curta, para leigos (item 87). */
+const RESOLUTION_MAX = 500;
+
 const PatchSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   description: z.string().max(4000).nullable().optional(),
@@ -135,6 +138,14 @@ const PatchSchema = z.object({
   priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
   /** Analista responsavel (id) ou null para remover a atribuicao. */
   assigneeId: z.string().min(1).nullable().optional(),
+  /** Resolucao para quem enviou (item 87); vazio ou null remove. */
+  resolution: z
+    .string()
+    .trim()
+    .max(RESOLUTION_MAX)
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
 });
 
 function domainOf(url: string): string | null {
@@ -268,7 +279,12 @@ async function applyTriage(
     include: { assignee: { select: { id: true; displayName: true } } };
   }>,
   actorId: string,
-  data: { status?: EntryStatus; verdict?: Verdict; priority?: Priority },
+  data: {
+    status?: EntryStatus;
+    verdict?: Verdict;
+    priority?: Priority;
+    resolution?: string | null;
+  },
   updateData: Prisma.EntryUncheckedUpdateInput,
   newAssignee: Assignee | undefined,
 ) {
@@ -283,6 +299,9 @@ async function applyTriage(
     },
   });
   await recordTriageChanges(tx, entry.id, actorId, entry, data);
+  if (data.resolution !== undefined && data.resolution !== entry.resolution) {
+    await recordResolution(tx, entry, result.status, actorId, data.resolution);
+  }
   if (data.priority && data.priority !== entry.priority) {
     await recordEvent(tx, {
       entryId: entry.id,
@@ -305,6 +324,67 @@ async function applyTriage(
     }
   }
   return result;
+}
+
+/**
+ * Resolucao para quem enviou (item 87): historico, as duplicatas herdam e quem
+ * enviou e avisado se a amostra ja estava concluida (na conclusao, o aviso de
+ * concluida ja mostra a resolucao).
+ */
+async function recordResolution(
+  tx: Tx,
+  entry: { id: string; ownerId: string; status: EntryStatus },
+  statusAfter: EntryStatus,
+  actorId: string,
+  resolution: string | null,
+) {
+  await recordEvent(tx, {
+    entryId: entry.id,
+    actorId,
+    type: 'RESOLUTION_SET',
+    toValue: resolution,
+  });
+  // "<> texto" no SQL nao pega as que ainda nao tem resolucao (null).
+  const targets = await tx.entry.findMany({
+    where: {
+      duplicateOfId: entry.id,
+      OR: resolution
+        ? [{ resolution: null }, { resolution: { not: resolution } }]
+        : [{ resolution: { not: null } }],
+    },
+    select: { id: true, ownerId: true },
+  });
+  if (targets.length) {
+    await tx.entry.updateMany({
+      where: { id: { in: targets.map((d) => d.id) } },
+      data: { resolution },
+    });
+    for (const dup of targets) {
+      await recordEvent(tx, {
+        entryId: dup.id,
+        actorId,
+        type: 'RESOLUTION_SET',
+        toValue: resolution,
+        detail: 'principal',
+      });
+    }
+  }
+  if (!resolution) return;
+  const owners = [
+    ...(entry.status === 'COMPLETED' && statusAfter === 'COMPLETED' ? [entry] : []),
+    // Duplicatas ja nascem concluidas.
+    ...targets,
+  ];
+  await notify(
+    tx,
+    owners.map((o) => ({
+      userId: o.ownerId,
+      type: 'RESOLUTION' as const,
+      entryId: o.id,
+      actorId,
+      detail: resolution,
+    })),
+  );
 }
 
 /** Atualizacao em massa: ate 100 amostras, so campos de triagem. */
@@ -1166,6 +1246,14 @@ export async function entryRoutes(app: FastifyInstance) {
       if (data.status !== undefined) updateData.status = data.status;
       if (data.verdict !== undefined) updateData.verdict = data.verdict;
       if (data.priority !== undefined) updateData.priority = data.priority;
+    }
+    if (data.resolution !== undefined) {
+      if (!canTriage) {
+        return reply
+          .code(403)
+          .send({ error: 'Somente analistas escrevem a resolução para quem enviou.' });
+      }
+      updateData.resolution = data.resolution;
     }
 
     // Atribuicao: so analistas/admins atribuem, e so a analistas/admins ativos.

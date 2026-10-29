@@ -73,6 +73,8 @@ interface EntriesTableProps {
   selectable?: boolean;
   /** Limites do prazo (coluna Idade com marcador laranja/vermelho). */
   sla?: SlaConfig;
+  /** Resolucao para quem enviou abaixo do titulo (Meus Uploads, item 87). */
+  showResolution?: boolean;
 }
 
 /** Lista de registros no estilo "Record List" do HP Service Manager. */
@@ -87,6 +89,7 @@ export function EntriesTable({
   onPageChange,
   selectable = false,
   sla,
+  showResolution = false,
 }: EntriesTableProps) {
   const navigate = useNavigate();
   const { preferences } = useAuth();
@@ -283,6 +286,9 @@ export function EntriesTable({
                     <span className="dl-dup-tag" title="Duplicata de outra amostra">
                       duplicata
                     </span>
+                  )}
+                  {showResolution && entry.resolution && (
+                    <span className="dl-resolution-line">O que fazer: {entry.resolution}</span>
                   )}
                 </TableCell>
                 <TableCell>

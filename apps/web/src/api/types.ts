@@ -403,15 +403,18 @@ export interface AppNotification {
     | 'REPORT_RETURNED'
     | 'IOC_SEEN'
     | 'SLA_WARN'
-    | 'SLA_LATE';
+    | 'SLA_LATE'
+    | 'RESOLUTION';
   /**
-   * Veredito (COMPLETED), trecho da atualizacao (MENTION/COMMENT) ou horas do
-   * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null).
+   * Veredito (COMPLETED), trecho da atualizacao (MENTION/COMMENT), horas do
+   * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null) ou a
+   * resolucao escrita (RESOLUTION).
    */
   detail: string | null;
   readAt: string | null;
   createdAt: string;
-  entry: { id: string; title: string };
+  /** `resolution`: a resolucao atual (aparece no aviso de concluida). */
+  entry: { id: string; title: string; resolution?: string | null };
   actor: { id: string; displayName: string } | null;
 }
 
@@ -545,6 +548,8 @@ export interface AttackData {
 export interface Entry {
   /** Prioridade (padrao P3). */
   priority?: Priority;
+  /** Resolucao para quem enviou (item 87): o que fazer, em texto curto. */
+  resolution?: string | null;
   id: string;
   ownerId: string;
   owner: EntryOwner;
@@ -681,7 +686,8 @@ export type EntryEventType =
   | 'SLA_WARN'
   | 'SLA_LATE'
   | 'PAGE_CAPTURED'
-  | 'TRIAGE_RULE';
+  | 'TRIAGE_RULE'
+  | 'RESOLUTION_SET';
 
 /** Evento do historico da amostra (GET /api/entries/:id/events). */
 export interface EntryEvent {

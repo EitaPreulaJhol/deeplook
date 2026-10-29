@@ -18,6 +18,7 @@ import { IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import {
   notificationHref,
+  notificationResolution,
   notificationText,
   useMarkRead,
   useNotifications,
@@ -127,6 +128,11 @@ export function InboxPage() {
                         n.type === 'REPORT_RETURNED') && (
                         <div className="hpsm-inbox__detail">“{n.detail}”</div>
                       )}
+                    {notificationResolution(n) && (
+                      <div className="hpsm-inbox__detail dl-resolution-line">
+                        O que fazer: {notificationResolution(n)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>{n.entry.title}</TableCell>
                   <TableCell>{fmtDate(n.createdAt)}</TableCell>

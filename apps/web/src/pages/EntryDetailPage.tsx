@@ -51,6 +51,7 @@ import {
   reputationSummary,
   useReputation,
 } from '../components/ReputationSection';
+import { ResolutionForm, ResolutionNotice } from '../components/ResolutionSection';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
@@ -641,6 +642,7 @@ export function EntryDetailPage() {
           </span>
         )}
       </div>
+      <ResolutionNotice resolution={entry.resolution} verdict={entry.verdict} />
 
       <HpsmTabs ariaLabel="Amostra" active={activeTab} onChange={changeTab} items={tabs} />
 
@@ -863,6 +865,10 @@ export function EntryDetailPage() {
               </HpsmField>
             </HpsmForm>
           </HpsmSection>
+          <ResolutionForm
+            resolution={entry.resolution}
+            onSave={(resolution) => quickUpdate({ resolution })}
+          />
 
           {entry.type === 'FILE' && (
             <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />

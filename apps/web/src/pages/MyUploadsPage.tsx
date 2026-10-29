@@ -171,6 +171,7 @@ export function MyUploadsPage() {
           entries={query.data.items}
           sla={query.data.sla}
           showOwner={false}
+          showResolution
           total={query.data.total}
           offset={offset}
           pageSize={pageSize}

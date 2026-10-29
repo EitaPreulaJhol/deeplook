@@ -2796,6 +2796,29 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   conclusão.
 - **Cuidados:** texto curto e sem detalhes técnicos; o relatório completo continua só
   para os analistas.
+- ✅ **Implementado** (migração `20261204000000_entry_resolution`: `Entry.resolution`, o
+  evento `RESOLUTION_SET` e a notificação `RESOLUTION`):
+  - **Campo** "Resolução para quem enviou" na aba Análise, abaixo da triagem (analistas):
+    - até 500 caracteres, com contador;
+    - modelos que se **somam** ao texto ("É golpe…", "Clicou no link…", "Abriu o
+      anexo…", "Ainda suspeito…", "Seguro: pode abrir.", "Legítimo, mas desnecessário…");
+    - grava no botão "Salvar resolução" e avisa a alteração não salva; vazio remove.
+  - **Onde aparece**, sempre como texto puro:
+    - destaque "O que fazer" no topo da ficha, para todos, na cor do veredito;
+    - abaixo do título em Meus Uploads;
+    - no aviso de concluída (caixa de entrada e sininho), com a resolução atual.
+  - **Avisos:** escrever ou trocar numa amostra **já concluída** avisa quem enviou
+    ("escreveu o que fazer com a sua amostra"). Em aberto não avisa, porque o aviso
+    de concluída já leva a resolução.
+  - **Duplicatas:** herdam a resolução da principal (e quem as enviou é avisado). Ao
+    marcar como duplicata, a amostra recebe a da principal; se a principal não tem,
+    fica com a sua.
+  - **Histórico:** "Resolução para quem enviou: "…"", "… removida" e "(da principal)".
+  - **Testes:**
+    - 20 checagens no Postgres: permissão, limite, aparar, aviso de concluída com a
+      resolução, duplicatas, repetir sem efeito, alterar numa concluída, ficha e Meus
+      Uploads, em aberto sem aviso, remover, marcar como duplicata;
+    - `resolution.mjs`.
 
 ### 88. Mensagens do sistema (aviso geral)
 - **Proposta:** analistas publicam um aviso para todos ("Campanha de phishing do 'boleto

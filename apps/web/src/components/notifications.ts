@@ -68,7 +68,19 @@ export function notificationText(n: AppNotification): string {
       return `Prazo em alerta: mais de ${n.detail ?? '?'} h no mesmo status`;
     case 'SLA_LATE':
       return `Amostra atrasada: mais de ${n.detail ?? '?'} h no mesmo status`;
+    case 'RESOLUTION':
+      return `${who} escreveu o que fazer com a sua amostra`;
   }
+}
+
+/**
+ * Resolucao para quem enviou (item 87) mostrada no aviso: a escrita (RESOLUTION)
+ * ou a atual da amostra no aviso de concluida.
+ */
+export function notificationResolution(n: AppNotification): string | null {
+  if (n.type === 'RESOLUTION') return n.detail;
+  if (n.type === 'COMPLETED') return n.entry.resolution ?? null;
+  return null;
 }
 
 /** Para onde a notificacao leva (atualizacoes abrem a aba Historico). */

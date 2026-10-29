@@ -6,6 +6,7 @@ import type { AppNotification } from '../api/types';
 import { IconBell } from './icons';
 import {
   notificationHref,
+  notificationResolution,
   notificationText,
   useMarkRead,
   useNotificationCount,
@@ -157,6 +158,11 @@ export function HpsmInboxMenu() {
                     n.type === 'REPORT_RETURNED') && (
                     <span className="hpsm-inbox__detail">“{n.detail}”</span>
                   )}
+                {notificationResolution(n) && (
+                  <span className="hpsm-inbox__detail dl-resolution-line">
+                    O que fazer: {notificationResolution(n)}
+                  </span>
+                )}
               </span>
               <span className="hpsm-inbox__date">{fmtDate(n.createdAt)}</span>
               {!n.readAt && <span className="cds--visually-hidden"> (não lida)</span>}

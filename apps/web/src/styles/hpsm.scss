@@ -4337,3 +4337,54 @@ tr.is-off td {
 .dl-broadcast__close:focus-visible {
   color: var(--dl-text);
 }
+
+/* Resolucao para quem enviou (item 87): destaque no topo da ficha e linha nas listas. */
+.dl-resolution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--dl-info-border);
+  border-left-width: 4px;
+  background: var(--dl-info-bg);
+}
+
+.dl-resolution--danger {
+  border-color: var(--dl-error-border);
+  background: var(--dl-error-bg);
+}
+
+.dl-resolution--warning {
+  border-color: var(--dl-warning-border);
+  background: var(--dl-warning-bg);
+}
+
+.dl-resolution--ok {
+  border-color: var(--dl-success-border);
+  background: var(--dl-success-bg);
+}
+
+.dl-resolution__title {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.dl-resolution__text {
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dl-resolution__count {
+  margin-right: auto;
+  color: var(--dl-text-muted, #666);
+  font-size: 0.75rem;
+}
+
+.dl-resolution-line {
+  display: block;
+  color: var(--dl-text, inherit);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}

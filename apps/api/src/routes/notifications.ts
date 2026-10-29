@@ -46,7 +46,7 @@ export async function notificationRoutes(app: FastifyInstance) {
           detail: true,
           readAt: true,
           createdAt: true,
-          entry: { select: { id: true, title: true } },
+          entry: { select: { id: true, title: true, resolution: true } },
           actor: { select: { id: true, displayName: true } },
         },
       }),

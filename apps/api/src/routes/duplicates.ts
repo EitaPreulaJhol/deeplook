@@ -39,7 +39,9 @@ export async function duplicateRoutes(app: FastifyInstance) {
       prisma.entry.findUnique({ where: { id } }),
       prisma.entry.findUnique({
         where: { id: parsed.data.of },
-        include: { duplicateOf: { select: { id: true, title: true, verdict: true } } },
+        include: {
+          duplicateOf: { select: { id: true, title: true, verdict: true, resolution: true } },
+        },
       }),
     ]);
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
@@ -56,6 +58,7 @@ export async function duplicateRoutes(app: FastifyInstance) {
       id: target.id,
       title: target.title,
       verdict: target.verdict,
+      resolution: target.resolution,
     };
     if (principal.id === entry.id) {
       return reply
@@ -73,11 +76,21 @@ export async function duplicateRoutes(app: FastifyInstance) {
       // As duplicatas desta amostra passam a apontar para a nova principal.
       await tx.entry.updateMany({
         where: { duplicateOfId: entry.id },
-        data: { duplicateOfId: principal.id, verdict: principal.verdict },
+        data: {
+          duplicateOfId: principal.id,
+          verdict: principal.verdict,
+          // Sem resolucao na principal, a duplicata fica com a dela.
+          resolution: principal.resolution ?? undefined,
+        },
       });
       const result = await tx.entry.update({
         where: { id: entry.id },
-        data: { duplicateOfId: principal.id, status: 'COMPLETED', verdict: principal.verdict },
+        data: {
+          duplicateOfId: principal.id,
+          status: 'COMPLETED',
+          verdict: principal.verdict,
+          resolution: principal.resolution ?? undefined,
+        },
       });
       const previous: PreviousState = { status: entry.status, verdict: entry.verdict };
       await recordEvent(tx, {

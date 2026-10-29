@@ -402,7 +402,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/` | — | redireciona para a página inicial das preferências |
 | `/inicio` | Página Inicial | boas-vindas; padrão após o login |
 | `/history` | Histórico Global | |
-| `/me` | Meus Uploads | |
+| `/me` | Meus Uploads | a resolução para quem enviou aparece abaixo do título |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
@@ -526,7 +526,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/admin/trash/:id` | admin: exclui de vez (arquivo no MinIO + ficha e tudo ligado a ela) |
 | GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
 | POST/PATCH/DELETE | `/api/report-templates[/:id]` | admin: `{ name, summary, findings?, iocs?, verdict }`; nome repetido → 409 |
-| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT, REPORT_APPROVED, REPORT_RETURNED, IOC_SEEN, SLA_WARN, SLA_LATE; nos de prazo `actor` é null e `detail` são as horas do prazo) |
+| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT, REPORT_APPROVED, REPORT_RETURNED, IOC_SEEN, SLA_WARN, SLA_LATE, RESOLUTION; nos de prazo `actor` é null e `detail` são as horas do prazo; `entry.resolution` é a resolução atual) |
 | GET | `/api/me/notifications/count` | `{ unread }` (sininho, a cada minuto) |
 | POST | `/api/me/notifications/read` | `{ ids? }` marca como lidas (sem `ids`: todas) |
 | GET | `/api/users/mentionable?q=` | pessoas ativas para o "@" (nome, sem e-mail; até 8) |
@@ -543,7 +543,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/me/favorites/:id` | remove o favorito |
 
 `GET /api/entries` aceita também `assignee=me|none|<id>`, `submittedFrom`, `completedFrom` (ISO; links do Painel) e `sort=assignee`;
-`PATCH /api/entries/:id` aceita `assigneeId` (id do analista ou `null`).
+`PATCH /api/entries/:id` aceita `assigneeId` (id do analista ou `null`) e `resolution`
+(resolução para quem enviou, analistas; até 500 caracteres, vazio ou `null` remove).
 
 `POST /api/auth/login` e `POST /api/me/password` aceitam **5 tentativas a cada 5
 minutos** (por e-mail e por sessão, respectivamente); depois respondem 429.
@@ -647,6 +648,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `resolution.mjs` | resolução para quem enviou: modelos que se somam, contador, alteração não salva, salvar aparado, destaque no topo (cor pelo veredito, texto puro), histórico, remover, Meus Uploads, caixa de entrada e sininho (aviso de resolução e de concluída), quem enviou vê sem o campo |
 | `broadcasts.mjs` | avisos gerais: faixa (alerta primeiro, caso, autor, validade), dispensar só aquele, Página Inicial, pasta Gestão, lista com dispensas, texto obrigatório, publicar, limite de 3, encerrar com confirmação, usuário comum vê a faixa sem a gestão |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |
 | `allowlist.mjs` | indicadores permitidos: navegador, obrigatórios, faixa inválida com dica, Ctrl+S, repetido, ficha marcada com o motivo, IOCs sugeridos sem os permitidos (contagem dos ocultos), remover com confirmação, usuário comum sem acesso |
