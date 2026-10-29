@@ -2922,6 +2922,37 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   - mostra a lista de variações já vistas, com as amostras.
 - **Cuidados:** nada é consultado na internet; os próprios domínios da empresa entram na
   lista de permissões.
+- ✅ **Implementado** (migração `20261206000000_company_domains`: `CompanyDomain` e
+  `LookalikeHit`):
+  - **Detecção** (`lib/lookalike.ts`). Em vez de **gerar** a lista de variações (milhares,
+    com os homoglifos), cada domínio visto é **comparado** com os da empresa pelas
+    mesmas regras:
+    - outro TLD (`empresa.com`);
+    - letras parecidas: `rn`/`m`, `vv`/`w`, `0`/`o`, `1`/`l`, acentos e cirílico/grego,
+      também em IDN `xn--`;
+    - erro de digitação: letra trocada, faltando, repetida, a mais, invertida ou hífen a
+      mais;
+    - nome com palavra a mais (`empresa-seguranca`, `loginempresa`);
+    - nome no subdomínio (`empresa.com.br.verifica.top`).
+    - O próprio domínio e os subdomínios dele não contam. Nada é consultado na internet.
+  - **Onde procura:** o link enviado, os remetentes (From, Sender, Reply-To,
+    Return-Path) e os links do e-mail, os indicadores sugeridos e os dos relatórios
+    publicados.
+  - **Quando:** na chegada da amostra, na reanálise, ao publicar ou mudar um relatório e,
+    ao mudar a lista, em todas as amostras (em segundo plano, em lotes).
+  - **Ficha:** aviso no topo "Domínio parecido com o da empresa — provável golpe", com o
+    domínio, o motivo e onde apareceu, para todos os perfis.
+  - **Tela** `/dominios-empresa` (pasta Detecção):
+    - o admin inclui (aceita URL e `www.`, no máximo 20) e exclui;
+    - o domínio entra na lista de permissões (item 69) e, ao excluir, sai só o item que
+      o cadastro pôs;
+    - analistas veem as **variações vistas**, uma linha por domínio, com o motivo, onde
+      apareceu e as amostras (5 com o veredito e "+N").
+  - **Testes:**
+    - 35 checagens no Postgres: cada regra, o próprio domínio, nomes curtos, cadastro,
+      lista de permissões, revarredura, cada origem, ficha, relatório publicado e
+      despublicado, variações vistas, permissões, exclusão;
+    - `lookalike.mjs`.
 
 ### 93. Documentação da API (OpenAPI)
 - **Problema:** os tokens de API existem, mas quem integra precisa adivinhar as rotas.

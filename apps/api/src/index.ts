@@ -24,6 +24,7 @@ import { authRoutes } from './routes/auth';
 import { broadcastRoutes } from './routes/broadcasts';
 import { captureRoutes } from './routes/captures';
 import { caseRoutes } from './routes/cases';
+import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
 import { duplicateRoutes } from './routes/duplicates';
@@ -86,6 +87,8 @@ async function main() {
   await app.register(relatedRoutes);
   // Mapa de relacoes (item 91).
   await app.register(graphRoutes);
+  // Dominios parecidos com os da empresa (item 92).
+  await app.register(companyDomainRoutes);
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
   await app.register(templateRoutes);

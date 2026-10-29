@@ -43,6 +43,7 @@ import {
   IconStar,
   IconTrash,
 } from '../components/icons';
+import { LookalikeWarning } from '../components/LookalikeWarning';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageCaptureSection } from '../components/PageCaptureSection';
 import { PageHeader } from '../components/PageHeader';
@@ -508,6 +509,7 @@ export function EntryDetailPage() {
       <DocumentWarning info={entry.staticInfo} />
       <ScriptWarning info={entry.staticInfo} />
       <LnkWarning info={entry.staticInfo} />
+      <LookalikeWarning hits={entry.lookalikeHits} />
 
       {pinNotice && (
         <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>

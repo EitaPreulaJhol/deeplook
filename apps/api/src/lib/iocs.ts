@@ -1,5 +1,6 @@
 import type { IocKind } from '../generated/prisma/client';
 import { notifyWatchers } from './ioc-watch';
+import { scanLookalikes } from './lookalike';
 import type { Db } from './prisma';
 import { prisma } from './prisma';
 
@@ -139,13 +140,17 @@ export async function syncReportIocs(
     ),
   );
   await db.reportIoc.deleteMany({ where: { reportId } });
-  if (report?.status !== 'PUBLISHED') return;
-  const iocs = extractIocs(report.iocs);
-  if (iocs.length === 0) return;
-  await db.reportIoc.createMany({
-    data: iocs.map((ioc) => ({ reportId: report.id, entryId: report.entryId, ...ioc })),
-    skipDuplicates: true,
-  });
+  if (!report) return;
+  const iocs = report.status === 'PUBLISHED' ? extractIocs(report.iocs) : [];
+  if (iocs.length) {
+    await db.reportIoc.createMany({
+      data: iocs.map((ioc) => ({ reportId: report.id, entryId: report.entryId, ...ioc })),
+      skipDuplicates: true,
+    });
+  }
+  // Dominios parecidos com os da empresa (item 92) seguem os indicadores.
+  await scanLookalikes(db, report.entryId);
+  if (!iocs.length) return;
   if (options.notify === false) return;
   const fresh = iocs.filter((i) => !before.has(`${i.kind}:${i.value}`));
   await notifyWatchers(db, fresh, report.entryId, options.actorId ?? null, 'report');

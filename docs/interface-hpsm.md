@@ -407,6 +407,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=mapa`, `?tab=historico` |
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
+| `/dominios-empresa` | Domínios da empresa (analistas veem; admin cadastra) e variações vistas | pasta Detecção |
 | `/regras-triagem` | Regras de triagem (analistas): tags e prioridade automáticas | pasta Detecção |
 | `/avisos` | Avisos gerais (analistas): publicar, lista e encerrar | pasta Gestão; a faixa aparece no topo de todas as telas |
 | `/atribuicao` | Atribuição automática (analistas): regras, grupos e ausências | pasta Gestão |
@@ -462,6 +463,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/captures/:id/screenshot` · `/html` | print (PNG) · HTML só como anexo de texto |
 | POST | `/api/entries/:id/extract-image` | imagem de disco (ISO/FAT/VHD): extrai até 50 arquivos como amostras filhas (analistas; 409 se já extraiu; 410 expurgado) → `{ created, children, skipped }` |
 | GET | `/api/entries/:id/children` | amostras filhas (anexos de e-mail, arquivos extraídos): `{ children: [{ id, title, originalFilename, status, verdict }] }` |
+| GET · POST · DELETE | `/api/company-domains[/:id]` | domínios da empresa: lista `{ domains, seen: [{ domain, companyDomain, reason, label, detail, sources, total, entries }], max: 20 }` (analistas); incluir `{ domain }` (admin; normaliza URL/www; 409 repetido ou acima de 20; entra na lista de permissões e revarre as amostras) e excluir (admin; tira só o item que o cadastro pôs na lista de permissões). `GET /api/entries/:id` traz `lookalikeHits` |
 | GET · POST · PATCH · DELETE | `/api/triage-rules[/:id]` | regras de triagem (analistas): `{ name, condition, value?, tags, priority? }` · `{ enabled }`; a lista traz `label` ("domínio do link .top") |
 | GET | `/api/broadcasts/active` | avisos gerais ativos que a pessoa não dispensou (todos): `{ items: [{ id, text, level, expiresAt, createdBy, case }] }` |
 | POST | `/api/broadcasts/:id/dismiss` | dispensar o aviso só para a pessoa |
@@ -649,6 +651,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `lookalike.mjs` | domínios parecidos: aviso na ficha (domínio, motivo, onde, texto puro), sem achados sem aviso, pasta Detecção, variações vistas (motivo, onde, amostras com veredito e "+N"), incluir (obrigatório, erro da API no campo, Enter), excluir com confirmação, analista só vê, usuário comum sem a tela |
 | `relation-map.mjs` | mapa de relações: aba Mapa, nós por tipo, cor pelo veredito, rótulo da ligação, "+N", descrição para leitores de tela, lista equivalente (grupos, motivos, links), Expandir pelo teclado sem mexer no que já estava, clicar abre indicador/ficha, mapa vazio, mapa do caso, usuário comum |
 | `case-notifications.mjs` | menções e avisos nos casos: "@" só com analistas, inserir, enviar só quem continua no texto, menção destacada na linha do tempo, Caixa de entrada (menção, comentário, incluídas, retirada, atribuição, coluna "Amostra ou caso"), abrir leva ao caso, sininho |
 | `resolution.mjs` | resolução para quem enviou: modelos que se somam, contador, alteração não salva, salvar aparado, destaque no topo (cor pelo veredito, texto puro), histórico, remover, Meus Uploads, caixa de entrada e sininho (aviso de resolução e de concluída), quem enviou vê sem o campo |

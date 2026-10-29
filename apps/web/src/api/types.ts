@@ -555,11 +555,23 @@ export interface AttackData {
   techniques: AttackTechnique[];
 }
 
+/** Dominio parecido com um da empresa achado na amostra (item 92). */
+export interface LookalikeHit {
+  domain: string;
+  companyDomain: string;
+  reason: 'TLD' | 'HOMOGLYPH' | 'TYPO' | 'KEYWORD' | 'SUBDOMAIN';
+  detail: string | null;
+  /** URL, SENDER, LINK, IOC, REPORT. */
+  sources: string[];
+}
+
 export interface Entry {
   /** Prioridade (padrao P3). */
   priority?: Priority;
   /** Resolucao para quem enviou (item 87): o que fazer, em texto curto. */
   resolution?: string | null;
+  /** Dominios parecidos com os da empresa (item 92; so na ficha). */
+  lookalikeHits?: LookalikeHit[];
   id: string;
   ownerId: string;
   owner: EntryOwner;

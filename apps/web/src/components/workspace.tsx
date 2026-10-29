@@ -55,6 +55,7 @@ function routeTitle(pathname: string): string | null {
   if (pathname === '/yara') return 'Regras YARA';
   if (pathname === '/permitidos') return 'Indicadores permitidos';
   if (pathname === '/regras-triagem') return 'Regras de triagem';
+  if (pathname === '/dominios-empresa') return 'Domínios da empresa';
   if (pathname === '/casos') return 'Casos';
   if (pathname.startsWith('/casos/')) return 'Caso';
   if (pathname === '/busca') return 'Busca';

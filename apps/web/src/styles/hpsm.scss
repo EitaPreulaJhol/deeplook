@@ -4550,3 +4550,28 @@ tr.is-off td {
   color: var(--dl-text-muted);
   font-size: 0.75rem;
 }
+
+/* Dominios parecidos com os da empresa (item 92). */
+.dl-lookalike ul {
+  margin: 0.25rem 0 0 1.1rem;
+  list-style: disc;
+}
+
+.dl-company-domains {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--dl-panel-border);
+  }
+}
+
+.dl-company-domains__by {
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+}

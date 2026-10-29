@@ -12,6 +12,7 @@ import { BroadcastsPage } from './pages/BroadcastsPage';
 import { CasePage } from './pages/CasePage';
 import { CasePrintPage } from './pages/CasePrintPage';
 import { CasesPage } from './pages/CasesPage';
+import { CompanyDomainsPage } from './pages/CompanyDomainsPage';
 import { ComparePage } from './pages/ComparePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EntryDetailPage } from './pages/EntryDetailPage';
@@ -143,6 +144,10 @@ export default function App() {
         <Route
           path="/avisos"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <BroadcastsPage />}
+        />
+        <Route
+          path="/dominios-empresa"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <CompanyDomainsPage />}
         />
         <Route
           path="/regras-triagem"

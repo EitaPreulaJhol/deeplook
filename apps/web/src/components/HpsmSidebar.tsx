@@ -14,6 +14,7 @@ import {
   IconAdd,
   IconBell,
   IconChart,
+  IconEye,
   IconFilter,
   IconFolder,
   IconHelp,
@@ -116,6 +117,8 @@ const TREE: NavFolder[] = [
       { to: '/permitidos', label: 'Indicadores permitidos', icon: IconPage },
       // Tags e prioridade automaticas (item 86).
       { to: '/regras-triagem', label: 'Regras de triagem', icon: IconFilter },
+      // Dominios parecidos com os da empresa (item 92).
+      { to: '/dominios-empresa', label: 'Domínios da empresa', icon: IconEye },
     ],
   },
   {

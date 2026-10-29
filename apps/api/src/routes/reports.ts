@@ -7,6 +7,7 @@ import { findTechnique, normalizeTechniques, TECHNIQUE_ID } from '../lib/attack'
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { syncReportIocs } from '../lib/iocs';
+import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
@@ -461,6 +462,8 @@ export async function reportRoutes(app: FastifyInstance) {
     }
 
     await prisma.report.delete({ where: { id } });
+    // Indicadores do relatorio saem dos dominios parecidos (item 92).
+    await scanLookalikesQuietly(report.entryId);
     return reply.send({ ok: true });
   });
 }

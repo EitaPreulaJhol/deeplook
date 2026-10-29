@@ -17,6 +17,7 @@ import { analyzeDiskImage, extractDiskFile } from '../lib/disk-image';
 import { isEmailFile, parseEmail } from '../lib/eml';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
+import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
@@ -468,6 +469,8 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
  * usa as tags e a prioridade das regras. Falha nao impede o envio.
  */
 async function assignOnArrival(entryId: string, req: FastifyRequest) {
+  // Dominios parecidos com os da empresa (item 92).
+  await scanLookalikesQuietly(entryId);
   try {
     await applyTriageRules(entryId);
   } catch (err) {
@@ -952,6 +955,7 @@ export async function entryRoutes(app: FastifyInstance) {
       where: { id },
       data: { staticInfo: staticInfo as unknown as Prisma.InputJsonValue },
     });
+    await scanLookalikesQuietly(id);
     return reply.send({ staticInfo });
   });
 
@@ -1191,6 +1195,10 @@ export async function entryRoutes(app: FastifyInstance) {
           take: 50,
         },
         _count: { select: { duplicates: { where: { deletedAt: null } } } },
+        lookalikeHits: {
+          select: { domain: true, companyDomain: true, reason: true, detail: true, sources: true },
+          orderBy: { domain: 'asc' },
+        },
         // Rascunhos e relatorios em revisao so para analistas.
         reports: {
           where: isAnalyst(user) ? {} : { status: 'PUBLISHED' },

@@ -123,6 +123,7 @@ model User {
   allowedIndicators AllowedIndicator[]
   broadcasts        Broadcast[]
   broadcastsSeen    BroadcastDismissal[]
+  companyDomains    CompanyDomain[]
 }
 
 model Session {
@@ -155,22 +156,24 @@ model ActivationKey {
 }
 
 model Entry {
-  id              String      @id @default(cuid())
+  id              String         @id @default(cuid())
   ownerId         String
-  owner           User        @relation("EntryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner           User           @relation("EntryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   type            EntryType
   title           String
   description     String?
-  status          EntryStatus @default(PENDING)
-  verdict         Verdict     @default(UNKNOWN)
+  status          EntryStatus    @default(PENDING)
+  verdict         Verdict        @default(UNKNOWN)
   /// Prioridade (item 53): define o prazo de alerta/atraso (src/lib/sla.ts).
-  priority        Priority    @default(P3)
+  priority        Priority       @default(P3)
+  /// Dominios parecidos com os da empresa achados nela (item 92).
+  lookalikeHits   LookalikeHit[]
   /// Resolucao para quem enviou (item 87): o que fazer, em texto curto e sem
   /// detalhes tecnicos. Escrita pelos analistas; as duplicatas herdam a da principal.
   resolution      String?
   /// Quando a amostra entrou no status atual (idade na fila / prazo). Mantido por
   /// um trigger no Postgres a cada mudanca de status (migracao entry_status_changed_at).
-  statusChangedAt DateTime    @default(now())
+  statusChangedAt DateTime       @default(now())
   /// Escalonamento por prazo (item 73): ate onde ja avisou no status atual
   /// (src/lib/sla-escalation.ts). O trigger de status volta para null.
   slaStage        SlaStage?
@@ -1083,4 +1086,39 @@ model BroadcastDismissal {
   createdAt   DateTime  @default(now())
 
   @@id([broadcastId, userId])
+}
+
+/// Dominio da empresa (item 92): cadastrado pelo admin; entra tambem na lista de
+/// permissoes. Dominios parecidos com ele sao marcados (src/lib/lookalike.ts).
+model CompanyDomain {
+  id          String   @id @default(cuid())
+  domain      String   @unique
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+enum LookalikeReason {
+  TLD
+  HOMOGLYPH
+  TYPO
+  KEYWORD
+  SUBDOMAIN
+}
+
+/// Dominio parecido com um da empresa visto numa amostra (refeito a cada analise).
+model LookalikeHit {
+  id            String          @id @default(cuid())
+  entryId       String
+  entry         Entry           @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  domain        String
+  companyDomain String
+  reason        LookalikeReason
+  detail        String?
+  /// Onde apareceu: URL (link da amostra), SENDER, LINK (do e-mail), IOC (sugerido), REPORT.
+  sources       String[]
+  createdAt     DateTime        @default(now())
+
+  @@unique([entryId, domain])
+  @@index([domain])
 }
