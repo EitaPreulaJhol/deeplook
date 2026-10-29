@@ -2572,13 +2572,13 @@ decisões.
 
 Analisar o que hoje passa batido (ZIP com senha, scripts, atalhos e imagens de disco),
 automatizar a triagem (tags e prioridade por regra), falar com quem enviou (resolução e
-avisos gerais), proteger a operação (backup, expediente no prazo) e enxergar as campanhas
+avisos gerais), proteger a operação (backup, login pelo AD) e enxergar as campanhas
 (mapa de relações, domínios parecidos com os da empresa), sempre no padrão visual do HP
 Service Manager 9.
 
 | # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
 |---|---|---|---|---|---|
-| 81 | Backup e restauração verificados | administração do sistema | 🔴 | M | ⬜ (decisão) |
+| 81 | Backup em ZIP para baixar | administração do sistema | 🔴 | M | ⬜ |
 | 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ⬜ |
 | 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ⬜ |
 | 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ⬜ |
@@ -2587,15 +2587,16 @@ Service Manager 9.
 | 87 | Resolução para quem enviou | Solution / Resolution | 🟡 | P–M | ⬜ |
 | 88 | Mensagens do sistema (aviso geral) | Broadcast messages | 🟡 | P | ⬜ |
 | 89 | Menções e avisos nos casos | Activities / Notifications | 🟡 | P | ⬜ |
-| 90 | Expediente e feriados no prazo | calendários de SLA | 🟡 | M | ⬜ (decisão) |
 | 91 | Mapa de relações (amostras, indicadores, casos) | registros relacionados | ⚪ | M–G | ⬜ |
 | 92 | Domínios parecidos com os da empresa | listas de vigilância | ⚪ | M | ⬜ |
 | 93 | Documentação da API (OpenAPI) | Web Services | ⚪ | M | ⬜ |
-| 94 | Login corporativo (SSO) | autenticação externa | ⚪ | G | ⬜ (decisão) |
+| 94 | Login pelo AD/LDAP (opcional) | autenticação externa | ⚪ | M–G | ⬜ |
 
-**Ordem sugerida (uma etapa por item, com testes, documentação e commit próprio):**
-82 → 83 → 85 → 84 → 86 → 87 → 88 → 89 → 91 → 92 → 93. Depois, 81, 90 e 94 conforme as
-decisões.
+**Ordem (uma etapa por item, com testes, documentação e commit próprio):**
+82 → 83 → 85 → 84 → 86 → 87 → 88 → 89 → 91 → 92 → 93 → 81 → 94.
+
+**Decisões (29/10/2026):** 81 vira um ZIP gerado na tela e baixado; 90 (expediente e
+feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
 
 ### 82. ZIP com senha ("infected")
 - **Problema:** amostras de malware circulam em ZIP com senha (quase sempre `infected`).
@@ -2671,15 +2672,6 @@ decisões.
   avisos abrem o caso.
 - **Cuidados:** não avisa a própria pessoa; reaproveita a Caixa de entrada.
 
-### 90. Expediente e feriados no prazo — decisão pendente
-- **Problema:** o prazo conta 24 horas por dia, e uma amostra enviada na sexta à noite
-  fica "atrasada" na segunda de manhã.
-- **Proposta:** calendário de expediente (dias e horários) e feriados; os prazos
-  (alerta/atraso, escalonamento) contam só o tempo de expediente; o admin mantém os
-  feriados. A Idade continua mostrando o tempo corrido, com uma dica do tempo útil.
-- **Decisão:** qual o expediente (ex.: seg–sex, 8h–18h)? P1 conta 24×7 mesmo assim?
-  Quais feriados (nacionais, da cidade)?
-
 ### 91. Mapa de relações (amostras, indicadores, casos)
 - **Problema:** as ligações de uma campanha ficam espalhadas entre Relacionadas,
   indicadores e casos.
@@ -2708,20 +2700,34 @@ decisões.
 - **Cuidados:** só as rotas que aceitam token; sem "experimentar" que chame a API real a
   partir da página.
 
-### 81. Backup e restauração verificados — decisão pendente
+### 81. Backup em ZIP para baixar
 - **Problema:** banco e MinIO ficam em volumes locais; não há rotina de backup nem teste
   de restauração.
-- **Proposta:** serviço de backup no compose: `pg_dump` do banco e cópia do bucket, com
-  retenção (ex.: 7 diários, 4 semanais), verificação (restaura o dump num banco
-  temporário e confere as contagens) e a linha **Backup** no Status do sistema (último,
-  tamanho, verificado). README com o passo a passo de restauração.
-- **Decisão:** onde guardar (disco local, outro servidor, armazenamento S3 externo)?
-  Que horário e por quanto tempo? As amostras (arquivos maliciosos) entram no backup ou
-  só banco e relatórios?
+- **Decisão (29/10/2026):** **gerar um ZIP e disponibilizá-lo para download**.
+- **Proposta:** na Administração, aba **Backup** (só admin):
+  - **Gerar backup** monta, em segundo plano, um ZIP com o dump do banco (`pg_dump`,
+    formato custom) e os arquivos guardados no MinIO (evidências, capturas e,
+    opcionalmente, os arquivos das amostras), mais um manifesto com versão, data,
+    contagens e SHA-256 de cada parte;
+  - acompanha o progresso e mostra **Baixar** quando fica pronto; os últimos backups
+    ficam listados (os antigos expiram) e tudo vai para a auditoria;
+  - README com o passo a passo de restauração (`pg_restore` e cópia para o bucket).
+- **Cuidados:** um backup por vez; o ZIP fica no MinIO, baixa só com admin logado e
+  expira; com os arquivos das amostras, o ZIP tem malware: aviso claro, e o manifesto
+  diz o que entrou.
 
-### 94. Login corporativo (SSO) — decisão pendente
-- **Proposta:** entrar com a conta da empresa (OIDC: Entra ID/Azure AD, Google
-  Workspace, Keycloak; ou LDAP/Active Directory). O papel pode vir de grupos
-  ("DeepLook-Analistas"). A conta local do admin continua como contingência.
-- **Decisão:** existe provedor corporativo? Qual (Entra ID, Google, Keycloak, AD/LDAP)?
-  O cadastro por chave de ativação continua para quem não tem conta corporativa?
+### 94. Login pelo AD/LDAP (opcional)
+- **Decisão (29/10/2026):** por enquanto só **AD/LDAP**, **não obrigatório**. Sem AD
+  configurado, tudo continua como hoje (chave de ativação e cadastro normal); com AD
+  configurado, a chave e o cadastro normal também continuam valendo.
+- **Proposta:**
+  - variáveis `LDAP_URL`, `LDAP_BIND_DN`/`LDAP_BIND_PASSWORD`, base e filtro de busca;
+  - no login, quem não tem conta local entra com o usuário/senha do AD: a conta é criada
+    no primeiro acesso (nome e e-mail do AD), com o papel pelos grupos
+    (`LDAP_ANALYST_GROUP`, `LDAP_ADMIN_GROUP`; sem grupo, usuário comum);
+  - contas do AD não têm senha local (troca de senha e política ficam no AD), mas o 2FA
+    do DeepLook continua valendo;
+  - o Status do sistema ganha a linha "AD/LDAP".
+- **Cuidados:** LDAPS/StartTLS com verificação de certificado; sem enumerar usuários
+  ("usuário ou senha inválidos" igual para tudo); limite de tentativas igual ao login;
+  conta suspensa no DeepLook não entra mesmo com a senha certa no AD.
