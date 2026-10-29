@@ -2998,6 +2998,44 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
 - **Cuidados:** um backup por vez; o ZIP fica no MinIO, baixa só com admin logado e
   expira; com os arquivos das amostras, o ZIP tem malware: aviso claro, e o manifesto
   diz o que entrou.
+- ✅ **Implementado** (migração `20261207000000_backups`: `Backup` e as ações de auditoria
+  `BACKUP_CREATED`/`BACKUP_DOWNLOADED`/`BACKUP_DELETED`):
+  - **Geração** (`lib/backup.ts`), em segundo plano e um por vez (409):
+    - `pg_dump --format=custom` num arquivo temporário;
+    - os objetos do bucket com o mesmo caminho, sem `backups/` e, sem a opção, sem
+      `samples/`;
+    - `LEIA-ME-RESTAURACAO.txt` e `manifest.json`: versão, data, quem gerou, se tem
+      malware, contagens e o SHA-256 de cada arquivo;
+    - o ZIP vai para `backups/<id>.zip` no bucket, enviado em partes.
+    - Etapa e progresso ficam na linha; uma falha vira "Falhou" com o motivo (ex.:
+      saída do pg_dump).
+  - **ZIP** (`lib/zip-writer.ts`), gravador próprio sem dependência nova:
+    - sem compressão (o dump já vem comprimido);
+    - CRC-32 calculado enquanto os dados passam;
+    - ZIP64 quando passa de 4 GB;
+    - recusa nome repetido, `../` e tamanho diferente do esperado.
+    - Conferido com `unzip -t`, o `zipfile` do Python e o 7-Zip, inclusive em ZIP64
+      forçado.
+  - **Validade:** `BACKUP_RETENTION_DAYS` (padrão 7). De hora em hora e ao listar, os
+    vencidos saem do bucket e ficam como "Vencido". Na subida da API, o que estava em
+    andamento vira "Falhou (a API reiniciou)".
+  - **API** (`routes/backups.ts`, admin com sessão; token não serve): listar, gerar,
+    baixar (com nome de arquivo e auditado) e excluir.
+  - **Tela:** aba **Backup** da Administração (e folha no navegador):
+    - opção "Incluir os arquivos das amostras", com confirmação "malware real";
+    - barra de progresso com a etapa, atualizada a cada 2 s;
+    - lista com situação, conteúdo, tamanho, validade, Baixar e Excluir.
+  - **Imagem da API:** `postgresql-client-16` do repositório oficial do PostgreSQL
+    (PGDG). O Debian traz um pg_dump mais velho, que não exporta o Postgres 16;
+    `BACKUP_PG_DUMP` troca o comando.
+  - README com "Backup e restauração", e `.env.example`/compose com as variáveis.
+  - **Testes:**
+    - 22 checagens com Postgres e MinIO reais: permissões, um por vez, manifesto, ZIP
+      conferido pelo Python (SHA-256 de cada parte), sem amostras e sem backups,
+      **restauração de verdade** com `pg_restore` num banco novo (contagens batem),
+      com amostras (malware), falha do pg_dump com o motivo, vencido (sai do bucket,
+      não baixa), excluir, auditoria, interrompido na subida;
+    - `backup.mjs`.
 
 ### 94. Login pelo AD/LDAP (opcional)
 - **Decisão (29/10/2026):** por enquanto só **AD/LDAP**, **não obrigatório**. Sem AD

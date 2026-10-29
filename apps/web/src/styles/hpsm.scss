@@ -4659,3 +4659,25 @@ tr.is-off td {
 .dl-apidoc__responses {
   color: var(--dl-text-muted);
 }
+
+/* Backup em ZIP (item 81). */
+.dl-backup__intro {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.dl-backup__running {
+  max-width: 480px;
+  margin-top: 0.75rem;
+}
+
+.dl-backup__error,
+.dl-backup__counts {
+  display: block;
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+}
+
+.dl-backup__error {
+  color: var(--dl-status-red);
+}

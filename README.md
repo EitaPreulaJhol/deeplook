@@ -286,6 +286,39 @@ externa** da ficha e num resumo no topo, por exemplo "malicioso em 2 de 3 servi�
   Status do sistema.
 - **Atenção:** mesmo só o hash revela a terceiros que a amostra está sendo analisada.
 
+## Backup e restauração
+
+Em **Administração > Backup** (só admin), **Gerar backup** monta em segundo plano um ZIP
+com:
+- o banco (`pg_dump`, formato custom);
+- os arquivos do MinIO: evidências, capturas e, se marcado, os arquivos das amostras;
+- um `manifest.json` com versão, data, contagens e o SHA-256 de cada parte;
+- um `LEIA-ME-RESTAURACAO.txt`.
+
+Funcionamento:
+- Um backup por vez. A tela mostra a etapa e o progresso, e **Baixar** aparece quando
+  termina.
+- O ZIP fica no bucket (`backups/`) até vencer (`BACKUP_RETENTION_DAYS`, padrão 7 dias).
+- Só baixa com admin logado (token de API não serve).
+- Gerar, baixar e excluir vão para a Auditoria.
+
+> **Com os arquivos das amostras, o ZIP contém malware real.** Guarde-o como as amostras.
+> O manifesto diz o que entrou (`containsMalware`).
+
+Para restaurar, com o DeepLook parado:
+
+```bash
+unzip deeplook-backup-AAAA-MM-DD-xxxxxx.zip -d backup && cd backup
+sha256sum db/deeplook.dump            # confira com o manifest.json
+docker compose up -d db minio
+docker compose exec -T db createdb -U deeplook deeplook_restaurado
+docker compose exec -T db pg_restore -U deeplook -d deeplook_restaurado --no-owner < db/deeplook.dump
+# arquivos: copie objects/ para o bucket mantendo os caminhos (ex.: mc cp --recursive)
+```
+
+Depois aponte `DATABASE_URL` para o banco restaurado (ou renomeie-o) e suba o resto. As
+migrações mais novas rodam sozinhas.
+
 ## Cloudflare Tunnel (no host, fora do Docker)
 
 O DeepLook publica apenas `127.0.0.1:8080`, então instale o `cloudflared`
@@ -336,6 +369,8 @@ COOKIE_SECURE=true
 | `SLA_ESCALATE_PRIORITY` | ao entrar em alerta o responsável é avisado (sem responsável, os analistas); ao atrasar, também os admins. `true`: ao atrasar, a prioridade sobe um nível | `false` |
 | `REPORT_REVIEW_REQUIRED` | `true`: relatório só é publicado com a aprovação de outro analista (quatro olhos) | `false` |
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
+| `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket | `7` |
+| `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
 | `PASSWORD_MAX_AGE_DAYS` | validade da senha em dias (admins não expiram); `0` desliga | `90` |
 | `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |

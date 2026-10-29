@@ -48,6 +48,9 @@ const EnvSchema = z
      * (ficha, relatorios, IOCs e hash ficam). 0 = desligada.
      */
     RETENTION_DAYS: z.coerce.number().int().min(0).max(36500).default(0),
+    /** Backup em ZIP (item 81): dias ate o ZIP expirar e o comando do pg_dump (16+). */
+    BACKUP_RETENTION_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+    BACKUP_PG_DUMP: z.string().min(1).default('pg_dump'),
     /** Validade da senha em dias (admins nao expiram). 0 = sem validade. */
     PASSWORD_MAX_AGE_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
     /**

@@ -124,6 +124,7 @@ model User {
   broadcasts        Broadcast[]
   broadcastsSeen    BroadcastDismissal[]
   companyDomains    CompanyDomain[]
+  backups           Backup[]
 }
 
 model Session {
@@ -694,6 +695,10 @@ enum AuditAction {
   ENTRY_TRASHED
   ENTRY_RESTORED
   ENTRY_DELETED
+  /// Backup (item 81): gerado, baixado e excluido.
+  BACKUP_CREATED
+  BACKUP_DOWNLOADED
+  BACKUP_DELETED
 }
 
 /// Auditoria administrativa (aba Auditoria da Administracao): quem fez o que,
@@ -1121,4 +1126,35 @@ model LookalikeHit {
 
   @@unique([entryId, domain])
   @@index([domain])
+}
+
+enum BackupStatus {
+  RUNNING
+  READY
+  FAILED
+  EXPIRED
+}
+
+/// Backup em ZIP para baixar (item 81): dump do banco + arquivos do MinIO e um
+/// manifesto. Um por vez; fica no proprio bucket (backups/<id>.zip) ate expirar.
+model Backup {
+  id             String       @id @default(cuid())
+  status         BackupStatus @default(RUNNING)
+  /// Com os arquivos das amostras (o ZIP passa a ter malware).
+  includeSamples Boolean      @default(false)
+  /// Etapa atual ("Exportando o banco...") e 0-100.
+  step           String?
+  progress       Int          @default(0)
+  key            String?
+  size           BigInt?
+  /// Versao, data, contagens e SHA-256 de cada parte (o mesmo manifest.json do ZIP).
+  manifest       Json?
+  error          String?
+  createdById    String?
+  createdBy      User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  finishedAt     DateTime?
+  expiresAt      DateTime?
+
+  @@index([status, createdAt])
 }

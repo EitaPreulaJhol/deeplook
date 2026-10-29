@@ -55,6 +55,9 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   ALLOWLIST_ADDED: { label: 'Indicador permitido incluído', tone: 'gray' },
   ALLOWLIST_REMOVED: { label: 'Indicador permitido removido', tone: 'gray' },
   ALLOWLIST_IMPORTED: { label: 'Indicadores permitidos importados', tone: 'gray' },
+  BACKUP_CREATED: { label: 'Backup gerado', tone: 'blue' },
+  BACKUP_DOWNLOADED: { label: 'Backup baixado', tone: 'orange' },
+  BACKUP_DELETED: { label: 'Backup excluído', tone: 'gray' },
 };
 
 const PERIODS = [

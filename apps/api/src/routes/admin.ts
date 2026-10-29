@@ -58,6 +58,9 @@ const AuditQuery = z.object({
       'ALLOWLIST_ADDED',
       'ALLOWLIST_REMOVED',
       'ALLOWLIST_IMPORTED',
+      'BACKUP_CREATED',
+      'BACKUP_DOWNLOADED',
+      'BACKUP_DELETED',
     ])
     .optional(),
   q: z.string().trim().max(100).optional(),
@@ -99,6 +102,9 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   ALLOWLIST_ADDED: 'Indicador permitido incluído',
   ALLOWLIST_REMOVED: 'Indicador permitido removido',
   ALLOWLIST_IMPORTED: 'Indicadores permitidos importados',
+  BACKUP_CREATED: 'Backup gerado',
+  BACKUP_DOWNLOADED: 'Backup baixado',
+  BACKUP_DELETED: 'Backup excluído',
 };
 
 export async function adminRoutes(app: FastifyInstance) {

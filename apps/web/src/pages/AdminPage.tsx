@@ -21,6 +21,7 @@ import type { ActivationKey, Role, User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { AdminApiTokensTab } from '../components/AdminApiTokensTab';
 import { AdminAuditTab } from '../components/AdminAuditTab';
+import { AdminBackupTab } from '../components/AdminBackupTab';
 import { AdminStatusTab } from '../components/AdminStatusTab';
 import { AdminTemplatesTab } from '../components/AdminTemplatesTab';
 import { AdminTrashTab } from '../components/AdminTrashTab';
@@ -76,6 +77,7 @@ export function AdminPage() {
     tabParam === 'status' ||
     tabParam === 'audit' ||
     tabParam === 'trash' ||
+    tabParam === 'backup' ||
     tabParam === 'tokens'
       ? tabParam
       : 'users';
@@ -281,6 +283,8 @@ export function AdminPage() {
           { id: 'status', label: 'Status do sistema' },
           { id: 'audit', label: 'Auditoria' },
           { id: 'trash', label: 'Lixeira' },
+          // Backup em ZIP (item 81).
+          { id: 'backup', label: 'Backup' },
         ]}
       />
 
@@ -289,6 +293,8 @@ export function AdminPage() {
           <AdminApiTokensTab />
         ) : tab === 'trash' ? (
           <AdminTrashTab />
+        ) : tab === 'backup' ? (
+          <AdminBackupTab />
         ) : tab === 'audit' ? (
           <AdminAuditTab />
         ) : tab === 'status' ? (

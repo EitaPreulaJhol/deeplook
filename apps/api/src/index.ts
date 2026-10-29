@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
 import { env, sandboxEnabled } from './env';
+import { startBackups } from './lib/backup';
 import { backfillReportIocs } from './lib/iocs';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { prisma } from './lib/prisma';
@@ -21,6 +22,7 @@ import { apiTokenRoutes } from './routes/api-tokens';
 import { assignmentRoutes } from './routes/assignment';
 import { attackRoutes } from './routes/attack';
 import { authRoutes } from './routes/auth';
+import { backupRoutes } from './routes/backups';
 import { broadcastRoutes } from './routes/broadcasts';
 import { captureRoutes } from './routes/captures';
 import { caseRoutes } from './routes/cases';
@@ -92,6 +94,8 @@ async function main() {
   await app.register(companyDomainRoutes);
   // Documentacao da API (item 93).
   await app.register(openApiRoutes);
+  // Backup em ZIP (item 81).
+  await app.register(backupRoutes);
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
   await app.register(templateRoutes);
@@ -160,6 +164,7 @@ async function main() {
 
   // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).
   startRetention(app.log);
+  startBackups(app.log);
   if (env.RETENTION_DAYS) {
     app.log.info(
       `[retencao] ligada: arquivos expurgados ${env.RETENTION_DAYS} dia(s) após a conclusão`,

@@ -14,6 +14,7 @@ import {
   IconAdd,
   IconBell,
   IconChart,
+  IconDownload,
   IconEye,
   IconFilter,
   IconFolder,
@@ -155,6 +156,7 @@ const TREE: NavFolder[] = [
       { to: '/admin?tab=status', label: 'Status do sistema', icon: IconScreen },
       { to: '/admin?tab=audit', label: 'Auditoria', icon: IconHistory },
       { to: '/admin?tab=trash', label: 'Lixeira', icon: IconTrash },
+      { to: '/admin?tab=backup', label: 'Backup', icon: IconDownload },
     ],
   },
 ];

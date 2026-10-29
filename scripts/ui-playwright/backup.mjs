@@ -1,0 +1,114 @@
+// Backup em ZIP (81): aba Backup da Administracao (e folha no navegador), lista
+// (situacao, conteudo, tamanho, validade, motivo da falha, vencido apagado),
+// gerar sem e com amostras (confirmacao de malware), progresso acompanhado ate
+// ficar pronto, um por vez, Baixar e Excluir com confirmacao.
+import { chromium } from 'playwright';
+
+import { createState, ORIGIN, OUT, setupMock, watchErrors } from './mock-api.mjs';
+
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const state = createState({ loggedIn: true });
+await setupMock(context, state);
+const ana = { id: 'u1', displayName: 'Ana Souza' };
+const manifest = { version: '1.0.0', containsMalware: false, fileCount: 12, counts: { entries: 40, reports: 18, users: 6, cases: 3, objects: 9 } };
+const items = [
+  { id: 'b2', status: 'READY', includeSamples: false, step: null, progress: 100, size: 52428800, manifest, error: null, createdAt: '2026-10-28T09:00:00.000Z', finishedAt: '2026-10-28T09:02:00.000Z', expiresAt: '2026-11-04T09:02:00.000Z', createdBy: ana },
+  { id: 'b1', status: 'FAILED', includeSamples: false, step: null, progress: 2, size: null, manifest: null, error: 'pg_dump falhou (1): connection refused', createdAt: '2026-10-27T09:00:00.000Z', finishedAt: '2026-10-27T09:00:05.000Z', expiresAt: null, createdBy: ana },
+  { id: 'b0', status: 'EXPIRED', includeSamples: true, step: null, progress: 100, size: 1048576, manifest: { ...manifest, containsMalware: true }, error: null, createdAt: '2026-10-10T09:00:00.000Z', finishedAt: '2026-10-10T09:01:00.000Z', expiresAt: '2026-10-17T09:01:00.000Z', createdBy: ana },
+];
+const calls = [];
+let polls = 0;
+await context.route((url) => url.pathname.startsWith('/api/admin/backups'), async (route) => {
+  const req = route.request();
+  const path = new URL(req.url()).pathname;
+  const json = (status, data) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+  if (req.method() === 'GET' && path === '/api/admin/backups') {
+    const running = items.find((b) => b.status === 'RUNNING');
+    if (running) {
+      polls += 1;
+      if (polls === 1) Object.assign(running, { step: 'Copiando os arquivos (3 de 9)...', progress: 47 });
+      if (polls >= 3) Object.assign(running, { status: 'READY', step: null, progress: 100, size: 2097152, manifest: { ...manifest, containsMalware: true }, expiresAt: '2026-11-05T10:00:00.000Z' });
+    }
+    return json(200, { items, retentionDays: 7 });
+  }
+  if (req.method() === 'GET' && path.endsWith('/download')) {
+    calls.push({ method: 'GET', path });
+    return route.fulfill({ status: 200, headers: { 'content-type': 'application/zip', 'content-disposition': 'attachment; filename="deeplook-backup.zip"' }, body: 'PK' });
+  }
+  const body = req.postData() ? JSON.parse(req.postData()) : null;
+  calls.push({ method: req.method(), path, body });
+  if (req.method() === 'POST') {
+    if (items.some((b) => b.status === 'RUNNING')) return json(409, { error: 'Já há um backup em andamento. Aguarde terminar.' });
+    const item = { id: 'b3', status: 'RUNNING', includeSamples: body.includeSamples, step: 'Exportando o banco...', progress: 2, size: null, manifest: null, error: null, createdAt: '2026-10-29T10:00:00.000Z', finishedAt: null, expiresAt: null, createdBy: ana };
+    items.unshift(item);
+    return json(202, { item });
+  }
+  items.splice(items.findIndex((b) => path.endsWith(`/${b.id}`)), 1);
+  return json(200, { ok: true });
+});
+const page = await context.newPage();
+watchErrors(page);
+
+let failures = 0;
+const expect = (label, ok, detail = '') => {
+  if (!ok) failures += 1;
+  console.log(`${ok ? 'ok  ' : 'FALHA'} ${label}${detail ? ` (${detail})` : ''}`);
+};
+const settle = (ms = 400) => page.waitForTimeout(ms);
+const rows = () => page.locator('table[aria-label="Backups"] tbody tr');
+const rowText = async (i) => (await rows().nth(i).innerText()).replace(/\s+/g, ' ');
+const msgs = async () => (await page.locator('.hpsm-msg__text').allInnerTexts()).join(' | ');
+const dlg = page.locator('[role=alertdialog]');
+
+// 1. Pelo navegador.
+await page.goto(ORIGIN + '/inicio', { waitUntil: 'networkidle' });
+await page.click('#hpsm-tree-admin .hpsm-tree__leaf:has-text("Backup")');
+await settle();
+expect('abre a aba Backup', new URL(page.url()).search === '?tab=backup' && (await page.locator('[role=tab][aria-selected=true]').innerText()).trim() === 'Backup');
+
+// 2. Lista.
+expect('três backups', (await rows().count()) === 3);
+const ready = await rowText(0);
+expect('pronto com conteúdo, tamanho e validade', ready.includes('Pronto') && ready.includes('sem as amostras') && ready.includes('40 amostra(s), 18 relatório(s), 9 arquivo(s) · versão 1.0.0') && ready.includes('50.0 MB') && ready.includes('04/11/2026'), ready);
+expect('Baixar só no pronto', (await rows().nth(0).locator('a:has-text("Baixar")').getAttribute('href')) === '/api/admin/backups/b2/download' && (await rows().nth(1).locator('a:has-text("Baixar")').count()) === 0);
+expect('falha com o motivo', (await rowText(1)).includes('Falhou') && (await rowText(1)).includes('pg_dump falhou (1): connection refused'));
+expect('vencido apagado e marcado malware', (await rows().nth(2).getAttribute('class')).includes('is-off') && (await rowText(2)).includes('com as amostras (malware)'));
+
+// 3. Gerar com as amostras: confirmacao.
+await page.click('label[for="backup-samples"]');
+await page.click('button.dl-btn:has-text("Gerar backup")');
+await settle(300);
+expect('confirma o malware', (await dlg.innerText()).includes('malware real'));
+await dlg.locator('button:has-text("Cancelar")').click();
+await settle(200);
+expect('cancelar não gera', !calls.some((c) => c.method === 'POST'));
+await page.click('button.dl-btn:has-text("Gerar backup")');
+await settle(300);
+await dlg.locator('button:has-text("Gerar com as amostras")').click();
+await settle(300);
+expect('gera com as amostras', JSON.stringify(calls.find((c) => c.method === 'POST')?.body) === JSON.stringify({ includeSamples: true }));
+expect('aviso de início', (await msgs()).includes('Backup iniciado'), await msgs());
+
+// 4. Progresso ate ficar pronto; um por vez.
+expect('botão travado enquanto gera', await page.locator('button.dl-btn:has-text("Gerar backup")').isDisabled());
+await page.waitForFunction(() => document.querySelector('.dl-backup__running')?.textContent?.includes('Copiando os arquivos (3 de 9)'), null, { timeout: 8000 });
+expect('mostra a etapa e o percentual', (await page.locator('.dl-backup__running').innerText()).includes('47%'));
+await page.screenshot({ path: `${OUT}/backup-gerando.png`, fullPage: true });
+await page.waitForFunction(() => !document.querySelector('.dl-backup__running'), null, { timeout: 10000 });
+const fresh = await rowText(0);
+expect('fica pronto sozinho', fresh.includes('Pronto') && fresh.includes('com as amostras (malware)') && fresh.includes('2.0 MB'), fresh);
+expect('botão liberado de novo', !(await page.locator('button.dl-btn:has-text("Gerar backup")').isDisabled()));
+await page.screenshot({ path: `${OUT}/backup-lista.png`, fullPage: true });
+
+// 5. Excluir com confirmacao.
+await rows().nth(2).locator('button:has-text("Excluir")').click();
+await settle(300);
+expect('confirma a exclusão', (await dlg.innerText()).includes('O ZIP sai do servidor'));
+await dlg.locator('button:has-text("Excluir")').click();
+await settle();
+expect('excluído', calls.at(-1)?.method === 'DELETE' && calls.at(-1)?.path === '/api/admin/backups/b1' && (await rows().count()) === 3);
+
+await browser.close();
+console.log(failures ? `\n${failures} falha(s)` : '\nbackup: tudo ok');
+process.exit(failures ? 1 : 0);

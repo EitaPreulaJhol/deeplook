@@ -418,6 +418,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/casos/:id/imprimir` | Caso para impressão (sem a casca) | `?auto=1` abre a impressão ao carregar |
 | `/admin` | Administração | só ADMIN; `?tab=keys`, `tokens`, `templates`, `status`, `audit`, `trash` |
 | `/user` | Minha Conta | `?tab=senha`, `?tab=preferencias`, `?tab=tokens` |
+| `/admin?tab=backup` | Backup (admin): gerar o ZIP, acompanhar, baixar e excluir | também na pasta Administração |
 | `/user/api` | Documentação da API: exemplos em curl e as rotas lidas do `openapi.json` | link na aba Tokens de API |
 | `/sandbox/entry/:entryId/console` | janela do console | fora da casca |
 
@@ -520,6 +521,8 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/me/sessions/:handle` · POST `/api/me/sessions/revoke-others` | encerra uma sessão (não a atual) ou todas as outras |
 | GET/POST | `/api/me/api-tokens` | tokens de API do usuário (`{ apiAccess, maxDays, tokens }`); POST `{ name, expiresInDays }` → `{ token, secret }` (secret só aqui); 403 sem liberação, 409 com 10 ativos |
 | DELETE | `/api/me/api-tokens/:id` | revoga um token próprio |
+| GET · POST | `/api/admin/backups` | backups (admin): lista (os vencidos expiram na hora) `{ items: [{ id, status, includeSamples, step, progress, size, manifest, error, expiresAt }], retentionDays }`; gerar `{ includeSamples }` → 202 (409 com um em andamento) |
+| GET · DELETE | `/api/admin/backups/:id/download` · `/api/admin/backups/:id` | baixar o ZIP (admin com sessão; 404 se não está pronto; auditado) · excluir (409 em andamento) |
 | GET | `/api/openapi.json` | especificação OpenAPI 3.1 das rotas que aceitam token (sessão ou token); gerada dos schemas zod (`lib/openapi.ts`), e o teste confere que bate com `ALLOWED_ROUTES` |
 | GET | `/api/admin/api-tokens?status=active\|all` | admin: tokens de todos com o usuário |
 | DELETE | `/api/admin/api-tokens/:id` | admin: revoga um token |
@@ -653,6 +656,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `backup.mjs` | backup: pasta Administração, lista (pronto, falha com motivo, vencido apagado, malware marcado), gerar com amostras com confirmação, progresso até pronto, um por vez, Baixar, excluir com confirmação |
 | `api-docs.mjs` | documentação da API: link na aba Tokens, exemplos em curl com o endereço e Copiar, rotas da especificação (método, caminho, campos com tipo e obrigatório, respostas), baixar o `openapi.json`, nada que chame a API, aviso sem acesso liberado |
 | `lookalike.mjs` | domínios parecidos: aviso na ficha (domínio, motivo, onde, texto puro), sem achados sem aviso, pasta Detecção, variações vistas (motivo, onde, amostras com veredito e "+N"), incluir (obrigatório, erro da API no campo, Enter), excluir com confirmação, analista só vê, usuário comum sem a tela |
 | `relation-map.mjs` | mapa de relações: aba Mapa, nós por tipo, cor pelo veredito, rótulo da ligação, "+N", descrição para leitores de tela, lista equivalente (grupos, motivos, links), Expandir pelo teclado sem mexer no que já estava, clicar abre indicador/ficha, mapa vazio, mapa do caso, usuário comum |
