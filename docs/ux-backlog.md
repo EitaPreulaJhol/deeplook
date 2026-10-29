@@ -39,8 +39,10 @@ As levas seguintes também foram concluídas e estão mais abaixo:
 [Segunda leva — ideias 19 a 30](#segunda-leva--ideias-19-a-30),
 [Terceira leva — ideias 31 a 45](#terceira-leva--ideias-31-a-45) e
 [Quarta leva — ideias 46 a 50](#quarta-leva--ideias-46-a-50), além do item avulso
-[51. Política de senha](#51-política-de-senha). A
-[Quinta leva — ideias 52 a 65](#quinta-leva--ideias-52-a-65) está em andamento.
+[51. Política de senha](#51-política-de-senha),
+[Quinta leva — ideias 52 a 65](#quinta-leva--ideias-52-a-65) e
+[Sexta leva — ideias 67 a 80](#sexta-leva--ideias-67-a-80) (o 79 está adiado: não há
+SMTP). A [Sétima leva — ideias 81 a 94](#sétima-leva--ideias-81-a-94) está registrada.
 
 ---
 
@@ -2563,3 +2565,163 @@ decisões.
       2 MB, arquivo sem página, token errado, serviço fora do ar, desligada,
       reinício;
     - `capture.mjs`.
+
+---
+
+## Sétima leva — ideias 81 a 94
+
+Analisar o que hoje passa batido (ZIP com senha, scripts, atalhos e imagens de disco),
+automatizar a triagem (tags e prioridade por regra), falar com quem enviou (resolução e
+avisos gerais), proteger a operação (backup, expediente no prazo) e enxergar as campanhas
+(mapa de relações, domínios parecidos com os da empresa), sempre no padrão visual do HP
+Service Manager 9.
+
+| # | Ideia | Padrão do HPSM 9 | Prioridade | Esforço | Status |
+|---|---|---|---|---|---|
+| 81 | Backup e restauração verificados | administração do sistema | 🔴 | M | ⬜ (decisão) |
+| 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ⬜ |
+| 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ⬜ |
+| 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ⬜ |
+| 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ⬜ |
+| 86 | Tags e prioridade automáticas por regra | regras de negócio | 🟡 | M | ⬜ |
+| 87 | Resolução para quem enviou | Solution / Resolution | 🟡 | P–M | ⬜ |
+| 88 | Mensagens do sistema (aviso geral) | Broadcast messages | 🟡 | P | ⬜ |
+| 89 | Menções e avisos nos casos | Activities / Notifications | 🟡 | P | ⬜ |
+| 90 | Expediente e feriados no prazo | calendários de SLA | 🟡 | M | ⬜ (decisão) |
+| 91 | Mapa de relações (amostras, indicadores, casos) | registros relacionados | ⚪ | M–G | ⬜ |
+| 92 | Domínios parecidos com os da empresa | listas de vigilância | ⚪ | M | ⬜ |
+| 93 | Documentação da API (OpenAPI) | Web Services | ⚪ | M | ⬜ |
+| 94 | Login corporativo (SSO) | autenticação externa | ⚪ | G | ⬜ (decisão) |
+
+**Ordem sugerida (uma etapa por item, com testes, documentação e commit próprio):**
+82 → 83 → 85 → 84 → 86 → 87 → 88 → 89 → 91 → 92 → 93. Depois, 81, 90 e 94 conforme as
+decisões.
+
+### 82. ZIP com senha ("infected")
+- **Problema:** amostras de malware circulam em ZIP com senha (quase sempre `infected`).
+  Hoje o ZIP com senha entra como um arquivo só, sem os arquivos de dentro.
+- **Proposta:** campo **Senha do ZIP** no envio, já preenchido com `infected`. O ZIP é
+  aberto com a senha (ZipCrypto e AES) e cada arquivo vira uma amostra filha, como no
+  ZIP comum. Errou a senha: aviso claro e o ZIP fica como amostra única.
+- **Cuidados:** os mesmos limites do ZIP comum (zip-bomb, quantidade, tamanho); a senha
+  não é guardada; nada é executado.
+
+### 83. Análise de scripts (PowerShell, JS, VBS, BAT, HTA)
+- **Problema:** scripts maliciosos chegam ofuscados (`-EncodedCommand`, `FromBase64String`,
+  `eval`, concatenações) e o analista desofusca à mão.
+- **Proposta:** na análise estática, reconhecer scripts e mostrar a seção **Script**:
+  - comandos e funções suspeitas (`IEX`, `DownloadString`, `Invoke-WebRequest`,
+    `WScript.Shell`, `eval`, `ActiveXObject`, `certutil`, `bitsadmin`);
+  - **camadas decodificadas**: `-EncodedCommand` (UTF-16LE), Base64 e gzip/deflate em
+    PowerShell, `String.fromCharCode` e `unescape` em JS;
+  - URLs e domínios achados nas camadas, nos IOCs sugeridos.
+- **Cuidados:** só leitura e decodificação; nada é executado; limite de camadas e de
+  tamanho; texto mostrado sempre como texto.
+
+### 84. Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd)
+- **Problema:** atalhos `.lnk` e imagens `.iso`/`.img` são vetores comuns (burlam o Mark
+  of the Web) e hoje aparecem só como "binário".
+- **Proposta:**
+  - **LNK:** destino, argumentos (com o comando escondido), diretório de trabalho, ícone,
+    máquina e MAC de origem, datas;
+  - **ISO/IMG (ISO 9660 e UDF) e VHD:** lista de arquivos com tamanho e, opcionalmente,
+    "Extrair como amostras filhas" (como o ZIP).
+- **Cuidados:** leitura direta dos bytes, com limites; arquivos ocultos marcados.
+
+### 85. Decodificador (Base64, hex, XOR, PowerShell, gzip)
+- **Problema:** para decodificar um trecho, o analista copia para outra ferramenta fora
+  do DeepLook.
+- **Proposta:** ferramenta **Decodificar** (menu Mais e Ctrl+Shift+D): cola o texto e
+  encadeia passos (Base64, hex, URL, PowerShell `-EncodedCommand`, XOR com chave,
+  gzip/deflate, ROT13), com o resultado em texto e em hex. "Decodificar" também aparece
+  na seleção de strings da análise estática.
+- **Cuidados:** tudo no navegador; resultado nunca vira HTML nem link; tamanho limitado.
+
+### 86. Tags e prioridade automáticas por regra
+- **Problema:** a triagem repete as mesmas marcações ("macro → tag macro, P2").
+- **Proposta:** regras "quando a análise achar X, aplicar Y":
+  - condições: tipo real, YARA que casou, detecção do antivírus, domínio ou TLD do link,
+    remetente do e-mail, documento com macro, extensão disfarçada;
+  - ações: incluir tags e definir prioridade. Roda depois das análises, antes da
+    atribuição automática (item 72), que já usa tag e prioridade;
+  - tudo no histórico ("tag macro pela regra Documento com macro").
+- **Cuidados:** nunca tira tag nem baixa prioridade definida por pessoa; mantida por
+  analistas, como as regras de atribuição.
+
+### 87. Resolução para quem enviou
+- **Problema:** quem enviou vê o veredito, mas não sabe o que fazer ("posso abrir?",
+  "já cliquei, e agora?").
+- **Proposta:** campo **Resolução para o solicitante** na conclusão, com modelos ("É
+  golpe: não clique, apague o e-mail", "Seguro: pode abrir", "Clicou? Troque a senha e
+  avise o suporte"). Aparece em destaque na ficha, em Meus Uploads e no aviso de
+  conclusão.
+- **Cuidados:** texto curto e sem detalhes técnicos; o relatório completo continua só
+  para os analistas.
+
+### 88. Mensagens do sistema (aviso geral)
+- **Proposta:** analistas publicam um aviso para todos ("Campanha de phishing do 'boleto
+  vencido' em andamento"), com nível (informação, alerta), validade e, opcionalmente,
+  ligado a um caso. Aparece numa faixa no topo e na Página Inicial até vencer ou a pessoa
+  dispensar.
+- **Cuidados:** no máximo três avisos ativos; texto puro.
+
+### 89. Menções e avisos nos casos
+- **Proposta:** "@" nos comentários do caso, como nas atualizações da amostra; o
+  responsável do caso é avisado quando alguém comenta, inclui ou retira amostras; os
+  avisos abrem o caso.
+- **Cuidados:** não avisa a própria pessoa; reaproveita a Caixa de entrada.
+
+### 90. Expediente e feriados no prazo — decisão pendente
+- **Problema:** o prazo conta 24 horas por dia, e uma amostra enviada na sexta à noite
+  fica "atrasada" na segunda de manhã.
+- **Proposta:** calendário de expediente (dias e horários) e feriados; os prazos
+  (alerta/atraso, escalonamento) contam só o tempo de expediente; o admin mantém os
+  feriados. A Idade continua mostrando o tempo corrido, com uma dica do tempo útil.
+- **Decisão:** qual o expediente (ex.: seg–sex, 8h–18h)? P1 conta 24×7 mesmo assim?
+  Quais feriados (nacionais, da cidade)?
+
+### 91. Mapa de relações (amostras, indicadores, casos)
+- **Problema:** as ligações de uma campanha ficam espalhadas entre Relacionadas,
+  indicadores e casos.
+- **Proposta:** aba **Mapa** na ficha da amostra e no caso: desenho com a amostra no
+  centro, os indicadores, as amostras ligadas (mesmo arquivo, parecido, IOC em comum) e
+  os casos, com cor pelo veredito. Clicar abre a ficha; "Expandir" busca o próximo nível.
+- **Cuidados:** limite de nós (com "+N"); funciona pelo teclado (lista equivalente ao
+  lado); respeita a lista de permissões.
+
+### 92. Domínios parecidos com os da empresa
+- **Problema:** golpes usam domínios parecidos com os da empresa
+  (`empresa-seguranca.com`, `ernpresa.com`).
+- **Proposta:** o admin cadastra os domínios da empresa. O DeepLook gera as variações
+  comuns (letra trocada, faltando ou repetida, homoglifos, outro TLD, hífen, palavras como
+  "login" e "seguranca") e:
+  - marca links, remetentes e IOCs que casarem ("parecido com empresa.com.br");
+  - mostra a lista de variações já vistas, com as amostras.
+- **Cuidados:** nada é consultado na internet; os próprios domínios da empresa entram na
+  lista de permissões.
+
+### 93. Documentação da API (OpenAPI)
+- **Problema:** os tokens de API existem, mas quem integra precisa adivinhar as rotas.
+- **Proposta:** especificação OpenAPI 3 gerada das validações das rotas, servida em
+  `/api/openapi.json`, e a página **Documentação da API** (Minha Conta > Tokens de API),
+  com exemplos em curl para enviar amostra, consultar o resultado e baixar os IOCs.
+- **Cuidados:** só as rotas que aceitam token; sem "experimentar" que chame a API real a
+  partir da página.
+
+### 81. Backup e restauração verificados — decisão pendente
+- **Problema:** banco e MinIO ficam em volumes locais; não há rotina de backup nem teste
+  de restauração.
+- **Proposta:** serviço de backup no compose: `pg_dump` do banco e cópia do bucket, com
+  retenção (ex.: 7 diários, 4 semanais), verificação (restaura o dump num banco
+  temporário e confere as contagens) e a linha **Backup** no Status do sistema (último,
+  tamanho, verificado). README com o passo a passo de restauração.
+- **Decisão:** onde guardar (disco local, outro servidor, armazenamento S3 externo)?
+  Que horário e por quanto tempo? As amostras (arquivos maliciosos) entram no backup ou
+  só banco e relatórios?
+
+### 94. Login corporativo (SSO) — decisão pendente
+- **Proposta:** entrar com a conta da empresa (OIDC: Entra ID/Azure AD, Google
+  Workspace, Keycloak; ou LDAP/Active Directory). O papel pode vir de grupos
+  ("DeepLook-Analistas"). A conta local do admin continua como contingência.
+- **Decisão:** existe provedor corporativo? Qual (Entra ID, Google, Keycloak, AD/LDAP)?
+  O cadastro por chave de ativação continua para quem não tem conta corporativa?
