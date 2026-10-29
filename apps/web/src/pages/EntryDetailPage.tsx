@@ -53,6 +53,7 @@ import {
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
+import { useDecoder } from '../components/shortcuts';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
@@ -66,6 +67,7 @@ function fmtDate(iso?: string | null): string {
 export function EntryDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const decode = useDecoder();
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -397,6 +399,7 @@ export function EntryDetailPage() {
                       },
                   { label: 'Comparar com…', action: () => setCompareOpen(true) },
                   { label: 'Adicionar a caso…', action: () => setCaseOpen(true) },
+                  { label: 'Decodificar texto…', action: () => decode() },
                 ]
               : []),
             {

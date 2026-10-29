@@ -19,6 +19,11 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
       { keys: [['Ctrl', 'K']], label: 'Ir para uma amostra (ID, SHA-256 ou texto)', tip: true },
       { keys: [['Alt', 'N']], label: 'Enviar amostra', tip: true },
       { keys: [['Alt', 'W']], label: 'Fechar a aba atual', tip: true },
+      {
+        keys: [['Ctrl', 'Shift', 'D']],
+        label: 'Decodificar o texto selecionado (Base64, hex, XOR…)',
+        tip: true,
+      },
       { keys: [['?'], ['F1']], label: 'Mostrar esta lista de atalhos' },
     ],
   },

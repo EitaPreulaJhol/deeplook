@@ -2,6 +2,7 @@ import type { MutableRefObject, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { DecoderDialog } from './DecoderDialog';
 import { HpsmShortcutsHelp } from './HpsmShortcutsHelp';
 import { useWorkspace } from './workspace';
 
@@ -9,6 +10,7 @@ type SaveHandler = () => void;
 
 const SaveContext = createContext<MutableRefObject<SaveHandler | null> | null>(null);
 const HelpContext = createContext<(() => void) | null>(null);
+const DecoderContext = createContext<((text?: string) => void) | null>(null);
 
 function isEditable(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -28,6 +30,12 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
   const { close } = useWorkspace();
   const [helpOpen, setHelpOpen] = useState(false);
   const openHelp = useCallback(() => setHelpOpen(true), []);
+  // Decodificador (item 85): abre com o texto pedido (ou o selecionado na tela).
+  const [decoder, setDecoder] = useState<string | null>(null);
+  const openDecoder = useCallback(
+    (text?: string) => setDecoder(text ?? window.getSelection()?.toString() ?? ''),
+    [],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,6 +69,11 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (mod && event.shiftKey && !event.altKey && event.code === 'KeyD') {
+        event.preventDefault();
+        openDecoder();
+        return;
+      }
       if (event.altKey && !mod && event.code === 'KeyN') {
         event.preventDefault();
         navigate('/submit');
@@ -82,13 +95,16 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigate, close, pathname]);
+  }, [navigate, close, pathname, openDecoder]);
 
   return (
     <SaveContext.Provider value={saveRef}>
       <HelpContext.Provider value={openHelp}>
-        {children}
-        {helpOpen && <HpsmShortcutsHelp onClose={() => setHelpOpen(false)} />}
+        <DecoderContext.Provider value={openDecoder}>
+          {children}
+          {helpOpen && <HpsmShortcutsHelp onClose={() => setHelpOpen(false)} />}
+          {decoder !== null && <DecoderDialog initial={decoder} onClose={() => setDecoder(null)} />}
+        </DecoderContext.Provider>
       </HelpContext.Provider>
     </SaveContext.Provider>
   );
@@ -98,6 +114,13 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
 export function useShortcutsHelp(): () => void {
   const open = useContext(HelpContext);
   if (!open) throw new Error('useShortcutsHelp precisa estar dentro de <ShortcutsProvider>.');
+  return open;
+}
+
+/** Abre o Decodificador (item 85) com o texto (sem texto: o selecionado na tela). */
+export function useDecoder(): (text?: string) => void {
+  const open = useContext(DecoderContext);
+  if (!open) throw new Error('useDecoder precisa estar dentro de <ShortcutsProvider>.');
   return open;
 }
 

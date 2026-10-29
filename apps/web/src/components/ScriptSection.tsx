@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ScriptInfo, StaticInfo } from '../api/types';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
+import { useDecoder } from './shortcuts';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
@@ -52,6 +53,7 @@ export function ScriptWarning({ info }: { info?: StaticInfo | null }) {
 export function ScriptSection({ info }: { info?: StaticInfo | null }) {
   const script = info?.script;
   const [open, setOpen] = useState<number | null>(null);
+  const decode = useDecoder();
   if (!script) return null;
   return (
     <HpsmSection title={`Script (${LANGUAGE[script.language]})`} className="dl-mt-lg">
@@ -122,6 +124,9 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
                     onClick={() => setOpen(open === i ? null : i)}
                   >
                     {open === i ? 'Ocultar texto' : 'Ver texto'}
+                  </button>
+                  <button type="button" className="dl-link-button" onClick={() => decode(l.text)}>
+                    Decodificar…
                   </button>
                 </div>
                 {open === i && (

@@ -4190,3 +4190,99 @@ tr.is-off td {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- Decodificador (item 85) ---- */
+.dl-decoder {
+  display: flex;
+  flex-direction: column;
+  max-width: min(60rem, 96vw);
+  max-block-size: 92vh;
+}
+
+.dl-decoder__body {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  overflow: auto;
+}
+
+.dl-decoder__steps {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-decoder__steps li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dl-decoder__steps .cds--form-item,
+.dl-decoder__add .cds--form-item {
+  flex: 0 1 19rem;
+}
+
+.dl-decoder__n {
+  min-inline-size: 1.5rem;
+  font-weight: 600;
+}
+
+.dl-decoder__steps li.is-error .dl-decoder__n,
+.dl-decoder__error {
+  color: var(--dl-status-red);
+}
+
+.dl-decoder__error {
+  font-weight: 600;
+}
+
+.dl-decoder__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dl-decoder__result {
+  border: 1px solid var(--dl-grid-line);
+}
+
+.dl-decoder__bar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.2rem 0.4rem;
+  border-block-end: 1px solid var(--dl-grid-line);
+  background: var(--dl-section-head-2);
+}
+
+.dl-decoder__tab {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--dl-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dl-decoder__tab.is-active {
+  border-color: var(--dl-panel-border);
+  background: var(--dl-surface);
+  font-weight: 700;
+}
+
+.dl-decoder__out {
+  margin: 0;
+  min-block-size: 6rem;
+  max-block-size: 22rem;
+  padding: 0.4rem;
+  overflow: auto;
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

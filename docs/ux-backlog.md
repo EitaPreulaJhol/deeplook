@@ -2582,7 +2582,7 @@ Service Manager 9.
 | 82 | ZIP com senha ("infected") | campos calculados do registro | 🔴 | M | ↩ já existe (item 44) |
 | 83 | Análise de scripts (PowerShell, JS, VBS, BAT, HTA) | campos calculados do registro | 🔴 | M | ✅ |
 | 84 | Atalhos (.lnk) e imagens de disco (.iso, .img, .vhd) | campos calculados do registro | 🟡 | M | ⬜ |
-| 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ⬜ |
+| 85 | Decodificador (Base64, hex, XOR, PowerShell, gzip) | ferramentas do registro | 🟡 | P–M | ✅ |
 | 86 | Tags e prioridade automáticas por regra | regras de negócio | 🟡 | M | ⬜ |
 | 87 | Resolução para quem enviou | Solution / Resolution | 🟡 | P–M | ⬜ |
 | 88 | Mensagens do sistema (aviso geral) | Broadcast messages | 🟡 | P | ⬜ |
@@ -2677,6 +2677,31 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   gzip/deflate, ROT13), com o resultado em texto e em hex. "Decodificar" também aparece
   na seleção de strings da análise estática.
 - **Cuidados:** tudo no navegador; resultado nunca vira HTML nem link; tamanho limitado.
+- ✅ **Implementado** (só no front, sem API nova):
+  - **Passos** (`components/decoder.ts`), sobre bytes e encadeados em qualquer ordem:
+    - Base64 (inclusive URL-safe e sem `=`), hex (com espaços, `0x`, `\x`), URL
+      (`%xx` e `%uXXXX`), PowerShell `-EncodedCommand` (Base64 + UTF-16LE), UTF-16LE;
+    - XOR com chave em texto ou bytes (`0x20` ou `0x41 0x42`), descompactar
+      (gzip, zlib ou deflate, pelo `DecompressionStream` do navegador), ROT13,
+      inverter e códigos de caractere (`72,101,…` ou `0x48`).
+    - Passo que falha fica marcado em vermelho, com o motivo ("não é hex",
+      "Base64 com tamanho inválido"), e os seguintes esperam. Entrada de até 1 MB.
+    - **Sugestão** do próximo passo pelo jeito do resultado: Base64, hex, `%xx`,
+      números, UTF-16 (zeros alternados) ou gzip (`1f 8b`).
+  - **Caixa Decodificar** (`components/DecoderDialog.tsx`):
+    - texto, lista de passos (trocar, tirar, XOR com a chave) e "+ Incluir passo…";
+    - resultado em **Texto** ou **Hex** (deslocamento, bytes e caracteres; os
+      primeiros 4 KB), contagem de bytes e **Copiar** (leva o resultado inteiro,
+      mesmo quando a tela corta em 200 mil caracteres);
+    - o resultado é sempre texto: HTML ou script dentro dele não vira página.
+  - **Onde abre:**
+    - **Ctrl+Shift+D** em qualquer tela, já com o texto selecionado (ex.: um trecho
+      das strings);
+    - **Mais ▾ > Decodificar texto…** na ficha (analistas);
+    - **Decodificar…** em cada camada da seção Script (item 83).
+    - Esc fecha e o foco volta para onde estava. O atalho entrou na lista (`?`/F1) e
+      nas Dicas.
+  - **Testes:** `decoder.mjs`; `more-print.mjs` com o item novo do menu.
 
 ### 86. Tags e prioridade automáticas por regra
 - **Problema:** a triagem repete as mesmas marcações ("macro → tag macro, P2").
