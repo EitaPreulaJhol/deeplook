@@ -482,7 +482,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET/PATCH | `/api/cases/:id` | caso com amostras (SHA-256/URL e relatórios publicados) e linha do tempo; PATCH `{ title?, description?, status?, assigneeId? }` |
 | GET | `/api/cases/:id/iocs` | IOCs das amostras do caso sem repetir: `{ iocs: [{ kind, value, source, entries: [{ id, title, verdict }] }] }` |
 | GET | `/api/cases/:id/iocs/export?format=` | IOCs do caso como anexo: `csv`, `stix` (com `grouping` do caso) ou `misp` |
-| POST/DELETE | `/api/cases/:id/entries` · `/api/cases/:id/entries/:entryId` | incluir `{ entryIds[] }` / retirar (409 se for a última); `POST /api/cases/:id/comments { text }`; `GET /api/cases/counts`; `GET /api/entries/:id/cases` |
+| POST/DELETE | `/api/cases/:id/entries` · `/api/cases/:id/entries/:entryId` | incluir `{ entryIds[] }` / retirar (409 se for a última); `POST /api/cases/:id/comments { text, mentions? }` (menções só de analistas; avisa mencionados e responsável); `GET /api/cases/counts`; `GET /api/entries/:id/cases` |
 | POST | `/api/entries/file` (`.eml`) | e-mail: grava `emailInfo` (cabeçalhos, `auth`, `received`, `links`, `body`, `attachments[{ filename, mimeType, size, entryId?, skipped? }]`) e cria cada anexo como amostra com `parentEntry`; `GET /api/entries/:id` traz `emailInfo` e `parentEntry` |
 | GET | `/api/kb?q=&category=&limit=&offset=` | base de conhecimento (todos): `{ total, items: [{ id, title, summary, category, tags, updatedAt, updatedBy, citations }] }` |
 | GET | `/api/kb/:id` | artigo `{ ..., body, createdBy, canDelete, revisions: [{ createdAt, editor }], reports: [{ id, updatedAt, analyst, entry }] }` (só relatórios publicados) |
@@ -526,10 +526,10 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/admin/trash/:id` | admin: exclui de vez (arquivo no MinIO + ficha e tudo ligado a ela) |
 | GET | `/api/report-templates` | modelos de relatório (analistas e admin) |
 | POST/PATCH/DELETE | `/api/report-templates[/:id]` | admin: `{ name, summary, findings?, iocs?, verdict }`; nome repetido → 409 |
-| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT, REPORT_APPROVED, REPORT_RETURNED, IOC_SEEN, SLA_WARN, SLA_LATE, RESOLUTION; nos de prazo `actor` é null e `detail` são as horas do prazo; `entry.resolution` é a resolução atual) |
+| GET | `/api/me/notifications?limit=&unread=1` | caixa de entrada `{ items, unread }` (ASSIGNED, COMPLETED, MENTION, COMMENT, REPORT_APPROVED, REPORT_RETURNED, IOC_SEEN, SLA_WARN, SLA_LATE, RESOLUTION, CASE_MENTION, CASE_COMMENT, CASE_ENTRY_ADDED, CASE_ENTRY_REMOVED, CASE_ASSIGNED; nos de prazo `actor` é null e `detail` são as horas do prazo; `entry.resolution` é a resolução atual; nos de caso `entry` é null e `case` traz `{ id, code, title }`) |
 | GET | `/api/me/notifications/count` | `{ unread }` (sininho, a cada minuto) |
 | POST | `/api/me/notifications/read` | `{ ids? }` marca como lidas (sem `ids`: todas) |
-| GET | `/api/users/mentionable?q=` | pessoas ativas para o "@" (nome, sem e-mail; até 8) |
+| GET | `/api/users/mentionable?q=&analysts=1` | pessoas ativas para o "@" (nome, sem e-mail; até 8); `analysts=1` nos comentários de casos |
 | GET | `/api/iocs/lookup?q=` | texto → indicador reconhecido `{ ioc: { kind, value } }` ou 404 |
 | GET | `/api/iocs/:kind/:value` | ficha: `{ ioc, items: [{ entry, sightings }], total, firstSeen, lastSeen }` |
 | GET | `/api/entries/:id/iocs` | indicadores da amostra (relatórios publicados + arquivo/URL/domínio) |
@@ -648,6 +648,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `case-notifications.mjs` | menções e avisos nos casos: "@" só com analistas, inserir, enviar só quem continua no texto, menção destacada na linha do tempo, Caixa de entrada (menção, comentário, incluídas, retirada, atribuição, coluna "Amostra ou caso"), abrir leva ao caso, sininho |
 | `resolution.mjs` | resolução para quem enviou: modelos que se somam, contador, alteração não salva, salvar aparado, destaque no topo (cor pelo veredito, texto puro), histórico, remover, Meus Uploads, caixa de entrada e sininho (aviso de resolução e de concluída), quem enviou vê sem o campo |
 | `broadcasts.mjs` | avisos gerais: faixa (alerta primeiro, caso, autor, validade), dispensar só aquele, Página Inicial, pasta Gestão, lista com dispensas, texto obrigatório, publicar, limite de 3, encerrar com confirmação, usuário comum vê a faixa sem a gestão |
 | `search.mjs` | busca: navegador, mínimo de caracteres, termo na URL, grupos com contagem, trecho destacado sem HTML, links, "Ver todos", período, nada encontrado, "Ir para:" com texto livre, usuário comum sem Casos |

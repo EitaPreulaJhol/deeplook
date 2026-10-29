@@ -2853,6 +2853,28 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   responsável do caso é avisado quando alguém comenta, inclui ou retira amostras; os
   avisos abrem o caso.
 - **Cuidados:** não avisa a própria pessoa; reaproveita a Caixa de entrada.
+- ✅ **Implementado** (migração `20261205000000_case_notifications`: a notificação passa a
+  ser de uma amostra **ou** de um caso, com restrição no banco, e ganha 5 tipos):
+  - **Menções:** "@" no comentário do caso, com o mesmo autocompletar das
+    atualizações, mas **só com analistas** (quem pode abrir o caso):
+    - vão só os ids de quem continua com "@Nome" no texto;
+    - a menção fica destacada na linha do tempo.
+  - **Avisos** ao responsável do caso:
+    - comentário (com o trecho);
+    - amostras incluídas ("incluiu 2 amostra(s) no seu caso") e retirada (com o título);
+    - e, além da proposta, o caso atribuído a ele.
+  - **Regras:** o mencionado recebe "mencionou você"; o responsável mencionado recebe
+    só a menção. Nunca avisa quem fez a ação, e incluir de novo o que já estava não
+    avisa.
+  - **Caixa de entrada e sininho:** a coluna vira "Amostra ou caso" ("CASO-0001 ·
+    título"), e os avisos de caso abrem o caso. A lixeira de amostras continua
+    escondendo só os avisos delas.
+  - **Testes:**
+    - 23 checagens no Postgres: comentário, próprio responsável, menções (só analistas,
+      só quem está no texto, responsável recebe só a menção), incluir/retirar,
+      atribuição, sem responsável, lidas, avisos de amostra iguais, lixeira, restrição
+      do banco, autocompletar;
+    - `case-notifications.mjs`.
 
 ### 91. Mapa de relações (amostras, indicadores, casos)
 - **Problema:** as ligações de uma campanha ficam espalhadas entre Relacionadas,

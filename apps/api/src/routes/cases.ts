@@ -5,6 +5,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { recordEvent } from '../lib/events';
 import { caseIocsCsv, caseIocsMisp, caseIocsStix } from '../lib/ioc-export';
+import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
@@ -33,7 +34,11 @@ const PatchSchema = z
   })
   .refine((p) => Object.keys(p).length > 0, 'Nada para atualizar.');
 const AddSchema = z.object({ entryIds: EntryIds });
-const CommentSchema = z.object({ text: z.string().trim().min(1).max(4000) });
+const CommentSchema = z.object({
+  text: z.string().trim().min(1).max(4000),
+  /** Analistas escolhidos no autocompletar de "@" (item 89; validados na API). */
+  mentions: z.array(z.string().min(1).max(40)).max(20).optional(),
+});
 const ListQuery = z.object({
   status: z.enum([...STATUSES, 'active']).optional(),
   assignee: z.union([z.enum(['me', 'none']), z.string().regex(/^c[a-z0-9]{20,32}$/)]).optional(),
@@ -92,6 +97,18 @@ async function addEntries(
     await recordEvent(tx, { entryId, actorId, type: 'CASE_ADDED', detail: code });
   }
   return fresh.length;
+}
+
+/** Avisa o responsavel do caso (item 89); nunca quem fez a acao (notify). */
+async function notifyAssignee(
+  tx: Tx,
+  c: { id: string; assigneeId: string | null },
+  actorId: string,
+  type: 'CASE_ENTRY_ADDED' | 'CASE_ENTRY_REMOVED',
+  detail: string,
+) {
+  if (!c.assigneeId) return;
+  await notify(tx, [{ userId: c.assigneeId, type, caseId: c.id, actorId, detail }]);
 }
 
 /**
@@ -302,6 +319,11 @@ export async function caseRoutes(app: FastifyInstance) {
       }
       if (data.assigneeId !== undefined && data.assigneeId !== current.assigneeId) {
         await event('ASSIGNED', { fromValue: current.assigneeId, toValue: data.assigneeId });
+        if (data.assigneeId) {
+          await notify(tx, [
+            { userId: data.assigneeId, type: 'CASE_ASSIGNED', caseId: current.id, actorId: user.id },
+          ]);
+        }
       }
       const titleChanged = data.title !== undefined && data.title !== current.title;
       const descChanged =
@@ -350,7 +372,10 @@ export async function caseRoutes(app: FastifyInstance) {
         parsed.data.entryIds,
         user.id,
       );
-      if (n) await tx.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } });
+      if (n) {
+        await tx.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } });
+        await notifyAssignee(tx, current, user.id, 'CASE_ENTRY_ADDED', `${n} amostra(s)`);
+      }
       return n;
     });
     return reply.send({ added });
@@ -364,6 +389,7 @@ export async function caseRoutes(app: FastifyInstance) {
     const { entryId } = req.params as { entryId: string };
     const link = await prisma.caseEntry.findUnique({
       where: { caseId_entryId: { caseId: current.id, entryId } },
+      include: { entry: { select: { title: true } } },
     });
     if (!link) return reply.code(404).send({ error: 'A amostra não está neste caso.' });
     // Caso nunca fica vazio: para desfazer, encerre o caso.
@@ -384,6 +410,7 @@ export async function caseRoutes(app: FastifyInstance) {
         detail: caseCode(current.number),
       });
       await tx.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } });
+      await notifyAssignee(tx, current, user.id, 'CASE_ENTRY_REMOVED', link.entry.title);
     });
     return reply.send({ ok: true });
   });
@@ -395,12 +422,43 @@ export async function caseRoutes(app: FastifyInstance) {
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const current = await loadCase(req, reply);
     if (!current) return;
-    await prisma.$transaction([
-      prisma.caseEvent.create({
-        data: { caseId: current.id, actorId: user.id, type: 'COMMENT', detail: parsed.data.text },
-      }),
-      prisma.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } }),
-    ]);
+    const { text } = parsed.data;
+    const mentions = await resolveMentions(text, parsed.data.mentions ?? [], true);
+    await prisma.$transaction(async (tx) => {
+      await tx.caseEvent.create({
+        data: {
+          caseId: current.id,
+          actorId: user.id,
+          type: 'COMMENT',
+          detail: text,
+          // Mencoes (id + nome) para o front destacar o "@Nome" no texto.
+          toValue: mentions.length ? JSON.stringify(mentions) : null,
+        },
+      });
+      await tx.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } });
+      // Mencionados primeiro: o responsavel mencionado recebe so a mencao.
+      const detail = excerpt(text);
+      await notify(tx, [
+        ...mentions.map((m) => ({
+          userId: m.id,
+          type: 'CASE_MENTION' as const,
+          caseId: current.id,
+          actorId: user.id,
+          detail,
+        })),
+        ...(current.assigneeId
+          ? [
+              {
+                userId: current.assigneeId,
+                type: 'CASE_COMMENT' as const,
+                caseId: current.id,
+                actorId: user.id,
+                detail,
+              },
+            ]
+          : []),
+      ]);
+    });
     return reply.code(201).send({ ok: true });
   });
 

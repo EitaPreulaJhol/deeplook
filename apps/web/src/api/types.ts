@@ -404,17 +404,27 @@ export interface AppNotification {
     | 'IOC_SEEN'
     | 'SLA_WARN'
     | 'SLA_LATE'
-    | 'RESOLUTION';
+    | 'RESOLUTION'
+    | 'CASE_MENTION'
+    | 'CASE_COMMENT'
+    | 'CASE_ENTRY_ADDED'
+    | 'CASE_ENTRY_REMOVED'
+    | 'CASE_ASSIGNED';
   /**
    * Veredito (COMPLETED), trecho da atualizacao (MENTION/COMMENT), horas do
-   * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null) ou a
-   * resolucao escrita (RESOLUTION).
+   * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null), a
+   * resolucao escrita (RESOLUTION) ou, nos casos, o trecho do comentario e as
+   * amostras incluidas/retiradas.
    */
   detail: string | null;
   readAt: string | null;
   createdAt: string;
-  /** `resolution`: a resolucao atual (aparece no aviso de concluida). */
-  entry: { id: string; title: string; resolution?: string | null };
+  /**
+   * Amostra ou caso (item 89; sempre um dos dois). `resolution`: a resolucao
+   * atual (aparece no aviso de concluida).
+   */
+  entry: { id: string; title: string; resolution?: string | null } | null;
+  case?: { id: string; number: number; title: string; code: string } | null;
   actor: { id: string; displayName: string } | null;
 }
 

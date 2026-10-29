@@ -6,7 +6,9 @@ export interface NotificationInput {
   /** Destinatario. */
   userId: string;
   type: NotificationType;
-  entryId: string;
+  /** Amostra ou caso (item 89). */
+  entryId?: string;
+  caseId?: string;
   /** Quem causou; null = o sistema. */
   actorId: string | null;
   /** Complemento (veredito, trecho da atualizacao...). */
@@ -44,11 +46,20 @@ export interface Mention {
  * Mencoes validas de uma atualizacao: ids de usuarios ATIVOS cujo "@Nome"
  * ainda aparece no texto (o front manda os ids escolhidos no autocompletar).
  */
-export async function resolveMentions(text: string, ids: string[]): Promise<Mention[]> {
+export async function resolveMentions(
+  text: string,
+  ids: string[],
+  /** Casos (item 89): so quem pode abrir o caso. */
+  analystsOnly = false,
+): Promise<Mention[]> {
   const unique = [...new Set(ids)].slice(0, 20);
   if (!unique.length) return [];
   const users = await prisma.user.findMany({
-    where: { id: { in: unique }, status: 'ACTIVE' },
+    where: {
+      id: { in: unique },
+      status: 'ACTIVE',
+      ...(analystsOnly ? { role: { not: 'USER' as const } } : {}),
+    },
     select: { id: true, displayName: true },
   });
   return users

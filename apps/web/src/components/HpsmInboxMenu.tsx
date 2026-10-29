@@ -6,7 +6,9 @@ import type { AppNotification } from '../api/types';
 import { IconBell } from './icons';
 import {
   notificationHref,
+  notificationQuote,
   notificationResolution,
+  notificationTarget,
   notificationText,
   useMarkRead,
   useNotificationCount,
@@ -151,13 +153,10 @@ export function HpsmInboxMenu() {
               <span className="hpsm-inbox__dot" aria-hidden="true" />
               <span className="hpsm-inbox__text">
                 <span className="hpsm-inbox__title">{notificationText(n)}</span>
-                <span className="hpsm-inbox__entry">{n.entry.title}</span>
-                {n.detail &&
-                  (n.type === 'MENTION' ||
-                    n.type === 'COMMENT' ||
-                    n.type === 'REPORT_RETURNED') && (
-                    <span className="hpsm-inbox__detail">“{n.detail}”</span>
-                  )}
+                <span className="hpsm-inbox__entry">{notificationTarget(n)}</span>
+                {notificationQuote(n) && (
+                  <span className="hpsm-inbox__detail">“{notificationQuote(n)}”</span>
+                )}
                 {notificationResolution(n) && (
                   <span className="hpsm-inbox__detail dl-resolution-line">
                     O que fazer: {notificationResolution(n)}

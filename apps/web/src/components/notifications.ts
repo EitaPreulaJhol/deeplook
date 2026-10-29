@@ -70,6 +70,16 @@ export function notificationText(n: AppNotification): string {
       return `Amostra atrasada: mais de ${n.detail ?? '?'} h no mesmo status`;
     case 'RESOLUTION':
       return `${who} escreveu o que fazer com a sua amostra`;
+    case 'CASE_MENTION':
+      return `${who} mencionou você num comentário do caso`;
+    case 'CASE_COMMENT':
+      return `${who} comentou no caso sob sua responsabilidade`;
+    case 'CASE_ENTRY_ADDED':
+      return `${who} incluiu ${n.detail ?? 'amostras'} no seu caso`;
+    case 'CASE_ENTRY_REMOVED':
+      return `${who} retirou "${n.detail ?? 'uma amostra'}" do seu caso`;
+    case 'CASE_ASSIGNED':
+      return `${who} atribuiu o caso a você`;
   }
 }
 
@@ -79,8 +89,26 @@ export function notificationText(n: AppNotification): string {
  */
 export function notificationResolution(n: AppNotification): string | null {
   if (n.type === 'RESOLUTION') return n.detail;
-  if (n.type === 'COMPLETED') return n.entry.resolution ?? null;
+  if (n.type === 'COMPLETED') return n.entry?.resolution ?? null;
   return null;
+}
+
+/** Trecho citado abaixo da frase (atualizacoes, comentarios e devolucao). */
+export function notificationQuote(n: AppNotification): string | null {
+  const quoted: AppNotification['type'][] = [
+    'MENTION',
+    'COMMENT',
+    'REPORT_RETURNED',
+    'CASE_MENTION',
+    'CASE_COMMENT',
+  ];
+  return quoted.includes(n.type) ? n.detail : null;
+}
+
+/** Do que se trata: o titulo da amostra ou "CASO-0001 · titulo" (item 89). */
+export function notificationTarget(n: AppNotification): string {
+  if (n.case) return `${n.case.code} · ${n.case.title}`;
+  return n.entry?.title ?? '—';
 }
 
 /** Para onde a notificacao leva (atualizacoes abrem a aba Historico). */
@@ -93,5 +121,7 @@ export function notificationHref(n: AppNotification): string {
           (n.type === 'IOC_SEEN' && n.detail?.endsWith('relatório publicado'))
         ? '?tab=relatorios'
         : '';
-  return `/entries/${n.entry.id}${tab}`;
+  // Avisos de casos abrem o caso (item 89).
+  if (n.case) return `/casos/${n.case.id}`;
+  return `/entries/${n.entry?.id}${tab}`;
 }

@@ -18,7 +18,9 @@ import { IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import {
   notificationHref,
+  notificationQuote,
   notificationResolution,
+  notificationTarget,
   notificationText,
   useMarkRead,
   useNotifications,
@@ -100,7 +102,7 @@ export function InboxPage() {
                   <span className="cds--visually-hidden">Situação</span>
                 </TableHeader>
                 <TableHeader scope="col">Notificação</TableHeader>
-                <TableHeader scope="col">Amostra</TableHeader>
+                <TableHeader scope="col">Amostra ou caso</TableHeader>
                 <TableHeader scope="col">Quando</TableHeader>
               </TableRow>
             </TableHead>
@@ -122,19 +124,16 @@ export function InboxPage() {
                   </TableCell>
                   <TableCell>
                     {notificationText(n)}
-                    {n.detail &&
-                      (n.type === 'MENTION' ||
-                        n.type === 'COMMENT' ||
-                        n.type === 'REPORT_RETURNED') && (
-                        <div className="hpsm-inbox__detail">“{n.detail}”</div>
-                      )}
+                    {notificationQuote(n) && (
+                      <div className="hpsm-inbox__detail">“{notificationQuote(n)}”</div>
+                    )}
                     {notificationResolution(n) && (
                       <div className="hpsm-inbox__detail dl-resolution-line">
                         O que fazer: {notificationResolution(n)}
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>{n.entry.title}</TableCell>
+                  <TableCell>{notificationTarget(n)}</TableCell>
                   <TableCell>{fmtDate(n.createdAt)}</TableCell>
                 </TableRow>
               ))}

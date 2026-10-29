@@ -33,6 +33,8 @@ import {
 } from '../components/HpsmToolbar';
 import { IconAdd, IconArrowLeft, IconDownload, IconPrint } from '../components/icons';
 import { IOC_KIND_LABELS, iocHref } from '../components/iocs';
+import type { Mention } from '../components/MentionTextArea';
+import { MentionTextArea, renderMentions } from '../components/MentionTextArea';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
@@ -89,6 +91,7 @@ export function CasePage() {
   const [busy, setBusy] = useState(false);
   const [addId, setAddId] = useState('');
   const [comment, setComment] = useState('');
+  const [mentions, setMentions] = useState<Mention[]>([]);
 
   // O formulario parte do caso carregado (e volta a ele depois de salvar).
   useEffect(() => {
@@ -196,8 +199,11 @@ export function CasePage() {
   const sendComment = async () => {
     if (!c || !comment.trim()) return;
     await run(async () => {
-      await api.post(`/cases/${c.id}/comments`, { text: comment });
+      // So as pessoas cujo "@Nome" continua no texto (item 89).
+      const cited = mentions.filter((m) => comment.includes(`@${m.name}`)).map((m) => m.id);
+      await api.post(`/cases/${c.id}/comments`, { text: comment, mentions: cited });
       setComment('');
+      setMentions([]);
       return 'Comentário registrado.';
     });
   };
@@ -524,18 +530,25 @@ export function CasePage() {
               <span className="dl-case-timeline__when">{fmtDate(e.createdAt)}</span>{' '}
               <strong>{e.actor?.displayName ?? 'Alguém'}</strong> {caseEventText(e, names)}
               {e.type === 'COMMENT' && e.detail && (
-                <p className="dl-case-timeline__comment">{e.detail}</p>
+                <p className="dl-case-timeline__comment">{renderMentions(e.detail, e.toValue)}</p>
               )}
             </li>
           ))}
         </ol>
         <div className="dl-case-comment">
-          <TextArea
+          <MentionTextArea
             id="case-comment"
             labelText="Novo comentário"
+            helperText="Digite @ para mencionar um analista; o responsável do caso é avisado."
             rows={3}
             value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            onChange={setComment}
+            analystsOnly
+            onMention={(m) =>
+              setMentions((current) =>
+                current.some((x) => x.id === m.id) ? current : [...current, m],
+              )
+            }
           />
           <Button
             kind="tertiary"

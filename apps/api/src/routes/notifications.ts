@@ -5,6 +5,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
+import { caseCode } from './cases';
 
 const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(20),
@@ -21,8 +22,13 @@ const ReadSchema = z.object({
  * Caixa de entrada (sininho do masthead e pagina "Caixa de entrada") e a lista
  * de pessoas para o autocompletar de "@" nas atualizacoes.
  */
-/** Notificacoes de amostras na lixeira ficam escondidas (voltam se restaurada). */
-const liveEntry: Prisma.NotificationWhereInput = { entry: { deletedAt: null } };
+/**
+ * Notificacoes de amostras na lixeira ficam escondidas (voltam se restaurada);
+ * as de casos (item 89) nao tem amostra.
+ */
+const liveEntry: Prisma.NotificationWhereInput = {
+  OR: [{ entryId: null }, { entry: { deletedAt: null } }],
+};
 
 export async function notificationRoutes(app: FastifyInstance) {
   const unreadCount = (userId: string) =>
@@ -47,12 +53,19 @@ export async function notificationRoutes(app: FastifyInstance) {
           readAt: true,
           createdAt: true,
           entry: { select: { id: true, title: true, resolution: true } },
+          case: { select: { id: true, number: true, title: true } },
           actor: { select: { id: true, displayName: true } },
         },
       }),
       unreadCount(user.id),
     ]);
-    return reply.send({ items, unread: total });
+    return reply.send({
+      items: items.map((n) => ({
+        ...n,
+        case: n.case ? { ...n.case, code: caseCode(n.case.number) } : null,
+      })),
+      unread: total,
+    });
   });
 
   // Contador do sininho (consultado a cada minuto).
@@ -82,10 +95,13 @@ export async function notificationRoutes(app: FastifyInstance) {
     const q = String((req.query as { q?: string }).q ?? '')
       .trim()
       .slice(0, 60);
+    // `analysts=1`: comentarios de casos (item 89), que so analistas abrem.
+    const analystsOnly = (req.query as { analysts?: string }).analysts === '1';
     const users = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
         id: { not: user.id },
+        ...(analystsOnly ? { role: { not: 'USER' as const } } : {}),
         ...(q ? { displayName: { contains: q, mode: 'insensitive' as const } } : {}),
       },
       orderBy: { displayName: 'asc' },

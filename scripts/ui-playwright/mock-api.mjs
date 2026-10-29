@@ -411,7 +411,9 @@ export async function setupMock(context, state) {
           return json(route, 200, { ok: true });
         }
         if (m[2] === 'comments') {
-          event('COMMENT', { detail: body.text });
+          // Mencoes (item 89) gravadas como na API: [{ id, name }].
+          const cited = (body.mentions ?? []).map((id) => ({ id, name: users.find((u) => u.id === id)?.displayName }));
+          event('COMMENT', { detail: body.text, toValue: cited.length ? JSON.stringify(cited) : null });
           return json(route, 201, { ok: true });
         }
       }
@@ -586,6 +588,8 @@ export async function setupMock(context, state) {
         const q = (url.searchParams.get('q') || '').toLowerCase();
         const list = users
           .filter((u) => u.status === 'ACTIVE' && u.id !== 'u1' && u.displayName.toLowerCase().includes(q))
+          // Casos (item 89): so analistas.
+          .filter((u) => url.searchParams.get('analysts') !== '1' || u.role !== 'USER')
           .map((u) => ({ id: u.id, displayName: u.displayName }));
         return json(route, 200, { users: list });
       }

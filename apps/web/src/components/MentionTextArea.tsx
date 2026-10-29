@@ -19,6 +19,8 @@ type Props = Omit<ComponentProps<typeof TextArea>, 'value' | 'onChange'> & {
   onChange: (value: string) => void;
   /** Pessoa escolhida no autocompletar (o pai guarda para enviar os ids). */
   onMention: (mention: Mention) => void;
+  /** So analistas na lista (comentarios de casos, item 89). */
+  analystsOnly?: boolean;
 };
 
 /**
@@ -26,17 +28,26 @@ type Props = Omit<ComponentProps<typeof TextArea>, 'value' | 'onChange'> & {
  * (filtrada pelo que vem depois); setas escolhem, Enter ou Tab inserem
  * "@Nome", Esc fecha. O texto guarda so o nome; os ids vao a parte.
  */
-export function MentionTextArea({ id, value, onChange, onMention, ...rest }: Props) {
+export function MentionTextArea({
+  id,
+  value,
+  onChange,
+  onMention,
+  analystsOnly = false,
+  ...rest
+}: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const listId = useId();
   const [trigger, setTrigger] = useState<{ query: string; start: number } | null>(null);
   const [active, setActive] = useState(0);
 
   const users = useQuery({
-    queryKey: ['mentionable', trigger?.query ?? ''],
+    queryKey: ['mentionable', trigger?.query ?? '', analystsOnly],
     queryFn: () =>
       api.get<{ users: { id: string; displayName: string }[] }>(
-        `/users/mentionable?q=${encodeURIComponent(trigger?.query ?? '')}`,
+        `/users/mentionable?q=${encodeURIComponent(trigger?.query ?? '')}${
+          analystsOnly ? '&analysts=1' : ''
+        }`,
       ),
     enabled: trigger !== null,
     staleTime: 30_000,
