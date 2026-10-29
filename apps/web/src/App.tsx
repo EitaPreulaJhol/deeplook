@@ -7,6 +7,7 @@ import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
 import { AllowlistPage } from './pages/AllowlistPage';
+import { ApiDocsPage } from './pages/ApiDocsPage';
 import { AssignmentPage } from './pages/AssignmentPage';
 import { BroadcastsPage } from './pages/BroadcastsPage';
 import { CasePage } from './pages/CasePage';
@@ -104,6 +105,8 @@ export default function App() {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/inicio" element={<WelcomePage />} />
         <Route path="/user" element={<UserPage />} />
+        {/* Documentacao da API (item 93). */}
+        <Route path="/user/api" element={<ApiDocsPage />} />
         <Route path="/history" element={<GlobalHistoryPage />} />
         <Route path="/me" element={<MyUploadsPage />} />
         <Route path="/submit" element={<SubmitPage />} />

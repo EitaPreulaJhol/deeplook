@@ -39,6 +39,7 @@ import { kbRoutes } from './routes/kb';
 import { managementRoutes } from './routes/management';
 import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
+import { openApiRoutes } from './routes/openapi';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
@@ -89,6 +90,8 @@ async function main() {
   await app.register(graphRoutes);
   // Dominios parecidos com os da empresa (item 92).
   await app.register(companyDomainRoutes);
+  // Documentacao da API (item 93).
+  await app.register(openApiRoutes);
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
   await app.register(templateRoutes);

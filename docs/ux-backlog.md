@@ -2961,6 +2961,27 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   com exemplos em curl para enviar amostra, consultar o resultado e baixar os IOCs.
 - **Cuidados:** só as rotas que aceitam token; sem "experimentar" que chame a API real a
   partir da página.
+- ✅ **Implementado** (sem migração e sem dependência nova):
+  - **Especificação** OpenAPI 3.1 (`lib/openapi.ts`, `GET /api/openapi.json`, com sessão
+    ou token):
+    - parâmetros e corpos gerados dos schemas zod das próprias rotas (`z.toJSONSchema`
+      do zod 4): filtros da lista, link e formato da exportação;
+    - upload multipart, respostas, erros e o esquema bearer descritos à mão.
+    - Só as rotas que aceitam token (agora exportadas em `ALLOWED_ROUTES`); o teste
+      falha se as duas listas divergirem.
+  - **Página** Documentação da API (`/user/api`, link em Minha Conta > Tokens de API):
+    - passo a passo;
+    - exemplos em curl com o endereço do DeepLook e Copiar: enviar arquivo, enviar link,
+      consultar o resultado, baixar os IOCs;
+    - as rotas lidas da especificação, com método, caminho, campos (caminho, query,
+      JSON, formulário; tipo, valores, padrão, obrigatório) e respostas;
+    - "Baixar a especificação". Nada na página chama a API pela pessoa.
+  - README com o link.
+  - **Testes:**
+    - 12 checagens: acesso (sem login 401, token, sessão), rotas iguais a
+      `ALLOWED_ROUTES`, schemas vindos do zod, multipart, `$ref` resolvidos, parâmetros
+      de caminho declarados;
+    - `api-docs.mjs`.
 
 ### 81. Backup em ZIP para baixar
 - **Problema:** banco e MinIO ficam em volumes locais; não há rotina de backup nem teste

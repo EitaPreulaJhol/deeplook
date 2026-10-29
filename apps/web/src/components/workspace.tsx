@@ -40,6 +40,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 function routeTitle(pathname: string): string | null {
   if (pathname === '/inicio') return 'Página Inicial';
   if (pathname === '/user') return 'Minha Conta';
+  if (pathname === '/user/api') return 'Documentação da API';
   if (pathname === '/history') return 'Histórico Global';
   if (pathname === '/me') return 'Meus Uploads';
   if (pathname === '/submit') return 'Enviar Amostra';

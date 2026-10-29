@@ -12,6 +12,7 @@ import {
 } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { ApiToken } from '../api/types';
@@ -175,6 +176,14 @@ export function ApiTokensTab() {
             <HpsmReadonly mono multiline>
               {`curl -H "Authorization: Bearer <token>" "${origin}/api/entries?scope=mine"\n`}
               {`curl -H "Authorization: Bearer <token>" -F file=@amostra.exe "${origin}/api/entries/file"`}
+            </HpsmReadonly>
+          </HpsmField>
+          <HpsmField label="Documentação">
+            <HpsmReadonly>
+              <Link className="dl-link" to="/user/api">
+                Documentação da API
+              </Link>{' '}
+              (rotas, campos, exemplos e a especificação OpenAPI)
             </HpsmReadonly>
           </HpsmField>
           <HpsmField label="Permite">

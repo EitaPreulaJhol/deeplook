@@ -4575,3 +4575,87 @@ tr.is-off td {
   color: var(--dl-text-muted);
   font-size: 0.75rem;
 }
+
+/* Documentacao da API (item 93). */
+.dl-apidoc__steps {
+  margin: 0 0 0.75rem 1.25rem;
+  list-style: decimal;
+
+  li {
+    margin-bottom: 0.3rem;
+  }
+}
+
+.dl-apidoc__example {
+  margin-bottom: 0.75rem;
+
+  pre {
+    margin: 0.25rem 0 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--dl-panel-border);
+    background: var(--dl-surface-alt);
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.dl-apidoc__example-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dl-apidoc__route {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--dl-panel-border);
+
+  h3 {
+    margin: 0 0 0.3rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0.2rem 0;
+    font-size: 0.8rem;
+  }
+}
+
+.dl-apidoc__method {
+  display: inline-block;
+  min-width: 3.2rem;
+  padding: 0 0.3rem;
+  border-radius: 2px;
+  color: #fff;
+  font-size: 0.75rem;
+  text-align: center;
+  background: var(--dl-status-blue);
+}
+
+.dl-apidoc__method--post {
+  background: var(--dl-status-green);
+}
+
+.dl-apidoc__fields {
+  width: 100%;
+  margin: 0.3rem 0;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+
+  th,
+  td {
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--dl-panel-border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--dl-surface-alt);
+  }
+}
+
+.dl-apidoc__responses {
+  color: var(--dl-text-muted);
+}

@@ -161,6 +161,9 @@ curl -H "Authorization: Bearer dlk_..." -H "Content-Type: application/json" \
 - **Permitido:** enviar arquivos, `.zip` (`/api/entries/zip`) e links; listar e consultar
   amostras, relatórios, histórico e IOCs.
 - **Fora do token (403):** baixar o arquivo, triagem, relatórios, conta e administração.
+- **Documentação:** Minha Conta > Tokens de API > **Documentação da API** (`/user/api`)
+  lista as rotas, os campos e exemplos. A especificação OpenAPI 3.1 está em
+  `/api/openapi.json` (com sessão ou token) e é gerada das validações das rotas.
 - **Limite:** 120 requisições por minuto por token.
 - **Revogação:** o usuário revoga em Minha Conta; o admin revoga um token na aba Tokens de
   API ou retira a liberação, o que revoga todos de uma vez. Suspender a conta também corta

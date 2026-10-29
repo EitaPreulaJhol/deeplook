@@ -121,7 +121,7 @@ function listOrderBy(sort: z.infer<typeof ListQuery>['sort'], dir: 'asc' | 'desc
   return [primary, { id: 'asc' as const }];
 }
 
-const UrlSchema = z.object({
+export const UrlSchema = z.object({
   url: z.string().url(),
   title: z.string().min(2).max(200),
   description: z.string().max(4000).optional(),

@@ -37,6 +37,9 @@ export type Sighting =
   | { kind: 'FILE' }
   | { kind: 'URL_HOST' };
 
+/** Exportacao dos IOCs da amostra: ?format=csv | stix | misp. */
+export const ExportQuery = z.object({ format: z.enum(['csv', 'stix', 'misp']) });
+
 /**
  * Indicadores da amostra: os dos relatorios publicados (indice ReportIoc) e os
  * da propria amostra (SHA-256 do arquivo, URL e dominio).
@@ -299,8 +302,6 @@ export async function iocRoutes(app: FastifyInstance) {
     return reply.send({ iocs: result.iocs });
   });
 
-  // Exportacao dos IOCs da amostra: ?format=csv | stix | misp.
-  const ExportQuery = z.object({ format: z.enum(['csv', 'stix', 'misp']) });
   app.get('/api/entries/:id/iocs/export', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;

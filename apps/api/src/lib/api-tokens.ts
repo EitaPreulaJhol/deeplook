@@ -21,7 +21,9 @@ const LAST_USED_EVERY_MS = 60_000;
  * Rotas que aceitam token: so enviar e consultar amostras. Triagem, relatorios,
  * administracao, conta e download do arquivo continuam so pelo navegador.
  */
-const ALLOWED_ROUTES = new Set([
+export const ALLOWED_ROUTES = new Set([
+  // Especificacao OpenAPI destas rotas (item 93).
+  'GET /api/openapi.json',
   'POST /api/entries/file',
   'POST /api/entries/url',
   'POST /api/entries/zip',
