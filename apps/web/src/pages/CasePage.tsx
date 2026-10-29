@@ -37,6 +37,7 @@ import type { Mention } from '../components/MentionTextArea';
 import { MentionTextArea, renderMentions } from '../components/MentionTextArea';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { RelationMap } from '../components/RelationMap';
 import { useSaveShortcut } from '../components/shortcuts';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
@@ -521,6 +522,11 @@ export function CasePage() {
             </Table>
           </TableContainer>
         )}
+      </HpsmSection>
+
+      {/* Mapa de relacoes (item 91): amostras do caso e indicadores em comum. */}
+      <HpsmSection title="Mapa de relações" className="dl-mt-lg">
+        <RelationMap source="case" id={c.id} />
       </HpsmSection>
 
       <HpsmSection title="Linha do tempo" className="dl-mt-lg">

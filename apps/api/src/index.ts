@@ -30,6 +30,7 @@ import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
 import { favoritesRoutes } from './routes/favorites';
+import { graphRoutes } from './routes/graph';
 import { hexRoutes } from './routes/hex';
 import { iocImportRoutes } from './routes/ioc-import';
 import { iocRoutes } from './routes/iocs';
@@ -83,6 +84,8 @@ async function main() {
   await app.register(sessionRoutes);
   await app.register(favoritesRoutes);
   await app.register(relatedRoutes);
+  // Mapa de relacoes (item 91).
+  await app.register(graphRoutes);
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
   await app.register(templateRoutes);

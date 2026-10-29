@@ -46,6 +46,7 @@ import {
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageCaptureSection } from '../components/PageCaptureSection';
 import { PageHeader } from '../components/PageHeader';
+import { RelationMap } from '../components/RelationMap';
 import {
   ReputationSection,
   reputationSummary,
@@ -304,6 +305,8 @@ export function EntryDetailPage() {
       id: 'relacionadas',
       label: relatedQuery.data ? `Relacionadas (${relatedQuery.data.total})` : 'Relacionadas',
     },
+    // Mapa de relacoes (item 91).
+    { id: 'mapa', label: 'Mapa' },
     { id: 'historico', label: 'Histórico' },
   ];
   const tabParam = searchParams.get('tab');
@@ -902,6 +905,12 @@ export function EntryDetailPage() {
       {activeTab === 'relacionadas' && (
         <div className="hpsm-tabpanel">
           <EntryRelatedTab entryId={id} />
+        </div>
+      )}
+
+      {activeTab === 'mapa' && (
+        <div className="hpsm-tabpanel">
+          <RelationMap source="entry" id={id} />
         </div>
       )}
 

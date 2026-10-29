@@ -50,7 +50,7 @@ const listInclude = {
   _count: { select: { reports: true } },
 } satisfies Prisma.EntryInclude;
 
-type ListEntry = Prisma.EntryGetPayload<{ include: typeof listInclude }>;
+export type ListEntry = Prisma.EntryGetPayload<{ include: typeof listInclude }>;
 
 /**
  * IOCs em comum (fase 2), por amostra: relatorios publicados de outras amostras
@@ -123,11 +123,150 @@ async function sharedIocs(
   return matches;
 }
 
+export interface RelatedItem {
+  entry: ListEntry;
+  reasons: RelatedReason[];
+  score: number;
+}
+
 /**
- * Aba "Relacionadas" da amostra: outras amostras com o mesmo arquivo (SHA-256),
- * o mesmo dominio (host exato ou mesmo dominio-base), tags ou IOCs em comum. Cada
- * linha traz os motivos; ordem por relevancia e, no empate, mais recentes.
+ * Outras amostras com o mesmo arquivo (SHA-256), o mesmo dominio (host exato ou
+ * mesmo dominio-base), tags ou IOCs em comum, ou arquivo parecido (TLSH). Cada
+ * uma traz os motivos; ordem por relevancia e, no empate, mais recentes. Null se
+ * a amostra nao existe. Usada pela aba Relacionadas e pelo Mapa (item 91).
  */
+export async function findRelated(id: string, minSimilarity = 70): Promise<RelatedItem[] | null> {
+  const entry = await prisma.entry.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      sha256: true,
+      tlsh: true,
+      urlDomain: true,
+      tags: { select: { id: true, name: true } },
+    },
+  });
+  if (!entry) return null;
+
+  const notSelf = { id: { not: entry.id } };
+  const host = entry.urlDomain?.toLowerCase() ?? null;
+  // Dominio permitido (ex.: docs.google.com) nao liga amostras pelo dominio.
+  const hostAllowed = host ? Boolean(allowedBy(await loadAllowlist(), 'DOMAIN', host)) : false;
+  const base = host && !hostAllowed ? baseDomain(host) : null;
+  const tagIds = entry.tags.map((t) => t.id);
+
+  const [sameFile, sameDomain, sharedTags] = await Promise.all([
+    entry.sha256
+      ? prisma.entry.findMany({
+          where: { ...notSelf, sha256: entry.sha256 },
+          include: listInclude,
+          orderBy: { createdAt: 'desc' },
+          take: CANDIDATES,
+        })
+      : [],
+    base
+      ? prisma.entry.findMany({
+          where: {
+            ...notSelf,
+            OR: [{ urlDomain: base }, { urlDomain: { endsWith: `.${base}` } }],
+          },
+          include: listInclude,
+          orderBy: { createdAt: 'desc' },
+          take: CANDIDATES,
+        })
+      : [],
+    tagIds.length
+      ? prisma.entry.findMany({
+          where: { ...notSelf, tags: { some: { id: { in: tagIds } } } },
+          include: listInclude,
+          orderBy: { createdAt: 'desc' },
+          take: CANDIDATES,
+        })
+      : [],
+  ]);
+
+  const found = new Map<string, { entry: ListEntry; reasons: RelatedReason[] }>();
+  const add = (item: ListEntry, reason: RelatedReason) => {
+    const current = found.get(item.id) ?? { entry: item, reasons: [] };
+    current.reasons.push(reason);
+    found.set(item.id, current);
+  };
+
+  for (const item of sameFile) add(item, { kind: 'SAME_SHA256' });
+  for (const item of sameDomain) {
+    const otherHost = item.urlDomain?.toLowerCase();
+    if (!otherHost || !base) continue;
+    if (otherHost === host) add(item, { kind: 'SAME_HOST', detail: otherHost });
+    else add(item, { kind: 'SAME_BASE_DOMAIN', detail: base });
+  }
+  const myTags = new Map(entry.tags.map((t) => [t.id, t.name]));
+  for (const item of sharedTags) {
+    const common = item.tags.filter((t) => myTags.has(t.id)).map((t) => t.name);
+    if (common.length) add(item, { kind: 'SHARED_TAGS', detail: common.sort() });
+  }
+
+  // IOCs em comum: as amostras que ainda nao vieram por outro motivo sao lidas
+  // aqui (as com mais indicadores em comum primeiro).
+  const iocMatches = await sharedIocs(entry.id, entry.sha256, host);
+  if (iocMatches.size) {
+    const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
+    const missing = [...iocMatches.entries()]
+      .filter(([otherId]) => !known.has(otherId))
+      .sort((a, b) => b[1].size - a[1].size)
+      .slice(0, CANDIDATES)
+      .map(([otherId]) => otherId);
+    if (missing.length) {
+      const extra = await prisma.entry.findMany({
+        where: { id: { in: missing } },
+        include: listInclude,
+      });
+      for (const item of extra) known.set(item.id, item);
+    }
+    for (const [otherId, values] of iocMatches) {
+      const item = known.get(otherId);
+      if (item) add(item, { kind: 'SHARED_IOCS', detail: [...values].sort() });
+    }
+  }
+
+  // Parecidas pelo TLSH (item 71): compara com os hashes ja calculados.
+  if (entry.tlsh) {
+    const others = await prisma.entry.findMany({
+      where: { id: { not: entry.id }, tlsh: { not: null }, NOT: { tlsh: '' } },
+      select: { id: true, tlsh: true, sha256: true },
+      take: SIMILAR_SCAN,
+      orderBy: { createdAt: 'desc' },
+    });
+    const similar = others
+      .filter((o) => !entry.sha256 || o.sha256 !== entry.sha256)
+      .map((o) => ({ id: o.id, distance: tlshDistance(entry.tlsh!, o.tlsh!) }))
+      .filter((o): o is { id: string; distance: number } => o.distance !== null)
+      .map((o) => ({ id: o.id, similarity: tlshSimilarity(o.distance) }))
+      .filter((o) => o.similarity >= minSimilarity)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, CANDIDATES);
+    if (similar.length) {
+      const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
+      const missing = similar.map((s) => s.id).filter((sid) => !known.has(sid));
+      if (missing.length) {
+        const extra = await prisma.entry.findMany({
+          where: { id: { in: missing } },
+          include: listInclude,
+        });
+        for (const item of extra) known.set(item.id, item);
+      }
+      for (const s of similar) {
+        const item = known.get(s.id);
+        if (item) add(item, { kind: 'SIMILAR', detail: s.similarity });
+      }
+    }
+  }
+
+  return [...found.values()]
+    .map((r) => ({ ...r, score: r.reasons.reduce((sum, reason) => sum + weight(reason), 0) }))
+    .sort((a, b) => b.score - a.score || b.entry.createdAt.getTime() - a.entry.createdAt.getTime());
+}
+
+/** Aba "Relacionadas" da amostra (ver findRelated). */
 export async function relatedRoutes(app: FastifyInstance) {
   app.get('/api/entries/:id/related', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -139,136 +278,8 @@ export async function relatedRoutes(app: FastifyInstance) {
       99,
       Math.max(50, Number((req.query as { similarity?: string }).similarity) || 70),
     );
-    const entry = await prisma.entry.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        sha256: true,
-        tlsh: true,
-        urlDomain: true,
-        tags: { select: { id: true, name: true } },
-      },
-    });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
-
-    const notSelf = { id: { not: entry.id } };
-    const host = entry.urlDomain?.toLowerCase() ?? null;
-    // Dominio permitido (ex.: docs.google.com) nao liga amostras pelo dominio.
-    const hostAllowed = host ? Boolean(allowedBy(await loadAllowlist(), 'DOMAIN', host)) : false;
-    const base = host && !hostAllowed ? baseDomain(host) : null;
-    const tagIds = entry.tags.map((t) => t.id);
-
-    const [sameFile, sameDomain, sharedTags] = await Promise.all([
-      entry.sha256
-        ? prisma.entry.findMany({
-            where: { ...notSelf, sha256: entry.sha256 },
-            include: listInclude,
-            orderBy: { createdAt: 'desc' },
-            take: CANDIDATES,
-          })
-        : [],
-      base
-        ? prisma.entry.findMany({
-            where: {
-              ...notSelf,
-              OR: [{ urlDomain: base }, { urlDomain: { endsWith: `.${base}` } }],
-            },
-            include: listInclude,
-            orderBy: { createdAt: 'desc' },
-            take: CANDIDATES,
-          })
-        : [],
-      tagIds.length
-        ? prisma.entry.findMany({
-            where: { ...notSelf, tags: { some: { id: { in: tagIds } } } },
-            include: listInclude,
-            orderBy: { createdAt: 'desc' },
-            take: CANDIDATES,
-          })
-        : [],
-    ]);
-
-    const found = new Map<string, { entry: ListEntry; reasons: RelatedReason[] }>();
-    const add = (item: ListEntry, reason: RelatedReason) => {
-      const current = found.get(item.id) ?? { entry: item, reasons: [] };
-      current.reasons.push(reason);
-      found.set(item.id, current);
-    };
-
-    for (const item of sameFile) add(item, { kind: 'SAME_SHA256' });
-    for (const item of sameDomain) {
-      const otherHost = item.urlDomain?.toLowerCase();
-      if (!otherHost || !base) continue;
-      if (otherHost === host) add(item, { kind: 'SAME_HOST', detail: otherHost });
-      else add(item, { kind: 'SAME_BASE_DOMAIN', detail: base });
-    }
-    const myTags = new Map(entry.tags.map((t) => [t.id, t.name]));
-    for (const item of sharedTags) {
-      const common = item.tags.filter((t) => myTags.has(t.id)).map((t) => t.name);
-      if (common.length) add(item, { kind: 'SHARED_TAGS', detail: common.sort() });
-    }
-
-    // IOCs em comum: as amostras que ainda nao vieram por outro motivo sao lidas
-    // aqui (as com mais indicadores em comum primeiro).
-    const iocMatches = await sharedIocs(entry.id, entry.sha256, host);
-    if (iocMatches.size) {
-      const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
-      const missing = [...iocMatches.entries()]
-        .filter(([otherId]) => !known.has(otherId))
-        .sort((a, b) => b[1].size - a[1].size)
-        .slice(0, CANDIDATES)
-        .map(([otherId]) => otherId);
-      if (missing.length) {
-        const extra = await prisma.entry.findMany({
-          where: { id: { in: missing } },
-          include: listInclude,
-        });
-        for (const item of extra) known.set(item.id, item);
-      }
-      for (const [otherId, values] of iocMatches) {
-        const item = known.get(otherId);
-        if (item) add(item, { kind: 'SHARED_IOCS', detail: [...values].sort() });
-      }
-    }
-
-    // Parecidas pelo TLSH (item 71): compara com os hashes ja calculados.
-    if (entry.tlsh) {
-      const others = await prisma.entry.findMany({
-        where: { id: { not: entry.id }, tlsh: { not: null }, NOT: { tlsh: '' } },
-        select: { id: true, tlsh: true, sha256: true },
-        take: SIMILAR_SCAN,
-        orderBy: { createdAt: 'desc' },
-      });
-      const similar = others
-        .filter((o) => !entry.sha256 || o.sha256 !== entry.sha256)
-        .map((o) => ({ id: o.id, distance: tlshDistance(entry.tlsh!, o.tlsh!) }))
-        .filter((o): o is { id: string; distance: number } => o.distance !== null)
-        .map((o) => ({ id: o.id, similarity: tlshSimilarity(o.distance) }))
-        .filter((o) => o.similarity >= minSimilarity)
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, CANDIDATES);
-      if (similar.length) {
-        const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
-        const missing = similar.map((s) => s.id).filter((sid) => !known.has(sid));
-        if (missing.length) {
-          const extra = await prisma.entry.findMany({
-            where: { id: { in: missing } },
-            include: listInclude,
-          });
-          for (const item of extra) known.set(item.id, item);
-        }
-        for (const s of similar) {
-          const item = known.get(s.id);
-          if (item) add(item, { kind: 'SIMILAR', detail: s.similarity });
-        }
-      }
-    }
-
-    const items = [...found.values()]
-      .map((r) => ({ ...r, score: r.reasons.reduce((sum, reason) => sum + weight(reason), 0) }))
-      .sort(
-        (a, b) => b.score - a.score || b.entry.createdAt.getTime() - a.entry.createdAt.getTime(),
-      );
+    const items = await findRelated(id, minSimilarity);
+    if (!items) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
 
     return reply.send({
       items: items.slice(0, RELATED_LIMIT),

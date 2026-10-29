@@ -2884,6 +2884,33 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
   os casos, com cor pelo veredito. Clicar abre a ficha; "Expandir" busca o próximo nível.
 - **Cuidados:** limite de nós (com "+N"); funciona pelo teclado (lista equivalente ao
   lado); respeita a lista de permissões.
+- ✅ **Implementado** (sem migração):
+  - **API** (`routes/graph.ts`): nós de amostra, indicador e caso, mais as ligações com
+    rótulo. A busca da aba Relacionadas virou `findRelated` (`routes/related.ts`) e é
+    a mesma nas duas.
+    - **Amostra:** indicadores dos relatórios publicados; amostras com o mesmo arquivo,
+      parecidas, do mesmo domínio ou com indicador em comum (essa ligação passa pelo
+      indicador quando ele está no mapa); tag sozinha não entra.
+    - **Casos:** só para analistas; o usuário comum vê o mapa sem eles.
+    - **Caso:** as amostras dele e os indicadores, primeiro os que ligam mais de uma.
+    - Indicadores da lista de permissões ficam fora; amostras na lixeira também.
+    - **Limites:** amostra 12/12/8 e caso 20/15; o que sobra vem em `hidden` e aparece
+      como "+N".
+  - **Desenho** em SVG próprio, sem biblioteca nova:
+    - aba **Mapa** na ficha (todos) e seção "Mapa de relações" no caso;
+    - amostras em círculo na cor do veredito, indicadores em losango, casos em
+      retângulo; rótulo das ligações ("mesmo arquivo", "parecido 82%");
+    - legenda com "Não mostrados: +N";
+    - clicar abre a ficha, o caso ou o indicador.
+  - **Lista equivalente ao lado** (teclado e leitores de tela): por grupo, com links, o
+    motivo da ligação e o **Expandir**. Ele traz as ligações daquela amostra para o
+    mesmo desenho sem mexer no que já estava e mostra o "+N" dela.
+  - **Testes:**
+    - 19 checagens no Postgres (centro, indicadores, permitidos fora, mesmo arquivo,
+      ligação pelo indicador, tag sozinha fora, casos só para analistas, limite com
+      "+N", mapa do caso com o compartilhado primeiro, 403/404, lixeira);
+    - 9 de regressão da aba Relacionadas;
+    - `relation-map.mjs`.
 
 ### 92. Domínios parecidos com os da empresa
 - **Problema:** golpes usam domínios parecidos com os da empresa

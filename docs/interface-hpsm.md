@@ -404,7 +404,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | `/history` | Histórico Global | |
 | `/me` | Meus Uploads | a resolução para quem enviou aparece abaixo do título |
 | `/submit` | Enviar Amostra | abas Arquivo / Link |
-| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=historico` |
+| `/entries/:id` | Amostra | `?tab=analise`, `?tab=relatorios`, `?tab=relacionadas`, `?tab=mapa`, `?tab=historico` |
 | `/revisoes` | Relatórios para revisar (quatro olhos) | só analistas; abre a aba Relatórios da amostra |
 | `/painel` | Painel (indicadores, gráfico diário, vereditos, carga) | `?dias=30\|90`; pode ser a página inicial |
 | `/regras-triagem` | Regras de triagem (analistas): tags e prioridade automáticas | pasta Detecção |
@@ -536,6 +536,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/entries/:id/iocs/export?format=` | `csv`, `stix` (STIX 2.1) ou `misp` (evento JSON), como anexo |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text, mentions? }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
 | GET | `/api/entries/:id/related` | aba Relacionadas: `{ items: [{ entry, reasons, score }], total, limit: 50 }`; motivos `SAME_SHA256`, `SAME_HOST`, `SAME_BASE_DOMAIN`, `SHARED_TAGS`, `SHARED_IOCS` (IOCs dos relatórios publicados, `lib/iocs.ts`), `SIMILAR` (arquivo parecido pelo TLSH, `detail` = similaridade em %); `?similarity=` 50–99 (padrão 70) |
+| GET | `/api/entries/:id/graph` · `/api/cases/:id/graph` | mapa de relações: `{ center, nodes: [{ id, kind: ENTRY\|IOC\|CASE, label, … }], edges: [{ from, to, label }], hidden: { entries, iocs, cases } }`; amostra até 12 amostras, 12 indicadores e 8 casos (casos só para analistas); caso até 20 amostras e 15 indicadores (os compartilhados primeiro; só analistas); sem os indicadores permitidos |
 | GET | `/api/me/favorites` | pasta Favoritos do usuário, em ordem (`entry` resumida nas amostras fixadas) |
 | POST | `/api/me/favorites` | `{ kind: 'VIEW', label, url }` ou `{ kind: 'ENTRY', entryId, label? }`; até 30; repetido → 409 |
 | PATCH | `/api/me/favorites/:id` | `{ label }` (1–60 caracteres) |
@@ -648,6 +649,7 @@ banco nem da API rodando.
 | `decoder.mjs` | decodificador: Ctrl+Shift+D (vazio e com seleção), menu Mais, foco, PowerShell -EncodedCommand, sugestões, hex + XOR, erro marcado no passo, Base64 + gzip, aba Hex, Copiar, resultado como texto, Esc, camada do script, atalho na lista |
 | `disk.mjs` | atalho e imagem de disco: aviso, seção do .lnk (texto puro, Copiar do comando, janela minimizada, máquina/MAC, alertas), imagem (formato, rótulo, ocultos, alertas), extrair com confirmação, linhas ligadas às filhas, VHDX não listado, "Extraído de", usuário comum sem extrair |
 | `triage-rules.mjs` | regras de triagem: pasta Detecção, lista (condição, tags, prioridade, desligada apagada), valor só quando a condição pede, validação, incluir, ligar, excluir com aviso, histórico da regra, usuário comum sem acesso |
+| `relation-map.mjs` | mapa de relações: aba Mapa, nós por tipo, cor pelo veredito, rótulo da ligação, "+N", descrição para leitores de tela, lista equivalente (grupos, motivos, links), Expandir pelo teclado sem mexer no que já estava, clicar abre indicador/ficha, mapa vazio, mapa do caso, usuário comum |
 | `case-notifications.mjs` | menções e avisos nos casos: "@" só com analistas, inserir, enviar só quem continua no texto, menção destacada na linha do tempo, Caixa de entrada (menção, comentário, incluídas, retirada, atribuição, coluna "Amostra ou caso"), abrir leva ao caso, sininho |
 | `resolution.mjs` | resolução para quem enviou: modelos que se somam, contador, alteração não salva, salvar aparado, destaque no topo (cor pelo veredito, texto puro), histórico, remover, Meus Uploads, caixa de entrada e sininho (aviso de resolução e de concluída), quem enviou vê sem o campo |
 | `broadcasts.mjs` | avisos gerais: faixa (alerta primeiro, caso, autor, validade), dispensar só aquele, Página Inicial, pasta Gestão, lista com dispensas, texto obrigatório, publicar, limite de 3, encerrar com confirmação, usuário comum vê a faixa sem a gestão |

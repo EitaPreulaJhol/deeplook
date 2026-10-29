@@ -372,6 +372,15 @@ export async function setupMock(context, state) {
           return json(route, 200, { total: items.length, items });
         }
         if (req.method() !== 'GET') state.caseCalls.push({ method: req.method(), path: p, body });
+        // Mapa de relacoes (item 91): o roteiro define `state.graphs[path]`; sem
+        // isso, so o centro.
+        const gm = p.match(/^\/api\/cases\/(\w+)\/graph$/);
+        if (gm) {
+          if (state.graphs?.[p]) return json(route, 200, state.graphs[p]);
+          const gc = state.cases.find((x) => x.id === gm[1]);
+          const center = `case:${gm[1]}`;
+          return json(route, 200, { center, nodes: [{ id: center, kind: 'CASE', label: `${gc?.code} · ${gc?.title}`, caseId: gm[1], code: gc?.code }], edges: [], hidden: { entries: 0, iocs: 0, cases: 0 } });
+        }
         if (p === '/api/cases' && req.method() === 'POST') {
           const n = state.cases.length + 1;
           const c = { id: `cs${n}`, number: n, code: `CASO-${String(n).padStart(4, '0')}`, title: body.title, description: null, status: 'OPEN', createdAt: at, updatedAt: at, closedAt: null, assignee: me, createdBy: me, entries: body.entryIds.map(caseEntry).filter(Boolean), events: [{ id: `ev${Date.now()}`, type: 'CREATED', detail: body.title, fromValue: null, toValue: null, createdAt: at, actor: me, entry: null }] };
@@ -1221,6 +1230,13 @@ export async function setupMock(context, state) {
         };
         list.push(event);
         return json(route, 201, { event });
+      }
+      const gm = p.match(/^\/api\/entries\/(\w+)\/graph$/);
+      if (gm) {
+        if (state.graphs?.[p]) return json(route, 200, state.graphs[p]);
+        const ge = entries.find((x) => x.id === gm[1]);
+        const center = `entry:${gm[1]}`;
+        return json(route, 200, { center, nodes: [{ id: center, kind: 'ENTRY', label: ge?.title, entryId: gm[1], type: ge?.type, status: ge?.status, verdict: ge?.verdict }], edges: [], hidden: { entries: 0, iocs: 0, cases: 0 } });
       }
       const ev = p.match(/^\/api\/entries\/(\w+)\/events$/);
       if (ev) return json(route, 200, { events: events[ev[1]] ?? [] });
