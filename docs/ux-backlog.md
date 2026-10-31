@@ -3186,12 +3186,15 @@ anterior, como já acontece com status e veredito.
 
 ### 104. Progresso do backup sem tratamento de erro
 `void setStep` pode derrubar a API numa falha de banco e sobrescrever a linha já pronta.
+✅ **Implementado:** gravar o progresso nunca derruba a API nem o backup, e o envio espera cada gravação, para não sobrescrever a linha pronta.
 
 ### 105. Restauração sem citar o `SESSION_SECRET`
 Com outro segredo, os 2FA param de funcionar. Incluir no LEIA-ME e no README.
+✅ **Implementado:** LEIA-ME do ZIP e README citam o `SESSION_SECRET`.
 
 ### 106. Backup restaurado sem as amostras
 O download dá erro em vez de "arquivo indisponível", e o LEIA-ME não avisa.
+✅ **Implementado:** arquivo fora do bucket responde 404 "O arquivo desta amostra não está no armazenamento" (no download e em qualquer outra rota), não vai para a auditoria, e o LEIA-ME avisa.
 
 ### 107. Papel de conta do AD editável na tela
 O próximo login desfaz a mudança sem aviso. Desligar o seletor e recusar na API.

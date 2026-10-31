@@ -185,6 +185,25 @@ async function main() {
     ) === '"dono"',
   );
 
+  // 6. Arquivo fora do bucket (backup restaurado sem as amostras, item 106).
+  const lost = await prisma.entry.create({
+    data: {
+      type: 'FILE',
+      title: 'sumiu.exe',
+      ownerId: ids['dono@x.io'],
+      storageKey: `samples/${Date.now()}-nao-existe`,
+      bucket: env.S3_BUCKET,
+    },
+  });
+  const auditsBefore = (await audits()).length;
+  const missing = await get(`/api/entries/${lost.id}/download`, cDono);
+  ok(
+    'arquivo fora do bucket explica',
+    missing.statusCode === 404 && missing.json().error.includes('não está no armazenamento'),
+    missing.body,
+  );
+  ok('arquivo fora do bucket não audita', (await audits()).length === auditsBefore);
+
   await app.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');

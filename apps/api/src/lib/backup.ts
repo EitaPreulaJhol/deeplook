@@ -51,7 +51,13 @@ Restauração (com o DeepLook parado, na mesma versão ou mais nova)
      pg_restore -U postgres -d deeplook --no-owner --clean --if-exists db/deeplook.dump
 3. Arquivos: copie a pasta objects/ para o bucket (S3_BUCKET), mantendo os caminhos
      mc cp --recursive objects/ local/deeplook-samples/
-4. Suba o DeepLook: as migrações novas, se houver, rodam sozinhas.
+4. Use o mesmo SESSION_SECRET da instalação de origem: com outro, os 2FA ativados param de
+   funcionar (só os códigos de recuperação valem, até reconfigurar).
+5. Suba o DeepLook: as migrações novas, se houver, rodam sozinhas.
+
+Sem objects/samples/ (backup sem as amostras), as fichas voltam, mas os arquivos das
+amostras não: baixar responde "arquivo não está no armazenamento", e a análise que já foi
+feita continua na ficha.
 `;
 
 /** Remove `?schema=` e outros parametros que o pg_dump nao entende. */
@@ -111,7 +117,12 @@ async function* hashing(source: AsyncIterable<Buffer>, hash: ReturnType<typeof c
 }
 
 /** Envia o ZIP ao bucket em partes (sem limite de 5 GB do envio unico). */
-async function upload(file: string, key: string, size: number, onPart: (sent: number) => void) {
+async function upload(
+  file: string,
+  key: string,
+  size: number,
+  onPart: (sent: number) => Promise<unknown>,
+) {
   const { UploadId } = await s3.send(
     new CreateMultipartUploadCommand({
       Bucket: env.S3_BUCKET,
@@ -134,7 +145,7 @@ async function upload(file: string, key: string, size: number, onPart: (sent: nu
         }),
       );
       parts.push({ ETag: ETag!, PartNumber: n });
-      onPart(end);
+      await onPart(end);
     }
     await s3.send(
       new CompleteMultipartUploadCommand({
@@ -173,8 +184,11 @@ export async function runBackup(id: string): Promise<void> {
     include: { createdBy: { select: { displayName: true, email: true } } },
   });
   const dir = await mkdtemp(join(tmpdir(), 'deeplook-backup-'));
+  // Progresso e so informativo: falha ao grava-lo nao derruba o backup nem a API.
   const setStep = (step: string, progress: number) =>
-    prisma.backup.update({ where: { id }, data: { step, progress: Math.round(progress) } });
+    prisma.backup
+      .update({ where: { id }, data: { step, progress: Math.round(progress) } })
+      .catch((err: unknown) => console.error('[backup] falha ao gravar o progresso', err));
   let zip: ZipWriter | null = null;
   try {
     await setStep('Exportando o banco...', 2);
@@ -250,11 +264,8 @@ export async function runBackup(id: string): Promise<void> {
 
     await setStep('Guardando o ZIP...', 90);
     const key = `${BACKUP_PREFIX}${id}.zip`;
-    await upload(
-      zipFile,
-      key,
-      size,
-      (sent) => void setStep('Guardando o ZIP...', 90 + (sent / size) * 9),
+    await upload(zipFile, key, size, (sent) =>
+      setStep('Guardando o ZIP...', 90 + (sent / size) * 9),
     );
     await prisma.backup.update({
       where: { id },

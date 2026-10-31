@@ -16,6 +16,14 @@ export const s3 = new S3Client({
  * Garante que o bucket existe. O MinIO pode demorar a subir,
  * por isso tentamos varias vezes com um pequeno delay.
  */
+/** Objeto que nao esta no bucket (ex.: backup restaurado sem as amostras, item 106). */
+export function isMissingObject(err: unknown): boolean {
+  const name = (err as { name?: string } | null)?.name;
+  return name === 'NoSuchKey' || name === 'NotFound';
+}
+
+export const MISSING_OBJECT_MESSAGE = 'O arquivo desta amostra não está no armazenamento.';
+
 export async function ensureBucket(retries = 30, delayMs = 2000): Promise<void> {
   for (let i = 0; i < retries; i++) {
     try {

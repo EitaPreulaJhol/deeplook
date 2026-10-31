@@ -25,7 +25,7 @@ import { prisma } from '../lib/prisma';
 import { quotaMessage, uploadQuota } from '../lib/quota';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { checkReputationInBackground } from '../lib/reputation';
-import { s3 } from '../lib/s3';
+import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
@@ -1399,9 +1399,13 @@ export async function entryRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'Arquivo nao encontrado.' });
     }
 
-    const obj = await s3.send(
-      new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }),
-    );
+    const obj = await s3
+      .send(new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }))
+      .catch((err: unknown) => {
+        if (isMissingObject(err)) return null;
+        throw err;
+      });
+    if (!obj) return reply.code(404).send({ error: MISSING_OBJECT_MESSAGE });
     await audit(prisma, req, {
       action: 'ENTRY_DOWNLOADED',
       actorId: user.id,
