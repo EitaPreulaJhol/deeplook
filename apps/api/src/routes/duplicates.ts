@@ -16,6 +16,8 @@ const MarkSchema = z.object({
 interface PreviousState {
   status: EntryStatus;
   verdict: Verdict;
+  /** Eventos anteriores ao item 103 nao trazem: a resolucao fica como esta. */
+  resolution?: string | null;
 }
 
 /**
@@ -46,12 +48,10 @@ export async function duplicateRoutes(app: FastifyInstance) {
     ]);
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
     if (!target) {
-      return reply
-        .code(400)
-        .send({
-          error: 'Amostra principal nao encontrada.',
-          details: { of: ['amostra não encontrada'] },
-        });
+      return reply.code(400).send({
+        error: 'Amostra principal nao encontrada.',
+        details: { of: ['amostra não encontrada'] },
+      });
     }
     // Duplicata de duplicata: aponta para a principal da cadeia.
     const principal = target.duplicateOf ?? {
@@ -61,12 +61,10 @@ export async function duplicateRoutes(app: FastifyInstance) {
       resolution: target.resolution,
     };
     if (principal.id === entry.id) {
-      return reply
-        .code(400)
-        .send({
-          error: 'Uma amostra nao pode ser duplicata dela mesma.',
-          details: { of: ['ciclo'] },
-        });
+      return reply.code(400).send({
+        error: 'Uma amostra nao pode ser duplicata dela mesma.',
+        details: { of: ['ciclo'] },
+      });
     }
     if (entry.duplicateOfId === principal.id) {
       return reply.code(409).send({ error: 'A amostra ja e duplicata desta principal.' });
@@ -92,7 +90,11 @@ export async function duplicateRoutes(app: FastifyInstance) {
           resolution: principal.resolution ?? undefined,
         },
       });
-      const previous: PreviousState = { status: entry.status, verdict: entry.verdict };
+      const previous: PreviousState = {
+        status: entry.status,
+        verdict: entry.verdict,
+        resolution: entry.resolution,
+      };
       await recordEvent(tx, {
         entryId: entry.id,
         actorId: user.id,
@@ -105,6 +107,15 @@ export async function duplicateRoutes(app: FastifyInstance) {
         status: 'COMPLETED',
         verdict: principal.verdict,
       });
+      if (principal.resolution && principal.resolution !== entry.resolution) {
+        await recordEvent(tx, {
+          entryId: entry.id,
+          actorId: user.id,
+          type: 'RESOLUTION_SET',
+          toValue: principal.resolution,
+          detail: 'principal',
+        });
+      }
       return result;
     });
     return reply.send({ entry: updated, principal: { id: principal.id, title: principal.title } });
@@ -138,8 +149,22 @@ export async function duplicateRoutes(app: FastifyInstance) {
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.entry.update({
         where: { id },
-        data: { duplicateOfId: null, status: previous.status, verdict: previous.verdict },
+        data: {
+          duplicateOfId: null,
+          status: previous.status,
+          verdict: previous.verdict,
+          ...(previous.resolution !== undefined ? { resolution: previous.resolution } : {}),
+        },
       });
+      // Volta a resolucao que a amostra tinha, e nao a herdada da principal.
+      if (previous.resolution !== undefined && previous.resolution !== entry.resolution) {
+        await recordEvent(tx, {
+          entryId: id,
+          actorId: user.id,
+          type: 'RESOLUTION_SET',
+          toValue: previous.resolution,
+        });
+      }
       await recordEvent(tx, {
         entryId: id,
         actorId: user.id,

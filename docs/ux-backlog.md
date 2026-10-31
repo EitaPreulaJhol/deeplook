@@ -3182,6 +3182,7 @@ salvar grava na amostra errada. O formulário recomeça a cada amostra.
 ### 103. Desmarcar duplicata mantém a resolução herdada
 A resolução da principal fica em destaque e a original se perdeu. Guardar e devolver a
 anterior, como já acontece com status e veredito.
+✅ **Implementado:** marcar guarda a resolução anterior; desmarcar a devolve. Herança e devolução aparecem no histórico.
 
 ### 104. Progresso do backup sem tratamento de erro
 `void setStep` pode derrubar a API numa falha de banco e sobrescrever a linha já pronta.

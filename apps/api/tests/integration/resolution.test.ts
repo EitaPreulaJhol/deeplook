@@ -179,6 +179,26 @@ async function main() {
     (await prisma.entry.findUnique({ where: { id: own2.id } }))?.resolution === 'minha',
   );
 
+  // 9. Desmarcar devolve a resolucao de antes (item 103).
+  const before = await mk('dan@x.io', { resolution: 'a minha', status: 'IN_REVIEW' });
+  await req('POST', `/api/entries/${before.id}/duplicate`, cAna, { of: main1.id });
+  ok(
+    'herdou ao marcar',
+    (await prisma.entry.findUnique({ where: { id: before.id } }))?.resolution === TEXT,
+  );
+  ok('herança no histórico', (await events(before.id)).at(-1)?.detail === 'principal');
+  r = await req('DELETE', `/api/entries/${before.id}/duplicate`, cAna);
+  ok(
+    'desmarcar devolve a resolução',
+    r.statusCode === 200 && r.json().entry.resolution === 'a minha',
+    r.json(),
+  );
+  ok('devolução no histórico', (await events(before.id)).at(-1)?.toValue === 'a minha');
+  const none = await mk('dan@x.io');
+  await req('POST', `/api/entries/${none.id}/duplicate`, cAna, { of: main1.id });
+  r = await req('DELETE', `/api/entries/${none.id}/duplicate`, cAna);
+  ok('sem resolução antes: volta sem nenhuma', r.json().entry.resolution === null, r.json());
+
   await app.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
