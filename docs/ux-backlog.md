@@ -42,7 +42,8 @@ As levas seguintes também foram concluídas e estão mais abaixo:
 [51. Política de senha](#51-política-de-senha),
 [Quinta leva — ideias 52 a 65](#quinta-leva--ideias-52-a-65) e
 [Sexta leva — ideias 67 a 80](#sexta-leva--ideias-67-a-80) (o 79 está adiado: não há
-SMTP). A [Sétima leva — ideias 81 a 94](#sétima-leva--ideias-81-a-94) está registrada.
+SMTP). A [Sétima leva — ideias 81 a 94](#sétima-leva--ideias-81-a-94) está implementada, e a
+[Oitava leva — itens 95 a 124](#oitava-leva--itens-95-a-124) vem da varredura de 31/10/2026.
 
 ---
 
@@ -3095,3 +3096,143 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
       - sem TLS recusado, CA errada recusada, Status;
       - senha vazia e limite de tentativas;
     - `ldap-login.mjs`.
+
+## Oitava leva — itens 95 a 124
+
+Resultado da varredura do projeto em 31/10/2026. Salvo indicação, cada problema foi
+confirmado na leitura do código; o item 101 também foi reproduzido em teste. Ordem combinada:
+95 a 99 primeiro; o resto será ordenado depois. Decisões pendentes: 122 e 123.
+
+### Maior risco
+
+### 95. Imagens instaladas pelo lockfile
+- **Problema:** os Dockerfiles da API e do web copiam só o `package.json`; com os `^`,
+  produção pode rodar versões diferentes das testadas.
+- **Proposta:** `COPY package*.json` e `npm ci`, que falha se o lockfile divergir.
+
+### 96. Chromium atualizado na captura
+- **Problema:** a captura abre páginas hostis com o Playwright 1.49.0 (novembro de 2024) e
+  não tem lockfile.
+- **Proposta:** Playwright recente (versão exata, com pelo menos duas semanas) na captura e
+  nos testes, lockfile próprio e `npm ci`; teste real da captura com a imagem nova.
+
+### 97. Segredos padrão recusados
+- **Problema:** a pilha sobe com `SESSION_SECRET`, `CAPTURE_TOKEN` e senhas padrão, e o admin
+  `admin12345` não precisa trocar a senha.
+- **Proposta:** a API não sobe com `SESSION_SECRET` ou `CAPTURE_TOKEN` conhecidos (mensagem
+  clara; `ALLOW_INSECURE_DEFAULTS=true` para demonstração); o Status do sistema avisa das
+  senhas padrão do banco e do MinIO; o admin criado pelo seed, ou que ainda use a senha
+  padrão, troca a senha no primeiro acesso.
+- **Cuidados:** instalações com segredo padrão precisam ajustar o `.env` antes de atualizar.
+
+### 98. API sem root e sem dependências de desenvolvimento
+- **Problema:** o container que analisa malware roda como root e leva as dependências de
+  desenvolvimento.
+- **Proposta:** usuário sem privilégios, imagem final só com o necessário para migrar, criar
+  o admin e rodar; `no-new-privileges` e `cap_drop: ALL` no compose.
+
+### 99. Testes de integração no repositório
+- **Problema:** os testes contra Postgres, MinIO e LDAP reais ficam numa pasta temporária (um
+  já se perdeu), e não há comando para rodá-los.
+- **Proposta:** `apps/api/tests/` e `npm run test:integration`, que sobe o que precisa em
+  docker. CI fica para quando o repositório tiver `remote`.
+
+### Bugs
+
+### 100. Aviso geral vaza o título do caso
+Usuário comum recebe o título do caso ligado ao aviso, e o link leva a uma tela sem acesso.
+Sem caso para quem não é analista.
+
+### 101. Domínio parecido: falso positivo com subdomínio cadastrado
+Com `portal.empresa.com.br` cadastrado, `mail.empresa.com.br` e `empresa.com.br` viram
+"provável golpe". Mesmo domínio-base não é parecido.
+
+### 102. Rascunho da resolução passa para outra amostra
+Ao usar Próxima e Descartar, o texto continua se as duas amostras têm a mesma resolução, e
+salvar grava na amostra errada. O formulário recomeça a cada amostra.
+
+### 103. Desmarcar duplicata mantém a resolução herdada
+A resolução da principal fica em destaque e a original se perdeu. Guardar e devolver a
+anterior, como já acontece com status e veredito.
+
+### 104. Progresso do backup sem tratamento de erro
+`void setStep` pode derrubar a API numa falha de banco e sobrescrever a linha já pronta.
+
+### 105. Restauração sem citar o `SESSION_SECRET`
+Com outro segredo, os 2FA param de funcionar. Incluir no LEIA-ME e no README.
+
+### 106. Backup restaurado sem as amostras
+O download dá erro em vez de "arquivo indisponível", e o LEIA-ME não avisa.
+
+### 107. Papel de conta do AD editável na tela
+O próximo login desfaz a mudança sem aviso. Desligar o seletor e recusar na API.
+
+### 108. Acessos que sobrevivem à perda de confiança
+Token de API sobrevive à troca ou redefinição de senha; token e sessão sobrevivem à saída da
+pessoa do AD. Revogar nas trocas de senha e definir a regra para contas do AD.
+
+### 109. Revarredura de domínios interrompida
+Duas varreduras simultâneas colidem (`createMany` sem `skipDuplicates`) e a segunda para.
+
+### 110. Erro 500 no login do AD
+E-mail novo que já existe ou dois primeiros acessos simultâneos.
+
+### 111. Corrida entre conferir e gravar
+Chave de ativação além do limite, mais de 3 avisos ativos, dois backups ao mesmo tempo.
+
+### Segurança
+
+### 112. IP forjável
+`trustProxy: true` com o `X-Forwarded-For` acrescentado pelo nginx deixa o cliente forjar o
+IP da auditoria e das sessões. Confiar só no proxy conhecido.
+
+### 113. Login: bloqueio de terceiros e enumeração
+Limite só por e-mail permite bloquear a conta de outra pessoa e testar uma senha em muitas
+contas; "Conta suspensa" aparece sem conferir a senha; e-mail inexistente responde mais rápido.
+
+### 114. Auditoria incompleta
+Domínios da empresa (alteram a lista de permissões), regras de triagem, atribuição automática
+e avisos gerais.
+
+### 115. Cabeçalhos e cookie
+Sem CSP e HSTS no nginx; `COOKIE_SECURE` vem `false`.
+
+### 116. Backup sem cifra e sem conferir o disco
+O ZIP tem hashes de senha e segredos de 2FA, fica no bucket de origem, e a geração não confere
+o espaço em disco. Avaliar senha/cifra e aviso de espaço.
+
+### Operação e acabamento
+
+### 117. Upload em memória
+Cada envio vai inteiro para a memória (até 200 MB), a API não tem `mem_limit`, e o nginx aceita
+1 GB.
+
+### 118. Limpeza e índices
+Sessões vencidas nunca são apagadas; `Notification` sem índice em `entryId` e `caseId`.
+
+### 119. Containers
+Sem desligamento controlado (SIGTERM) nem healthcheck da API; `minio:latest` e `clamav:stable`
+sem versão fixa.
+
+### 120. Mensagens sem acento
+Cerca de 60 mensagens da API, como "Credenciais invalidas" e "Dados invalidos".
+
+### 121. Domínios parecidos: ruído com nomes curtos
+`empresarial.com` parece com `empresa.com.br`. Limite maior ou lista de palavras típicas de
+golpe.
+
+### Decisões pendentes
+
+### 122. Quem baixa amostras
+Hoje qualquer usuário comum baixa a amostra de qualquer pessoa, sem auditoria.
+Recomendação: quem enviou e analistas, sempre com auditoria.
+
+### 123. E-mail de quem enviou
+A lista global e o CSV mostram esse e-mail a todos os usuários. Recomendação: só o nome para
+usuários comuns.
+
+### Sugestões
+
+### 124. Ideias de produto
+Resolução na atualização em massa e no CSV; condição "domínio parecido" nas regras de triagem;
+grupos aninhados do AD; teste rápido contra a API real, para complementar o mock.
