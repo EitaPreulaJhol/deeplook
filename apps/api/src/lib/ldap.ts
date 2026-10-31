@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { ConnectionOptions } from 'node:tls';
 
-import { Client } from 'ldapts';
+import { Client, ResultCodeError } from 'ldapts';
 
 import { env } from '../env';
 
@@ -25,6 +25,8 @@ export interface LdapConfig {
   mailAttr: string;
   analystGroup: string | null;
   adminGroup: string | null;
+  /** Considera grupos dentro de grupos (item 124). */
+  nestedGroups: boolean;
   timeoutMs: number;
 }
 
@@ -52,6 +54,7 @@ export function ldapConfig(): LdapConfig | null {
         mailAttr: env.LDAP_ATTR_MAIL,
         analystGroup: env.LDAP_ANALYST_GROUP || null,
         adminGroup: env.LDAP_ADMIN_GROUP || null,
+        nestedGroups: env.LDAP_NESTED_GROUPS === 'true',
         timeoutMs: 5000,
       }
     : null;
@@ -111,8 +114,52 @@ const all = (v: unknown): string[] =>
   (Array.isArray(v) ? v : v === undefined || v === null ? [] : [v]).map((x) =>
     Buffer.isBuffer(x) ? x.toString('utf8') : String(x),
   );
-const sameDn = (a: string, b: string) =>
-  a.replace(/\s*,\s*/g, ',').toLowerCase() === b.replace(/\s*,\s*/g, ',').toLowerCase();
+const normalDn = (dn: string) => dn.replace(/\s*,\s*/g, ',').toLowerCase();
+const sameDn = (a: string, b: string) => normalDn(a) === normalDn(b);
+
+/** Teto de grupos lidos por login: acima disso o papel sai so do que ja foi visto. */
+const NESTED_GROUPS_MAX = 200;
+
+/**
+ * Sobe pelo memberOf dos grupos (item 124), sem repetir grupo (ciclos terminam).
+ * Grupo que o servidor recusa ou nao acha e ignorado, porque so reduz o papel;
+ * queda de conexao lanca, para nao rebaixar ninguem por causa da rede.
+ */
+export async function expandGroups(
+  client: Pick<Client, 'search'>,
+  direct: string[],
+  max = NESTED_GROUPS_MAX,
+): Promise<string[]> {
+  const seen = new Map(direct.map((dn) => [normalDn(dn), dn]));
+  const queue = [...direct];
+  let read = 0;
+  while (queue.length) {
+    if (read >= max) {
+      console.error(`AD: mais de ${max} grupos no login; o papel usa só os já vistos.`);
+      break;
+    }
+    const group = queue.shift()!;
+    read += 1;
+    let parents: string[];
+    try {
+      const { searchEntries } = await client.search(group, {
+        scope: 'base',
+        filter: '(objectClass=*)',
+        attributes: ['memberOf'],
+      });
+      parents = all(searchEntries[0]?.memberOf);
+    } catch (err) {
+      if (err instanceof ResultCodeError) continue;
+      throw err;
+    }
+    for (const parent of parents) {
+      if (seen.has(normalDn(parent))) continue;
+      seen.set(normalDn(parent), parent);
+      queue.push(parent);
+    }
+  }
+  return [...seen.values()];
+}
 
 export type LdapAuth =
   | { ok: true; dn: string; email: string; name: string; role: 'USER' | 'ANALYST' | 'ADMIN' }
@@ -153,7 +200,13 @@ export async function ldapAuthenticate(login: string, password: string): Promise
     }
     const email = first(entry[c.mailAttr])?.trim().toLowerCase();
     if (!email || !email.includes('@')) return { ok: false, reason: 'conta do AD sem e-mail' };
-    const groups = all(entry.memberOf);
+    let groups = all(entry.memberOf);
+    const isAdmin = c.adminGroup && groups.some((g) => sameDn(g, c.adminGroup!));
+    if (c.nestedGroups && !isAdmin) {
+      // O bind acima trocou para a conta da pessoa, que pode nao ler os grupos.
+      await client.bind(c.bindDn, c.bindPassword);
+      groups = await expandGroups(client, groups);
+    }
     const role =
       c.adminGroup && groups.some((g) => sameDn(g, c.adminGroup!))
         ? 'ADMIN'

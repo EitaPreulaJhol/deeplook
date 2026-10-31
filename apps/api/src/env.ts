@@ -73,6 +73,7 @@ const EnvSchema = z
     /** DNs dos grupos (memberOf) que dao o papel; sem grupo = usuario comum. */
     LDAP_ANALYST_GROUP: z.string().default(''),
     LDAP_ADMIN_GROUP: z.string().default(''),
+    LDAP_NESTED_GROUPS: z.enum(['true', 'false']).default('false'),
     /** Validade da senha em dias (admins nao expiram). 0 = sem validade. */
     PASSWORD_MAX_AGE_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
     /**

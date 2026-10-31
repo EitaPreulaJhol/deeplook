@@ -123,6 +123,9 @@ continuam valendo.
 - **Papel pelos grupos:** `LDAP_ADMIN_GROUP` dá admin, `LDAP_ANALYST_GROUP` dá
   analista; sem grupo, usuário comum. O papel é atualizado a cada login e a mudança vai
   para a Auditoria.
+- **Grupos dentro de grupos:** só valem com `LDAP_NESTED_GROUPS=true`, porque ligar pode dar
+  papel a mais gente. A conta de serviço precisa ler o `memberOf` dos grupos. Limites: até 200
+  grupos por login, e grupo primário ("Domain Users") e grupos de outro domínio não entram.
 - **Senha e 2FA:** contas do AD não têm senha local. Troca, validade e redefinição
   ficam no AD; o 2FA do DeepLook continua valendo.
 - **Segurança:**
@@ -432,6 +435,7 @@ COOKIE_SECURE=true
 | `LDAP_BIND_DN` · `LDAP_BIND_PASSWORD` · `LDAP_BASE_DN` | conta de serviço e base da busca | — |
 | `LDAP_USER_FILTER` · `LDAP_ATTR_NAME` · `LDAP_ATTR_MAIL` | filtro (`{login}` = o digitado) e atributos de nome e e-mail | padrão do AD · `displayName` · `mail` |
 | `LDAP_ANALYST_GROUP` · `LDAP_ADMIN_GROUP` | DNs dos grupos que dão o papel (sem grupo, usuário comum) | — |
+| `LDAP_NESTED_GROUPS` | `true`: grupos dentro desses grupos também dão o papel | `false` |
 | `PASSWORD_MAX_AGE_DAYS` | validade da senha em dias (admins não expiram); `0` desliga | `90` |
 | `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |

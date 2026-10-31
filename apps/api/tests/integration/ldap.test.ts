@@ -3,11 +3,18 @@ import { execFileSync } from 'node:child_process';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
+import { InsufficientAccessError, NoSuchObjectError } from 'ldapts';
 
 import { env } from '../../src/env';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
-import { adDisabled, configureLdap, escapeFilter, type LdapConfig } from '../../src/lib/ldap';
+import {
+  adDisabled,
+  configureLdap,
+  escapeFilter,
+  expandGroups,
+  type LdapConfig,
+} from '../../src/lib/ldap';
 import { sweepLdapAccounts } from '../../src/lib/ldap-sweep';
 import { prisma } from '../../src/lib/prisma';
 import { systemStatus } from '../../src/lib/status';
@@ -394,6 +401,93 @@ async function main() {
       where: { email: { in: fake.map((u) => `${u}@empresa.test`) }, status: 'ACTIVE' },
     })) === 3,
   );
+
+  // 16. Grupos dentro de grupos (item 124), no OpenLDAP real.
+  const G = 'ou=groups,dc=empresa,dc=test';
+  const addGroup = (cn: string, member: string) =>
+    execFileSync('docker', [
+      'exec',
+      'dl-ldap',
+      'sh',
+      '-c',
+      `printf 'dn: cn=${cn},${G}\\nobjectClass: groupOfUniqueNames\\ncn: ${cn}\\nuniqueMember: ${member}\\n' | ldapadd -x -H ldap://localhost -D cn=admin,dc=empresa,dc=test -w adminpw`,
+    ]);
+  const addMember = (cn: string, member: string) =>
+    execFileSync('docker', [
+      'exec',
+      'dl-ldap',
+      'sh',
+      '-c',
+      `printf 'dn: cn=${cn},${G}\\nchangetype: modify\\nadd: uniqueMember\\nuniqueMember: ${member}\\n' | ldapmodify -x -H ldap://localhost -D cn=admin,dc=empresa,dc=test -w adminpw`,
+    ]);
+  const uniq = Date.now();
+  const PNOVO = 'uid=pnovo,ou=people,dc=empresa,dc=test';
+  const [low, mid, top, cycleA, cycleB] = ['low', 'mid', 'top', 'cya', 'cyb'].map(
+    (n) => `n${n}${uniq}`,
+  );
+  addGroup(low, PNOVO);
+  addGroup(mid, `cn=${low},${G}`);
+  addGroup(top, `cn=${mid},${G}`);
+  addGroup(cycleA, `cn=${low},${G}`);
+  addGroup(cycleB, `cn=${cycleA},${G}`);
+  addMember(cycleA, `cn=${cycleB},${G}`);
+  const nested = (extra: Partial<LdapConfig>) =>
+    configureLdap({
+      ...base,
+      analystGroup: `cn=${top},${G}`,
+      adminGroup: 'cn=ninguem,ou=groups,dc=empresa,dc=test',
+      ...extra,
+    });
+  const roleOfPnovo = async () =>
+    (await login('pedro.novo@empresa.test', 'Senha-AD-3', next())).json().user?.role;
+  await prisma.user.updateMany({
+    where: { email: 'pedro.novo@empresa.test' },
+    data: { ldapDn: PNOVO },
+  });
+  nested({ nestedGroups: false });
+  ok('desligado: grupo indireto não dá papel', (await roleOfPnovo()) === 'USER');
+  nested({ nestedGroups: true });
+  ok('ligado: dois níveis acima dão analista', (await roleOfPnovo()) === 'ANALYST');
+  nested({ nestedGroups: true, adminGroup: `cn=${top},${G}`, analystGroup: `cn=${low},${G}` });
+  ok('admin indireto ganha do analista direto', (await roleOfPnovo()) === 'ADMIN');
+  nested({ nestedGroups: true, analystGroup: 'cn=ninguem,ou=groups,dc=empresa,dc=test' });
+  ok('ciclo termina e não dá papel', (await roleOfPnovo()) === 'USER');
+  nested({ nestedGroups: true, adminGroup: `cn=${low},${G}` });
+  ok('admin direto não precisa subir', (await roleOfPnovo()) === 'ADMIN');
+  configureLdap(base);
+
+  // 17. A subida: erros, teto e DN escrito de outro jeito (cliente de mentira).
+  const fakeClient = (tree: Record<string, string[] | Error>) => {
+    const asked: string[] = [];
+    return {
+      asked,
+      client: {
+        search: async (dn: string) => {
+          asked.push(dn);
+          const found = tree[dn];
+          if (found instanceof Error) throw found;
+          return { searchEntries: [{ dn, memberOf: found ?? [] }], searchReferences: [] };
+        },
+      } as unknown as Parameters<typeof expandGroups>[0],
+    };
+  };
+  let walk = fakeClient({ a: new NoSuchObjectError(), b: new InsufficientAccessError(), c: ['d'] });
+  ok(
+    'grupo recusado ou sumido é ignorado',
+    (await expandGroups(walk.client, ['a', 'b', 'c'])).join() === 'a,b,c,d',
+  );
+  walk = fakeClient({ a: new Error('socket fechado') });
+  let thrown = false;
+  await expandGroups(walk.client, ['a']).catch(() => {
+    thrown = true;
+  });
+  ok('queda de conexão lança', thrown);
+  walk = fakeClient({ a: ['b'], b: ['c'], c: ['d'], d: ['e'] });
+  const capped = await expandGroups(walk.client, ['a'], 2);
+  ok('teto de grupos lidos', walk.asked.length === 2 && capped.join() === 'a,b,c', capped);
+  walk = fakeClient({ 'CN=A, DC=X': ['cn=b,dc=x'], 'cn=b,dc=x': ['cn=a,dc=x'] });
+  await expandGroups(walk.client, ['CN=A, DC=X']);
+  ok('mesmo DN escrito diferente não repete', walk.asked.length === 2, walk.asked);
 
   await app.close();
   await prisma.$disconnect();

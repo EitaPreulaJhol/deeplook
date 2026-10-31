@@ -49,6 +49,19 @@ const tlsUp = (port) =>
 function ldapCerts(dir) {
   mkdirSync(join(dir, 'certs'), { recursive: true });
   mkdirSync(join(dir, 'other'), { recursive: true });
+  // Sem este arquivo o servidor gera o seu ao subir, o que pode passar de um minuto.
+  if (!existsSync(join(dir, 'certs', 'dhparam.pem'))) {
+    docker(
+      'run',
+      '--rm',
+      '-v',
+      `${dir}:/w`,
+      'alpine:3.20',
+      'sh',
+      '-c',
+      'apk add -q openssl >/dev/null && openssl genpkey -genparam -algorithm DH -pkeyopt group:ffdhe2048 -out /w/certs/dhparam.pem',
+    );
+  }
   if (existsSync(join(dir, 'certs', 'server.crt'))) return;
   const script = [
     'apk add -q openssl >/dev/null',
