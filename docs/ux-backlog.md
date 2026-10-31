@@ -3262,6 +3262,7 @@ sem versão fixa.
 
 ### 120. Mensagens sem acento
 Cerca de 60 mensagens da API, como "Credenciais invalidas" e "Dados invalidos".
+✅ **Implementado:** mensagens da API para o usuário com acento. Logs e o texto da ISO do sandbox continuam sem acento.
 
 ### 121. Domínios parecidos: ruído com nomes curtos
 `empresarial.com` parece com `empresa.com.br`. Limite maior ou lista de palavras típicas de

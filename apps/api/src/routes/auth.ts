@@ -101,18 +101,18 @@ export async function authRoutes(app: FastifyInstance) {
       where: { code: activationKey.trim().toUpperCase() },
     });
 
-    if (!key) return reply.code(400).send({ error: 'Chave de ativacao invalida.' });
-    if (key.revoked) return reply.code(400).send({ error: 'Chave de ativacao revogada.' });
+    if (!key) return reply.code(400).send({ error: 'Chave de ativação inválida.' });
+    if (key.revoked) return reply.code(400).send({ error: 'Chave de ativação revogada.' });
     if (key.expiresAt && key.expiresAt.getTime() < Date.now()) {
-      return reply.code(400).send({ error: 'Chave de ativacao expirada.' });
+      return reply.code(400).send({ error: 'Chave de ativação expirada.' });
     }
     if (key.usesUsed >= key.maxUses) {
-      return reply.code(400).send({ error: 'Chave de ativacao ja utilizada.' });
+      return reply.code(400).send({ error: 'Chave de ativação já utilizada.' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (existing) return reply.code(409).send({ error: 'E-mail ja cadastrado.' });
+    if (existing) return reply.code(409).send({ error: 'E-mail já cadastrado.' });
 
     const passwordHash = await hashPassword(password);
 
@@ -151,9 +151,9 @@ export async function authRoutes(app: FastifyInstance) {
         throw err;
       });
     if (user instanceof KeyUsedUp) {
-      return reply.code(400).send({ error: 'Chave de ativacao ja utilizada.' });
+      return reply.code(400).send({ error: 'Chave de ativação já utilizada.' });
     }
-    if (user instanceof Error) return reply.code(409).send({ error: 'E-mail ja cadastrado.' });
+    if (user instanceof Error) return reply.code(409).send({ error: 'E-mail já cadastrado.' });
 
     await createSession(reply, user.id, req);
     return reply.code(201).send({ user: publicUser(user) });
@@ -273,7 +273,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post('/api/auth/login', { config: loginLimit }, async (req, reply) => {
     const parsed = LoginSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados inválidos.' });
     const { email, password } = parsed.data;
 
     const normalized = email.toLowerCase();
@@ -285,7 +285,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (local?.authSource === 'LOCAL') {
       if (!(await verifyPassword(password, local.passwordHash))) {
         await loginFailed(req, normalized, local.id, 'senha incorreta');
-        return reply.code(401).send({ error: 'Credenciais invalidas.' });
+        return reply.code(401).send({ error: 'Credenciais inválidas.' });
       }
       // So depois da senha certa: "suspensa" nao revela a conta a quem nao a conhece.
       if (local.status !== 'ACTIVE') {
@@ -297,7 +297,7 @@ export async function authRoutes(app: FastifyInstance) {
       const result = await ldapAuthenticate(email, password);
       if (!result.ok) {
         await loginFailed(req, normalized, local?.id ?? null, result.reason);
-        return reply.code(401).send({ error: 'Credenciais invalidas.' });
+        return reply.code(401).send({ error: 'Credenciais inválidas.' });
       }
       user = await ldapAccount(req, result);
       if (!user) {
@@ -307,7 +307,7 @@ export async function authRoutes(app: FastifyInstance) {
           null,
           `e-mail do AD (${result.email}) já é de uma conta local`,
         );
-        return reply.code(401).send({ error: 'Credenciais invalidas.' });
+        return reply.code(401).send({ error: 'Credenciais inválidas.' });
       }
       // Suspensa no DeepLook nao entra, mesmo com a senha certa no AD.
       if (user.status !== 'ACTIVE') {
@@ -322,9 +322,9 @@ export async function authRoutes(app: FastifyInstance) {
         local?.id ?? null,
         local ? 'conta do AD com o AD desligado' : 'e-mail não cadastrado',
       );
-      return reply.code(401).send({ error: 'Credenciais invalidas.' });
+      return reply.code(401).send({ error: 'Credenciais inválidas.' });
     }
-    if (!user) return reply.code(401).send({ error: 'Credenciais invalidas.' });
+    if (!user) return reply.code(401).send({ error: 'Credenciais inválidas.' });
 
     // 2FA: a senha esta certa, mas a sessao so nasce depois do codigo.
     if (user.twoFactorEnabledAt) {
@@ -357,7 +357,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post('/api/auth/login/2fa', { config: twoFactorLimit }, async (req, reply) => {
     const parsed = TwoFactorSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados inválidos.' });
     const userId = readChallenge(parsed.data.challenge);
     if (!userId) {
       return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
@@ -402,7 +402,7 @@ export async function authRoutes(app: FastifyInstance) {
   // SESSION_IDLE_MINUTES e devolve a nova validade.
   app.post('/api/auth/touch', async (req, reply) => {
     const session = await currentSession(req, true);
-    if (!session) return reply.code(401).send({ error: 'Sessao expirada.' });
+    if (!session) return reply.code(401).send({ error: 'Sessão expirada.' });
     return reply.send({ expiresAt: session.expiresAt });
   });
 
@@ -413,7 +413,7 @@ export async function authRoutes(app: FastifyInstance) {
   // pois outra janela pode ter renovado a sessao).
   app.get('/api/auth/session', async (req, reply) => {
     const session = await currentSession(req, false);
-    if (!session) return reply.code(401).send({ error: 'Sessao expirada.' });
+    if (!session) return reply.code(401).send({ error: 'Sessão expirada.' });
     return reply.send({ expiresAt: session.expiresAt });
   });
 

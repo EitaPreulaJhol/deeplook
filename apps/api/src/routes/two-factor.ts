@@ -27,7 +27,7 @@ const SensitiveSchema = z.object({
 });
 
 const fieldError = (field: string, message: string) => ({
-  error: 'Dados invalidos.',
+  error: 'Dados inválidos.',
   details: { [field]: [message] },
 });
 
@@ -230,7 +230,7 @@ export async function twoFactorRoutes(app: FastifyInstance) {
       where: { id },
       select: { email: true, twoFactorEnabledAt: true },
     });
-    if (!target) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+    if (!target) return reply.code(404).send({ error: 'Usuário não encontrado.' });
     if (!target.twoFactorEnabledAt) return reply.code(409).send({ error: 'O 2FA não está ativo.' });
     await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data: disableData });

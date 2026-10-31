@@ -106,7 +106,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const parsed = Query.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { days } = parsed.data;
     const all = isAnalyst(user);
     const scope: Prisma.EntryWhereInput = all ? {} : { ownerId: user.id };

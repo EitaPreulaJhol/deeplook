@@ -86,7 +86,7 @@ async function missingKbArticles(ids: string[] | undefined): Promise<boolean> {
 }
 
 const kbNotFound = {
-  error: 'Dados invalidos.',
+  error: 'Dados inválidos.',
   details: { kbArticleIds: ['artigo da base não encontrado'] },
 };
 
@@ -171,12 +171,12 @@ export async function reportRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     if (!isAnalyst(user)) {
-      return reply.code(403).send({ error: 'Somente analistas podem criar relatorios.' });
+      return reply.code(403).send({ error: 'Somente analistas podem criar relatórios.' });
     }
 
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
     const parsed = ReportSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
@@ -222,12 +222,12 @@ export async function reportRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     if (!isAnalyst(user)) {
-      return reply.code(403).send({ error: 'Somente analistas podem editar relatorios.' });
+      return reply.code(403).send({ error: 'Somente analistas podem editar relatórios.' });
     }
 
     const { id } = req.params as { id: string };
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (!report) return reply.code(404).send({ error: 'Relatório não encontrado.' });
     if (report.analystId !== user.id && user.role !== 'ADMIN') {
       return reply.code(403).send({ error: 'Acesso negado.' });
     }
@@ -316,7 +316,7 @@ export async function reportRoutes(app: FastifyInstance) {
         },
       },
     });
-    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (!report) return reply.code(404).send({ error: 'Relatório não encontrado.' });
     const content = (r: {
       summary: string;
       findings: string | null;
@@ -350,7 +350,7 @@ export async function reportRoutes(app: FastifyInstance) {
     if (!user) return;
     const { id } = req.params as { id: string };
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (!report) return reply.code(404).send({ error: 'Relatório não encontrado.' });
     if (!isAnalyst(user) || (report.analystId !== user.id && user.role !== 'ADMIN')) {
       return reply.code(403).send({ error: 'Acesso negado.' });
     }
@@ -370,7 +370,7 @@ export async function reportRoutes(app: FastifyInstance) {
     if (!isAnalyst(user)) return reply.code(403).send({ error: 'Acesso negado.' });
     const { id } = req.params as { id: string };
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (!report) return reply.code(404).send({ error: 'Relatório não encontrado.' });
     if (report.analystId === user.id) {
       return reply.code(403).send({ error: 'O autor não revisa o próprio relatório.' });
     }
@@ -412,7 +412,7 @@ export async function reportRoutes(app: FastifyInstance) {
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { id } = req.params as { id: string };
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (!report) return reply.code(404).send({ error: 'Relatório não encontrado.' });
     if (report.analystId === user.id) {
       return reply.code(403).send({ error: 'O autor não revisa o próprio relatório.' });
     }
@@ -451,12 +451,12 @@ export async function reportRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     if (!isAnalyst(user)) {
-      return reply.code(403).send({ error: 'Somente analistas podem remover relatorios.' });
+      return reply.code(403).send({ error: 'Somente analistas podem remover relatórios.' });
     }
 
     const { id } = req.params as { id: string };
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) return reply.code(404).send({ error: 'Relatorio nao encontrado.' });
+    if (!report) return reply.code(404).send({ error: 'Relatório não encontrado.' });
     if (report.analystId !== user.id && user.role !== 'ADMIN') {
       return reply.code(403).send({ error: 'Acesso negado.' });
     }

@@ -14,7 +14,7 @@ const AppPath = z
   .string()
   .trim()
   .max(500)
-  .regex(/^\/(?![/\\])[^\s\\]*$/, 'Use um endereco do proprio DeepLook.');
+  .regex(/^\/(?![/\\])[^\s\\]*$/, 'Use um endereço do próprio DeepLook.');
 const Label = z.string().trim().min(1).max(60);
 
 const CreateSchema = z.discriminatedUnion('kind', [
@@ -59,7 +59,7 @@ export async function favoritesRoutes(app: FastifyInstance) {
 
     const parsed = CreateSchema.safeParse(req.body);
     if (!parsed.success) {
-      return sendValidationError(reply, parsed.error, 'Favorito invalido.');
+      return sendValidationError(reply, parsed.error, 'Favorito inválido.');
     }
     const input = parsed.data;
 
@@ -90,7 +90,7 @@ export async function favoritesRoutes(app: FastifyInstance) {
         where: { id: input.entryId },
         select: { title: true },
       });
-      if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+      if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
       label = input.label ?? entry.title.slice(0, 60);
     }
 
@@ -123,7 +123,7 @@ export async function favoritesRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const parsed = OrderSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Ordem invalida.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Ordem inválida.' });
     const { ids } = parsed.data;
 
     const mine = await prisma.favorite.findMany({
@@ -134,7 +134,7 @@ export async function favoritesRoutes(app: FastifyInstance) {
       ids.length === mine.length &&
       new Set(ids).size === ids.length &&
       mine.every((f) => ids.includes(f.id));
-    if (!sameSet) return reply.code(400).send({ error: 'Ordem invalida.' });
+    if (!sameSet) return reply.code(400).send({ error: 'Ordem inválida.' });
 
     await prisma.$transaction(
       ids.map((id, position) => prisma.favorite.update({ where: { id }, data: { position } })),
@@ -148,14 +148,14 @@ export async function favoritesRoutes(app: FastifyInstance) {
 
     const parsed = RenameSchema.safeParse(req.body);
     if (!parsed.success)
-      return reply.code(400).send({ error: 'Nome invalido (1 a 60 caracteres).' });
+      return reply.code(400).send({ error: 'Nome inválido (1 a 60 caracteres).' });
 
     const { id } = req.params as { id: string };
     const result = await prisma.favorite.updateMany({
       where: { id, userId: user.id },
       data: { label: parsed.data.label },
     });
-    if (result.count === 0) return reply.code(404).send({ error: 'Favorito nao encontrado.' });
+    if (result.count === 0) return reply.code(404).send({ error: 'Favorito não encontrado.' });
     const favorite = await prisma.favorite.findUnique({ where: { id }, select: favoriteSelect });
     return reply.send({ favorite });
   });
@@ -166,7 +166,7 @@ export async function favoritesRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const result = await prisma.favorite.deleteMany({ where: { id, userId: user.id } });
-    if (result.count === 0) return reply.code(404).send({ error: 'Favorito nao encontrado.' });
+    if (result.count === 0) return reply.code(404).send({ error: 'Favorito não encontrado.' });
     return reply.send({ ok: true });
   });
 }

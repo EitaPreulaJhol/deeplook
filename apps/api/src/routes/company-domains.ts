@@ -125,7 +125,7 @@ export async function companyDomainRoutes(app: FastifyInstance) {
     const domain = host ? normalizeAllowed('DOMAIN', host) : null;
     if (!domain) {
       return reply.code(400).send({
-        error: 'Dados invalidos.',
+        error: 'Dados inválidos.',
         details: { domain: ['domínio inválido (ex.: empresa.com.br)'] },
       });
     }

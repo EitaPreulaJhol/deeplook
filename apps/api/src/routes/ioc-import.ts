@@ -120,7 +120,7 @@ export async function iocImportRoutes(app: FastifyInstance) {
     if (!user) return;
     if (target === 'allow' && (!reason || reason.length < 3)) {
       return reply.code(400).send({
-        error: 'Dados invalidos.',
+        error: 'Dados inválidos.',
         details: { reason: ['diga por que esses indicadores são legítimos (3 a 300 caracteres)'] },
       });
     }

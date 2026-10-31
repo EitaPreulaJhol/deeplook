@@ -279,7 +279,7 @@ export async function relatedRoutes(app: FastifyInstance) {
       Math.max(50, Number((req.query as { similarity?: string }).similarity) || 70),
     );
     const items = await findRelated(id, minSimilarity);
-    if (!items) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!items) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
     return reply.send({
       items: items

@@ -112,7 +112,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     const admin = await requireAdmin(req, reply);
     if (!admin) return;
     const parsed = AdminQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const tokens = await prisma.apiToken.findMany({
       where: parsed.data.status === 'active' ? activeWhere() : {},
       orderBy: { createdAt: 'desc' },

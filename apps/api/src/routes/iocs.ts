@@ -167,7 +167,7 @@ export async function iocRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const ioc = parseIoc(req.params as { kind: string; value: string });
-    if (!ioc) return reply.code(400).send({ error: 'Indicador invalido.' });
+    if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
     const count = await prisma.iocWatch.count({ where: { userId: user.id } });
     if (count >= 200) {
       return reply
@@ -186,7 +186,7 @@ export async function iocRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const ioc = parseIoc(req.params as { kind: string; value: string });
-    if (!ioc) return reply.code(400).send({ error: 'Indicador invalido.' });
+    if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
     await prisma.iocWatch.deleteMany({ where: { userId: user.id, ...ioc } });
     return reply.send({ watching: false });
   });
@@ -210,7 +210,7 @@ export async function iocRoutes(app: FastifyInstance) {
     const value = params.value.trim().toLowerCase();
     // So indicadores que a extracao reconhece (evita fichas para lixo/IP privado).
     const valid = kind && extractIocs(value).some((i) => i.kind === kind && i.value === value);
-    if (!valid) return reply.code(400).send({ error: 'Indicador invalido.' });
+    if (!valid) return reply.code(400).send({ error: 'Indicador inválido.' });
 
     const [reportHits, fileHits, hostHits] = await Promise.all([
       prisma.reportIoc.findMany({
@@ -301,7 +301,7 @@ export async function iocRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const result = await entryIocs((req.params as { id: string }).id);
-    if (!result) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!result) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     return reply.send({ iocs: result.iocs });
   });
 
@@ -309,9 +309,9 @@ export async function iocRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const parsed = ExportQuery.safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: 'Formato invalido.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Formato inválido.' });
     const result = await entryIocs((req.params as { id: string }).id);
-    if (!result) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!result) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
     const { entry, iocs } = result;
     const base = `deeplook-${entry.id}-iocs`;

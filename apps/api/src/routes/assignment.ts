@@ -152,7 +152,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
       const ids = parsed.data.memberIds;
       if ((await eligible(ids)) !== ids.length) {
         return reply.code(400).send({
-          error: 'Dados invalidos.',
+          error: 'Dados inválidos.',
           details: { memberIds: ['só analistas e admins ativos entram em grupos'] },
         });
       }
@@ -190,7 +190,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
     if (!group) {
       return reply
         .code(400)
-        .send({ error: 'Dados invalidos.', details: { groupId: ['grupo não encontrado'] } });
+        .send({ error: 'Dados inválidos.', details: { groupId: ['grupo não encontrado'] } });
     }
     const last = await prisma.assignmentRule.aggregate({ _max: { position: true } });
     const rule = await prisma.assignmentRule.create({

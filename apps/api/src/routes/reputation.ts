@@ -24,7 +24,7 @@ export async function reputationRoutes(app: FastifyInstance) {
       where: { id },
       select: { type: true, sha256: true, urlDomain: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     const services = enabledServices();
     const rows = await prisma.reputationResult.findMany({
       where: { entryId: id, service: { in: services } },
@@ -68,7 +68,7 @@ export async function reputationRoutes(app: FastifyInstance) {
     }
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id }, select: { id: true } });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (enabledServices().length === 0) {
       return reply.code(409).send({ error: 'Nenhum serviço de reputação configurado.' });
     }

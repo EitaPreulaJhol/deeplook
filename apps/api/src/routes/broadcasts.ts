@@ -117,7 +117,7 @@ export async function broadcastRoutes(app: FastifyInstance) {
     if (caseId && !(await prisma.case.count({ where: { id: caseId } }))) {
       return reply
         .code(400)
-        .send({ error: 'Dados invalidos.', details: { caseId: ['caso não encontrado'] } });
+        .send({ error: 'Dados inválidos.', details: { caseId: ['caso não encontrado'] } });
     }
     const now = new Date();
     const item = await prisma.$transaction(async (tx) => {

@@ -129,11 +129,11 @@ export async function compareRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Somente analistas comparam amostras.' });
     }
     const parsed = Query.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { a, b } = parsed.data;
     if (a === b) return reply.code(400).send({ error: 'Escolha duas amostras diferentes.' });
     const [pa, pb] = await Promise.all([profile(a), profile(b)]);
-    if (!pa || !pb) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!pa || !pb) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     const keys = Object.keys(pa.lists) as (keyof typeof pa.lists)[];
     const lists = Object.fromEntries(keys.map((k) => [k, diffSets(pa.lists[k], pb.lists[k])]));
     return reply.send({

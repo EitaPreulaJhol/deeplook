@@ -57,7 +57,7 @@ export function fieldErrors(error: ZodError): Record<string, string[]> {
 export function sendValidationError(
   reply: FastifyReply,
   error: ZodError,
-  message = 'Dados invalidos.',
+  message = 'Dados inválidos.',
 ) {
   return reply.code(400).send({ error: message, details: fieldErrors(error) });
 }

@@ -23,7 +23,7 @@ export async function meRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const parsed = PreferencesPatchSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Preferencias invalidas.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Preferências inválidas.' });
 
     const preferences = { ...user.preferences, ...parsed.data };
     await prisma.user.update({ where: { id: user.id }, data: { preferences } });
@@ -93,7 +93,7 @@ export async function meRoutes(app: FastifyInstance) {
     const { currentPassword, newPassword } = parsed.data;
 
     const record = await prisma.user.findUnique({ where: { id: user.id } });
-    if (!record) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+    if (!record) return reply.code(404).send({ error: 'Usuário não encontrado.' });
     if (record.authSource === 'LDAP') {
       return reply.code(409).send({ error: 'Sua senha é a do AD: troque-a por lá.' });
     }

@@ -75,7 +75,7 @@ export async function allowlistRoutes(app: FastifyInstance) {
     if (!value) {
       const hint =
         kind === 'IPV4' ? 'use um IP ou uma faixa, ex.: 10.0.0.0/8' : 'valor inválido para o tipo';
-      return reply.code(400).send({ error: 'Dados invalidos.', details: { value: [hint] } });
+      return reply.code(400).send({ error: 'Dados inválidos.', details: { value: [hint] } });
     }
     try {
       const item = await prisma.$transaction(async (tx) => {

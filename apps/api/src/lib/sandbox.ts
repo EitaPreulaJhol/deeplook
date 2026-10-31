@@ -130,7 +130,7 @@ export async function createSession(entry: Entry, analystId: string): Promise<Cr
 
   const existing = await activeSessionForEntry(entry.id);
   if (existing) {
-    return { ok: false, code: 409, error: 'Ja existe um ambiente ativo para esta amostra.' };
+    return { ok: false, code: 409, error: 'Já existe um ambiente ativo para esta amostra.' };
   }
 
   const active = await countActive();
@@ -146,7 +146,7 @@ export async function createSession(entry: Entry, analystId: string): Promise<Cr
     return {
       ok: false,
       code: 409,
-      error: `Voce ja tem ${mine} ambiente(s) ativo(s) (limite: ${env.SANDBOX_MAX_PER_USER}).`,
+      error: `Você já tem ${mine} ambiente(s) ativo(s) (limite: ${env.SANDBOX_MAX_PER_USER}).`,
     };
   }
 

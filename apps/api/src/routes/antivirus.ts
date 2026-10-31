@@ -17,7 +17,7 @@ export async function antivirusRoutes(app: FastifyInstance) {
       where: { id },
       select: { type: true, createdAt: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     const scan =
       entry.type === 'FILE'
         ? await prisma.antivirusScan.findUnique({
@@ -53,7 +53,7 @@ export async function antivirusRoutes(app: FastifyInstance) {
       where: { id },
       select: { type: true, storageKey: true, filePurgedAt: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (!clamavEnabled()) return reply.code(409).send({ error: 'O ClamAV não está configurado.' });
     if (entry.type !== 'FILE')
       return reply.code(400).send({ error: 'Só arquivos são escaneados.' });

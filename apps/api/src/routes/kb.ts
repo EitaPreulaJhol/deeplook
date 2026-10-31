@@ -69,7 +69,7 @@ export async function kbRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const parsed = ListQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { q, category, limit, offset } = parsed.data;
     const where: Prisma.KbArticleWhereInput = {};
     if (category) where.category = category;

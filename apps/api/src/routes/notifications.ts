@@ -38,7 +38,7 @@ export async function notificationRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     const parsed = ListQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { limit, unread } = parsed.data;
 
     const [items, total] = await Promise.all([

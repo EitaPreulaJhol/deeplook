@@ -37,7 +37,7 @@ export async function templateRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     if (!isAnalyst(user)) {
-      return reply.code(403).send({ error: 'Somente analistas usam modelos de relatorio.' });
+      return reply.code(403).send({ error: 'Somente analistas usam modelos de relatório.' });
     }
     const templates = await prisma.reportTemplate.findMany({
       orderBy: { name: 'asc' },
@@ -107,7 +107,7 @@ export async function templateRoutes(app: FastifyInstance) {
         });
       }
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-        return reply.code(404).send({ error: 'Modelo nao encontrado.' });
+        return reply.code(404).send({ error: 'Modelo não encontrado.' });
       }
       throw err;
     }
@@ -121,7 +121,7 @@ export async function templateRoutes(app: FastifyInstance) {
       where: { id },
       select: { name: true },
     });
-    if (!existing) return reply.code(404).send({ error: 'Modelo nao encontrado.' });
+    if (!existing) return reply.code(404).send({ error: 'Modelo não encontrado.' });
     await prisma.$transaction(async (tx) => {
       await tx.reportTemplate.delete({ where: { id } });
       await audit(tx, req, {

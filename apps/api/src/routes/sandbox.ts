@@ -42,7 +42,7 @@ function msg(err: unknown): string {
 function notEnabled(reply: FastifyReply) {
   return reply
     .code(503)
-    .send({ error: 'O sandbox nao esta habilitado neste servidor (SANDBOX_ENABLED).' });
+    .send({ error: 'O sandbox não está habilitado neste servidor (SANDBOX_ENABLED).' });
 }
 
 /** Carrega a sessao garantindo que o usuario pode ver/operar (dono ou admin). */
@@ -53,7 +53,7 @@ async function loadOwned(
 ): Promise<Awaited<ReturnType<typeof getSession>> | null> {
   const session = await getSession(id);
   if (!session) {
-    reply.code(404).send({ error: 'Ambiente nao encontrado.' });
+    reply.code(404).send({ error: 'Ambiente não encontrado.' });
     return null;
   }
   if (session.analystId !== user.id && user.role !== 'ADMIN') {
@@ -186,7 +186,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
     const result = await createSession(entry, user.id);
     if (!result.ok) return reply.code(result.code).send({ error: result.error });
@@ -231,7 +231,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const session = await loadOwned(id, user, reply);
     if (!session) return;
     if (!ACTIVE.includes(session.status as (typeof ACTIVE)[number])) {
-      return reply.code(409).send({ error: 'Este ambiente ja foi encerrado.' });
+      return reply.code(409).send({ error: 'Este ambiente já foi encerrado.' });
     }
 
     const requested = Number((req.body as { minutes?: number } | null)?.minutes);
@@ -255,11 +255,11 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const session = await loadOwned(id, user, reply);
     if (!session) return;
-    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
+    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda não foi criada.' });
 
     const action = (req.body as { action?: string } | null)?.action;
     if (action !== 'on' && action !== 'off') {
-      return reply.code(400).send({ error: 'Acao invalida (use "on" ou "off").' });
+      return reply.code(400).send({ error: 'Ação inválida (use "on" ou "off").' });
     }
 
     try {
@@ -302,7 +302,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const session = await loadOwned(id, user, reply);
     if (!session) return;
-    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
+    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda não foi criada.' });
 
     const shot = await pveRaw(`/nodes/${session.node}/qemu/${session.vmid}/screenshot`, {
       method: 'POST',
@@ -326,9 +326,9 @@ export async function sandboxRoutes(app: FastifyInstance) {
     if (env.SANDBOX_CONSOLE_ENABLED !== 'true') {
       return reply
         .code(503)
-        .send({ error: 'O console esta desabilitado (SANDBOX_CONSOLE_ENABLED).' });
+        .send({ error: 'O console está desabilitado (SANDBOX_CONSOLE_ENABLED).' });
     }
-    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda nao foi criada.' });
+    if (!session.vmid) return reply.code(409).send({ error: 'A VM ainda não foi criada.' });
 
     return reply.send({ wsPath: `/api/sandbox/${session.id}/console/ws` });
   });
@@ -346,7 +346,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
 
     const entry = consoleAuth.get(session.id);
     if (!entry || entry.expiresAt < Date.now()) {
-      return reply.code(409).send({ error: 'O console ainda nao foi conectado.' });
+      return reply.code(409).send({ error: 'O console ainda não foi conectado.' });
     }
     reply.header('Cache-Control', 'no-store');
     return reply.send({ password: entry.password });
@@ -371,11 +371,11 @@ export async function sandboxRoutes(app: FastifyInstance) {
 
       const { id } = req.params as { id: string };
       const session = await getSession(id);
-      if (!session) return fail(4404, 'ambiente nao encontrado');
+      if (!session) return fail(4404, 'ambiente não encontrado');
       if (session.analystId !== user.id && user.role !== 'ADMIN') {
         return fail(4403, 'sem permissao para este ambiente');
       }
-      if (!session.vmid) return fail(4409, 'a VM ainda nao existe');
+      if (!session.vmid) return fail(4409, 'a VM ainda não existe');
 
       let upstream: WebSocket;
       try {

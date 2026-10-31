@@ -251,7 +251,7 @@ export async function yaraRoutes(app: FastifyInstance) {
       where: { id },
       select: { type: true, createdAt: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     const [active, scan] = await Promise.all([
       prisma.yaraRule.count({ where: { enabled: true } }),
       entry.type === 'FILE'
@@ -276,7 +276,7 @@ export async function yaraRoutes(app: FastifyInstance) {
       where: { id },
       select: { type: true, storageKey: true, filePurgedAt: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (entry.type !== 'FILE') {
       return reply.code(400).send({ error: 'Só arquivos passam pelas regras YARA.' });
     }

@@ -34,7 +34,7 @@ export async function trashRoutes(app: FastifyInstance) {
       where: { id },
       select: { id: true, title: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (await activeSessionForEntry(id)) {
       return reply.code(409).send({
         error:
@@ -61,7 +61,7 @@ export async function trashRoutes(app: FastifyInstance) {
     const user = await requireAdmin(req, reply);
     if (!user) return;
     const parsed = TrashQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { q, limit, offset } = parsed.data;
     const text = q ? { contains: q, mode: 'insensitive' as const } : null;
     const where: Prisma.EntryWhereInput = {

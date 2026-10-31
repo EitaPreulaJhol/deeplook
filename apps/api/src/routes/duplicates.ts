@@ -46,10 +46,10 @@ export async function duplicateRoutes(app: FastifyInstance) {
         },
       }),
     ]);
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (!target) {
       return reply.code(400).send({
-        error: 'Amostra principal nao encontrada.',
+        error: 'Amostra principal não encontrada.',
         details: { of: ['amostra não encontrada'] },
       });
     }
@@ -62,12 +62,12 @@ export async function duplicateRoutes(app: FastifyInstance) {
     };
     if (principal.id === entry.id) {
       return reply.code(400).send({
-        error: 'Uma amostra nao pode ser duplicata dela mesma.',
+        error: 'Uma amostra não pode ser duplicata dela mesma.',
         details: { of: ['ciclo'] },
       });
     }
     if (entry.duplicateOfId === principal.id) {
-      return reply.code(409).send({ error: 'A amostra ja e duplicata desta principal.' });
+      return reply.code(409).send({ error: 'A amostra já é duplicata desta principal.' });
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -129,9 +129,9 @@ export async function duplicateRoutes(app: FastifyInstance) {
     }
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (!entry.duplicateOfId) {
-      return reply.code(400).send({ error: 'A amostra nao esta marcada como duplicata.' });
+      return reply.code(400).send({ error: 'A amostra não está marcada como duplicata.' });
     }
 
     // Volta a situacao de antes da marcacao (ultimo evento MARKED_DUPLICATE).

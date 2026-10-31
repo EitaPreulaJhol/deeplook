@@ -156,7 +156,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const user = await requireAdmin(req, reply);
     if (!user) return;
     const parsed = AuditQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const where = auditWhere(parsed.data);
     const [total, items] = await Promise.all([
       prisma.auditEvent.count({ where }),
@@ -175,7 +175,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const user = await requireAdmin(req, reply);
     if (!user) return;
     const parsed = AuditQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const items = await prisma.auditEvent.findMany({
       where: auditWhere(parsed.data),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -242,17 +242,17 @@ export async function adminRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const parsed = PatchUserSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados inválidos.' });
 
     if (id === user.id && parsed.data.status === 'SUSPENDED') {
-      return reply.code(400).send({ error: 'Voce nao pode suspender a propria conta.' });
+      return reply.code(400).send({ error: 'Você não pode suspender a própria conta.' });
     }
 
     const before = await prisma.user.findUnique({
       where: { id },
       select: { email: true, role: true, status: true, apiAccess: true, authSource: true },
     });
-    if (!before) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+    if (!before) return reply.code(404).send({ error: 'Usuário não encontrado.' });
     // O papel de conta do AD vem dos grupos: o proximo login desfaria (item 107).
     if (
       before.authSource === 'LDAP' &&
@@ -320,14 +320,14 @@ export async function adminRoutes(app: FastifyInstance) {
     if (id === admin.id) {
       return reply
         .code(400)
-        .send({ error: 'Para trocar a propria senha, use Minha conta > Alterar senha.' });
+        .send({ error: 'Para trocar a própria senha, use Minha conta > Alterar senha.' });
     }
 
     const target = await prisma.user.findUnique({
       where: { id },
       select: { id: true, email: true, authSource: true },
     });
-    if (!target) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+    if (!target) return reply.code(404).send({ error: 'Usuário não encontrado.' });
     if (target.authSource === 'LDAP') {
       return reply.code(409).send({ error: 'Conta do AD: a senha é redefinida no AD.' });
     }
@@ -414,7 +414,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const key = await prisma.activationKey.findUnique({ where: { id } });
-    if (!key) return reply.code(404).send({ error: 'Chave nao encontrada.' });
+    if (!key) return reply.code(404).send({ error: 'Chave não encontrada.' });
 
     await prisma.$transaction(async (tx) => {
       await tx.activationKey.update({ where: { id }, data: { revoked: true } });

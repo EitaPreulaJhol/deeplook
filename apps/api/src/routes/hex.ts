@@ -35,13 +35,13 @@ export async function hexRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Somente analistas veem o conteúdo do arquivo.' });
     }
     const parsed = HexQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({
       where: { id },
       select: { type: true, storageKey: true, bucket: true, fileSize: true, filePurgedAt: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (entry.type !== 'FILE') return reply.code(400).send({ error: 'Links não têm conteúdo.' });
     if (entry.filePurgedAt || !entry.storageKey) {
       return reply

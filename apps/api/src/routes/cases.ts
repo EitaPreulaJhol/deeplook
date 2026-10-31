@@ -138,7 +138,7 @@ export async function caseRoutes(app: FastifyInstance) {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
     const parsed = ListQuery.safeParse(req.query);
-    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parametros invalidos.');
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { status, assignee, q, limit, offset } = parsed.data;
     const where: Prisma.CaseWhereInput = {};
     if (status === 'active') where.status = { not: 'CLOSED' };
@@ -485,7 +485,7 @@ export async function caseRoutes(app: FastifyInstance) {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
     const parsed = ExportQuery.safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: 'Formato invalido.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Formato inválido.' });
     const current = await loadCase(req, reply);
     if (!current) return;
     const iocs = await entriesIocs(await caseEntryIds(current.id));
