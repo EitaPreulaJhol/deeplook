@@ -3101,7 +3101,7 @@ feriados no prazo) saiu do projeto; 94 só com AD/LDAP e opcional.
 
 Resultado da varredura do projeto em 31/10/2026. Salvo indicação, cada problema foi
 confirmado na leitura do código; o item 101 também foi reproduzido em teste. Ordem combinada:
-95 a 99 primeiro; o resto será ordenado depois. Decisões pendentes: 122 e 123.
+95 a 99 primeiro; o resto será ordenado depois. Decisões de 122 e 123 tomadas em 31/10/2026.
 
 ### Maior risco
 
@@ -3247,15 +3247,16 @@ Cerca de 60 mensagens da API, como "Credenciais invalidas" e "Dados invalidos".
 `empresarial.com` parece com `empresa.com.br`. Limite maior ou lista de palavras típicas de
 golpe.
 
-### Decisões pendentes
+### Decisões tomadas
 
 ### 122. Quem baixa amostras
 Hoje qualquer usuário comum baixa a amostra de qualquer pessoa, sem auditoria.
-Recomendação: quem enviou e analistas, sempre com auditoria.
+- **Decisão (31/10/2026):** só quem enviou e os analistas baixam, sempre com auditoria.
 
 ### 123. E-mail de quem enviou
-A lista global e o CSV mostram esse e-mail a todos os usuários. Recomendação: só o nome para
-usuários comuns.
+A lista global e o CSV mostram esse e-mail a todos os usuários.
+- **Decisão (31/10/2026):** usuários comuns veem só o nome; analistas e administradores veem o
+  e-mail.
 
 ### Sugestões
 
