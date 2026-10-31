@@ -73,6 +73,7 @@ state.commentError = null;
 // 6. Texto nao salvo: trocar de aba pergunta.
 await page.click('.hpsm-tab:has-text("Detalhes")');
 const confirmBox = page.locator('[role=alertdialog]:has-text("Alterações não salvas")');
+await confirmBox.waitFor({ timeout: 3000 }).catch(() => undefined);
 expect('trocar de aba com texto pergunta', await confirmBox.isVisible());
 await page.click('[role=alertdialog] button:has-text("Continuar editando")');
 expect('continua na aba Histórico', new URL(page.url()).searchParams.get('tab') === 'historico');

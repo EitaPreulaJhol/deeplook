@@ -3117,6 +3117,11 @@ confirmado na leitura do código; o item 101 também foi reproduzido em teste. O
   não tem lockfile.
 - **Proposta:** Playwright recente (versão exata, com pelo menos duas semanas) na captura e
   nos testes, lockfile próprio e `npm ci`; teste real da captura com a imagem nova.
+- ✅ **Implementado:** Playwright 1.64.1 (publicado em 14/10/2026) na captura e nos testes, com
+  lockfile próprio e `npm ci`. Testado com a imagem real: abre a página, com print e
+  redirecionamentos, e recusa rede interna e metadados. O `run.ps1` agora roda todos os
+  cenários e lista os que falharam (`run-all.sh`); dois cenários passaram a esperar o diálogo,
+  porque o `click` novo não espera a navegação.
 
 ### 97. Segredos padrão recusados
 - **Problema:** a pilha sobe com `SESSION_SECRET`, `CAPTURE_TOKEN` e senhas padrão, e o admin

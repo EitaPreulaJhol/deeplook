@@ -691,7 +691,7 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1 -Scripts filters,account
 ```
 
-Requer o Docker em execução (imagem `mcr.microsoft.com/playwright:v1.49.0-noble`).
+Requer o Docker em execução (imagem `mcr.microsoft.com/playwright:v1.64.1-noble`).
 O script sai com erro se alguma checagem falhar; screenshots ficam em
 `scripts/ui-playwright/out/` (ignorado pelo git).
 

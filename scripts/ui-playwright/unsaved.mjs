@@ -25,6 +25,7 @@ await page.goto(ORIGIN + '/history', { waitUntil: 'networkidle' });
 await page.goto(ORIGIN + '/submit', { waitUntil: 'networkidle' });
 await page.fill('#file-title', 'rascunho importante');
 await page.click('.hpsm-tree__leaf:has-text("Histórico Global")');
+await dialog.waitFor({ timeout: 3000 }).catch(() => undefined);
 expect('sair com rascunho abre o diálogo', await dialog.isVisible());
 await page.screenshot({ path: `${OUT}/nao-salvo-dialogo.png` });
 await dialog.locator('button:has-text("Continuar editando")').click();
@@ -36,6 +37,7 @@ expect(
 // 2. Fechar a aba de documento ativa: cancelar mantem a aba; descartar fecha.
 const submitTab = page.locator('.hpsm-doctab', { hasText: 'Enviar Amostra' });
 await submitTab.locator('.hpsm-doctab__close').click();
+await dialog.waitFor({ timeout: 3000 }).catch(() => undefined);
 expect('fechar a aba com rascunho abre o diálogo', await dialog.isVisible());
 await dialog.locator('button:has-text("Continuar editando")').click();
 expect('cancelar mantém a aba aberta', (await docTabs()).includes('Enviar Amostra'));
@@ -58,6 +60,7 @@ expect('formulário vazio navega sem diálogo', !(await dialog.count()) && path(
 await page.goto(ORIGIN + '/entries/e1?tab=relatorios', { waitUntil: 'networkidle' });
 await page.fill('#report-summary', 'achados preliminares');
 await page.click('.hpsm-tab:has-text("Detalhes")');
+await dialog.waitFor({ timeout: 3000 }).catch(() => undefined);
 expect('trocar de aba com relatório em rascunho abre o diálogo', await dialog.isVisible());
 await dialog.locator('button:has-text("Descartar")').click();
 await page.waitForTimeout(300);
@@ -67,6 +70,7 @@ expect('descartar troca para a aba Detalhes', path() === '/entries/e1');
 await page.goto(ORIGIN + '/user?tab=preferencias', { waitUntil: 'networkidle' });
 await page.selectOption('#pref-pagesize', '100');
 await page.click('.hpsm-tab:has-text("Dados")');
+await dialog.waitFor({ timeout: 3000 }).catch(() => undefined);
 expect('preferências não salvas abrem o diálogo', await dialog.isVisible());
 await page.keyboard.press('Escape');
 expect('Esc mantém as preferências na tela', path() === '/user?tab=preferencias');
