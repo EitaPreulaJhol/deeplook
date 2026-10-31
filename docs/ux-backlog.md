@@ -3317,3 +3317,5 @@ grupos aninhados do AD; teste rápido contra a API real, para complementar o moc
   falha o login, em vez de rebaixar o papel sem motivo.
 
 ✅ **124a implementado:** `npm run test:smoke`, com as imagens reais do web e da API. **Achou um bug na primeira rodada:** o usuário comum abria `/revisoes` pela URL e levava 403 da API. A rota agora o manda para o início, como as outras telas de analista. **Fora do teste:** antivírus, captura, sandbox e AD ficam desligados.
+
+✅ **124b implementado:** campo "Resolução" na barra de atualização em massa, com os modelos como sugestão, e coluna no CSV. **Cuidado achado no teste:** com a principal e a duplicata marcadas juntas, a duplicata registrava dois eventos e avisava duas vezes; agora é um só, relendo a resolução dentro da transação.

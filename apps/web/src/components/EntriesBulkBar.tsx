@@ -1,4 +1,4 @@
-import { Button, Select, SelectItem } from '@carbon/react';
+import { Button, Select, SelectItem, TextInput } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ import type { EntryStatus, Priority, Verdict } from '../api/types';
 import { AddToCaseDialog } from './AddToCaseDialog';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterItem } from './HpsmFilterBar';
+import { RESOLUTION_MAX, RESOLUTION_TEMPLATES } from './ResolutionSection';
 import { priorityLabel, statusLabel, verdictLabel } from './tags';
 
 /** Valor do select de responsavel que remove a atribuicao. */
@@ -22,7 +23,8 @@ interface EntriesBulkBarProps {
 
 /**
  * Atualizacao em massa (padrao "Mass Update" do HPSM): com amostras marcadas na
- * grade, muda status, veredito e/ou responsavel de todas de uma vez.
+ * grade, muda status, veredito, responsavel e/ou resolucao de todas de uma vez.
+ * Resolucao vazia mantem: remover continua sendo na ficha (item 124).
  */
 export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
   const confirm = useConfirm();
@@ -32,6 +34,7 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
   const [verdict, setVerdict] = useState('');
   const [priority, setPriority] = useState('');
   const [assignee, setAssignee] = useState('');
+  const [resolution, setResolution] = useState('');
   const [busy, setBusy] = useState(false);
   const [caseOpen, setCaseOpen] = useState(false);
 
@@ -62,6 +65,10 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
       const name = analysts.find((a) => a.id === assignee)?.displayName ?? 'sem responsável';
       changes.push(`responsável → ${assignee === NO_ASSIGNEE ? 'sem responsável' : name}`);
     }
+    if (resolution.trim()) {
+      patch.resolution = resolution.trim();
+      changes.push(`resolução → "${resolution.trim()}"`);
+    }
     if (changes.length === 0) {
       onDone({ kind: 'error', text: 'Escolha ao menos um campo para alterar.' });
       return;
@@ -91,7 +98,9 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
       });
       setStatus('');
       setVerdict('');
+      setPriority('');
       setAssignee('');
+      setResolution('');
       onClear();
     } catch (err) {
       onDone({ kind: 'error', text: (err as Error).message });
@@ -167,6 +176,25 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
             <SelectItem key={a.id} value={a.id} text={a.displayName} />
           ))}
         </Select>
+      </HpsmFilterItem>
+      <HpsmFilterItem label="Resolução" htmlFor="bulk-resolution">
+        <TextInput
+          id="bulk-resolution"
+          labelText="Resolução para quem enviou"
+          hideLabel
+          size="sm"
+          list="bulk-resolution-templates"
+          maxLength={RESOLUTION_MAX}
+          placeholder="(manter)"
+          title="Para quem enviou. Vazio mantém; para remover, use a ficha da amostra."
+          value={resolution}
+          onChange={(e) => setResolution(e.target.value)}
+        />
+        <datalist id="bulk-resolution-templates">
+          {RESOLUTION_TEMPLATES.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
       </HpsmFilterItem>
       <Button kind="primary" size="sm" disabled={busy} onClick={apply}>
         {busy ? 'Aplicando...' : 'Aplicar'}

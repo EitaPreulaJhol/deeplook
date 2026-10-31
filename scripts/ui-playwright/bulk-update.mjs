@@ -51,6 +51,22 @@ const statusIdx = (await page.locator('thead th').allTextContents()).findIndex((
 const statuses = await page.locator(`tbody tr td:nth-child(${statusIdx + 1})`).allTextContents();
 expect('lista atualizada (linhas 1 e 3 concluídas)', statuses[0].includes('Concluído') && statuses[2].includes('Concluído'), statuses.join(' | '));
 
+// 3b. Resolucao: vazia mantem (nao vai na chamada); escrita aparece na confirmacao.
+const RESOLUTION = 'É golpe: não clique nos links, não abra os anexos e apague a mensagem.';
+await rowCheck(1).check();
+expect('modelos como sugestão', (await page.locator('#bulk-resolution-templates option').first().getAttribute('value')) === RESOLUTION);
+await page.fill('#bulk-resolution', '   ');
+await bar.locator('button:has-text("Aplicar")').click();
+await page.waitForTimeout(300);
+expect('só espaços não conta como mudança', (await messages()).includes('Escolha ao menos um campo para alterar.'));
+await page.fill('#bulk-resolution', `  ${RESOLUTION}  `);
+await bar.locator('button:has-text("Aplicar")').click();
+expect('confirmação mostra a resolução', (await dialog.textContent()).includes(`Atualizar 1 amostra: resolução → "${RESOLUTION}"?`), await dialog.textContent());
+await page.screenshot({ path: `${OUT}/massa-resolucao.png` });
+await dialog.locator('button:has-text("Atualizar")').click();
+await page.waitForTimeout(800);
+expect('envia aparada e só ela', JSON.stringify(state.lastBulk?.patch) === JSON.stringify({ resolution: RESOLUTION }), JSON.stringify(state.lastBulk?.patch));
+
 // 4. Selecionar todas e trocar o filtro limpa a seleção.
 await page.locator('thead th.hpsm-grid-check input').check();
 expect('selecionar todas desta página', (await bar.locator('.hpsm-bulkbar__count').textContent())?.includes('4 selecionadas'));

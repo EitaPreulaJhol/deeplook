@@ -8,6 +8,7 @@ const ADMIN_EMAIL = process.env.SMOKE_ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD;
 const NEW_PASSWORD = 'Nova-Senha-Forte-77!';
 const OUT = 'out';
+const RESOLUTION = 'Seguro: pode abrir.';
 
 let failures = 0;
 const expect = (label, ok, detail = '') => {
@@ -102,15 +103,18 @@ try {
   await page.locator('tbody tr').first().locator('input[type=checkbox]').check();
   await page.selectOption('#bulk-status', 'IN_REVIEW');
   await page.selectOption('#bulk-priority', 'P2');
+  await page.fill('#bulk-resolution', RESOLUTION);
   await page.locator('.hpsm-bulkbar button:has-text("Aplicar")').click();
   await page.locator('[role=alertdialog] button:has-text("Atualizar")').click();
   await page.waitForSelector('.hpsm-msg--success');
   const triaged = (await api(admin, 'GET', `/api/entries/${entryId}`)).body?.entry;
   expect(
     'atualização em massa gravada',
-    triaged?.status === 'IN_REVIEW' && triaged?.priority === 'P2',
-    JSON.stringify({ status: triaged?.status, priority: triaged?.priority }),
+    triaged?.status === 'IN_REVIEW' && triaged?.priority === 'P2' && triaged?.resolution === RESOLUTION,
+    JSON.stringify({ status: triaged?.status, priority: triaged?.priority, resolution: triaged?.resolution }),
   );
+  const csv = await (await admin.context.request.get(`${ORIGIN}/api/entries/export.csv`)).text();
+  expect('resolução no CSV', csv.includes('Resolução') && csv.includes(RESOLUTION));
   expect('sem erro na triagem', !drain(admin));
 
   // 4. Telas do admin.
@@ -177,6 +181,7 @@ try {
   }
   await visit(userSession, `/entries/${entryId}`);
   const other = await user.locator('body').innerText();
+  expect('amostra de outra pessoa com a resolução', other.includes(RESOLUTION));
   expect('amostra de outra pessoa sem o e-mail', !other.includes(ADMIN_EMAIL));
   expect('amostra de outra pessoa sem baixar', !other.includes('Baixar amostra'));
   expect('API recusa o download', (await api(userSession, 'GET', `/api/entries/${entryId}/download`)).status === 403);

@@ -132,6 +132,14 @@ export const UrlSchema = z.object({
 
 /** Resolucao para quem enviou: curta, para leigos (item 87). */
 const RESOLUTION_MAX = 500;
+/** Vazio ou null remove. */
+const ResolutionField = z
+  .string()
+  .trim()
+  .max(RESOLUTION_MAX)
+  .transform((v) => v || null)
+  .nullable()
+  .optional();
 
 const PatchSchema = z.object({
   title: z.string().min(2).max(200).optional(),
@@ -141,14 +149,8 @@ const PatchSchema = z.object({
   priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
   /** Analista responsavel (id) ou null para remover a atribuicao. */
   assigneeId: z.string().min(1).nullable().optional(),
-  /** Resolucao para quem enviou (item 87); vazio ou null remove. */
-  resolution: z
-    .string()
-    .trim()
-    .max(RESOLUTION_MAX)
-    .transform((v) => v || null)
-    .nullable()
-    .optional(),
+  /** Resolucao para quem enviou (item 87). */
+  resolution: ResolutionField,
 });
 
 function domainOf(url: string): string | null {
@@ -399,6 +401,7 @@ const BulkSchema = z.object({
       verdict: z.enum(['UNKNOWN', 'CLEAN', 'SUSPICIOUS', 'MALICIOUS']).optional(),
       priority: z.enum(['P1', 'P2', 'P3', 'P4']).optional(),
       assigneeId: z.string().min(1).nullable().optional(),
+      resolution: ResolutionField,
     })
     .strict()
     .refine((p) => Object.keys(p).length > 0, 'Nada para atualizar.'),
@@ -776,6 +779,7 @@ export async function entryRoutes(app: FastifyInstance) {
         'Prioridade',
         'Status',
         'Veredito',
+        'Resolução',
         'Relatórios',
         'SHA-256',
         'URL',
@@ -792,6 +796,7 @@ export async function entryRoutes(app: FastifyInstance) {
         PRIORITY_LABELS[e.priority],
         STATUS_LABELS[e.status],
         VERDICT_LABELS[e.verdict],
+        e.resolution,
         e._count.reports,
         e.sha256,
         e.url,
@@ -1385,7 +1390,18 @@ export async function entryRoutes(app: FastifyInstance) {
         if (patch.status !== undefined) updateData.status = patch.status;
         if (patch.verdict !== undefined) updateData.verdict = patch.verdict;
         if (patch.priority !== undefined) updateData.priority = patch.priority;
-        await applyTriage(tx, entry, user.id, patch, updateData, newAssignee);
+        if (patch.resolution === undefined) {
+          await applyTriage(tx, entry, user.id, patch, updateData, newAssignee);
+          continue;
+        }
+        updateData.resolution = patch.resolution;
+        // A principal marcada junto ja passou a resolucao para a duplicata: sem reler,
+        // quem enviou a duplicata receberia dois avisos.
+        const { resolution } = await tx.entry.findUniqueOrThrow({
+          where: { id: entry.id },
+          select: { resolution: true },
+        });
+        await applyTriage(tx, { ...entry, resolution }, user.id, patch, updateData, newAssignee);
       }
     });
 

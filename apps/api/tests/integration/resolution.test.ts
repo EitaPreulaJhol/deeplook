@@ -199,6 +199,74 @@ async function main() {
   r = await req('DELETE', `/api/entries/${none.id}/duplicate`, cAna);
   ok('sem resolução antes: volta sem nenhuma', r.json().entry.resolution === null, r.json());
 
+  // 10. Em massa (item 124): mesmas regras da ficha.
+  const bulk = (entryIds: string[], patch: object, c = cAna) =>
+    req('POST', '/api/entries/bulk', c, { ids: entryIds, patch });
+  const noticesOf = (entryId: string) => prisma.notification.count({ where: { entryId } });
+  const T3 = 'Seguro: pode abrir.';
+  const openOne = await mk('bob@x.io');
+  const doneOne = await mk('bob@x.io', { status: 'COMPLETED' });
+  ok(
+    'usuário comum não usa',
+    (await bulk([openOne.id], { resolution: T3 }, cBob)).statusCode === 403,
+  );
+  ok(
+    'em massa acima de 500 = 400',
+    (await bulk([openOne.id], { resolution: 'x'.repeat(501) })).statusCode === 400,
+  );
+  r = await bulk([openOne.id, doneOne.id], { resolution: `  ${T3}  ` });
+  ok('grava aparada em todas', r.statusCode === 200 && r.json().updated === 2, r.json());
+  ok(
+    'em massa: gravada nas duas',
+    (await prisma.entry.count({
+      where: { id: { in: [openOne.id, doneOne.id] }, resolution: T3 },
+    })) === 2,
+  );
+  ok(
+    'em massa: histórico de cada uma',
+    (await events(openOne.id)).at(-1)?.toValue === T3 &&
+      (await events(doneOne.id)).at(-1)?.toValue === T3,
+  );
+  ok(
+    'em massa: só a concluída avisa',
+    (await noticesOf(openOne.id)) === 0 && (await noticesOf(doneOne.id)) === 1,
+  );
+  await bulk([doneOne.id], { resolution: T3 });
+  ok('em massa: repetir não avisa', (await noticesOf(doneOne.id)) === 1);
+
+  // Principal e duplicata marcadas juntas: um evento e um aviso so, em qualquer ordem.
+  for (const principalFirst of [true, false]) {
+    const head = await mk('bob@x.io');
+    const copy = await mk('cid@x.io', { duplicateOfId: head.id, status: 'COMPLETED' });
+    await bulk(principalFirst ? [head.id, copy.id] : [copy.id, head.id], { resolution: T3 });
+    const label = principalFirst ? 'principal primeiro' : 'duplicata primeiro';
+    ok(
+      `${label}: duplicata com a resolução`,
+      (await prisma.entry.findUnique({ where: { id: copy.id } }))?.resolution === T3,
+    );
+    ok(`${label}: um evento`, (await events(copy.id)).length === 1, await events(copy.id));
+    ok(`${label}: um aviso`, (await noticesOf(copy.id)) === 1, await noticesOf(copy.id));
+  }
+
+  // O limite da rota, com as notificacoes, cabe na transacao.
+  const lote = await Promise.all(
+    Array.from({ length: 100 }, () => mk('bob@x.io', { status: 'COMPLETED' })),
+  );
+  r = await bulk(
+    lote.map((e) => e.id),
+    { resolution: T3, verdict: 'CLEAN' },
+  );
+  ok('100 amostras de uma vez', r.statusCode === 200 && r.json().updated === 100, r.body);
+
+  // 11. CSV (item 124): para todos, como a ficha; formula neutralizada.
+  const FORMULA = '=HYPERLINK("http://x.top")';
+  const csvEntry = await mk('bob@x.io', { title: 'Para o CSV', resolution: FORMULA });
+  const csv = (await req('GET', '/api/entries/export.csv?q=Para%20o%20CSV', cCid)).body;
+  const [head, line] = csv.replace(/^\uFEFF/, '').split('\r\n');
+  ok('coluna no CSV', head.split(';').includes('Resolução'), head);
+  ok('fórmula neutralizada no CSV', line.includes(`"'=HYPERLINK(""http://x.top"")"`), line);
+  ok('amostra certa no CSV', line.startsWith(csvEntry.id), line);
+
   await app.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
