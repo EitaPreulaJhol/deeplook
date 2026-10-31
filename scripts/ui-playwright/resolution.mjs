@@ -100,6 +100,37 @@ expect('no sininho também', (await page.locator('.hpsm-inbox__panel .dl-resolut
 await page.screenshot({ path: `${OUT}/resolucao-inbox.png` });
 await page.keyboard.press('Escape');
 
+// 8b. Rascunho nao passa para a proxima amostra (item 102): e1 e e2 sem resolucao.
+entries[0].resolution = null;
+const savedResolution = entries[1].resolution;
+entries[1].resolution = null;
+await page.goto(ORIGIN + '/history', { waitUntil: 'networkidle' });
+await page.click('table tbody tr:has-text("instalador_suspeito.exe")');
+await settle();
+await page.click('.hpsm-tab:has-text("Análise")');
+await settle(200);
+const firstPath = new URL(page.url()).pathname;
+await text.fill('RASCUNHO DA PRIMEIRA');
+await page.click('.hpsm-toolbar__action:has-text("Próxima")');
+const leave = page.locator('[role=alertdialog]');
+await leave.waitFor({ timeout: 3000 });
+await leave.locator('button:has-text("Descartar")').click();
+await settle(500);
+const secondPath = new URL(page.url()).pathname;
+expect('trocou de amostra', firstPath !== secondPath, `${firstPath} -> ${secondPath}`);
+expect('rascunho não passa para a próxima amostra', (await text.inputValue()) === '', await text.inputValue());
+expect('salvar continua desligado', await saveBtn.isDisabled());
+// Voltar para a ja visitada: vem do cache, sem a tela de "carregando".
+await text.fill('RASCUNHO DA SEGUNDA');
+await page.click('.hpsm-toolbar__action:has-text("Anterior")');
+await leave.waitFor({ timeout: 3000 });
+await leave.locator('button:has-text("Descartar")').click();
+await settle(500);
+expect('voltou para a já visitada', new URL(page.url()).pathname === firstPath, page.url());
+expect('rascunho não passa para a amostra do cache', (await text.inputValue()) === '', await text.inputValue());
+expect('salvar desligado na amostra do cache', await saveBtn.isDisabled());
+entries[1].resolution = savedResolution;
+
 // 9. Quem enviou: ve o destaque, sem o campo.
 state.role = 'USER';
 await page.goto(ORIGIN + '/entries/e2', { waitUntil: 'networkidle' });

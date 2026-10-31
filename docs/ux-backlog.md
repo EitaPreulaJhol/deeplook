@@ -3177,6 +3177,7 @@ Com `portal.empresa.com.br` cadastrado, `mail.empresa.com.br` e `empresa.com.br`
 ### 102. Rascunho da resolução passa para outra amostra
 Ao usar Próxima e Descartar, o texto continua se as duas amostras têm a mesma resolução, e
 salvar grava na amostra errada. O formulário recomeça a cada amostra.
+✅ **Implementado:** o formulário recomeça a cada amostra. O bug só ocorria ao voltar para uma amostra já visitada (vem do cache, sem a tela de "carregando"), e foi assim que o cenário o reproduziu.
 
 ### 103. Desmarcar duplicata mantém a resolução herdada
 A resolução da principal fica em destaque e a original se perdeu. Guardar e devolver a

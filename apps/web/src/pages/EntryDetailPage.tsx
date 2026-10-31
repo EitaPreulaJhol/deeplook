@@ -872,7 +872,9 @@ export function EntryDetailPage() {
               </HpsmField>
             </HpsmForm>
           </HpsmSection>
+          {/* key: o rascunho e de uma amostra; a do cache nao passa pelo "carregando". */}
           <ResolutionForm
+            key={entry.id}
             resolution={entry.resolution}
             onSave={(resolution) => quickUpdate({ resolution })}
           />
