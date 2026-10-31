@@ -3227,6 +3227,8 @@ IP da auditoria e das sessões. Confiar só no proxy conhecido.
 ### 113. Login: bloqueio de terceiros e enumeração
 Limite só por e-mail permite bloquear a conta de outra pessoa e testar uma senha em muitas
 contas; "Conta suspensa" aparece sem conferir a senha; e-mail inexistente responde mais rápido.
+- **Decisão (31/10/2026):** em teste não há proxy; em produção o acesso passa sempre pelo
+  Cloudflare Tunnel, então vale o `CF-Connecting-IP` vindo do `cloudflared`.
 
 ### 114. Auditoria incompleta
 Domínios da empresa (alteram a lista de permissões), regras de triagem, atribuição automática
@@ -3238,6 +3240,7 @@ Sem CSP e HSTS no nginx; `COOKIE_SECURE` vem `false`.
 ### 116. Backup sem cifra e sem conferir o disco
 O ZIP tem hashes de senha e segredos de 2FA, fica no bucket de origem, e a geração não confere
 o espaço em disco. Avaliar senha/cifra e aviso de espaço.
+- **Decisão (31/10/2026):** senha informada ao gerar o ZIP, com opção de exportar sem senha.
 
 ### Operação e acabamento
 
