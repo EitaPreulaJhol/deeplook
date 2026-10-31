@@ -57,8 +57,10 @@ const row = page.locator('tbody tr', { hasText: users[1].displayName }).first();
 expect('marcação AD', (await row.locator('.dl-dup-tag').innerText()).trim() === 'AD');
 const reset = row.locator('button:has-text("Redefinir senha")');
 expect('sem redefinir a senha do AD', (await reset.isDisabled()) && (await reset.getAttribute('title')) === 'Conta do AD: a senha é redefinida no AD');
+expect('papel do AD não se edita na tela', await row.locator('select').first().isDisabled());
 const other = page.locator('tbody tr', { hasText: users[2].displayName }).first();
 expect('conta local sem marcação', (await other.locator('.dl-dup-tag').count()) === 0);
+expect('papel da conta local se edita', !(await other.locator('select').first().isDisabled()));
 users[1].authSource = undefined;
 
 await browser.close();

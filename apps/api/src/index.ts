@@ -7,10 +7,11 @@ import Fastify from 'fastify';
 import { env, sandboxEnabled } from './env';
 import { startBackups } from './lib/backup';
 import { backfillReportIocs } from './lib/iocs';
+import { startLdapSweep } from './lib/ldap-sweep';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { prisma } from './lib/prisma';
 import { startRetention } from './lib/retention';
-import { ensureBucket } from './lib/s3';
+import { ensureBucket, isMissingObject, MISSING_OBJECT_MESSAGE } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { backfillTlsh } from './lib/tlsh-backfill';
@@ -138,6 +139,9 @@ async function main() {
   });
 
   app.setErrorHandler((error, req, reply) => {
+    if (isMissingObject(error)) {
+      return reply.code(404).send({ error: MISSING_OBJECT_MESSAGE });
+    }
     req.log.error({ err: error }, 'Erro na requisicao');
     const err = error as { statusCode?: number; message?: string };
     const status = err.statusCode ?? 500;
@@ -165,6 +169,7 @@ async function main() {
   // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).
   startRetention(app.log);
   startBackups(app.log);
+  startLdapSweep(app.log);
   if (env.RETENTION_DAYS) {
     app.log.info(
       `[retencao] ligada: arquivos expurgados ${env.RETENTION_DAYS} dia(s) após a conclusão`,

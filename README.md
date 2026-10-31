@@ -133,6 +133,10 @@ continuam valendo.
   - vale o mesmo limite de tentativas do login;
   - conta suspensa no DeepLook não entra, mesmo com a senha certa;
   - se o e-mail do AD já é de uma conta local, o AD **não** assume essa conta.
+- **Quem sai do AD:** de hora em hora, a conta removida ou desativada no AD é suspensa, com
+  sessões e tokens revogados, e o evento vai para a Auditoria. Reativar é com o admin. Com o AD
+  fora do ar nada muda; se a maioria das contas parecer sumida, o provável é erro de
+  configuração, e ninguém é suspenso.
 - **Status:** o Status do sistema mostra a linha "AD/LDAP" (conexão, TLS e quantas
   contas do AD existem).
 
@@ -203,6 +207,8 @@ curl -H "Authorization: Bearer dlk_..." -H "Content-Type: application/json" \
   lista as rotas, os campos e exemplos. A especificação OpenAPI 3.1 está em
   `/api/openapi.json` (com sessão ou token) e é gerada das validações das rotas.
 - **Limite:** 120 requisições por minuto por token.
+- **Troca de senha:** trocar a senha ou tê-la redefinida pelo admin revoga os tokens; a troca
+  por validade vencida, não.
 - **Revogação:** o usuário revoga em Minha Conta; o admin revoga um token na aba Tokens de
   API ou retira a liberação, o que revoga todos de uma vez. Suspender a conta também corta
   o acesso.
@@ -356,6 +362,11 @@ docker compose exec -T db pg_restore -U deeplook -d deeplook_restaurado --no-own
 
 Depois aponte `DATABASE_URL` para o banco restaurado (ou renomeie-o) e suba o resto. As
 migrações mais novas rodam sozinhas.
+
+- **`SESSION_SECRET`:** use o mesmo da instalação de origem, porque ele não vai no ZIP. Com
+  outro, os 2FA ativados param de funcionar (só os códigos de recuperação valem).
+- **Backup sem as amostras:** as fichas voltam, mas os arquivos não. Baixar responde "arquivo
+  não está no armazenamento"; a análise já feita continua na ficha.
 
 ## Cloudflare Tunnel (no host, fora do Docker)
 

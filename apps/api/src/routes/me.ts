@@ -114,6 +114,14 @@ export async function meRoutes(app: FastifyInstance) {
         data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
       });
       await tx.session.deleteMany({ where: { userId: user.id } });
+      // Troca voluntaria pode ser suspeita de vazamento: os tokens caem junto (item 108).
+      // Na senha vencida pela politica, nao: quebraria os scripts a cada ciclo.
+      if (passwordChangeReason !== 'expired') {
+        await tx.apiToken.updateMany({
+          where: { userId: user.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
       await audit(tx, req, {
         action: 'USER_PASSWORD_CHANGED',
         actorId: user.id,

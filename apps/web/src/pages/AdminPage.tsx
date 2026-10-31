@@ -390,6 +390,12 @@ export function AdminPage() {
                                     hideLabel
                                     size="sm"
                                     value={u.role}
+                                    disabled={u.authSource === 'LDAP'}
+                                    title={
+                                      u.authSource === 'LDAP'
+                                        ? 'Conta do AD: o papel vem dos grupos do AD'
+                                        : undefined
+                                    }
                                     onChange={(e) => updateUser(u.id, { role: e.target.value })}
                                   >
                                     <SelectItem value="USER" text="Usuário" />

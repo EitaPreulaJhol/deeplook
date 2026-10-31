@@ -5,8 +5,10 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '../../src/env';
+import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
-import { configureLdap, escapeFilter, type LdapConfig } from '../../src/lib/ldap';
+import { adDisabled, configureLdap, escapeFilter, type LdapConfig } from '../../src/lib/ldap';
+import { sweepLdapAccounts } from '../../src/lib/ldap-sweep';
 import { prisma } from '../../src/lib/prisma';
 import { systemStatus } from '../../src/lib/status';
 import { adminRoutes } from '../../src/routes/admin';
@@ -242,6 +244,155 @@ async function main() {
   ok(
     'limite de tentativas vale para o AD',
     (await login('maria.costa@empresa.test', 'Senha-AD-2', next())).statusCode === 429,
+  );
+
+  // 11. Papel de conta do AD nao se edita (item 107); o da local sim.
+  const adminCookie = cookieOf(await login('ana@empresa.test', 'Senha-Local-9!', next()));
+  const patchRole = (id: string, role: string) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/api/admin/users/${id}`,
+      headers: { cookie: adminCookie },
+      payload: { role },
+    });
+  const pnovo = await prisma.user.findUniqueOrThrow({
+    where: { email: 'pedro.novo@empresa.test' },
+  });
+  ok('papel do AD não se edita', (await patchRole(pnovo.id, 'ANALYST')).statusCode === 409);
+  const localUser = await prisma.user.create({
+    data: { email: 'local@empresa.test', displayName: 'Local', role: 'USER', passwordHash: 'x' },
+  });
+  ok(
+    'papel da conta local se edita',
+    (await patchRole(localUser.id, 'ANALYST')).statusCode === 200,
+  );
+
+  // 12. Primeiro acesso simultaneo sem erro 500 (item 110).
+  const addUser = (uid: string, mail: string) =>
+    execFileSync('docker', [
+      'exec',
+      'dl-ldap',
+      'sh',
+      '-c',
+      `printf 'dn: uid=${uid},ou=people,dc=empresa,dc=test\\nobjectClass: inetOrgPerson\\nuid: ${uid}\\ncn: ${uid}\\nsn: x\\nmail: ${mail}\\nuserPassword: Senha-AD-9\\n' | ldapadd -x -H ldap://localhost -D cn=admin,dc=empresa,dc=test -w adminpw`,
+    ]);
+  const delUser = (uid: string) =>
+    execFileSync('docker', [
+      'exec',
+      'dl-ldap',
+      'ldapdelete',
+      '-x',
+      '-H',
+      'ldap://localhost',
+      '-D',
+      'cn=admin,dc=empresa,dc=test',
+      '-w',
+      'adminpw',
+      `uid=${uid},ou=people,dc=empresa,dc=test`,
+    ]);
+  const unique = `par${Date.now()}`;
+  addUser(unique, `${unique}@empresa.test`);
+  const both = await Promise.all([1, 2, 3].map(() => login(unique, 'Senha-AD-9', next())));
+  ok(
+    'primeiros acessos simultâneos entram',
+    both.every((x) => x.statusCode === 200),
+    both.map((x) => x.statusCode),
+  );
+  ok(
+    'uma conta só',
+    (await prisma.user.count({ where: { email: `${unique}@empresa.test` } })) === 1,
+  );
+
+  // 13. E-mail novo do AD que ja e de outra conta: entra com o antigo (item 110).
+  const setMail = (uid: string, mail: string) =>
+    execFileSync('docker', [
+      'exec',
+      'dl-ldap',
+      'sh',
+      '-c',
+      `printf 'dn: uid=${uid},ou=people,dc=empresa,dc=test\\nchangetype: modify\\nreplace: mail\\nmail: ${mail}\\n' | ldapmodify -x -H ldap://localhost -D cn=admin,dc=empresa,dc=test -w adminpw`,
+    ]);
+  setMail(unique, 'local@empresa.test');
+  const collided = await login(unique, 'Senha-AD-9', next());
+  ok('colisão de e-mail não dá 500', collided.statusCode !== 500, collided.statusCode);
+  setMail(unique, `${unique}@empresa.test`);
+
+  // 14. Quem sai do AD perde o acesso (item 108).
+  ok('bit de conta desativada', adDisabled('514') && !adDisabled('512') && !adDisabled(undefined));
+  const leaving = await prisma.user.findUniqueOrThrow({
+    where: { email: `${unique}@empresa.test` },
+  });
+  const secret = newTokenSecret();
+  const token = await prisma.apiToken.create({
+    data: {
+      userId: leaving.id,
+      name: 'ci',
+      prefix: secret.slice(0, 12),
+      tokenHash: hashToken(secret),
+      expiresAt: new Date(Date.now() + 86400000),
+    },
+  });
+  ok('tem sessão antes', (await prisma.session.count({ where: { userId: leaving.id } })) > 0);
+  let sweep = await sweepLdapAccounts();
+  ok(
+    'quem continua no AD não é suspenso',
+    sweep.suspended.length === 0 && sweep.checked >= 3,
+    sweep,
+  );
+  configureLdap({ ...base, url: 'ldaps://localhost:1' });
+  let down = false;
+  try {
+    await sweepLdapAccounts();
+  } catch {
+    down = true;
+  }
+  ok(
+    'AD fora do ar: falha sem suspender',
+    down &&
+      (await prisma.user.findUniqueOrThrow({ where: { id: leaving.id } })).status === 'ACTIVE',
+  );
+  configureLdap({ ...base, baseDn: 'ou=people,dc=empresa,dc=test' });
+  delUser(unique);
+  sweep = await sweepLdapAccounts();
+  ok('saiu do AD: suspensa', sweep.suspended.includes(leaving.email), sweep);
+  const after = await prisma.user.findUniqueOrThrow({ where: { id: leaving.id } });
+  ok(
+    'saiu do AD: sessões e tokens caem',
+    after.status === 'SUSPENDED' &&
+      (await prisma.session.count({ where: { userId: leaving.id } })) === 0 &&
+      Boolean((await prisma.apiToken.findUniqueOrThrow({ where: { id: token.id } })).revokedAt),
+  );
+  ok(
+    'saída na auditoria',
+    (await prisma.auditEvent.count({
+      where: { action: 'USER_SUSPENDED', targetUserId: leaving.id },
+    })) === 1,
+  );
+
+  // 15. Quase todos "sumidos": erro de configuracao, ninguem e suspenso.
+  await prisma.user.updateMany({
+    where: { authSource: 'LDAP', status: 'ACTIVE' },
+    data: { ldapDn: null },
+  });
+  const fake = ['a1', 'a2', 'a3'];
+  for (const u of fake) {
+    await prisma.user.create({
+      data: {
+        email: `${u}@empresa.test`,
+        displayName: u,
+        passwordHash: 'x',
+        authSource: 'LDAP',
+        ldapDn: `uid=${u},ou=errado,dc=empresa,dc=test`,
+      },
+    });
+  }
+  sweep = await sweepLdapAccounts();
+  ok('muitos sumidos: não suspende', sweep.suspended.length === 0 && Boolean(sweep.skipped), sweep);
+  ok(
+    'muitos sumidos: contas intactas',
+    (await prisma.user.count({
+      where: { email: { in: fake.map((u) => `${u}@empresa.test`) }, status: 'ACTIVE' },
+    })) === 3,
   );
 
   await app.close();

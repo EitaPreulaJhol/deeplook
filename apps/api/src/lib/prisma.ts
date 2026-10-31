@@ -6,6 +6,16 @@ import { PrismaClient } from '../generated/prisma/client';
  * Conexao com o Postgres pelo driver `pg` (Prisma 7 exige um driver adapter).
  * O `pg` nao tem tempo-limite de conexao por padrao: 5 s, como no Prisma 6.
  */
+/** Violacao de unicidade do Prisma (dois pedidos gravando o mesmo valor). */
+export function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === 'P2002';
+}
+
+/** Serializa "conferir e gravar" ate o fim da transacao (item 111). */
+export async function advisoryLock(tx: Tx, key: number): Promise<void> {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(${key}::bigint)::text`;
+}
+
 export function createPrismaClient(): PrismaClient {
   const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,

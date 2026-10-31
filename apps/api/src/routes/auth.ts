@@ -9,7 +9,7 @@ import { hashPassword, verifyPassword } from '../lib/crypto';
 import { ldapAuthenticate, ldapConfig } from '../lib/ldap';
 import { passwordField, passwordState } from '../lib/password-policy';
 import { resolvePreferences } from '../lib/preferences';
-import { prisma } from '../lib/prisma';
+import { isUniqueViolation, prisma } from '../lib/prisma';
 import { attemptLimit } from '../lib/rate-limit';
 import { newChallenge, readChallenge } from '../lib/two-factor';
 import { sendValidationError } from '../lib/validation';
@@ -26,6 +26,9 @@ const TwoFactorSchema = z.object({
   challenge: z.string().min(10).max(300),
   code: z.string().trim().min(6).max(20),
 });
+
+/** Chave usada ate o limite por outro cadastro ao mesmo tempo (item 111). */
+class KeyUsedUp extends Error {}
 
 const LoginSchema = z.object({
   /** E-mail; com o AD ligado (item 94), tambem o usuario do AD. */
@@ -111,32 +114,44 @@ export async function authRoutes(app: FastifyInstance) {
 
     const passwordHash = await hashPassword(password);
 
-    const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          email: normalizedEmail,
-          displayName,
-          passwordHash,
-          role: key.role,
-          status: 'ACTIVE',
-        },
+    const user = await prisma
+      .$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            displayName,
+            passwordHash,
+            role: key.role,
+            status: 'ACTIVE',
+          },
+        });
+        // A conferencia acima pode estar velha: so conta se ainda houver uso (item 111).
+        const { count } = await tx.activationKey.updateMany({
+          where: { id: key.id, usesUsed: { lt: key.maxUses } },
+          data: { usesUsed: { increment: 1 } },
+        });
+        if (!count) throw new KeyUsedUp();
+        await tx.activationKey.update({
+          where: { id: key.id },
+          data: { usedBy: { connect: { id: created.id } } },
+        });
+        await audit(tx, req, {
+          action: 'USER_REGISTERED',
+          actorId: created.id,
+          targetUserId: created.id,
+          targetLabel: normalizedEmail,
+          detail: `chave ${key.code} · papel ${key.role}`,
+        });
+        return created;
+      })
+      .catch((err: unknown) => {
+        if (err instanceof KeyUsedUp || isUniqueViolation(err)) return err as Error;
+        throw err;
       });
-      await tx.activationKey.update({
-        where: { id: key.id },
-        data: {
-          usesUsed: { increment: 1 },
-          usedBy: { connect: { id: created.id } },
-        },
-      });
-      await audit(tx, req, {
-        action: 'USER_REGISTERED',
-        actorId: created.id,
-        targetUserId: created.id,
-        targetLabel: normalizedEmail,
-        detail: `chave ${key.code} · papel ${key.role}`,
-      });
-      return created;
-    });
+    if (user instanceof KeyUsedUp) {
+      return reply.code(400).send({ error: 'Chave de ativacao ja utilizada.' });
+    }
+    if (user instanceof Error) return reply.code(409).send({ error: 'E-mail ja cadastrado.' });
 
     await createSession(reply, user.id, req);
     return reply.code(201).send({ user: publicUser(user) });
@@ -182,32 +197,45 @@ export async function authRoutes(app: FastifyInstance) {
       (await prisma.user.findUnique({ where: { email: ad.email } }));
     if (existing?.authSource === 'LOCAL') return null;
     if (!existing) {
-      return prisma.$transaction(async (tx) => {
-        const created = await tx.user.create({
-          data: {
-            email: ad.email,
-            displayName: ad.name.slice(0, 120),
-            role: ad.role,
-            authSource: 'LDAP',
-            ldapDn: ad.dn,
-            // Nunca confere: a senha e a do AD.
-            passwordHash: await hashPassword(randomBytes(32).toString('hex')),
-          },
+      const created = await prisma
+        .$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: {
+              email: ad.email,
+              displayName: ad.name.slice(0, 120),
+              role: ad.role,
+              authSource: 'LDAP',
+              ldapDn: ad.dn,
+              // Nunca confere: a senha e a do AD.
+              passwordHash: await hashPassword(randomBytes(32).toString('hex')),
+            },
+          });
+          await audit(tx, req, {
+            action: 'USER_REGISTERED',
+            actorId: created.id,
+            targetUserId: created.id,
+            targetLabel: created.email,
+            detail: `primeiro acesso pelo AD · ${ad.role}`,
+          });
+          return created;
+        })
+        .catch((err: unknown) => {
+          if (!isUniqueViolation(err)) throw err;
+          return null;
         });
-        await audit(tx, req, {
-          action: 'USER_REGISTERED',
-          actorId: created.id,
-          targetUserId: created.id,
-          targetLabel: created.email,
-          detail: `primeiro acesso pelo AD · ${ad.role}`,
-        });
-        return created;
-      });
+      // Dois primeiros acessos ao mesmo tempo: vale a conta que o outro criou (item 110).
+      if (created) return created;
+      return prisma.user.findUnique({ where: { ldapDn: ad.dn } });
     }
-    const updated = await prisma.user.update({
-      where: { id: existing.id },
-      data: { displayName: ad.name.slice(0, 120), email: ad.email, ldapDn: ad.dn, role: ad.role },
-    });
+    const data = { displayName: ad.name.slice(0, 120), ldapDn: ad.dn, role: ad.role };
+    // E-mail novo que ja e de outra conta: entra com o antigo em vez de dar erro (item 110).
+    const updated = await prisma.user
+      .update({ where: { id: existing.id }, data: { ...data, email: ad.email } })
+      .catch((err: unknown) => {
+        if (!isUniqueViolation(err)) throw err;
+        req.log.warn({ dn: ad.dn }, 'E-mail do AD já é de outra conta; mantido o atual');
+        return prisma.user.update({ where: { id: existing.id }, data });
+      });
     if (existing.role !== ad.role) {
       await audit(prisma, req, {
         action: 'USER_ROLE_CHANGED',
@@ -246,7 +274,12 @@ export async function authRoutes(app: FastifyInstance) {
       }
       user = await ldapAccount(req, result);
       if (!user) {
-        await loginFailed(req, normalized, null, `e-mail do AD (${result.email}) já é de uma conta local`);
+        await loginFailed(
+          req,
+          normalized,
+          null,
+          `e-mail do AD (${result.email}) já é de uma conta local`,
+        );
         return reply.code(401).send({ error: 'Credenciais invalidas.' });
       }
       // Suspensa no DeepLook nao entra, mesmo com a senha certa no AD.

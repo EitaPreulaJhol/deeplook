@@ -168,6 +168,43 @@ export async function ldapAuthenticate(login: string, password: string): Promise
   }
 }
 
+/** userAccountControl do AD com o bit ACCOUNTDISABLE (2). */
+export function adDisabled(value: unknown): boolean {
+  const n = Number(first(value));
+  return Number.isInteger(n) && (n & 2) === 2;
+}
+
+/**
+ * Situacao das contas no AD, por DN (item 108): `gone` se nao existe mais ou esta
+ * desativada. Lanca se o AD nao responde: quem chama nao decide nada nesse caso.
+ */
+export async function ldapAccountsGone(dns: string[]): Promise<Set<string>> {
+  const c = ldapConfig();
+  if (!c) throw new Error('AD não configurado');
+  const problem = ldapConfigProblem(c);
+  if (problem) throw new Error(problem);
+  const client = await serviceClient(c);
+  const gone = new Set<string>();
+  try {
+    for (const dn of dns) {
+      try {
+        const { searchEntries } = await client.search(dn, {
+          scope: 'base',
+          filter: '(objectClass=*)',
+          attributes: ['userAccountControl'],
+        });
+        if (!searchEntries.length || adDisabled(searchEntries[0].userAccountControl)) gone.add(dn);
+      } catch (err) {
+        if ((err as Error).name !== 'NoSuchObjectError') throw err;
+        gone.add(dn);
+      }
+    }
+  } finally {
+    await client.unbind().catch(() => undefined);
+  }
+  return gone;
+}
+
 /** Linha do Status do sistema: conecta e faz o bind da conta de servico. */
 export async function ldapProbe(): Promise<{ url: string; detail: string | null }> {
   const c = ldapConfig();

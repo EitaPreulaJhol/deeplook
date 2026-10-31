@@ -3198,10 +3198,12 @@ O download dá erro em vez de "arquivo indisponível", e o LEIA-ME não avisa.
 
 ### 107. Papel de conta do AD editável na tela
 O próximo login desfaz a mudança sem aviso. Desligar o seletor e recusar na API.
+✅ **Implementado:** seletor desligado na tela; a API responde 409.
 
 ### 108. Acessos que sobrevivem à perda de confiança
 Token de API sobrevive à troca ou redefinição de senha; token e sessão sobrevivem à saída da
 pessoa do AD. Revogar nas trocas de senha e definir a regra para contas do AD.
+✅ **Implementado:** troca voluntária e redefinição pelo admin revogam os tokens (a troca por senha vencida não, para não quebrar scripts a cada ciclo). Regra do AD (`lib/ldap-sweep.ts`): de hora em hora, conta removida ou desativada é suspensa, com sessões e tokens revogados e auditoria; AD fora do ar não muda nada, e se a maioria parecer sumida ninguém é suspenso.
 
 ### 109. Revarredura de domínios interrompida
 Duas varreduras simultâneas colidem (`createMany` sem `skipDuplicates`) e a segunda para.
@@ -3209,6 +3211,7 @@ Duas varreduras simultâneas colidem (`createMany` sem `skipDuplicates`) e a seg
 
 ### 110. Erro 500 no login do AD
 E-mail novo que já existe ou dois primeiros acessos simultâneos.
+✅ **Implementado:** primeiros acessos simultâneos usam a mesma conta; e-mail novo que já é de outra conta mantém o atual.
 
 ### 111. Corrida entre conferir e gravar
 Chave de ativação além do limite, mais de 3 avisos ativos, dois backups ao mesmo tempo.

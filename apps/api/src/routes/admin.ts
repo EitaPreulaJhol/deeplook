@@ -238,9 +238,17 @@ export async function adminRoutes(app: FastifyInstance) {
 
     const before = await prisma.user.findUnique({
       where: { id },
-      select: { email: true, role: true, status: true, apiAccess: true },
+      select: { email: true, role: true, status: true, apiAccess: true, authSource: true },
     });
     if (!before) return reply.code(404).send({ error: 'Usuario nao encontrado.' });
+    // O papel de conta do AD vem dos grupos: o proximo login desfaria (item 107).
+    if (
+      before.authSource === 'LDAP' &&
+      parsed.data.role !== undefined &&
+      parsed.data.role !== before.role
+    ) {
+      return reply.code(409).send({ error: 'Conta do AD: o papel vem dos grupos do AD.' });
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.user.update({
@@ -318,6 +326,11 @@ export async function adminRoutes(app: FastifyInstance) {
       // Troca obrigatoria no proximo login: a temporaria foi vista pelo admin.
       await tx.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
       await tx.session.deleteMany({ where: { userId: id } });
+      // Quem redefine suspeita da conta: os tokens tambem caem (item 108).
+      await tx.apiToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       // A senha temporaria NAO vai para a auditoria.
       await audit(tx, req, {
         action: 'USER_PASSWORD_RESET',
