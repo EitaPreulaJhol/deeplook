@@ -3315,3 +3315,5 @@ grupos aninhados do AD; teste rápido contra a API real, para complementar o moc
   papel a mais gente. Sobe pelo `memberOf` dos grupos, que funciona no AD e no OpenLDAP do teste.
   Até 200 grupos por login. Grupo que o servidor recusa ou não acha é ignorado; queda do AD no meio
   falha o login, em vez de rebaixar o papel sem motivo.
+
+✅ **124a implementado:** `npm run test:smoke`, com as imagens reais do web e da API. **Achou um bug na primeira rodada:** o usuário comum abria `/revisoes` pela URL e levava 403 da API. A rota agora o manda para o início, como as outras telas de analista. **Fora do teste:** antivírus, captura, sandbox e AD ficam desligados.

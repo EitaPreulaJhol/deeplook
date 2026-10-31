@@ -707,11 +707,15 @@ cd apps/api
 npm run test:integration            # API contra Postgres, MinIO e OpenLDAP reais
 npm run test:integration -- ldap    # só os arquivos com "ldap" no nome
 npm run test:images                 # imagens reais: lockfile, API sem root, captura
+npm run test:smoke                  # navegador real contra as imagens do web e da API
 ```
 
 - **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
   de disco e os certificados são gerados na hora, em `tests/.tmp`. `--clean` remove os
   containers ao terminar.
+- **Teste rápido** (`test:smoke`): com Postgres e MinIO reais, faz o caminho principal (primeiro
+  acesso, envio, triagem em massa, usuário comum) e abre as telas. Erro inesperado da API, no
+  console ou da CSP reprova. Pega o que a API simulada das telas esconde.
 - **Telas** (`scripts/ui-playwright/run.ps1`): cenários no navegador com a API simulada. Roda
   todos e lista os que falharam.
 

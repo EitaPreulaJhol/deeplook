@@ -127,7 +127,10 @@ export default function App() {
         <Route path="/kb/:id" element={<KbArticlePage key="view" mode="view" />} />
         <Route path="/kb/:id/editar" element={<KbArticlePage key="edit" mode="edit" />} />
         <Route path="/painel" element={<DashboardPage />} />
-        <Route path="/revisoes" element={<ReviewQueuePage />} />
+        <Route
+          path="/revisoes"
+          element={user.role === 'USER' ? <Navigate to="/" replace /> : <ReviewQueuePage />}
+        />
         <Route
           path="/comparar"
           element={user.role === 'USER' ? <Navigate to="/" replace /> : <ComparePage />}
