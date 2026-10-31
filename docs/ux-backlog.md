@@ -3109,6 +3109,8 @@ confirmado na leitura do código; o item 101 também foi reproduzido em teste. O
 - **Problema:** os Dockerfiles da API e do web copiam só o `package.json`; com os `^`,
   produção pode rodar versões diferentes das testadas.
 - **Proposta:** `COPY package*.json` e `npm ci`, que falha se o lockfile divergir.
+- ✅ **Implementado:** API e web com `package-lock.json` e `npm ci`. Testado: as duas imagens
+  reais compilam com as versões do lockfile (no web, build e `nginx -t`), e um `package.json` divergente faz o `npm ci` falhar.
 
 ### 96. Chromium atualizado na captura
 - **Problema:** a captura abre páginas hostis com o Playwright 1.49.0 (novembro de 2024) e

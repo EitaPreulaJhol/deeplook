@@ -1,8 +1,9 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# Versoes exatas do lockfile: o npm ci falha se ele divergir do package.json.
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 RUN npm run build

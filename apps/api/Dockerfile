@@ -16,8 +16,9 @@ RUN apt-get update \
   && apt-get purge -y curl && apt-get autoremove -y \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json ./
-RUN npm install --include=dev
+# Versoes exatas do lockfile: o npm ci falha se ele divergir do package.json.
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
 
 COPY tsconfig.json prisma.config.ts ./
 COPY src ./src
