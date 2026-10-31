@@ -353,7 +353,8 @@ export function EntryDetailPage() {
             />
           </>
         )}
-        {entry.type === 'FILE' && (
+        {/* Item 122: so quem enviou e os analistas. */}
+        {entry.type === 'FILE' && (canTriage || entry.ownerId === user?.id) && (
           <>
             <HpsmToolbarDivider />
             <HpsmToolbarButton
@@ -673,7 +674,8 @@ export function EntryDetailPage() {
             <HpsmForm columns={2}>
               <HpsmField label="Enviado por">
                 <HpsmReadonly>
-                  {entry.owner.displayName} ({entry.owner.email})
+                  {entry.owner.displayName}
+                {entry.owner.email && ` (${entry.owner.email})`}
                 </HpsmReadonly>
               </HpsmField>
               <HpsmField label="Tipo">

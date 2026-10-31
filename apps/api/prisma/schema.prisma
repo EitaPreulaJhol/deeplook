@@ -699,6 +699,8 @@ enum AuditAction {
   ENTRY_TRASHED
   ENTRY_RESTORED
   ENTRY_DELETED
+  /// Arquivo da amostra baixado (item 122).
+  ENTRY_DOWNLOADED
   /// Backup (item 81): gerado, baixado e excluido.
   BACKUP_CREATED
   BACKUP_DOWNLOADED

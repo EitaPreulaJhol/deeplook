@@ -92,7 +92,8 @@ export function EntryPrintPage() {
               </Row>
               <Row label="Responsável">{entry.assignee?.displayName ?? '—'}</Row>
               <Row label="Enviado por">
-                {entry.owner.displayName} ({entry.owner.email})
+                {entry.owner.displayName}
+                {entry.owner.email && ` (${entry.owner.email})`}
               </Row>
               <Row label="Enviado em">{fmtDate(entry.createdAt)}</Row>
               <Row label="No status desde">{fmtDate(entry.statusChangedAt)}</Row>

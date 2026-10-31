@@ -198,3 +198,16 @@ export async function requireAdmin(
 export function isAnalyst(user: PublicUser): boolean {
   return user.role === 'ANALYST' || user.role === 'ADMIN';
 }
+
+/**
+ * E-mail de quem enviou (item 123): so para analistas, administradores e a
+ * propria pessoa; usuarios comuns veem o nome.
+ */
+export function ownerForViewer<T extends { owner: { id: string; email?: string } }>(
+  entry: T,
+  viewer: PublicUser,
+): T {
+  if (isAnalyst(viewer) || entry.owner.id === viewer.id) return entry;
+  const { email: _email, ...owner } = entry.owner;
+  return { ...entry, owner };
+}

@@ -8,7 +8,8 @@ import { z } from 'zod';
 import { env } from '../env';
 import type { EntryStatus, Priority, Prisma, Verdict } from '../generated/prisma/client';
 import { withSubtechniques } from '../lib/attack';
-import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
+import { audit } from '../lib/audit';
+import { isAnalyst, ownerForViewer, type PublicUser, requireUser } from '../lib/auth';
 import { autoAssign } from '../lib/auto-assign';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
@@ -816,7 +817,13 @@ export async function entryRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    return reply.send({ total, limit, offset, items, sla: slaConfig() });
+    return reply.send({
+      total,
+      limit,
+      offset,
+      items: items.map((e) => ownerForViewer(e, user)),
+      sla: slaConfig(),
+    });
   });
 
   // Submissao de ARQUIVO (multipart)
@@ -1213,7 +1220,7 @@ export async function entryRoutes(app: FastifyInstance) {
     });
     if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
     return reply.send({
-      entry,
+      entry: ownerForViewer(entry, user),
       sla: slaConfig(),
       reviewRequired: reviewRequired(),
       retentionDays: env.RETENTION_DAYS,
@@ -1377,6 +1384,12 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
+    // So quem enviou e os analistas (item 122); a resposta nao revela o estado do arquivo.
+    if (entry && entry.ownerId !== user.id && !isAnalyst(user)) {
+      return reply
+        .code(403)
+        .send({ error: 'Somente quem enviou e os analistas baixam a amostra.' });
+    }
     if (entry && entry.type === 'FILE' && entry.filePurgedAt) {
       return reply
         .code(410)
@@ -1389,6 +1402,13 @@ export async function entryRoutes(app: FastifyInstance) {
     const obj = await s3.send(
       new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }),
     );
+    await audit(prisma, req, {
+      action: 'ENTRY_DOWNLOADED',
+      actorId: user.id,
+      targetUserId: entry.ownerId,
+      targetLabel: entry.title,
+      detail: entry.sha256 ? `SHA-256 ${entry.sha256}` : null,
+    });
 
     const safeName = (entry.originalFilename || 'sample.bin').replace(/[^\w.-]+/g, '_');
     reply.header('Content-Type', entry.mimeType || 'application/octet-stream');

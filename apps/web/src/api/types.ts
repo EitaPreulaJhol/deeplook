@@ -364,6 +364,7 @@ export type AuditAction =
   | 'ENTRY_TRASHED'
   | 'ENTRY_RESTORED'
   | 'ENTRY_DELETED'
+  | 'ENTRY_DOWNLOADED'
   | 'YARA_RULE_CREATED'
   | 'YARA_RULE_UPDATED'
   | 'YARA_RULE_DELETED'
@@ -502,7 +503,8 @@ export interface TagValue {
 export interface EntryOwner {
   id: string;
   displayName: string;
-  email: string;
+  /** So para analistas, administradores e a propria pessoa (item 123). */
+  email?: string;
 }
 
 /** Rascunho -> (Em revisao ->) Publicado. */

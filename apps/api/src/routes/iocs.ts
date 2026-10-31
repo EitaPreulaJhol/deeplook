@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { requireUser } from '../lib/auth';
+import { ownerForViewer, requireUser } from '../lib/auth';
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
 import { extractIocs } from '../lib/iocs';
@@ -286,7 +286,10 @@ export async function iocRoutes(app: FastifyInstance) {
           }
         : null,
       ioc: { kind, value },
-      items: entries.map((entry) => ({ entry, sightings: sightings.get(entry.id) ?? [] })),
+      items: entries.map((entry) => ({
+        entry: ownerForViewer(entry, user),
+        sightings: sightings.get(entry.id) ?? [],
+      })),
       total: sightings.size,
       firstSeen: dates.length ? new Date(Math.min(...dates)) : null,
       lastSeen: dates.length ? new Date(Math.max(...dates)) : null,

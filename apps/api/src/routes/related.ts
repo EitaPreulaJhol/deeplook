@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { requireUser } from '../lib/auth';
+import { ownerForViewer, requireUser } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
 import { prisma } from '../lib/prisma';
 import { tlshDistance, tlshSimilarity } from '../lib/tlsh';
@@ -282,7 +282,9 @@ export async function relatedRoutes(app: FastifyInstance) {
     if (!items) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
 
     return reply.send({
-      items: items.slice(0, RELATED_LIMIT),
+      items: items
+        .slice(0, RELATED_LIMIT)
+        .map((r) => ({ ...r, entry: ownerForViewer(r.entry, user) })),
       total: items.length,
       limit: RELATED_LIMIT,
     });

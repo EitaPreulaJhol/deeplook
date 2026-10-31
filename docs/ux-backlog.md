@@ -3252,11 +3252,20 @@ golpe.
 ### 122. Quem baixa amostras
 Hoje qualquer usuário comum baixa a amostra de qualquer pessoa, sem auditoria.
 - **Decisão (31/10/2026):** só quem enviou e os analistas baixam, sempre com auditoria.
+- ✅ **Implementado** (migração `20261209000000_entry_downloaded_audit`): o download responde 403
+  a quem não enviou nem é analista, antes de revelar qualquer estado do arquivo, e cada download
+  concluído vai para a Auditoria ("Amostra baixada", com quem baixou, a amostra, o dono e o
+  SHA-256). "Baixar amostra" só aparece para quem pode. Token de API continua sem baixar.
 
 ### 123. E-mail de quem enviou
 A lista global e o CSV mostram esse e-mail a todos os usuários.
 - **Decisão (31/10/2026):** usuários comuns veem só o nome; analistas e administradores veem o
   e-mail.
+- ✅ **Implementado:** `ownerForViewer` (`lib/auth.ts`) tira o e-mail na lista, na ficha, na ficha do
+  indicador e nas Relacionadas; a própria pessoa continua vendo o seu. O CSV já exportava só o
+  nome. A ficha e a impressão mostram só o nome quando não há e-mail.
+- **Testes dos dois itens:** `tests/integration/sample-access.test.ts` (30 checagens) e
+  `sample-access.mjs`.
 
 ### Sugestões
 
