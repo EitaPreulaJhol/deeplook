@@ -30,6 +30,7 @@ import { slaConfig, slaWhere } from '../lib/sla';
 import { analyzeBuffer } from '../lib/static-analysis';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
 import { applyTriageRules } from '../lib/triage-rules';
+import { uploadGate } from '../lib/upload-gate';
 import { sendValidationError } from '../lib/validation';
 import { yaraScanInBackground } from '../lib/yara';
 import type { ZipEntry } from '../lib/zip';
@@ -429,6 +430,24 @@ interface Upload {
 
 /** Le o multipart (um arquivo e os campos). Em erro ja responde e devolve null. */
 async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upload | null> {
+  // Item 117: antes de ler. Sem Content-Length, conta como o maior envio possivel.
+  const limit = env.MAX_UPLOAD_MB * 1024 * 1024;
+  const declared = Number(req.headers['content-length']) || limit;
+  // Folga para os campos e separadores do formulario.
+  if (declared > limit + 1024 * 1024) {
+    reply.code(413).send({ error: `Arquivo maior que o limite de ${env.MAX_UPLOAD_MB} MB.` });
+    return null;
+  }
+  const release = uploadGate.tryAcquire(declared);
+  if (!release) {
+    reply
+      .code(503)
+      .header('Retry-After', '30')
+      .send({ error: 'Muitos envios ao mesmo tempo. Tente de novo em instantes.' });
+    return null;
+  }
+  reply.raw.once('finish', release);
+  reply.raw.once('close', release);
   let buffer: Buffer | null = null;
   let filename = 'arquivo';
   let mimetype = 'application/octet-stream';
@@ -733,7 +752,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const parsed = ListQuery.safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Parâmetros inválidos.' });
 
     const items = await prisma.entry.findMany({
       where: listWhere(parsed.data, user.id),
@@ -795,7 +814,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const parsed = ListQuery.safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: 'Parametros invalidos.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Parâmetros inválidos.' });
     const { limit, offset, sort, dir } = parsed.data;
 
     const where = listWhere(parsed.data, user.id);
@@ -887,7 +906,7 @@ export async function entryRoutes(app: FastifyInstance) {
       where: { id },
       select: { id: true, ownerId: true, assigneeId: true },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
     const { text } = parsed.data;
     const mentions = await resolveMentions(text, parsed.data.mentions ?? []);
@@ -938,14 +957,14 @@ export async function entryRoutes(app: FastifyInstance) {
     }
     const { id } = req.params as { id: string };
     const entry = await prisma.entry.findUnique({ where: { id } });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     if (entry.type === 'FILE' && entry.filePurgedAt) {
       return reply
         .code(410)
         .send({ error: 'O arquivo desta amostra foi expurgado pela política de retenção.' });
     }
     if (entry.type !== 'FILE' || !entry.storageKey) {
-      return reply.code(400).send({ error: 'So arquivos tem analise estatica.' });
+      return reply.code(400).send({ error: 'Só arquivos têm análise estática.' });
     }
     let buffer: Buffer;
     try {
@@ -1031,7 +1050,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (password.length > 200) {
       return reply
         .code(400)
-        .send({ error: 'Dados invalidos.', details: { password: ['máximo de 200 caracteres'] } });
+        .send({ error: 'Dados inválidos.', details: { password: ['máximo de 200 caracteres'] } });
     }
 
     let files: ZipEntry[];
@@ -1218,7 +1237,7 @@ export async function entryRoutes(app: FastifyInstance) {
         },
       },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     return reply.send({
       entry: ownerForViewer(entry, user),
       sla: slaConfig(),
@@ -1237,7 +1256,7 @@ export async function entryRoutes(app: FastifyInstance) {
       where: { id },
       include: { assignee: { select: { id: true, displayName: true } } },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra nao encontrada.' });
+    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
     const parsed = PatchSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
@@ -1346,7 +1365,7 @@ export async function entryRoutes(app: FastifyInstance) {
     }
 
     const parsed = BulkSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Dados invalidos.' });
+    if (!parsed.success) return reply.code(400).send({ error: 'Dados inválidos.' });
     const { ids, patch } = parsed.data;
 
     let newAssignee: Assignee | undefined;
@@ -1396,7 +1415,7 @@ export async function entryRoutes(app: FastifyInstance) {
         .send({ error: 'O arquivo desta amostra foi expurgado pela política de retenção.' });
     }
     if (!entry || entry.type !== 'FILE' || !entry.storageKey) {
-      return reply.code(404).send({ error: 'Arquivo nao encontrado.' });
+      return reply.code(404).send({ error: 'Arquivo não encontrado.' });
     }
 
     const obj = await s3

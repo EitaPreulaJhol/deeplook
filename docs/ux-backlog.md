@@ -3252,13 +3252,16 @@ o espaço em disco. Avaliar senha/cifra e aviso de espaço.
 ### 117. Upload em memória
 Cada envio vai inteiro para a memória (até 200 MB), a API não tem `mem_limit`, e o nginx aceita
 1 GB.
+✅ **Implementado:** orçamento de memória para os envios simultâneos (`MAX_UPLOAD_MEMORY_MB`, padrão 600): acima dele, 503 "tente de novo em instantes". Arquivo acima do limite é recusado pelo `Content-Length`, antes de ser lido. `mem_limit` no container da API (`API_MEM_LIMIT`, padrão 4g). **Diferente do proposto:** gravar em disco não ajudaria, porque a análise, o ZIP, o `.eml`, o antivírus e o YARA leem o arquivo inteiro em memória. **Limite:** o antivírus e o YARA, em segundo plano, seguram o arquivo depois da resposta, fora do orçamento; quem cobre esse caso é o `mem_limit`.
 
 ### 118. Limpeza e índices
 Sessões vencidas nunca são apagadas; `Notification` sem índice em `entryId` e `caseId`.
+✅ **Implementado:** limpeza de hora em hora das sessões vencidas; índices em `entryId` e `caseId` nas notificações.
 
 ### 119. Containers
 Sem desligamento controlado (SIGTERM) nem healthcheck da API; `minio:latest` e `clamav:stable`
 sem versão fixa.
+✅ **Implementado:** desligamento controlado em SIGTERM/SIGINT, com teto de 15 s; healthcheck da API, e o web espera ela ficar saudável; ClamAV em `1.5`. O padrão `quay.io/minio/minio:latest` não resolve mais (401), então o padrão passou a ser o digest de `elestio/minio`, de 15/10/2025.
 
 ### 120. Mensagens sem acento
 Cerca de 60 mensagens da API, como "Credenciais invalidas" e "Dados invalidos".

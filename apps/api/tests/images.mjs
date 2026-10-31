@@ -137,7 +137,7 @@ async function apiImage() {
       'MINIO_ROOT_USER=deeplook',
       '-e',
       'MINIO_ROOT_PASSWORD=deeplook123',
-      'elestio/minio:latest',
+      'elestio/minio@sha256:25348a257f1ece1b192f25f6cd9854618fa86422ac87b494b5d4e629c556d4bd',
       'server',
       '/data',
     );
@@ -229,6 +229,21 @@ async function apiImage() {
     ok('backup pronto com o pg_dump da imagem', done?.status === 'READY', done);
     const zip = await call(`/admin/backups/${done?.id}/download`);
     ok('baixa o ZIP', zip.status === 200 && (await zip.arrayBuffer()).byteLength > 1000);
+    const health = quiet(
+      'exec',
+      'dl-test-run',
+      'node',
+      '-e',
+      "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+    );
+    ok('healthcheck do compose responde', health.status === 0, health.stderr);
+    const start = Date.now();
+    docker('stop', '-t', '20', 'dl-test-run');
+    const code = docker('inspect', '-f', '{{.State.ExitCode}}', 'dl-test-run').trim();
+    ok('desligamento controlado', code === '0' && Date.now() - start < 15_000, {
+      code,
+      ms: Date.now() - start,
+    });
     const logs = quiet('logs', 'dl-test-run');
     ok('sem erro de permissão', !/EACCES|EPERM/.test(logs.stdout + logs.stderr));
   } finally {
@@ -317,6 +332,11 @@ async function captureImage() {
   }
 }
 
+const composeCheck = spawnSync('docker', ['compose', 'config', '-q'], {
+  cwd: join(APPS, '..'),
+  encoding: 'utf8',
+});
+ok('compose válido', composeCheck.status === 0, composeCheck.stderr);
 await webImage();
 await apiImage();
 await captureImage();

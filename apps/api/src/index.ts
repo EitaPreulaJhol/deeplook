@@ -5,7 +5,7 @@ import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
 import { env, sandboxEnabled } from './env';
-import { TRUST_PROXY } from './lib/auth';
+import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
 import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
@@ -147,7 +147,7 @@ async function main() {
     const err = error as { statusCode?: number; message?: string };
     const status = err.statusCode ?? 500;
     if (status >= 400 && status < 500) {
-      return reply.code(status).send({ error: err.message ?? 'Erro na requisicao.' });
+      return reply.code(status).send({ error: err.message ?? 'Erro na requisição.' });
     }
     return reply.code(500).send({ error: 'Erro interno do servidor.' });
   });
@@ -171,6 +171,16 @@ async function main() {
   startRetention(app.log);
   startBackups(app.log);
   startLdapSweep(app.log);
+  startSessionCleanup(app.log);
+
+  // Desligamento controlado (item 119): termina o que esta em andamento, com teto.
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => {
+      app.log.info(`${signal}: encerrando`);
+      setTimeout(() => process.exit(1), 15_000).unref();
+      void app.close().then(() => process.exit(0));
+    });
+  }
   if (env.RETENTION_DAYS) {
     app.log.info(
       `[retencao] ligada: arquivos expurgados ${env.RETENTION_DAYS} dia(s) após a conclusão`,

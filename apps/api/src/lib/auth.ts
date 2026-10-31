@@ -148,6 +148,21 @@ export async function destroySession(req: FastifyRequest, reply: FastifyReply): 
   reply.clearCookie(SESSION_COOKIE, { path: '/' });
 }
 
+/** Sessoes vencidas (item 118): sem isto, so sairiam se a pessoa voltasse com o cookie. */
+export async function deleteExpiredSessions(): Promise<number> {
+  const { count } = await prisma.session.deleteMany({ where: { expiresAt: { lte: new Date() } } });
+  return count;
+}
+
+export function startSessionCleanup(log: { error: (obj: object, msg: string) => void }) {
+  const run = () =>
+    deleteExpiredSessions().catch((err: unknown) =>
+      log.error({ err }, '[sessoes] falha na limpeza'),
+    );
+  void run();
+  setInterval(() => void run(), 60 * 60 * 1000).unref();
+}
+
 export function unauthorized(reply: FastifyReply) {
   return reply.code(401).send({ error: 'Nao autenticado.' });
 }

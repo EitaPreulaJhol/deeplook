@@ -34,6 +34,8 @@ const EnvSchema = z
     ADMIN_PASSWORD: z.string().min(6).default('admin12345'),
     ADMIN_NAME: z.string().default('Administrator'),
     MAX_UPLOAD_MB: z.coerce.number().default(200),
+    /** Envios ao mesmo tempo somam ate isto em memoria; acima, 503 (item 117). */
+    MAX_UPLOAD_MEMORY_MB: z.coerce.number().int().min(1).default(600),
     /** Envios por usuario comum nas ultimas 24 h (item 64); 0 desliga. */
     UPLOAD_DAILY_LIMIT: z.coerce.number().int().min(0).default(20),
     S3_ENDPOINT: z.string().default('http://minio:9000'),

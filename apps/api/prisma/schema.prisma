@@ -648,6 +648,8 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+  @@index([entryId])
+  @@index([caseId])
 }
 
 /// Modelos de relatorio (Templates do HPSM): preenchem o "Novo relatorio".

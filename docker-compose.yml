@@ -19,7 +19,7 @@ services:
       - deeplook
 
   minio:
-    image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
+    image: ${MINIO_IMAGE:-elestio/minio@sha256:25348a257f1ece1b192f25f6cd9854618fa86422ac87b494b5d4e629c556d4bd}
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -36,6 +36,18 @@ services:
     build:
       context: ./apps/api
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    # Sem limite, um pico derrubaria a maquina inteira, nao so a API.
+    mem_limit: ${API_MEM_LIMIT:-4g}
     # Analisa arquivos maliciosos: sem root (Dockerfile), sem capacidades extras.
     cap_drop:
       - ALL
@@ -84,6 +96,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
       ADMIN_NAME: ${ADMIN_NAME:-Administrator}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      MAX_UPLOAD_MEMORY_MB: ${MAX_UPLOAD_MEMORY_MB:-600}
       UPLOAD_DAILY_LIMIT: ${UPLOAD_DAILY_LIMIT:-20}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_REGION: ${S3_REGION:-us-east-1}
@@ -119,7 +132,7 @@ services:
   # Antivirus ClamAV: clamd na rede interna (porta 3310, sem expor para fora) e o
   # freshclam atualizando as assinaturas. Usa ~1,5-3 GB de RAM por causa da base.
   clamav:
-    image: ${CLAMAV_IMAGE:-clamav/clamav:stable}
+    image: ${CLAMAV_IMAGE:-clamav/clamav:1.5}
     restart: unless-stopped
     volumes:
       - ./data/clamav:/var/lib/clamav
@@ -147,7 +160,8 @@ services:
       context: ./apps/web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:80"
     networks:
