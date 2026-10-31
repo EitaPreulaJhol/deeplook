@@ -29,6 +29,71 @@ const until = async (fn, tries = 60) => {
   return null;
 };
 
+/** nginx real, com um eco no lugar da API: IP do cliente e cabecalhos (itens 112 e 115). */
+async function webImage() {
+  docker('build', '-q', '-t', 'dl-test-web', join(APPS, 'web'));
+  ok('imagem do web compila pelo lockfile', true);
+  const net = 'dl-test-web-net';
+  quiet('rm', '-f', 'dl-test-echo', 'dl-test-webrun');
+  docker('network', 'create', net);
+  try {
+    const echo =
+      "require('http').createServer((q,s)=>{s.setHeader('content-type','application/json');s.end(JSON.stringify(q.headers))}).listen(3000)";
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-echo',
+      '--network',
+      net,
+      '--network-alias',
+      'api',
+      'node:22-slim',
+      'node',
+      '-e',
+      echo,
+    );
+    await sleep(1500);
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-webrun',
+      '--network',
+      net,
+      '-p',
+      '58080:80',
+      'dl-test-web',
+    );
+    const up = await until(() => fetch('http://localhost:58080/').then((r) => r.ok));
+    ok('web sobe', Boolean(up));
+    const page = await fetch('http://localhost:58080/');
+    const csp = page.headers.get('content-security-policy') ?? '';
+    ok(
+      'CSP sem script de fora',
+      csp.includes("script-src 'self'") && !csp.includes("script-src 'self' 'unsafe"),
+      csp,
+    );
+    ok('HSTS', (page.headers.get('strict-transport-security') ?? '').includes('max-age='));
+    const seen = async (headers) =>
+      (await fetch('http://localhost:58080/api/x', { headers })).json();
+    const direct = await seen({});
+    ok('sem proxy: vale a conexão', /^[\d.]+$/.test(direct['x-forwarded-for'] ?? ''), direct);
+    const forged = await seen({ 'x-forwarded-for': '1.2.3.4' });
+    ok(
+      'X-Forwarded-For forjado é descartado',
+      !forged['x-forwarded-for'].includes('1.2.3.4'),
+      forged,
+    );
+    const tunnel = await seen({ 'cf-connecting-ip': '203.0.113.50' });
+    ok('Tunnel: vale o CF-Connecting-IP', tunnel['x-forwarded-for'] === '203.0.113.50', tunnel);
+  } finally {
+    quiet('rm', '-f', 'dl-test-webrun', 'dl-test-echo');
+    quiet('network', 'rm', net);
+    quiet('rmi', 'dl-test-web');
+  }
+}
+
 async function apiImage() {
   docker('build', '-q', '-t', 'dl-test-api', join(APPS, 'api'));
   ok('imagem da API compila pelo lockfile', true);
@@ -152,7 +217,10 @@ async function apiImage() {
     form.append('title', 'teste');
     const sent = await (await call('/entries/file', { method: 'POST', body: form })).json();
     ok('recebe e analisa amostra', sent.entry?.staticInfo?.script?.language !== undefined, sent);
-    const started = await call('/admin/backups', json({ includeSamples: true }));
+    const started = await call(
+      '/admin/backups',
+      json({ includeSamples: true, password: 'Senha-Do-Zip-123' }),
+    );
     ok('inicia o backup', started.status === 202);
     const done = await until(async () => {
       const b = (await (await call('/admin/backups')).json()).items[0];
@@ -249,9 +317,7 @@ async function captureImage() {
   }
 }
 
-docker('build', '-q', '-t', 'dl-test-web', join(APPS, 'web'));
-ok('imagem do web compila pelo lockfile', true);
-quiet('rmi', 'dl-test-web');
+await webImage();
 await apiImage();
 await captureImage();
 console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');

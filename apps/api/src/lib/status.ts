@@ -423,6 +423,7 @@ export function insecureDefaults(): string[] {
     ['deeplook123', 'change-me-minio-password'].includes(env.S3_SECRET_KEY) &&
       'senha do MinIO (S3_SECRET_KEY)',
     env.ALLOW_INSECURE_DEFAULTS === 'true' && 'ALLOW_INSECURE_DEFAULTS ligado',
+    env.COOKIE_SECURE !== 'true' && 'COOKIE_SECURE desligado (ligue em produção, sob HTTPS)',
   ].filter((item): item is string => Boolean(item));
 }
 

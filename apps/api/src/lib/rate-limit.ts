@@ -7,6 +7,34 @@ import { SESSION_COOKIE } from './auth';
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 5 * 60 * 1000;
 
+/**
+ * Falhas por chave numa janela: alem do limite por rota. Barra quem testa uma senha
+ * em muitas contas (por IP) ou uma conta de muitos IPs (por e-mail).
+ */
+export class FailureWindow {
+  private readonly hits = new Map<string, number[]>();
+
+  constructor(
+    private readonly max: number,
+    private readonly windowMs: number,
+  ) {}
+
+  private recent(key: string, now: number): number[] {
+    const list = (this.hits.get(key) ?? []).filter((t) => t > now - this.windowMs);
+    if (list.length) this.hits.set(key, list);
+    else this.hits.delete(key);
+    return list;
+  }
+
+  exceeded(key: string, now = Date.now()): boolean {
+    return this.recent(key, now).length >= this.max;
+  }
+
+  note(key: string, now = Date.now()): void {
+    this.hits.set(key, [...this.recent(key, now), now]);
+  }
+}
+
 /** Chave por sessao (cookie) para os limites de escrita do proprio usuario. */
 export function sessionKey(prefix: string) {
   return (req: FastifyRequest) =>

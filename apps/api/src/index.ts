@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
 import { env, sandboxEnabled } from './env';
+import { TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
 import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
@@ -59,7 +60,7 @@ import { yaraRoutes } from './routes/yara';
 async function main() {
   const app = Fastify({
     logger: true,
-    trustProxy: true,
+    trustProxy: TRUST_PROXY,
     bodyLimit: 5 * 1024 * 1024,
   });
 

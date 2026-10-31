@@ -25,7 +25,9 @@ const submitted = async () =>
 expect('analista: base do teste', entries[0].ownerId === 'u2' && entries[2].ownerId === 'u1');
 
 // 1. Analista: baixa a de qualquer pessoa e ve o e-mail.
-await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+const loaded = await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+// Garante que a CSP de producao esta valendo nos cenarios: ela barra script inline.
+expect('cenários sob a CSP de produção', (loaded.headers()['content-security-policy'] ?? '').includes("script-src 'self'"));
 expect('analista baixa a amostra de outra pessoa', (await download.count()) === 1);
 expect('analista vê o e-mail', (await submitted()).includes('Bruno Lima (bruno@deeplook.test)'), await submitted());
 

@@ -8,6 +8,12 @@ import { extname, join } from 'node:path';
 // navegador nao expoe crypto.subtle e a checagem de duplicata e pulada.
 export const ORIGIN = 'https://deeplook.test';
 const DIST = '/dist';
+/** A CSP de producao (nginx.conf) vale nos testes: tela que a viole falha o cenario. */
+const CSP = /add_header Content-Security-Policy "([^"]+)"/.exec(readFileSync('/nginx.conf', 'utf8'))[1];
+let cspViolations = 0;
+process.on('exit', () => {
+  if (cspViolations) process.exitCode = 1;
+});
 export const OUT = '/work/out';
 mkdirSync(OUT, { recursive: true });
 
@@ -242,6 +248,12 @@ const json = (route, status, body) =>
 
 /** Instala o servidor do dist + API simulada no contexto do navegador. */
 export async function setupMock(context, state) {
+  context.on('console', (msg) => {
+    if (msg.type() === 'error' && /Content Security Policy/i.test(msg.text())) {
+      cspViolations += 1;
+      console.log(`FALHA CSP: ${msg.text().slice(0, 300)}`);
+    }
+  });
   const currentUser = () => ({
     ...users[0],
     role: state.role ?? users[0].role,
@@ -1286,6 +1298,7 @@ export async function setupMock(context, state) {
     return route.fulfill({
       status: 200,
       contentType: MIME[extname(file)] || 'application/octet-stream',
+      headers: { 'content-security-policy': CSP },
       body: readFileSync(file),
     });
   });

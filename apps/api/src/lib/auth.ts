@@ -12,6 +12,12 @@ const LAST_SEEN_EVERY_MS = 5 * 60 * 1000;
 
 export type RoleName = 'USER' | 'ANALYST' | 'ADMIN';
 
+/**
+ * So um proxy em rede privada (o nginx) informa o IP do cliente; o nginx substitui
+ * o X-Forwarded-For, entao o cliente nao o forja (item 112).
+ */
+export const TRUST_PROXY = 'loopback,linklocal,uniquelocal';
+
 export type PublicUser = {
   id: string;
   email: string;

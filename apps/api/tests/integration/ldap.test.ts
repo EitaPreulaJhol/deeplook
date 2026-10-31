@@ -240,10 +240,10 @@ async function main() {
 
   // 10. Senha vazia nunca (bind anonimo).
   ok('senha vazia recusada', (await login('mcosta', '', next())).statusCode === 400);
-  for (let i = 0; i < 5; i++) await login('maria.costa@empresa.test', 'errada', next());
+  for (let i = 0; i < 5; i++) await login('maria.costa@empresa.test', 'errada', '10.9.9.9');
   ok(
     'limite de tentativas vale para o AD',
-    (await login('maria.costa@empresa.test', 'Senha-AD-2', next())).statusCode === 429,
+    (await login('maria.costa@empresa.test', 'Senha-AD-2', '10.9.9.9')).statusCode === 429,
   );
 
   // 11. Papel de conta do AD nao se edita (item 107); o da local sim.

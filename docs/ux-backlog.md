@@ -3223,12 +3223,14 @@ Chave de ativação além do limite, mais de 3 avisos ativos, dois backups ao me
 ### 112. IP forjável
 `trustProxy: true` com o `X-Forwarded-For` acrescentado pelo nginx deixa o cliente forjar o
 IP da auditoria e das sessões. Confiar só no proxy conhecido.
+✅ **Implementado:** o nginx substitui o `X-Forwarded-For` e só aceita o `CF-Connecting-IP` de conexão em rede privada (o `cloudflared` local); a API só confia em proxy de rede privada. Testado no nginx real: valor forjado descartado, Tunnel respeitado, e sem proxy vale a conexão.
 
 ### 113. Login: bloqueio de terceiros e enumeração
 Limite só por e-mail permite bloquear a conta de outra pessoa e testar uma senha em muitas
 contas; "Conta suspensa" aparece sem conferir a senha; e-mail inexistente responde mais rápido.
 - **Decisão (31/10/2026):** em teste não há proxy; em produção o acesso passa sempre pelo
   Cloudflare Tunnel, então vale o `CF-Connecting-IP` vindo do `cloudflared`.
+✅ **Implementado:** limite por e-mail + IP, para ninguém bloquear a conta alheia de outro IP; mais 30 falhas por IP e 20 por e-mail em 5 minutos; "Conta suspensa" só com a senha certa; e-mail inexistente também paga o bcrypt; cadastro com limite de 10 tentativas por IP.
 
 ### 114. Auditoria incompleta
 Domínios da empresa (alteram a lista de permissões), regras de triagem, atribuição automática
@@ -3236,6 +3238,7 @@ e avisos gerais.
 
 ### 115. Cabeçalhos e cookie
 Sem CSP e HSTS no nginx; `COOKIE_SECURE` vem `false`.
+✅ **Implementado:** CSP e HSTS no nginx; a CSP de produção vale nos cenários de tela (violação falha o cenário); o Status do sistema avisa enquanto `COOKIE_SECURE` estiver desligado, sem mudar o padrão, porque em teste o acesso é por HTTP.
 
 ### 116. Backup sem cifra e sem conferir o disco
 O ZIP tem hashes de senha e segredos de 2FA, fica no bucket de origem, e a geração não confere

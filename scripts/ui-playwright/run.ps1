@@ -25,5 +25,6 @@ $cmd = "npm i --no-save --no-package-lock --silent --no-audit --no-fund playwrig
 docker run --rm --ipc=host `
   -v "${PSScriptRoot}:/work" `
   -v "${dist}:/dist:ro" `
+  -v "${root}\apps\web\nginx.conf:/nginx.conf:ro" `
   -w /work $image sh -c $cmd
 exit $LASTEXITCODE

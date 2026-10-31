@@ -10,7 +10,7 @@ import { ldapAuthenticate, ldapConfig } from '../lib/ldap';
 import { passwordField, passwordState } from '../lib/password-policy';
 import { resolvePreferences } from '../lib/preferences';
 import { isUniqueViolation, prisma } from '../lib/prisma';
-import { attemptLimit } from '../lib/rate-limit';
+import { attemptLimit, FailureWindow } from '../lib/rate-limit';
 import { newChallenge, readChallenge } from '../lib/two-factor';
 import { sendValidationError } from '../lib/validation';
 import { checkSecondFactor } from './two-factor';
@@ -90,7 +90,9 @@ async function touchVisit(userId: string): Promise<void> {
 
 export async function authRoutes(app: FastifyInstance) {
   // Cadastro somente via chave de ativacao gerada por um admin.
-  app.post('/api/auth/register', async (req, reply) => {
+  // Chave de ativacao nao e testada a vontade (item 113).
+  const registerLimit = attemptLimit((req) => `register:${req.ip}`, { max: 10 });
+  app.post('/api/auth/register', { config: registerLimit }, async (req, reply) => {
     const parsed = RegisterSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { email, displayName, password, activationKey } = parsed.data;
@@ -162,7 +164,13 @@ export async function authRoutes(app: FastifyInstance) {
     const email = (req.body as { email?: unknown } | undefined)?.email;
     return typeof email === 'string' ? email.trim().toLowerCase().slice(0, 200) : '-';
   };
-  const loginLimit = attemptLimit((req) => `login:${loginEmail(req)}`, {
+  // Por e-mail + IP (item 113): de outro IP, ninguem bloqueia a conta alheia. Os dois
+  // abaixo seguram o resto: muitas contas de um IP e uma conta de muitos IPs.
+  const failuresByIp = new FailureWindow(30, 5 * 60 * 1000);
+  const failuresByEmail = new FailureWindow(20, 5 * 60 * 1000);
+  // Quem nao existe tambem custa um bcrypt: o tempo nao revela o cadastro.
+  const dummyHash = hashPassword(randomBytes(32).toString('hex'));
+  const loginLimit = attemptLimit((req) => `login:${loginEmail(req)}:${req.ip}`, {
     // Bloqueio por excesso de tentativas entra na auditoria (uma vez por janela).
     onExceeded: (req) => {
       void audit(prisma, req, {
@@ -174,7 +182,22 @@ export async function authRoutes(app: FastifyInstance) {
     },
   });
   // Login recusado: registra o e-mail tentado e o motivo (nunca a senha).
-  const loginFailed = (req: FastifyRequest, email: string, userId: string | null, reason: string) =>
+  const loginFailed = (
+    req: FastifyRequest,
+    email: string,
+    userId: string | null,
+    reason: string,
+  ) => {
+    failuresByIp.note(req.ip);
+    failuresByEmail.note(email);
+    return recordLoginFailure(req, email, userId, reason);
+  };
+  const recordLoginFailure = (
+    req: FastifyRequest,
+    email: string,
+    userId: string | null,
+    reason: string,
+  ) =>
     audit(prisma, req, {
       action: 'LOGIN_FAILED',
       actorId: null,
@@ -254,16 +277,20 @@ export async function authRoutes(app: FastifyInstance) {
     const { email, password } = parsed.data;
 
     const normalized = email.toLowerCase();
+    if (failuresByIp.exceeded(req.ip) || failuresByEmail.exceeded(normalized)) {
+      return reply.code(429).send({ error: 'Muitas tentativas. Tente novamente em 5 minutos.' });
+    }
     const local = await prisma.user.findUnique({ where: { email: normalized } });
     let user = local;
     if (local?.authSource === 'LOCAL') {
-      if (local.status !== 'ACTIVE') {
-        await loginFailed(req, normalized, local.id, 'conta suspensa');
-        return reply.code(403).send({ error: 'Conta suspensa.' });
-      }
       if (!(await verifyPassword(password, local.passwordHash))) {
         await loginFailed(req, normalized, local.id, 'senha incorreta');
         return reply.code(401).send({ error: 'Credenciais invalidas.' });
+      }
+      // So depois da senha certa: "suspensa" nao revela a conta a quem nao a conhece.
+      if (local.status !== 'ACTIVE') {
+        await loginFailed(req, normalized, local.id, 'conta suspensa');
+        return reply.code(403).send({ error: 'Conta suspensa.' });
       }
     } else if (ldapConfig()) {
       // AD (item 94): sem conta local, ou conta do AD. A mesma mensagem para tudo.
@@ -288,6 +315,7 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: 'Conta suspensa.' });
       }
     } else {
+      await verifyPassword(password, await dummyHash);
       await loginFailed(
         req,
         normalized,
