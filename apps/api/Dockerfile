@@ -1,5 +1,4 @@
-FROM node:22-slim
-
+FROM node:22-slim AS base
 ENV NODE_ENV=production
 WORKDIR /app
 
@@ -16,10 +15,11 @@ RUN apt-get update \
   && apt-get purge -y curl && apt-get autoremove -y \
   && rm -rf /var/lib/apt/lists/*
 
+# Compila com as dependencias de desenvolvimento, que nao vao para a imagem final.
+FROM base AS build
 # Versoes exatas do lockfile: o npm ci falha se ele divergir do package.json.
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev
-
 COPY tsconfig.json prisma.config.ts ./
 COPY src ./src
 COPY prisma ./prisma
@@ -27,8 +27,16 @@ COPY prisma ./prisma
 RUN npx prisma generate
 RUN npm run build
 
+FROM base
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/dist ./dist
+COPY prisma.config.ts ./
+COPY prisma ./prisma
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
+# Sem root: analisa arquivos maliciosos e nao precisa alterar o proprio codigo.
+USER node
 EXPOSE 3000
 CMD ["./docker-entrypoint.sh"]

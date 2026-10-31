@@ -36,6 +36,11 @@ services:
     build:
       context: ./apps/api
     restart: unless-stopped
+    # Analisa arquivos maliciosos: sem root (Dockerfile), sem capacidades extras.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: production
       PORT: "3000"

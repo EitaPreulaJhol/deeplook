@@ -3144,6 +3144,11 @@ confirmado na leitura do código; o item 101 também foi reproduzido em teste. O
   desenvolvimento.
 - **Proposta:** usuário sem privilégios, imagem final só com o necessário para migrar, criar
   o admin e rodar; `no-new-privileges` e `cap_drop: ALL` no compose.
+- ✅ **Implementado:** imagem em estágios, a final com `npm ci --omit=dev` e `USER node`, e o
+  código pertence ao root (somente leitura para o processo). O seed foi para `src/seed.ts` e é
+  compilado; o CLI do `prisma` virou dependência de produção, para migrar na subida; compose com
+  `cap_drop: ALL` e `no-new-privileges`. Testado com a imagem real sem capacidades: migrações,
+  admin, envio de amostra (YARA nativo) e backup com `pg_dump`.
 
 ### 99. Testes de integração no repositório
 - **Problema:** os testes contra Postgres, MinIO e LDAP reais ficam numa pasta temporária (um
