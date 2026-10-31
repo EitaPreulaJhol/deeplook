@@ -18,6 +18,7 @@ const CONDITIONS = [
   'SCRIPT_RISK',
   'DOCUMENT_RISK',
   'LNK',
+  'LOOKALIKE',
 ] as const;
 
 const TAG = z

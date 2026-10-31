@@ -471,6 +471,8 @@ enum TriageCondition {
   SCRIPT_RISK
   DOCUMENT_RISK
   LNK
+  /// Dominio parecido com o da empresa (item 124).
+  LOOKALIKE
 }
 
 /// Regra de triagem (item 86): quando a analise achar X, incluir tags e subir a

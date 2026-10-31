@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
+import { rescanAllLookalikes } from '../../src/lib/lookalike';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { applyTriageRules } from '../../src/lib/triage-rules';
@@ -261,6 +262,54 @@ async function main() {
     (await req('DELETE', `/api/triage-rules/${macro.id}`, cAna)).statusCode === 200 &&
       (await req('GET', '/api/triage-rules', cAna)).json().rules.length === 10,
   );
+
+  // 6. Dominio parecido com o da empresa (item 124).
+  await prisma.companyDomain.createMany({
+    data: [{ domain: 'empresa.com.br' }, { domain: 'outra.com.br' }],
+  });
+  const anyLook = await rule({
+    name: 'Parecido',
+    condition: 'LOOKALIKE',
+    tags: ['dominio-parecido'],
+    priority: 'P1',
+  });
+  ok('descrição sem valor', anyLook.label === 'parecido com domínio da empresa', anyLook);
+  const onlyOther = await rule({
+    name: 'Parecido com a outra',
+    condition: 'LOOKALIKE',
+    value: 'outra.com.br',
+    tags: ['parece-outra'],
+  });
+  ok(
+    'descrição com valor',
+    onlyOther.label === 'parecido com domínio da empresa outra.com.br',
+    onlyOther,
+  );
+  const sendUrl = async (url: string) => {
+    const res = await req('POST', '/api/entries/url', cBob, { url, title: 'link' });
+    return res.json().entry.id as string;
+  };
+  const looks = await sendUrl('http://ernpresa.com.br/entrar');
+  const looksEntry = await prisma.entry.findUnique({ where: { id: looks } });
+  ok(
+    'na chegada: tag e prioridade',
+    (await tagsOf(looks)) === 'dominio-parecido' && looksEntry?.priority === 'P1',
+    [await tagsOf(looks), looksEntry?.priority],
+  );
+  ok(
+    'com valor: casa só a empresa pedida',
+    (await tagsOf(await sendUrl('http://0utra.com.br/'))) === 'dominio-parecido,parece-outra',
+  );
+  const legit = await sendUrl('http://portal.empresa.com.br/');
+  ok('domínio da própria empresa não casa', (await tagsOf(legit)) === '');
+  ok('sem parecido, nada', (await tagsOf(await sendUrl('http://exemplo.org/'))) === '');
+
+  // Lista da empresa mudou: refaz os achados, mas nao mexe em tags e prioridade.
+  const before = await sendUrl('http://novanome.com/');
+  await prisma.companyDomain.create({ data: { domain: 'novonome.com' } });
+  await rescanAllLookalikes();
+  ok('revarredura acha', (await prisma.lookalikeHit.count({ where: { entryId: before } })) === 1);
+  ok('revarredura não aplica regra', (await tagsOf(before)) === '');
 
   await app.close();
   await prisma.$disconnect();

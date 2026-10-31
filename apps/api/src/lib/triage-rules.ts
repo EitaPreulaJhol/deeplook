@@ -21,11 +21,12 @@ export const CONDITION_LABEL: Record<TriageCondition, string> = {
   SCRIPT_RISK: 'script com risco alto',
   DOCUMENT_RISK: 'documento com risco alto',
   LNK: 'atalho (.lnk) suspeito',
+  LOOKALIKE: 'parecido com domínio da empresa',
 };
 
 /** Condicoes que usam o campo "valor" (vazio = qualquer, onde fizer sentido). */
 export const NEEDS_VALUE: TriageCondition[] = ['DETECTED_TYPE', 'DOMAIN', 'SENDER'];
-export const OPTIONAL_VALUE: TriageCondition[] = ['YARA', 'ANTIVIRUS'];
+export const OPTIONAL_VALUE: TriageCondition[] = ['YARA', 'ANTIVIRUS', 'LOOKALIKE'];
 
 /** "regra YARA casou (Emotet)" / "documento com macro". */
 export function triageRuleLabel(rule: {
@@ -48,6 +49,8 @@ type Facts = {
   lnk: boolean;
   yara: string[];
   antivirus: string | null;
+  /** Dominios da empresa que algum dominio da amostra imita (item 124). */
+  lookalikes: string[];
 };
 
 /** Dominio igual ou subdominio; ".top" casa o TLD. */
@@ -84,6 +87,10 @@ function matches(rule: { condition: TriageCondition; value: string | null }, f: 
       return f.documentHigh;
     case 'LNK':
       return f.lnk;
+    case 'LOOKALIKE':
+      return value
+        ? f.lookalikes.some((company) => domainMatches(company, value))
+        : f.lookalikes.length > 0;
   }
 }
 
@@ -104,6 +111,7 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
       tags: { select: { name: true } },
       yara: { select: { status: true, matches: true } },
       antivirus: { select: { status: true, signature: true } },
+      lookalikeHits: { select: { companyDomain: true } },
     },
   });
   if (!entry) return [];
@@ -131,6 +139,7 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
             .filter(Boolean)
         : [],
     antivirus: entry.antivirus?.status === 'INFECTED' ? (entry.antivirus.signature ?? '') : null,
+    lookalikes: entry.lookalikeHits.map((h) => h.companyDomain),
   };
 
   const have = new Set(entry.tags.map((t) => t.name.toLowerCase()));

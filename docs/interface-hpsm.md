@@ -161,7 +161,7 @@ login/cadastro, `AuthField` aceita `invalid`.
 - Teclado: só uma linha entra no Tab; ↑ ↓ Home End movem o foco e Enter abre a
   amostra (a linha com foco recebe o destaque de seleção).
 - Atualização em massa (analistas): coluna de seleção (Espaço marca a linha) e a barra
-  `EntriesBulkBar` ("N selecionadas: Status / Veredito / Responsável [Aplicar]") →
+  `EntriesBulkBar` ("N selecionadas: Status / Veredito / Prioridade / Responsável / Resolução [Aplicar]") →
   `POST /api/entries/bulk`, com confirmação.
 - Painel de detalhe (preferência `detailPane`, desligada por padrão): clique/setas
   selecionam e mostram o resumo abaixo da grade (`EntryPreviewPane`); duplo clique ou
@@ -467,7 +467,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/:id/extract-image` | imagem de disco (ISO/FAT/VHD): extrai até 50 arquivos como amostras filhas (analistas; 409 se já extraiu; 410 expurgado) → `{ created, children, skipped }` |
 | GET | `/api/entries/:id/children` | amostras filhas (anexos de e-mail, arquivos extraídos): `{ children: [{ id, title, originalFilename, status, verdict }] }` |
 | GET · POST · DELETE | `/api/company-domains[/:id]` | domínios da empresa: lista `{ domains, seen: [{ domain, companyDomain, reason, label, detail, sources, total, entries }], max: 20 }` (analistas); incluir `{ domain }` (admin; normaliza URL/www; 409 repetido ou acima de 20; entra na lista de permissões e revarre as amostras) e excluir (admin; tira só o item que o cadastro pôs na lista de permissões). `GET /api/entries/:id` traz `lookalikeHits` |
-| GET · POST · PATCH · DELETE | `/api/triage-rules[/:id]` | regras de triagem (analistas): `{ name, condition, value?, tags, priority? }` · `{ enabled }`; a lista traz `label` ("domínio do link .top") |
+| GET · POST · PATCH · DELETE | `/api/triage-rules[/:id]` | regras de triagem (analistas): `{ name, condition, value?, tags, priority? }` (`LOOKALIKE`: valor opcional, o domínio da empresa) · `{ enabled }`; a lista traz `label` ("domínio do link .top") |
 | GET | `/api/broadcasts/active` | avisos gerais ativos que a pessoa não dispensou (todos): `{ items: [{ id, text, level, expiresAt, createdBy, case }] }` |
 | POST | `/api/broadcasts/:id/dismiss` | dispensar o aviso só para a pessoa |
 | GET · POST | `/api/broadcasts` | analistas: últimos 30 dias com `active` e `_count.dismissals` · publicar `{ text, level, hours, caseId? }` (409 com 3 ativos) |

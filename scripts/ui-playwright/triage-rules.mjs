@@ -10,7 +10,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const state = createState({ loggedIn: true });
 await setupMock(context, state);
-const LABEL = { MACRO: 'documento com macro', DOMAIN: 'domínio do link', YARA: 'regra YARA casou', DETECTED_TYPE: 'tipo real é' };
+const LABEL = { MACRO: 'documento com macro', DOMAIN: 'domínio do link', YARA: 'regra YARA casou', DETECTED_TYPE: 'tipo real é', LOOKALIKE: 'parecido com domínio da empresa' };
 const rules = [
   { id: 't1', name: 'Documento com macro', condition: 'MACRO', value: null, tags: ['macro'], priority: 'P2', enabled: true, createdBy: null },
   { id: 't2', name: 'TLD suspeito', condition: 'DOMAIN', value: '.top', tags: ['tld-suspeito'], priority: null, enabled: false, createdBy: null },
@@ -72,6 +72,21 @@ await settle();
 expect('inclui com os campos', JSON.stringify(calls.at(-1)?.body) === JSON.stringify({ name: 'Domínio .xyz', condition: 'DOMAIN', value: '.xyz', tags: ['phishing', 'tld-suspeito'], priority: 'P2' }), JSON.stringify(calls.at(-1)?.body));
 expect('formulário limpo e aviso', (await page.inputValue('#rule-name')) === '' && (await messages()).includes('Regra "Domínio .xyz" incluída'), await messages());
 await page.screenshot({ path: `${OUT}/regras-triagem.png`, fullPage: true });
+
+// 2b. Dominio parecido: valor opcional, sem validacao de obrigatorio.
+await page.selectOption('#rule-condition', 'LOOKALIKE');
+expect('parecido pede valor opcional', (await page.locator('#rule-value').count()) === 1);
+await page.fill('#rule-name', 'Parecido com a empresa');
+await page.fill('#rule-tags', 'dominio-parecido');
+await page.selectOption('#rule-priority', 'P1');
+await page.click('button:has-text("Incluir regra")');
+await settle();
+expect('parecido vazio vale qualquer domínio', calls.at(-1)?.body.condition === 'LOOKALIKE' && calls.at(-1)?.body.value === null, JSON.stringify(calls.at(-1)?.body));
+expect('parecido na lista', (await rowTexts()).at(-1).startsWith('Parecido com a empresa parecido com domínio da empresa dominio-parecido P1 Crítica Ligada'), (await rowTexts()).at(-1));
+await rows.last().locator('button:has-text("Excluir")').click();
+await settle(300);
+await page.locator('[role=alertdialog] button:has-text("Excluir")').click();
+await settle();
 
 // 3. Ligar e excluir.
 await rows.nth(1).locator('button:has-text("Ligar")').click();

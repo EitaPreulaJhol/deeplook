@@ -117,6 +117,26 @@ try {
   expect('resolução no CSV', csv.includes('Resolução') && csv.includes(RESOLUTION));
   expect('sem erro na triagem', !drain(admin));
 
+  // 3b. Regra "dominio parecido" pela tela vale na chegada de um link.
+  const domain = await api(admin, 'POST', '/api/company-domains', { domain: 'empresa.com.br' });
+  expect('cadastra domínio da empresa', domain.status === 201, JSON.stringify(domain));
+  await visit(admin, '/regras-triagem');
+  await page.selectOption('#rule-condition', 'LOOKALIKE');
+  await page.fill('#rule-name', 'Parecido com a empresa');
+  await page.fill('#rule-tags', 'dominio-parecido');
+  await page.click('button:has-text("Incluir regra")');
+  await page.waitForSelector('tbody tr:has-text("Parecido com a empresa")');
+  const link = await api(admin, 'POST', '/api/entries/url', {
+    url: 'http://ernpresa.com.br/entrar',
+    title: 'Parecido com a empresa',
+  });
+  const tagged = (await api(admin, 'GET', `/api/entries/${link.body?.entry?.id}`)).body?.entry;
+  expect(
+    'regra de domínio parecido na chegada',
+    tagged?.tags?.some((t) => t.name === 'dominio-parecido'),
+    JSON.stringify(tagged?.tags),
+  );
+
   // 4. Telas do admin.
   for (const path of [
     '/inicio',

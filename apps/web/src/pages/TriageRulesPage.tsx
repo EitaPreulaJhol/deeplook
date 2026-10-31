@@ -37,7 +37,8 @@ type Condition =
   | 'DISGUISED'
   | 'SCRIPT_RISK'
   | 'DOCUMENT_RISK'
-  | 'LNK';
+  | 'LNK'
+  | 'LOOKALIKE';
 
 interface TriageRule {
   id: string;
@@ -78,6 +79,10 @@ const CONDITIONS: Record<
   SCRIPT_RISK: { label: 'Script com risco alto' },
   DOCUMENT_RISK: { label: 'Documento com risco alto' },
   LNK: { label: 'Atalho (.lnk) suspeito' },
+  LOOKALIKE: {
+    label: 'Parecido com domínio da empresa',
+    value: { required: false, hint: 'domínio da empresa (vazio = qualquer)' },
+  },
 };
 
 const EMPTY = { name: '', condition: 'MACRO' as Condition, value: '', tags: '', priority: '' };
