@@ -130,7 +130,10 @@ export function normalizeHost(raw: string): string | null {
 export function matchLookalike(rawHost: string, companies: string[]): LookalikeMatch | null {
   const host = normalizeHost(rawHost);
   if (!host) return null;
-  if (companies.some((c) => host === c || host.endsWith(`.${c}`))) return null;
+  // Mesmo dominio-base: com portal.empresa.com.br cadastrado, mail.empresa.com.br
+  // e empresa.com.br tambem sao da empresa (item 101).
+  const hostBase = baseDomain(host);
+  if (companies.some((c) => baseDomain(c) === hostBase)) return null;
   const seen = split(host);
   const sub = host.slice(0, Math.max(0, host.length - baseDomain(host).length - 1));
   for (const company of companies) {
@@ -240,7 +243,7 @@ export async function scanLookalikes(
         ]
       : [];
   });
-  if (hits.length) await db.lookalikeHit.createMany({ data: hits });
+  if (hits.length) await db.lookalikeHit.createMany({ data: hits, skipDuplicates: true });
   return hits.length;
 }
 

@@ -7,7 +7,7 @@ import { env } from '../../src/env';
 import { allowedBy, loadAllowlist } from '../../src/lib/allowlist';
 import { hashPassword } from '../../src/lib/crypto';
 import { syncReportIocs } from '../../src/lib/iocs';
-import { matchLookalike } from '../../src/lib/lookalike';
+import { matchLookalike, rescanAllLookalikes } from '../../src/lib/lookalike';
 import { prisma } from '../../src/lib/prisma';
 import { authRoutes } from '../../src/routes/auth';
 import * as cd from '../../src/routes/company-domains';
@@ -259,6 +259,33 @@ async function main() {
     !(await prisma.allowedIndicator.count({ where: { value: 'empresa.com.br' } })),
   );
   ok('sem domínios, sem achados', (await prisma.lookalikeHit.count()) === 0);
+
+  // Subdominio cadastrado: o mesmo dominio-base e da empresa (item 101).
+  const sub = ['portal.empresa.com.br'];
+  ok('irmão do subdomínio cadastrado não', matchLookalike('mail.empresa.com.br', sub) === null);
+  ok('domínio-base do cadastrado não', matchLookalike('empresa.com.br', sub) === null);
+  ok(
+    'parecido com o subdomínio cadastrado sim',
+    matchLookalike('ernpresa.com.br', sub)?.reason === 'HOMOGLYPH',
+  );
+
+  // Varreduras simultaneas nao colidem (item 109).
+  await req('POST', '/api/company-domains', cAdm, { domain: 'empresa.com.br' });
+  await cd.lastRescan;
+  const scans = await Promise.allSettled([
+    rescanAllLookalikes(),
+    rescanAllLookalikes(),
+    rescanAllLookalikes(),
+  ]);
+  ok(
+    'varreduras simultâneas terminam',
+    scans.every((s) => s.status === 'fulfilled'),
+    scans,
+  );
+  ok(
+    'achados sem repetir',
+    (await prisma.lookalikeHit.count({ where: { entryId: link.id } })) === 1,
+  );
 
   await app.close();
   await prisma.$disconnect();

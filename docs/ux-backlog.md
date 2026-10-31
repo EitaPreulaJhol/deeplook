@@ -3172,6 +3172,7 @@ Sem caso para quem não é analista.
 ### 101. Domínio parecido: falso positivo com subdomínio cadastrado
 Com `portal.empresa.com.br` cadastrado, `mail.empresa.com.br` e `empresa.com.br` viram
 "provável golpe". Mesmo domínio-base não é parecido.
+✅ **Implementado:** mesmo domínio-base nunca é "parecido".
 
 ### 102. Rascunho da resolução passa para outra amostra
 Ao usar Próxima e Descartar, o texto continua se as duas amostras têm a mesma resolução, e
@@ -3199,6 +3200,7 @@ pessoa do AD. Revogar nas trocas de senha e definir a regra para contas do AD.
 
 ### 109. Revarredura de domínios interrompida
 Duas varreduras simultâneas colidem (`createMany` sem `skipDuplicates`) e a segunda para.
+✅ **Implementado:** `skipDuplicates` nas gravações; testado com três varreduras simultâneas.
 
 ### 110. Erro 500 no login do AD
 E-mail novo que já existe ou dois primeiros acessos simultâneos.
