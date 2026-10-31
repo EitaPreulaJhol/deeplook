@@ -2,12 +2,13 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { isAnalyst, requireUser } from '../lib/auth';
-import { prisma } from '../lib/prisma';
+import { advisoryLock, prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 import { caseCode } from './cases';
 
 /** Avisos ativos ao mesmo tempo (no maximo). */
 export const BROADCAST_MAX_ACTIVE = 3;
+const BROADCAST_LOCK = 880_001;
 
 const CreateSchema = z
   .object({
@@ -15,12 +16,7 @@ const CreateSchema = z
     level: z.enum(['INFO', 'WARNING']).default('INFO'),
     /** Validade em horas (1 hora a 30 dias). */
     hours: z.coerce.number().int().min(1).max(720),
-    caseId: z
-      .string()
-      .min(1)
-      .max(40)
-      .nullable()
-      .default(null),
+    caseId: z.string().min(1).max(40).nullable().default(null),
   })
   .strict();
 
@@ -73,7 +69,11 @@ export async function broadcastRoutes(app: FastifyInstance) {
       orderBy: [{ level: 'desc' }, { createdAt: 'desc' }],
       select,
     });
-    return reply.send({ items: items.map(withCode) });
+    // Casos sao so dos analistas: usuario comum recebe o aviso sem o caso (item 100).
+    const analyst = isAnalyst(user);
+    return reply.send({
+      items: items.map(withCode).map((b) => (analyst ? b : { ...b, case: null })),
+    });
   });
 
   app.post('/api/broadcasts/:id/dismiss', async (req, reply) => {
@@ -113,29 +113,36 @@ export async function broadcastRoutes(app: FastifyInstance) {
     const parsed = CreateSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { text, level, hours, caseId } = parsed.data;
-    const now = new Date();
-    const active = await prisma.broadcast.count({ where: { expiresAt: { gt: now } } });
-    if (active >= BROADCAST_MAX_ACTIVE) {
-      return reply.code(409).send({
-        error: `Já há ${BROADCAST_MAX_ACTIVE} avisos ativos. Encerre um antes de publicar outro.`,
-      });
-    }
     if (caseId && !(await prisma.case.count({ where: { id: caseId } }))) {
       return reply
         .code(400)
         .send({ error: 'Dados invalidos.', details: { caseId: ['caso não encontrado'] } });
     }
-    const item = await prisma.broadcast.create({
-      data: {
-        text,
-        level,
-        caseId,
-        startsAt: now,
-        expiresAt: new Date(now.getTime() + hours * 3600 * 1000),
-        createdById: user.id,
-      },
-      select,
+    const now = new Date();
+    const item = await prisma.$transaction(async (tx) => {
+      await advisoryLock(tx, BROADCAST_LOCK);
+      if (
+        (await tx.broadcast.count({ where: { expiresAt: { gt: now } } })) >= BROADCAST_MAX_ACTIVE
+      ) {
+        return null;
+      }
+      return tx.broadcast.create({
+        data: {
+          text,
+          level,
+          caseId,
+          startsAt: now,
+          expiresAt: new Date(now.getTime() + hours * 3600 * 1000),
+          createdById: user.id,
+        },
+        select,
+      });
     });
+    if (!item) {
+      return reply.code(409).send({
+        error: `Já há ${BROADCAST_MAX_ACTIVE} avisos ativos. Encerre um antes de publicar outro.`,
+      });
+    }
     return reply.code(201).send({ item: withCode(item) });
   });
 

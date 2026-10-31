@@ -8,10 +8,11 @@ import { env } from '../env';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { deleteBackupObject, expireBackups, runBackup } from '../lib/backup';
-import { prisma } from '../lib/prisma';
+import { advisoryLock, prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
 
+const BACKUP_LOCK = 880_002;
 const CreateSchema = z.object({ includeSamples: z.boolean().default(false) }).strict();
 
 const select = {
@@ -59,10 +60,9 @@ export async function backupRoutes(app: FastifyInstance) {
     if (!user) return;
     const parsed = CreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) return sendValidationError(reply, parsed.error);
-    if (await prisma.backup.count({ where: { status: 'RUNNING' } })) {
-      return reply.code(409).send({ error: 'Já há um backup em andamento. Aguarde terminar.' });
-    }
     const backup = await prisma.$transaction(async (tx) => {
+      await advisoryLock(tx, BACKUP_LOCK);
+      if (await tx.backup.count({ where: { status: 'RUNNING' } })) return null;
       const created = await tx.backup.create({
         data: {
           includeSamples: parsed.data.includeSamples,
@@ -79,6 +79,9 @@ export async function backupRoutes(app: FastifyInstance) {
       });
       return created;
     });
+    if (!backup) {
+      return reply.code(409).send({ error: 'Já há um backup em andamento. Aguarde terminar.' });
+    }
     lastRun = runBackup(backup.id).catch((err: unknown) =>
       req.log.error({ err }, '[backup] falha inesperada'),
     );

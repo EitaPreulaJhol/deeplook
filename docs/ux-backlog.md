@@ -3168,6 +3168,7 @@ confirmado na leitura do código; o item 101 também foi reproduzido em teste. O
 ### 100. Aviso geral vaza o título do caso
 Usuário comum recebe o título do caso ligado ao aviso, e o link leva a uma tela sem acesso.
 Sem caso para quem não é analista.
+✅ **Implementado:** usuário comum recebe o aviso sem o caso.
 
 ### 101. Domínio parecido: falso positivo com subdomínio cadastrado
 Com `portal.empresa.com.br` cadastrado, `mail.empresa.com.br` e `empresa.com.br` viram
@@ -3215,6 +3216,7 @@ E-mail novo que já existe ou dois primeiros acessos simultâneos.
 
 ### 111. Corrida entre conferir e gravar
 Chave de ativação além do limite, mais de 3 avisos ativos, dois backups ao mesmo tempo.
+✅ **Implementado:** chave de ativação com contagem condicional na transação; avisos e backups com trava na transação. Contra o código antigo, a chave de um uso criava 5 contas e 4 pedidos geravam 4 backups. Cadastros simultâneos com o mesmo e-mail respondem 409 em vez de 500.
 
 ### Segurança
 

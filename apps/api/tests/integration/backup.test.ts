@@ -7,7 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '../../src/env';
-import { configureDump, startBackups } from '../../src/lib/backup';
+import { configureDump, RESTORE_README, startBackups } from '../../src/lib/backup';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
@@ -273,6 +273,27 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
     'interrompido na subida',
     after.status === 'FAILED' && after.error === 'Interrompido: a API reiniciou.',
   );
+
+  // 9. Pedidos simultaneos: um so (item 111).
+  await prisma.backup.updateMany({ where: { status: 'RUNNING' }, data: { status: 'FAILED' } });
+  configureDump({
+    command: ['docker', 'exec', '-i', 'dl-shadow-pg', 'pg_dump'],
+    databaseUrl: `postgresql://postgres:pg@localhost:5432/${DB}`,
+  });
+  const many = await Promise.all(
+    [1, 2, 3, 4].map(() => req('POST', '/api/admin/backups', cAdm, {})),
+  );
+  ok(
+    'um por vez também em simultâneo',
+    many.filter((m) => m.statusCode === 202).length === 1 &&
+      many.filter((m) => m.statusCode === 409).length === 3,
+    many.map((m) => m.statusCode),
+  );
+  await routes.lastRun;
+
+  // 10. LEIA-ME avisa o que a restauracao precisa (itens 105 e 106).
+  ok('LEIA-ME cita o SESSION_SECRET', RESTORE_README.includes('SESSION_SECRET'));
+  ok('LEIA-ME cita o backup sem as amostras', RESTORE_README.includes('Sem objects/samples/'));
 
   docker('exec', 'dl-shadow-pg', 'dropdb', '-U', 'postgres', restored);
   await app.close();

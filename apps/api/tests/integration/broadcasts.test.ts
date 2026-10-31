@@ -173,6 +173,37 @@ async function main() {
   });
   ok('vencido some', !(await active(cCid)).some((b) => b.id === b1.id));
 
+  // 7. Caso so para analistas (item 100).
+  const withCase = await prisma.broadcast.create({
+    data: {
+      text: 'Aviso com caso',
+      caseId: cs.id,
+      expiresAt: new Date(Date.now() + 3600000),
+    },
+  });
+  const seen = (list: { id: string; case: unknown }[]) => list.find((b) => b.id === withCase.id);
+  const forUser = seen(await active(cCid));
+  ok(
+    'usuário comum recebe o aviso sem o caso',
+    Boolean(forUser) && forUser?.case === null,
+    forUser,
+  );
+  ok('analista recebe o caso', Boolean(seen(await active(cAna))?.case));
+
+  // 8. Limite com publicacoes simultaneas (item 111).
+  await prisma.broadcast.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+  const posts = await Promise.all(
+    [1, 2, 3, 4, 5, 6].map((i) =>
+      req('POST', '/api/broadcasts', cAna, { text: `Aviso paralelo ${i}`, hours: 4 }),
+    ),
+  );
+  ok(
+    'três simultâneos passam, os outros 409',
+    posts.filter((p) => p.statusCode === 201).length === 3 &&
+      posts.filter((p) => p.statusCode === 409).length === 3,
+    posts.map((p) => p.statusCode),
+  );
+
   await app.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
