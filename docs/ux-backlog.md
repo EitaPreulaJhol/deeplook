@@ -3266,6 +3266,7 @@ Cerca de 60 mensagens da API, como "Credenciais invalidas" e "Dados invalidos".
 ### 121. Domínios parecidos: ruído com nomes curtos
 `empresarial.com` parece com `empresa.com.br`. Limite maior ou lista de palavras típicas de
 golpe.
+✅ **Implementado:** "palavra a mais" só conta com palavra típica de golpe (login, seguranca, suporte, conta...). **Efeito:** `empresa-qualquercoisa.com` deixa de ser marcado.
 
 ### Decisões tomadas
 

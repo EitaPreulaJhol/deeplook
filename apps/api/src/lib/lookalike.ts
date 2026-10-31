@@ -29,6 +29,40 @@ export interface LookalikeMatch {
   detail: string | null;
 }
 
+/** Palavras que golpes juntam ao nome da empresa (o nome com outra coisa nao conta). */
+const SCAM_WORDS = [
+  'login',
+  'logon',
+  'entrar',
+  'acesso',
+  'access',
+  'seguranca',
+  'segura',
+  'seguro',
+  'secure',
+  'security',
+  'suporte',
+  'support',
+  'helpdesk',
+  'conta',
+  'account',
+  'senha',
+  'password',
+  'portal',
+  'webmail',
+  'verifica',
+  'verify',
+  'valida',
+  'atualiza',
+  'update',
+  'boleto',
+  'fatura',
+  'pagamento',
+  'payment',
+  'auth',
+  'sso',
+];
+
 /** Letras e numeros que se passam por outros (cirilico, grego, leet). */
 const CONFUSABLE: Record<string, string> = {
   а: 'a',
@@ -147,9 +181,12 @@ export function matchLookalike(rawHost: string, companies: string[]): LookalikeM
     }
     const err = real.name.length >= 4 ? typo(seen.name, real.name) : null;
     if (err) return { company, reason: 'TYPO', detail: err };
+    // So com palavra tipica de golpe: "empresarial" tambem contem "empresa" (item 121).
     if (real.name.length >= 4 && seen.name.includes(real.name)) {
       const extra = seen.name.replace(real.name, '').replace(/^-+|-+$/g, '');
-      return { company, reason: 'KEYWORD', detail: extra ? `"${extra}"` : null };
+      if (SCAM_WORDS.some((word) => extra.includes(word))) {
+        return { company, reason: 'KEYWORD', detail: `"${extra}"` };
+      }
     }
     if (sub && sub.split(/[.-]/).includes(real.name)) {
       return { company, reason: 'SUBDOMAIN', detail: null };
