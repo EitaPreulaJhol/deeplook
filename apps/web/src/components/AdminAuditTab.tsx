@@ -59,6 +59,12 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   BACKUP_CREATED: { label: 'Backup gerado', tone: 'blue' },
   BACKUP_DOWNLOADED: { label: 'Backup baixado', tone: 'orange' },
   BACKUP_DELETED: { label: 'Backup excluído', tone: 'gray' },
+  COMPANY_DOMAIN_ADDED: { label: 'Domínio da empresa incluído', tone: 'blue' },
+  COMPANY_DOMAIN_REMOVED: { label: 'Domínio da empresa excluído', tone: 'orange' },
+  TRIAGE_RULE_CHANGED: { label: 'Regra de triagem alterada', tone: 'blue' },
+  ASSIGNMENT_CHANGED: { label: 'Atribuição automática alterada', tone: 'blue' },
+  BROADCAST_PUBLISHED: { label: 'Aviso geral publicado', tone: 'blue' },
+  BROADCAST_ENDED: { label: 'Aviso geral encerrado', tone: 'gray' },
 };
 
 const PERIODS = [

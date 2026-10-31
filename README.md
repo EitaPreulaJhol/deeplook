@@ -344,6 +344,10 @@ Funcionamento:
   termina.
 - O ZIP fica no bucket (`backups/`) até vencer (`BACKUP_RETENTION_DAYS`, padrão 7 dias).
 - Só baixa com admin logado (token de API não serve).
+- **Senha do ZIP:** informada ao gerar (12 caracteres ou mais), em AES-256 no padrão WinZip,
+  que o **7-Zip** abre (o `unzip` comum não). Ela não fica guardada: sem ela, o backup não abre.
+  Os nomes dos arquivos dentro do ZIP não são cifrados. Exportar sem senha exige marcar a opção
+  e confirmar.
 - Gerar, baixar e excluir vão para a Auditoria.
 
 > **Com os arquivos das amostras, o ZIP contém malware real.** Guarde-o como as amostras.
@@ -352,7 +356,7 @@ Funcionamento:
 Para restaurar, com o DeepLook parado:
 
 ```bash
-unzip deeplook-backup-AAAA-MM-DD-xxxxxx.zip -d backup && cd backup
+7z x deeplook-backup-AAAA-MM-DD-xxxxxx.zip -obackup && cd backup   # pede a senha, se houver
 sha256sum db/deeplook.dump            # confira com o manifest.json
 docker compose up -d db minio
 docker compose exec -T db createdb -U deeplook deeplook_restaurado
@@ -369,6 +373,10 @@ migrações mais novas rodam sozinhas.
   não está no armazenamento"; a análise já feita continua na ficha.
 
 ## Cloudflare Tunnel (no host, fora do Docker)
+
+Em produção, com o Tunnel, defina `COOKIE_SECURE=true`. O IP real vem do `CF-Connecting-IP`,
+aceito só de conexões de rede privada, como a do `cloudflared` local. Não publique a porta do web
+em outro endereço além de `127.0.0.1` sem rever isso (`set_real_ip_from` em `apps/web/nginx.conf`).
 
 O DeepLook publica apenas `127.0.0.1:8080`, então instale o `cloudflared`
 oficial no host e aponte o túnel para essa porta:

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, statfs } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Readable } from 'node:stream';
@@ -41,6 +41,8 @@ Conteúdo
 - objects/: arquivos guardados no MinIO (evidências, capturas e, se marcado, os
   arquivos das amostras), com o mesmo caminho do bucket.
 
+Se o ZIP foi gerado com senha, ela não fica guardada: sem ela, o backup não abre.
+
 ATENÇÃO: com os arquivos das amostras (objects/samples/), este ZIP contém MALWARE
 real. Guarde-o como as amostras: fora de máquinas de uso comum e sem abrir os arquivos.
 
@@ -65,6 +67,19 @@ function pgUrl(url: string): string {
   const u = new URL(url);
   u.search = '';
   return u.toString();
+}
+
+/** O ZIP e montado em disco antes de ir ao bucket: falha logo se nao couber (item 116). */
+export async function ensureFreeSpace(dir: string, needed: number): Promise<void> {
+  const fs = await statfs(dir);
+  const free = fs.bavail * fs.bsize;
+  // Folga para cabecalhos, LEIA-ME e manifesto.
+  if (free < needed * 1.05 + 10 * 1024 * 1024) {
+    const gb = (n: number) => (n / 1024 ** 3).toFixed(1);
+    throw new Error(
+      `Espaço insuficiente: o backup precisa de ${gb(needed)} GB e há ${gb(free)} GB livres.`,
+    );
+  }
 }
 
 /** Roda o pg_dump para um arquivo; rejeita com a saida de erro se falhar. */
@@ -178,7 +193,7 @@ async function appVersion(): Promise<string> {
  * e LEIA-ME num ZIP temporario, que vai para backups/<id>.zip. A etapa e o
  * progresso ficam na linha do backup para a tela acompanhar.
  */
-export async function runBackup(id: string): Promise<void> {
+export async function runBackup(id: string, password: string | null = null): Promise<void> {
   const backup = await prisma.backup.findUniqueOrThrow({
     where: { id },
     include: { createdBy: { select: { displayName: true, email: true } } },
@@ -198,12 +213,14 @@ export async function runBackup(id: string): Promise<void> {
 
     await setStep('Listando os arquivos...', 10);
     const objects = await listObjects(backup.includeSamples);
-    const totalBytes = dumpSize + objects.reduce((sum, o) => sum + o.size, 0) || 1;
+    const objectBytes = objects.reduce((sum, o) => sum + o.size, 0);
+    const totalBytes = dumpSize + objectBytes || 1;
     let doneBytes = 0;
     const files: { path: string; size: number; sha256: string }[] = [];
 
     const zipFile = join(dir, 'backup.zip');
-    zip = await ZipWriter.create(zipFile);
+    await ensureFreeSpace(dir, dumpSize + objectBytes);
+    zip = await ZipWriter.create(zipFile, { password });
     const add = async (path: string, size: number, source: AsyncIterable<Buffer>, mtime?: Date) => {
       const hash = createHash('sha256');
       await zip!.add(path, size, hashing(source, hash) as unknown as Readable, mtime);
@@ -243,6 +260,7 @@ export async function runBackup(id: string): Promise<void> {
       createdAt: new Date().toISOString(),
       createdBy: backup.createdBy?.email ?? null,
       includeSamples: backup.includeSamples,
+      encrypted: Boolean(password),
       containsMalware: backup.includeSamples && (byPrefix.samples ?? 0) > 0,
       database: { file: 'db/deeplook.dump', format: 'pg_dump custom', size: dumpSize },
       counts: {

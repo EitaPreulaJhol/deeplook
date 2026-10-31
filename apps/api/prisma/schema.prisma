@@ -705,6 +705,13 @@ enum AuditAction {
   BACKUP_CREATED
   BACKUP_DOWNLOADED
   BACKUP_DELETED
+  /// Configuracao que muda o que acontece com as amostras e o que todos veem (item 114).
+  COMPANY_DOMAIN_ADDED
+  COMPANY_DOMAIN_REMOVED
+  TRIAGE_RULE_CHANGED
+  ASSIGNMENT_CHANGED
+  BROADCAST_PUBLISHED
+  BROADCAST_ENDED
 }
 
 /// Auditoria administrativa (aba Auditoria da Administracao): quem fez o que,
@@ -1148,6 +1155,8 @@ model Backup {
   status         BackupStatus @default(RUNNING)
   /// Com os arquivos das amostras (o ZIP passa a ter malware).
   includeSamples Boolean      @default(false)
+  /// Com senha (item 116). A senha nao e guardada em lugar nenhum.
+  encrypted      Boolean      @default(false)
   /// Etapa atual ("Exportando o banco...") e 0-100.
   step           String?
   progress       Int          @default(0)

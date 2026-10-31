@@ -13,12 +13,24 @@ import { s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
 
 const BACKUP_LOCK = 880_002;
-const CreateSchema = z.object({ includeSamples: z.boolean().default(false) }).strict();
+/** Senha do ZIP ou a escolha explicita de exportar sem ela (item 116). */
+const CreateSchema = z
+  .object({
+    includeSamples: z.boolean().default(false),
+    password: z.string().min(12, 'use 12 caracteres ou mais').max(200).optional(),
+    noPassword: z.boolean().default(false),
+  })
+  .strict()
+  .refine((b) => b.noPassword !== Boolean(b.password), {
+    path: ['password'],
+    message: 'informe a senha ou marque a exportação sem senha',
+  });
 
 const select = {
   id: true,
   status: true,
   includeSamples: true,
+  encrypted: true,
   step: true,
   progress: true,
   size: true,
@@ -66,6 +78,7 @@ export async function backupRoutes(app: FastifyInstance) {
       const created = await tx.backup.create({
         data: {
           includeSamples: parsed.data.includeSamples,
+          encrypted: Boolean(parsed.data.password),
           step: 'Na fila...',
           createdById: user.id,
         },
@@ -75,14 +88,17 @@ export async function backupRoutes(app: FastifyInstance) {
         action: 'BACKUP_CREATED',
         actorId: user.id,
         targetLabel: created.id,
-        detail: parsed.data.includeSamples ? 'com os arquivos das amostras' : 'sem as amostras',
+        detail: [
+          parsed.data.includeSamples ? 'com os arquivos das amostras' : 'sem as amostras',
+          parsed.data.password ? 'com senha' : 'sem senha',
+        ].join(' · '),
       });
       return created;
     });
     if (!backup) {
       return reply.code(409).send({ error: 'Já há um backup em andamento. Aguarde terminar.' });
     }
-    lastRun = runBackup(backup.id).catch((err: unknown) =>
+    lastRun = runBackup(backup.id, parsed.data.password ?? null).catch((err: unknown) =>
       req.log.error({ err }, '[backup] falha inesperada'),
     );
     return reply.code(202).send({ item: out(backup) });

@@ -13,7 +13,7 @@ await setupMock(context, state);
 const ana = { id: 'u1', displayName: 'Ana Souza' };
 const manifest = { version: '1.0.0', containsMalware: false, fileCount: 12, counts: { entries: 40, reports: 18, users: 6, cases: 3, objects: 9 } };
 const items = [
-  { id: 'b2', status: 'READY', includeSamples: false, step: null, progress: 100, size: 52428800, manifest, error: null, createdAt: '2026-10-28T09:00:00.000Z', finishedAt: '2026-10-28T09:02:00.000Z', expiresAt: '2026-11-04T09:02:00.000Z', createdBy: ana },
+  { id: 'b2', status: 'READY', includeSamples: false, encrypted: true, step: null, progress: 100, size: 52428800, manifest, error: null, createdAt: '2026-10-28T09:00:00.000Z', finishedAt: '2026-10-28T09:02:00.000Z', expiresAt: '2026-11-04T09:02:00.000Z', createdBy: ana },
   { id: 'b1', status: 'FAILED', includeSamples: false, step: null, progress: 2, size: null, manifest: null, error: 'pg_dump falhou (1): connection refused', createdAt: '2026-10-27T09:00:00.000Z', finishedAt: '2026-10-27T09:00:05.000Z', expiresAt: null, createdBy: ana },
   { id: 'b0', status: 'EXPIRED', includeSamples: true, step: null, progress: 100, size: 1048576, manifest: { ...manifest, containsMalware: true }, error: null, createdAt: '2026-10-10T09:00:00.000Z', finishedAt: '2026-10-10T09:01:00.000Z', expiresAt: '2026-10-17T09:01:00.000Z', createdBy: ana },
 ];
@@ -40,7 +40,7 @@ await context.route((url) => url.pathname.startsWith('/api/admin/backups'), asyn
   calls.push({ method: req.method(), path, body });
   if (req.method() === 'POST') {
     if (items.some((b) => b.status === 'RUNNING')) return json(409, { error: 'Já há um backup em andamento. Aguarde terminar.' });
-    const item = { id: 'b3', status: 'RUNNING', includeSamples: body.includeSamples, step: 'Exportando o banco...', progress: 2, size: null, manifest: null, error: null, createdAt: '2026-10-29T10:00:00.000Z', finishedAt: null, expiresAt: null, createdBy: ana };
+    const item = { id: 'b3', status: 'RUNNING', includeSamples: body.includeSamples, encrypted: Boolean(body.password), step: 'Exportando o banco...', progress: 2, size: null, manifest: null, error: null, createdAt: '2026-10-29T10:00:00.000Z', finishedAt: null, expiresAt: null, createdBy: ana };
     items.unshift(item);
     return json(202, { item });
   }
@@ -70,25 +70,45 @@ expect('abre a aba Backup', new URL(page.url()).search === '?tab=backup' && (awa
 // 2. Lista.
 expect('três backups', (await rows().count()) === 3);
 const ready = await rowText(0);
-expect('pronto com conteúdo, tamanho e validade', ready.includes('Pronto') && ready.includes('sem as amostras') && ready.includes('40 amostra(s), 18 relatório(s), 9 arquivo(s) · versão 1.0.0') && ready.includes('50.0 MB') && ready.includes('04/11/2026'), ready);
+expect('pronto com conteúdo, tamanho e validade', ready.includes('Pronto') && ready.includes('com senha') && ready.includes('sem as amostras') && ready.includes('40 amostra(s), 18 relatório(s), 9 arquivo(s) · versão 1.0.0') && ready.includes('50.0 MB') && ready.includes('04/11/2026'), ready);
 expect('Baixar só no pronto', (await rows().nth(0).locator('a:has-text("Baixar")').getAttribute('href')) === '/api/admin/backups/b2/download' && (await rows().nth(1).locator('a:has-text("Baixar")').count()) === 0);
 expect('falha com o motivo', (await rowText(1)).includes('Falhou') && (await rowText(1)).includes('pg_dump falhou (1): connection refused'));
 expect('vencido apagado e marcado malware', (await rows().nth(2).getAttribute('class')).includes('is-off') && (await rowText(2)).includes('com as amostras (malware)'));
 
-// 3. Gerar com as amostras: confirmacao.
+// 3. Senha do ZIP: obrigatoria, salvo a opcao de exportar sem ela.
+const generate = 'button.dl-btn:has-text("Gerar backup")';
+await page.click(generate);
+await settle(200);
+expect('sem senha não gera', !calls.some((c) => c.method === 'POST') && (await msgs()).includes('12 caracteres'), await msgs());
+await page.fill('#backup-password', 'Senha-Do-Zip-123');
+await page.fill('#backup-password-again', 'Outra-Senha-Do-Zip');
+await page.click(generate);
+await settle(200);
+expect('senhas diferentes não geram', !calls.some((c) => c.method === 'POST') && (await msgs()).includes('não conferem'), await msgs());
+await page.click('label[for="backup-no-password"]');
+await settle(100);
+expect('sem senha: campos somem', (await page.locator('#backup-password').count()) === 0);
 await page.click('label[for="backup-samples"]');
-await page.click('button.dl-btn:has-text("Gerar backup")');
+await page.click(generate);
 await settle(300);
-expect('confirma o malware', (await dlg.innerText()).includes('malware real'));
+const riskText = await dlg.innerText();
+expect('confirma os dois riscos', riskText.includes('malware real') && riskText.includes('segredos de 2FA'), riskText);
 await dlg.locator('button:has-text("Cancelar")').click();
 await settle(200);
 expect('cancelar não gera', !calls.some((c) => c.method === 'POST'));
-await page.click('button.dl-btn:has-text("Gerar backup")');
+await page.click('label[for="backup-no-password"]');
+await settle(100);
+await page.fill('#backup-password', 'Senha-Do-Zip-123');
+await page.fill('#backup-password-again', 'Senha-Do-Zip-123');
+await page.click(generate);
 await settle(300);
-await dlg.locator('button:has-text("Gerar com as amostras")').click();
+const risk2 = await dlg.innerText();
+expect('com senha: só o risco das amostras', risk2.includes('malware real') && !risk2.includes('2FA'), risk2);
+await dlg.locator('button:has-text("Gerar")').click();
 await settle(300);
-expect('gera com as amostras', JSON.stringify(calls.find((c) => c.method === 'POST')?.body) === JSON.stringify({ includeSamples: true }));
+expect('gera com a senha', JSON.stringify(calls.find((c) => c.method === 'POST')?.body) === JSON.stringify({ includeSamples: true, password: 'Senha-Do-Zip-123' }), JSON.stringify(calls.find((c) => c.method === 'POST')?.body));
 expect('aviso de início', (await msgs()).includes('Backup iniciado'), await msgs());
+expect('campos limpos depois de gerar', (await page.inputValue('#backup-password')) === '');
 
 // 4. Progresso ate ficar pronto; um por vez.
 expect('botão travado enquanto gera', await page.locator('button.dl-btn:has-text("Gerar backup")').isDisabled());

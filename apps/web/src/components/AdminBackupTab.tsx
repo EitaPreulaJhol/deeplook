@@ -8,6 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TextInput,
 } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -23,6 +24,7 @@ interface Backup {
   id: string;
   status: 'RUNNING' | 'READY' | 'FAILED' | 'EXPIRED';
   includeSamples: boolean;
+  encrypted: boolean;
   step: string | null;
   progress: number;
   size: number | null;
@@ -62,6 +64,9 @@ export function AdminBackupTab() {
     refetchInterval: (q) => (q.state.data?.items.some((b) => b.status === 'RUNNING') ? 2000 : false),
   });
   const [withSamples, setWithSamples] = useState(false);
+  const [noPassword, setNoPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const items = query.data?.items ?? [];
@@ -81,20 +86,43 @@ export function AdminBackupTab() {
     }
   };
 
+  const passwordProblem = noPassword
+    ? null
+    : password.length < 12
+      ? 'A senha do ZIP precisa de 12 caracteres ou mais.'
+      : password !== again
+        ? 'As duas senhas não conferem.'
+        : null;
+
   const generate = async () => {
-    if (withSamples) {
+    if (passwordProblem) {
+      setNotice({ ok: false, text: passwordProblem });
+      return;
+    }
+    const risks = [
+      withSamples && 'O ZIP vai conter os arquivos enviados, ou seja, malware real.',
+      noPassword &&
+        'Sem senha, qualquer pessoa com o ZIP lê o banco, com hashes de senha e segredos de 2FA.',
+    ].filter(Boolean);
+    if (risks.length) {
       const ok = await confirm({
-        title: 'Backup com as amostras',
-        message:
-          'O ZIP vai conter os arquivos enviados, ou seja, malware real. Guarde-o como as amostras e não abra os arquivos. Gerar assim mesmo?',
-        confirmLabel: 'Gerar com as amostras',
+        title: 'Confirmar o backup',
+        message: `${risks.join(' ')} Gerar assim mesmo?`,
+        confirmLabel: 'Gerar',
         cancelLabel: 'Cancelar',
         danger: true,
       });
       if (!ok) return;
     }
     await run(async () => {
-      await api.post('/admin/backups', { includeSamples: withSamples });
+      await api.post(
+        '/admin/backups',
+        noPassword
+          ? { includeSamples: withSamples, noPassword: true }
+          : { includeSamples: withSamples, password },
+      );
+      setPassword('');
+      setAgain('');
       return 'Backup iniciado. Acompanhe abaixo; "Baixar" aparece quando terminar.';
     });
   };
@@ -134,6 +162,36 @@ export function AdminBackupTab() {
           disabled={Boolean(running)}
           onChange={(_, { checked }) => setWithSamples(checked)}
         />
+        <Checkbox
+          id="backup-no-password"
+          labelText="Exportar sem senha (qualquer pessoa com o ZIP lê o banco)"
+          checked={noPassword}
+          disabled={Boolean(running)}
+          onChange={(_, { checked }) => setNoPassword(checked)}
+        />
+        {!noPassword && (
+          <div className="dl-backup__password">
+            <TextInput
+              id="backup-password"
+              type="password"
+              labelText="Senha do ZIP"
+              autoComplete="new-password"
+              helperText="12 caracteres ou mais. Não fica guardada: sem ela, o backup não abre. Abra com o 7-Zip."
+              value={password}
+              disabled={Boolean(running)}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <TextInput
+              id="backup-password-again"
+              type="password"
+              labelText="Repita a senha"
+              autoComplete="new-password"
+              value={again}
+              disabled={Boolean(running)}
+              onChange={(e) => setAgain(e.target.value)}
+            />
+          </div>
+        )}
         <button
           type="button"
           className="dl-btn dl-btn--primary"
@@ -188,6 +246,9 @@ export function AdminBackupTab() {
                       ) : (
                         'sem as amostras'
                       )}
+                      <span className="dl-backup__counts">
+                        {b.encrypted ? 'com senha' : 'sem senha'}
+                      </span>
                       {b.manifest && (
                         <span className="dl-backup__counts">
                           {b.manifest.counts.entries} amostra(s), {b.manifest.counts.reports}{' '}

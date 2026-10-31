@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { invalidateAllowlist, normalizeAllowed } from '../lib/allowlist';
+import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { normalizeHost, REASON_LABEL, rescanAllLookalikes } from '../lib/lookalike';
 import { prisma } from '../lib/prisma';
@@ -149,6 +150,12 @@ export async function companyDomainRoutes(app: FastifyInstance) {
         },
         update: {},
       });
+      await audit(tx, req, {
+        action: 'COMPANY_DOMAIN_ADDED',
+        actorId: user.id,
+        targetLabel: domain,
+        detail: 'também na lista de permissões',
+      });
       return created;
     });
     invalidateAllowlist();
@@ -157,7 +164,8 @@ export async function companyDomainRoutes(app: FastifyInstance) {
   });
 
   app.delete('/api/company-domains/:id', async (req, reply) => {
-    if (!(await requireRole(req, reply, true))) return;
+    const user = await requireRole(req, reply, true);
+    if (!user) return;
     const { id } = req.params as { id: string };
     const found = await prisma.companyDomain.findUnique({ where: { id } });
     if (!found) return reply.code(404).send({ error: 'Domínio não encontrado.' });
@@ -168,6 +176,11 @@ export async function companyDomainRoutes(app: FastifyInstance) {
         where: { kind: 'DOMAIN', value: found.domain, reason: COMPANY_ALLOW_REASON },
       }),
     ]);
+    await audit(prisma, req, {
+      action: 'COMPANY_DOMAIN_REMOVED',
+      actorId: user.id,
+      targetLabel: found.domain,
+    });
     invalidateAllowlist();
     rescan(app);
     return reply.send({ ok: true });

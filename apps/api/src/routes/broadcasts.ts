@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { advisoryLock, prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
@@ -143,6 +144,12 @@ export async function broadcastRoutes(app: FastifyInstance) {
         error: `Já há ${BROADCAST_MAX_ACTIVE} avisos ativos. Encerre um antes de publicar outro.`,
       });
     }
+    await audit(prisma, req, {
+      action: 'BROADCAST_PUBLISHED',
+      actorId: user.id,
+      targetLabel: text,
+      detail: `${level} · ${hours} h`,
+    });
     return reply.code(201).send({ item: withCode(item) });
   });
 
@@ -157,6 +164,12 @@ export async function broadcastRoutes(app: FastifyInstance) {
       data: { expiresAt: now },
     });
     if (!count) return reply.code(404).send({ error: 'Aviso não encontrado ou já encerrado.' });
+    const ended = await prisma.broadcast.findUnique({ where: { id }, select: { text: true } });
+    await audit(prisma, req, {
+      action: 'BROADCAST_ENDED',
+      actorId: user.id,
+      targetLabel: ended?.text ?? id,
+    });
     return reply.send({ ok: true });
   });
 }

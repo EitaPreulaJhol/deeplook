@@ -4666,6 +4666,14 @@ tr.is-off td {
   font-size: 0.85rem;
 }
 
+.dl-backup__password {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 640px;
+  margin: 0.5rem 0;
+}
+
 .dl-backup__running {
   max-width: 480px;
   margin-top: 0.75rem;

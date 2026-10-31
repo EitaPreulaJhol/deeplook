@@ -62,6 +62,12 @@ const AuditQuery = z.object({
       'BACKUP_CREATED',
       'BACKUP_DOWNLOADED',
       'BACKUP_DELETED',
+      'COMPANY_DOMAIN_ADDED',
+      'COMPANY_DOMAIN_REMOVED',
+      'TRIAGE_RULE_CHANGED',
+      'ASSIGNMENT_CHANGED',
+      'BROADCAST_PUBLISHED',
+      'BROADCAST_ENDED',
     ])
     .optional(),
   q: z.string().trim().max(100).optional(),
@@ -107,6 +113,12 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   BACKUP_CREATED: 'Backup gerado',
   BACKUP_DOWNLOADED: 'Backup baixado',
   BACKUP_DELETED: 'Backup excluído',
+  COMPANY_DOMAIN_ADDED: 'Domínio da empresa incluído',
+  COMPANY_DOMAIN_REMOVED: 'Domínio da empresa excluído',
+  TRIAGE_RULE_CHANGED: 'Regra de triagem alterada',
+  ASSIGNMENT_CHANGED: 'Atribuição automática alterada',
+  BROADCAST_PUBLISHED: 'Aviso geral publicado',
+  BROADCAST_ENDED: 'Aviso geral encerrado',
 };
 
 export async function adminRoutes(app: FastifyInstance) {

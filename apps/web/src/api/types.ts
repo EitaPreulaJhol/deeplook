@@ -373,7 +373,13 @@ export type AuditAction =
   | 'ALLOWLIST_IMPORTED'
   | 'BACKUP_CREATED'
   | 'BACKUP_DOWNLOADED'
-  | 'BACKUP_DELETED';
+  | 'BACKUP_DELETED'
+  | 'COMPANY_DOMAIN_ADDED'
+  | 'COMPANY_DOMAIN_REMOVED'
+  | 'TRIAGE_RULE_CHANGED'
+  | 'ASSIGNMENT_CHANGED'
+  | 'BROADCAST_PUBLISHED'
+  | 'BROADCAST_ENDED';
 
 /** Registro de auditoria (GET /api/admin/audit). */
 export interface AuditEvent {

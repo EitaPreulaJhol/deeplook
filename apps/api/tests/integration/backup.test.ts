@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
 import { HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -7,7 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '../../src/env';
-import { configureDump, RESTORE_README, startBackups } from '../../src/lib/backup';
+import { configureDump, ensureFreeSpace, RESTORE_README, startBackups } from '../../src/lib/backup';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
@@ -77,13 +77,17 @@ async function main() {
   });
 
   // 1. Permissao e um por vez.
-  ok('analista não gera', (await req('POST', '/api/admin/backups', cAna, {})).statusCode === 403);
-  let r = await req('POST', '/api/admin/backups', cAdm, {});
+  ok(
+    'analista não gera',
+    (await req('POST', '/api/admin/backups', cAna, { noPassword: true })).statusCode === 403,
+  );
+  let r = await req('POST', '/api/admin/backups', cAdm, { noPassword: true });
   ok('gera em segundo plano', r.statusCode === 202 && r.json().item.status === 'RUNNING', r.json());
   const first = r.json().item.id as string;
   ok(
     'um por vez = 409',
-    (await req('POST', '/api/admin/backups', cAdm, { includeSamples: true })).statusCode === 409,
+    (await req('POST', '/api/admin/backups', cAdm, { includeSamples: true, noPassword: true }))
+      .statusCode === 409,
   );
   await routes.lastRun;
   let list = (await req('GET', '/api/admin/backups', cAdm)).json();
@@ -195,7 +199,7 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
   );
 
   // 4. Com as amostras.
-  r = await req('POST', '/api/admin/backups', cAdm, { includeSamples: true });
+  r = await req('POST', '/api/admin/backups', cAdm, { includeSamples: true, noPassword: true });
   await routes.lastRun;
   b = (await req('GET', '/api/admin/backups', cAdm))
     .json()
@@ -218,7 +222,7 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
     command: ['docker', 'exec', '-i', 'dl-shadow-pg', 'pg_dump'],
     databaseUrl: 'postgresql://postgres:pg@localhost:5432/nao_existe',
   });
-  r = await req('POST', '/api/admin/backups', cAdm, {});
+  r = await req('POST', '/api/admin/backups', cAdm, { noPassword: true });
   await routes.lastRun;
   b = await prisma.backup.findUniqueOrThrow({ where: { id: r.json().item.id } });
   ok(
@@ -281,7 +285,7 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
     databaseUrl: `postgresql://postgres:pg@localhost:5432/${DB}`,
   });
   const many = await Promise.all(
-    [1, 2, 3, 4].map(() => req('POST', '/api/admin/backups', cAdm, {})),
+    [1, 2, 3, 4].map(() => req('POST', '/api/admin/backups', cAdm, { noPassword: true })),
   );
   ok(
     'um por vez também em simultâneo',
@@ -290,6 +294,77 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
     many.map((m) => m.statusCode),
   );
   await routes.lastRun;
+
+  // 11. Senha do ZIP (item 116).
+  const bad = async (body: object) =>
+    (await req('POST', '/api/admin/backups', cAdm, body)).statusCode;
+  ok('sem senha e sem escolher: 400', (await bad({})) === 400);
+  ok('senha curta: 400', (await bad({ password: 'curta' })) === 400);
+  ok(
+    'senha e "sem senha" juntos: 400',
+    (await bad({ password: 'Senha-Do-Zip-123', noPassword: true })) === 400,
+  );
+  const PASS = 'Senha-Do-Zip-123';
+  const started = await req('POST', '/api/admin/backups', cAdm, { password: PASS });
+  ok(
+    'gera com senha',
+    started.statusCode === 202 && started.json().item.encrypted === true,
+    started.body,
+  );
+  ok('resposta não devolve a senha', !started.body.includes(PASS));
+  await routes.lastRun;
+  const sealed = await prisma.backup.findUniqueOrThrow({ where: { id: started.json().item.id } });
+  ok('pronto e marcado com senha', sealed.status === 'READY' && sealed.encrypted, sealed.error);
+  ok('senha fora do banco', !JSON.stringify(sealed.manifest).includes(PASS));
+  const audited = await prisma.auditEvent.findFirst({
+    where: { action: 'BACKUP_CREATED', targetLabel: sealed.id },
+  });
+  ok(
+    'auditoria diz "com senha" sem a senha',
+    audited?.detail?.includes('com senha') && !audited.detail.includes(PASS),
+    audited?.detail,
+  );
+  const file = await req('GET', `/api/admin/backups/${sealed.id}/download`, cAdm);
+  writeFileSync(`${OUT}/sealed.zip`, file.rawPayload);
+  const seven = (pw: string, command: string, member = '') =>
+    spawnSync(
+      'docker',
+      [
+        'run',
+        '--rm',
+        '-v',
+        `${OUT}:/z`,
+        'alpine:3.20',
+        'sh',
+        '-c',
+        `apk add -q 7zip >/dev/null 2>&1; 7z ${command} -p'${pw}' /z/sealed.zip ${member}`,
+      ],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    );
+  ok(
+    'senha certa abre no 7-Zip',
+    seven(PASS, 't').status === 0,
+    seven(PASS, 't').stdout.slice(-300),
+  );
+  ok('senha errada não abre', seven('Outra-Senha-Errada', 't').status !== 0);
+  ok('sem a senha, nem o manifesto em claro', !file.rawPayload.includes('"includeSamples"'));
+  const inner = JSON.parse(seven(PASS, 'x -so', 'manifest.json').stdout);
+  ok(
+    'manifesto diz que tem senha',
+    inner.encrypted === true && inner.files.length >= 1,
+    inner.encrypted,
+  );
+
+  // 12. Disco cheio falha antes de montar o ZIP.
+  let refused = '';
+  try {
+    await ensureFreeSpace(OUT, 2 ** 60);
+  } catch (err) {
+    refused = (err as Error).message;
+  }
+  ok('sem espaço: recusa com o motivo', refused.includes('Espaço insuficiente'), refused);
+  await ensureFreeSpace(OUT, 1024);
+  ok('com espaço: segue', true);
 
   // 10. LEIA-ME avisa o que a restauracao precisa (itens 105 e 106).
   ok('LEIA-ME cita o SESSION_SECRET', RESTORE_README.includes('SESSION_SECRET'));

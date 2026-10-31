@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { Prisma } from '../generated/prisma/client';
+import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { ruleLabel } from '../lib/auto-assign';
 import { prisma } from '../lib/prisma';
@@ -39,6 +40,10 @@ const AwaySchema = z.object({ away: z.boolean() });
  * fica em lib/auto-assign.ts.
  */
 export async function assignmentRoutes(app: FastifyInstance) {
+  // Item 114: muda para quem as amostras vao.
+  const logged = (req: FastifyRequest, actorId: string, detail: string, targetLabel?: string) =>
+    audit(prisma, req, { action: 'ASSIGNMENT_CHANGED', actorId, detail, targetLabel });
+
   const requireAnalyst = async (req: FastifyRequest, reply: FastifyReply) => {
     const user = await requireUser(req, reply);
     if (!user) return null;
@@ -107,6 +112,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     try {
       const group = await prisma.assignmentGroup.create({ data: parsed.data });
+      await logged(req, user.id, 'grupo criado', group.name);
       return reply.code(201).send({ group });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -132,12 +138,10 @@ export async function assignmentRoutes(app: FastifyInstance) {
         await prisma.assignmentGroup.update({ where: { id }, data: parsed.data });
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          return reply
-            .code(409)
-            .send({
-              error: 'Já existe um grupo com esse nome.',
-              details: { name: ['nome em uso'] },
-            });
+          return reply.code(409).send({
+            error: 'Já existe um grupo com esse nome.',
+            details: { name: ['nome em uso'] },
+          });
         }
         throw err;
       }
@@ -161,6 +165,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
         }),
       ]);
     }
+    await logged(req, user.id, 'grupo alterado', group.name);
     return reply.send({ ok: true });
   });
 
@@ -169,8 +174,10 @@ export async function assignmentRoutes(app: FastifyInstance) {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
     const { id } = req.params as { id: string };
-    const { count } = await prisma.assignmentGroup.deleteMany({ where: { id } });
-    if (!count) return reply.code(404).send({ error: 'Grupo não encontrado.' });
+    const group = await prisma.assignmentGroup.findUnique({ where: { id } });
+    if (!group) return reply.code(404).send({ error: 'Grupo não encontrado.' });
+    await prisma.assignmentGroup.delete({ where: { id } });
+    await logged(req, user.id, 'grupo excluído', group.name);
     return reply.send({ ok: true });
   });
 
@@ -189,6 +196,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
     const rule = await prisma.assignmentRule.create({
       data: { ...parsed.data, position: (last._max.position ?? 0) + 1 },
     });
+    await logged(req, user.id, 'regra criada', group.name);
     return reply.code(201).send({ rule });
   });
 
@@ -200,6 +208,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const { count } = await prisma.assignmentRule.updateMany({ where: { id }, data: parsed.data });
     if (!count) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    await logged(req, user.id, 'regra alterada');
     return reply.send({ ok: true });
   });
 
@@ -225,6 +234,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
         prisma.assignmentRule.update({ where: { id: r.id }, data: { position: i + 1 } }),
       ),
     );
+    await logged(req, user.id, 'ordem das regras alterada');
     return reply.send({ ok: true });
   });
 
@@ -234,6 +244,7 @@ export async function assignmentRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const { count } = await prisma.assignmentRule.deleteMany({ where: { id } });
     if (!count) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    await logged(req, user.id, 'regra excluída');
     return reply.send({ ok: true });
   });
 
@@ -252,6 +263,12 @@ export async function assignmentRoutes(app: FastifyInstance) {
       data: { away: parsed.data.away },
     });
     if (!count) return reply.code(404).send({ error: 'Analista não encontrado.' });
+    await logged(
+      req,
+      user.id,
+      parsed.data.away ? 'marcado como ausente' : 'de volta ao rodízio',
+      userId,
+    );
     return reply.send({ away: parsed.data.away });
   });
 }

@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { NEEDS_VALUE, triageRuleLabel } from '../lib/triage-rules';
@@ -86,6 +87,12 @@ export async function triageRuleRoutes(app: FastifyInstance) {
     const parsed = RuleSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const rule = await prisma.triageRule.create({ data: { ...parsed.data, createdById: user.id } });
+    await audit(prisma, req, {
+      action: 'TRIAGE_RULE_CHANGED',
+      actorId: user.id,
+      targetLabel: rule.name,
+      detail: `criada: ${triageRuleLabel(rule)}`,
+    });
     return reply.code(201).send({ rule: { ...rule, label: triageRuleLabel(rule) } });
   });
 
@@ -95,8 +102,15 @@ export async function triageRuleRoutes(app: FastifyInstance) {
     const parsed = z.object({ enabled: z.boolean() }).strict().safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
     const { id } = req.params as { id: string };
-    const { count } = await prisma.triageRule.updateMany({ where: { id }, data: parsed.data });
-    if (!count) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    const rule = await prisma.triageRule.findUnique({ where: { id } });
+    if (!rule) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    await prisma.triageRule.update({ where: { id }, data: parsed.data });
+    await audit(prisma, req, {
+      action: 'TRIAGE_RULE_CHANGED',
+      actorId: user.id,
+      targetLabel: rule.name,
+      detail: parsed.data.enabled ? 'ligada' : 'desligada',
+    });
     return reply.send({ ok: true });
   });
 
@@ -104,8 +118,15 @@ export async function triageRuleRoutes(app: FastifyInstance) {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
     const { id } = req.params as { id: string };
-    const { count } = await prisma.triageRule.deleteMany({ where: { id } });
-    if (!count) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    const rule = await prisma.triageRule.findUnique({ where: { id } });
+    if (!rule) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    await prisma.triageRule.delete({ where: { id } });
+    await audit(prisma, req, {
+      action: 'TRIAGE_RULE_CHANGED',
+      actorId: user.id,
+      targetLabel: rule.name,
+      detail: 'excluída',
+    });
     return reply.send({ ok: true });
   });
 }

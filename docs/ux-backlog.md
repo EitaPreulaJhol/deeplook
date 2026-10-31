@@ -3235,6 +3235,7 @@ contas; "Conta suspensa" aparece sem conferir a senha; e-mail inexistente respon
 ### 114. Auditoria incompleta
 Domínios da empresa (alteram a lista de permissões), regras de triagem, atribuição automática
 e avisos gerais.
+✅ **Implementado:** domínios da empresa, regras de triagem, atribuição automática (grupos, regras, ordem e ausência) e avisos gerais, com seis ações novas e filtro na tela.
 
 ### 115. Cabeçalhos e cookie
 Sem CSP e HSTS no nginx; `COOKIE_SECURE` vem `false`.
@@ -3244,6 +3245,7 @@ Sem CSP e HSTS no nginx; `COOKIE_SECURE` vem `false`.
 O ZIP tem hashes de senha e segredos de 2FA, fica no bucket de origem, e a geração não confere
 o espaço em disco. Avaliar senha/cifra e aviso de espaço.
 - **Decisão (31/10/2026):** senha informada ao gerar o ZIP, com opção de exportar sem senha.
+✅ **Implementado:** senha obrigatória ao gerar, de 12 caracteres ou mais, ou a opção explícita de exportar sem ela, com confirmação. AES-256 no padrão WinZip AE-2, conferido no 7-Zip. A senha só fica na memória durante a geração: não vai ao banco, à auditoria nem à resposta. **Limites:** os nomes dos arquivos dentro do ZIP não são cifrados, e o padrão usa PBKDF2 com 1000 iterações, daí o mínimo de 12 caracteres. Disco: o backup falha logo, com o motivo, se não couber. O ZIP continua no bucket de origem até vencer.
 
 ### Operação e acabamento
 

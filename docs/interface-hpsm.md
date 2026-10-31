@@ -522,7 +522,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | DELETE | `/api/me/sessions/:handle` · POST `/api/me/sessions/revoke-others` | encerra uma sessão (não a atual) ou todas as outras |
 | GET/POST | `/api/me/api-tokens` | tokens de API do usuário (`{ apiAccess, maxDays, tokens }`); POST `{ name, expiresInDays }` → `{ token, secret }` (secret só aqui); 403 sem liberação, 409 com 10 ativos |
 | DELETE | `/api/me/api-tokens/:id` | revoga um token próprio |
-| GET · POST | `/api/admin/backups` | backups (admin): lista (os vencidos expiram na hora) `{ items: [{ id, status, includeSamples, step, progress, size, manifest, error, expiresAt }], retentionDays }`; gerar `{ includeSamples }` → 202 (409 com um em andamento) |
+| GET · POST | `/api/admin/backups` | backups (admin): lista (os vencidos expiram na hora) `{ items: [{ id, status, includeSamples, step, progress, size, manifest, error, expiresAt }], retentionDays }`; gerar `{ includeSamples, password }` ou `{ includeSamples, noPassword: true }` → 202 (400 sem escolher, 409 com um em andamento) |
 | GET · DELETE | `/api/admin/backups/:id/download` · `/api/admin/backups/:id` | baixar o ZIP (admin com sessão; 404 se não está pronto; auditado) · excluir (409 em andamento) |
 | GET | `/api/openapi.json` | especificação OpenAPI 3.1 das rotas que aceitam token (sessão ou token); gerada dos schemas zod (`lib/openapi.ts`), e o teste confere que bate com `ALLOWED_ROUTES` |
 | GET | `/api/admin/api-tokens?status=active\|all` | admin: tokens de todos com o usuário |
