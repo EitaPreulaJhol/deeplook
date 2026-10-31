@@ -28,6 +28,8 @@ const EnvSchema = z
     /** Escalonamento (item 73): ao atrasar, sobe a prioridade um nivel (P4 -> P3...). */
     SLA_ESCALATE_PRIORITY: z.enum(['true', 'false']).default('false'),
     COOKIE_SECURE: z.enum(['true', 'false']).default('false'),
+    /** Demonstracao local: sobe mesmo com segredos padrao (nunca em producao de verdade). */
+    ALLOW_INSECURE_DEFAULTS: z.enum(['true', 'false']).default('false'),
     ADMIN_EMAIL: z.string().email().default('admin@deeplook.local'),
     ADMIN_PASSWORD: z.string().min(6).default('admin12345'),
     ADMIN_NAME: z.string().default('Administrator'),
@@ -146,6 +148,24 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+
+/** Valores do compose e do .env.example: publicos, nao servem como segredo (item 97). */
+const KNOWN_SECRETS = new Set([
+  'change-me-please-use-a-long-random-secret',
+  'troque-este-token-da-captura',
+]);
+const refused = [
+  KNOWN_SECRETS.has(env.SESSION_SECRET) && 'SESSION_SECRET',
+  env.CAPTURE_URL && KNOWN_SECRETS.has(env.CAPTURE_TOKEN) && 'CAPTURE_TOKEN',
+].filter(Boolean);
+if (refused.length && isProd && env.ALLOW_INSECURE_DEFAULTS !== 'true') {
+  console.error(
+    `[env] ${refused.join(' e ')} com o valor padrao, que e publico. Defina um valor longo e ` +
+      'aleatorio no .env (ex.: openssl rand -hex 32). Para uma demonstracao local, use ' +
+      'ALLOW_INSECURE_DEFAULTS=true.',
+  );
+  process.exit(1);
+}
 
 /** Sandbox ligado? (precisa ser explicito: SANDBOX_ENABLED=true) */
 export const sandboxEnabled = env.SANDBOX_ENABLED === 'true';

@@ -74,6 +74,7 @@ services:
       CAPTURE_URL: ${CAPTURE_URL-http://capture:3100}
       CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOW_INSECURE_DEFAULTS: ${ALLOW_INSECURE_DEFAULTS:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@deeplook.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
       ADMIN_NAME: ${ADMIN_NAME:-Administrator}

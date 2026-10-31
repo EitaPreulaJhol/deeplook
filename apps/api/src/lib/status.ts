@@ -24,7 +24,8 @@ export interface StatusCheck {
     | 'reputation'
     | 'antivirus'
     | 'capture'
-    | 'ldap';
+    | 'ldap'
+    | 'config';
   name: string;
   level: StatusLevel;
   summary: string;
@@ -408,6 +409,34 @@ async function captureCheck(): Promise<StatusCheck> {
 }
 
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
+/** Senhas padrao ainda em uso (item 97): valores publicos do compose e do .env.example. */
+export function insecureDefaults(): string[] {
+  let dbPassword = '';
+  try {
+    dbPassword = decodeURIComponent(new URL(env.DATABASE_URL).password);
+  } catch {
+    /* endereco em outro formato: nao da para conferir */
+  }
+  return [
+    ['deeplook', 'change-me-db-password'].includes(dbPassword) &&
+      'senha do banco (POSTGRES_PASSWORD)',
+    ['deeplook123', 'change-me-minio-password'].includes(env.S3_SECRET_KEY) &&
+      'senha do MinIO (S3_SECRET_KEY)',
+    env.ALLOW_INSECURE_DEFAULTS === 'true' && 'ALLOW_INSECURE_DEFAULTS ligado',
+  ].filter((item): item is string => Boolean(item));
+}
+
+function configCheck(): StatusCheck {
+  const found = insecureDefaults();
+  return {
+    id: 'config',
+    name: 'Configuração',
+    level: found.length ? 'warn' : 'ok',
+    summary: found.length ? `${found.length} valor(es) padrão em uso` : 'sem senhas padrão',
+    details: found.map((value) => ({ label: 'Trocar', value })),
+  };
+}
+
 /** AD/LDAP (item 94): conecta com TLS e faz o bind da conta de servico. */
 async function ldapCheck(): Promise<StatusCheck> {
   const name = 'AD/LDAP';
@@ -490,6 +519,7 @@ export async function systemStatus() {
     captureCheck(),
     reputationCheck(),
     ldapCheck(),
+    configCheck(),
   ]);
   const overall = checks
     .map((c) => (c.level === 'off' ? 'ok' : c.level))

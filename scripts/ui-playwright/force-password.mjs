@@ -39,7 +39,7 @@ await settle(800);
 expect('abre "Definir nova senha"', (await title()) === 'Definir nova senha');
 expect('sem o shell', (await page.locator('.hpsm-tree').count()) === 0);
 expect('sem "Voltar para o início"', (await page.locator('.dl-public__link:has-text("Voltar para o início")').count()) === 0);
-expect('explica o motivo', (await page.locator('.dl-auth__subtitle').innerText()).includes('sua senha foi redefinida por um administrador'));
+expect('explica o motivo', (await page.locator('.dl-auth__subtitle').innerText()).includes('primeiro acesso ou senha redefinida por um administrador'));
 expect('temporária já veio do login (sem pedir de novo)', (await page.locator('#force-current').count()) === 0);
 const others = () => apiCalls.filter((c) => !/\/api\/auth\/|\/api\/me\/password/.test(c));
 expect('nenhuma outra chamada à API', others().length === 0, others().join(', '));

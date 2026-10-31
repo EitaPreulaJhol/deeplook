@@ -13,7 +13,10 @@ Say "HEALTH: $($h.status) / $($h.service)"
 
 # 2. Login admin
 $admin = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$l = Invoke-RestMethod -Uri "$base/auth/login" -Method Post -WebSession $admin -ContentType 'application/json' -Body '{"email":"admin@deeplook.local","password":"admin12345"}'
+# O admin troca a senha no primeiro acesso: informe a atual em SMOKE_ADMIN_PASSWORD.
+$adminBody = @{ email = 'admin@deeplook.local'; password = $(if ($env:SMOKE_ADMIN_PASSWORD) { $env:SMOKE_ADMIN_PASSWORD } else { 'admin12345' }) } | ConvertTo-Json
+$l = Invoke-RestMethod -Uri "$base/auth/login" -Method Post -WebSession $admin -ContentType 'application/json' -Body $adminBody
+if ($l.user.mustChangePassword) { throw 'O admin precisa trocar a senha: entre pela tela, troque e defina SMOKE_ADMIN_PASSWORD.' }
 Say "LOGIN ADMIN: $($l.user.email) role=$($l.user.role)"
 
 # 3. Chaves de ativacao (USER e ANALYST)

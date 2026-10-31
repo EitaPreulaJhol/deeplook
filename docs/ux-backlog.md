@@ -3131,6 +3131,13 @@ confirmado na leitura do código; o item 101 também foi reproduzido em teste. O
   senhas padrão do banco e do MinIO; o admin criado pelo seed, ou que ainda use a senha
   padrão, troca a senha no primeiro acesso.
 - **Cuidados:** instalações com segredo padrão precisam ajustar o `.env` antes de atualizar.
+- ✅ **Implementado:**
+  - em produção a API não sobe com `SESSION_SECRET` ou `CAPTURE_TOKEN` (com a captura ligada)
+    conhecidos e explica o que fazer; `ALLOW_INSECURE_DEFAULTS=true` libera para demonstração;
+  - linha "Configuração" no Status do sistema: senhas padrão do banco e do MinIO;
+  - admin novo troca a senha no primeiro acesso, e o existente que ainda use a senha padrão
+    também, a cada subida; tela de troca com texto neutro;
+  - scripts de smoke com `SMOKE_ADMIN_PASSWORD`; README e `.env.example`.
 
 ### 98. API sem root e sem dependências de desenvolvimento
 - **Problema:** o container que analisa malware roda como root e leva as dependências de

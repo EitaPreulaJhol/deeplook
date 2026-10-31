@@ -56,8 +56,9 @@ Expõe-se à internet via **Cloudflare Tunnel rodando no host (fora do Docker)**
 ```bash
 # 1) Configure as variáveis (senhas, segredo de sessão, admin)
 cp .env.example .env
-# edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET,
+# edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN,
 # ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
+# (com SESSION_SECRET ou CAPTURE_TOKEN no valor padrão, a API não sobe)
 
 # 2) Suba tudo
 docker compose build
@@ -76,7 +77,8 @@ Acesse: **http://localhost:8080**
 O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`.
 
-1. Entre em **/login** com essas credenciais.
+1. Entre em **/login** com essas credenciais e defina uma senha nova, pedida no primeiro
+   acesso.
 2. Vá em **Administração → Chaves de ativação** e **gere uma chave**.
 3. Compartilhe a chave com o amigo — ele se cadastra em **/register**
    informando a chave (o cadastro só é possível com uma chave válida).
@@ -396,7 +398,7 @@ COOKIE_SECURE=true
 | Variável | Descrição | Padrão |
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL | `deeplook` |
-| `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório) | — |
+| `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório); com o valor padrão a API não sobe | — |
 | `SESSION_TTL_HOURS` | Validade máxima da sessão (horas), mesmo com uso contínuo | `168` |
 | `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
 | `SLA_WARN_HOURS` | Amostra não concluída há mais de N horas no status atual ganha bolinha laranja (alerta) | `24` |
@@ -421,7 +423,8 @@ COOKIE_SECURE=true
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot | — |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso | — |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN` padrão (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `UPLOAD_DAILY_LIMIT` | Envios por usuário comum nas últimas 24 horas (arquivo, link, cada arquivo de um `.zip`); analistas e admins sem limite; `0` desliga | `20` |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO | `deeplook` |
@@ -676,8 +679,8 @@ sem um PVE real. Valide com `scripts/smoke-sandbox.ps1`.
 
 ## Smoke test (com a stack no ar)
 
-Depois de `docker compose up`, rode o teste de ponta a ponta (usa as credenciais
-padrão do admin definidas no `.env`):
+Depois de `docker compose up`, entre uma vez como admin para trocar a senha e rode o teste
+de ponta a ponta com ela em `SMOKE_ADMIN_PASSWORD`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1

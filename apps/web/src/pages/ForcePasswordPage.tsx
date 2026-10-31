@@ -42,7 +42,7 @@ export function ForcePasswordPage() {
           ? `Nova senha: ${problem}.`
           : bad.has('force-confirm')
             ? 'A confirmação precisa ser igual à nova senha.'
-            : 'Informe a senha temporária.',
+            : 'Informe a senha atual ou temporária.',
       );
       document.getElementById([...bad][0])?.focus();
       return;
@@ -72,7 +72,7 @@ export function ForcePasswordPage() {
       subtitle={
         expired
           ? `${user?.displayName ?? ''}, sua senha expirou (validade de 90 dias). Defina uma senha nova para continuar.`
-          : `${user?.displayName ?? ''}, sua senha foi redefinida por um administrador. Defina uma senha nova para continuar.`
+          : `${user?.displayName ?? ''}, é preciso trocar a senha (primeiro acesso ou senha redefinida por um administrador). Defina uma senha nova para continuar.`
       }
     >
       <form className="dl-auth__form" onSubmit={submit}>
@@ -80,7 +80,7 @@ export function ForcePasswordPage() {
         {askCurrent && (
           <AuthField
             id="force-current"
-            label="Senha temporária"
+            label="Senha atual ou temporária"
             type="password"
             value={current}
             onChange={setCurrent}
