@@ -76,6 +76,10 @@ async function apiImage() {
       'server',
       '/data',
     );
+    // Como o healthcheck do compose: a API migra ao subir e precisa do banco pronto.
+    await until(
+      async () => quiet('exec', 'dl-test-pg', 'pg_isready', '-U', 'postgres').status === 0,
+    );
     docker(
       'run',
       '-d',
