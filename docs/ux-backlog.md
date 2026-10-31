@@ -3297,3 +3297,21 @@ A lista global e o CSV mostram esse e-mail a todos os usuários.
 ### 124. Ideias de produto
 Resolução na atualização em massa e no CSV; condição "domínio parecido" nas regras de triagem;
 grupos aninhados do AD; teste rápido contra a API real, para complementar o mock.
+
+**Decisões:**
+- **a. Teste rápido (`npm run test:smoke`):** navegador real, com as imagens reais do web e da
+  API, mais Postgres e MinIO, numa rede própria. Faz o caminho principal (primeiro acesso, envio,
+  triagem, usuário comum) e abre as telas; qualquer erro 4xx/5xx inesperado da API, erro no console
+  ou violação da CSP reprova. Não entra na suíte de telas, porque precisa compilar as imagens.
+- **b. Resolução em massa e no CSV:** campo na barra de atualização em massa, com os modelos como
+  sugestão. Vazio mantém; remover continua sendo na ficha, porque apagar de muitas de uma vez por
+  engano é pior do que o trabalho de remover uma a uma. Mesmas regras da ficha: histórico, herança
+  das duplicatas e aviso a quem enviou. Coluna "Resolução" no CSV para todos, porque a ficha já a
+  mostra a todos.
+- **c. Condição "domínio parecido":** valor opcional com o domínio da empresa (vazio = qualquer).
+  Vale na chegada, como as outras. Mudar a lista de domínios da empresa ou publicar relatório não
+  reaplica regras nas amostras antigas: refaz os achados, mas não mexe em tags e prioridade.
+- **d. Grupos aninhados do AD:** `LDAP_NESTED_GROUPS`, desligado por padrão, porque ligar pode dar
+  papel a mais gente. Sobe pelo `memberOf` dos grupos, que funciona no AD e no OpenLDAP do teste.
+  Até 200 grupos por login. Grupo que o servidor recusa ou não acha é ignorado; queda do AD no meio
+  falha o login, em vez de rebaixar o papel sem motivo.
