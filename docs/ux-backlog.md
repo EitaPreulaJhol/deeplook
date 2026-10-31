@@ -3155,6 +3155,13 @@ confirmado na leitura do código; o item 101 também foi reproduzido em teste. O
   já se perdeu), e não há comando para rodá-los.
 - **Proposta:** `apps/api/tests/` e `npm run test:integration`, que sobe o que precisa em
   docker. CI fica para quando o repositório tiver `remote`.
+- ✅ **Implementado:** `apps/api/tests/`, com 14 arquivos (290 checagens) e o
+  `npm run test:integration`, que sobe Postgres, MinIO e OpenLDAP, gera certificados e imagens de
+  disco, e usa um banco novo por arquivo; `npm run test:images` testa as imagens reais (22
+  checagens). Lint e tipos cobrem os testes. **CI não foi criada:** o repositório não tem `remote`,
+  e não daria para ver o workflow rodar.
+- **Limite:** os testes de integração de antes do item 81 se perderam; só os das telas continuam
+  cobrindo esses itens.
 
 ### Bugs
 

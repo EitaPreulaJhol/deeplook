@@ -1,0 +1,270 @@
+import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
+import Fastify from 'fastify';
+
+import { env } from '../../src/env';
+import { hashPassword } from '../../src/lib/crypto';
+import { prisma } from '../../src/lib/prisma';
+import { ensureBucket } from '../../src/lib/s3';
+import { applyTriageRules } from '../../src/lib/triage-rules';
+import { yaraScanEntry } from '../../src/lib/yara';
+import { assignmentRoutes } from '../../src/routes/assignment';
+import { authRoutes } from '../../src/routes/auth';
+import { entryRoutes } from '../../src/routes/entries';
+import { triageRuleRoutes } from '../../src/routes/triage-rules';
+
+let fails = 0;
+const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
+  if (!cond) fails++;
+  console.log(`${cond ? 'ok  ' : 'FALHA'} ${label}${cond ? '' : ' ' + JSON.stringify(detail)}`);
+};
+
+async function main() {
+  env.CLAMAV_HOST = '';
+  env.UPLOAD_DAILY_LIMIT = 0;
+  await ensureBucket();
+  const app = Fastify();
+  await app.register(cookie, { secret: env.SESSION_SECRET });
+  await app.register(rateLimit, { global: false });
+  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+  for (const r of [authRoutes, entryRoutes, triageRuleRoutes, assignmentRoutes])
+    await app.register(r);
+  await app.ready();
+  const ids: Record<string, string> = {};
+  for (const [email, role] of [
+    ['ana@x.io', 'ANALYST'],
+    ['bob@x.io', 'USER'],
+  ] as const) {
+    ids[email] = (
+      await prisma.user.create({
+        data: {
+          email,
+          displayName: email.split('@')[0],
+          role,
+          passwordHash: await hashPassword('senha-123!'),
+        },
+      })
+    ).id;
+  }
+  const login = async (email: string) =>
+    String(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { email, password: 'senha-123!' },
+        })
+      ).headers['set-cookie'],
+    ).split(';')[0];
+  const cAna = await login('ana@x.io');
+  const cBob = await login('bob@x.io');
+  const req = (method: string, url: string, c: string, payload?: object) =>
+    app.inject({ method: method as 'GET', url, headers: { cookie: c }, payload });
+  const rule = async (body: object) =>
+    (await req('POST', '/api/triage-rules', cAna, body)).json().rule;
+
+  // 1. Manutencao das regras.
+  ok('usuário comum não vê', (await req('GET', '/api/triage-rules', cBob)).statusCode === 403);
+  let r = await req('POST', '/api/triage-rules', cAna, { name: 'Sem nada', condition: 'MACRO' });
+  ok(
+    'sem tag nem prioridade = 400',
+    r.statusCode === 400 && Boolean(r.json().details?.tags),
+    r.json(),
+  );
+  r = await req('POST', '/api/triage-rules', cAna, {
+    name: 'Domínio',
+    condition: 'DOMAIN',
+    tags: ['x'],
+  });
+  ok('domínio sem valor = 400', r.statusCode === 400 && Boolean(r.json().details?.value), r.json());
+  ok(
+    'campo desconhecido = 400',
+    (
+      await req('POST', '/api/triage-rules', cAna, {
+        name: 'x x x',
+        condition: 'MACRO',
+        tags: ['a'],
+        foo: 1,
+      })
+    ).statusCode === 400,
+  );
+  const tld = await rule({
+    name: 'TLD suspeito',
+    condition: 'DOMAIN',
+    value: '.top',
+    tags: ['TLD-Suspeito', 'phishing'],
+    priority: 'P2',
+  });
+  ok(
+    'cria com tags normalizadas e descrição',
+    tld.tags.join() === 'tld-suspeito,phishing' && tld.label === 'domínio do link .top',
+    tld,
+  );
+  const macro = await rule({
+    name: 'Documento com macro',
+    condition: 'MACRO',
+    tags: ['macro'],
+    priority: 'P2',
+  });
+  await rule({ name: 'Disfarçado', condition: 'DISGUISED', tags: ['disfarcado'], priority: 'P1' });
+  await rule({ name: 'Script', condition: 'SCRIPT_RISK', tags: ['script'] });
+  await rule({ name: 'Documento perigoso', condition: 'DOCUMENT_RISK', tags: ['doc-risco'] });
+  await rule({ name: 'Atalho', condition: 'LNK', tags: ['lnk'] });
+  await rule({ name: 'Tipo PE', condition: 'DETECTED_TYPE', value: 'pe', tags: ['executavel'] });
+  await rule({
+    name: 'Remetente',
+    condition: 'SENDER',
+    value: 'golpe.test',
+    tags: ['remetente-golpe'],
+  });
+  await rule({
+    name: 'YARA Emotet',
+    condition: 'YARA',
+    value: 'emotet',
+    tags: ['emotet'],
+    priority: 'P1',
+  });
+  await rule({ name: 'Antivírus', condition: 'ANTIVIRUS', tags: ['av-detectou'] });
+  const off = await rule({ name: 'Desligada', condition: 'MACRO', tags: ['nunca'] });
+  ok(
+    'desligar',
+    (await req('PATCH', `/api/triage-rules/${off.id}`, cAna, { enabled: false })).statusCode ===
+      200,
+  );
+
+  // 2. Na chegada, antes da atribuicao automatica (que usa a tag).
+  const group = (await req('POST', '/api/assignment/groups', cAna, { name: 'Phishing' })).json()
+    .group;
+  await req('PATCH', `/api/assignment/groups/${group.id}`, cAna, { memberIds: [ids['ana@x.io']] });
+  await req('POST', '/api/assignment/rules', cAna, { groupId: group.id, tag: 'tld-suspeito' });
+  r = await req('POST', '/api/entries/url', cBob, {
+    url: 'http://login.banco.top/x',
+    title: 'link',
+  });
+  const link = await prisma.entry.findUnique({
+    where: { id: r.json().entry.id },
+    include: { tags: true },
+  });
+  ok(
+    'tags e prioridade na chegada',
+    link?.tags
+      .map((t) => t.name)
+      .sort()
+      .join() === 'phishing,tld-suspeito' && link?.priority === 'P2',
+    link,
+  );
+  ok(
+    'atribuição automática usou a tag da regra',
+    link?.assigneeId === ids['ana@x.io'],
+    link?.assigneeId,
+  );
+  const evs = await prisma.entryEvent.findMany({
+    where: { entryId: link!.id, type: { in: ['TRIAGE_RULE', 'PRIORITY_CHANGED'] } },
+  });
+  ok(
+    'histórico da regra e da prioridade',
+    evs.some(
+      (e) =>
+        e.type === 'TRIAGE_RULE' &&
+        e.toValue === 'TLD suspeito' &&
+        e.detail === 'tags tld-suspeito, phishing; prioridade P2',
+    ) &&
+      evs.some(
+        (e) =>
+          e.type === 'PRIORITY_CHANGED' &&
+          e.fromValue === 'P3' &&
+          e.toValue === 'P2' &&
+          e.detail === 'regra de triagem' &&
+          e.actorId === null,
+      ),
+    evs,
+  );
+  ok('não repete', (await applyTriageRules(link!.id)).length === 0);
+
+  // 3. Condicoes pela analise.
+  const mk = (data: Record<string, unknown>) =>
+    prisma.entry.create({ data: { type: 'FILE', title: 'x', ownerId: ids['bob@x.io'], ...data } });
+  const doc = await mk({
+    staticInfo: {
+      detectedType: { id: 'ole' },
+      document: { risk: 'high', office: { modules: [{ name: 'M1' }] } },
+    },
+  });
+  ok(
+    'macro e documento de risco alto',
+    (await applyTriageRules(doc.id)).sort().join() === 'Documento com macro,Documento perigoso',
+  );
+  const tagsOf = async (id: string) =>
+    (await prisma.entry.findUnique({ where: { id }, include: { tags: true } }))!.tags
+      .map((t) => t.name)
+      .sort()
+      .join();
+  ok('regra desligada não vale', !(await tagsOf(doc.id)).includes('nunca'));
+  const exe = await mk({
+    priority: 'P4',
+    staticInfo: { detectedType: { id: 'pe' }, extensionMismatch: { dangerous: true } },
+  });
+  await applyTriageRules(exe.id);
+  ok(
+    'tipo real e disfarçado (P4 sobe a P1)',
+    (await tagsOf(exe.id)) === 'disfarcado,executavel' &&
+      (await prisma.entry.findUnique({ where: { id: exe.id } }))!.priority === 'P1',
+  );
+  const p1 = await mk({
+    priority: 'P1',
+    staticInfo: { document: { risk: 'low', office: { modules: [{}] } } },
+  });
+  await applyTriageRules(p1.id);
+  ok(
+    'nunca rebaixa (P1 fica P1)',
+    (await prisma.entry.findUnique({ where: { id: p1.id } }))!.priority === 'P1' &&
+      (await tagsOf(p1.id)) === 'macro',
+  );
+  const script = await mk({ staticInfo: { script: { risk: 'high' }, lnk: { alerts: ['x'] } } });
+  await applyTriageRules(script.id);
+  ok('script e atalho', (await tagsOf(script.id)) === 'lnk,script');
+  const mail = await mk({ emailInfo: { from: { name: 'X', address: 'cobranca@sub.golpe.test' } } });
+  await applyTriageRules(mail.id);
+  ok('remetente pelo domínio', (await tagsOf(mail.id)) === 'remetente-golpe');
+  const clean = await mk({ staticInfo: { detectedType: { id: 'pdf' } } });
+  ok(
+    'nada casa: nada muda',
+    (await applyTriageRules(clean.id)).length === 0 && (await tagsOf(clean.id)) === '',
+  );
+
+  // 4. Depois do YARA (gancho no fim da varredura) e do antivirus.
+  await prisma.yaraRule.create({
+    data: {
+      name: 'emotet_loader',
+      source: 'rule emotet_loader { strings: $a = "EMOTET-MARCA" condition: $a }',
+    },
+  });
+  const y = await mk({});
+  await yaraScanEntry(y.id, Buffer.from('xxxx EMOTET-MARCA yyyy'));
+  const yAfter = await prisma.entry.findUnique({ where: { id: y.id }, include: { tags: true } });
+  ok(
+    'YARA casou: tag e P1 pela regra',
+    yAfter?.tags.some((t) => t.name === 'emotet') && yAfter?.priority === 'P1',
+    yAfter,
+  );
+  const av = await mk({});
+  await prisma.antivirusScan.create({
+    data: { entryId: av.id, status: 'INFECTED', signature: 'Win.Trojan.Agent-1' },
+  });
+  await applyTriageRules(av.id);
+  ok('antivírus detectou', (await tagsOf(av.id)) === 'av-detectou');
+
+  // 5. Exclusao.
+  ok(
+    'excluir',
+    (await req('DELETE', `/api/triage-rules/${macro.id}`, cAna)).statusCode === 200 &&
+      (await req('GET', '/api/triage-rules', cAna)).json().rules.length === 10,
+  );
+
+  await app.close();
+  await prisma.$disconnect();
+  console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
+  process.exit(fails ? 1 : 0);
+}
+main();

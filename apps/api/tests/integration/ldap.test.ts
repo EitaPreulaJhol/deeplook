@@ -1,0 +1,252 @@
+import { execFileSync } from 'node:child_process';
+
+import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
+import Fastify from 'fastify';
+
+import { env } from '../../src/env';
+import { hashPassword } from '../../src/lib/crypto';
+import { configureLdap, escapeFilter, type LdapConfig } from '../../src/lib/ldap';
+import { prisma } from '../../src/lib/prisma';
+import { systemStatus } from '../../src/lib/status';
+import { adminRoutes } from '../../src/routes/admin';
+import { authRoutes } from '../../src/routes/auth';
+import { meRoutes } from '../../src/routes/me';
+
+let fails = 0;
+const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
+  if (!cond) fails++;
+  console.log(`${cond ? 'ok  ' : 'FALHA'} ${label}${cond ? '' : ' ' + JSON.stringify(detail)}`);
+};
+const DIR = `${process.env.TEST_TMP}/ldap`;
+const base: Partial<LdapConfig> = {
+  url: 'ldaps://localhost:6636',
+  startTls: false,
+  caFile: `${DIR}/certs/ca.crt`,
+  bindDn: 'cn=admin,dc=empresa,dc=test',
+  bindPassword: 'adminpw',
+  baseDn: 'ou=people,dc=empresa,dc=test',
+  userFilter: '(&(objectClass=inetOrgPerson)(|(uid={login})(mail={login})))',
+  nameAttr: 'displayName',
+  mailAttr: 'mail',
+  analystGroup: 'cn=analistas,ou=groups,dc=empresa,dc=test',
+  adminGroup: 'cn=admins,ou=groups,dc=empresa,dc=test',
+};
+
+async function main() {
+  const app = Fastify();
+  await app.register(cookie, { secret: env.SESSION_SECRET });
+  await app.register(rateLimit, { global: false });
+  for (const r of [authRoutes, meRoutes, adminRoutes]) await app.register(r);
+  await app.ready();
+  // Grupo de analistas so com quem for pedido (o teste pode rodar de novo).
+  const setAnalysts = (uid: string) =>
+    execFileSync('docker', [
+      'exec',
+      'dl-ldap',
+      'sh',
+      '-c',
+      `printf 'dn: cn=analistas,ou=groups,dc=empresa,dc=test\\nchangetype: modify\\nreplace: uniqueMember\\nuniqueMember: uid=${uid},ou=people,dc=empresa,dc=test\\n' | ldapmodify -x -H ldap://localhost -D cn=admin,dc=empresa,dc=test -w adminpw`,
+    ]);
+  setAnalysts('jsilva');
+  await prisma.user.create({
+    data: {
+      email: 'ana@empresa.test',
+      displayName: 'Ana Local',
+      role: 'ADMIN',
+      passwordHash: await hashPassword('Senha-Local-9!'),
+    },
+  });
+  const login = (email: string, password: string, ip = '10.0.0.1') =>
+    app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email, password },
+      remoteAddress: ip,
+    });
+  const cookieOf = (r: { headers: Record<string, unknown> }) =>
+    String(r.headers['set-cookie']).split(';')[0];
+  let ip = 0;
+  const next = () => `10.0.1.${++ip}`;
+
+  // 1. Sem AD: nada muda.
+  configureLdap({ url: '' });
+  ok(
+    'sem AD: usuário do AD não entra',
+    (await login('jsilva', 'Senha-AD-1', next())).statusCode === 401,
+  );
+  ok(
+    'sem AD: conta local entra',
+    (await login('ana@empresa.test', 'Senha-Local-9!', next())).statusCode === 200,
+  );
+  const statusOff = (await systemStatus()).checks.find((c: { id: string }) => c.id === 'ldap');
+  ok('status: desligado', statusOff?.level === 'off', statusOff);
+
+  // 2. Com AD (LDAPS, CA verificada).
+  configureLdap(base);
+  let r = await login('jsilva', 'Senha-AD-1', next());
+  ok(
+    'primeiro acesso pelo AD',
+    r.statusCode === 200 &&
+      r.json().user.ldap === true &&
+      r.json().user.role === 'ANALYST' &&
+      r.json().user.displayName === 'João Silva' &&
+      r.json().user.email === 'joao.silva@empresa.test',
+    r.json(),
+  );
+  ok(
+    'sem troca de senha nem validade',
+    r.json().user.mustChangePassword === false && r.json().user.passwordExpiresAt === null,
+  );
+  const jsilva = await prisma.user.findUniqueOrThrow({
+    where: { email: 'joao.silva@empresa.test' },
+  });
+  ok(
+    'conta criada como do AD',
+    jsilva.authSource === 'LDAP' && jsilva.ldapDn === 'uid=jsilva,ou=people,dc=empresa,dc=test',
+  );
+  ok(
+    'cadastro na auditoria',
+    (await prisma.auditEvent.count({
+      where: { action: 'USER_REGISTERED', targetUserId: jsilva.id },
+    })) === 1,
+  );
+  ok(
+    'entra pelo e-mail também',
+    (await login('JOAO.SILVA@empresa.test', 'Senha-AD-1', next())).statusCode === 200,
+  );
+  ok('não duplica a conta', (await prisma.user.count({ where: { authSource: 'LDAP' } })) === 1);
+  r = await login('mcosta', 'Senha-AD-2', next());
+  ok('grupo de admins vira admin', r.json().user?.role === 'ADMIN');
+  r = await login('pnovo', 'Senha-AD-3', next());
+  ok('sem grupo, usuário comum', r.json().user?.role === 'USER');
+
+  // 3. Mesma resposta para tudo; nada de enumerar.
+  const wrong = await login('jsilva', 'errada', next());
+  const ghost = await login('ninguem', 'Senha-AD-1', next());
+  ok(
+    'senha errada e usuário inexistente iguais',
+    wrong.statusCode === 401 && ghost.statusCode === 401 && wrong.body === ghost.body,
+    [wrong.body, ghost.body],
+  );
+  ok(
+    'injeção no filtro não passa',
+    (await login('*', 'Senha-AD-1', next())).statusCode === 401 &&
+      (await login('*)(uid=*', 'Senha-AD-1', next())).statusCode === 401,
+  );
+  ok('escape RFC 4515', escapeFilter('a*b(c)\\d') === 'a\\2ab\\28c\\29\\5cd');
+  ok(
+    'conta do AD sem e-mail não entra',
+    (await login('semail', 'Senha-AD-4', next())).statusCode === 401,
+  );
+  const fail = await prisma.auditEvent.findFirst({
+    where: { action: 'LOGIN_FAILED', detail: { contains: 'sem e-mail' } },
+  });
+  ok('motivo real só na auditoria', Boolean(fail));
+
+  // 4. Conta local com o mesmo e-mail: o AD nao assume.
+  ok('AD não assume conta local', (await login('ana', 'Senha-AD-5', next())).statusCode === 401);
+  ok(
+    'conta local segue com a senha local',
+    (await login('ana@empresa.test', 'Senha-Local-9!', next())).statusCode === 200,
+  );
+
+  // 5. Suspensa no DeepLook: nao entra; senha errada continua 401.
+  await prisma.user.update({ where: { id: jsilva.id }, data: { status: 'SUSPENDED' } });
+  ok(
+    'suspensa não entra com a senha certa',
+    (await login('jsilva', 'Senha-AD-1', next())).statusCode === 403,
+  );
+  ok(
+    'suspensa com senha errada: 401',
+    (await login('jsilva', 'errada', next())).statusCode === 401,
+  );
+  await prisma.user.update({ where: { id: jsilva.id }, data: { status: 'ACTIVE' } });
+
+  // 6. 2FA do DeepLook continua valendo.
+  await prisma.user.update({
+    where: { id: jsilva.id },
+    data: { twoFactorEnabledAt: new Date(), twoFactorSecret: 'x' },
+  });
+  r = await login('joao.silva@empresa.test', 'Senha-AD-1', next());
+  ok(
+    '2FA pedido depois do AD',
+    r.statusCode === 200 && r.json().twoFactorRequired === true && !r.headers['set-cookie'],
+    r.json(),
+  );
+  await prisma.user.update({
+    where: { id: jsilva.id },
+    data: { twoFactorEnabledAt: null, twoFactorSecret: null },
+  });
+
+  // 7. Senha local nao vale e nao se troca.
+  ok(
+    'senha local aleatória não serve',
+    (await login('joao.silva@empresa.test', 'qualquer', next())).statusCode === 401,
+  );
+  const cj = cookieOf(await login('joao.silva@empresa.test', 'Senha-AD-1', next()));
+  r = await app.inject({
+    method: 'POST',
+    url: '/api/me/password',
+    headers: { cookie: cj },
+    payload: { currentPassword: 'x', newPassword: 'Nova-Senha-Forte-1!' },
+  });
+  ok('troca de senha recusada', r.statusCode === 409 && r.json().error.includes('AD'), r.json());
+  const ca = cookieOf(await login('ana@empresa.test', 'Senha-Local-9!', next()));
+  r = await app.inject({
+    method: 'POST',
+    url: `/api/admin/users/${jsilva.id}/reset-password`,
+    headers: { cookie: ca },
+  });
+  ok('admin não redefine a senha do AD', r.statusCode === 409);
+
+  // 8. Papel segue os grupos a cada login.
+  setAnalysts('semail');
+  r = await login('joao.silva@empresa.test', 'Senha-AD-1', next());
+  ok('fora do grupo, volta a usuário comum', r.json().user?.role === 'USER');
+  ok(
+    'mudança de papel auditada',
+    (await prisma.auditEvent.count({
+      where: { action: 'USER_ROLE_CHANGED', targetUserId: jsilva.id },
+    })) === 1,
+  );
+
+  // 9. StartTLS; sem TLS recusa; CA errada recusa.
+  configureLdap({ ...base, url: 'ldap://localhost:6389', startTls: true });
+  ok('StartTLS funciona', (await login('pnovo', 'Senha-AD-3', next())).statusCode === 200);
+  configureLdap({ ...base, url: 'ldap://localhost:6389', startTls: false });
+  ok('ldap:// sem TLS recusado', (await login('pnovo', 'Senha-AD-3', next())).statusCode === 401);
+  let st = (await systemStatus()).checks.find((c: { id: string }) => c.id === 'ldap');
+  ok('status: sem TLS é erro', st?.level === 'error' && st.summary.includes('sem TLS'), st);
+  configureLdap({ ...base, caFile: `${DIR}/other/ca.crt` });
+  ok(
+    'certificado de outra CA recusado',
+    (await login('pnovo', 'Senha-AD-3', next())).statusCode === 401,
+  );
+  st = (await systemStatus()).checks.find((c: { id: string }) => c.id === 'ldap');
+  ok('status: erro de certificado', st?.level === 'error', st);
+  configureLdap(base);
+  st = (await systemStatus()).checks.find((c: { id: string }) => c.id === 'ldap');
+  ok(
+    'status: conectado com as contas',
+    st?.level === 'ok' &&
+      st.details.some(
+        (d: { label: string; value: string }) => d.label === 'Contas do AD' && d.value === '3',
+      ),
+    st,
+  );
+
+  // 10. Senha vazia nunca (bind anonimo).
+  ok('senha vazia recusada', (await login('mcosta', '', next())).statusCode === 400);
+  for (let i = 0; i < 5; i++) await login('maria.costa@empresa.test', 'errada', next());
+  ok(
+    'limite de tentativas vale para o AD',
+    (await login('maria.costa@empresa.test', 'Senha-AD-2', next())).statusCode === 429,
+  );
+
+  await app.close();
+  await prisma.$disconnect();
+  console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
+  process.exit(fails ? 1 : 0);
+}
+main();

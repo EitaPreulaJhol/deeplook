@@ -11,6 +11,8 @@
     "prisma:generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx src/seed.ts",
+    "test:integration": "node tests/run.mjs",
+    "test:images": "node tests/images.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write . --ignore-path ../../.prettierignore",

@@ -1,0 +1,60 @@
+dn: ou=people,dc=empresa,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=empresa,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=jsilva,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: jsilva
+cn: Joao Silva
+sn: Silva
+displayName: João Silva
+mail: joao.silva@empresa.test
+userPassword: Senha-AD-1
+
+dn: uid=mcosta,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: mcosta
+cn: Maria Costa
+sn: Costa
+displayName: Maria Costa
+mail: maria.costa@empresa.test
+userPassword: Senha-AD-2
+
+dn: uid=pnovo,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: pnovo
+cn: Pedro Novo
+sn: Novo
+displayName: Pedro Novo
+mail: pedro.novo@empresa.test
+userPassword: Senha-AD-3
+
+dn: uid=semail,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: semail
+cn: Sem Email
+sn: Email
+userPassword: Senha-AD-4
+
+dn: uid=ana,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: ana
+cn: Ana Local
+sn: Local
+displayName: Ana do AD
+mail: ana@empresa.test
+userPassword: Senha-AD-5
+
+dn: cn=analistas,ou=groups,dc=empresa,dc=test
+objectClass: groupOfUniqueNames
+cn: analistas
+uniqueMember: uid=jsilva,ou=people,dc=empresa,dc=test
+
+dn: cn=admins,ou=groups,dc=empresa,dc=test
+objectClass: groupOfUniqueNames
+cn: admins
+uniqueMember: uid=mcosta,ou=people,dc=empresa,dc=test

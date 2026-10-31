@@ -677,6 +677,23 @@ sem um PVE real. Valide com `scripts/smoke-sandbox.ps1`.
 
 ---
 
+## Testes
+
+Precisam só do Docker ligado; sobem o que usam e não mexem na stack em execução.
+
+```bash
+cd apps/api
+npm run test:integration            # API contra Postgres, MinIO e OpenLDAP reais
+npm run test:integration -- ldap    # só os arquivos com "ldap" no nome
+npm run test:images                 # imagens reais: lockfile, API sem root, captura
+```
+
+- **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
+  de disco e os certificados são gerados na hora, em `tests/.tmp`. `--clean` remove os
+  containers ao terminar.
+- **Telas** (`scripts/ui-playwright/run.ps1`): cenários no navegador com a API simulada. Roda
+  todos e lista os que falharam.
+
 ## Smoke test (com a stack no ar)
 
 Depois de `docker compose up`, entre uma vez como admin para trocar a senha e rode o teste
