@@ -3335,13 +3335,16 @@ ficam registrados.
 ### 125. Nome longo quebra a lista
 Com 200 caracteres sem espaço, a tabela chega a 2200 px e Status, Veredito e Data somem da tela.
 **Decisão:** no máximo duas linhas e 28rem na coluna, com o nome inteiro no `title` e na ficha.
+✅ **Implementado:** nas tabelas de amostras, no máximo duas linhas e 28rem, com o nome inteiro no `title`. As colunas seguintes continuam à vista.
 
 ### 126. Nome longo quebra a ficha
 O título sai da tela e a página rola 485 px de lado. **Decisão:** quebrar o título em várias linhas.
+✅ **Implementado:** o título e os campos da ficha quebram em qualquer ponto; nada sai da tela.
 
 ### 127. Celular: a página rola de lado
 Em 390 px, a ficha rola 14 px para o usuário comum e 73 px para o analista; Histórico Global e
 Administração rolam cerca de 350 px. **Decisão:** a faixa de abas rola sozinha e mantém a ativa à vista.
+✅ **Implementado:** as abas das páginas rolam na própria faixa e mantêm a ativa à vista, sem mexer na rolagem da página. **Causa do Histórico Global:** textos só para leitor de tela escapavam do recorte da tabela.
 
 ### Média prioridade
 

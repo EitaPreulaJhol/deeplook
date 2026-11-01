@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { revealTab } from './HpsmTabs';
 
 /**
  * Abas de documento da area de trabalho (estilo HP Service Manager): cada
@@ -246,6 +247,11 @@ export function WorkspaceTabs() {
   const { tabs, close } = useWorkspace();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const bar = useRef<HTMLElement>(null);
+  useEffect(
+    () => revealTab(bar.current, bar.current?.querySelector('.is-active')),
+    [pathname, tabs],
+  );
 
   if (tabs.length === 0) return null;
 
@@ -255,7 +261,7 @@ export function WorkspaceTabs() {
   };
 
   return (
-    <nav className="hpsm-doctabs" aria-label="Registros abertos">
+    <nav ref={bar} className="hpsm-doctabs" aria-label="Registros abertos">
       {tabs.map((tab) => {
         const active = tab.path === pathname;
         return (

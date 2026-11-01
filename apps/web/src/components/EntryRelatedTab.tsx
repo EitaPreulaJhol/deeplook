@@ -222,7 +222,11 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
                     ))}
                   </ul>
                 </TableCell>
-                <TableCell>{entry.title}</TableCell>
+                <TableCell>
+                  <span className="dl-cell-text" title={entry.title}>
+                    {entry.title}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <TypeTag type={entry.type} />
                 </TableCell>

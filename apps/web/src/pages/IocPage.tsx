@@ -207,7 +207,11 @@ export function IocPage() {
                   onClick={() => open(entry.id)}
                   onKeyDown={(event: KeyboardEvent) => onRowKeyDown(event, index, entry.id)}
                 >
-                  <TableCell>{entry.title}</TableCell>
+                  <TableCell>
+                    <span className="dl-cell-text" title={entry.title}>
+                      {entry.title}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <TypeTag type={entry.type} />
                   </TableCell>

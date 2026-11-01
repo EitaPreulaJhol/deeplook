@@ -106,7 +106,11 @@ export function ReviewQueuePage() {
                   onClick={() => open(item)}
                   onKeyDown={(event: KeyboardEvent) => onRowKeyDown(event, index, item)}
                 >
-                  <TableCell>{item.entry.title}</TableCell>
+                  <TableCell>
+                    <span className="dl-cell-text" title={item.entry.title}>
+                      {item.entry.title}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <TypeTag type={item.entry.type} />
                   </TableCell>

@@ -1,3 +1,14 @@
+import { useEffect, useRef } from 'react';
+
+/** Rola so a faixa ate a aba ficar a vista, sem mexer na rolagem da pagina (item 127). */
+export function revealTab(bar: HTMLElement | null, tab: Element | null | undefined) {
+  if (!bar || !tab) return;
+  const b = bar.getBoundingClientRect();
+  const t = tab.getBoundingClientRect();
+  if (t.left < b.left) bar.scrollLeft -= b.left - t.left;
+  else if (t.right > b.right) bar.scrollLeft += t.right - b.right;
+}
+
 export interface HpsmTabItem {
   id: string;
   label: string;
@@ -17,8 +28,10 @@ interface HpsmTabsProps {
 
 /** Abas no estilo HP Service Manager (substitui o `cds--tabs` do Carbon). */
 export function HpsmTabs({ items, active, onChange, ariaLabel }: HpsmTabsProps) {
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => revealTab(bar.current, bar.current?.querySelector('.is-active')), [active]);
   return (
-    <div className="hpsm-tabbar" role="tablist" aria-label={ariaLabel}>
+    <div ref={bar} className="hpsm-tabbar" role="tablist" aria-label={ariaLabel}>
       {items.map((item) => {
         const selected = item.id === active;
         return (
