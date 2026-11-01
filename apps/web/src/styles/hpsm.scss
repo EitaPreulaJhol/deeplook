@@ -574,6 +574,27 @@ h6 {
   outline-offset: -2px;
 }
 
+/* "Pular para o conteudo": so aparece com o foco do teclado. */
+.dl-skip {
+  position: absolute;
+  top: -100px;
+  left: 0.5rem;
+  z-index: 1000;
+  padding: 0.3rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--dl-panel-border);
+  color: var(--dl-section-title);
+  font-size: var(--dl-font-size);
+}
+
+.dl-skip:focus {
+  top: 0.25rem;
+}
+
+#dl-conteudo:focus {
+  outline: none;
+}
+
 /* Botao hamburguer (so no mobile). */
 .hpsm-menu-toggle {
   display: none;
@@ -589,13 +610,19 @@ h6 {
     top: var(--dl-topbar-h);
     left: 0;
     z-index: 40;
+    visibility: hidden;
     transform: translateX(-100%);
-    transition: transform var(--dl-transition);
+    transition:
+      transform var(--dl-transition),
+      visibility var(--dl-transition);
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
   }
 
+  /* Visivel de imediato: o foco entra no menu logo ao abrir (item 133). */
   .hpsm-sidebar.is-open {
+    visibility: visible;
     transform: translateX(0);
+    transition: transform var(--dl-transition);
   }
 }
 

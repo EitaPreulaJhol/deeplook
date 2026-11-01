@@ -3363,13 +3363,16 @@ Arquivo grande fica só em "Enviando...". **Decisão:** percentual durante o env
 
 ### 131. Título da aba do navegador
 É sempre "DeepLook". **Decisão:** nome da tela ou da amostra + "DeepLook".
+✅ **Implementado:** nome da tela ou da amostra + "DeepLook"; só "DeepLook" fora da sessão.
 
 ### 132. Sem "pular para o conteúdo"
 Mais de 70 Tabs não chegaram à primeira linha da lista. **Decisão:** link no primeiro Tab, que leva
 ao conteúdo da tela.
+✅ **Implementado:** é o primeiro Tab e leva ao conteúdo. No Histórico Global, a primeira linha agora fica a 25 Tabs, contra mais de 70; o que resta são filtros e cabeçalhos de ordenação.
 
 ### 133. Menu no celular
 O Esc não fecha, o botão não informa se está aberto e os links do menu fechado recebem foco.
+✅ **Implementado:** o botão informa o estado, o foco entra no menu ao abrir, o Esc fecha e devolve o foco, e os links do menu fechado não recebem mais foco.
 
 ### Baixa prioridade
 

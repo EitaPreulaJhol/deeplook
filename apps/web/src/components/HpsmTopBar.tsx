@@ -13,10 +13,11 @@ import { clearWorkspaceTabs } from './workspace';
 
 interface TopBarProps {
   /** Abre/fecha o drawer da navegação no mobile. */
+  sidebarOpen: boolean;
   onToggleSidebar: () => void;
 }
 
-export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
+export function HpsmTopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -50,7 +51,9 @@ export function HpsmTopBar({ onToggleSidebar }: TopBarProps) {
       <button
         type="button"
         className="hpsm-topbar__iconbtn hpsm-menu-toggle"
-        aria-label="Abrir navegação"
+        aria-label={sidebarOpen ? 'Fechar navegação' : 'Abrir navegação'}
+        aria-expanded={sidebarOpen}
+        aria-controls="dl-sidebar"
         onClick={onToggleSidebar}
       >
         <IconMenu size={18} />

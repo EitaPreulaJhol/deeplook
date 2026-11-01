@@ -180,6 +180,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => saveTabs(tabs, userId, restore), [tabs, userId, restore]);
 
+  // Titulo da aba do navegador (item 131): a aba ativa, com o nome da amostra.
+  useEffect(() => {
+    const title = tabs.find((t) => t.path === pathname)?.title ?? routeTitle(pathname);
+    document.title = title ? `${title} · DeepLook` : 'DeepLook';
+  }, [tabs, pathname]);
+  useEffect(
+    () => () => {
+      document.title = 'DeepLook';
+    },
+    [],
+  );
+
   const setTitle = useCallback((path: string, title: string) => {
     knownTitles.current.set(path, title);
     setTabs((current) =>

@@ -1,6 +1,6 @@
 import { Theme } from '@carbon/react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { BroadcastBanner } from './BroadcastBanner';
 import { HpsmSidebar } from './HpsmSidebar';
@@ -16,12 +16,39 @@ export function AppShell({ children }: { children: ReactNode }) {
   // (via portal) assim que ela montar.
   const [messageSlot, setMessageSlot] = useState<HTMLElement | null>(null);
 
+  // Menu aberto no celular (item 133): o foco entra nele, e o Esc fecha e devolve o foco.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    document.querySelector<HTMLElement>('#dl-sidebar a')?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setSidebarOpen(false);
+      document.querySelector<HTMLElement>('.hpsm-menu-toggle')?.focus();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [sidebarOpen]);
+
   return (
     <Theme theme="g10">
       <WorkspaceProvider>
         <ShortcutsProvider>
           <div className="dl-shell">
-            <HpsmTopBar onToggleSidebar={() => setSidebarOpen((value) => !value)} />
+            {/* Primeiro Tab (item 132): sem isto sao dezenas de links ate o conteudo. */}
+            <a
+              className="dl-skip"
+              href="#dl-conteudo"
+              onClick={(event) => {
+                event.preventDefault();
+                document.getElementById('dl-conteudo')?.focus();
+              }}
+            >
+              Pular para o conteúdo
+            </a>
+            <HpsmTopBar
+              sidebarOpen={sidebarOpen}
+              onToggleSidebar={() => setSidebarOpen((value) => !value)}
+            />
 
             {/* A barra de mensagens recebe tambem os avisos do navegador (Favoritos). */}
             <MessageSlotProvider value={messageSlot}>
@@ -40,7 +67,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <BroadcastBanner />
                   <HpsmMessageBar slotRef={setMessageSlot} />
                   <PasswordExpiryNotice />
-                  <div className="dl-content__body">{children}</div>
+                  <div id="dl-conteudo" className="dl-content__body" tabIndex={-1}>
+                    {children}
+                  </div>
                 </main>
               </div>
             </MessageSlotProvider>

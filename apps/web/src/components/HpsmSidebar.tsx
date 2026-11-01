@@ -451,7 +451,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const classes = ['hpsm-sidebar', open && 'is-open'].filter(Boolean).join(' ');
 
   return (
-    <aside className={classes} aria-label="Navegação principal">
+    <aside id="dl-sidebar" className={classes} aria-label="Navegação principal">
       <div className="hpsm-sidebar__head">
         <span className="hpsm-sidebar__title">Navegação</span>
       </div>
