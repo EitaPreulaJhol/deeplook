@@ -1,0 +1,2 @@
+# Pacotes de regras YARA: copiados sem alterar, nem no fim de linha.
+apps/api/rules/** -text
