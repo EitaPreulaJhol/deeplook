@@ -603,6 +603,8 @@ model ReportIoc {
 }
 
 enum NotificationType {
+  /// Pacote de regras YARA atualizado ou retido (item 150; para admins).
+  YARA_PACK_UPDATE
   /// Amostra atribuida ao destinatario.
   ASSIGNED
   /// Amostra do destinatario concluida (detail = veredito).
@@ -721,6 +723,7 @@ enum AuditAction {
   COMPANY_DOMAIN_REMOVED
   TRIAGE_RULE_CHANGED
   SETTING_CHANGED
+  YARA_PACK_UPDATED
   ASSIGNMENT_CHANGED
   BROADCAST_PUBLISHED
   BROADCAST_ENDED
@@ -867,6 +870,8 @@ model YaraRule {
   enabled     Boolean         @default(true)
   /// Pacote de origem (rules/packs.json, item 143); null = regra da equipe.
   pack        String?
+  /// Caminho no pacote: identifica a regra entre versoes (item 150).
+  packFile    String?
   createdById String?
   createdBy   User?           @relation("YaraRuleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById String?
@@ -875,7 +880,35 @@ model YaraRule {
   updatedAt   DateTime        @updatedAt
   retroscans  YaraRetroscan[]
 
+  @@unique([pack, packFile])
   @@index([pack])
+}
+
+enum YaraPackReleaseStatus {
+  APPLIED
+  HELD
+  ROLLED_BACK
+  DISMISSED
+}
+
+/// Atualizacao de um pacote de regras: aplicada ou retida para um admin (item 150).
+model YaraPackRelease {
+  id          String                @id @default(cuid())
+  pack        String
+  commit      String
+  commitDate  DateTime
+  status      YaraPackReleaseStatus
+  /// Quantos e quais arquivos mudam.
+  summary     Json
+  /// Motivos de ter ficado retida.
+  reasons     Json?
+  /// Versao anterior do que mudou; so a ultima aplicada guarda.
+  undo        Json?
+  canRollback Boolean               @default(false)
+  createdAt   DateTime              @default(now())
+  appliedAt   DateTime?
+
+  @@index([pack, createdAt])
 }
 
 enum YaraStatus {

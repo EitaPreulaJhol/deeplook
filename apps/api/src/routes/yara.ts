@@ -7,7 +7,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 import { validateRule, yaraScanEntry } from '../lib/yara';
-import { activeRulesWhere, yaraPackList } from '../lib/yara-packs';
+import { activeRulesWhere, rememberDeletedRule, yaraPackList } from '../lib/yara-packs';
 import { cancelRetroscan, startRetroscan } from '../lib/yara-retro';
 
 const RuleSchema = z.object({
@@ -284,7 +284,10 @@ export async function yaraRoutes(app: FastifyInstance) {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
     const { id } = req.params as { id: string };
-    const existing = await prisma.yaraRule.findUnique({ where: { id }, select: { name: true } });
+    const existing = await prisma.yaraRule.findUnique({
+      where: { id },
+      select: { name: true, pack: true, packFile: true },
+    });
     if (!existing) return reply.code(404).send({ error: 'Regra não encontrada.' });
     await prisma.$transaction(async (tx) => {
       await tx.yaraRule.delete({ where: { id } });
@@ -294,6 +297,9 @@ export async function yaraRoutes(app: FastifyInstance) {
         targetLabel: existing.name,
       });
     });
+    if (existing.pack && existing.packFile) {
+      await rememberDeletedRule(existing.pack, existing.packFile);
+    }
     return reply.send({ ok: true });
   });
 

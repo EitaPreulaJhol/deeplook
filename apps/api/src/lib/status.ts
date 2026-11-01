@@ -10,6 +10,7 @@ import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
 import { s3 } from './s3';
 import { countActive } from './sandbox';
 import { slaWhere } from './sla';
+import { yaraUpdateStatus } from './yara-update';
 
 /** ok = verde, warn = laranja (lento/perto do limite), error = vermelho, off = desligado. */
 export type StatusLevel = 'ok' | 'warn' | 'error' | 'off';
@@ -25,6 +26,7 @@ export interface StatusCheck {
     | 'antivirus'
     | 'capture'
     | 'ldap'
+    | 'yaraPacks'
     | 'config';
   name: string;
   level: StatusLevel;
@@ -509,6 +511,29 @@ async function reputationCheck(): Promise<StatusCheck> {
   };
 }
 
+/** Atualizacao dos pacotes YARA (item 150): falha e atualizacao esperando um admin. */
+async function yaraPacksCheck(): Promise<StatusCheck> {
+  const status = await yaraUpdateStatus();
+  const name = 'Pacotes YARA';
+  const failing = status.packs.filter((p) => p.lastError);
+  const held = status.releases.filter((r) => r.status === 'HELD').length;
+  const parts = [
+    status.autoUpdate ? 'atualização automática ligada' : 'atualização automática desligada',
+    ...(held ? [`${held} retida(s) para aprovação`] : []),
+    ...(failing.length ? [`${failing.length} com falha na última verificação`] : []),
+  ];
+  return {
+    id: 'yaraPacks',
+    name,
+    level: held || failing.length ? 'warn' : status.autoUpdate ? 'ok' : 'off',
+    summary: parts.join(' · '),
+    details: status.packs.map((p) => ({
+      label: p.name,
+      value: `versão de ${p.commitDate}${p.lastError ? ` · falhou: ${p.lastError}` : ''}`,
+    })),
+  };
+}
+
 export async function systemStatus() {
   const checks = await Promise.all([
     apiCheck(),
@@ -520,6 +545,7 @@ export async function systemStatus() {
     captureCheck(),
     reputationCheck(),
     ldapCheck(),
+    yaraPacksCheck(),
     configCheck(),
   ]);
   const overall = checks

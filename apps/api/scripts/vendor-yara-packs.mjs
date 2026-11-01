@@ -40,6 +40,7 @@ const PACKS = [
     description:
       'APT, crime e ransomware. Sem a pasta "generic", que a fonte diz não indicar malware.',
     skip: (rel) => rel.startsWith(`generic${sep}`),
+    skipPrefixes: ['generic/'],
   },
   {
     id: 'signature-base',
@@ -125,6 +126,9 @@ for (const pack of PACKS) {
     license: pack.license,
     url: pack.url,
     defaultEnabled: pack.defaultEnabled,
+    repo: pack.url.replace('https://github.com/', ''),
+    folder: pack.folder,
+    skipPrefixes: pack.skipPrefixes ?? [],
     description: pack.description,
     ...(pack.ignoreRules ? { ignoreRules: pack.ignoreRules } : {}),
     commit: git('rev-parse', 'HEAD'),

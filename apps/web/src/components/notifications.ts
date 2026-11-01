@@ -62,6 +62,8 @@ export function notificationText(n: AppNotification): string {
       return `${who} aprovou o seu relatório (publicado)`;
     case 'REPORT_RETURNED':
       return `${who} devolveu o seu relatório para ajustes`;
+    case 'YARA_PACK_UPDATE':
+      return `Pacotes de regras: ${n.detail ?? 'atualização'}`;
     case 'IOC_SEEN':
       return `Indicador que você segue: ${n.detail ?? 'apareceu numa amostra'}`;
     case 'SLA_WARN':
@@ -108,6 +110,7 @@ export function notificationQuote(n: AppNotification): string | null {
 /** Do que se trata: o titulo da amostra ou "CASO-0001 · titulo" (item 89). */
 export function notificationTarget(n: AppNotification): string {
   if (n.case) return `${n.case.code} · ${n.case.title}`;
+  if (n.type === 'YARA_PACK_UPDATE') return 'Pacotes de regras YARA';
   return n.entry?.title ?? '—';
 }
 
@@ -123,5 +126,6 @@ export function notificationHref(n: AppNotification): string {
         : '';
   // Avisos de casos abrem o caso (item 89).
   if (n.case) return `/casos/${n.case.id}`;
+  if (n.type === 'YARA_PACK_UPDATE') return '/admin?tab=settings';
   return `/entries/${n.entry?.id}${tab}`;
 }

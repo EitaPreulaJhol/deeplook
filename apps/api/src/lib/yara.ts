@@ -143,6 +143,30 @@ export function scanInWorker(
   });
 }
 
+/** Quais conjuntos nao compilam, sem travar a API (item 150). */
+export function validateInWorker(sets: RuleSet[]): Promise<Set<string>> {
+  return inTurn(async () => {
+    if (!sets.length) return new Set<string>();
+    if (engineCalls >= MAX_ENGINE_CALLS) await recycleWorker();
+    const { failed } = await call<{ failed: string[] }>({ type: 'validate', sets });
+    engineCalls += sets.length * CALLS_PER_SET;
+    return new Set(failed);
+  });
+}
+
+/** Quanto leva para compilar estes conjuntos, sem guardar o resultado (item 150). */
+export function compileInWorker(sets: RuleSet[]): Promise<number> {
+  return inTurn(async () => {
+    if (engineCalls >= MAX_ENGINE_CALLS) await recycleWorker();
+    const started = Date.now();
+    await call({ type: 'load', key: 'medicao', sets });
+    const elapsed = Date.now() - started;
+    await call({ type: 'drop', key: 'medicao' });
+    engineCalls += sets.length * CALLS_PER_SET;
+    return elapsed;
+  });
+}
+
 /** Libera um conjunto que nao sera mais usado (varredura retroativa). */
 export function dropFromWorker(key: string): Promise<void> {
   return inTurn(async () => {

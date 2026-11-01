@@ -18,6 +18,7 @@ import { startSlaEscalation } from './lib/sla-escalation';
 import { backfillTlsh } from './lib/tlsh-backfill';
 import { installYaraPacks } from './lib/yara-packs';
 import { failInterruptedRetroscans } from './lib/yara-retro';
+import { startYaraPackUpdates } from './lib/yara-update';
 import { adminRoutes } from './routes/admin';
 import { allowlistRoutes } from './routes/allowlist';
 import { antivirusRoutes } from './routes/antivirus';
@@ -178,6 +179,8 @@ async function main() {
   } catch (err) {
     app.log.error({ err }, 'Falha ao instalar os pacotes de regras YARA');
   }
+
+  startYaraPackUpdates(app.log);
 
   // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).
   startRetention(app.log);

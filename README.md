@@ -297,8 +297,17 @@ O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem ba
   ficam vazios, porque um envio não tem pasta nem dono: regra que exige um caminho não dispara. As
   regras `Suspicious_Size_*` ficam ignoradas, porque marcam arquivos legítimos do Windows. Regras da
   equipe também podem usar essas variáveis.
-- **Atualizar:** `node scripts/vendor-yara-packs.mjs <pasta com os clones>` copia as versões novas,
-  mas o que já foi instalado não muda sozinho.
+- **Atualização automática:** ligada por padrão, em **Administração > Configurações**. Toda semana a API
+  procura no GitHub (`api.github.com` e `codeload.github.com`) a versão mais nova com pelo menos 7 dias
+  dos pacotes ligados. Sem internet, nada muda.
+  - **Entra sozinho** o que passa nos filtros: licença idêntica; até 20% de conjuntos alterados ou
+    removidos; nenhuma regra nova disparando nas 100 amostras recentes com veredito Limpo; compilação até
+    2x mais lenta. Arquivo que não compila fica de fora.
+  - **Fica retido** para um admin aprovar ou descartar o que não passa, com o motivo na tela.
+  - **Voltar a versão:** a última aplicada volta com um clique, e aquela versão não é reaplicada sozinha.
+  - **Respeita as escolhas:** regra desativada continua desativada, e regra excluída não volta.
+- **Versão de fábrica:** `node scripts/vendor-yara-packs.mjs <pasta com os clones>` atualiza a cópia em
+  `apps/api/rules`, usada só nas instalações novas.
 - **Amostras antigas:** os pacotes valem para os próximos arquivos. Para as antigas, use "Aplicar às
   amostras".
 

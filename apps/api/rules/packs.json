@@ -6,6 +6,9 @@
     "license": "MIT",
     "url": "https://github.com/reversinglabs/reversinglabs-yara-rules",
     "defaultEnabled": true,
+    "repo": "reversinglabs/reversinglabs-yara-rules",
+    "folder": "yara",
+    "skipPrefixes": [],
     "description": "Detecção de malware, com foco em ransomware, feita para não gerar falso positivo.",
     "commit": "e0a0be54aa1e11ccfd6854e4f19e9476f328fd84",
     "commitDate": "2025-11-03",
@@ -330,6 +333,11 @@
     "license": "MIT",
     "url": "https://github.com/bartblaze/Yara-rules",
     "defaultEnabled": true,
+    "repo": "bartblaze/Yara-rules",
+    "folder": "rules",
+    "skipPrefixes": [
+      "generic/"
+    ],
     "description": "APT, crime e ransomware. Sem a pasta \"generic\", que a fonte diz não indicar malware.",
     "commit": "5cc871d82361de8a80d387ec8bbd01fe4258b4a9",
     "commitDate": "2026-01-28",
@@ -433,6 +441,9 @@
     "license": "DRL 1.1",
     "url": "https://github.com/Neo23x0/signature-base",
     "defaultEnabled": false,
+    "repo": "Neo23x0/signature-base",
+    "folder": "yara",
+    "skipPrefixes": [],
     "description": "Base ampla e muito atualizada: APT, crime, ferramentas de ataque e webshells.",
     "ignoreRules": [
       "Suspicious_Size_"

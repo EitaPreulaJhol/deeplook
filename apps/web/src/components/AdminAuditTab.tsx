@@ -63,6 +63,7 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   COMPANY_DOMAIN_REMOVED: { label: 'Domínio da empresa excluído', tone: 'orange' },
   TRIAGE_RULE_CHANGED: { label: 'Regra de triagem alterada', tone: 'blue' },
   SETTING_CHANGED: { label: 'Configuração alterada', tone: 'blue' },
+  YARA_PACK_UPDATED: { label: 'Pacote YARA atualizado', tone: 'blue' },
   ASSIGNMENT_CHANGED: { label: 'Atribuição automática alterada', tone: 'blue' },
   BROADCAST_PUBLISHED: { label: 'Aviso geral publicado', tone: 'blue' },
   BROADCAST_ENDED: { label: 'Aviso geral encerrado', tone: 'gray' },

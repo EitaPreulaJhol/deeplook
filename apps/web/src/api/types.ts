@@ -366,6 +366,7 @@ export interface SystemStatus {
 
 export type AuditAction =
   | 'SETTING_CHANGED'
+  | 'YARA_PACK_UPDATED'
   | 'USER_REGISTERED'
   | 'USER_ROLE_CHANGED'
   | 'USER_SUSPENDED'
@@ -449,7 +450,8 @@ export interface AppNotification {
     | 'CASE_COMMENT'
     | 'CASE_ENTRY_ADDED'
     | 'CASE_ENTRY_REMOVED'
-    | 'CASE_ASSIGNED';
+    | 'CASE_ASSIGNED'
+    | 'YARA_PACK_UPDATE';
   /**
    * Veredito (COMPLETED), trecho da atualizacao (MENTION/COMMENT), horas do
    * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null), a

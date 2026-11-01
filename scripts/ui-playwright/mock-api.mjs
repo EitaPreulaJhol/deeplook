@@ -218,6 +218,17 @@ export function createState({ loggedIn = false } = {}) {
     yaraCalls: [],
     /** Pacotes de regras (item 143). */
     yaraPackCalls: [],
+    /** Atualizacao dos pacotes (item 150). */
+    yaraUpdateCalls: [],
+    yaraCheckResult: () => ({ outcome: 'current' }),
+    yaraUpdates: {
+      autoUpdate: true,
+      packs: [
+        { id: 'reversinglabs', name: 'ReversingLabs', commit: 'e0a0be54', commitDate: '2025-11-03', lastCheck: null, lastError: null },
+        { id: 'signature-base', name: 'signature-base', commit: '36ab7042', commitDate: '2026-10-29', lastCheck: '2026-11-01T10:00:00.000Z', lastError: 'GitHub respondeu 503 ao listar os commits' },
+      ],
+      releases: [],
+    },
     yaraPacks: [
       { id: 'reversinglabs', name: 'ReversingLabs', author: 'ReversingLabs', license: 'MIT', url: 'https://github.com/reversinglabs/reversinglabs-yara-rules', description: 'Malware e ransomware.', commit: 'e0a0be54', commitDate: '2025-11-03', enabled: true, installed: true, fileCount: 310, excludedCount: 0, rulesTotal: 310, rulesActive: 310 },
       { id: 'bartblaze', name: 'bartblaze', author: 'bartblaze', license: 'MIT', url: 'https://github.com/bartblaze/Yara-rules', description: 'APT, crime e ransomware.', commit: '5cc871d8', commitDate: '2026-01-28', enabled: true, installed: true, fileCount: 89, excludedCount: 0, rulesTotal: 89, rulesActive: 89 },
@@ -788,6 +799,23 @@ export async function setupMock(context, state) {
         return json(route, 202, { ok: true });
       }
       if (p === '/api/yara/packs') return json(route, 200, { packs: state.yaraPacks });
+      if (p === '/api/admin/yara-packs/updates') {
+        if (req.method() === 'PATCH') state.yaraUpdates.autoUpdate = body.autoUpdate;
+        return json(route, 200, state.yaraUpdates);
+      }
+      const packCheck = p.match(/^\/api\/admin\/yara-packs\/([\w-]+)\/check$/);
+      if (packCheck) {
+        state.yaraUpdateCalls.push(`check:${packCheck[1]}:${body.apply}`);
+        return json(route, 200, state.yaraCheckResult(body.apply));
+      }
+      const releaseAct = p.match(/^\/api\/admin\/yara-releases\/(\w+)\/(\w+)$/);
+      if (releaseAct) {
+        state.yaraUpdateCalls.push(`${releaseAct[2]}:${releaseAct[1]}`);
+        const rel = state.yaraUpdates.releases.find((r) => r.id === releaseAct[1]);
+        rel.status = { approve: 'APPLIED', dismiss: 'DISMISSED', rollback: 'ROLLED_BACK' }[releaseAct[2]];
+        rel.canRollback = releaseAct[2] === 'approve';
+        return json(route, 200, state.yaraUpdates);
+      }
       const packToggle = p.match(/^\/api\/admin\/yara-packs\/([\w-]+)$/);
       if (packToggle) {
         const pack = state.yaraPacks.find((x) => x.id === packToggle[1]);

@@ -221,6 +221,9 @@ try {
   await page.locator('label[for="yara-pack-signature-base"]').click();
   await page.locator('[role=alertdialog] button:has-text("Desligar")').click();
   await page.waitForSelector('.hpsm-msg--success');
+  const updates = (await api(admin, 'GET', '/api/admin/yara-packs/updates')).body;
+  expect('atualização ligada por padrão', updates?.autoUpdate === true && updates.packs.length === 3, JSON.stringify(updates));
+  await page.waitForSelector('section:has-text("Atualização dos pacotes") #yara-auto-update', { state: 'attached' });
   expect('sem erro nos pacotes', !drain(admin));
 
   // 4. Telas do admin.

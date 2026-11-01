@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { YaraPack } from '../api/types';
+import { AdminYaraUpdates } from './AdminYaraUpdates';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -133,6 +134,7 @@ export function AdminSettingsTab() {
           </HpsmForm>
         </HpsmSection>
       )}
+      <AdminYaraUpdates />
     </>
   );
 }

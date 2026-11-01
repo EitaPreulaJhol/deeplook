@@ -3498,7 +3498,9 @@ o `mem_limit`.
 ✅ **Implementado:** medido com os três pacotes e um arquivo de 200 MB: regras compiladas em cerca de 220 MB e pico de 909 MB, que volta para cerca de 300 MB ao trocar a thread, feito depois de arquivos a partir de 100 MB. O `mem_limit` de 4 GB fica como está. **Não testado** num container limitado, com vários envios grandes ao mesmo tempo.
 
 ### 150. Atualização automática dos pacotes — planejamento
-**Plano proposto, ainda não implementado:**
+**Decisões de 01/11/2026:** aplica sozinho o que passa nos filtros, retém o resto para um admin, e vem
+ligada por padrão.
+**Plano:**
 - **Fonte:** só os três repositórios, fixos no código. O ZIP do commit é lido em memória, com limite de
   tamanho; nada é gravado em disco nem executado.
 - **Frequência:** verificação semanal e botão "Verificar agora". Em 90 dias, a signature-base teve 15
@@ -3516,3 +3518,4 @@ o `mem_limit`.
 - **Etapas:** (1) identificar a regra por pacote e arquivo e lembrar as excluídas; (2) verificar sem
   aplicar, mostrando o que mudaria; (3) aplicar e voltar; (4) agendar e ligar nas Configurações.
 
+✅ **Implementado:** verificação semanal e botão "Verificar agora", com prévia; aplica sozinho o que passa nos filtros, retém o resto para aprovar ou descartar, e a última aplicada volta com um clique. Testado com fonte simulada e numa verificação sem aplicar contra o GitHub real. **Achado no teste:** a restrição da tabela de avisos exigia amostra ou caso e derrubaria a atualização ao avisar os admins; foi ajustada. **Limites:** sem amostras com veredito Limpo, esse filtro não tem o que conferir; regra nova só vale para os próximos arquivos; e ainda não aconteceu uma atualização real, porque os commits com 7 dias são anteriores aos instalados.

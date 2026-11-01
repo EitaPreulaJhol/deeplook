@@ -6,6 +6,7 @@ import {
   type RuleSet,
   scanBuffer,
   type ScanContext,
+  validateRule,
 } from './yara-engine';
 
 /**
@@ -15,11 +16,17 @@ import {
 export type YaraRequest =
   | { type: 'load'; key: string; sets: RuleSet[] }
   | { type: 'scan'; key: string; content: Uint8Array; context?: ScanContext }
+  | { type: 'validate'; sets: RuleSet[] }
   | { type: 'drop'; key: string };
 
 const loaded = new Map<string, CompiledRules>();
 
 function handle(request: YaraRequest): unknown {
+  if (request.type === 'validate') {
+    return {
+      failed: request.sets.filter((s) => validateRule(s.source).errors.length).map((s) => s.id),
+    };
+  }
   if (request.type === 'load') {
     loaded.get(request.key)?.rules.free();
     loaded.delete(request.key);
