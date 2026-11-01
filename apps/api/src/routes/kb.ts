@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { Prisma } from '../generated/prisma/client';
-import { isAnalyst, type PublicUser, requireUser } from '../lib/auth';
+import { isAnalyst, type PublicUser, requireUser, visibleEntries } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
@@ -125,7 +125,10 @@ export async function kbRoutes(app: FastifyInstance) {
         },
         // So relatorios publicados (e amostras fora da lixeira) aparecem como citacao.
         reports: {
-          where: { status: 'PUBLISHED', entry: { deletedAt: null } },
+          where: {
+            status: 'PUBLISHED',
+            entry: { deletedAt: null, ...(await visibleEntries(user)) },
+          },
           orderBy: { updatedAt: 'desc' },
           take: 50,
           select: {

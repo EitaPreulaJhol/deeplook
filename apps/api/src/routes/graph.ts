@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { EntryStatus, EntryType, IocKind, Verdict } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { isAnalyst, requireUser } from '../lib/auth';
+import { isAnalyst, requireUser, visibleEntries } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { caseCode } from './cases';
 import { findRelated, type RelatedReason } from './related';
@@ -97,7 +97,11 @@ async function publishedIocs(entryIds: string[]) {
  * indicador em comum, que se liga ao indicador quando ele esta no mapa) e os
  * casos (so para analistas). Null se a amostra nao existe.
  */
-export async function entryGraph(id: string, withCases: boolean): Promise<Graph | null> {
+export async function entryGraph(
+  id: string,
+  withCases: boolean,
+  onlyOwner?: string,
+): Promise<Graph | null> {
   const entry = await prisma.entry.findFirst({
     where: { id, deletedAt: null },
     select: entrySelect,
@@ -117,7 +121,7 @@ export async function entryGraph(id: string, withCases: boolean): Promise<Graph 
   }
 
   const related = ((await findRelated(entry.id)) ?? [])
-    .filter((r) => !r.entry.deletedAt)
+    .filter((r) => !r.entry.deletedAt && (!onlyOwner || r.entry.owner.id === onlyOwner))
     .map((r) => ({ ...r, labels: r.reasons.map(reasonLabel).filter(Boolean) as string[] }))
     .filter((r) => r.labels.length);
   hidden.entries = Math.max(0, related.length - GRAPH_LIMITS.entries);
@@ -211,7 +215,8 @@ export async function graphRoutes(app: FastifyInstance) {
     if (!user) return;
     const { id } = req.params as { id: string };
     // Casos sao so dos analistas: o usuario comum ve o mapa sem eles.
-    const graph = await entryGraph(id, isAnalyst(user));
+    const { ownerId } = await visibleEntries(user);
+    const graph = await entryGraph(id, isAnalyst(user), ownerId);
     if (!graph) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     return reply.send(graph);
   });

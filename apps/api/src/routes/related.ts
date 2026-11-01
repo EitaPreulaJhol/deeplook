@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { ownerForViewer, requireUser } from '../lib/auth';
+import { ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
 import { prisma } from '../lib/prisma';
 import { tlshDistance, tlshSimilarity } from '../lib/tlsh';
@@ -278,8 +278,10 @@ export async function relatedRoutes(app: FastifyInstance) {
       99,
       Math.max(50, Number((req.query as { similarity?: string }).similarity) || 70),
     );
-    const items = await findRelated(id, minSimilarity);
-    if (!items) return reply.code(404).send({ error: 'Amostra não encontrada.' });
+    const found = await findRelated(id, minSimilarity);
+    if (!found) return reply.code(404).send({ error: 'Amostra não encontrada.' });
+    const { ownerId } = await visibleEntries(user);
+    const items = ownerId ? found.filter((r) => r.entry.owner.id === ownerId) : found;
 
     return reply.send({
       items: items

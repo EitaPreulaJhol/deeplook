@@ -3423,6 +3423,7 @@ mesmo enviou.
 - **O que continua igual:** a base de conhecimento. O aviso de indicador seguido continua sendo
   gerado, mas só aparece para o usuário comum se a amostra for dele.
 - **O Histórico Global** sai do menu dele, e o endereço leva a Meus Uploads.
+✅ **Implementado:** opção em Administração > Configurações, desligada por padrão. Um teste varre toda rota `/api/entries/:id...`, inclusive as futuras, e exige 404 para a amostra alheia; as demais rotas foram revisadas uma a uma. **Limites:** a duplicata dele continua com a resolução herdada de uma amostra alheia, porque é a orientação dela; o id da principal continua na resposta, sem título nem acesso; e o número de citações na lista da base de conhecimento continua contando todas, sem dizer quais.
 
 ### Pedido do usuário
 

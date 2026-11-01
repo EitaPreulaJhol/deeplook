@@ -50,6 +50,7 @@ import { reputationRoutes } from './routes/reputation';
 import { sandboxRoutes } from './routes/sandbox';
 import { searchRoutes } from './routes/search';
 import { sessionRoutes } from './routes/sessions';
+import { settingsRoutes } from './routes/settings';
 import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
@@ -98,6 +99,8 @@ async function main() {
   await app.register(openApiRoutes);
   // Backup em ZIP (item 81).
   await app.register(backupRoutes);
+  // Configuracoes do sistema (item 140).
+  await app.register(settingsRoutes);
   await app.register(iocRoutes);
   await app.register(notificationRoutes);
   await app.register(templateRoutes);

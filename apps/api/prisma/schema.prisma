@@ -670,6 +670,13 @@ model ReportTemplate {
   updatedAt   DateTime @updatedAt
 }
 
+/// Configuracao do sistema feita na tela (item 140); o resto vem do ambiente.
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 enum AuditAction {
   USER_REGISTERED
   USER_ROLE_CHANGED
@@ -713,6 +720,7 @@ enum AuditAction {
   COMPANY_DOMAIN_ADDED
   COMPANY_DOMAIN_REMOVED
   TRIAGE_RULE_CHANGED
+  SETTING_CHANGED
   ASSIGNMENT_CHANGED
   BROADCAST_PUBLISHED
   BROADCAST_ENDED

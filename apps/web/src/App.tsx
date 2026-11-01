@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { clearAfterLogin, peekAfterLogin, useAuth } from './auth/AuthContext';
 import { startPath } from './auth/preferences';
+import { useOwnSamplesOnly } from './auth/sampleAccess';
 import { AppShell } from './components/AppShell';
 import { HpsmLoading } from './components/messages';
 import { AdminPage } from './pages/AdminPage';
@@ -50,6 +51,11 @@ function FullScreenLoader() {
 }
 
 /** Raiz: destino pos-login (se houver) ou a pagina inicial escolhida nas preferencias. */
+/** Restrito ao que enviou (item 140): o Historico Global vira Meus Uploads. */
+function HistoryRoute() {
+  return useOwnSamplesOnly() ? <Navigate to="/me" replace /> : <GlobalHistoryPage />;
+}
+
 function RootRedirect() {
   const { preferences } = useAuth();
   const target = peekAfterLogin();
@@ -107,7 +113,7 @@ export default function App() {
         <Route path="/user" element={<UserPage />} />
         {/* Documentacao da API (item 93). */}
         <Route path="/user/api" element={<ApiDocsPage />} />
-        <Route path="/history" element={<GlobalHistoryPage />} />
+        <Route path="/history" element={<HistoryRoute />} />
         <Route path="/me" element={<MyUploadsPage />} />
         <Route path="/submit" element={<SubmitPage />} />
         <Route path="/entries/:id" element={<EntryDetailPage />} />

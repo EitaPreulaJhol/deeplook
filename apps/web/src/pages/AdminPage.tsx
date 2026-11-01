@@ -22,6 +22,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AdminApiTokensTab } from '../components/AdminApiTokensTab';
 import { AdminAuditTab } from '../components/AdminAuditTab';
 import { AdminBackupTab } from '../components/AdminBackupTab';
+import { AdminSettingsTab } from '../components/AdminSettingsTab';
 import { AdminStatusTab } from '../components/AdminStatusTab';
 import { AdminTemplatesTab } from '../components/AdminTemplatesTab';
 import { AdminTrashTab } from '../components/AdminTrashTab';
@@ -78,6 +79,7 @@ export function AdminPage() {
     tabParam === 'audit' ||
     tabParam === 'trash' ||
     tabParam === 'backup' ||
+    tabParam === 'settings' ||
     tabParam === 'tokens'
       ? tabParam
       : 'users';
@@ -285,6 +287,8 @@ export function AdminPage() {
           { id: 'trash', label: 'Lixeira' },
           // Backup em ZIP (item 81).
           { id: 'backup', label: 'Backup' },
+          // Configuracoes feitas na tela (item 140).
+          { id: 'settings', label: 'Configurações' },
         ]}
       />
 
@@ -295,6 +299,8 @@ export function AdminPage() {
           <AdminTrashTab />
         ) : tab === 'backup' ? (
           <AdminBackupTab />
+        ) : tab === 'settings' ? (
+          <AdminSettingsTab />
         ) : tab === 'audit' ? (
           <AdminAuditTab />
         ) : tab === 'status' ? (
@@ -340,7 +346,10 @@ export function AdminPage() {
                               <TableCell>
                                 {u.displayName}
                                 {u.authSource === 'LDAP' && (
-                                  <span className="dl-dup-tag" title="Conta do AD: senha e papel vêm do AD">
+                                  <span
+                                    className="dl-dup-tag"
+                                    title="Conta do AD: senha e papel vêm do AD"
+                                  >
                                     AD
                                   </span>
                                 )}

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import type { Prisma } from '../generated/prisma/client';
-import { requireUser } from '../lib/auth';
+import { type PublicUser, requireUser, visibleEntries } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 import { caseCode } from './cases';
@@ -26,13 +26,15 @@ const ReadSchema = z.object({
  * Notificacoes de amostras na lixeira ficam escondidas (voltam se restaurada);
  * as de casos (item 89) nao tem amostra.
  */
-const liveEntry: Prisma.NotificationWhereInput = {
-  OR: [{ entryId: null }, { entry: { deletedAt: null } }],
-};
+const liveEntry = async (user: PublicUser): Promise<Prisma.NotificationWhereInput> => ({
+  OR: [{ entryId: null }, { entry: { deletedAt: null, ...(await visibleEntries(user)) } }],
+});
 
 export async function notificationRoutes(app: FastifyInstance) {
-  const unreadCount = (userId: string) =>
-    prisma.notification.count({ where: { userId, readAt: null, ...liveEntry } });
+  const unreadCount = async (user: PublicUser) =>
+    prisma.notification.count({
+      where: { userId: user.id, readAt: null, ...(await liveEntry(user)) },
+    });
 
   app.get('/api/me/notifications', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -43,7 +45,11 @@ export async function notificationRoutes(app: FastifyInstance) {
 
     const [items, total] = await Promise.all([
       prisma.notification.findMany({
-        where: { userId: user.id, ...liveEntry, ...(unread === '1' ? { readAt: null } : {}) },
+        where: {
+          userId: user.id,
+          ...(await liveEntry(user)),
+          ...(unread === '1' ? { readAt: null } : {}),
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
         select: {
@@ -57,7 +63,7 @@ export async function notificationRoutes(app: FastifyInstance) {
           actor: { select: { id: true, displayName: true } },
         },
       }),
-      unreadCount(user.id),
+      unreadCount(user),
     ]);
     return reply.send({
       items: items.map((n) => ({
@@ -72,7 +78,7 @@ export async function notificationRoutes(app: FastifyInstance) {
   app.get('/api/me/notifications/count', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    return reply.send({ unread: await unreadCount(user.id) });
+    return reply.send({ unread: await unreadCount(user) });
   });
 
   app.post('/api/me/notifications/read', async (req, reply) => {
@@ -85,7 +91,7 @@ export async function notificationRoutes(app: FastifyInstance) {
       where: { userId: user.id, readAt: null, ...(ids ? { id: { in: ids } } : {}) },
       data: { readAt: new Date() },
     });
-    return reply.send({ unread: await unreadCount(user.id) });
+    return reply.send({ unread: await unreadCount(user) });
   });
 
   // Autocompletar de "@": usuarios ativos pelo nome (sem e-mail), ate 8.

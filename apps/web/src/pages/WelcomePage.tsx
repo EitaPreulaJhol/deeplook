@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useOwnSamplesOnly } from '../auth/sampleAccess';
 import { HpsmSection } from '../components/HpsmForm';
 import { HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
@@ -34,6 +35,7 @@ const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1
 export function WelcomePage() {
   const { user } = useAuth();
   const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
+  const ownOnly = useOwnSamplesOnly();
   const next = useTakeNext();
 
   // Amostras do usuario concluidas desde a visita anterior.
@@ -99,8 +101,8 @@ export function WelcomePage() {
           <p>
             O <strong>DeepLook</strong> é uma plataforma colaborativa para análise e verificação de
             executáveis e links suspeitos. Aqui você envia amostras, acompanha a triagem feita pelos
-            analistas e consulta os relatórios publicados pela comunidade, tudo antes de confiar em
-            um arquivo desconhecido.
+            analistas e consulta os relatórios publicados pela equipe, tudo antes de confiar em um
+            arquivo desconhecido.
           </p>
         </HpsmSection>
 
@@ -118,12 +120,14 @@ export function WelcomePage() {
               </Link>{' '}
               - acompanhe o status e o veredito das amostras que você enviou.
             </li>
-            <li>
-              <Link className="dl-link" to="/history">
-                Histórico Global
-              </Link>{' '}
-              - consulte todas as amostras da comunidade e os relatórios publicados.
-            </li>
+            {!ownOnly && (
+              <li>
+                <Link className="dl-link" to="/history">
+                  Histórico Global
+                </Link>{' '}
+                - consulte todas as amostras enviadas e os relatórios publicados.
+              </li>
+            )}
             {canTriage && (
               <li>
                 Na aba <strong>Análise</strong> de cada amostra você faz a triagem e pode abrir um

@@ -95,6 +95,17 @@ O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 
 ---
 
+### Restringir o que o usuário comum vê
+
+Por padrão, todos veem e exportam as amostras de todos. Em **Administração > Configurações**, a opção
+"Usuários comuns veem só as amostras que eles mesmos enviaram" fecha isso, na hora e com registro
+na Auditoria. Vale também para o token de API.
+
+- **O que fica de fora:** amostra de outra pessoa responde "não encontrada". Listas, CSV, busca,
+  ficha de indicador, relacionadas, mapa, avisos e favoritos ficam só com as dele, e o Histórico
+  Global sai do menu.
+- **O que continua:** a base de conhecimento, inteira. Analistas e admins seguem vendo tudo.
+
 ## Política de senha
 
 - **Formato:** mínimo de 8 caracteres, com ao menos um número e um caractere especial

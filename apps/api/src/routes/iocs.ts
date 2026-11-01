@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { ownerForViewer, requireUser } from '../lib/auth';
+import { ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
 import { extractIocs } from '../lib/iocs';
@@ -212,9 +212,10 @@ export async function iocRoutes(app: FastifyInstance) {
     const valid = kind && extractIocs(value).some((i) => i.kind === kind && i.value === value);
     if (!valid) return reply.code(400).send({ error: 'Indicador inválido.' });
 
+    const visible = await visibleEntries(user);
     const [reportHits, fileHits, hostHits] = await Promise.all([
       prisma.reportIoc.findMany({
-        where: { kind, value, entry: { deletedAt: null } },
+        where: { kind, value, entry: { deletedAt: null, ...visible } },
         select: {
           entryId: true,
           report: {
@@ -225,14 +226,14 @@ export async function iocRoutes(app: FastifyInstance) {
       }),
       kind === 'SHA256'
         ? prisma.entry.findMany({
-            where: { sha256: value },
+            where: { sha256: value, ...visible },
             select: { id: true },
             take: SIGHTINGS_LIMIT,
           })
         : [],
       kind === 'DOMAIN'
         ? prisma.entry.findMany({
-            where: { urlDomain: value },
+            where: { urlDomain: value, ...visible },
             select: { id: true },
             take: SIGHTINGS_LIMIT,
           })

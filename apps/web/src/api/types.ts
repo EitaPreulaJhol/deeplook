@@ -341,6 +341,7 @@ export interface SystemStatus {
 }
 
 export type AuditAction =
+  | 'SETTING_CHANGED'
   | 'USER_REGISTERED'
   | 'USER_ROLE_CHANGED'
   | 'USER_SUSPENDED'

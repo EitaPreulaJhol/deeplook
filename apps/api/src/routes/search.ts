@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { Prisma } from '../generated/prisma/client';
-import { isAnalyst, requireUser } from '../lib/auth';
+import { isAnalyst, requireUser, visibleEntries } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
@@ -56,12 +56,14 @@ export async function searchRoutes(app: FastifyInstance) {
     const kbText = Prisma.sql`coalesce(k."title", '') || ' ' || coalesce(k."summary", '') || ' ' || coalesce(k."body", '') || ' ' || array_to_string(k."tags", ' ')`;
     const caseText = Prisma.sql`coalesce(c."title", '') || ' ' || coalesce(c."description", '')`;
     const reportVisible = analyst ? Prisma.empty : Prisma.sql`AND r."status" = 'PUBLISHED'`;
+    const { ownerId } = await visibleEntries(user);
+    const entryVisible = ownerId ? Prisma.sql`AND e."ownerId" = ${ownerId}` : Prisma.empty;
 
     const result: Partial<Record<Group, { total: number; items: unknown[] }>> = {};
     const tasks: Promise<void>[] = [];
 
     if (wants('entries')) {
-      const where = Prisma.sql`e."deletedAt" IS NULL AND e."createdAt" >= ${since} AND ${doc(entryText)} @@ ${tsq}`;
+      const where = Prisma.sql`e."deletedAt" IS NULL ${entryVisible} AND e."createdAt" >= ${since} AND ${doc(entryText)} @@ ${tsq}`;
       tasks.push(
         (async () => {
           const [items, total] = await Promise.all([
@@ -79,7 +81,7 @@ export async function searchRoutes(app: FastifyInstance) {
     }
 
     if (wants('reports')) {
-      const where = Prisma.sql`e."deletedAt" IS NULL ${reportVisible} AND r."updatedAt" >= ${since} AND ${doc(reportText)} @@ ${tsq}`;
+      const where = Prisma.sql`e."deletedAt" IS NULL ${entryVisible} ${reportVisible} AND r."updatedAt" >= ${since} AND ${doc(reportText)} @@ ${tsq}`;
       tasks.push(
         (async () => {
           const [items, total] = await Promise.all([
@@ -104,7 +106,7 @@ export async function searchRoutes(app: FastifyInstance) {
 
     if (wants('comments')) {
       const text = Prisma.sql`coalesce(v."detail", '')`;
-      const where = Prisma.sql`v."type" = 'COMMENT' AND e."deletedAt" IS NULL AND v."createdAt" >= ${since} AND ${doc(text)} @@ ${tsq}`;
+      const where = Prisma.sql`v."type" = 'COMMENT' AND e."deletedAt" IS NULL ${entryVisible} AND v."createdAt" >= ${since} AND ${doc(text)} @@ ${tsq}`;
       tasks.push(
         (async () => {
           const [items, total] = await Promise.all([

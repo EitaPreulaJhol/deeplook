@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import type { PublicUser } from '../lib/auth';
-import { isAnalyst, requireUser } from '../lib/auth';
+import { isAnalyst, requireUser, visibleEntries } from '../lib/auth';
 import { cleanEvidenceImage, EvidenceImageError } from '../lib/evidence-image';
 import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
@@ -80,7 +80,9 @@ export async function evidenceRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const found = await prisma.reportEvidence.findFirst({
       where: { id, report: { entry: { deletedAt: null } } },
-      include: { report: { select: { id: true, status: true } } },
+      include: {
+        report: { select: { id: true, status: true, entry: { select: { ownerId: true } } } },
+      },
     });
     if (!found) reply.code(404).send({ error: 'Evidência não encontrada.' });
     return found;
@@ -193,7 +195,11 @@ export async function evidenceRoutes(app: FastifyInstance) {
     if (!user) return;
     const evidence = await evidenceOf(req, reply);
     if (!evidence) return;
-    if (!isAnalyst(user) && evidence.report.status !== 'PUBLISHED') {
+    const { ownerId } = await visibleEntries(user);
+    if (
+      (!isAnalyst(user) && evidence.report.status !== 'PUBLISHED') ||
+      (ownerId && evidence.report.entry.ownerId !== ownerId)
+    ) {
       return reply.code(404).send({ error: 'Evidência não encontrada.' });
     }
     const obj = await s3.send(

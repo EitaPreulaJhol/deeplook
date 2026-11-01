@@ -9,7 +9,13 @@ import { env } from '../env';
 import type { EntryStatus, Priority, Prisma, Verdict } from '../generated/prisma/client';
 import { withSubtechniques } from '../lib/attack';
 import { audit } from '../lib/audit';
-import { isAnalyst, ownerForViewer, type PublicUser, requireUser } from '../lib/auth';
+import {
+  isAnalyst,
+  ownerForViewer,
+  type PublicUser,
+  requireUser,
+  visibleEntries,
+} from '../lib/auth';
 import { autoAssign } from '../lib/auto-assign';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
@@ -581,12 +587,16 @@ async function createFileEntry(
   if (isEmailFile(filename, mimetype) && depth < 3) {
     await readEmail(req, ownerId, entry, buffer, input, quota, depth);
   }
-  const previous = await prisma.entry.findFirst({
-    where: { sha256, id: { not: entry.id } },
+  return { entry };
+}
+
+/** Primeiro envio do mesmo arquivo que a pessoa pode ver ("ja enviada antes"). */
+async function previousSubmission(entry: { id: string; sha256: string | null }, user: PublicUser) {
+  return prisma.entry.findFirst({
+    where: { sha256: entry.sha256, id: { not: entry.id }, ...(await visibleEntries(user)) },
     orderBy: { createdAt: 'asc' },
     select: { id: true, title: true },
   });
-  return { entry, previous };
 }
 
 /** Le o .eml enviado, cria os anexos como amostras filhas e grava `emailInfo`. */
@@ -741,7 +751,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
     const { id } = req.params as { id: string };
     const children = await prisma.entry.findMany({
-      where: { parentEntryId: id },
+      where: { parentEntryId: id, ...(await visibleEntries(user)) },
       orderBy: { createdAt: 'asc' },
       take: 200,
       select: { id: true, title: true, originalFilename: true, status: true, verdict: true },
@@ -758,7 +768,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: 'Parâmetros inválidos.' });
 
     const items = await prisma.entry.findMany({
-      where: listWhere(parsed.data, user.id),
+      where: { ...listWhere(parsed.data, user.id), ...(await visibleEntries(user)) },
       orderBy: listOrderBy(parsed.data.sort, parsed.data.dir),
       take: EXPORT_MAX_ROWS,
       include: {
@@ -822,7 +832,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: 'Parâmetros inválidos.' });
     const { limit, offset, sort, dir } = parsed.data;
 
-    const where = listWhere(parsed.data, user.id);
+    const where = { ...listWhere(parsed.data, user.id), ...(await visibleEntries(user)) };
 
     const [total, items] = await Promise.all([
       prisma.entry.count({ where }),
@@ -857,17 +867,24 @@ export async function entryRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
 
+    const visible = await visibleEntries(user);
     const [groups, mine, late, reviews] = await Promise.all([
-      prisma.entry.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.entry.groupBy({ by: ['status'], where: visible, _count: { _all: true } }),
       // Fila "Atribuidas a mim": so as que ainda nao foram concluidas.
-      prisma.entry.count({ where: { assigneeId: user.id, status: { not: 'COMPLETED' } } }),
+      prisma.entry.count({
+        where: { ...visible, assigneeId: user.id, status: { not: 'COMPLETED' } },
+      }),
       // Fila "Atrasadas": nao concluidas ha mais de SLA_LATE_HOURS no status atual.
       prisma.entry.count({
-        where: slaWhere('late'),
+        where: { ...slaWhere('late'), ...visible },
       }),
       // Fila "Relatorios para revisar": em revisao, de outros analistas.
       prisma.report.count({
-        where: { status: 'IN_REVIEW', analystId: { not: user.id }, entry: { deletedAt: null } },
+        where: {
+          status: 'IN_REVIEW',
+          analystId: { not: user.id },
+          entry: { deletedAt: null, ...visible },
+        },
       }),
     ]);
     const counts = { PENDING: 0, IN_REVIEW: 0, COMPLETED: 0 };
@@ -1024,7 +1041,7 @@ export async function entryRoutes(app: FastifyInstance) {
     const upload = await readUpload(req, reply);
     if (!upload) return;
 
-    const { entry, previous } = await createFileEntry(
+    const { entry } = await createFileEntry(
       req,
       user.id,
       {
@@ -1037,7 +1054,7 @@ export async function entryRoutes(app: FastifyInstance) {
       },
       { remaining: quota.remaining },
     );
-    return reply.code(201).send({ entry, previous });
+    return reply.code(201).send({ entry, previous: await previousSubmission(entry, user) });
   });
 
   // Envio em lote por .zip (ex.: pacote de malware com a senha "infected"):
@@ -1132,7 +1149,7 @@ export async function entryRoutes(app: FastifyInstance) {
       }
       total += buffer.length;
       const origin = `Extraído de ${upload.filename}${file.path !== file.name ? ` (${file.path})` : ''}.`;
-      const { entry, previous } = await createFileEntry(
+      const { entry } = await createFileEntry(
         req,
         user.id,
         {
@@ -1149,7 +1166,7 @@ export async function entryRoutes(app: FastifyInstance) {
         name: file.name,
         path: file.path,
         entry: { id: entry.id, title: entry.title, sha256: entry.sha256, fileSize: entry.fileSize },
-        previous,
+        previous: await previousSubmission(entry, user),
       });
     }
 
@@ -1211,21 +1228,22 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const { id } = req.params as { id: string };
-    const entry = await prisma.entry.findUnique({
+    const visible = await visibleEntries(user);
+    const found = await prisma.entry.findUnique({
       where: { id },
       include: {
         owner: { select: { id: true, displayName: true, email: true } },
         assignee: { select: { id: true, displayName: true } },
         tags: true,
-        duplicateOf: { select: { id: true, title: true } },
-        parentEntry: { select: { id: true, title: true, originalFilename: true } },
+        duplicateOf: { select: { id: true, title: true, ownerId: true } },
+        parentEntry: { select: { id: true, title: true, originalFilename: true, ownerId: true } },
         duplicates: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, ...visible },
           select: { id: true, title: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
         },
-        _count: { select: { duplicates: { where: { deletedAt: null } } } },
+        _count: { select: { duplicates: { where: { deletedAt: null, ...visible } } } },
         lookalikeHits: {
           select: { domain: true, companyDomain: true, reason: true, detail: true, sources: true },
           orderBy: { domain: 'asc' },
@@ -1242,7 +1260,18 @@ export async function entryRoutes(app: FastifyInstance) {
         },
       },
     });
-    if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
+    if (!found) return reply.code(404).send({ error: 'Amostra não encontrada.' });
+    // Principal e pacote de origem de outra pessoa ficam de fora (item 140).
+    const linked = <T extends { ownerId: string }>(other: T | null) => {
+      if (!other || (visible.ownerId && other.ownerId !== visible.ownerId)) return null;
+      const { ownerId: _owner, ...rest } = other;
+      return rest;
+    };
+    const entry = {
+      ...found,
+      duplicateOf: linked(found.duplicateOf),
+      parentEntry: linked(found.parentEntry),
+    };
     return reply.send({
       entry: ownerForViewer(entry, user),
       sla: slaConfig(),

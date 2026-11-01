@@ -5,6 +5,7 @@ import { authenticateToken, bearerOf } from './api-tokens';
 import { type PasswordChangeReason, passwordState } from './password-policy';
 import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
+import { ownSamplesOnly } from './settings';
 
 export const SESSION_COOKIE = 'dl_session';
 /** Intervalo minimo entre duas gravacoes do ultimo acesso da sessao. */
@@ -171,10 +172,36 @@ export function forbidden(reply: FastifyReply) {
   return reply.code(403).send({ error: 'Acesso negado.' });
 }
 
+/**
+ * Amostras que a pessoa pode ver (item 140): filtro para somar ao `where`. Vazio,
+ * a nao ser para o usuario comum com a restricao ligada.
+ */
+export async function visibleEntries(user: PublicUser): Promise<{ ownerId?: string }> {
+  return !isAnalyst(user) && (await ownSamplesOnly()) ? { ownerId: user.id } : {};
+}
+
 export async function requireUser(
   req: FastifyRequest,
   reply: FastifyReply,
 ): Promise<PublicUser | null> {
+  const user = await authenticate(req, reply);
+  if (!user) return null;
+  // Toda rota de uma amostra passa por aqui, inclusive as que ainda vao existir. O 404
+  // nao revela que a amostra existe (item 140).
+  if (req.routeOptions.url?.startsWith('/api/entries/:id')) {
+    const { ownerId } = await visibleEntries(user);
+    if (ownerId) {
+      const { id } = req.params as { id: string };
+      if (!(await prisma.entry.count({ where: { id, ownerId } }))) {
+        reply.code(404).send({ error: 'Amostra não encontrada.' });
+        return null;
+      }
+    }
+  }
+  return user;
+}
+
+async function authenticate(req: FastifyRequest, reply: FastifyReply): Promise<PublicUser | null> {
   // Script com token de API (Authorization: Bearer): so nas rotas liberadas.
   const bearer = bearerOf(req);
   if (bearer !== null) {

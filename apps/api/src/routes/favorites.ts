@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { Prisma } from '../generated/prisma/client';
-import { requireUser } from '../lib/auth';
+import { requireUser, visibleEntries } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
@@ -46,7 +46,10 @@ export async function favoritesRoutes(app: FastifyInstance) {
 
     // Amostra na lixeira: o favorito fica guardado e volta se ela for restaurada.
     const favorites = await prisma.favorite.findMany({
-      where: { userId: user.id, OR: [{ entryId: null }, { entry: { deletedAt: null } }] },
+      where: {
+        userId: user.id,
+        OR: [{ entryId: null }, { entry: { deletedAt: null, ...(await visibleEntries(user)) } }],
+      },
       orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
       select: favoriteSelect,
     });
@@ -86,8 +89,8 @@ export async function favoritesRoutes(app: FastifyInstance) {
       if (existing.some((f) => f.entryId === input.entryId)) {
         return reply.code(409).send({ error: 'Esta amostra já está nos Favoritos.' });
       }
-      const entry = await prisma.entry.findUnique({
-        where: { id: input.entryId },
+      const entry = await prisma.entry.findFirst({
+        where: { id: input.entryId, ...(await visibleEntries(user)) },
         select: { title: true },
       });
       if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });

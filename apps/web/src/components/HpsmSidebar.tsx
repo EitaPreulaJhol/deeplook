@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { EntryStatus, Favorite } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useOwnSamplesOnly } from '../auth/sampleAccess';
 import { favoriteHref, useFavorites } from './favorites';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmContextMenu } from './HpsmContextMenu';
@@ -157,6 +158,7 @@ const TREE: NavFolder[] = [
       { to: '/admin?tab=audit', label: 'Auditoria', icon: IconHistory },
       { to: '/admin?tab=trash', label: 'Lixeira', icon: IconTrash },
       { to: '/admin?tab=backup', label: 'Backup', icon: IconDownload },
+      { to: '/admin?tab=settings', label: 'Configurações', icon: IconSettings },
     ],
   },
 ];
@@ -257,8 +259,13 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
     unread,
   } as Partial<Record<NonNullable<NavLeaf['count']>, number>>;
 
+  const ownOnly = useOwnSamplesOnly();
   const folders = TREE.filter(
     (folder) => !folder.access || (folder.access === 'admin' ? isAdmin : canTriage),
+  ).map((folder) =>
+    ownOnly
+      ? { ...folder, children: folder.children.filter((leaf) => leaf.to !== '/history') }
+      : folder,
   );
   const favoriteLeaves = favs.favorites.map(favoriteLeaf);
   const teamLeaves: NavLeaf[] = team.views.map((view) => ({

@@ -729,6 +729,11 @@ export async function setupMock(context, state) {
       }
       if (p === '/api/me/updates') return json(route, 200, state.updates);
       // Cota de envio (padrao: sem limite, como analista); `quotaReject` simula o 429.
+      if (p === '/api/me/sample-access') return json(route, 200, { ownOnly: Boolean(state.ownSamplesOnly) && state.role === 'USER' });
+      if (p === '/api/admin/settings') {
+        if (req.method() === 'PATCH') state.ownSamplesOnly = body.ownSamplesOnly;
+        return json(route, 200, { ownSamplesOnly: Boolean(state.ownSamplesOnly) });
+      }
       if (p === '/api/me/upload-quota') {
         return json(route, 200, { ...(state.uploadQuota ?? { limit: null, used: 0, remaining: null, resetAt: null }), maxUploadMb: 200 });
       }

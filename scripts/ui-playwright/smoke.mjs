@@ -253,6 +253,20 @@ try {
   expect('amostra de outra pessoa sem baixar', !other.includes('Baixar amostra'));
   expect('API recusa o download', (await api(userSession, 'GET', `/api/entries/${entryId}/download`)).status === 403);
 
+  // 5b. Restricao ligada pelo admin: o usuario comum fica so com o que enviou.
+  await visit(admin, '/admin?tab=settings');
+  await page.locator('label[for="setting-own-samples"]').click();
+  await page.locator('[role=alertdialog] button:has-text("Restringir")').click();
+  await page.waitForSelector('.hpsm-msg--success');
+  await user.goto(ORIGIN + '/history', { waitUntil: 'networkidle' });
+  expect('restrito: endereço leva a Meus Uploads', new URL(user.url()).pathname === '/me', user.url());
+  expect('restrito: sem Histórico Global no menu', (await user.locator('.hpsm-tree__leaf:has-text("Histórico Global")').count()) === 0);
+  expect('restrito: amostra alheia não existe', (await api(userSession, 'GET', `/api/entries/${entryId}`)).status === 404);
+  const own = (await api(userSession, 'GET', '/api/entries?scope=all')).body;
+  expect('restrito: só as próprias', own?.total === 1 && own.items[0].title === 'Link estranho', JSON.stringify(own?.total));
+  expect('restrito: analista continua vendo', (await api(admin, 'GET', `/api/entries/${entryId}`)).status === 200);
+  drain(userSession);
+
   // 6. Sair: a sessao acaba de verdade.
   const out = await api(userSession, 'POST', '/api/auth/logout');
   expect('sair', out.status === 200, JSON.stringify(out));
