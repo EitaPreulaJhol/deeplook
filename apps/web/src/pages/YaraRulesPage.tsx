@@ -25,6 +25,7 @@ import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
 import { StatusText } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
+import { YaraPacksSection } from '../components/YaraPacksSection';
 import { useRetroscans, YaraRetroscans } from '../components/YaraRetroscans';
 
 function fmtDate(iso: string): string {
@@ -200,7 +201,7 @@ export function YaraRulesPage() {
   // YARA retroativo (item 67): aplica a regra as amostras ja guardadas.
   const retro = useRetroscans();
   const retroRunning = retro.data?.items.some((r) => r.status === 'RUNNING') ?? false;
-  const startRetro = async (rule: YaraRule) => {
+  const startRetro = async (rule: Pick<YaraRule, 'id' | 'name'>) => {
     const ok = await confirm({
       title: 'Aplicar às amostras existentes',
       message: `Varrer todos os arquivos já guardados com a regra "${rule.name}"? Roda em segundo plano; dá para cancelar. Os acertos aparecem aqui e na ficha de cada amostra.`,
@@ -337,7 +338,7 @@ export function YaraRulesPage() {
       {query.isLoading && <HpsmLoading text="Carregando regras..." />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && rules.length === 0 && (
-        <HpsmMessage kind="info">Nenhuma regra YARA cadastrada.</HpsmMessage>
+        <HpsmMessage kind="info">Nenhuma regra da equipe cadastrada.</HpsmMessage>
       )}
       {rules.length > 0 && (
         <TableContainer className="dl-mt-lg">
@@ -402,6 +403,12 @@ export function YaraRulesPage() {
           </Table>
         </TableContainer>
       )}
+      <YaraPacksSection
+        retroRunning={retroRunning}
+        onRetro={(rule) => void startRetro(rule)}
+        onNotice={setNotice}
+      />
+
       <YaraRetroscans onNotice={setNotice} />
     </>
   );

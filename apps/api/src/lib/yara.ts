@@ -1,168 +1,138 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { Worker } from 'node:worker_threads';
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { Compiler, initSync, type Rules } from '@virustotal/yara-x';
 
 import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { applyTriageRulesQuietly } from './triage-rules';
+import {
+  compileRuleSets,
+  type RuleSet,
+  scanBuffer,
+  validateRule,
+  type YaraHit,
+} from './yara-engine';
+import { activeRulesWhere, yaraPackInfo } from './yara-packs';
+import type { YaraRequest } from './yara-worker';
+
+export { compileRuleSets, scanBuffer, validateRule };
+export type { RuleSet, YaraHit };
 
 /**
  * Regras YARA (item 56) com o YARA-X oficial do VirusTotal (WebAssembly, sem
  * binario nativo). As regras sao validadas antes de salvar e aplicadas a cada
- * arquivo enviado; nada e executado, so os bytes sao lidos.
+ * arquivo enviado, numa thread separada (item 146); nada e executado.
  */
 
-/** Tempo maximo de uma varredura (regras pesadas nao travam a API). */
-const SCAN_TIMEOUT_MS = 10_000;
-const MAX_MATCHES_PER_PATTERN = 100;
+let worker: Worker | null = null;
+const waiting = new Map<number, { resolve: (v: never) => void; reject: (e: Error) => void }>();
+let nextId = 0;
+/** Conjuntos que a thread tem carregados: chave -> versao. */
+const loadedVersions = new Map<string, string>();
 
-let ready = false;
-function init() {
-  if (ready) return;
-  // O pacote e a versao "web" do wasm-bindgen: em Node o .wasm vem do disco.
-  const wasm = join(dirname(require.resolve('@virustotal/yara-x')), 'yara_x_js_bg.wasm');
-  initSync({ module: readFileSync(wasm) });
-  ready = true;
+function yaraWorker(): Worker {
+  if (worker) return worker;
+  // Em dist roda o .js; nos testes, o .ts (o tsx passa para a thread pelo execArgv).
+  const created = new Worker(join(__dirname, `yara-worker${__filename.slice(-3)}`));
+  created.unref();
+  created.on('message', (m: { id: number; result?: unknown; error?: string }) => {
+    const pending = waiting.get(m.id);
+    waiting.delete(m.id);
+    if (m.error !== undefined) pending?.reject(new Error(m.error));
+    else pending?.resolve(m.result as never);
+  });
+  // Thread caiu: o que estava em andamento falha, e a proxima chamada sobe outra.
+  const lost = (err: Error) => {
+    if (worker === created) worker = null;
+    loadedVersions.clear();
+    for (const pending of waiting.values()) pending.reject(err);
+    waiting.clear();
+  };
+  created.on('error', lost);
+  created.on('exit', () => lost(new Error('a thread de varredura terminou')));
+  worker = created;
+  return created;
 }
 
-/** Valida uma regra sozinha; devolve as mensagens de erro do compilador (vazio = ok). */
-export function validateRule(source: string): { errors: string[]; warnings: string[] } {
-  init();
-  const compiler = new Compiler();
-  try {
-    compiler.addSource(source);
-  } catch (err) {
-    const errors = compiler.errors.length ? compiler.errors : [String(err)];
-    compiler.free();
-    return { errors, warnings: [] };
-  }
-  const result = { errors: compiler.errors, warnings: compiler.warnings };
-  if (!result.errors.length) {
-    try {
-      compiler.build().free();
-    } catch (err) {
-      result.errors = [String(err)];
+function call<T>(request: YaraRequest): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = ++nextId;
+    waiting.set(id, { resolve: resolve as (v: never) => void, reject });
+    yaraWorker().postMessage({ id, request });
+  });
+}
+
+// Uma de cada vez: cada arquivo so e copiado para a thread quando chega a vez dele.
+let queue: Promise<unknown> = Promise.resolve();
+function inTurn<T>(job: () => Promise<T>): Promise<T> {
+  const run = queue.then(job, job);
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+/** Varre com o conjunto `key`, carregando-o antes se a versao mudou. */
+export function scanInWorker(
+  key: string,
+  version: string,
+  loadSets: () => Promise<RuleSet[]>,
+  content: Uint8Array,
+): Promise<YaraHit[]> {
+  return inTurn(async () => {
+    if (loadedVersions.get(key) !== version) {
+      loadedVersions.delete(key);
+      await call({ type: 'load', key, sets: await loadSets() });
+      loadedVersions.set(key, version);
     }
-  }
-  compiler.free();
-  return result;
+    const { hits } = await call<{ hits: YaraHit[] }>({ type: 'scan', key, content });
+    return hits;
+  });
 }
 
-interface CompiledSet {
-  version: string;
-  rules: Rules;
-  /** namespace (id da regra) -> nome exibido */
-  names: Map<string, string>;
-  count: number;
+/** Libera um conjunto que nao sera mais usado (varredura retroativa). */
+export function dropFromWorker(key: string): Promise<void> {
+  return inTurn(async () => {
+    loadedVersions.delete(key);
+    if (worker) await call({ type: 'drop', key });
+  });
 }
-
-let cache: CompiledSet | null = null;
 
 /**
- * Regras ativas compiladas juntas, cada uma no proprio namespace (dois
- * analistas podem usar o mesmo identificador). Recompila so quando mudam.
+ * Varre com as regras ativas, cada uma no proprio namespace (dois analistas podem
+ * usar o mesmo identificador). A thread recompila so quando as regras mudam; o
+ * texto das regras so sai do banco nesse caso.
  */
-async function compiledRules(): Promise<CompiledSet | null> {
+export async function scanWithYara(
+  buffer: Buffer,
+): Promise<{ hits: YaraHit[]; rulesCount: number; version: string | null }> {
+  const where = await activeRulesWhere();
   const active = await prisma.yaraRule.findMany({
-    where: { enabled: true },
-    select: { id: true, name: true, source: true, updatedAt: true },
-    orderBy: { name: 'asc' },
+    where,
+    select: { id: true, updatedAt: true },
+    orderBy: { id: 'asc' },
   });
+  if (active.length === 0) return { hits: [], rulesCount: 0, version: null };
   const version = createHash('sha256')
     .update(active.map((r) => `${r.id}:${r.updatedAt.toISOString()}`).join('|'))
     .digest('hex')
     .slice(0, 16);
-  if (cache?.version === version) return cache;
-  cache?.rules.free();
-  cache = null;
-  if (active.length === 0) return null;
-  cache = { version, ...compileRuleSets(active) };
-  return cache;
-}
-
-/**
- * Compila conjuntos de regras juntos, cada um no proprio namespace (`r_<id>`).
- * Conjunto que deixou de compilar (ex.: mudanca do motor) nao derruba os outros.
- * Quem chama libera `rules` com `.free()` quando nao precisar mais.
- */
-export function compileRuleSets(sets: { id: string; name: string; source: string }[]): {
-  rules: Rules;
-  names: Map<string, string>;
-  count: number;
-} {
-  init();
-  const compiler = new Compiler();
-  const names = new Map<string, string>();
-  for (const rule of sets) {
-    try {
-      compiler.newNamespace(`r_${rule.id}`);
-      compiler.addSource(rule.source);
-      names.set(`r_${rule.id}`, rule.name);
-    } catch {
-      /* ignorada; a tela mostra o erro ao editar */
-    }
-  }
-  const rules = compiler.build();
-  compiler.free();
-  return { rules, names, count: names.size };
-}
-
-export interface YaraHit {
-  rule: string;
-  identifier: string;
-  tags: string[];
-  description: string | null;
-  matches: number;
-}
-
-/** Varre o conteudo com as regras ativas. */
-export async function scanWithYara(
-  buffer: Buffer,
-): Promise<{ hits: YaraHit[]; rulesCount: number; version: string | null }> {
-  const set = await compiledRules();
-  if (!set) return { hits: [], rulesCount: 0, version: null };
-  return { hits: scanBuffer(set, buffer), rulesCount: set.count, version: set.version };
-}
-
-/** Varre o conteudo com regras ja compiladas (limites de tempo e de ocorrencias). */
-export function scanBuffer(
-  set: { rules: Rules; names: Map<string, string> },
-  buffer: Buffer,
-): YaraHit[] {
-  const scanner = set.rules.scanner();
-  scanner.setTimeoutMs(SCAN_TIMEOUT_MS);
-  scanner.setMaxMatchesPerPattern(MAX_MATCHES_PER_PATTERN);
-  try {
-    const result = scanner.scan(new Uint8Array(buffer)) as {
-      matches: {
-        identifier: string;
-        namespace: string;
-        isPrivate: boolean;
-        tags: string[];
-        metadata: { identifier: string; value: unknown }[];
-        patterns: { matches: unknown[] }[];
-      }[];
-    };
-    // O YARA-X devolve tambem as privadas: sao pecas de outras regras, nao deteccoes.
-    return result.matches
-      .filter((m) => !m.isPrivate)
-      .map((m) => ({
-        rule: set.names.get(m.namespace) ?? m.identifier,
-        identifier: m.identifier,
-        tags: m.tags,
-        description:
-          (m.metadata.find((x) => x.identifier === 'description')?.value as string | undefined) ??
-          null,
-        matches: m.patterns.reduce((n, p) => n + p.matches.length, 0),
-      }));
-  } finally {
-    scanner.free();
-  }
+  const hits = await scanInWorker(
+    'active',
+    version,
+    async () =>
+      (
+        await prisma.yaraRule.findMany({
+          where,
+          select: { id: true, name: true, source: true, pack: true },
+          orderBy: { name: 'asc' },
+        })
+      ).map((r) => ({ ...r, pack: yaraPackInfo(r.pack) })),
+    new Uint8Array(buffer),
+  );
+  return { hits, rulesCount: active.length, version };
 }
 
 /** Varre a amostra e grava o resultado (o mais recente). Nunca lanca. */
@@ -215,8 +185,8 @@ export function yaraScanInBackground(
   buffer: Buffer | undefined,
   log: { error: (o: object, m: string) => void },
 ) {
-  void prisma.yaraRule
-    .count({ where: { enabled: true } })
+  void activeRulesWhere()
+    .then((where) => prisma.yaraRule.count({ where }))
     .then((n) => (n ? yaraScanEntry(entryId, buffer) : undefined))
     .catch((err) => log.error({ err }, '[yara] falha'));
 }

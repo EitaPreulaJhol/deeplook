@@ -4,7 +4,8 @@ import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
-import { compileRuleSets, scanBuffer, type YaraHit } from './yara';
+import { dropFromWorker, scanInWorker, type YaraHit } from './yara';
+import { yaraPackInfo } from './yara-packs';
 
 /**
  * YARA retroativo (item 67): aplica UMA regra as amostras ja guardadas, em
@@ -40,7 +41,7 @@ export async function startRetroscan(
 > {
   const rule = await prisma.yaraRule.findUnique({
     where: { id: ruleId },
-    select: { id: true, name: true, source: true },
+    select: { id: true, name: true, source: true, pack: true },
   });
   if (!rule) return { ok: false, code: 404, error: 'Regra não encontrada.' };
   const running = await prisma.yaraRetroscan.findFirst({
@@ -126,8 +127,12 @@ async function mergeIntoScan(entryId: string, ruleName: string, hits: YaraHit[])
   });
 }
 
-async function run(id: string, rule: { id: string; name: string; source: string }) {
-  const set = compileRuleSets([rule]);
+async function run(
+  id: string,
+  rule: { id: string; name: string; source: string; pack: string | null },
+) {
+  const key = `retro:${id}`;
+  const loadRule = async () => [{ ...rule, pack: yaraPackInfo(rule.pack) }];
   let scanned = 0;
   let matched = 0;
   let failed = 0;
@@ -153,7 +158,8 @@ async function run(id: string, rule: { id: string; name: string; source: string 
           return;
         }
         try {
-          const hits = scanBuffer(set, await readFile(entry));
+          const content = new Uint8Array(await readFile(entry));
+          const hits = await scanInWorker(key, id, loadRule, content);
           await mergeIntoScan(entry.id, rule.name, hits);
           if (hits.length) {
             matched += 1;
@@ -179,6 +185,6 @@ async function run(id: string, rule: { id: string; name: string; source: string 
     });
   } finally {
     cancelRequested.delete(id);
-    set.rules.free();
+    await dropFromWorker(key);
   }
 }

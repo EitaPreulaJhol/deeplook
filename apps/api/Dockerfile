@@ -33,6 +33,8 @@ RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY prisma.config.ts ./
 COPY prisma ./prisma
+# Pacotes de regras YARA (item 143).
+COPY rules ./rules
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 

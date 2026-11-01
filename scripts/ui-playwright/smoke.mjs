@@ -184,6 +184,45 @@ try {
   expect('pasta continua recolhida', (await folderHead.getAttribute('aria-expanded')) === 'false');
   await folderHead.click();
 
+  // 3d. Pacotes de regras na imagem real: detecção com autor, signature-base ligada na tela.
+  const packs = (await api(admin, 'GET', '/api/yara/packs')).body?.packs ?? [];
+  expect(
+    'pacotes instalados na subida',
+    packs.find((p) => p.id === 'reversinglabs')?.rulesTotal === 310 && packs.find((p) => p.id === 'bartblaze')?.rulesTotal === 89 && packs.find((p) => p.id === 'signature-base')?.installed === false,
+    JSON.stringify(packs.map((p) => [p.id, p.rulesTotal, p.installed])),
+  );
+  const yaraScanOf = async (name, bytes) => {
+    const created = await admin.context.request.post(`${ORIGIN}/api/entries/file`, {
+      multipart: { file: { name, mimeType: 'application/octet-stream', buffer: bytes } },
+    });
+    const id = (await created.json()).entry.id;
+    for (let i = 0; i < 60; i++) {
+      const { scan } = (await api(admin, 'GET', `/api/entries/${id}/yara`)).body;
+      if (scan && scan.status !== 'PENDING') return { id, scan };
+      await page.waitForTimeout(500);
+    }
+    return { id, scan: null };
+  };
+  const bart = await yaraScanOf('bart.bin', Buffer.from('xx \\Dev\\ApplicationDllHijacking\\ yy'));
+  expect('detecção real do pacote', bart.scan?.matches?.[0]?.author === '@bartblaze' && bart.scan.matches[0].pack === 'bartblaze', JSON.stringify(bart.scan));
+  await visit(admin, `/entries/${bart.id}`);
+  await page.waitForSelector('table[aria-label="Regras YARA que casaram"]');
+  expect('ficha mostra o autor', (await page.locator('table[aria-label="Regras YARA que casaram"]').innerText()).includes('@bartblaze (pacote bartblaze)'));
+  const sigBytes = Buffer.from([0x00, 0x0f, 0xaf, 0xc0, 0x65, 0xc0, 0x07, 0x48, 0x0f, 0xaf, 0x11, 0x39, 0x18, 0x00]);
+  expect('signature-base desligada não detecta', (await yaraScanOf('sig1.bin', sigBytes)).scan?.status === 'CLEAN');
+  await visit(admin, '/admin?tab=settings');
+  await page.locator('label[for="yara-pack-signature-base"]').click();
+  await page.locator('[role=alertdialog] button:has-text("Ligar")').click();
+  await page.waitForSelector('.hpsm-msg--success', { timeout: 60000 });
+  const sig = await yaraScanOf('sig2.bin', sigBytes);
+  expect('signature-base ligada detecta com o autor', sig.scan?.matches?.some((m) => m.identifier === 'IMPLANT_5_v3' && m.author === 'US CERT'), JSON.stringify(sig.scan));
+  await visit(admin, '/yara');
+  await visit(admin, '/admin?tab=settings');
+  await page.locator('label[for="yara-pack-signature-base"]').click();
+  await page.locator('[role=alertdialog] button:has-text("Desligar")').click();
+  await page.waitForSelector('.hpsm-msg--success');
+  expect('sem erro nos pacotes', !drain(admin));
+
   // 4. Telas do admin.
   for (const path of [
     '/inicio',

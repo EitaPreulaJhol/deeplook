@@ -136,6 +136,7 @@ export function YaraSection({
                 <TableHeader scope="col">Conjunto</TableHeader>
                 <TableHeader scope="col">Tags</TableHeader>
                 <TableHeader scope="col">Descrição</TableHeader>
+                <TableHeader scope="col">Autor</TableHeader>
                 <TableHeader scope="col">Ocorrências</TableHeader>
               </TableRow>
             </TableHead>
@@ -148,6 +149,10 @@ export function YaraSection({
                   <TableCell>{hit.rule}</TableCell>
                   <TableCell>{hit.tags.length ? hit.tags.join(', ') : '—'}</TableCell>
                   <TableCell>{hit.description ?? '—'}</TableCell>
+                  <TableCell>
+                    {hit.author ?? '—'}
+                    {hit.pack ? ` (pacote ${hit.pack})` : ''}
+                  </TableCell>
                   <TableCell>{hit.matches}</TableCell>
                 </TableRow>
               ))}

@@ -277,6 +277,31 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 
 ## Regras YARA
 
+### Pacotes de regras
+
+O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem baixar nada ao subir:
+
+| Pacote | Autor | Licença | Situação |
+|---|---|---|---|
+| ReversingLabs (310 conjuntos) | ReversingLabs | MIT | ligado |
+| bartblaze (89, sem a pasta `generic`) | bartblaze | MIT | ligado |
+| signature-base (739) | Florian Roth (Neo23x0) | DRL 1.1 | desligado |
+
+- **Ligar e desligar:** em **Administração > Configurações**. Desligar não apaga nada; as regras só
+  saem da varredura dos próximos arquivos.
+- **Instalação:** cada pacote instala uma vez, ao subir ou ao ligar. O que for desativado ou excluído
+  na tela Regras YARA não volta sozinho.
+- **Regra de pacote não se edita:** para mudar, escreva uma regra da equipe.
+- **Autoria:** a ficha mostra o autor e o pacote de cada detecção. A DRL 1.1 exige isso.
+- **Fora da signature-base:** 13 arquivos que usam variáveis externas (`filename`, `filepath`,
+  `extension`), que o DeepLook não define.
+- **Atualizar:** `node scripts/vendor-yara-packs.mjs <pasta com os clones>` copia as versões novas,
+  mas o que já foi instalado não muda sozinho.
+- **Amostras antigas:** os pacotes valem para os próximos arquivos. Para as antigas, use "Aplicar às
+  amostras".
+
+### Regras da equipe
+
 Analistas mantêm regras YARA na tela **Regras YARA** (pasta Detecção do navegador). A
 API valida e aplica as regras com o **YARA-X** (`@virustotal/yara-x`, WebAssembly, sem
 binário nem serviço extra). Regra com erro de sintaxe é recusada na hora, com a linha do

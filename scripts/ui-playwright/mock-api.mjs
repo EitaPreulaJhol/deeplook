@@ -216,6 +216,17 @@ export function createState({ loggedIn = false } = {}) {
     yaraRules: [],
     yara: {},
     yaraCalls: [],
+    /** Pacotes de regras (item 143). */
+    yaraPackCalls: [],
+    yaraPacks: [
+      { id: 'reversinglabs', name: 'ReversingLabs', author: 'ReversingLabs', license: 'MIT', url: 'https://github.com/reversinglabs/reversinglabs-yara-rules', description: 'Malware e ransomware.', commit: 'e0a0be54', commitDate: '2025-11-03', enabled: true, installed: true, fileCount: 310, excludedCount: 0, rulesTotal: 310, rulesActive: 310 },
+      { id: 'bartblaze', name: 'bartblaze', author: 'bartblaze', license: 'MIT', url: 'https://github.com/bartblaze/Yara-rules', description: 'APT, crime e ransomware.', commit: '5cc871d8', commitDate: '2026-01-28', enabled: true, installed: true, fileCount: 89, excludedCount: 0, rulesTotal: 89, rulesActive: 89 },
+      { id: 'signature-base', name: 'signature-base', author: 'Florian Roth (Neo23x0)', license: 'DRL 1.1', url: 'https://github.com/Neo23x0/signature-base', description: 'Base ampla.', commit: '36ab7042', commitDate: '2026-10-29', enabled: false, installed: false, fileCount: 739, excludedCount: 13, rulesTotal: 0, rulesActive: 0 },
+    ],
+    yaraPackRules: [
+      { id: 'pr1', name: 'bartblaze/APT/Autumn_Backdoor_Loader', enabled: true, pack: 'bartblaze', source: 'rule Autumn { meta: author = "@bartblaze" description = "<b>x</b>" condition: false }' },
+      { id: 'pr2', name: 'bartblaze/ransomware/Avaddon', enabled: true, pack: 'bartblaze', source: 'rule Avaddon { condition: false }' },
+    ],
     /** YARA retroativo: varreduras (mais recente primeiro) e acertos por varredura. */
     retroscans: [],
     retroHits: {},
@@ -775,6 +786,27 @@ export async function setupMock(context, state) {
       if (yr && req.method() === 'POST') {
         state.yaraCalls.push({ rescan: yr[1] });
         return json(route, 202, { ok: true });
+      }
+      if (p === '/api/yara/packs') return json(route, 200, { packs: state.yaraPacks });
+      const packToggle = p.match(/^\/api\/admin\/yara-packs\/([\w-]+)$/);
+      if (packToggle) {
+        const pack = state.yaraPacks.find((x) => x.id === packToggle[1]);
+        Object.assign(pack, { enabled: body.enabled, installed: true, rulesTotal: pack.fileCount, rulesActive: pack.fileCount });
+        state.yaraPackCalls.push(`${pack.id}:${body.enabled}`);
+        return json(route, 200, { packs: state.yaraPacks });
+      }
+      const packRules = p.match(/^\/api\/yara\/packs\/([\w-]+)\/rules$/);
+      if (packRules) {
+        const q = (url.searchParams.get('q') ?? '').toLowerCase();
+        const rules = state.yaraPackRules.filter((r) => r.pack === packRules[1] && r.name.toLowerCase().includes(q)).map(({ source, ...rest }) => rest);
+        return json(route, 200, { total: rules.length, limit: 200, rules });
+      }
+      const packRule = p.match(/^\/api\/yara\/rules\/(pr\d+)$/);
+      if (packRule) {
+        const rule = state.yaraPackRules.find((r) => r.id === packRule[1]);
+        if (req.method() === 'PATCH') Object.assign(rule, body);
+        if (req.method() === 'DELETE') state.yaraPackRules.splice(state.yaraPackRules.indexOf(rule), 1);
+        return json(route, 200, { rule, warnings: [] });
       }
       if (p === '/api/yara/rules' && req.method() === 'GET') {
         return json(route, 200, { rules: [...state.yaraRules].sort((a, b) => a.name.localeCompare(b.name)) });

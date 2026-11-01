@@ -39,7 +39,7 @@ expect('item "Regras YARA" no navegador', (await leaf.count()) === 1);
 await leaf.click();
 await settle();
 expect('abre /yara', new URL(page.url()).pathname === '/yara', page.url());
-expect('lista vazia', (await messages()).includes('Nenhuma regra YARA cadastrada.'));
+expect('lista vazia', (await messages()).includes('Nenhuma regra da equipe cadastrada.'));
 expect('aba do workspace', (await page.locator('.hpsm-doctab.is-active').innerText()).includes('Regras YARA'));
 
 // 2. Salvar sem preencher destaca os campos.

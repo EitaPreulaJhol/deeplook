@@ -7,6 +7,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 import { validateRule, yaraScanEntry } from '../lib/yara';
+import { activeRulesWhere, yaraPackList } from '../lib/yara-packs';
 import { cancelRetroscan, startRetroscan } from '../lib/yara-retro';
 
 const RuleSchema = z.object({
@@ -32,11 +33,15 @@ const ruleSelect = {
   description: true,
   source: true,
   enabled: true,
+  pack: true,
   createdAt: true,
   updatedAt: true,
   createdBy: { select: { id: true, displayName: true } },
   updatedBy: { select: { id: true, displayName: true } },
 } satisfies Prisma.YaraRuleSelect;
+
+/** Regras de pacote exibidas por vez (sao centenas; a busca acha o resto). */
+const PACK_RULES_LIMIT = 200;
 
 const duplicateName = (err: unknown) =>
   err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
@@ -68,8 +73,49 @@ export async function yaraRoutes(app: FastifyInstance) {
   app.get('/api/yara/rules', async (req, reply) => {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
-    const rules = await prisma.yaraRule.findMany({ orderBy: { name: 'asc' }, select: ruleSelect });
+    const rules = await prisma.yaraRule.findMany({
+      where: { pack: null },
+      orderBy: { name: 'asc' },
+      select: ruleSelect,
+    });
     return reply.send({ rules });
+  });
+
+  // Pacotes de regras (item 143): o que existe e as regras de um deles, sem o texto.
+  app.get('/api/yara/packs', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    return reply.send({ packs: await yaraPackList() });
+  });
+
+  app.get('/api/yara/packs/:id/rules', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const { id } = req.params as { id: string };
+    const q = String((req.query as { q?: string }).q ?? '').trim();
+    const where = {
+      pack: id,
+      ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+    };
+    const [total, rules] = await Promise.all([
+      prisma.yaraRule.count({ where }),
+      prisma.yaraRule.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        take: PACK_RULES_LIMIT,
+        select: { id: true, name: true, enabled: true, pack: true },
+      }),
+    ]);
+    return reply.send({ total, limit: PACK_RULES_LIMIT, rules });
+  });
+
+  app.get('/api/yara/rules/:id', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const { id } = req.params as { id: string };
+    const rule = await prisma.yaraRule.findUnique({ where: { id }, select: ruleSelect });
+    if (!rule) return reply.code(404).send({ error: 'Regra não encontrada.' });
+    return reply.send({ rule });
   });
 
   /** Valida sem salvar (botao "Validar"). */
@@ -131,6 +177,14 @@ export async function yaraRoutes(app: FastifyInstance) {
       ? { success: true as const, data: { enabled: body.enabled as boolean } }
       : RuleSchema.safeParse(body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
+    if (!toggle) {
+      const current = await prisma.yaraRule.findUnique({ where: { id }, select: { pack: true } });
+      if (current?.pack) {
+        return reply.code(409).send({
+          error: 'Regra de pacote não se edita, para não perder a autoria. Desligue ou exclua.',
+        });
+      }
+    }
     let warnings: string[] = [];
     if ('source' in parsed.data) {
       const result = validateRule(parsed.data.source);
@@ -253,7 +307,7 @@ export async function yaraRoutes(app: FastifyInstance) {
     });
     if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     const [active, scan] = await Promise.all([
-      prisma.yaraRule.count({ where: { enabled: true } }),
+      prisma.yaraRule.count({ where: await activeRulesWhere() }),
       entry.type === 'FILE'
         ? prisma.yaraScan.findUnique({
             where: { entryId: id },

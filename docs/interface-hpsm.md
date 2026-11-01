@@ -445,6 +445,10 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/entries/zip` | `.zip` desmembrado (multipart: `file`, `password?`, `description?`, `tags?`) → `{ created: [{ name, path, entry, previous }], skipped: [{ name, path, reason }] }`; até 20 arquivos; senha errada → 400 com `details.password` |
 | GET | `/api/entries/:id/hex?offset=&length=` | analistas: bytes do arquivo para o visualizador hexadecimal (`Range` no MinIO, blocos de até 4 KB, até 64 KB) |
 | POST | `/api/entries/next` | analistas: "Pegar a próxima" - atribui a pendente sem responsável mais antiga, põe Em análise e devolve `{ entry: { id, title } }`; 404 sem nenhuma |
+| GET | `/api/yara/packs` | pacotes de regras: origem, licença, situação e contagens (analistas) |
+| GET | `/api/yara/packs/:id/rules?q=` | regras de um pacote, sem o texto, até 200 (analistas) |
+| GET | `/api/yara/rules/:id` | uma regra com o texto (analistas) |
+| PATCH | `/api/admin/yara-packs/:id` | `{ enabled }`: liga ou desliga; ligar pela primeira vez instala (admin, com auditoria) |
 | GET · PATCH | `/api/admin/settings` | configurações do sistema `{ ownSamplesOnly }` (admin), com auditoria |
 | GET | `/api/me/sample-access` | `{ ownOnly }`: se a tela deve esconder o Histórico Global |
 | POST | `/api/entries/bulk` | atualização em massa `{ ids (1–100), patch: { status?, verdict?, priority?, assigneeId?, resolution? } }` (analistas); a resolução segue as regras da ficha |
@@ -666,6 +670,7 @@ banco nem da API rodando.
 | `sidebar-folders.mjs` | pastas do Navegador: recolher e abrir gravam uma vez por sequência de cliques, voltam depois de recarregar e em nova sessão, Salvar e Restaurar padrões das Preferências não mexem, falha ao gravar não atrapalha |
 | `plain-language.mjs` | usuário comum: situação em linguagem simples na ficha (por status e veredito, com aviso só para quem enviou, resolução no lugar quando há), "Arquivo" recolhido, "Cliquei ou abri, e agora?" sem atalhos; analista sem mudanças; lista vazia diferente de filtro sem resultado; Enter envia e não quebra a descrição |
 | `own-samples.mjs` | restrição de amostras: aba Configurações, confirmação ao ligar e desligar, cancelar não muda, usuário comum sem Histórico Global no menu e na Página Inicial, endereço leva a Meus Uploads, analista sem mudança, usuário comum sem acesso à configuração |
+| `yara-packs.mjs` | pacotes de regras: Configurações com licença, autor e fonte, confirmação ao ligar, tela Regras YARA com a lista, busca, leitura como texto, desativar, excluir, aplicar às amostras, sem editar, analista sem ligar; ficha com o autor e o pacote |
 | `sample-access.mjs` | acesso às amostras: analista baixa e vê o e-mail; usuário comum sem "Baixar amostra" na de outra pessoa e só com o nome (ficha e impressão), baixa a própria; filtro "Amostra baixada" na auditoria |
 | `ldap-login.mjs` | login pelo AD: sem AD igual a antes; com AD, "E-mail ou usuário da rede" (campo texto) e explicação, envia o usuário da rede; conta do AD sem troca de senha; Administração com a marcação "AD" e sem redefinir a senha |
 | `backup.mjs` | backup: pasta Administração, lista (pronto, falha com motivo, vencido apagado, malware marcado), gerar com amostras com confirmação, progresso até pronto, um por vez, Baixar, excluir com confirmação |

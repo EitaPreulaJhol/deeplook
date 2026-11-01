@@ -3454,16 +3454,20 @@ ReversingLabs e bartblaze (sem a pasta `generic`, que a própria fonte diz não 
 - um conjunto por arquivo, instalado uma vez só: o que o analista desligar ou excluir não volta;
 - regra de pacote não se edita, para não perder a autoria; desligar, excluir e varredura retroativa
   continuam valendo, e o limite de 64 KB só vale para as regras da equipe.
+✅ **Implementado:** 310 conjuntos da ReversingLabs e 89 da bartblaze, instalados na subida, em `apps/api/rules`. **Bug achado na medição:** um conjunto que não compilava fazia a compilação inteira falhar, embora o comentário prometesse o contrário; agora ele fica de fora e os outros seguem. **Limite:** detecção não foi medida com malware real, só com regras acionadas por conteúdo inofensivo; a falta de falsos positivos vale para os 1.122 arquivos testados.
 
 ### 144. Signature-base opcional
 Pacote desligado, que a administração liga em Administração > Configurações. Só é instalado ao ligar,
 sem os arquivos que precisam de variáveis externas (`filename`, `filepath`, `extension`). Decisão
 registrada em 01/11/2026.
+✅ **Implementado:** 739 conjuntos, 13 arquivos de fora. Desligar guarda as regras e o que foi desativado.
 
 ### 145. Autor nas detecções
 Autor e pacote aparecem no resultado da varredura. A licença DRL 1.1 da signature-base exige manter
 o autor nas mensagens de detecção, o que foi aceito.
+✅ **Implementado:** o autor vem do `meta` da regra ou, sem ele, do pacote; a ficha mostra autor e pacote. Varreduras antigas continuam sem o autor até varrer de novo.
 
 ### 146. Desempenho com os pacotes
 A varredura roda na thread principal da API. **Decisão:** medir com os pacotes; se travar a API por
 tempo perceptível, mover a compilação e a varredura para uma thread separada.
+✅ **Implementado:** medido antes: compilar travava a API por 2,8 s (5,9 s com a signature-base) e varrer 200 MB por até 2 s. Compilação e varredura, inclusive a retroativa, foram para uma thread separada, uma varredura por vez. O teste exige que a API continue respondendo enquanto compila. **Custo:** o arquivo é copiado para a thread durante a varredura, e as regras compiladas ocupam cerca de 70 MB.

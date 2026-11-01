@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import type { YaraPack } from '../api/types';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -18,6 +19,10 @@ export function AdminSettingsTab() {
   const query = useQuery({
     queryKey: ['admin', 'settings'],
     queryFn: () => api.get<Settings>('/admin/settings'),
+  });
+  const packsQuery = useQuery({
+    queryKey: ['yara-packs'],
+    queryFn: () => api.get<{ packs: YaraPack[] }>('/yara/packs'),
   });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -51,6 +56,34 @@ export function AdminSettingsTab() {
     }
   };
 
+  const changePack = async (pack: YaraPack, next: boolean) => {
+    const ok = await confirm({
+      title: next ? `Ligar o pacote ${pack.name}` : `Desligar o pacote ${pack.name}`,
+      message: next
+        ? `As ${pack.fileCount} regras do pacote passam a valer para os próximos arquivos, e a varredura fica mais lenta. O resultado mostra o autor de cada regra (licença ${pack.license}).`
+        : 'As regras saem da varredura dos próximos arquivos, mas ficam guardadas, com o que já foi desativado. Resultados antigos não mudam.',
+      confirmLabel: next ? 'Ligar' : 'Desligar',
+      cancelLabel: 'Cancelar',
+    });
+    if (!ok) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const saved = await api.patch<{ packs: YaraPack[] }>(`/admin/yara-packs/${pack.id}`, {
+        enabled: next,
+      });
+      queryClient.setQueryData(['yara-packs'], saved);
+      setNotice({
+        ok: true,
+        text: `Pacote ${pack.name} ${next ? 'ligado' : 'desligado'}. Vale para os próximos arquivos.`,
+      });
+    } catch (err) {
+      setNotice({ ok: false, text: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       {notice && (
@@ -73,6 +106,30 @@ export function AdminSettingsTab() {
               disabled={busy}
               onChange={(_, { checked }) => void change(checked)}
             />
+          </HpsmForm>
+        </HpsmSection>
+      )}
+      {packsQuery.data && (
+        <HpsmSection title="Pacotes de regras YARA" className="dl-form-col dl-mt-lg">
+          <HpsmForm>
+            {packsQuery.data.packs.map((pack) => (
+              <div key={pack.id}>
+                <Checkbox
+                  id={`yara-pack-${pack.id}`}
+                  labelText={`${pack.name} (${pack.fileCount} conjuntos)`}
+                  helperText={pack.description}
+                  checked={pack.enabled}
+                  disabled={busy}
+                  onChange={(_, { checked }) => void changePack(pack, checked)}
+                />
+                <p className="hpsm-field__help">
+                  Autor: {pack.author} · Licença {pack.license} · Versão de {pack.commitDate} ·{' '}
+                  <a className="dl-link" href={pack.url} target="_blank" rel="noreferrer">
+                    Fonte
+                  </a>
+                </p>
+              </div>
+            ))}
           </HpsmForm>
         </HpsmSection>
       )}

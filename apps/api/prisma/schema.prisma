@@ -865,6 +865,8 @@ model YaraRule {
   description String?
   source      String
   enabled     Boolean         @default(true)
+  /// Pacote de origem (rules/packs.json, item 143); null = regra da equipe.
+  pack        String?
   createdById String?
   createdBy   User?           @relation("YaraRuleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   updatedById String?
@@ -872,6 +874,8 @@ model YaraRule {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   retroscans  YaraRetroscan[]
+
+  @@index([pack])
 }
 
 enum YaraStatus {

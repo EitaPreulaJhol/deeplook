@@ -16,6 +16,7 @@ import { ensureBucket, isMissingObject, MISSING_OBJECT_MESSAGE } from './lib/s3'
 import { initSandbox } from './lib/sandbox';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { backfillTlsh } from './lib/tlsh-backfill';
+import { installYaraPacks } from './lib/yara-packs';
 import { failInterruptedRetroscans } from './lib/yara-retro';
 import { adminRoutes } from './routes/admin';
 import { allowlistRoutes } from './routes/allowlist';
@@ -168,6 +169,14 @@ async function main() {
     await ensureBucket();
   } catch (err) {
     app.log.error({ err }, 'Falha ao garantir bucket do MinIO');
+  }
+
+  // Pacotes de regras YARA (item 143): instala os ligados que ainda nao instalaram.
+  try {
+    const installed = await installYaraPacks();
+    if (installed.length) app.log.info({ installed }, 'Pacotes de regras YARA instalados');
+  } catch (err) {
+    app.log.error({ err }, 'Falha ao instalar os pacotes de regras YARA');
   }
 
   // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).

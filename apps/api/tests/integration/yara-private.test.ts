@@ -30,6 +30,23 @@ rule nao_casa { strings: $a = "NUNCA" condition: auxiliar and $a }`,
   ok('a privada é usada', scanBuffer(set, Buffer.from('nada')).length === 0);
   set.rules.free();
 
+  // 1b. Conjunto que deixou de compilar nao derruba os outros.
+  const mixed = compileRuleSets([
+    { id: 'ruim', name: 'Ruim', source: 'rule ruim { condition: nao_existe }' },
+    { id: 'bom', name: 'Bom', source: 'rule bom { condition: true }' },
+  ]);
+  ok('conjunto quebrado fica de fora', mixed.count === 1, mixed.count);
+  ok(
+    'os outros seguem',
+    scanBuffer(mixed, content)
+      .map((h) => h.identifier)
+      .join() === 'bom',
+  );
+  mixed.rules.free();
+  await prisma.yaraRule.create({
+    data: { name: 'Quebrada', source: 'rule quebrada { condition: nao_existe }' },
+  });
+
   // 2. Privada sozinha: amostra limpa, sem regra de triagem.
   await prisma.yaraRule.create({
     data: { name: 'So privada', source: 'private rule sempre { condition: true }' },

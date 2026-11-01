@@ -6,6 +6,7 @@ import { requireAdmin, requireUser, visibleEntries } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { ownSamplesOnly, setOwnSamplesOnly } from '../lib/settings';
 import { sendValidationError } from '../lib/validation';
+import { setYaraPackEnabled, yaraPackList } from '../lib/yara-packs';
 
 const SettingsSchema = z.object({ ownSamplesOnly: z.boolean() }).strict();
 
@@ -33,6 +34,26 @@ export async function settingsRoutes(app: FastifyInstance) {
       });
     }
     return reply.send({ ownSamplesOnly: value });
+  });
+
+  // Pacotes de regras YARA (itens 143 e 144): a lista esta em /api/yara/packs.
+  app.patch('/api/admin/yara-packs/:id', async (req, reply) => {
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    const parsed = z.object({ enabled: z.boolean() }).strict().safeParse(req.body);
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
+    const { id } = req.params as { id: string };
+    const { enabled } = parsed.data;
+    if (!(await setYaraPackEnabled(id, enabled))) {
+      return reply.code(404).send({ error: 'Pacote não encontrado.' });
+    }
+    await audit(prisma, req, {
+      action: 'SETTING_CHANGED',
+      actorId: user.id,
+      targetLabel: `Pacote de regras YARA ${id}`,
+      detail: enabled ? 'ligado' : 'desligado',
+    });
+    return reply.send({ packs: await yaraPackList() });
   });
 
   // O que a tela da pessoa deve mostrar; quem garante a regra e a API.

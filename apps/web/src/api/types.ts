@@ -61,10 +61,30 @@ export interface YaraRule {
   description: string | null;
   source: string;
   enabled: boolean;
+  /** Pacote de origem; null = regra da equipe. */
+  pack: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy: { id: string; displayName: string } | null;
   updatedBy: { id: string; displayName: string } | null;
+}
+
+/** Pacote de regras de uma fonte confiavel (GET /api/yara/packs). */
+export interface YaraPack {
+  id: string;
+  name: string;
+  author: string;
+  license: string;
+  url: string;
+  description: string;
+  commit: string;
+  commitDate: string;
+  enabled: boolean;
+  installed: boolean;
+  fileCount: number;
+  excludedCount: number;
+  rulesTotal: number;
+  rulesActive: number;
 }
 
 /** Acerto de uma regra YARA numa amostra. */
@@ -77,6 +97,10 @@ export interface YaraHit {
   description: string | null;
   /** Quantas ocorrencias das strings casaram. */
   matches: number;
+  /** Autor da regra; varreduras antigas nao trazem. */
+  author?: string | null;
+  /** Pacote de origem; null ou ausente = regra da equipe. */
+  pack?: string | null;
 }
 
 export interface YaraScan {
