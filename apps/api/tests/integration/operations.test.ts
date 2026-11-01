@@ -84,6 +84,43 @@ async function main() {
     quota.body,
   );
 
+  // 0b. Pastas recolhidas do Navegador (item 141).
+  const prefs = (payload: object) =>
+    app.inject({
+      method: 'PATCH',
+      url: '/api/me/preferences',
+      headers: { cookie: cAna },
+      payload,
+    });
+  const meNow = async () =>
+    (await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: cAna } })).json()
+      .user;
+  ok('sem nada salvo, tudo aberto', (await meNow()).preferences.closedFolders.length === 0);
+  ok(
+    'grava as recolhidas',
+    (await prefs({ closedFolders: ['filas', 'casos'] })).statusCode === 200,
+  );
+  ok('volta numa sessão nova', (await meNow()).preferences.closedFolders.join() === 'filas,casos');
+  await prefs({ pageSize: 25 });
+  ok(
+    'outra preferência não mexe',
+    (await meNow()).preferences.closedFolders.join() === 'filas,casos',
+  );
+  ok(
+    'lista absurda recusada',
+    (await prefs({ closedFolders: Array.from({ length: 31 }, (_, i) => `p${i}`) })).statusCode ===
+      400,
+  );
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { preferences: { closedFolders: 'inválido', pageSize: 25 } },
+  });
+  ok(
+    'valor antigo inválido cai no padrão',
+    (await meNow()).preferences.closedFolders.length === 0 &&
+      (await meNow()).preferences.pageSize === 25,
+  );
+
   // 1. Orcamento de memoria dos envios (item 117).
   const gate = new UploadGate(100);
   const first = gate.tryAcquire(60);

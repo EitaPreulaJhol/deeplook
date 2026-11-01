@@ -3415,3 +3415,4 @@ As pastas do Navegador voltavam todas abertas a cada sessão. **Decisão:** guar
 do usuário, no servidor: vale para as próximas sessões e em outro computador. "Restaurar padrões" e
 "Salvar" das Preferências não mexem nisso.
 
+✅ **Implementado:** as pastas recolhidas ficam em `closedFolders` nas preferências, gravadas 400 ms depois do último clique. Valem para as próximas sessões e em outro computador. **Se a gravação falhar,** a pasta segue recolhida na sessão, sem aviso de erro, e a mudança não vale para a próxima.

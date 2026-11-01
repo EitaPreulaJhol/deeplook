@@ -138,6 +138,8 @@ export interface Preferences {
   restoreTabs: boolean;
   /** Painel de detalhe abaixo das listas. */
   detailPane: boolean;
+  /** Pastas recolhidas no Navegador. */
+  closedFolders: string[];
 }
 
 /** Usuario da sessao atual: inclui as preferencias. */

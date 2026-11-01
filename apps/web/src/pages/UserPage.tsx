@@ -84,8 +84,8 @@ export function UserPage() {
         {tab === 'senha' &&
           (user?.ldap ? (
             <HpsmMessage kind="info">
-              Sua conta é da rede (AD): a senha e a validade dela são as do AD. Para trocá-la, use
-              o processo da empresa. O 2FA do DeepLook continua valendo.
+              Sua conta é da rede (AD): a senha e a validade dela são as do AD. Para trocá-la, use o
+              processo da empresa. O 2FA do DeepLook continua valendo.
             </HpsmMessage>
           ) : (
             <PasswordTab />
@@ -249,7 +249,9 @@ function PreferencesTab() {
   const [result, setResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   useUnsavedChanges(
-    (Object.keys(draft) as (keyof Preferences)[]).some((key) => draft[key] !== preferences[key]),
+    (Object.keys(draft) as (keyof Preferences)[]).some(
+      (key) => key !== 'closedFolders' && draft[key] !== preferences[key],
+    ),
   );
 
   const set = <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
@@ -260,7 +262,9 @@ function PreferencesTab() {
     setResult(null);
     setSaving(true);
     try {
-      await updatePreferences(draft);
+      // As pastas do Navegador nao sao desta tela: o rascunho pode estar velho.
+      const { closedFolders: _menu, ...fields } = draft;
+      await updatePreferences(fields);
       setResult({ kind: 'success', text: 'Preferências salvas.' });
     } catch (err) {
       setResult({ kind: 'error', text: (err as Error).message });

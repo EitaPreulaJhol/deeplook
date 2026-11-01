@@ -175,6 +175,15 @@ try {
     JSON.stringify(tagged?.tags),
   );
 
+  // 3c. Pasta recolhida no Navegador: gravada de verdade e de volta ao recarregar.
+  const folderHead = page.locator('.hpsm-tree button:has-text("Gestão")');
+  const saved = page.waitForResponse((r) => r.url().endsWith('/api/me/preferences') && r.request().method() === 'PATCH');
+  await folderHead.click();
+  expect('grava a pasta recolhida', (await saved).status() === 200);
+  await page.reload({ waitUntil: 'networkidle' });
+  expect('pasta continua recolhida', (await folderHead.getAttribute('aria-expanded')) === 'false');
+  await folderHead.click();
+
   // 4. Telas do admin.
   for (const path of [
     '/inicio',

@@ -34,7 +34,7 @@ const now = '2026-10-20T13:00:00.000Z';
 /** Conteudo cujo SHA-256 coincide com o da amostra e1 (teste de duplicata). */
 export const DUPLICATE_SAMPLE = Buffer.from('deeplook: amostra repetida para o teste de duplicata');
 const DUPLICATE_SHA = createHash('sha256').update(DUPLICATE_SAMPLE).digest('hex');
-export const DEFAULT_PREFERENCES = { startPage: 'welcome', pageSize: 50, restoreTabs: true, detailPane: false };
+export const DEFAULT_PREFERENCES = { startPage: 'welcome', pageSize: 50, restoreTabs: true, detailPane: false, closedFolders: [] };
 
 const owner = { id: 'u2', displayName: 'Bruno Lima', email: 'bruno@deeplook.test' };
 export const users = [

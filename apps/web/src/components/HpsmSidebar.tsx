@@ -189,10 +189,26 @@ function favoriteLeaf(favorite: Favorite): NavLeaf {
 }
 
 export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
-  const { user } = useAuth();
+  const { user, preferences, updatePreferences } = useAuth();
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
-  const [closedFolders, setClosedFolders] = useState<Set<string>>(() => new Set());
+  const [closedFolders, setClosedFolders] = useState<Set<string>>(
+    () => new Set(preferences.closedFolders),
+  );
+  // Grava pouco depois do ultimo clique (item 141): o estado da tela e o daqui, entao
+  // a resposta de uma gravacao nao desfaz um clique mais novo.
+  const pendingFolders = useRef<string[] | null>(null);
+  const saveTimer = useRef<number | undefined>(undefined);
+  const flushFolders = useRef(() => {});
+  flushFolders.current = () => {
+    window.clearTimeout(saveTimer.current);
+    if (!pendingFolders.current) return;
+    const closedList = pendingFolders.current;
+    pendingFolders.current = null;
+    // Falhou: so nao vale para a proxima sessao; nao interrompe quem esta navegando.
+    updatePreferences({ closedFolders: closedList }).catch(() => undefined);
+  };
+  useEffect(() => () => flushFolders.current(), []);
   const favs = useFavorites();
   const confirm = useConfirm();
   const prompt = usePrompt();
@@ -269,12 +285,13 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   };
 
   const toggleFolder = (id: string) => {
-    setClosedFolders((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(closedFolders);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setClosedFolders(next);
+    pendingFolders.current = [...next];
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => flushFolders.current(), 400);
   };
 
   /** Executa uma acao dos Favoritos; erro da API vai para a barra de mensagens. */

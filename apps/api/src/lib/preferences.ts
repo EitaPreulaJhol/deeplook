@@ -10,6 +10,8 @@ export const PreferencesSchema = z.object({
   restoreTabs: z.boolean(),
   /** Painel de detalhe abaixo das listas (clique seleciona, duplo clique abre). */
   detailPane: z.boolean(),
+  /** Pastas recolhidas no Navegador (item 141). */
+  closedFolders: z.array(z.string().min(1).max(40)).max(30),
 });
 
 export type Preferences = z.infer<typeof PreferencesSchema>;
@@ -19,6 +21,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pageSize: 50,
   restoreTabs: true,
   detailPane: false,
+  closedFolders: [],
 };
 
 /** Atualizacao parcial; chaves desconhecidas sao recusadas. */
