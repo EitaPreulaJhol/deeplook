@@ -3471,3 +3471,48 @@ o autor nas mensagens de detecção, o que foi aceito.
 A varredura roda na thread principal da API. **Decisão:** medir com os pacotes; se travar a API por
 tempo perceptível, mover a compilação e a varredura para uma thread separada.
 ✅ **Implementado:** medido antes: compilar travava a API por 2,8 s (5,9 s com a signature-base) e varrer 200 MB por até 2 s. Compilação e varredura, inclusive a retroativa, foram para uma thread separada, uma varredura por vez. O teste exige que a API continue respondendo enquanto compila. **Custo:** o arquivo é copiado para a thread durante a varredura, e as regras compiladas ocupam cerca de 70 MB.
+
+### 147. Os 13 arquivos da signature-base com variáveis externas
+Pedem `filename`, `filepath`, `extension`, `filetype` e `owner`, que vêm da varredura de um disco.
+**Decisões:** o DeepLook define só o que sabe de verdade:
+- `filename` e `extension`: o nome original do arquivo enviado;
+- `filetype`: o tipo detectado na análise (EXE, ELF, MACH-O, RTF, PowerShell, VBS, BATCH), senão vazio;
+- `filepath` e `owner`: vazios, porque um envio não tem pasta nem dono. A regra que exige um caminho
+  nunca dispara; a que só exclui caminhos (cache de navegador) continua valendo, que é o certo para
+  um arquivo enviado.
+- As regras `Suspicious_Size_*` ficam ignoradas: comparam o tamanho de arquivos do Windows e marcaram
+  o `winlogon.exe` legítimo deste Windows 11. O arquivo continua sem alteração.
+✅ **Implementado:** os 752 arquivos da signature-base entram, nenhum de fora. Em 2.064 arquivos benignos com os nomes reais (System32, drivers e outros), os 13 só marcaram o `winlogon.exe`, por `Suspicious_Size_winlogon_exe`, agora ignorada. **Limite:** regra que exige um caminho, como a pasta do ScreenConnect, não dispara em envio.
+
+### 148. Motor YARA para de funcionar depois de cerca de 16 mil chamadas
+Achado em 01/11/2026 ao testar as variáveis, com as versões 1.21.0 e 1.22.0 do `@virustotal/yara-x`:
+varredura e `setGlobal` somam sempre cerca de 16.270 chamadas, e depois toda varredura falha com
+`unreachable` até reiniciar a API. Já valia antes das variáveis, em cerca de 16 mil varreduras.
+**Decisão:** reciclar a thread antes do limite e quando o motor quebrar, repetindo a varredura uma vez.
+✅ **Implementado:** a thread é trocada a cada 9 mil chamadas, cerca de mil varreduras depois de compilar tudo, e a varredura que encontra o motor quebrado é repetida numa thread nova. Testado com 3 mil varreduras seguidas. **Custo:** recompilar leva cerca de 8 s com os três pacotes, sem travar a API; quem chega nesse intervalo espera na fila. **Em aberto:** a 1.22.1 não foi concluída no teste e ainda não tem as duas semanas de idade exigidas.
+
+### 149. Memória da varredura
+O arquivo era copiado duas vezes para a thread, e o WebAssembly nunca devolve memória.
+**Decisão:** uma cópia só, transferida; reciclar a thread depois de arquivo grande; medir antes de mudar
+o `mem_limit`.
+✅ **Implementado:** medido com os três pacotes e um arquivo de 200 MB: regras compiladas em cerca de 220 MB e pico de 909 MB, que volta para cerca de 300 MB ao trocar a thread, feito depois de arquivos a partir de 100 MB. O `mem_limit` de 4 GB fica como está. **Não testado** num container limitado, com vários envios grandes ao mesmo tempo.
+
+### 150. Atualização automática dos pacotes — planejamento
+**Plano proposto, ainda não implementado:**
+- **Fonte:** só os três repositórios, fixos no código. O ZIP do commit é lido em memória, com limite de
+  tamanho; nada é gravado em disco nem executado.
+- **Frequência:** verificação semanal e botão "Verificar agora". Em 90 dias, a signature-base teve 15
+  commits, e as outras duas, nenhum.
+- **Filtros antes de aplicar:** commit com pelo menos 7 dias; licença idêntica; cada arquivo compila,
+  senão fica a versão anterior dele; até 20% de conjuntos alterados ou removidos; nenhuma regra nova
+  dispara nas amostras recentes com veredito Limpo; compilação até 2x mais lenta. Se um filtro de
+  pacote falhar, a atualização fica retida, aguardando a aprovação de um admin.
+- **Aplicação:** tudo em uma transação, com a versão anterior guardada e botão para voltar. Regra
+  desativada continua desativada; regra excluída não volta (lembrada pelo caminho do arquivo); arquivo
+  novo entra ativo; arquivo removido na fonte sai.
+- **Depois:** auditoria, aviso aos admins e linha no Status do sistema. Amostras antigas não são
+  varridas sozinhas.
+- **Sem internet:** nada muda, e a verificação tenta de novo na próxima vez.
+- **Etapas:** (1) identificar a regra por pacote e arquivo e lembrar as excluídas; (2) verificar sem
+  aplicar, mostrando o que mudaria; (3) aplicar e voltar; (4) agendar e ligar nas Configurações.
+

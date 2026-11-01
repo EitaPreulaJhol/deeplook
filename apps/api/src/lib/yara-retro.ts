@@ -4,7 +4,7 @@ import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
 import { prisma } from './prisma';
 import { s3 } from './s3';
-import { dropFromWorker, scanInWorker, type YaraHit } from './yara';
+import { dropFromWorker, scanContextOf, scanInWorker, type YaraHit } from './yara';
 import { yaraPackInfo } from './yara-packs';
 
 /**
@@ -146,7 +146,13 @@ async function run(
         orderBy: { id: 'asc' },
         take: PAGE,
         ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-        select: { id: true, storageKey: true, bucket: true },
+        select: {
+          id: true,
+          storageKey: true,
+          bucket: true,
+          originalFilename: true,
+          staticInfo: true,
+        },
       });
       if (!page.length) break;
       for (const entry of page) {
@@ -158,8 +164,13 @@ async function run(
           return;
         }
         try {
-          const content = new Uint8Array(await readFile(entry));
-          const hits = await scanInWorker(key, id, loadRule, content);
+          const hits = await scanInWorker(
+            key,
+            id,
+            loadRule,
+            await readFile(entry),
+            scanContextOf(entry),
+          );
           await mergeIntoScan(entry.id, rule.name, hits);
           if (hits.length) {
             matched += 1;

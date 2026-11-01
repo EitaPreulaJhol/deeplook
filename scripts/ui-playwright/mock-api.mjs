@@ -221,7 +221,7 @@ export function createState({ loggedIn = false } = {}) {
     yaraPacks: [
       { id: 'reversinglabs', name: 'ReversingLabs', author: 'ReversingLabs', license: 'MIT', url: 'https://github.com/reversinglabs/reversinglabs-yara-rules', description: 'Malware e ransomware.', commit: 'e0a0be54', commitDate: '2025-11-03', enabled: true, installed: true, fileCount: 310, excludedCount: 0, rulesTotal: 310, rulesActive: 310 },
       { id: 'bartblaze', name: 'bartblaze', author: 'bartblaze', license: 'MIT', url: 'https://github.com/bartblaze/Yara-rules', description: 'APT, crime e ransomware.', commit: '5cc871d8', commitDate: '2026-01-28', enabled: true, installed: true, fileCount: 89, excludedCount: 0, rulesTotal: 89, rulesActive: 89 },
-      { id: 'signature-base', name: 'signature-base', author: 'Florian Roth (Neo23x0)', license: 'DRL 1.1', url: 'https://github.com/Neo23x0/signature-base', description: 'Base ampla.', commit: '36ab7042', commitDate: '2026-10-29', enabled: false, installed: false, fileCount: 739, excludedCount: 13, rulesTotal: 0, rulesActive: 0 },
+      { id: 'signature-base', name: 'signature-base', author: 'Florian Roth (Neo23x0)', license: 'DRL 1.1', url: 'https://github.com/Neo23x0/signature-base', description: 'Base ampla.', commit: '36ab7042', commitDate: '2026-10-29', enabled: false, installed: false, fileCount: 752, excludedCount: 0, rulesTotal: 0, rulesActive: 0 },
     ],
     yaraPackRules: [
       { id: 'pr1', name: 'bartblaze/APT/Autumn_Backdoor_Loader', enabled: true, pack: 'bartblaze', source: 'rule Autumn { meta: author = "@bartblaze" description = "<b>x</b>" condition: false }' },

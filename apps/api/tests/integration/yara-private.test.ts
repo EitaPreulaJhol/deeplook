@@ -1,5 +1,11 @@
 import { prisma } from '../../src/lib/prisma';
-import { compileRuleSets, scanBuffer, yaraScanEntry } from '../../src/lib/yara';
+import {
+  compileRuleSets,
+  scanBuffer,
+  scanWithYara,
+  yaraScanEntry,
+  yaraWorkerRestarts,
+} from '../../src/lib/yara';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -80,6 +86,37 @@ rule nao_casa { strings: $a = "NUNCA" condition: auxiliar and $a }`,
     include: { tags: true },
   });
   ok('pública: aciona a triagem', dirtyTags?.tags[0]?.name === 'yara-casou', dirtyTags?.tags);
+
+  // 4. Limite do motor (item 148): a thread e trocada antes de quebrar, sem falhar.
+  await prisma.yaraRule.deleteMany({});
+  await prisma.yaraRule.create({
+    data: { name: 'Volume', source: 'rule volume { strings: $a = "MARCA" condition: $a }' },
+  });
+  const before = yaraWorkerRestarts();
+  let failed = 0;
+  // 18 mil chamadas: passa do ponto em que o motor quebraria (cerca de 16.270).
+  for (let i = 0; i < 3_000; i++) {
+    const { hits } = await scanWithYara(Buffer.from('xx MARCA'), {
+      filename: `a${i}.exe`,
+      filepath: '',
+      extension: '.exe',
+      filetype: 'EXE',
+      owner: '',
+    });
+    if (hits.length !== 1) failed += 1;
+  }
+  ok('3 mil varreduras sem falha', failed === 0, failed);
+  ok('thread reciclada', yaraWorkerRestarts() > before, yaraWorkerRestarts());
+
+  // 5. Arquivo grande: thread nova depois dele, para devolver a memoria (item 149).
+  const beforeBig = yaraWorkerRestarts();
+  const big = Buffer.alloc(101 * 1024 * 1024);
+  big.write('MARCA', 50 * 1024 * 1024);
+  const copyCheck = big[0];
+  ok('arquivo grande detecta', (await scanWithYara(big)).hits.length === 1);
+  ok('thread nova depois do grande', yaraWorkerRestarts() === beforeBig + 1);
+  ok('o original continua utilizável', big.length > 0 && big[0] === copyCheck);
+  ok('segue varrendo', (await scanWithYara(Buffer.from('MARCA'))).hits.length === 1);
 
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');

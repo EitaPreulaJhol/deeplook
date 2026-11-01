@@ -285,7 +285,7 @@ O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem ba
 |---|---|---|---|
 | ReversingLabs (310 conjuntos) | ReversingLabs | MIT | ligado |
 | bartblaze (89, sem a pasta `generic`) | bartblaze | MIT | ligado |
-| signature-base (739) | Florian Roth (Neo23x0) | DRL 1.1 | desligado |
+| signature-base (752) | Florian Roth (Neo23x0) | DRL 1.1 | desligado |
 
 - **Ligar e desligar:** em **Administração > Configurações**. Desligar não apaga nada; as regras só
   saem da varredura dos próximos arquivos.
@@ -293,8 +293,10 @@ O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem ba
   na tela Regras YARA não volta sozinho.
 - **Regra de pacote não se edita:** para mudar, escreva uma regra da equipe.
 - **Autoria:** a ficha mostra o autor e o pacote de cada detecção. A DRL 1.1 exige isso.
-- **Fora da signature-base:** 13 arquivos que usam variáveis externas (`filename`, `filepath`,
-  `extension`), que o DeepLook não define.
+- **Variáveis das regras:** `filename`, `extension` e `filetype` vêm da amostra. `filepath` e `owner`
+  ficam vazios, porque um envio não tem pasta nem dono: regra que exige um caminho não dispara. As
+  regras `Suspicious_Size_*` ficam ignoradas, porque marcam arquivos legítimos do Windows. Regras da
+  equipe também podem usar essas variáveis.
 - **Atualizar:** `node scripts/vendor-yara-packs.mjs <pasta com os clones>` copia as versões novas,
   mas o que já foi instalado não muda sozinho.
 - **Amostras antigas:** os pacotes valem para os próximos arquivos. Para as antigas, use "Aplicar às

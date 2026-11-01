@@ -13,6 +13,7 @@ import {
   compileRuleSets,
   type RuleSet,
   scanBuffer,
+  type ScanContext,
   validateRule,
   type YaraHit,
 } from './yara-engine';
@@ -28,11 +29,28 @@ export type { RuleSet, YaraHit };
  * arquivo enviado, numa thread separada (item 146); nada e executado.
  */
 
+/**
+ * O motor (`@virustotal/yara-x` 1.21 e 1.22.0) quebra de vez em cerca de 16.270 chamadas
+ * entre `scan` e `setGlobal`, e so volta numa thread nova (item 148). Com folga: a
+ * compilacao tambem conta.
+ */
+const MAX_ENGINE_CALLS = 9_000;
+/** Uma varredura e as cinco variaveis (ScanContext). */
+const CALLS_PER_SCAN = 6;
+const CALLS_PER_SET = 2;
+/** O WebAssembly nunca devolve memoria: depois de um arquivo assim, thread nova (item 149). */
+const RECYCLE_AFTER_BYTES = 100 * 1024 * 1024;
+
 let worker: Worker | null = null;
 const waiting = new Map<number, { resolve: (v: never) => void; reject: (e: Error) => void }>();
 let nextId = 0;
+let engineCalls = 0;
+let workerRestarts = 0;
 /** Conjuntos que a thread tem carregados: chave -> versao. */
 const loadedVersions = new Map<string, string>();
+
+/** Para os testes: quantas vezes a thread foi trocada. */
+export const yaraWorkerRestarts = () => workerRestarts;
 
 function yaraWorker(): Worker {
   if (worker) return worker;
@@ -47,8 +65,10 @@ function yaraWorker(): Worker {
   });
   // Thread caiu: o que estava em andamento falha, e a proxima chamada sobe outra.
   const lost = (err: Error) => {
-    if (worker === created) worker = null;
+    if (worker !== created) return;
+    worker = null;
     loadedVersions.clear();
+    engineCalls = 0;
     for (const pending of waiting.values()) pending.reject(err);
     waiting.clear();
   };
@@ -58,11 +78,21 @@ function yaraWorker(): Worker {
   return created;
 }
 
-function call<T>(request: YaraRequest): Promise<T> {
+/** Troca a thread (a proxima chamada sobe outra e recompila, sem travar a API). */
+async function recycleWorker() {
+  const old = worker;
+  worker = null;
+  loadedVersions.clear();
+  engineCalls = 0;
+  workerRestarts += 1;
+  if (old) await old.terminate();
+}
+
+function call<T>(request: YaraRequest, transfer: ArrayBuffer[] = []): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const id = ++nextId;
     waiting.set(id, { resolve: resolve as (v: never) => void, reject });
-    yaraWorker().postMessage({ id, request });
+    yaraWorker().postMessage({ id, request }, transfer);
   });
 }
 
@@ -80,15 +110,36 @@ export function scanInWorker(
   version: string,
   loadSets: () => Promise<RuleSet[]>,
   content: Uint8Array,
+  context?: ScanContext,
 ): Promise<YaraHit[]> {
-  return inTurn(async () => {
+  const attempt = async () => {
+    if (engineCalls >= MAX_ENGINE_CALLS) await recycleWorker();
     if (loadedVersions.get(key) !== version) {
       loadedVersions.delete(key);
-      await call({ type: 'load', key, sets: await loadSets() });
+      const sets = await loadSets();
+      await call({ type: 'load', key, sets });
       loadedVersions.set(key, version);
+      engineCalls += sets.length * CALLS_PER_SET;
     }
-    const { hits } = await call<{ hits: YaraHit[] }>({ type: 'scan', key, content });
+    // Copia para a thread sem clonar de novo; o original pode estar em uso no antivirus.
+    const copy = new Uint8Array(content);
+    const { hits } = await call<{ hits: YaraHit[] }>(
+      { type: 'scan', key, content: copy, context },
+      [copy.buffer],
+    );
+    engineCalls += CALLS_PER_SCAN;
+    if (content.length >= RECYCLE_AFTER_BYTES) await recycleWorker();
     return hits;
+  };
+  return inTurn(async () => {
+    try {
+      return await attempt();
+    } catch (err) {
+      // Motor quebrado ou thread perdida: uma nova tentativa, numa thread nova.
+      if (!/unreachable|thread de varredura|memory/i.test((err as Error).message)) throw err;
+      await recycleWorker();
+      return attempt();
+    }
   });
 }
 
@@ -100,13 +151,42 @@ export function dropFromWorker(key: string): Promise<void> {
   });
 }
 
+const FILE_TYPES: Record<string, string> = { pe: 'EXE', elf: 'ELF', macho: 'MACH-O', rtf: 'RTF' };
+const SCRIPT_TYPES: Record<string, string> = {
+  powershell: 'PowerShell',
+  vbscript: 'VBS',
+  batch: 'BATCH',
+};
+
+/** Variaveis da amostra para as regras (item 147): so o que o DeepLook sabe de verdade. */
+export function scanContextOf(entry: {
+  originalFilename: string | null;
+  staticInfo?: unknown;
+}): ScanContext {
+  const filename = (entry.originalFilename ?? '').split(/[\\/]/).pop() ?? '';
+  const dot = filename.lastIndexOf('.');
+  const info = (entry.staticInfo ?? {}) as {
+    detectedType?: { id?: string } | null;
+    script?: { language?: string } | null;
+  };
+  return {
+    filename,
+    filepath: '',
+    extension: dot > 0 ? filename.slice(dot).toLowerCase() : '',
+    filetype:
+      SCRIPT_TYPES[info.script?.language ?? ''] ?? FILE_TYPES[info.detectedType?.id ?? ''] ?? '',
+    owner: '',
+  };
+}
+
 /**
  * Varre com as regras ativas, cada uma no proprio namespace (dois analistas podem
  * usar o mesmo identificador). A thread recompila so quando as regras mudam; o
  * texto das regras so sai do banco nesse caso.
  */
 export async function scanWithYara(
-  buffer: Buffer,
+  buffer: Uint8Array,
+  context?: ScanContext,
 ): Promise<{ hits: YaraHit[]; rulesCount: number; version: string | null }> {
   const where = await activeRulesWhere();
   const active = await prisma.yaraRule.findMany({
@@ -130,7 +210,8 @@ export async function scanWithYara(
           orderBy: { name: 'asc' },
         })
       ).map((r) => ({ ...r, pack: yaraPackInfo(r.pack) })),
-    new Uint8Array(buffer),
+    buffer,
+    context,
   );
   return { hits, rulesCount: active.length, version };
 }
@@ -143,19 +224,20 @@ export async function yaraScanEntry(entryId: string, buffer?: Buffer): Promise<v
     update: { status: 'PENDING', error: null },
   });
   try {
+    const entry = await prisma.entry.findUnique({
+      where: { id: entryId },
+      select: { storageKey: true, bucket: true, originalFilename: true, staticInfo: true },
+    });
+    if (!entry) throw new Error('amostra não encontrada');
     let content = buffer;
     if (!content) {
-      const entry = await prisma.entry.findUnique({
-        where: { id: entryId },
-        select: { storageKey: true, bucket: true },
-      });
-      if (!entry?.storageKey) throw new Error('arquivo indisponível');
+      if (!entry.storageKey) throw new Error('arquivo indisponível');
       const obj = await s3.send(
         new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }),
       );
       content = Buffer.from(await obj.Body!.transformToByteArray());
     }
-    const { hits, rulesCount } = await scanWithYara(content);
+    const { hits, rulesCount } = await scanWithYara(content, scanContextOf(entry));
     await prisma.yaraScan.update({
       where: { entryId },
       data: {

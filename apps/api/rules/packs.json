@@ -434,6 +434,9 @@
     "url": "https://github.com/Neo23x0/signature-base",
     "defaultEnabled": false,
     "description": "Base ampla e muito atualizada: APT, crime, ferramentas de ataque e webshells.",
+    "ignoreRules": [
+      "Suspicious_Size_"
+    ],
     "commit": "36ab70428fc5b52701b7ee6107c853ff019ed759",
     "commitDate": "2026-10-29",
     "files": [
@@ -760,6 +763,7 @@
       "cn_pentestset_scripts.yar",
       "cn_pentestset_tools.yar",
       "cn_pentestset_webshells.yar",
+      "configured_vulns_ext_vars.yar",
       "crime_academic_data_centers_camp_may20.yar",
       "crime_andromeda_jun17.yar",
       "crime_antifw_installrex.yar",
@@ -853,8 +857,10 @@
       "crime_zeus_panda.yar",
       "crime_zloader_maldocs.yar",
       "expl_adselfservice_cve_2021_40539.yar",
+      "expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar",
       "expl_cleo_dec24.yar",
       "expl_commvault_cve_2025_57791.yar",
+      "expl_connectwise_screenconnect_vuln_feb24.yar",
       "expl_copy_fail_cve_2026_31431.yar",
       "expl_cups_sep24.yar",
       "expl_cve_2021_1647.yar",
@@ -938,6 +944,7 @@
       "gen_excel_xll_addin_suspicious.yar",
       "gen_excel_xor_obfuscation_velvetsweatshop.yar",
       "gen_exploit_cve_2017_10271_weblogic.yar",
+      "gen_fake_amsi_dll.yar",
       "gen_faked_versions.yar",
       "gen_file_anomalies.yar",
       "gen_fireeye_redteam_tools.yar",
@@ -973,6 +980,7 @@
       "gen_macro_ShellExecute_action.yar",
       "gen_macro_builders.yar",
       "gen_macro_staroffice_suspicious.yar",
+      "gen_mal_3cx_compromise_mar23.yar",
       "gen_mal_backnet.yar",
       "gen_mal_link.yar",
       "gen_mal_scripts.yar",
@@ -1039,6 +1047,7 @@
       "gen_susp_lnk.yar",
       "gen_susp_lnk_files.yar",
       "gen_susp_net_msil.yar",
+      "gen_susp_obfuscation.yar",
       "gen_susp_office_dropper.yar",
       "gen_susp_ps_jab.yar",
       "gen_susp_sfx.yar",
@@ -1058,9 +1067,11 @@
       "gen_unspecified_malware.yar",
       "gen_url_persitence.yar",
       "gen_url_to_local_exe.yar",
+      "gen_vcruntime140_dll_sideloading.yar",
       "gen_vhd_anomaly.yar",
       "gen_webshell_csharp.yar",
       "gen_webshells.yar",
+      "gen_webshells_ext_vars.yar",
       "gen_win_privesc.yar",
       "gen_winpayloads.yar",
       "gen_winshells.yar",
@@ -1070,7 +1081,9 @@
       "gen_xtreme_rat.yar",
       "gen_ysoserial_payloads.yar",
       "gen_zoho_rcef_logs.yar",
+      "general_cloaking.yar",
       "general_officemacros.yar",
+      "generic_anomalies.yar",
       "generic_cryptors.yar",
       "generic_dumps.yar",
       "generic_exe2hex_payload.yar",
@@ -1154,6 +1167,7 @@
       "susp_vulndriver_hp_hardware_diagnostics_etdsupp_may23.yar",
       "thor-hacktools.yar",
       "thor-webshells.yar",
+      "thor_inverse_matches.yar",
       "threat_compromised_daemon_tools_lite_may26.yar",
       "threat_lenovo_superfish.yar",
       "vul_backdoor_antitheftweb.yar",
@@ -1175,61 +1189,10 @@
       "webshell_regeorg.yar",
       "webshell_xsl_transform.yar",
       "yara-rules_mal_drivers.yar",
-      "yara-rules_vuln_drivers_strict.yar"
+      "yara-rules_vuln_drivers_strict.yar",
+      "yara-rules_vuln_drivers_strict_renamed.yar",
+      "yara_mixed_ext_vars.yar"
     ],
-    "excluded": [
-      {
-        "file": "configured_vulns_ext_vars.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      },
-      {
-        "file": "expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar",
-        "why": "error[E009]: unknown identifier `filepath`"
-      },
-      {
-        "file": "expl_connectwise_screenconnect_vuln_feb24.yar",
-        "why": "error[E009]: unknown identifier `filepath`"
-      },
-      {
-        "file": "general_cloaking.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      },
-      {
-        "file": "generic_anomalies.yar",
-        "why": "error[E009]: unknown identifier `extension`"
-      },
-      {
-        "file": "gen_fake_amsi_dll.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      },
-      {
-        "file": "gen_mal_3cx_compromise_mar23.yar",
-        "why": "error[E009]: unknown identifier `extension`"
-      },
-      {
-        "file": "gen_susp_obfuscation.yar",
-        "why": "error[E009]: unknown identifier `filepath`"
-      },
-      {
-        "file": "gen_vcruntime140_dll_sideloading.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      },
-      {
-        "file": "gen_webshells_ext_vars.yar",
-        "why": "error[E009]: unknown identifier `filepath`"
-      },
-      {
-        "file": "thor_inverse_matches.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      },
-      {
-        "file": "yara-rules_vuln_drivers_strict_renamed.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      },
-      {
-        "file": "yara_mixed_ext_vars.yar",
-        "why": "error[E009]: unknown identifier `filename`"
-      }
-    ]
+    "excluded": []
   }
 ]

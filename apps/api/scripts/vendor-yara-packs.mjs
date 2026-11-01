@@ -52,6 +52,8 @@ const PACKS = [
     defaultEnabled: false,
     description: 'Base ampla e muito atualizada: APT, crime, ferramentas de ataque e webshells.',
     skip: () => false,
+    // Comparam o tamanho de arquivos do Windows: marcam o legitimo em outra versao.
+    ignoreRules: ['Suspicious_Size_'],
   },
 ];
 
@@ -79,6 +81,9 @@ const problem = (bytes) => {
   }
   if (text.includes('\0')) return 'tem byte nulo';
   const compiler = new yara.Compiler();
+  for (const name of ['filename', 'filepath', 'extension', 'filetype', 'owner']) {
+    compiler.defineGlobal(name, '');
+  }
   try {
     compiler.addSource(text);
     compiler.build().free();
@@ -121,6 +126,7 @@ for (const pack of PACKS) {
     url: pack.url,
     defaultEnabled: pack.defaultEnabled,
     description: pack.description,
+    ...(pack.ignoreRules ? { ignoreRules: pack.ignoreRules } : {}),
     commit: git('rev-parse', 'HEAD'),
     commitDate: git('log', '-1', '--format=%cs'),
     files: files.sort(),

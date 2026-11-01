@@ -1,6 +1,12 @@
 import { parentPort } from 'node:worker_threads';
 
-import { type CompiledRules, compileRuleSets, type RuleSet, scanBuffer } from './yara-engine';
+import {
+  type CompiledRules,
+  compileRuleSets,
+  type RuleSet,
+  scanBuffer,
+  type ScanContext,
+} from './yara-engine';
 
 /**
  * Thread da varredura YARA (item 146): compilar leva segundos e varrer um arquivo
@@ -8,7 +14,7 @@ import { type CompiledRules, compileRuleSets, type RuleSet, scanBuffer } from '.
  */
 export type YaraRequest =
   | { type: 'load'; key: string; sets: RuleSet[] }
-  | { type: 'scan'; key: string; content: Uint8Array }
+  | { type: 'scan'; key: string; content: Uint8Array; context?: ScanContext }
   | { type: 'drop'; key: string };
 
 const loaded = new Map<string, CompiledRules>();
@@ -29,7 +35,7 @@ function handle(request: YaraRequest): unknown {
   }
   const compiled = loaded.get(request.key);
   if (!compiled) throw new Error('regras não carregadas');
-  return { hits: scanBuffer(compiled, request.content) };
+  return { hits: scanBuffer(compiled, request.content, request.context) };
 }
 
 parentPort!.on('message', ({ id, request }: { id: number; request: YaraRequest }) => {

@@ -21,10 +21,35 @@ function init() {
   ready = true;
 }
 
+/**
+ * Variaveis externas que regras de terceiros usam (item 147). Vieram da varredura de
+ * um disco: num envio nao ha pasta nem dono, entao `filepath` e `owner` ficam vazios.
+ */
+export interface ScanContext {
+  filename: string;
+  filepath: string;
+  extension: string;
+  filetype: string;
+  owner: string;
+}
+
+const EMPTY_CONTEXT: ScanContext = {
+  filename: '',
+  filepath: '',
+  extension: '',
+  filetype: '',
+  owner: '',
+};
+
+function defineGlobals(compiler: Compiler) {
+  for (const [name, value] of Object.entries(EMPTY_CONTEXT)) compiler.defineGlobal(name, value);
+}
+
 /** Valida uma regra sozinha; devolve as mensagens de erro do compilador (vazio = ok). */
 export function validateRule(source: string): { errors: string[]; warnings: string[] } {
   init();
   const compiler = new Compiler();
+  defineGlobals(compiler);
   try {
     compiler.addSource(source);
   } catch (err) {
@@ -49,7 +74,7 @@ export interface RuleSet {
   name: string;
   source: string;
   /** Pacote de onde a regra veio (item 145); null nas regras da equipe. */
-  pack?: { name: string; author: string } | null;
+  pack?: { name: string; author: string; ignoreRules?: string[] } | null;
 }
 
 export interface YaraHit {
@@ -81,6 +106,7 @@ export function compileRuleSets(sets: RuleSet[]): CompiledRules {
   init();
   const attempt = (list: RuleSet[]) => {
     const compiler = new Compiler();
+    defineGlobals(compiler);
     const failed = new Set<string>();
     for (const set of list) {
       compiler.newNamespace(`r_${set.id}`);
@@ -105,11 +131,16 @@ export function compileRuleSets(sets: RuleSet[]): CompiledRules {
 }
 
 /** Varre o conteudo com regras ja compiladas (limites de tempo e de ocorrencias). */
-export function scanBuffer(compiled: CompiledRules, buffer: Uint8Array): YaraHit[] {
+export function scanBuffer(
+  compiled: CompiledRules,
+  buffer: Uint8Array,
+  context: ScanContext = EMPTY_CONTEXT,
+): YaraHit[] {
   const scanner = compiled.rules.scanner();
   scanner.setTimeoutMs(SCAN_TIMEOUT_MS);
   scanner.setMaxMatchesPerPattern(MAX_MATCHES_PER_PATTERN);
   try {
+    for (const [name, value] of Object.entries(context)) scanner.setGlobal(name, value);
     const result = scanner.scan(buffer) as {
       matches: {
         identifier: string;
@@ -121,8 +152,12 @@ export function scanBuffer(compiled: CompiledRules, buffer: Uint8Array): YaraHit
       }[];
     };
     // O YARA-X devolve tambem as privadas: sao pecas de outras regras, nao deteccoes.
+    const ignored = (m: { namespace: string; identifier: string }) =>
+      compiled.sets
+        .get(m.namespace)
+        ?.pack?.ignoreRules?.some((prefix) => m.identifier.startsWith(prefix));
     return result.matches
-      .filter((m) => !m.isPrivate)
+      .filter((m) => !m.isPrivate && !ignored(m))
       .map((m) => {
         const set = compiled.sets.get(m.namespace);
         const meta = (name: string) => m.metadata.find((x) => x.identifier === name)?.value;

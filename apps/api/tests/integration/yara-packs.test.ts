@@ -7,7 +7,7 @@ import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
-import { scanWithYara } from '../../src/lib/yara';
+import { scanContextOf, scanWithYara } from '../../src/lib/yara';
 import { installYaraPacks, yaraPacks } from '../../src/lib/yara-packs';
 import { authRoutes } from '../../src/routes/auth';
 import { entryRoutes } from '../../src/routes/entries';
@@ -102,7 +102,9 @@ async function main() {
     'lista da equipe sem pacotes',
     (await req('GET', '/api/yara/rules', cAna)).json().rules.length === 0,
   );
-  const page = (await req('GET', '/api/yara/packs/bartblaze/rules?q=Autumn_Backdoor_Loader', cAna)).json();
+  const page = (
+    await req('GET', '/api/yara/packs/bartblaze/rules?q=Autumn_Backdoor_Loader', cAna)
+  ).json();
   ok('busca nas regras do pacote', page.total === 1 && page.rules[0].source === undefined, page);
   const ruleId = page.rules[0].id as string;
   const full = (await req('GET', `/api/yara/rules/${ruleId}`, cAna)).json().rule;
@@ -210,6 +212,60 @@ async function main() {
       .json()
       .rule.source.includes('author = "US CERT"'),
   );
+
+  // 6b. Os 13 arquivos com variaveis externas (item 147), com regras reais.
+  ok('nenhum arquivo de fora', manifest['signature-base'].excluded.length === 0);
+  const MZ = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
+  const idsOf = async (bytes: Buffer, originalFilename: string) =>
+    (await scanWithYara(bytes, scanContextOf({ originalFilename }))).hits.map((h) => h.identifier);
+  ok('executável como .txt', (await idsOf(MZ, 'fatura.TXT')).includes('EXE_cloaked_as_TXT'));
+  ok('o mesmo como .exe, não', !(await idsOf(MZ, 'fatura.exe')).includes('EXE_cloaked_as_TXT'));
+  ok(
+    'caminho no nome: só o arquivo',
+    (await idsOf(MZ, 'C:\\docs\\a.b\\fatura.txt')).includes('EXE_cloaked_as_TXT'),
+  );
+  ok(
+    'tamanho do Windows ignorado',
+    !(await idsOf(MZ, 'winlogon.exe')).includes('Suspicious_Size_winlogon_exe'),
+  );
+  ok('sem nome, as variáveis ficam vazias', (await scanWithYara(MZ)).hits.length === 0);
+  const ctx = scanContextOf({
+    originalFilename: 'Script.PS1',
+    staticInfo: { detectedType: { id: 'pe' }, script: { language: 'powershell' } },
+  });
+  ok(
+    'variáveis da amostra',
+    ctx.filename === 'Script.PS1' &&
+      ctx.extension === '.ps1' &&
+      ctx.filetype === 'PowerShell' &&
+      ctx.filepath === '' &&
+      ctx.owner === '',
+    ctx,
+  );
+  ok(
+    'tipo do arquivo',
+    scanContextOf({ originalFilename: 'a', staticInfo: { detectedType: { id: 'elf' } } })
+      .filetype === 'ELF',
+  );
+  ok('sem extensão', scanContextOf({ originalFilename: '.bashrc' }).extension === '');
+  const custom = await req('POST', '/api/yara/rules', cAna, {
+    name: 'Por variável',
+    source: 'rule por_variavel { condition: filename == "marca.exe" and filetype == "EXE" }',
+  });
+  ok('regra da equipe pode usar as variáveis', custom.statusCode === 201, custom.body);
+  ok(
+    'variável na regra da equipe',
+    (
+      await scanWithYara(
+        MZ,
+        scanContextOf({
+          originalFilename: 'marca.exe',
+          staticInfo: { detectedType: { id: 'pe' } },
+        }),
+      )
+    ).hits.some((h) => h.identifier === 'por_variavel'),
+  );
+  await prisma.yaraRule.delete({ where: { id: custom.json().rule.id } });
 
   // 7. Desligar o pacote guarda as escolhas; religar nao reinstala.
   await req('PATCH', `/api/yara/rules/${sigRule.id}`, cAna, { enabled: false });

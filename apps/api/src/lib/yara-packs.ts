@@ -23,6 +23,8 @@ export interface YaraPack {
   commitDate: string;
   files: string[];
   excluded: { file: string; why: string }[];
+  /** Regras ignoradas no resultado, por prefixo (item 147); o arquivo nao muda. */
+  ignoreRules?: string[];
 }
 
 /** src/lib ou dist/lib -> apps/api/rules. */
@@ -123,7 +125,9 @@ export async function yaraPackList() {
 }
 
 /** Nome e autor por pacote, para a origem no resultado da varredura. */
-export function yaraPackInfo(id: string | null): { name: string; author: string } | null {
+export function yaraPackInfo(
+  id: string | null,
+): { name: string; author: string; ignoreRules?: string[] } | null {
   const pack = id ? yaraPacks().find((p) => p.id === id) : null;
-  return pack ? { name: pack.name, author: pack.author } : null;
+  return pack ? { name: pack.name, author: pack.author, ignoreRules: pack.ignoreRules } : null;
 }

@@ -32,7 +32,7 @@ expect('licença, autor e origem à vista', section.includes('DRL 1.1') && secti
 expect('link da fonte', (await page.locator('a[href="https://github.com/Neo23x0/signature-base"]').getAttribute('rel'))?.includes('noreferrer'));
 await page.locator('label[for="yara-pack-signature-base"]').click();
 const asked = await dialog.innerText();
-expect('confirma explicando o custo', asked.includes('739') && asked.includes('mais lenta'), asked);
+expect('confirma explicando o custo', asked.includes('752') && asked.includes('mais lenta'), asked);
 await dialog.locator('button:has-text("Cancelar")').click();
 await settle();
 expect('cancelar não muda', !(await box('signature-base').isChecked()) && !state.yaraPacks.find((p) => p.id === 'signature-base').enabled);
@@ -44,7 +44,7 @@ await page.screenshot({ path: `${OUT}/configuracoes-yara.png`, fullPage: true })
 
 // 2. Tela de regras.
 await go('/yara');
-expect('pacote na lista', (await packRow('signature-base').innerText()).replace(/\s+/g, ' ').includes('DRL 1.1 739 de 739 Ligado'), await packRow('signature-base').innerText());
+expect('pacote na lista', (await packRow('signature-base').innerText()).replace(/\s+/g, ' ').includes('DRL 1.1 752 de 752 Ligado'), await packRow('signature-base').innerText());
 expect('sem regra de pacote na lista da equipe', (await page.locator('table[aria-label="Regras YARA"]').count()) === 0);
 await packRow('bartblaze').locator('button:has-text("Ver regras")').click();
 await settle();
