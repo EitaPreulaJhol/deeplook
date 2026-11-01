@@ -2902,6 +2902,13 @@ body:has(.dl-print) {
   text-decoration: none;
 }
 
+/* No meio do texto, a cor sozinha nao distingue o link (item 134). */
+.hpsm-msg__text .dl-link,
+p .dl-link,
+li .dl-link {
+  text-decoration: underline;
+}
+
 .dl-link:hover {
   color: var(--dl-link-hover);
   text-decoration: underline;

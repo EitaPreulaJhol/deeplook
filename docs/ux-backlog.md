@@ -3378,6 +3378,7 @@ O Esc não fecha, o botão não informa se está aberto e os links do menu fecha
 
 ### 134. Contraste
 Textos de ajuda em 3,94:1 (mínimo 4,5:1) e links no meio do texto com 1,78:1 (mínimo 3:1).
+✅ **Implementado:** textos de ajuda em `#666666` e links sublinhados no meio do texto e nas mensagens. O `axe-core` não acha mais violação de contraste nas 43 telas auditadas, com os dados da API simulada.
 
 ### 135. Enter no envio de link
 Não envia; só o botão e o Ctrl+S funcionam.
@@ -3390,9 +3391,12 @@ enviar, e ainda mostra a caixa "selecionar todas".
 
 ### 137. Ficha para quem não é técnico
 O usuário comum vê primeiro SHA-256, TLSH e tipo MIME. Ideia: situação em linguagem simples no topo.
+**Decisão:** aviso só para o usuário comum, sem resolução escrita, e a seção "Arquivo" começa
+recolhida; ele pode abrir. Analistas não mudam.
 
 ### 138. Painel e Página Inicial do usuário comum
 Tirar "Técnicas ATT&CK", "72 h no status" e a lista de atalhos; acrescentar "cliquei ou abri, e agora?".
+**Decisão:** só para o usuário comum; o painel dele fica sem prazos e sem ATT&CK.
 
 ### 139. Palavra "comunidade"
 Aparece em três telas. Rever se o DeepLook for para empresas.
@@ -3403,3 +3407,11 @@ Aparece em três telas. Rever se o DeepLook for para empresas.
 O usuário comum continua vendo e exportando as amostras de todos, porque o DeepLook ainda não será
 implantado em empresas. **Depois:** opção na Administração que restringe cada usuário ao que ele
 mesmo enviou.
+
+### Pedido do usuário
+
+### 141. Menu lateral lembra o que ficou recolhido
+As pastas do Navegador voltavam todas abertas a cada sessão. **Decisão:** guardar nas preferências
+do usuário, no servidor: vale para as próximas sessões e em outro computador. "Restaurar padrões" e
+"Salvar" das Preferências não mexem nisso.
+
