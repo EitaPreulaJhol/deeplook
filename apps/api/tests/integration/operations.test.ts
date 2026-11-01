@@ -12,6 +12,7 @@ import { ensureBucket } from '../../src/lib/s3';
 import { UploadGate, uploadGate } from '../../src/lib/upload-gate';
 import { authRoutes } from '../../src/routes/auth';
 import { entryRoutes } from '../../src/routes/entries';
+import { meRoutes } from '../../src/routes/me';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -27,7 +28,7 @@ async function main() {
   await app.register(multipart, {
     limits: { fileSize: env.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
   });
-  for (const r of [authRoutes, entryRoutes]) await app.register(r);
+  for (const r of [authRoutes, entryRoutes, meRoutes]) await app.register(r);
   await app.ready();
   const user = await prisma.user.create({
     data: {
@@ -70,6 +71,18 @@ async function main() {
       payload: b.payload,
     });
   };
+
+  // 0. Limite por arquivo para a tela de envio (item 129).
+  const quota = await app.inject({
+    method: 'GET',
+    url: '/api/me/upload-quota',
+    headers: { cookie: cAna },
+  });
+  ok(
+    'tela recebe o limite por arquivo',
+    quota.json().maxUploadMb === env.MAX_UPLOAD_MB,
+    quota.body,
+  );
 
   // 1. Orcamento de memoria dos envios (item 117).
   const gate = new UploadGate(100);

@@ -1,6 +1,8 @@
 // Roteiro do teste rapido contra a API real (item 124): roda pelo
 // apps/api/tests/smoke.mjs, nao pela suite de telas. Faz o caminho principal e abre
 // as telas; erro inesperado da API, no console ou da CSP reprova.
+import { randomBytes } from 'node:crypto';
+
 import { chromium } from 'playwright';
 
 const ORIGIN = process.env.SMOKE_URL;
@@ -116,6 +118,42 @@ try {
   const csv = await (await admin.context.request.get(`${ORIGIN}/api/entries/export.csv`)).text();
   expect('resolução no CSV', csv.includes('Resolução') && csv.includes(RESOLUTION));
   expect('sem erro na triagem', !drain(admin));
+
+  // 3a. Envio grande: limite real na ajuda, percentual e titulo da aba do navegador.
+  await visit(admin, '/submit');
+  expect('título da aba do navegador', (await page.title()) === 'Enviar Amostra · DeepLook', await page.title());
+  const help = await page.locator('.hpsm-field__help').first().innerText();
+  expect('limite real na ajuda', help.includes('com até 200 MB cada'), help);
+  await page.setInputFiles('input[type=file]', {
+    name: 'grande.bin',
+    mimeType: 'application/octet-stream',
+    buffer: randomBytes(8 * 1024 * 1024),
+  });
+  await page.waitForSelector('button:has-text("Enviar arquivo"):not([disabled])');
+  await page.evaluate(() => {
+    window.__seen = [];
+    new MutationObserver(() => {
+      const found = document.body.innerText.match(/Enviando\.\.\. \d+%|Analisando o arquivo/);
+      if (found) window.__seen.push(found[0]);
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+  // Rede local e rapida demais para ver o percentual: envio limitado a 2 MB/s.
+  const cdp = await admin.context.newCDPSession(page);
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: 2 * 1024 * 1024,
+  });
+  await page.click('button:has-text("Enviar arquivo")');
+  await page.waitForURL(/\/entries\/[^/?]+/);
+  await cdp.detach();
+  const seen = await page.evaluate(() => window.__seen);
+  expect('envio mostra o percentual', seen.some((t) => /\d+%/.test(t)), JSON.stringify(seen));
+  expect('depois do envio, analisando', seen.includes('Analisando o arquivo'), JSON.stringify(seen));
+  console.log(`     andamento visto: ${[...new Set(seen)].slice(0, 6).join(' > ')}`);
+  await page.waitForLoadState('networkidle');
+  expect('envio grande sem erro', !drain(admin));
 
   // 3b. Regra "dominio parecido" pela tela vale na chegada de um link.
   const domain = await api(admin, 'POST', '/api/company-domains', { domain: 'empresa.com.br' });

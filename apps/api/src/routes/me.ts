@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { env } from '../env';
 import { audit } from '../lib/audit';
 import { createSession, requireUser, SESSION_COOKIE } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
@@ -34,7 +35,7 @@ export async function meRoutes(app: FastifyInstance) {
   app.get('/api/me/upload-quota', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    return reply.send(await uploadQuota(user));
+    return reply.send({ ...(await uploadQuota(user)), maxUploadMb: env.MAX_UPLOAD_MB });
   });
 
   // Novidades desde a visita anterior: amostras do usuario concluidas por outra

@@ -3350,13 +3350,16 @@ Administração rolam cerca de 350 px. **Decisão:** a faixa de abas rola sozinh
 
 ### 128. Queda de rede no envio
 A pessoa lê "Failed to fetch". **Decisão:** mensagem em português, em todas as chamadas à API.
+✅ **Implementado:** mensagem em português em todas as chamadas à API. O arquivo escolhido continua na tela para tentar de novo.
 
 ### 129. Limite de tamanho não aparece
 A tela diz "conforme configurado no servidor". **Decisão:** mostrar o limite real e recusar o arquivo
 maior antes de enviar; a API continua conferindo.
+✅ **Implementado:** a ajuda mostra o limite real (`maxUploadMb` em `/api/me/upload-quota`) e o arquivo maior é recusado antes de enviar, com o nome no aviso. Um lote com arquivo grande demais não é enviado até ele sair. A API continua conferindo.
 
 ### 130. Envio sem progresso
 Arquivo grande fica só em "Enviando...". **Decisão:** percentual durante o envio e "analisando" depois.
+✅ **Implementado:** percentual durante o envio e "analisando" depois, em arquivo único, lote e `.zip`. O teste rápido comprova o caminho do arquivo único contra a API real, com o envio limitado a 2 MB/s. **Limite:** não há botão para cancelar o envio.
 
 ### 131. Título da aba do navegador
 É sempre "DeepLook". **Decisão:** nome da tela ou da amostra + "DeepLook".

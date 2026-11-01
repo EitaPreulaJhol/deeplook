@@ -230,10 +230,14 @@ export function SubmitPage() {
         used: number;
         remaining: number | null;
         resetAt: string | null;
+        maxUploadMb: number;
       }>('/me/upload-quota'),
   });
   const quota = quotaQuery.data?.limit ? quotaQuery.data : null;
   const quotaFull = quota?.remaining === 0;
+  // Limite por arquivo (item 129): recusa antes de enviar; a API continua conferindo.
+  const maxUploadMb = quotaQuery.data?.maxUploadMb ?? null;
+  const tooBig = maxUploadMb ? files.filter((f) => f.size > maxUploadMb * 1024 * 1024) : [];
   const { hash, hashing, duplicate } = useDuplicateCheck(file);
   const zipMode = Boolean(file && isZipName(file.name) && unzip);
   // Um arquivo vira uma amostra com titulo proprio; varios (ou o .zip
@@ -247,7 +251,13 @@ export function SubmitPage() {
 
   // Validacao no estilo HPSM (campo destacado + mensagem + foco).
   const fileCheck = useRequiredFields([
-    { id: 'file-pick', label: 'Arquivo', ok: files.length > 0 },
+    {
+      id: 'file-pick',
+      label: tooBig.length
+        ? `Arquivo (${tooBig[0].name}${tooBig.length > 1 ? ` e mais ${tooBig.length - 1} passam` : ' passa'} de ${maxUploadMb} MB)`
+        : 'Arquivo',
+      ok: files.length > 0 && tooBig.length === 0,
+    },
     { id: 'zip-password', label: 'Senha do .zip', ok: true, api: 'password', value: zipPassword },
   ]);
   const urlCheck = useRequiredFields([
@@ -286,9 +296,15 @@ export function SubmitPage() {
     form.append('password', zipPassword);
     if (description) form.append('description', description);
     if (tags) form.append('tags', tags);
-    setProgress('Abrindo o .zip e criando as amostras...');
+    setProgress('Enviando o .zip...');
     try {
-      const res = await api.post<ZipResult>('/entries/zip', form);
+      const res = await api.upload<ZipResult>('/entries/zip', form, (percent) =>
+        setProgress(
+          percent < 100
+            ? `Enviando o .zip... ${percent}%`
+            : 'Abrindo o .zip e criando as amostras...',
+        ),
+      );
       setBatch({ source: zip.name, rows: zipRows(res) });
       resetFileForm();
     } catch (err) {
@@ -329,7 +345,16 @@ export function SubmitPage() {
         form.append('title', list[i].name);
         if (shared.description) form.append('description', shared.description);
         if (shared.tags) form.append('tags', shared.tags);
-        const res = await api.post<{ entry: Entry; previous: Previous }>('/entries/file', form);
+        const res = await api.upload<{ entry: Entry; previous: Previous }>(
+          '/entries/file',
+          form,
+          (percent) =>
+            setProgress(
+              percent < 100
+                ? `Enviando ${i + 1} de ${list.length}... ${percent}%`
+                : `Analisando ${i + 1} de ${list.length}...`,
+            ),
+        );
         update(i, { status: 'done', entry: res.entry, previous: res.previous });
       } catch (err) {
         update(i, { status: 'error', reason: (err as Error).message });
@@ -361,12 +386,15 @@ export function SubmitPage() {
       form.append('title', title || file.name);
       if (description) form.append('description', description);
       if (tags) form.append('tags', tags);
-      const res = await api.post<{ entry: Entry }>('/entries/file', form);
+      const res = await api.upload<{ entry: Entry }>('/entries/file', form, (percent) =>
+        setProgress(percent < 100 ? `Enviando... ${percent}%` : 'Analisando o arquivo...'),
+      );
       allowNavigation();
       navigate(`/entries/${res.entry.id}`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
+      setProgress(null);
       setLoading(false);
     }
   };
@@ -486,7 +514,7 @@ export function SubmitPage() {
                 help={
                   many
                     ? 'Cada arquivo vira uma amostra com o próprio nome; descrição e tags valem para todas.'
-                    : `Um ou mais arquivos (até ${MAX_FILES}). Tamanho máximo por arquivo conforme configurado no servidor.`
+                    : `Um ou mais arquivos (até ${MAX_FILES})${maxUploadMb ? `, com até ${maxUploadMb} MB cada` : ''}.`
                 }
                 invalid={fileCheck.isInvalid('file-pick')}
               >

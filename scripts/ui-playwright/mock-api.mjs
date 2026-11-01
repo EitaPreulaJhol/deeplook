@@ -730,7 +730,7 @@ export async function setupMock(context, state) {
       if (p === '/api/me/updates') return json(route, 200, state.updates);
       // Cota de envio (padrao: sem limite, como analista); `quotaReject` simula o 429.
       if (p === '/api/me/upload-quota') {
-        return json(route, 200, state.uploadQuota ?? { limit: null, used: 0, remaining: null, resetAt: null });
+        return json(route, 200, { ...(state.uploadQuota ?? { limit: null, used: 0, remaining: null, resetAt: null }), maxUploadMb: 200 });
       }
       if (state.quotaReject && /^\/api\/entries\/(url|file|zip)$/.test(p) && req.method() === 'POST') {
         return json(route, 429, { error: state.quotaReject, resetAt: '2026-10-24T13:05:00.000Z' });
