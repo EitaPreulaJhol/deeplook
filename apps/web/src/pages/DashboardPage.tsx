@@ -15,6 +15,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { DashboardData, Verdict } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { DailyChart } from '../components/DailyChart';
 import { HpsmSection } from '../components/HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
@@ -76,6 +77,8 @@ function Kpi({
  * Usuarios comuns veem so as proprias amostras (links para Meus Uploads).
  */
 export function DashboardPage() {
+  const { user } = useAuth();
+  const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
   const daysParam = Number(searchParams.get('dias'));
   const days = (PERIODS as readonly number[]).includes(daysParam) ? daysParam : 7;
@@ -161,20 +164,25 @@ export function DashboardPage() {
               tone="blue"
               to={link('status=IN_REVIEW')}
             />
-            <Kpi
-              value={d.open.warn}
-              label="Em alerta ou atrasadas"
-              tone="orange"
-              hint={`mais de ${d.sla.warnHours} h no status`}
-              to={link('age=warn')}
-            />
-            <Kpi
-              value={d.open.late}
-              label="Atrasadas"
-              tone="red"
-              hint={`mais de ${d.sla.lateHours} h no status`}
-              to={link('age=late')}
-            />
+            {/* Prazos e ATT&CK sao da equipe, nao de quem enviou (item 138). */}
+            {canTriage && (
+              <>
+                <Kpi
+                  value={d.open.warn}
+                  label="Em alerta ou atrasadas"
+                  tone="orange"
+                  hint={`mais de ${d.sla.warnHours} h no status`}
+                  to={link('age=warn')}
+                />
+                <Kpi
+                  value={d.open.late}
+                  label="Atrasadas"
+                  tone="red"
+                  hint={`mais de ${d.sla.lateHours} h no status`}
+                  to={link('age=late')}
+                />
+              </>
+            )}
             <Kpi
               value={d.period.submitted}
               label="Enviadas no período"
@@ -217,36 +225,38 @@ export function DashboardPage() {
             </HpsmSection>
           </div>
 
-          <HpsmSection title="Técnicas ATT&CK mais vistas no período" className="dl-mt-lg">
-            {(d.techniques ?? []).length === 0 ? (
-              <p className="dl-static-empty">
-                Nenhuma técnica registrada nos relatórios publicados desde {sinceLabel}.
-              </p>
-            ) : (
-              <ul className="dl-hbars dl-hbars--wide" aria-label="Técnicas ATT&CK mais vistas">
-                {(d.techniques ?? []).map((t) => (
-                  <li key={t.id}>
-                    <span className="dl-hbars__label" title={t.name}>
-                      <span className="dl-mono">{t.id}</span> {t.name}
-                    </span>
-                    <span className="dl-hbars__track">
-                      <span
-                        className="dl-hbars__bar"
-                        style={{ width: `${(t.count / techniqueMax) * 100}%` }}
-                      />
-                    </span>
-                    <span className="dl-hbars__value">
-                      <Num
-                        value={t.count}
-                        label={`${t.id} ${t.name}`}
-                        to={link(`attack=${t.id}`)}
-                      />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </HpsmSection>
+          {canTriage && (
+            <HpsmSection title="Técnicas ATT&CK mais vistas no período" className="dl-mt-lg">
+              {(d.techniques ?? []).length === 0 ? (
+                <p className="dl-static-empty">
+                  Nenhuma técnica registrada nos relatórios publicados desde {sinceLabel}.
+                </p>
+              ) : (
+                <ul className="dl-hbars dl-hbars--wide" aria-label="Técnicas ATT&CK mais vistas">
+                  {(d.techniques ?? []).map((t) => (
+                    <li key={t.id}>
+                      <span className="dl-hbars__label" title={t.name}>
+                        <span className="dl-mono">{t.id}</span> {t.name}
+                      </span>
+                      <span className="dl-hbars__track">
+                        <span
+                          className="dl-hbars__bar"
+                          style={{ width: `${(t.count / techniqueMax) * 100}%` }}
+                        />
+                      </span>
+                      <span className="dl-hbars__value">
+                        <Num
+                          value={t.count}
+                          label={`${t.id} ${t.name}`}
+                          to={link(`attack=${t.id}`)}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </HpsmSection>
+          )}
 
           {!mine && d.workload.length > 0 && (
             <HpsmSection title="Carga por analista" className="dl-mt-lg">

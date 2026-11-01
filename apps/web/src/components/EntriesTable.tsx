@@ -216,6 +216,7 @@ export function EntriesTable({
                 <TableHeader scope="col" className="hpsm-grid-check">
                   <input
                     type="checkbox"
+                    hidden={entries.length === 0}
                     aria-label="Selecionar todas desta página"
                     title="Selecionar todas desta página"
                     checked={allChecked}

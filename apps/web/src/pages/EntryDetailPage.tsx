@@ -53,7 +53,11 @@ import {
   reputationSummary,
   useReputation,
 } from '../components/ReputationSection';
-import { ResolutionForm, ResolutionNotice } from '../components/ResolutionSection';
+import {
+  EntryStatusNotice,
+  ResolutionForm,
+  ResolutionNotice,
+} from '../components/ResolutionSection';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
@@ -649,6 +653,15 @@ export function EntryDetailPage() {
         )}
       </div>
       <ResolutionNotice resolution={entry.resolution} verdict={entry.verdict} />
+      {!canTriage && (
+        <EntryStatusNotice
+          type={entry.type}
+          status={entry.status}
+          verdict={entry.verdict}
+          resolution={entry.resolution}
+          isOwner={entry.owner.id === user?.id}
+        />
+      )}
 
       <HpsmTabs ariaLabel="Amostra" active={activeTab} onChange={changeTab} items={tabs} />
 
@@ -694,7 +707,7 @@ export function EntryDetailPage() {
           </HpsmSection>
 
           {entry.type === 'FILE' ? (
-            <HpsmSection title="Arquivo">
+            <HpsmSection title="Arquivo" defaultOpen={canTriage}>
               <HpsmForm columns={2}>
                 <HpsmField label="Nome do arquivo">
                   <HpsmReadonly>{entry.originalFilename || '—'}</HpsmReadonly>

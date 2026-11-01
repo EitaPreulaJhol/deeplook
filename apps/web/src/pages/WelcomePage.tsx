@@ -110,7 +110,7 @@ export function WelcomePage() {
               <Link className="dl-link" to="/submit">
                 Enviar Amostra
               </Link>{' '}
-              - envie um arquivo ou link suspeito para este seja analisado.
+              - envie um arquivo ou link suspeito para que seja analisado.
             </li>
             <li>
               <Link className="dl-link" to="/me">
@@ -146,6 +146,22 @@ export function WelcomePage() {
           </ul>
         </HpsmSection>
 
+        {!canTriage && (
+          <HpsmSection title="Cliquei ou abri, e agora?">
+            <ul>
+              <li>Clicou no link ou digitou a senha? Troque a senha agora e avise o suporte.</li>
+              <li>Abriu o anexo? Desconecte o computador da rede e avise o suporte.</li>
+              <li>
+                Depois,{' '}
+                <Link className="dl-link" to="/submit">
+                  envie a amostra
+                </Link>{' '}
+                para a equipe de segurança analisar.
+              </li>
+            </ul>
+          </HpsmSection>
+        )}
+
         <HpsmSection title="Dicas">
           <ul>
             <li>
@@ -159,16 +175,18 @@ export function WelcomePage() {
               </Link>{' '}
               para trocar a senha e ajustar suas preferências, inclusive qual tela abre ao entrar.
             </li>
-            <li>
-              Atalhos:{' '}
-              {TIP_SHORTCUTS.map((item, index) => (
-                <Fragment key={item.label}>
-                  {index > 0 && ', '}
-                  <ShortcutKeys keys={item.keys} /> {lowerFirst(item.label)}
-                </Fragment>
-              ))}
-              . Pressione <ShortcutKeys keys={[['?'], ['F1']]} /> para ver todos os atalhos.
-            </li>
+            {canTriage && (
+              <li>
+                Atalhos:{' '}
+                {TIP_SHORTCUTS.map((item, index) => (
+                  <Fragment key={item.label}>
+                    {index > 0 && ', '}
+                    <ShortcutKeys keys={item.keys} /> {lowerFirst(item.label)}
+                  </Fragment>
+                ))}
+                . Pressione <ShortcutKeys keys={[['?'], ['F1']]} /> para ver todos os atalhos.
+              </li>
+            )}
             <li>
               Atenção: as amostras podem ser maliciosas. Baixe e execute arquivos apenas em ambiente
               isolado.

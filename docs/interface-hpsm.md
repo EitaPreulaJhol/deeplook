@@ -39,7 +39,7 @@ gradiente, texto em vez de "pílulas" e uma estrutura de área de trabalho com a
   independente da largura do logo e do nome; à direita, "Nome ▾ (Papel)". O nome do usuário
   abre um submenu (Minha conta, Alterar senha, Preferências, Sair) — é o único lugar
   do "Sair". No celular, o papel "(Admin)" some e o nome continua abrindo o menu.
-- **Navegador do Sistema:** sempre visível no desktop (não recolhe). Abaixo de
+- **Navegador do Sistema:** sempre visível no desktop (não recolhe); as pastas recolhidas ficam salvas nas preferências do usuário (`closedFolders`). Abaixo de
   `52rem` vira um drawer aberto pelo botão ☰. Itens novos entram em `ROOT_LEAVES`
   (soltos no topo) ou em `TREE` (dentro de uma pasta) em `HpsmSidebar.tsx`; pastas
   podem ser restritas (`access: 'triage' | 'admin'`) e folhas podem ter contador
@@ -661,6 +661,8 @@ banco nem da API rodando.
 | `long-names.mjs` | nome longo e tela estreita: 390 px sem rolar de lado (admin e usuário comum), aba ativa à vista sem mexer na página, muitas abas, nome de 200 caracteres sem espaço na lista (colunas à vista, duas linhas, nome inteiro no `title`) e na ficha |
 | `upload-feedback.mjs` | envio: limite real na ajuda, arquivo maior recusado sem chamar a API (nome no aviso), queda de rede em português com o arquivo mantido, 413 e 503 com a mensagem da API |
 | `navigation-a11y.mjs` | título da aba do navegador (tela, amostra, ao sair), primeiro Tab é "Pular para o conteúdo" e leva ao conteúdo, menu no celular (estado no botão, foco entra, Esc fecha e devolve o foco, sem foco com ele fechado) |
+| `sidebar-folders.mjs` | pastas do Navegador: recolher e abrir gravam uma vez por sequência de cliques, voltam depois de recarregar e em nova sessão, Salvar e Restaurar padrões das Preferências não mexem, falha ao gravar não atrapalha |
+| `plain-language.mjs` | usuário comum: situação em linguagem simples na ficha (por status e veredito, com aviso só para quem enviou, resolução no lugar quando há), "Arquivo" recolhido, "Cliquei ou abri, e agora?" sem atalhos; analista sem mudanças; lista vazia diferente de filtro sem resultado; Enter envia e não quebra a descrição |
 | `sample-access.mjs` | acesso às amostras: analista baixa e vê o e-mail; usuário comum sem "Baixar amostra" na de outra pessoa e só com o nome (ficha e impressão), baixa a própria; filtro "Amostra baixada" na auditoria |
 | `ldap-login.mjs` | login pelo AD: sem AD igual a antes; com AD, "E-mail ou usuário da rede" (campo texto) e explicação, envia o usuário da rede; conta do AD sem troca de senha; Administração com a marcação "AD" e sem redefinir a senha |
 | `backup.mjs` | backup: pasta Administração, lista (pronto, falha com motivo, vencido apagado, malware marcado), gerar com amostras com confirmação, progresso até pronto, um por vez, Baixar, excluir com confirmação |

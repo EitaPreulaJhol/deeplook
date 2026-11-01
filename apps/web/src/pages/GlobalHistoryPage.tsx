@@ -1,5 +1,6 @@
 import { Select, SelectItem, TextInput } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry, EntryStatus, Priority, SlaConfig, Verdict } from '../api/types';
@@ -254,7 +255,18 @@ export function GlobalHistoryPage() {
       )}
       {/* Lista vazia: a grade continua visivel e o aviso vai para a barra de mensagens. */}
       {query.data && query.data.items.length === 0 && (
-        <HpsmMessage kind="info">Nenhuma amostra encontrada.</HpsmMessage>
+        <HpsmMessage kind="info">
+          {list.q || Object.values(list.filters).some(Boolean) ? (
+            'Nenhuma amostra encontrada.'
+          ) : (
+            <>
+              Nenhuma amostra foi enviada ainda.{' '}
+              <Link className="dl-link" to="/submit">
+                Enviar Amostra
+              </Link>
+            </>
+          )}
+        </HpsmMessage>
       )}
       {query.data && (
         <EntriesTable

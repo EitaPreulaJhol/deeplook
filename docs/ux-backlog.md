@@ -3382,10 +3382,12 @@ Textos de ajuda em 3,94:1 (mínimo 4,5:1) e links no meio do texto com 1,78:1 (m
 
 ### 135. Enter no envio de link
 Não envia; só o botão e o Ctrl+S funcionam.
+✅ **Implementado:** Enter em campo de uma linha envia e passa pela mesma validação; na descrição, continua quebrando linha.
 
 ### 136. Lista vazia
 "Meus Uploads" sem nenhum envio dá a mesma mensagem de um filtro sem resultado, sem atalho para
 enviar, e ainda mostra a caixa "selecionar todas".
+✅ **Implementado:** mensagem própria quando nada foi enviado, com atalho para "Enviar Amostra"; "Nenhuma amostra encontrada" fica para filtro sem resultado; sem linhas, sem "selecionar todas".
 
 ### Sugestões
 
@@ -3393,10 +3395,12 @@ enviar, e ainda mostra a caixa "selecionar todas".
 O usuário comum vê primeiro SHA-256, TLSH e tipo MIME. Ideia: situação em linguagem simples no topo.
 **Decisão:** aviso só para o usuário comum, sem resolução escrita, e a seção "Arquivo" começa
 recolhida; ele pode abrir. Analistas não mudam.
+✅ **Implementado:** aviso "Situação" por status e veredito, com a promessa de aviso só para quem enviou; "Arquivo" começa recolhida para o usuário comum.
 
 ### 138. Painel e Página Inicial do usuário comum
 Tirar "Técnicas ATT&CK", "72 h no status" e a lista de atalhos; acrescentar "cliquei ou abri, e agora?".
 **Decisão:** só para o usuário comum; o painel dele fica sem prazos e sem ATT&CK.
+✅ **Implementado:** painel sem prazos e sem ATT&CK; Página Inicial com "Cliquei ou abri, e agora?" e sem a lista de atalhos, que continuam funcionando.
 
 ### 139. Palavra "comunidade"
 Aparece em três telas. Rever se o DeepLook for para empresas.

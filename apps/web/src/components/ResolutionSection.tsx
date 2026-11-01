@@ -1,7 +1,7 @@
 import { Select, SelectItem, TextArea } from '@carbon/react';
 import { useEffect, useState } from 'react';
 
-import type { Verdict } from '../api/types';
+import type { EntryStatus, Verdict } from '../api/types';
 import { HpsmField, HpsmForm, HpsmFormActions, HpsmSection } from './HpsmForm';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
@@ -41,6 +41,52 @@ export function ResolutionNotice({
     <div className={`dl-resolution dl-resolution--${TONE[verdict]}`} role="note">
       <span className="dl-resolution__title">O que fazer (orientação da equipe de segurança)</span>
       <span className="dl-resolution__text">{resolution}</span>
+    </div>
+  );
+}
+
+/**
+ * Situacao em linguagem simples para o usuario comum (item 137). Com resolucao
+ * escrita, quem orienta e ela.
+ */
+export function EntryStatusNotice({
+  type,
+  status,
+  verdict,
+  resolution,
+  isOwner,
+}: {
+  type: 'FILE' | 'URL';
+  status: EntryStatus;
+  verdict: Verdict;
+  resolution: string | null | undefined;
+  isOwner: boolean;
+}) {
+  if (resolution) return null;
+  const dontOpen = type === 'FILE' ? 'não abra o arquivo' : 'não clique no link';
+  let text: string;
+  if (status !== 'COMPLETED') {
+    const stage =
+      status === 'PENDING'
+        ? 'Recebida: a equipe de segurança ainda vai analisar esta amostra.'
+        : 'A equipe de segurança está analisando esta amostra.';
+    text = `${stage} Enquanto isso, ${dontOpen}.${isOwner ? ' Você receberá um aviso quando terminar.' : ''}`;
+  } else if (verdict === 'MALICIOUS') {
+    text = `Análise concluída: é perigosa. Por segurança, ${dontOpen}.`;
+  } else if (verdict === 'SUSPICIOUS') {
+    text = `Análise concluída: é suspeita. Por segurança, ${dontOpen}.`;
+  } else if (verdict === 'CLEAN') {
+    text = 'Análise concluída: nada perigoso foi encontrado.';
+  } else {
+    text = `Análise concluída, sem resultado definitivo. Na dúvida, ${dontOpen} e fale com o suporte.`;
+  }
+  return (
+    <div
+      className={`dl-resolution dl-resolution--${status === 'COMPLETED' ? TONE[verdict] : 'info'}`}
+      role="note"
+    >
+      <span className="dl-resolution__title">Situação</span>
+      <span className="dl-resolution__text">{text}</span>
     </div>
   );
 }

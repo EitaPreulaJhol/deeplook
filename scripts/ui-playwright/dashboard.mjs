@@ -128,8 +128,8 @@ state.role = 'USER';
 await page.goto(ORIGIN + '/painel', { waitUntil: 'networkidle' });
 expect('usuário: links para Meus Uploads', (await kpi('Pendentes').getAttribute('href')) === '/me?status=PENDING');
 expect('usuário: sem carga por analista', (await page.locator('.hpsm-section:has-text("Carga por analista")').count()) === 0);
-await kpi('Atrasadas').click();
-await settle(600);
+expect('usuário: sem prazos nem ATT&CK', (await page.locator('.dl-kpis a:has-text("Atrasadas"), .dl-kpis a:has-text("Em alerta")').count()) === 0 && (await page.locator('.hpsm-section:has-text("ATT&CK")').count()) === 0);
+await page.goto(ORIGIN + '/me?age=late', { waitUntil: 'networkidle' });
 expect('Meus Uploads com etiqueta de prazo', url() === '/me?age=late' && (await page.locator('.hpsm-filterbar__chip').innerText()).includes('Atrasadas'));
 state.role = undefined;
 

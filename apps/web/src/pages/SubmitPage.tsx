@@ -11,6 +11,7 @@ import {
   TextInput,
 } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
+import type { KeyboardEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -419,6 +420,15 @@ export function SubmitPage() {
     }
   };
 
+  // Enter num campo de uma linha envia (item 135); na descricao, continua quebrando linha.
+  const submitOnEnter = (event: KeyboardEvent<HTMLDivElement>) => {
+    const field = event.target;
+    if (event.key !== 'Enter' || !(field instanceof HTMLInputElement)) return;
+    if (field.type === 'checkbox' || field.type === 'file' || loading || quotaFull) return;
+    event.preventDefault();
+    void (tab === 'file' ? submitFile() : submitUrl());
+  };
+
   // Ctrl+S envia o formulario da aba atual.
   useSaveShortcut(tab === 'file' ? submitFile : submitUrl, !loading);
 
@@ -503,7 +513,7 @@ export function SubmitPage() {
         ]}
       />
 
-      <div className="hpsm-tabpanel">
+      <div className="hpsm-tabpanel" onKeyDown={submitOnEnter}>
         {tab === 'file' ? (
           <HpsmSection title="Dados do arquivo" className="dl-form-col">
             <HpsmForm>
