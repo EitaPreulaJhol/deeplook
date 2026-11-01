@@ -21,6 +21,8 @@ const NAV_TIMEOUT_MS = 20_000;
 const SETTLE_MS = 1500;
 const MAX_HTML = 2 * 1024 * 1024;
 const MAX_SHOT_HEIGHT = 6000;
+/** Teto da captura inteira, abaixo dos 90 s que a API espera. */
+const CAPTURE_DEADLINE_MS = 60_000;
 
 if (!TOKEN || TOKEN.length < 16) {
   console.error('[capture] CAPTURE_TOKEN ausente ou curto (16+ caracteres).');
@@ -147,6 +149,32 @@ async function capture(url) {
   }
 }
 
+/**
+ * Pagina com laco infinito trava o renderizador, e ler o conteudo dela nao tem
+ * tempo-limite: sem este teto, a fila pararia para sempre. Estourou, o navegador
+ * inteiro e fechado e a proxima captura abre outro.
+ */
+async function captureWithDeadline(url) {
+  let timer;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      const stuck = browser;
+      browser = null;
+      void stuck?.close().catch(() => undefined);
+      resolve({
+        ok: false,
+        error: `a página travou o navegador (mais de ${CAPTURE_DEADLINE_MS / 1000} s)`,
+        blocked: [],
+      });
+    }, CAPTURE_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([capture(url), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Erros comuns do Chromium em portugues. */
 const ERRORS = [
   [/Timeout \d+ms exceeded/, `a página não respondeu em ${NAV_TIMEOUT_MS / 1000} s`],
@@ -198,7 +226,7 @@ const server = http.createServer((req, res) => {
       return send(res, 400, { error: 'só http e https' });
     }
     try {
-      send(res, 200, await exclusive(() => capture(url.href)));
+      send(res, 200, await exclusive(() => captureWithDeadline(url.href)));
     } catch (err) {
       send(res, 500, { ok: false, error: String(err?.message || err).slice(0, 300), blocked: [] });
     }

@@ -30,10 +30,14 @@ for (const [network, prefix] of [
 for (const [network, prefix] of [
   ['::', 128],
   ['::1', 128],
-  ['::ffff:0:0', 96], // IPv4 mapeado: conferido pelo IPv4 abaixo
+  // Sem ::ffff:0:0/96: o BlockList compara IPv4 tambem com regras mapeadas, e ela
+  // bloquearia todo IPv4. O mapeado ja e conferido pelas faixas IPv4 acima.
   ['64:ff9b::', 96],
+  ['64:ff9b:1::', 48],
   ['100::', 64],
+  ['2001::', 32], // Teredo: embute um IPv4
   ['2001:db8::', 32],
+  ['2002::', 16], // 6to4: embute um IPv4
   ['fc00::', 7],
   ['fe80::', 10],
   ['ff00::', 8],

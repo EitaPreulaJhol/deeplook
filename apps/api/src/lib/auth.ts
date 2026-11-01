@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../env';
 import { authenticateToken, bearerOf } from './api-tokens';
+import { randomToken } from './crypto';
 import { type PasswordChangeReason, passwordState } from './password-policy';
 import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
@@ -104,8 +105,9 @@ export async function createSession(
 ): Promise<void> {
   const expiresAt = slidingExpiry(new Date());
   const userAgent = req.headers['user-agent']?.slice(0, 300) ?? null;
+  // O id e o valor do cookie: aleatorio, nao o cuid padrao (previsivel em boa parte).
   const session = await prisma.session.create({
-    data: { userId, expiresAt, userAgent, ip: req.ip ?? null },
+    data: { id: randomToken(32), userId, expiresAt, userAgent, ip: req.ip ?? null },
   });
 
   reply.setCookie(SESSION_COOKIE, session.id, {

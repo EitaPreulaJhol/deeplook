@@ -366,6 +366,8 @@ export async function sandboxRoutes(app: FastifyInstance) {
 
       const user = await loadUser(req);
       if (!user) return fail(4401, 'nao autenticado');
+      // Fora do requireUser: a senha a trocar tambem bloqueia o console.
+      if (user.mustChangePassword) return fail(4403, 'defina uma nova senha');
       if (!sandboxEnabled) return fail(4403, 'sandbox desabilitado');
       if (env.SANDBOX_CONSOLE_ENABLED !== 'true') return fail(4403, 'console desabilitado');
 

@@ -56,8 +56,12 @@ export async function checkSecondFactor(
   }
   const step = secret ? verifyTotp(secret, code, user.twoFactorLastStep) : null;
   if (step !== null) {
-    await db.user.update({ where: { id: userId }, data: { twoFactorLastStep: step } });
-    return { ok: true, via: 'totp' };
+    // So um pedido simultaneo com o mesmo codigo avanca o passo; os outros sao recusados.
+    const { count } = await db.user.updateMany({
+      where: { id: userId, OR: [{ twoFactorLastStep: null }, { twoFactorLastStep: { lt: step } }] },
+      data: { twoFactorLastStep: step },
+    });
+    return count ? { ok: true, via: 'totp' } : { ok: false };
   }
   const broken = secret === null;
   if (!looksLikeRecoveryCode(code)) return { ok: false, broken };

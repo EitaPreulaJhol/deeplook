@@ -3519,3 +3519,21 @@ ligada por padrão.
   aplicar, mostrando o que mudaria; (3) aplicar e voltar; (4) agendar e ligar nas Configurações.
 
 ✅ **Implementado:** verificação semanal e botão "Verificar agora", com prévia; aplica sozinho o que passa nos filtros, retém o resto para aprovar ou descartar, e a última aplicada volta com um clique. Testado com fonte simulada e numa verificação sem aplicar contra o GitHub real. **Achado no teste:** a restrição da tabela de avisos exigia amostra ou caso e derrubaria a atualização ao avisar os admins; foi ajustada. **Limites:** sem amostras com veredito Limpo, esse filtro não tem o que conferir; regra nova só vale para os próximos arquivos; e ainda não aconteceu uma atualização real, porque os commits com 7 dias são anteriores aos instalados.
+
+### 151. Captura de página recusava todo site com IPv4
+Achado em 01/11/2026 na revisão geral: a faixa `::ffff:0:0/96` do proxy de saída também pega IPv4 no `BlockList` do Node, então qualquer site com endereço IPv4 dava "endereço interno bloqueado". Os testes usavam só `localhost` liberado e respostas simuladas.
+✅ **Implementado:** faixa removida e `npm test` no serviço de captura. Testado com captura real de `example.com` e `1.1.1.1`; rede interna, loopback, metadados e IPv4 interno dentro de IPv6 continuam bloqueados. Teredo, 6to4 e `64:ff9b:1::/48` entraram na lista.
+
+### 152. Página com laço infinito parava a fila da captura
+Ler o conteúdo de uma página travada não tem tempo-limite. Uma única página assim deixava todas as capturas seguintes sem resposta até reiniciar o serviço, com o `/health` dizendo que estava tudo bem.
+✅ **Implementado:** teto de 60 s por captura; ao estourar, o navegador é fechado e a próxima abre outro. Reproduzido antes e depois: a captura seguinte volta a funcionar. O contêiner agora roda com `cap_drop: ALL` e `pids_limit: 512`.
+
+### 153. Print e HTML da captura fora da restrição "só as próprias amostras"
+`/api/captures/:id/*` não aplicava o filtro do item 140, e o teste só varria rotas `/api/entries/:id`.
+✅ **Implementado:** amostra de outra pessoa responde 404, com teste.
+
+### 154. Sessão e 2FA
+- O id da sessão, que é o valor do cookie, era um cuid, previsível em boa parte. Agora tem 256 bits aleatórios. Sessões abertas continuam valendo até expirar.
+- O mesmo código TOTP era aceito por pedidos simultâneos (8 de 8 no teste). Agora só um passa.
+- O WebSocket do console, que autentica fora do `requireUser`, ignorava a senha a trocar. Agora recusa.
+✅ **Implementado:** os três com teste, que falhava antes da correção.

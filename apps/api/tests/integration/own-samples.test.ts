@@ -1,3 +1,4 @@
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
@@ -6,7 +7,7 @@ import Fastify from 'fastify';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
-import { ensureBucket } from '../../src/lib/s3';
+import { ensureBucket, s3 } from '../../src/lib/s3';
 import { adminRoutes } from '../../src/routes/admin';
 import { antivirusRoutes } from '../../src/routes/antivirus';
 import { apiTokenRoutes } from '../../src/routes/api-tokens';
@@ -372,6 +373,26 @@ async function main() {
     'evidência alheia = 404',
     (await req('GET', `/api/evidence/${evidence.id}`, cBob)).statusCode === 404,
   );
+  // Fora de /api/entries/:id: a varredura acima nao alcanca estas rotas.
+  const captureKey = `captures/${secret.id}/teste`;
+  await s3.send(
+    new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: captureKey, Body: Buffer.from('x') }),
+  );
+  const capture = await prisma.pageCapture.create({
+    data: {
+      entryId: secret.id,
+      requestedById: ids['ana@x.io'],
+      url: 'https://exemplo.test/',
+      status: 'DONE',
+      screenshotKey: captureKey,
+      htmlKey: captureKey,
+    },
+  });
+  for (const part of ['screenshot', 'html']) {
+    const url = `/api/captures/${capture.id}/${part}`;
+    ok(`captura alheia = 404 (${part})`, (await req('GET', url, cBob)).statusCode === 404);
+    ok(`analista vê a captura (${part})`, (await req('GET', url, cAna)).statusCode === 200);
+  }
   const kb = await get(`/api/kb/${article.id}`, cBob);
   ok('artigo abre', Boolean(kb.article));
   ok('citação alheia some do artigo', kb.article.reports.length === 0, kb.article.reports);

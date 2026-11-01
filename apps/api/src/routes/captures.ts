@@ -4,7 +4,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../env';
-import { isAnalyst, requireUser } from '../lib/auth';
+import { isAnalyst, requireUser, visibleEntries } from '../lib/auth';
 import { captureEnabled, runCapture } from '../lib/page-capture';
 import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
@@ -82,7 +82,7 @@ export async function captureRoutes(app: FastifyInstance) {
     if (!user) return null;
     const { id } = req.params as { id: string };
     const capture = await prisma.pageCapture.findFirst({
-      where: { id, status: 'DONE', entry: { deletedAt: null } },
+      where: { id, status: 'DONE', entry: { deletedAt: null, ...(await visibleEntries(user)) } },
       select: { id: true, screenshotKey: true, htmlKey: true },
     });
     if (!capture) reply.code(404).send({ error: 'Captura não encontrada.' });

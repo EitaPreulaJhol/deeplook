@@ -6,9 +6,17 @@ import { env } from '../../src/env';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
+import {
+  base32Decode,
+  currentStep,
+  encryptSecret,
+  hotp,
+  newSecret,
+} from '../../src/lib/two-factor';
 import { adminRoutes } from '../../src/routes/admin';
 import { authRoutes } from '../../src/routes/auth';
 import { meRoutes } from '../../src/routes/me';
+import { checkSecondFactor } from '../../src/routes/two-factor';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -41,6 +49,27 @@ async function main() {
         })
       ).headers['set-cookie'],
     ).split(';')[0];
+  // Id da sessao (o valor do cookie) com 256 bits aleatorios, nao um cuid.
+  await mkUser('sessao@x.io');
+  ok(
+    'sessão com id aleatório longo',
+    /^dl_session=[0-9a-f]{64}$/.test(await login('sessao@x.io')),
+    await login('sessao@x.io'),
+  );
+
+  // O mesmo codigo do 2FA em pedidos simultaneos: so um entra.
+  const totp = newSecret();
+  const totpUser = await mkUser('totp@x.io', {
+    twoFactorSecret: encryptSecret(totp),
+    twoFactorEnabledAt: new Date(),
+  });
+  const code = hotp(base32Decode(totp), currentStep());
+  const totpResults = await Promise.all(
+    Array.from({ length: 8 }, () => checkSecondFactor(prisma, totpUser.id, code)),
+  );
+  const accepted = totpResults.filter((r) => r.ok).length;
+  ok('código 2FA vale uma vez só', accepted === 1, accepted);
+
   const mkToken = async (userId: string) => {
     const secret = newTokenSecret();
     return prisma.apiToken.create({
