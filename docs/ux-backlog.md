@@ -3323,3 +3323,74 @@ grupos aninhados do AD; teste rápido contra a API real, para complementar o moc
 ✅ **124c implementado:** condição "Parecido com domínio da empresa", com valor opcional. Olha os mesmos domínios da varredura: link, remetente, links do e-mail e indicadores. Vale na chegada e quando o YARA ou o antivírus terminam.
 
 ✅ **124d implementado:** `LDAP_NESTED_GROUPS=true` sobe pelo `memberOf` dos grupos, sem repetir grupo, então ciclos terminam. Testado no OpenLDAP real; **não testado num AD de verdade**. **Limites:** o grupo primário ("Domain Users") não aparece no `memberOf`, e grupo de outro domínio é ignorado. O teste do AD também parou de oscilar: o OpenLDAP gerava parâmetros DH ao subir, às vezes por mais de um minuto, e agora usa um arquivo pronto.
+
+## Nona leva — itens 125 a 140
+
+Vieram da validação de usabilidade de 31/10/2026, em 35 telas de admin e 9 de usuário comum, em
+quatro larguras, com a API simulada e o `axe-core`. Primeiro entram os itens 125 a 133; os demais
+ficam registrados.
+
+### Alta prioridade
+
+### 125. Nome longo quebra a lista
+Com 200 caracteres sem espaço, a tabela chega a 2200 px e Status, Veredito e Data somem da tela.
+**Decisão:** no máximo duas linhas e 28rem na coluna, com o nome inteiro no `title` e na ficha.
+
+### 126. Nome longo quebra a ficha
+O título sai da tela e a página rola 485 px de lado. **Decisão:** quebrar o título em várias linhas.
+
+### 127. Celular: a página rola de lado
+Em 390 px, a ficha rola 14 px para o usuário comum e 73 px para o analista; Histórico Global e
+Administração rolam cerca de 350 px. **Decisão:** a faixa de abas rola sozinha e mantém a ativa à vista.
+
+### Média prioridade
+
+### 128. Queda de rede no envio
+A pessoa lê "Failed to fetch". **Decisão:** mensagem em português, em todas as chamadas à API.
+
+### 129. Limite de tamanho não aparece
+A tela diz "conforme configurado no servidor". **Decisão:** mostrar o limite real e recusar o arquivo
+maior antes de enviar; a API continua conferindo.
+
+### 130. Envio sem progresso
+Arquivo grande fica só em "Enviando...". **Decisão:** percentual durante o envio e "analisando" depois.
+
+### 131. Título da aba do navegador
+É sempre "DeepLook". **Decisão:** nome da tela ou da amostra + "DeepLook".
+
+### 132. Sem "pular para o conteúdo"
+Mais de 70 Tabs não chegaram à primeira linha da lista. **Decisão:** link no primeiro Tab, que leva
+ao conteúdo da tela.
+
+### 133. Menu no celular
+O Esc não fecha, o botão não informa se está aberto e os links do menu fechado recebem foco.
+
+### Baixa prioridade
+
+### 134. Contraste
+Textos de ajuda em 3,94:1 (mínimo 4,5:1) e links no meio do texto com 1,78:1 (mínimo 3:1).
+
+### 135. Enter no envio de link
+Não envia; só o botão e o Ctrl+S funcionam.
+
+### 136. Lista vazia
+"Meus Uploads" sem nenhum envio dá a mesma mensagem de um filtro sem resultado, sem atalho para
+enviar, e ainda mostra a caixa "selecionar todas".
+
+### Sugestões
+
+### 137. Ficha para quem não é técnico
+O usuário comum vê primeiro SHA-256, TLSH e tipo MIME. Ideia: situação em linguagem simples no topo.
+
+### 138. Painel e Página Inicial do usuário comum
+Tirar "Técnicas ATT&CK", "72 h no status" e a lista de atalhos; acrescentar "cliquei ou abri, e agora?".
+
+### 139. Palavra "comunidade"
+Aparece em três telas. Rever se o DeepLook for para empresas.
+
+### Decisão tomada
+
+### 140. Histórico Global aberto a todos — adiado
+O usuário comum continua vendo e exportando as amostras de todos, porque o DeepLook ainda não será
+implantado em empresas. **Depois:** opção na Administração que restringe cada usuário ao que ele
+mesmo enviou.
