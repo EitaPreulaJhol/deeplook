@@ -142,20 +142,24 @@ export function scanBuffer(
       matches: {
         identifier: string;
         namespace: string;
+        isPrivate: boolean;
         tags: string[];
         metadata: { identifier: string; value: unknown }[];
         patterns: { matches: unknown[] }[];
       }[];
     };
-    return result.matches.map((m) => ({
-      rule: set.names.get(m.namespace) ?? m.identifier,
-      identifier: m.identifier,
-      tags: m.tags,
-      description:
-        (m.metadata.find((x) => x.identifier === 'description')?.value as string | undefined) ??
-        null,
-      matches: m.patterns.reduce((n, p) => n + p.matches.length, 0),
-    }));
+    // O YARA-X devolve tambem as privadas: sao pecas de outras regras, nao deteccoes.
+    return result.matches
+      .filter((m) => !m.isPrivate)
+      .map((m) => ({
+        rule: set.names.get(m.namespace) ?? m.identifier,
+        identifier: m.identifier,
+        tags: m.tags,
+        description:
+          (m.metadata.find((x) => x.identifier === 'description')?.value as string | undefined) ??
+          null,
+        matches: m.patterns.reduce((n, p) => n + p.matches.length, 0),
+      }));
   } finally {
     scanner.free();
   }

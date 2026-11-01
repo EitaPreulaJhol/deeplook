@@ -3433,3 +3433,37 @@ do usuário, no servidor: vale para as próximas sessões e em outro computador.
 "Salvar" das Preferências não mexem nisso.
 
 ✅ **Implementado:** as pastas recolhidas ficam em `closedFolders` nas preferências, gravadas 400 ms depois do último clique. Valem para as próximas sessões e em outro computador. **Se a gravação falhar,** a pasta segue recolhida na sessão, sem aviso de erro, e a mudança não vale para a próxima.
+
+## Décima leva — itens 142 a 146: regras YARA pré-configuradas
+
+Avaliação de 01/11/2026: cada conjunto compilado no YARA-X 1.21 e varrido em 1.122 arquivos benignos
+(430 MB). ReversingLabs, bartblaze e signature-base não dispararam em nenhum. O YARA Forge ficou de
+fora: um arquivo de 7,7 MB, com licenças misturadas e o dobro do tempo. Elastic (Elastic License 2.0)
+e Yara-Rules (GPL-2.0) também ficaram de fora, só pela licença.
+
+### 142. Regra privada contada como detecção
+O YARA-X devolve as regras privadas no resultado, marcadas com `isPrivate`, e o DeepLook as contava.
+Uma regra auxiliar marcava quase todo arquivo e acionava as regras de triagem.
+✅ **Implementado:** `scanBuffer` ignora as privadas; vale também para a varredura retroativa. **Resultados antigos** só mudam ao varrer a amostra de novo.
+
+### 143. Pacotes de regras ligados por padrão
+ReversingLabs e bartblaze (sem a pasta `generic`, que a própria fonte diz não indicar malware).
+**Decisões:**
+- arquivos no repositório, sem alterar o conteúdo, com a licença e o commit de origem; nada é baixado
+  ao subir;
+- um conjunto por arquivo, instalado uma vez só: o que o analista desligar ou excluir não volta;
+- regra de pacote não se edita, para não perder a autoria; desligar, excluir e varredura retroativa
+  continuam valendo, e o limite de 64 KB só vale para as regras da equipe.
+
+### 144. Signature-base opcional
+Pacote desligado, que a administração liga em Administração > Configurações. Só é instalado ao ligar,
+sem os arquivos que precisam de variáveis externas (`filename`, `filepath`, `extension`). Decisão
+registrada em 01/11/2026.
+
+### 145. Autor nas detecções
+Autor e pacote aparecem no resultado da varredura. A licença DRL 1.1 da signature-base exige manter
+o autor nas mensagens de detecção, o que foi aceito.
+
+### 146. Desempenho com os pacotes
+A varredura roda na thread principal da API. **Decisão:** medir com os pacotes; se travar a API por
+tempo perceptível, mover a compilação e a varredura para uma thread separada.
