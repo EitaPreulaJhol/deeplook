@@ -114,7 +114,7 @@ export function GlobalHistoryPage() {
 
   return (
     <>
-      <PageHeader title="Histórico Global" subtitle="Todas as amostras enviadas pela comunidade." />
+      <PageHeader title="Histórico Global" subtitle="Todas as amostras enviadas." />
 
       {/* Analistas: "Pegar a proxima" em todas as filas (Next in queue do HPSM). */}
       {canTriage && (

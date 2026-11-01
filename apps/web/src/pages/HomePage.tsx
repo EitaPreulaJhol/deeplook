@@ -20,7 +20,7 @@ export function HomePage() {
               O <strong>DeepLook</strong> é uma plataforma voltada para análise e verificação de
               executáveis inseguros e desconhecidos. Disponibilizamos ambientes de teste,
               ferramentas e recursos para que você possa analisar arquivos suspeitos com segurança e
-              compartilhar suas descobertas com a comunidade.
+              compartilhar suas descobertas com a equipe.
             </p>
             <div className="dl-home__actions">
               <button

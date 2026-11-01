@@ -3404,6 +3404,8 @@ Tirar "Técnicas ATT&CK", "72 h no status" e a lista de atalhos; acrescentar "cl
 
 ### 139. Palavra "comunidade"
 Aparece em três telas. Rever se o DeepLook for para empresas.
+**Decisão:** trocar por "equipe" ou tirar, onde a frase continuar fazendo sentido.
+✅ **Implementado:** trocada por "equipe" ou retirada nas três telas e na página pública.
 
 ### Decisão tomada
 
@@ -3411,6 +3413,16 @@ Aparece em três telas. Rever se o DeepLook for para empresas.
 O usuário comum continua vendo e exportando as amostras de todos, porque o DeepLook ainda não será
 implantado em empresas. **Depois:** opção na Administração que restringe cada usuário ao que ele
 mesmo enviou.
+**Decisões:**
+- **Padrão desligado:** nada muda até um admin ligar, em Administração > Configurações, com auditoria.
+- **Só o usuário comum:** analistas e admins continuam vendo tudo.
+- **Vale na API, não só na tela:** amostra de outra pessoa responde 404, sem revelar que existe, em
+  toda rota `/api/entries/:id...`, inclusive as futuras, e também por token de API. Listas, CSV,
+  contadores, busca, ficha de indicador, relacionadas, mapa, avisos, favoritos, citações da base de
+  conhecimento, evidências e o aviso "já enviada" ficam só com as dele.
+- **O que continua igual:** a base de conhecimento. O aviso de indicador seguido continua sendo
+  gerado, mas só aparece para o usuário comum se a amostra for dele.
+- **O Histórico Global** sai do menu dele, e o endereço leva a Meus Uploads.
 
 ### Pedido do usuário
 
