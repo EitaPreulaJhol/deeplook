@@ -534,16 +534,21 @@ deeplook/
 ├─ docker-compose.yml
 ├─ .env.example
 ├─ README.md
+├─ .github/           # CI (workflows/ci.yml) e Dependabot
 ├─ apps/
 │  ├─ api/            # Fastify + Prisma + S3 (MinIO)
 │  │  ├─ prisma/      # schema, migrações, seed (configuração em prisma.config.ts)
+│  │  ├─ rules/       # pacotes de regras YARA de fábrica
+│  │  ├─ tests/       # integração (Postgres, MinIO e OpenLDAP reais)
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
+│  ├─ capture/        # navegador isolado que captura a página de um link
 │  └─ web/            # React + Vite + @carbon/react
-│     ├─ nginx.conf
+│     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guias: interface-hpsm.md, ux-backlog.md, proxmox.md
+├─ docs/              # guias: interface-hpsm.md, ux-backlog.md, plano-melhorias.md, proxmox.md
+├─ icons/             # biblioteca de ícones (estilo HPSM)
 ├─ scripts/           # smoke tests (PowerShell) e testes visuais (ui-playwright/)
-└─ data/              # volumes (git-ignored): pgdata/, minio/
+└─ data/              # volumes (git-ignored): pgdata/, minio/, clamav/
 ```
 
 ---
