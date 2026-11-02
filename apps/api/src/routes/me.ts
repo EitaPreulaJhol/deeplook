@@ -5,6 +5,7 @@ import { env } from '../env';
 import { audit } from '../lib/audit';
 import { createSession, requireUser, SESSION_COOKIE } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
+import { notificationTypesFor } from '../lib/notification-types';
 import { passwordField, passwordState } from '../lib/password-policy';
 import { PreferencesPatchSchema, resolvePreferences } from '../lib/preferences';
 import { prisma } from '../lib/prisma';
@@ -29,6 +30,13 @@ export async function meRoutes(app: FastifyInstance) {
     const preferences = { ...user.preferences, ...parsed.data };
     await prisma.user.update({ where: { id: user.id }, data: { preferences } });
     return reply.send({ preferences: resolvePreferences(preferences) });
+  });
+
+  // Avisos que a pessoa pode receber pelo papel, e quais nao se silenciam (item 164).
+  app.get('/api/me/notification-types', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    return reply.send({ types: notificationTypesFor(user.role) });
   });
 
   // Cota de envio (item 64): quanto ainda pode enviar nas proximas 24 horas.

@@ -19,6 +19,7 @@ import { HpsmTabs } from '../components/HpsmTabs';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey, IconRefresh, IconSettings } from '../components/icons';
 import { HpsmMessage } from '../components/messages';
+import { NotificationsTab } from '../components/NotificationsTab';
 import { PageHeader } from '../components/PageHeader';
 import { SessionsTab } from '../components/SessionsTab';
 import { useSaveShortcut } from '../components/shortcuts';
@@ -32,6 +33,7 @@ const TABS = [
   { id: 'dados', label: 'Dados' },
   { id: 'senha', label: 'Senha' },
   { id: 'preferencias', label: 'Preferências' },
+  { id: 'notificacoes', label: 'Notificações' },
   { id: '2fa', label: '2FA' },
   { id: 'sessoes', label: 'Sessões' },
   { id: 'indicadores', label: 'Indicadores' },
@@ -91,6 +93,7 @@ export function UserPage() {
             <PasswordTab />
           ))}
         {tab === 'preferencias' && <PreferencesTab />}
+        {tab === 'notificacoes' && <NotificationsTab />}
         {tab === '2fa' && <TwoFactorTab />}
         {tab === 'sessoes' && <SessionsTab />}
         {tab === 'indicadores' && <WatchesTab />}
@@ -242,6 +245,9 @@ function PasswordTab() {
   );
 }
 
+/** Preferencias guardadas por outras telas (Navegador, aba Notificacoes). */
+const OTHER_SCREENS = new Set<keyof Preferences>(['closedFolders', 'mutedNotifications']);
+
 function PreferencesTab() {
   const { preferences, updatePreferences } = useAuth();
   const [draft, setDraft] = useState<Preferences>(preferences);
@@ -250,7 +256,7 @@ function PreferencesTab() {
 
   useUnsavedChanges(
     (Object.keys(draft) as (keyof Preferences)[]).some(
-      (key) => key !== 'closedFolders' && draft[key] !== preferences[key],
+      (key) => !OTHER_SCREENS.has(key) && draft[key] !== preferences[key],
     ),
   );
 
@@ -262,8 +268,8 @@ function PreferencesTab() {
     setResult(null);
     setSaving(true);
     try {
-      // As pastas do Navegador nao sao desta tela: o rascunho pode estar velho.
-      const { closedFolders: _menu, ...fields } = draft;
+      // Pastas do Navegador e avisos nao sao desta tela: o rascunho pode estar velho.
+      const { closedFolders: _menu, mutedNotifications: _muted, ...fields } = draft;
       await updatePreferences(fields);
       setResult({ kind: 'success', text: 'Preferências salvas.' });
     } catch (err) {

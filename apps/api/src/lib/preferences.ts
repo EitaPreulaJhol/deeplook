@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { isMutable } from './notification-types';
+
 /** Preferencias de uso do usuario (coluna JSON `User.preferences`). */
 export const PreferencesSchema = z.object({
   /** Tela aberta apos o login e na raiz "/". */
@@ -12,6 +14,14 @@ export const PreferencesSchema = z.object({
   detailPane: z.boolean(),
   /** Pastas recolhidas no Navegador (item 141). */
   closedFolders: z.array(z.string().min(1).max(40)).max(30),
+  /**
+   * Avisos silenciados (item 164). Tipo desconhecido ou travado sai sem erro: um valor
+   * de outra versao nao derruba a lista inteira, e o que pede acao nunca fica de fora.
+   */
+  mutedNotifications: z
+    .array(z.string().max(40))
+    .max(40)
+    .transform((types) => [...new Set(types)].filter(isMutable)),
 });
 
 export type Preferences = z.infer<typeof PreferencesSchema>;
@@ -22,6 +32,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   restoreTabs: true,
   detailPane: false,
   closedFolders: [],
+  mutedNotifications: [],
 };
 
 /** Atualizacao parcial; chaves desconhecidas sao recusadas. */

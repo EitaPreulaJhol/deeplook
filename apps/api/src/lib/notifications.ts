@@ -1,4 +1,5 @@
 import type { NotificationType } from '../generated/prisma/client';
+import { resolvePreferences } from './preferences';
 import type { Db } from './prisma';
 import { prisma } from './prisma';
 
@@ -24,11 +25,24 @@ export function excerpt(text: string, max = 140): string {
 /**
  * Cria notificacoes na caixa de entrada (sininho do masthead). Nunca notifica
  * a pessoa da propria acao e nao repete o mesmo destinatario na mesma chamada.
+ * Respeita os avisos que a pessoa silenciou (item 164).
  */
 export async function notify(db: Db, items: NotificationInput[]): Promise<void> {
+  const recipients = [...new Set(items.map((n) => n.userId))];
+  const users = recipients.length
+    ? await db.user.findMany({
+        where: { id: { in: recipients } },
+        select: { id: true, preferences: true },
+      })
+    : [];
+  const muted = new Map(
+    users.map((u) => [u.id, new Set<string>(resolvePreferences(u.preferences).mutedNotifications)]),
+  );
   const seen = new Set<string>();
   const data = items.filter((n) => {
     if (n.actorId && n.userId === n.actorId) return false;
+    // Antes da deduplicacao: uma mencao silenciada nao leva junto a atualizacao.
+    if (muted.get(n.userId)?.has(n.type)) return false;
     if (seen.has(n.userId)) return false;
     seen.add(n.userId);
     return true;

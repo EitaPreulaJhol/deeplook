@@ -3632,6 +3632,15 @@ do pedido quando a API não responde.
 Cada pessoa escolhe, em Minha Conta, que avisos chegam à Caixa de entrada. **Decisão:** não se
 silencia o que pede ação de alguém: atribuição (amostra e caso), atraso, atualização de pacote YARA,
 resolução e relatório devolvido. Silenciar vale para os próximos avisos; o histórico não muda.
+✅ **Implementado:** aba **Notificações** em Minha Conta, com os tipos que a pessoa pode receber pelo
+papel (`GET /api/me/notification-types`); os travados aparecem marcados, desabilitados e com "(sempre
+chega)". A lista fica em `mutedNotifications`, nas preferências, sem migração. O `notify()` descarta o
+silenciado **antes** de tirar os repetidos: com a menção silenciada, a atualização da mesma amostra
+ainda chega. Tipo desconhecido ou travado sai ao gravar e ao ler, e o servidor confere de novo ao
+notificar, então gravar direto no banco também não silencia o que pede ação. A classificação é um
+`Record` dos tipos, e um tipo novo sem classificação não compila. A aba Preferências não mexe na
+lista. **Achado no caminho:** a tabela de preferências do `interface-hpsm.md` não tinha `closedFolders`
+nem a página inicial `dashboard`.
 
 ### 165. IOC de URL e IPv6: extração e índice
 Os tipos hoje são IPv4, domínio, e-mail e hashes. **Decisão:** URL só http/https, sem usuário, senha e

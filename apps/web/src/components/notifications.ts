@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import { api } from '../api/client';
-import type { AppNotification, Verdict } from '../api/types';
+import type { AppNotification, NotificationType, Verdict } from '../api/types';
 import { verdictLabel } from './tags';
 
 const COUNT_KEY = ['notifications', 'count'];
@@ -43,6 +43,26 @@ export function useMarkRead() {
     [queryClient],
   );
 }
+
+/** Nome de cada tipo de aviso em Minha Conta > Notificações (item 164). */
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  ASSIGNED: 'Amostra atribuída a você',
+  COMPLETED: 'Amostra sua concluída',
+  MENTION: 'Menção numa atualização de amostra',
+  COMMENT: 'Atualização numa amostra sua ou sob sua responsabilidade',
+  REPORT_APPROVED: 'Relatório seu aprovado',
+  REPORT_RETURNED: 'Relatório seu devolvido para ajustes',
+  IOC_SEEN: 'Indicador que você segue apareceu',
+  SLA_WARN: 'Prazo em alerta',
+  SLA_LATE: 'Amostra atrasada',
+  RESOLUTION: 'O que fazer com a sua amostra',
+  CASE_MENTION: 'Menção num comentário de caso',
+  CASE_COMMENT: 'Comentário num caso sob sua responsabilidade',
+  CASE_ENTRY_ADDED: 'Amostras incluídas no seu caso',
+  CASE_ENTRY_REMOVED: 'Amostras retiradas do seu caso',
+  CASE_ASSIGNED: 'Caso atribuído a você',
+  YARA_PACK_UPDATE: 'Atualização dos pacotes de regras YARA',
+};
 
 /** Frase da notificacao ("Bruno Lima atribuiu a amostra a você"). */
 export function notificationText(n: AppNotification): string {

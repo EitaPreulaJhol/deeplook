@@ -7,6 +7,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   restoreTabs: true,
   detailPane: false,
   closedFolders: [],
+  mutedNotifications: [],
 };
 
 const START_PATHS: Record<StartPage, string> = {

@@ -292,6 +292,11 @@ front, `useNotificationCount()` (contador compartilhado), `useNotifications(limi
 somenteNaoLidas)`, `useMarkRead()`, `notificationText(n)` e `notificationHref(n)`.
 Avisos do sistema (prazo, `lib/sla-escalation.ts`) usam `actorId: null`.
 
+Tipo novo de aviso: classifique em `NOTIFICATION_TYPES` (`lib/notification-types.ts`: quem
+recebe e se pode ser silenciado) e dê o nome em `NOTIFICATION_TYPE_LABELS`
+(`components/notifications.ts`). Os dois são `Record`, então o build acusa o que faltar.
+O `notify()` descarta o que o destinatário silenciou antes de tirar os repetidos.
+
 ### Menções — `components/MentionTextArea.tsx`
 
 `<MentionTextArea id value onChange onMention />` no lugar do `TextArea`: "@" abre a
@@ -435,6 +440,7 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | POST | `/api/auth/touch` | atividade do usuário: renova a sessão por `SESSION_IDLE_MINUTES` e devolve `{ expiresAt }` (401 se já expirou) |
 | GET | `/api/auth/session` | `{ expiresAt }` da sessão atual, **sem** renovar |
 | PATCH | `/api/me/preferences` | atualização parcial; chaves desconhecidas → 400 |
+| GET | `/api/me/notification-types` | `{ types: [{ type, locked }] }`: avisos que a pessoa pode receber pelo papel; `locked` não se silencia (item 164) |
 | POST | `/api/me/password` | `{ currentPassword, newPassword }`: confere a atual, exige a política de senha (8+ caracteres, número e caractere especial) e senha diferente, e **encerra todas as sessões** do usuário. Na troca obrigatória (senha redefinida pelo admin) abre uma sessão nova e devolve `{ ok, signedIn: true }` |
 | POST | `/api/admin/users/:id/reset-password` | admin: gera senha temporária (devolvida uma vez), encerra as sessões e marca a **troca obrigatória**: até trocar, as rotas respondem 403 `{ code: 'PASSWORD_CHANGE_REQUIRED' }` (inclusive para os tokens de API), exceto a troca de senha |
 
@@ -583,10 +589,12 @@ Guardadas na coluna JSON `User.preferences` (migração
 
 | Chave | Valores (padrão em negrito) | Onde é aplicada |
 |---|---|---|
-| `startPage` | **`welcome`** · `history` · `mine` | destino após o login e na raiz `/` |
+| `startPage` | **`welcome`** · `dashboard` · `history` · `mine` | destino após o login e na raiz `/` |
 | `pageSize` | 25 · **50** · 100 | Histórico Global e Meus Uploads |
 | `restoreTabs` | **`true`** · `false` | reabre as abas de documento da sessão anterior ao entrar (cópia por usuário no `localStorage`) |
 | `detailPane` | `true` · **`false`** | painel de detalhe abaixo das listas (clique seleciona, duplo clique abre) |
+| `closedFolders` | **`[]`** | pastas recolhidas no Navegador; gravada pelo próprio Navegador, fora da aba Preferências |
+| `mutedNotifications` | **`[]`** | avisos silenciados (aba Notificações); tipo desconhecido ou travado sai ao ler e ao gravar, e o `notify()` confere de novo |
 
 ### Como adicionar uma preferência
 
@@ -677,6 +685,7 @@ banco nem da API rodando.
 | `yara-updates.mjs` | atualização dos pacotes: ligar e desligar, verificar (já atualizado, prévia com aplicar, aplicar depois de confirmar), falha da última verificação, retida com motivos, aprovar, descartar, voltar a versão, aviso que abre as Configurações |
 | `sample-access.mjs` | acesso às amostras: analista baixa e vê o e-mail; usuário comum sem "Baixar amostra" na de outra pessoa e só com o nome (ficha e impressão), baixa a própria; filtro "Amostra baixada" na auditoria |
 | `ldap-login.mjs` | login pelo AD: sem AD igual a antes; com AD, "E-mail ou usuário da rede" (campo texto) e explicação, envia o usuário da rede; conta do AD sem troca de senha; Administração com a marcação "AD" e sem redefinir a senha |
+| `notification-prefs.mjs` | aba Notificações: tipos pelo papel (admin todos, usuário comum só os dele), travados marcados e desabilitados com "(sempre chega)", desmarcar e salvar grava a lista, salvar as Preferências não mexe nela |
 | `backup.mjs` | backup: pasta Administração, lista (pronto, falha com motivo, vencido apagado, malware marcado), gerar com amostras com confirmação, progresso até pronto, um por vez, Baixar, excluir com confirmação |
 | `api-docs.mjs` | documentação da API: link na aba Tokens, exemplos em curl com o endereço e Copiar, rotas da especificação (método, caminho, campos com tipo e obrigatório, respostas), baixar o `openapi.json`, nada que chame a API, aviso sem acesso liberado |
 | `lookalike.mjs` | domínios parecidos: aviso na ficha (domínio, motivo, onde, texto puro), sem achados sem aviso, pasta Detecção, variações vistas (motivo, onde, amostras com veredito e "+N"), incluir (obrigatório, erro da API no campo, Enter), excluir com confirmação, analista só vê, usuário comum sem a tela |

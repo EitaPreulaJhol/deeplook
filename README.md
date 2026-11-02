@@ -636,7 +636,9 @@ O nome do usuário no topo abre um submenu (Minha conta, Alterar senha, Preferê
 Sair). Em `/user` o usuário vê seus dados (somente leitura), troca a senha — o que
 **encerra todas as sessões** e exige novo login — e ajusta as preferências: página
 inicial (padrão: a **Página Inicial** de boas-vindas, `/inicio`), registros por página
-e reabrir as abas da sessão anterior.
+e reabrir as abas da sessão anterior. Na aba **Notificações**, cada pessoa escolhe que avisos chegam
+à Caixa de entrada; os que pedem ação (atribuição, atraso, relatório devolvido, resolução, pacotes
+YARA) sempre chegam.
 
 | Método | Rota | Função |
 |---|---|---|

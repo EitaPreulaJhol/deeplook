@@ -164,6 +164,8 @@ export interface Preferences {
   detailPane: boolean;
   /** Pastas recolhidas no Navegador. */
   closedFolders: string[];
+  /** Avisos silenciados na Caixa de entrada (item 164). */
+  mutedNotifications: NotificationType[];
 }
 
 /** Usuario da sessao atual: inclui as preferencias. */
@@ -432,6 +434,9 @@ export interface ReportTemplate {
   verdict: Verdict;
   updatedAt: string;
 }
+
+/** Tipos de aviso da caixa de entrada. */
+export type NotificationType = AppNotification['type'];
 
 /** Notificacao da caixa de entrada (GET /api/me/notifications). */
 export interface AppNotification {

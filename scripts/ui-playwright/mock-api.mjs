@@ -34,7 +34,16 @@ const now = '2026-10-20T13:00:00.000Z';
 /** Conteudo cujo SHA-256 coincide com o da amostra e1 (teste de duplicata). */
 export const DUPLICATE_SAMPLE = Buffer.from('deeplook: amostra repetida para o teste de duplicata');
 const DUPLICATE_SHA = createHash('sha256').update(DUPLICATE_SAMPLE).digest('hex');
-export const DEFAULT_PREFERENCES = { startPage: 'welcome', pageSize: 50, restoreTabs: true, detailPane: false, closedFolders: [] };
+export const DEFAULT_PREFERENCES = { startPage: 'welcome', pageSize: 50, restoreTabs: true, detailPane: false, closedFolders: [], mutedNotifications: [] };
+
+/** Tipos de aviso por papel e os que nao se silenciam (apps/api/src/lib/notification-types.ts). */
+const NOTIFICATION_TYPES = [
+  ['ASSIGNED', 'analyst', true], ['COMPLETED', 'all', false], ['MENTION', 'all', false], ['COMMENT', 'all', false],
+  ['REPORT_APPROVED', 'analyst', false], ['REPORT_RETURNED', 'analyst', true], ['IOC_SEEN', 'all', false],
+  ['SLA_WARN', 'analyst', false], ['SLA_LATE', 'analyst', true], ['RESOLUTION', 'all', true],
+  ['CASE_MENTION', 'analyst', false], ['CASE_COMMENT', 'analyst', false], ['CASE_ENTRY_ADDED', 'analyst', false],
+  ['CASE_ENTRY_REMOVED', 'analyst', false], ['CASE_ASSIGNED', 'analyst', true], ['YARA_PACK_UPDATE', 'admin', true],
+];
 
 const owner = { id: 'u2', displayName: 'Bruno Lima', email: 'bruno@deeplook.test' };
 export const users = [
@@ -690,6 +699,13 @@ export async function setupMock(context, state) {
         return json(route, 200, { favorite });
       }
 
+      if (p === '/api/me/notification-types') {
+        const role = currentUser().role;
+        const types = NOTIFICATION_TYPES.filter(
+          ([, audience]) => audience === 'all' || role === 'ADMIN' || (audience === 'analyst' && role === 'ANALYST'),
+        ).map(([type, , locked]) => ({ type, locked }));
+        return json(route, 200, { types });
+      }
       if (p === '/api/me/preferences' && req.method() === 'PATCH') {
         state.preferences = { ...state.preferences, ...body };
         return json(route, 200, { preferences: state.preferences });
