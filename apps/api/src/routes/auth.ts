@@ -1,16 +1,18 @@
 import { randomBytes } from 'node:crypto';
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { env } from '../env';
 import { audit } from '../lib/audit';
 import { createSession, currentSession, destroySession, loadUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
-import { ldapAuthenticate, ldapConfig } from '../lib/ldap';
+import { ldapAccountsGone, ldapAuthenticate, ldapConfig, sameDn } from '../lib/ldap';
 import { passwordField, passwordState } from '../lib/password-policy';
 import { resolvePreferences } from '../lib/preferences';
 import { isUniqueViolation, prisma } from '../lib/prisma';
 import { attemptLimit, FailureWindow } from '../lib/rate-limit';
+import { closeSessionsOf } from '../lib/sandbox';
 import { newChallenge, readChallenge } from '../lib/two-factor';
 import { sendValidationError } from '../lib/validation';
 import { checkSecondFactor } from './two-factor';
@@ -26,6 +28,9 @@ const TwoFactorSchema = z.object({
   challenge: z.string().min(10).max(300),
   code: z.string().trim().min(6).max(20),
 });
+
+const DEVICE_COOKIE = 'dl_device';
+const DEVICE_COOKIE_DAYS = 90;
 
 /** Chave usada ate o limite por outro cadastro ao mesmo tempo (item 111). */
 class KeyUsedUp extends Error {}
@@ -168,6 +173,26 @@ export async function authRoutes(app: FastifyInstance) {
   // abaixo seguram o resto: muitas contas de um IP e uma conta de muitos IPs.
   const failuresByIp = new FailureWindow(30, 5 * 60 * 1000);
   const failuresByEmail = new FailureWindow(20, 5 * 60 * 1000);
+  /**
+   * Navegador onde a conta ja entrou: cookie assinado, que so existe depois da senha
+   * certa. Quem o tem nao para na janela por e-mail, e assim ninguem de fora tranca a
+   * conta alheia com falhas de varios IPs; o limite por e-mail + IP continua valendo.
+   */
+  const knownDevice = (req: FastifyRequest, userId: string | undefined) => {
+    const raw = req.cookies[DEVICE_COOKIE];
+    if (!raw || !userId) return false;
+    const { valid, value } = req.unsignCookie(raw);
+    return valid && value === userId;
+  };
+  const rememberDevice = (reply: FastifyReply, userId: string) =>
+    reply.setCookie(DEVICE_COOKIE, userId, {
+      path: '/api/auth',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: env.COOKIE_SECURE === 'true',
+      signed: true,
+      maxAge: DEVICE_COOKIE_DAYS * 24 * 3600,
+    });
   // Quem nao existe tambem custa um bcrypt: o tempo nao revela o cadastro.
   const dummyHash = hashPassword(randomBytes(32).toString('hex'));
   const loginLimit = attemptLimit((req) => `login:${loginEmail(req)}:${req.ip}`, {
@@ -218,7 +243,18 @@ export async function authRoutes(app: FastifyInstance) {
     const existing =
       (await prisma.user.findUnique({ where: { ldapDn: ad.dn } })) ??
       (await prisma.user.findUnique({ where: { email: ad.email } }));
-    if (existing?.authSource === 'LOCAL') return null;
+    if (existing?.authSource === 'LOCAL') {
+      return { refused: `e-mail do AD (${ad.email}) já é de uma conta local` };
+    }
+    // E-mail de uma conta ligada a outro DN: so a mesma pessoa se o DN antigo nao existe
+    // mais (mudou de OU). Senao, seria outra conta do AD assumindo a identidade desta.
+    const moved = existing?.ldapDn && !sameDn(existing.ldapDn, ad.dn) ? existing.ldapDn : null;
+    if (moved) {
+      const gone = await ldapAccountsGone([moved]).catch(() => null);
+      if (!gone?.has(moved)) {
+        return { refused: `e-mail do AD (${ad.email}) já é de outra conta do AD (${moved})` };
+      }
+    }
     if (!existing) {
       const created = await prisma
         .$transaction(async (tx) => {
@@ -259,6 +295,22 @@ export async function authRoutes(app: FastifyInstance) {
         req.log.warn({ dn: ad.dn }, 'E-mail do AD já é de outra conta; mantido o atual');
         return prisma.user.update({ where: { id: existing.id }, data });
       });
+    if (moved) {
+      await prisma.$transaction(async (tx) => {
+        await tx.session.deleteMany({ where: { userId: existing.id } });
+        await tx.apiToken.updateMany({
+          where: { userId: existing.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        await audit(tx, req, {
+          action: 'USER_LDAP_RELINKED',
+          actorId: null,
+          targetUserId: existing.id,
+          targetLabel: updated.email,
+          detail: `${moved} → ${ad.dn}`,
+        });
+      });
+    }
     if (existing.role !== ad.role) {
       await audit(prisma, req, {
         action: 'USER_ROLE_CHANGED',
@@ -267,6 +319,7 @@ export async function authRoutes(app: FastifyInstance) {
         targetLabel: updated.email,
         detail: `${existing.role} → ${ad.role} (grupos do AD)`,
       });
+      if (ad.role === 'USER') closeSessionsOf(existing.id, req.log);
     }
     return updated;
   };
@@ -277,10 +330,13 @@ export async function authRoutes(app: FastifyInstance) {
     const { email, password } = parsed.data;
 
     const normalized = email.toLowerCase();
-    if (failuresByIp.exceeded(req.ip) || failuresByEmail.exceeded(normalized)) {
+    if (failuresByIp.exceeded(req.ip)) {
       return reply.code(429).send({ error: 'Muitas tentativas. Tente novamente em 5 minutos.' });
     }
     const local = await prisma.user.findUnique({ where: { email: normalized } });
+    if (failuresByEmail.exceeded(normalized) && !knownDevice(req, local?.id)) {
+      return reply.code(429).send({ error: 'Muitas tentativas. Tente novamente em 5 minutos.' });
+    }
     let user = local;
     if (local?.authSource === 'LOCAL') {
       if (!(await verifyPassword(password, local.passwordHash))) {
@@ -299,16 +355,13 @@ export async function authRoutes(app: FastifyInstance) {
         await loginFailed(req, normalized, local?.id ?? null, result.reason);
         return reply.code(401).send({ error: 'Credenciais inválidas.' });
       }
-      user = await ldapAccount(req, result);
-      if (!user) {
-        await loginFailed(
-          req,
-          normalized,
-          null,
-          `e-mail do AD (${result.email}) já é de uma conta local`,
-        );
+      const account = await ldapAccount(req, result);
+      if (account && 'refused' in account) {
+        await loginFailed(req, normalized, null, account.refused);
         return reply.code(401).send({ error: 'Credenciais inválidas.' });
       }
+      user = account;
+      if (!user) return reply.code(401).send({ error: 'Credenciais inválidas.' });
       // Suspensa no DeepLook nao entra, mesmo com a senha certa no AD.
       if (user.status !== 'ACTIVE') {
         await loginFailed(req, normalized, user.id, 'conta suspensa');
@@ -332,6 +385,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     await createSession(reply, user.id, req);
+    rememberDevice(reply, user.id);
     return reply.send({ user: publicUser(user) });
   });
 
@@ -390,6 +444,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
     await createSession(reply, user.id, req);
+    rememberDevice(reply, user.id);
     return reply.send({ user: publicUser(user), recoveryRemaining: factor.remaining ?? null });
   });
 

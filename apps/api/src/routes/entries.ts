@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 
-import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -11,6 +11,7 @@ import { withSubtechniques } from '../lib/attack';
 import { audit } from '../lib/audit';
 import {
   isAnalyst,
+  linksForViewer,
   ownerForViewer,
   type PublicUser,
   requireUser,
@@ -28,12 +29,13 @@ import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
-import { quotaMessage, uploadQuota } from '../lib/quota';
+import { createWithinQuota, QuotaExceeded, quotaMessage, uploadQuota } from '../lib/quota';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { checkReputationInBackground } from '../lib/reputation';
 import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
-import { analyzeBuffer } from '../lib/static-analysis';
+import type { StaticInfo } from '../lib/static-analysis';
+import { analyzeInThread } from '../lib/static-analysis-thread';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
 import { applyTriageRules } from '../lib/triage-rules';
 import { uploadGate } from '../lib/upload-gate';
@@ -425,6 +427,38 @@ const VERDICT_LABELS = {
   MALICIOUS: 'Malicioso',
 };
 
+/**
+ * Etapas da revisao de relatorio: nota do revisor e veredito de rascunho, que a rota de
+ * relatorios so mostra a analistas. A falha do sandbox traz erro do Proxmox.
+ */
+const ANALYST_ONLY_EVENTS = [
+  'REPORT_CREATED',
+  'REPORT_SUBMITTED',
+  'REPORT_RETURNED',
+  'REPORT_APPROVED',
+  'SANDBOX_FAILED',
+] as const;
+
+/** Com a restricao ligada, a principal de outra pessoa nao aparece no historico (item 140). */
+async function eventsForViewer<
+  T extends { type: string; toValue: string | null; detail: string | null },
+>(events: T[], user: PublicUser): Promise<T[]> {
+  const { ownerId } = await visibleEntries(user);
+  if (!ownerId) return events;
+  const isLink = (e: T) => e.type === 'MARKED_DUPLICATE' || e.type === 'UNMARKED_DUPLICATE';
+  const own = new Set(
+    (
+      await prisma.entry.findMany({
+        where: { id: { in: events.filter(isLink).map((e) => e.detail ?? '') }, ownerId },
+        select: { id: true },
+      })
+    ).map((e) => e.id),
+  );
+  return events.map((e) =>
+    isLink(e) && !own.has(e.detail ?? '') ? { ...e, toValue: null, detail: null } : e,
+  );
+}
+
 /** Envio por .zip: arquivos por pacote e limites de tamanho (por arquivo e total). */
 const ZIP_MAX_FILES = 20;
 const ZIP_MAX_FILE_BYTES = () => env.MAX_UPLOAD_MB * 1024 * 1024;
@@ -535,9 +569,9 @@ async function createFileEntry(
   const fuzzy = buffer.length <= TLSH_MAX_BYTES ? (tlsh(buffer) ?? '') : '';
   const storageKey = `samples/${randomUUID()}`;
   // Analise estatica (so leitura, com limites); falha nao impede o envio.
-  let staticInfo: ReturnType<typeof analyzeBuffer> | undefined;
+  let staticInfo: StaticInfo | undefined;
   try {
-    staticInfo = analyzeBuffer(buffer, filename);
+    staticInfo = await analyzeInThread(buffer, filename);
   } catch (err) {
     req.log.warn({ err }, 'Falha na analise estatica');
   }
@@ -552,27 +586,37 @@ async function createFileEntry(
     }),
   );
 
-  const entry = await prisma.entry.create({
-    data: {
-      ownerId,
-      type: 'FILE',
-      title: input.title.slice(0, 200),
-      description: input.description ? input.description.slice(0, 4000) : null,
-      originalFilename: filename,
-      storageKey,
-      bucket: env.S3_BUCKET,
-      fileSize: buffer.length,
-      mimeType: mimetype,
-      sha256,
-      tlsh: fuzzy,
-      staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
-      parentEntryId: input.parentEntryId ?? null,
-      tags: { connect: input.tags },
-    },
-    include: {
-      owner: { select: { id: true, displayName: true, email: true } },
-      tags: true,
-    },
+  const entry = await createWithinQuota(ownerId, quota.remaining !== null, (db) =>
+    db.entry.create({
+      data: {
+        ownerId,
+        type: 'FILE',
+        title: input.title.slice(0, 200),
+        description: input.description ? input.description.slice(0, 4000) : null,
+        originalFilename: filename,
+        storageKey,
+        bucket: env.S3_BUCKET,
+        fileSize: buffer.length,
+        mimeType: mimetype,
+        sha256,
+        tlsh: fuzzy,
+        staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
+        parentEntryId: input.parentEntryId ?? null,
+        tags: { connect: input.tags },
+      },
+      include: {
+        owner: { select: { id: true, displayName: true, email: true } },
+        tags: true,
+      },
+    }),
+  ).catch(async (err: unknown) => {
+    // Sem amostra, o arquivo recem-gravado nao teria dono.
+    if (err instanceof QuotaExceeded) {
+      await s3
+        .send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: storageKey }))
+        .catch((e: unknown) => req.log.warn({ err: e }, 'Falha ao apagar envio além da cota'));
+    }
+    throw err;
   });
 
   await recordEvent(prisma, { entryId: entry.id, actorId: ownerId, type: 'CREATED' });
@@ -628,22 +672,28 @@ async function readEmail(
       if (item) item.skipped = 'cota de envio atingida';
       continue;
     }
-    const { entry: child } = await createFileEntry(
-      req,
-      ownerId,
-      {
-        buffer: file.content,
-        filename: file.filename,
-        mimetype: file.mimeType,
-        title: file.filename,
-        description: `Anexo do e-mail "${info.subject ?? entry.title}".`,
-        tags: input.tags,
-        parentEntryId: entry.id,
-      },
-      quota,
-      depth + 1,
-    );
-    if (item) item.entryId = child.id;
+    try {
+      const { entry: child } = await createFileEntry(
+        req,
+        ownerId,
+        {
+          buffer: file.content,
+          filename: file.filename,
+          mimetype: file.mimeType,
+          title: file.filename,
+          description: `Anexo do e-mail "${info.subject ?? entry.title}".`,
+          tags: input.tags,
+          parentEntryId: entry.id,
+        },
+        quota,
+        depth + 1,
+      );
+      if (item) item.entryId = child.id;
+    } catch (err) {
+      if (!(err instanceof QuotaExceeded)) throw err;
+      quota.remaining = 0;
+      if (item) item.skipped = 'cota de envio atingida';
+    }
   }
   await prisma.entry.update({
     where: { id: entry.id },
@@ -855,7 +905,7 @@ export async function entryRoutes(app: FastifyInstance) {
       total,
       limit,
       offset,
-      items: items.map((e) => ownerForViewer(e, user)),
+      items: (await linksForViewer(items, user)).map((e) => ownerForViewer(e, user)),
       sla: slaConfig(),
     });
   });
@@ -998,7 +1048,13 @@ export async function entryRoutes(app: FastifyInstance) {
       req.log.error({ err }, 'Falha ao ler a amostra no MinIO');
       return reply.code(502).send({ error: 'Nao foi possivel ler o arquivo no armazenamento.' });
     }
-    const staticInfo = analyzeBuffer(buffer, entry.originalFilename);
+    let staticInfo: StaticInfo;
+    try {
+      staticInfo = await analyzeInThread(buffer, entry.originalFilename);
+    } catch (err) {
+      req.log.warn({ err }, 'Falha na analise estatica');
+      return reply.code(422).send({ error: 'Não foi possível analisar este arquivo.' });
+    }
     await prisma.entry.update({
       where: { id },
       data: { staticInfo: staticInfo as unknown as Prisma.InputJsonValue },
@@ -1013,14 +1069,18 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const { id } = req.params as { id: string };
+    const analyst = isAnalyst(user);
     const events = await prisma.entryEvent.findMany({
-      where: { entryId: id },
+      where: {
+        entryId: id,
+        ...(analyst ? {} : { type: { notIn: [...ANALYST_ONLY_EVENTS] } }),
+      },
       // Eventos da mesma transacao podem ter o mesmo milissegundo: o id (cuid,
       // crescente) desempata na ordem em que foram gravados.
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       include: { actor: { select: { id: true, displayName: true } } },
     });
-    return reply.send({ events });
+    return reply.send({ events: await eventsForViewer(events, user) });
   });
 
   /** Cota de envio esgotada (item 64): 429 com a espera; devolve as vagas restantes. */
@@ -1032,6 +1092,11 @@ export async function entryRoutes(app: FastifyInstance) {
     }
     return quota;
   };
+  /** A cota acabou durante o envio: mesma resposta da conferencia na entrada. */
+  const quotaRefused = async (user: PublicUser, reply: FastifyReply) => {
+    const quota = await uploadQuota(user);
+    return reply.code(429).send({ error: quotaMessage(quota), resetAt: quota.resetAt });
+  };
 
   app.post('/api/entries/file', async (req, reply) => {
     const user = await requireUser(req, reply);
@@ -1041,20 +1106,25 @@ export async function entryRoutes(app: FastifyInstance) {
     const upload = await readUpload(req, reply);
     if (!upload) return;
 
-    const { entry } = await createFileEntry(
-      req,
-      user.id,
-      {
-        buffer: upload.buffer,
-        filename: upload.filename,
-        mimetype: upload.mimetype,
-        title: upload.fields.title || upload.filename,
-        description: upload.fields.description || null,
-        tags: await resolveTags(parseTags(upload.fields.tags)),
-      },
-      { remaining: quota.remaining },
-    );
-    return reply.code(201).send({ entry, previous: await previousSubmission(entry, user) });
+    try {
+      const { entry } = await createFileEntry(
+        req,
+        user.id,
+        {
+          buffer: upload.buffer,
+          filename: upload.filename,
+          mimetype: upload.mimetype,
+          title: upload.fields.title || upload.filename,
+          description: upload.fields.description || null,
+          tags: await resolveTags(parseTags(upload.fields.tags)),
+        },
+        { remaining: quota.remaining },
+      );
+      return await reply.code(201).send({ entry, previous: await previousSubmission(entry, user) });
+    } catch (err) {
+      if (!(err instanceof QuotaExceeded)) throw err;
+      return quotaRefused(user, reply);
+    }
   });
 
   // Envio em lote por .zip (ex.: pacote de malware com a senha "infected"):
@@ -1095,6 +1165,9 @@ export async function entryRoutes(app: FastifyInstance) {
       previous: { id: string; title: string } | null;
     }[] = [];
     const skipped: { name: string; path: string; reason: string }[] = [];
+    // Tentativas e bytes contam mesmo se a extracao falhar: quem falha tambem custa,
+    // e o pacote nao pode ficar descompactando entrada ruim sem parar.
+    let attempts = 0;
     let total = 0;
     let passwordError: string | null = null;
 
@@ -1110,7 +1183,7 @@ export async function entryRoutes(app: FastifyInstance) {
         });
         continue;
       }
-      if (created.length >= ZIP_MAX_FILES) {
+      if (attempts >= ZIP_MAX_FILES) {
         skipped.push({
           name: file.name,
           path: file.path,
@@ -1130,7 +1203,8 @@ export async function entryRoutes(app: FastifyInstance) {
         });
         continue;
       }
-      if (total + file.size > ZIP_MAX_TOTAL_BYTES()) {
+      const cost = Math.max(file.size, file.compressedSize);
+      if (total + cost > ZIP_MAX_TOTAL_BYTES()) {
         skipped.push({
           name: file.name,
           path: file.path,
@@ -1138,6 +1212,8 @@ export async function entryRoutes(app: FastifyInstance) {
         });
         continue;
       }
+      attempts += 1;
+      total += cost;
       let buffer: Buffer;
       try {
         buffer = extractZipEntry(upload.buffer, file, password, ZIP_MAX_FILE_BYTES());
@@ -1147,21 +1223,32 @@ export async function entryRoutes(app: FastifyInstance) {
         skipped.push({ name: file.name, path: file.path, reason: err.message });
         continue;
       }
-      total += buffer.length;
       const origin = `Extraído de ${upload.filename}${file.path !== file.name ? ` (${file.path})` : ''}.`;
-      const { entry } = await createFileEntry(
-        req,
-        user.id,
-        {
-          buffer,
-          filename: file.name,
-          mimetype: 'application/octet-stream',
-          title: file.name,
-          description: base ? `${base}\n\n${origin}` : origin,
-          tags,
-        },
-        left,
-      );
+      let entry;
+      try {
+        ({ entry } = await createFileEntry(
+          req,
+          user.id,
+          {
+            buffer,
+            filename: file.name,
+            mimetype: 'application/octet-stream',
+            title: file.name,
+            description: base ? `${base}\n\n${origin}` : origin,
+            tags,
+          },
+          left,
+        ));
+      } catch (err) {
+        if (!(err instanceof QuotaExceeded)) throw err;
+        left.remaining = 0;
+        skipped.push({
+          name: file.name,
+          path: file.path,
+          reason: `cota de ${quota.limit} envios em 24 horas atingida`,
+        });
+        continue;
+      }
       created.push({
         name: file.name,
         path: file.path,
@@ -1199,21 +1286,29 @@ export async function entryRoutes(app: FastifyInstance) {
 
     const tags = await resolveTags(parseTags(tagRaw));
 
-    const entry = await prisma.entry.create({
-      data: {
-        ownerId: user.id,
-        type: 'URL',
-        title,
-        description: description || null,
-        url,
-        urlDomain: domainOf(url),
-        tags: { connect: tags },
-      },
-      include: {
-        owner: { select: { id: true, displayName: true, email: true } },
-        tags: true,
-      },
-    });
+    let entry;
+    try {
+      entry = await createWithinQuota(user.id, !isAnalyst(user), (db) =>
+        db.entry.create({
+          data: {
+            ownerId: user.id,
+            type: 'URL',
+            title,
+            description: description || null,
+            url,
+            urlDomain: domainOf(url),
+            tags: { connect: tags },
+          },
+          include: {
+            owner: { select: { id: true, displayName: true, email: true } },
+            tags: true,
+          },
+        }),
+      );
+    } catch (err) {
+      if (!(err instanceof QuotaExceeded)) throw err;
+      return quotaRefused(user, reply);
+    }
 
     await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
     await assignOnArrival(entry.id, req);
@@ -1267,8 +1362,9 @@ export async function entryRoutes(app: FastifyInstance) {
       const { ownerId: _owner, ...rest } = other;
       return rest;
     };
+    const [withLinks] = await linksForViewer([found], user);
     const entry = {
-      ...found,
+      ...withLinks,
       duplicateOf: linked(found.duplicateOf),
       parentEntry: linked(found.parentEntry),
     };
@@ -1338,7 +1434,8 @@ export async function entryRoutes(app: FastifyInstance) {
     const updated = await prisma.$transaction((tx) =>
       applyTriage(tx, entry, user.id, data, updateData, newAssignee),
     );
-    return reply.send({ entry: updated });
+    const [withLinks] = await linksForViewer([updated], user);
+    return reply.send({ entry: ownerForViewer(withLinks, user) });
   });
 
   // "Pegar a proxima" (Next in queue): atribui ao analista a pendente sem

@@ -371,6 +371,7 @@ export type AuditAction =
   | 'USER_ROLE_CHANGED'
   | 'USER_SUSPENDED'
   | 'USER_REACTIVATED'
+  | 'USER_LDAP_RELINKED'
   | 'USER_PASSWORD_RESET'
   | 'USER_PASSWORD_CHANGED'
   | 'KEY_CREATED'
@@ -650,6 +651,8 @@ export interface Entry {
   parentEntry?: { id: string; title: string; originalFilename?: string | null } | null;
   /** Duplicata de outra amostra (a principal). */
   duplicateOfId?: string | null;
+  /** Duplicata de amostra de outra pessoa, com a restricao ligada (sem o id). */
+  isDuplicate?: boolean;
   duplicateOf?: { id: string; title: string } | null;
   /** Duplicatas desta amostra (GET /api/entries/:id, ate 50). */
   duplicates?: { id: string; title: string; createdAt: string }[];

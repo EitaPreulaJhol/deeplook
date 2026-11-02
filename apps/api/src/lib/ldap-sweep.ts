@@ -1,6 +1,7 @@
 import { audit } from './audit';
 import { ldapAccountsGone, ldapConfig } from './ldap';
 import { prisma } from './prisma';
+import { closeSessionsOf } from './sandbox';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -51,6 +52,7 @@ export async function sweepLdapAccounts(): Promise<SweepResult> {
         detail: 'conta removida ou desativada no AD',
       });
     });
+    closeSessionsOf(account.id, console);
   }
   return { checked: accounts.length, suspended: lost.map((a) => a.email) };
 }

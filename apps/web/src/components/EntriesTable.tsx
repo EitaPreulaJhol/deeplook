@@ -285,7 +285,7 @@ export function EntriesTable({
                   <span className="dl-cell-text" title={entry.title}>
                     {entry.title}
                   </span>
-                  {entry.duplicateOfId && (
+                  {(entry.duplicateOfId || entry.isDuplicate) && (
                     <span className="dl-dup-tag" title="Duplicata de outra amostra">
                       duplicata
                     </span>

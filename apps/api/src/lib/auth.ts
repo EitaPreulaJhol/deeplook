@@ -182,6 +182,34 @@ export async function visibleEntries(user: PublicUser): Promise<{ ownerId?: stri
   return !isAnalyst(user) && (await ownSamplesOnly()) ? { ownerId: user.id } : {};
 }
 
+/**
+ * Com a restricao ligada, o usuario comum nao ve de quem e duplicata nem de onde veio
+ * uma amostra, se a outra for de outra pessoa (item 140). `isDuplicate` mantem o aviso
+ * de duplicata na lista, que antes vinha do id.
+ */
+export async function linksForViewer<
+  T extends { duplicateOfId?: string | null; parentEntryId?: string | null },
+>(entries: T[], user: PublicUser): Promise<(T & { isDuplicate?: boolean })[]> {
+  const { ownerId } = await visibleEntries(user);
+  if (!ownerId) return entries as (T & { isDuplicate?: boolean })[];
+  const ids = entries.flatMap((e) => [e.duplicateOfId, e.parentEntryId]).filter((v) => v);
+  const own = new Set(
+    (
+      await prisma.entry.findMany({
+        where: { id: { in: ids as string[] }, ownerId },
+        select: { id: true },
+      })
+    ).map((e) => e.id),
+  );
+  const shown = (id: string | null | undefined) => (id && own.has(id) ? id : null);
+  return entries.map((e) => ({
+    ...e,
+    duplicateOfId: shown(e.duplicateOfId),
+    parentEntryId: shown(e.parentEntryId),
+    isDuplicate: Boolean(e.duplicateOfId),
+  }));
+}
+
 export async function requireUser(
   req: FastifyRequest,
   reply: FastifyReply,

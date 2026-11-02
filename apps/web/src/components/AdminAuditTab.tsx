@@ -28,6 +28,7 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   USER_ROLE_CHANGED: { label: 'Papel alterado', tone: 'blue' },
   USER_SUSPENDED: { label: 'Conta suspensa', tone: 'orange' },
   USER_REACTIVATED: { label: 'Conta reativada', tone: 'green' },
+  USER_LDAP_RELINKED: { label: 'Conta religada a outro DN do AD', tone: 'red' },
   USER_PASSWORD_RESET: { label: 'Senha redefinida pelo admin', tone: 'orange' },
   USER_PASSWORD_CHANGED: { label: 'Senha alterada pelo usuário', tone: 'blue' },
   KEY_CREATED: { label: 'Chave gerada', tone: 'blue' },

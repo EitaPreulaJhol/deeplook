@@ -3544,3 +3544,41 @@ Achados em 01/11/2026 pelo Strix e reproduzidos antes da correção.
 - O vite 6.4.4 entregava arquivos de `server.fs.deny` com `?raw` e variantes (GHSA-8g5g-mxqh-grgj, CVE-2026-118662; o relatório citava outro CVE). Só afeta o `npm run dev`, mas o `vite.config.ts` usa `host: true`, então qualquer máquina da rede alcança um `.env` em `apps/web`. A produção não usa o vite.
 ✅ **Implementado:** `authTagLength: 16` e vite 6.4.5. Testado no Node 22 (tags de 4, 8, 12 e 15 bytes recusadas, a de 16 decifra) e com um `.env` de teste no vite (200 antes, 403 depois).
 **Sem correção por ora:** minimatch abaixo de 11.0.1 (GHSA-g3hv-75wg-m249), via eslint e typescript-eslint. As versões mais recentes deles ainda pedem `^10`, e o `npm audit fix` faria downgrade. Exige padrão de glob vindo do atacante, e aqui os globs vêm só da configuração do lint.
+
+### 156. Arquivo hostil travando ou derrubando a API
+Achados em 01/11/2026 pelo Strix (segunda rodada) e reproduzidos antes da correção. Um OLE de 1,5 KB estourava a memória e derrubava o processo; FAT, PDF, OOXML, script e .zip travavam a API por dezenas de segundos a cada envio. A revisão achou casos piores que os do relatório: um .docx de 2,4 KB travava por 52 s e um de 2,3 KB por 73 s (regex quadrática em `<Relationship` e `instrText`), e um PDF com muitos streams pequenos também estourava a memória.
+✅ **Implementado:** limite de trabalho em cada analisador (entradas já visitadas no OLE e nos diretórios de FAT e ISO; streams, tokens `/URI` e bytes que falharam no PDF; partes únicas e 64 MB no OOXML; regras de script limitadas a 1000 caracteres na linha; no .zip, tentativas e bytes contam mesmo quando a extração falha, e nada descompacta além do tamanho declarado). A análise estática passou para uma thread própria, com 60 s e 1,5 GB: se estourar, cai só ela e a amostra fica sem análise. Testado com os mesmos arquivos, no build de produção e no Node 22. Nome ou texto com NUL no arquivo não dá mais 500 no envio.
+**Limites:** extrair um .zip continua na thread principal, e o pior pacote custa cerca de 1 s por envio. As análises rodam uma por vez, então um arquivo que chegue aos 60 s atrasa as seguintes, mas não o resto da API.
+
+### 157. Acesso que sobrevivia à suspensão e ao rebaixamento
+Achados pelo Strix e reproduzidos antes da correção.
+- Reativar a conta devolvia as sessões e os tokens de antes da suspensão.
+- Analista rebaixado continuava controlando o ambiente isolado que abriu: estender, ligar, descartar e pegar a senha do console.
+✅ **Implementado:** suspender apaga sessões e revoga tokens na mesma transação, com a contagem na auditoria. Só opera o ambiente quem ainda é analista (rotas e WebSocket), e suspender ou rebaixar encerra os ambientes abertos, também pelo AD. Cada extensão vale no máximo um TTL; antes, um valor enorme dava 500.
+
+### 158. Dados de analista e de outras pessoas nas respostas
+Achados pelo Strix e reproduzidos antes da correção.
+- O histórico entregava a usuários comuns a nota do revisor e o veredito de rascunho, que a rota de relatórios esconde. O erro do Proxmox (`SANDBOX_FAILED`) saiu junto.
+- O PATCH de uma amostra devolvia o e-mail de quem enviou.
+- `GET /api/entries/:id/sandbox` mostrava nó, VM, IP e analista a quem vê a amostra.
+- Com "só as próprias amostras" ligado, título e id de amostra de outra pessoa apareciam no histórico da duplicata e em `duplicateOfId`/`parentEntryId`. O relatório diz que também é vazamento com a opção desligada; não é, porque aí todos veem todas as amostras.
+✅ **Implementado:** os quatro fechados, com teste. A lista ganhou `isDuplicate`, para manter o aviso de duplicata sem o id.
+
+### 159. Conta do AD assumindo outra pelo e-mail
+Achado pelo Strix e reproduzido no OpenLDAP. O login procurava a conta pelo e-mail quando não achava pelo DN, e então trocava o DN e o papel: outra conta do AD com o mesmo `mail` entrava como a vítima e a trancava para fora.
+✅ **Implementado:** e-mail de uma conta ligada a outro DN é recusado e auditado. Só religa se o DN antigo não existir mais no AD (a pessoa mudou de OU), com auditoria nova e sessões e tokens revogados. Com o AD fora do ar, recusa.
+**Limite:** entre a saída de alguém do AD e a varredura seguinte (até 1 h), uma conta nova com o mesmo e-mail ainda religa. Depois da varredura a conta está suspensa, e o login é recusado.
+
+### 160. Bloqueio de login por e-mail
+Achado pelo Strix. O relatório trata como descuido, mas a janela de 20 falhas por e-mail é decisão do item 113 contra ataque de muitos IPs. O problema é real mesmo assim: quatro IPs bastam para trancar uma conta. O IP forjado da prova só funciona de rede privada; em produção são necessários quatro IPs de verdade.
+✅ **Implementado:** o login certo grava um cookie assinado (`dl_device`, 90 dias), e quem o tem não para nessa janela. O limite por e-mail + IP continua valendo para ele.
+**Limite:** num navegador novo, ou com o cookie apagado, a pessoa ainda fica sujeita ao bloqueio durante o ataque.
+
+### 161. Cota de envio ultrapassada com envios simultâneos
+Achado pelo Strix, que mediu 27 de 20. Na reprodução passaram 30 de 30.
+✅ **Implementado:** a cota é conferida de novo com trava por pessoa, na mesma transação que grava a amostra (arquivo, link, .zip e anexos); o arquivo além da cota é apagado do armazenamento. Testado com 30 envios simultâneos: 20 gravados e 10 com 429.
+
+### 162. CVEs do MinIO (CVE-2026-40344 e CVE-2026-41145)
+Reais na imagem fixada, e só alcançáveis de dentro da rede `deeplook`. O `minio/minio` foi arquivado e a correção oficial saiu só no AIStor, então não havia tag da mesma fonte para atualizar.
+✅ **Implementado:** o padrão passou para o fork comunitário `pgsty/silo` (`RELEASE.2026-10-26T00-00-00Z`, fixado por digest), que declara os dois corrigidos desde `RELEASE.2026-04-17T00-00-00Z`. Testado: uma cópia de `data/minio` leu igual nas duas imagens (objetos, hashes e metadados), um volume de teste foi e voltou entre as imagens, com envio simples e multipart, e a suíte de integração passou sobre o Silo.
+**Limite:** a correção dos CVEs vem do aviso do projeto; não houve prova de exploração antes e depois. Para voltar, basta `MINIO_IMAGE` com a imagem anterior, mas ela tem os dois CVEs.

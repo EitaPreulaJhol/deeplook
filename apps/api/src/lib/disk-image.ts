@@ -25,6 +25,8 @@ export interface DiskImageInfo {
 
 const MAX_FILES = 500;
 const MAX_DEPTH = 16;
+/** Bytes de diretorio lidos por imagem; a profundidade sozinha ainda deixa crescer. */
+const MAX_DIR_BYTES = 64 * 1024 * 1024;
 const SECTOR = 2048;
 const RISKY = /\.(exe|dll|scr|com|pif|bat|cmd|ps1|vbs|vbe|js|jse|wsf|hta|lnk|msi|cpl|jar)$/i;
 
@@ -56,7 +58,9 @@ function readIso(buf: Buffer): DiskImageInfo | null {
   // Joliet guarda em UTF-16 big-endian.
   const label = (
     unicode
-      ? Buffer.from(buf.subarray(pvd + 40, pvd + 72)).swap16().toString('utf16le')
+      ? Buffer.from(buf.subarray(pvd + 40, pvd + 72))
+          .swap16()
+          .toString('utf16le')
       : buf.toString('latin1', pvd + 40, pvd + 72)
   )
     .replaceAll('\u0000', '')
@@ -64,6 +68,7 @@ function readIso(buf: Buffer): DiskImageInfo | null {
   const files: DiskFile[] = [];
   let truncated = false;
   const visited = new Set<number>();
+  let dirBytes = 0;
 
   const name = (rec: number, len: number) => {
     const raw = buf.subarray(rec + 33, rec + 33 + len);
@@ -77,6 +82,11 @@ function readIso(buf: Buffer): DiskImageInfo | null {
     visited.add(lba);
     const start = lba * SECTOR;
     const end = Math.min(start + size, buf.length);
+    dirBytes += Math.max(0, end - start);
+    if (dirBytes > MAX_DIR_BYTES) {
+      truncated = true;
+      return;
+    }
     let p = start;
     while (p < end) {
       const len = buf[p];
@@ -208,6 +218,9 @@ function chain(buf: Buffer, fat: Fat, start: number, limit: number): Buffer {
 function readFat(buf: Buffer, fat: Fat): { files: DiskFile[]; truncated: boolean } {
   const files: DiskFile[] = [];
   let truncated = false;
+  // Cada diretorio uma vez: subpastas apontando para o mesmo cluster multiplicam o trabalho.
+  const visited = new Set<number>();
+  let dirBytes = 0;
 
   const entries = (dir: Buffer, prefix: string, depth: number) => {
     let lfn: string[] = [];
@@ -246,8 +259,12 @@ function readFat(buf: Buffer, fat: Fat): { files: DiskFile[]; truncated: boolean
       const size = dir.readUInt32LE(p + 28);
       const path = prefix ? `${prefix}/${n}` : n;
       if (attr & 0x10) {
-        if (depth < MAX_DEPTH && cluster >= 2) {
-          entries(chain(buf, fat, cluster, 4 * 1024 * 1024), path, depth + 1);
+        if (depth < MAX_DEPTH && cluster >= 2 && !visited.has(cluster)) {
+          visited.add(cluster);
+          const sub = chain(buf, fat, cluster, 4 * 1024 * 1024);
+          dirBytes += sub.length;
+          if (dirBytes > MAX_DIR_BYTES) truncated = true;
+          else entries(sub, path, depth + 1);
         }
       } else if (files.length < MAX_FILES) {
         files.push({ path, size, hidden: (attr & 0x02) !== 0, extent: { kind: 'fat', cluster } });

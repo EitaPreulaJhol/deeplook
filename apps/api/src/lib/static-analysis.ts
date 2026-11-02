@@ -434,6 +434,22 @@ export function parsePe(buf: Buffer): PeInfo | null {
 
 /** Analise completa do conteudo do arquivo (nunca lanca: falha parcial vira campo vazio). */
 export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo {
+  return withoutNul(analyzeContent(buf, filename));
+}
+
+/** O Postgres recusa \u0000 em JSON (e o envio daria 500): nomes e textos vem do arquivo. */
+function withoutNul<T>(value: T): T {
+  if (typeof value === 'string') return value.replaceAll('\u0000', '') as T;
+  if (Array.isArray(value)) return value.map(withoutNul) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k.replaceAll('\u0000', ''), withoutNul(v)]),
+    ) as T;
+  }
+  return value;
+}
+
+function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
   const end = Math.min(buf.length, MAX_BYTES);
   const detectedType = detectType(buf);
   const declared = declaredExtension(filename);

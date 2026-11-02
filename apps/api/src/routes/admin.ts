@@ -8,6 +8,7 @@ import { generateActivationCode, generateTemporaryPassword, hashPassword } from 
 import { toCsv } from '../lib/csv';
 import { passwordState } from '../lib/password-policy';
 import { prisma } from '../lib/prisma';
+import { closeSessionsOf } from '../lib/sandbox';
 import { systemStatus } from '../lib/status';
 import { sendValidationError } from '../lib/validation';
 
@@ -31,6 +32,7 @@ const AuditQuery = z.object({
       'USER_ROLE_CHANGED',
       'USER_SUSPENDED',
       'USER_REACTIVATED',
+      'USER_LDAP_RELINKED',
       'USER_PASSWORD_RESET',
       'USER_PASSWORD_CHANGED',
       'KEY_CREATED',
@@ -84,6 +86,7 @@ const AUDIT_LABELS: Record<AuditAction, string> = {
   USER_ROLE_CHANGED: 'Papel alterado',
   USER_SUSPENDED: 'Conta suspensa',
   USER_REACTIVATED: 'Conta reativada',
+  USER_LDAP_RELINKED: 'Conta religada a outro DN do AD',
   USER_PASSWORD_RESET: 'Senha redefinida pelo admin',
   USER_PASSWORD_CHANGED: 'Senha alterada pelo usuário',
   KEY_CREATED: 'Chave gerada',
@@ -281,6 +284,16 @@ export async function adminRoutes(app: FastifyInstance) {
         },
       });
       const target = { actorId: user.id, targetUserId: id, targetLabel: before.email };
+      // Suspender encerra o acesso de vez: reativar nao devolve sessao nem token antigos.
+      let revoked: string | undefined;
+      if (parsed.data.status === 'SUSPENDED' && before.status !== 'SUSPENDED') {
+        const sessions = await tx.session.deleteMany({ where: { userId: id } });
+        const tokens = await tx.apiToken.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        revoked = `${sessions.count} sessão(ões) e ${tokens.count} token(s) revogados`;
+      }
       if (parsed.data.apiAccess !== undefined && parsed.data.apiAccess !== before.apiAccess) {
         let detail: string | undefined;
         if (!parsed.data.apiAccess) {
@@ -307,10 +320,15 @@ export async function adminRoutes(app: FastifyInstance) {
         await audit(tx, req, {
           ...target,
           action: parsed.data.status === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
+          detail: revoked,
         });
       }
       return result;
     });
+    // Sem o papel de analista (ou suspensa), o ambiente aberto nao fica para tras.
+    const suspended = parsed.data.status === 'SUSPENDED' && before.status !== 'SUSPENDED';
+    const demoted = parsed.data.role === 'USER' && before.role !== 'USER';
+    if (suspended || demoted) closeSessionsOf(id, req.log);
     return reply.send({ user: updated });
   });
 

@@ -489,6 +489,60 @@ async function main() {
   await expandGroups(walk.client, ['CN=A, DC=X']);
   ok('mesmo DN escrito diferente não repete', walk.asked.length === 2, walk.asked);
 
+  // 18. Duas contas do AD com o mesmo e-mail: a segunda nao assume a primeira.
+  configureLdap(base);
+  const gemeo1 = await login('gemeo1', 'Senha-Gemeo-1', next());
+  ok('primeira conta com o e-mail entra', gemeo1.statusCode === 200, gemeo1.json());
+  const gemeoDn = 'uid=gemeo1,ou=people,dc=empresa,dc=test';
+  const gemeoId = gemeo1.json().user.id as string;
+  const gemeo2 = await login('gemeo2', 'Senha-Gemeo-2', next());
+  ok('segunda conta com o mesmo e-mail é recusada', gemeo2.statusCode === 401, gemeo2.json());
+  const afterTwin = await prisma.user.findUniqueOrThrow({ where: { id: gemeoId } });
+  ok('o vínculo da primeira não muda', afterTwin.ldapDn === gemeoDn, afterTwin.ldapDn);
+  ok(
+    'recusa na auditoria',
+    (await prisma.auditEvent.count({
+      where: { action: 'LOGIN_FAILED', detail: { contains: 'outra conta do AD' } },
+    })) === 1,
+  );
+  ok(
+    'a primeira continua entrando',
+    (await login('gemeo1', 'Senha-Gemeo-1', next())).statusCode === 200,
+  );
+
+  // DN antigo que nao existe mais (mudou de OU): religa, audita e derruba as sessoes.
+  await prisma.user.update({
+    where: { id: gemeoId },
+    data: { ldapDn: 'uid=gemeo1,ou=antiga,dc=empresa,dc=test' },
+  });
+  const oldSession = cookieOf(await login('gemeo1', 'Senha-Gemeo-1', next()));
+  await prisma.user.update({
+    where: { id: gemeoId },
+    data: { ldapDn: 'uid=gemeo1,ou=antiga,dc=empresa,dc=test' },
+  });
+  const movedLogin = await prisma.session.count({ where: { userId: gemeoId } });
+  const relinked = await prisma.auditEvent.count({
+    where: { action: 'USER_LDAP_RELINKED', targetUserId: gemeoId },
+  });
+  const moved = await login('gemeo2', 'Senha-Gemeo-2', next());
+  ok(
+    'DN antigo sumiu: quem tem o e-mail religa',
+    moved.statusCode === 200 && moved.json().user.id === gemeoId,
+    moved.json(),
+  );
+  ok(
+    'religar fica na auditoria',
+    (await prisma.auditEvent.count({
+      where: { action: 'USER_LDAP_RELINKED', targetUserId: gemeoId },
+    })) ===
+      relinked + 1,
+  );
+  ok(
+    'religar derruba as sessões antigas',
+    movedLogin > 0 &&
+      !(await prisma.session.findUnique({ where: { id: oldSession.split('=')[1] } })),
+  );
+
   await app.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');

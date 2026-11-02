@@ -252,10 +252,11 @@ export function extractZipEntry(
     out = Buffer.from(data);
   } else if (method === 8) {
     try {
-      out = inflateRawSync(data, { maxOutputLength: maxSize });
+      // Para no tamanho declarado: quem declara pouco nao descompacta ate `maxSize`.
+      out = inflateRawSync(data, { maxOutputLength: Math.max(1, entry.size) });
     } catch (err) {
-      if ((err as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') {
-        throw new ZipError('TOO_LARGE', 'Arquivo maior que o limite de upload.');
+      if (!entry.encrypted && (err as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') {
+        throw new ZipError('CORRUPT', 'O .zip está corrompido (tamanho não confere).');
       }
       throw new ZipError(
         entry.encrypted ? 'BAD_PASSWORD' : 'CORRUPT',

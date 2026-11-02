@@ -482,6 +482,35 @@ export async function dispose(
   });
 }
 
+/**
+ * Encerra os ambientes de quem perdeu o acesso (suspensa ou sem o papel de analista). Em
+ * segundo plano, porque desligar a VM leva minutos; as rotas ja recusam a pessoa antes.
+ */
+export function closeSessionsOf(
+  analystId: string,
+  log: { error: (obj: object, msg: string) => void },
+): void {
+  void prisma.sandboxSession
+    .findMany({
+      where: { analystId, status: { in: ACTIVE_STATUSES } },
+      select: { id: true, entryId: true },
+    })
+    .then((sessions) =>
+      Promise.all(
+        sessions.map(async ({ id, entryId }) => {
+          await dispose(id, 'STOPPED');
+          await recordEvent(prisma, {
+            entryId,
+            actorId: null,
+            type: 'SANDBOX_CLOSED',
+            detail: 'acesso do analista removido',
+          });
+        }),
+      ),
+    )
+    .catch((err: unknown) => log.error({ err }, '[sandbox] falha ao encerrar ambientes'));
+}
+
 /** Encerra todas as sessoes cujo TTL venceu. */
 export async function reapExpired(): Promise<number> {
   const expired = await prisma.sandboxSession.findMany({

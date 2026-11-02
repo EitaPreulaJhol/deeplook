@@ -73,6 +73,10 @@ const LABEL: Record<ScriptLanguage, string> = {
 };
 export const scriptLabel = (l: ScriptLanguage) => LABEL[l];
 
+/**
+ * Nas regras "palavra ... outra palavra" na mesma linha, o `{0,1000}` limita a busca:
+ * com `[^\n]*`, uma linha longa de palavras repetidas custa o quadrado do tamanho.
+ */
 type Rule = { re: RegExp; name: string; why: string; kind: ScriptFinding['kind'] };
 
 /** Chamadas suspeitas (valem em qualquer linguagem: as camadas misturam). */
@@ -108,7 +112,7 @@ const RULES: Rule[] = [
     kind: 'download',
   },
   {
-    re: /certutil(?:\.exe)?\s+[^\n]*-(?:urlcache|decode)/i,
+    re: /certutil(?:\.exe)?\s+[^\n]{0,1000}-(?:urlcache|decode)/i,
     name: 'certutil -urlcache/-decode',
     why: 'baixa ou decodifica arquivo com ferramenta do Windows',
     kind: 'download',
@@ -163,7 +167,7 @@ const RULES: Rule[] = [
     kind: 'execute',
   },
   {
-    re: /powershell(?:\.exe)?\b[^\n]*-(?:e|en|enc|enco|encodedcommand)\s/i,
+    re: /powershell(?:\.exe)?\b[^\n]{0,1000}-(?:e|en|enc|enco|encodedcommand)\s/i,
     name: 'powershell -EncodedCommand',
     why: 'esconde o comando em Base64',
     kind: 'obfuscation',
@@ -181,7 +185,7 @@ const RULES: Rule[] = [
     kind: 'evasion',
   },
   {
-    re: /add-mppreference[^\n]*-exclusion|set-mppreference[^\n]*-disable/i,
+    re: /add-mppreference[^\n]{0,1000}-exclusion|set-mppreference[^\n]{0,1000}-disable/i,
     name: 'Exclusão/desligar o Defender',
     why: 'tenta escapar do antivírus',
     kind: 'evasion',
@@ -193,7 +197,7 @@ const RULES: Rule[] = [
     kind: 'evasion',
   },
   {
-    re: /vssadmin[^\n]*delete|wbadmin[^\n]*delete|bcdedit[^\n]*recoveryenabled/i,
+    re: /vssadmin[^\n]{0,1000}delete|wbadmin[^\n]{0,1000}delete|bcdedit[^\n]{0,1000}recoveryenabled/i,
     name: 'Apagar cópias de sombra',
     why: 'típico de ransomware',
     kind: 'evasion',

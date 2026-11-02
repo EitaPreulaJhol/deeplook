@@ -45,6 +45,11 @@ function notEnabled(reply: FastifyReply) {
     .send({ error: 'O sandbox não está habilitado neste servidor (SANDBOX_ENABLED).' });
 }
 
+/** Admin, ou o dono que continua analista: quem perdeu o papel nao opera o que abriu. */
+function canOperate(session: { analystId: string }, user: { id: string; role: string }) {
+  return user.role === 'ADMIN' || (user.role === 'ANALYST' && session.analystId === user.id);
+}
+
 /** Carrega a sessao garantindo que o usuario pode ver/operar (dono ou admin). */
 async function loadOwned(
   id: string,
@@ -56,7 +61,7 @@ async function loadOwned(
     reply.code(404).send({ error: 'Ambiente não encontrado.' });
     return null;
   }
-  if (session.analystId !== user.id && user.role !== 'ADMIN') {
+  if (!canOperate(session, user)) {
     reply.code(403).send({ error: 'Este ambiente pertence a outro analista.' });
     return null;
   }
@@ -161,7 +166,8 @@ export async function sandboxRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const { id } = req.params as { id: string };
-    const session = await activeSessionForEntry(id);
+    // No, VM, IP e analista sao para quem opera: o painel so existe para analistas.
+    const session = isAnalyst(user) ? await activeSessionForEntry(id) : null;
     return reply.send({
       enabled: sandboxEnabled,
       consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
@@ -200,6 +206,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
 
+    if (!isAnalyst(user)) return reply.send({ sessions: [] });
     const query = req.query as { scope?: string; active?: string };
     const where: Prisma.SandboxSessionWhereInput = {};
     if (user.role !== 'ADMIN' || query.scope !== 'all') where.analystId = user.id;
@@ -235,8 +242,11 @@ export async function sandboxRoutes(app: FastifyInstance) {
     }
 
     const requested = Number((req.body as { minutes?: number } | null)?.minutes);
+    // Cada extensao vale no maximo um TTL (sem teto, um valor enorme vira data invalida).
     const minutes =
-      Number.isFinite(requested) && requested > 0 ? requested : env.SANDBOX_TTL_MINUTES;
+      Number.isFinite(requested) && requested > 0
+        ? Math.min(requested, env.SANDBOX_TTL_MINUTES)
+        : env.SANDBOX_TTL_MINUTES;
     const base = Math.max(session.expiresAt.getTime(), Date.now());
 
     const updated = await prisma.sandboxSession.update({
@@ -374,7 +384,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
       const { id } = req.params as { id: string };
       const session = await getSession(id);
       if (!session) return fail(4404, 'ambiente não encontrado');
-      if (session.analystId !== user.id && user.role !== 'ADMIN') {
+      if (!canOperate(session, user)) {
         return fail(4403, 'sem permissao para este ambiente');
       }
       if (!session.vmid) return fail(4409, 'a VM ainda não existe');

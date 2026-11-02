@@ -1,6 +1,6 @@
 import { inflateSync } from 'node:zlib';
 
-import { extractZipEntry, listZip } from './zip';
+import { extractZipEntry, listZip, type ZipEntry } from './zip';
 
 /**
  * Analise de documentos (item 70): PDF, Office moderno (OOXML), Office antigo
@@ -55,6 +55,17 @@ const MAX_LINKS = 100;
 const MAX_INFLATE_STREAM = 8 * 1024 * 1024;
 const MAX_INFLATE_TOTAL = 32 * 1024 * 1024;
 const MAX_ZIP_PART = 32 * 1024 * 1024;
+/** Soma do que se descompacta de um Office moderno (partes repetidas ou nao). */
+const MAX_ZIP_TOTAL = 64 * 1024 * 1024;
+/** Streams examinados num PDF: cada um custa, mesmo os que nao descompactam. */
+const MAX_PDF_STREAMS = 10_000;
+/** Maior razao do deflate: quanto um stream que falhou pode ter descompactado. */
+const DEFLATE_MAX_RATIO = 1032;
+/** Tokens /URI lidos num PDF (os recusados tambem custam ate 2000 caracteres). */
+const MAX_URI_TOKENS = 5_000;
+/** Entradas do diretorio de um OLE percorridas; arquivo real fica muito abaixo. */
+const MAX_CFB_ENTRIES = 50_000;
+const MAX_VBA_MODULES = 1_000;
 
 const AUTOEXEC = [
   'AutoOpen',
@@ -136,7 +147,8 @@ function pdfText(buf: Buffer): string {
   let total = 0;
   const re = /stream\r?\n/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(raw)) && total < MAX_INFLATE_TOTAL) {
+  let streams = 0;
+  while ((m = re.exec(raw)) && total < MAX_INFLATE_TOTAL && streams++ < MAX_PDF_STREAMS) {
     const start = m.index + m[0].length;
     const end = raw.indexOf('endstream', start);
     if (end < 0) break;
@@ -149,7 +161,8 @@ function pdfText(buf: Buffer): string {
         total += out.length;
         parts.push(out.toString('latin1'));
       } catch {
-        /* stream corrompido ou maior que o limite: segue */
+        // Corrompido ou maior que o limite: segue, mas o trabalho feito conta no total.
+        total += Math.min(MAX_INFLATE_STREAM, (end - start) * DEFLATE_MAX_RATIO);
       }
     }
     re.lastIndex = end;
@@ -184,7 +197,8 @@ export function analyzePdf(buf: Buffer): DocumentInfo {
   const links: string[] = [];
   const uriRe = /\/URI\s*\(/g;
   let m: RegExpExecArray | null;
-  while ((m = uriRe.exec(text)) && links.length < MAX_LINKS) {
+  let tokens = 0;
+  while ((m = uriRe.exec(text)) && links.length < MAX_LINKS && tokens++ < MAX_URI_TOKENS) {
     const value = pdfString(text, m.index + m[0].length - 1).trim();
     if (/^[a-z][a-z0-9+.-]*:/i.test(value)) links.push(value);
   }
@@ -331,11 +345,17 @@ class Cfb {
     return this.chain(entry.start, entry.size);
   }
 
-  /** Filhos de um armazenamento (arvore de irmaos). */
-  children(index: number): number[] {
+  /**
+   * Filhos de um armazenamento (arvore de irmaos). Num OLE valido cada entrada tem
+   * um so pai: `seen` corta ponteiros que voltam ou repetem entradas, que de outro
+   * modo multiplicam o trabalho a cada nivel.
+   */
+  children(index: number, seen = new Set<number>()): number[] {
     const out: number[] = [];
     const visit = (i: number, depth: number) => {
-      if (i === FREESECT || i >= this.entries.length || depth > 64 || out.length > 10_000) return;
+      if (i === FREESECT || i >= this.entries.length || depth > 64 || seen.has(i)) return;
+      if (seen.size >= MAX_CFB_ENTRIES) return;
+      seen.add(i);
       const e = this.entries[i];
       visit(e.left, depth + 1);
       out.push(i);
@@ -348,9 +368,10 @@ class Cfb {
   /** Todos os armazenamentos/streams com o caminho ("Macros/VBA/dir"). */
   paths(): { path: string; index: number }[] {
     const out: { path: string; index: number }[] = [];
+    const seen = new Set<number>([0]);
     const walk = (index: number, prefix: string, depth: number) => {
       if (depth > 16) return;
-      for (const child of this.children(index)) {
+      for (const child of this.children(index, seen)) {
         const e = this.entries[child];
         const path = prefix ? `${prefix}/${e.name}` : e.name;
         out.push({ path, index: child });
@@ -427,10 +448,13 @@ function vbaModules(cfb: Cfb): MacroModule[] {
   }
   let budget = MAX_CODE_TOTAL;
   const out: MacroModule[] = [];
-  for (const mod of modules) {
-    const entry = paths.find(
-      (p) => p.path.toLowerCase() === `${vbaPrefix}${mod.stream}`.toLowerCase(),
-    );
+  const byPath = new Map<string, { path: string; index: number }>();
+  for (const p of paths) {
+    const key = p.path.toLowerCase();
+    if (!byPath.has(key)) byPath.set(key, p);
+  }
+  for (const mod of modules.slice(0, MAX_VBA_MODULES)) {
+    const entry = byPath.get(`${vbaPrefix}${mod.stream}`.toLowerCase());
     if (!entry) continue;
     let code: string;
     try {
@@ -503,27 +527,63 @@ export function analyzeOle(buf: Buffer): DocumentInfo {
 
 // ------------------------------------------------------------------ OOXML
 
+/** Tags <Relationship ...>. Com indexOf: em regex, tag sem ">" custa o texto inteiro. */
+function* relationshipTags(xml: string): Generator<string> {
+  const open = '<Relationship';
+  let p = 0;
+  while ((p = xml.indexOf(open, p)) >= 0) {
+    const after = p + open.length;
+    if (/\w/.test(xml[after] ?? '')) {
+      p = after; // <Relationships>
+      continue;
+    }
+    const end = xml.indexOf('>', after);
+    if (end < 0) return;
+    yield xml.slice(p, end + 1);
+    p = end + 1;
+  }
+}
+
 export function analyzeOoxml(buf: Buffer): DocumentInfo {
   const entries = listZip(buf).filter((e) => !e.dir);
+  // Nome repetido vale a primeira entrada, e cada parte so e lida uma vez.
+  const byPath = new Map<string, ZipEntry>();
+  for (const e of entries) if (!byPath.has(e.path)) byPath.set(e.path, e);
+  let budget = MAX_ZIP_TOTAL;
   const read = (path: string) => {
-    const entry = entries.find((e) => e.path === path);
-    return entry ? extractZipEntry(buf, entry, '', MAX_ZIP_PART) : null;
+    const entry = byPath.get(path);
+    if (!entry || entry.size > budget) return null;
+    budget -= Math.max(entry.size, entry.compressedSize);
+    try {
+      return extractZipEntry(buf, entry, '', MAX_ZIP_PART);
+    } catch {
+      return null; // parte corrompida nao esconde o resto do documento
+    }
   };
+  const main = entries.find((e) =>
+    /^(word\/document\.xml|xl\/workbook\.xml|ppt\/presentation\.xml)$/.test(e.path),
+  );
+  // Antes das relacoes, para um monte de .rels nao gastar o orcamento do principal.
+  const mainXml = main ? (read(main.path)?.toString('utf8') ?? '') : '';
   let modules: MacroModule[] = [];
   const vba = entries.find((e) => /(^|\/)vbaProject\.bin$/i.test(e.path));
   if (vba) {
     try {
-      modules = vbaModules(new Cfb(extractZipEntry(buf, vba, '', MAX_ZIP_PART)));
+      const project = read(vba.path);
+      modules = project ? vbaModules(new Cfb(project)) : [];
     } catch {
       modules = [];
     }
   }
   const externalLinks: string[] = [];
   let remoteTemplate: string | null = null;
-  for (const rel of entries.filter((e) => e.path.endsWith('.rels'))) {
+  // Menores primeiro: as relacoes de verdade sao pequenas.
+  const rels = [...byPath.values()]
+    .filter((e) => e.path.endsWith('.rels'))
+    .sort((a, b) => a.size - b.size);
+  for (const rel of rels) {
     const xml = read(rel.path)?.toString('utf8') ?? '';
-    for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
-      const tag = m[0];
+    for (const tag of relationshipTags(xml)) {
       if (!/TargetMode="External"/i.test(tag)) continue;
       const target = /Target="([^"]*)"/.exec(tag)?.[1]?.replace(/&amp;/g, '&');
       if (!target) continue;
@@ -531,17 +591,13 @@ export function analyzeOoxml(buf: Buffer): DocumentInfo {
       if (externalLinks.length < MAX_LINKS) externalLinks.push(target);
     }
   }
-  const main = entries.find((e) =>
-    /^(word\/document\.xml|xl\/workbook\.xml|ppt\/presentation\.xml)$/.test(e.path),
-  );
-  const mainXml = main ? (read(main.path)?.toString('utf8') ?? '') : '';
   const office = {
     macros: Boolean(vba),
     modules,
     externalLinks: uniq(externalLinks),
     remoteTemplate,
     embedded: entries.filter((e) => /\/embeddings\//.test(e.path)).map((e) => e.path),
-    dde: /DDEAUTO|instrText[^>]*>\s*DDE\b/i.test(mainXml),
+    dde: /DDEAUTO|instrText[^>]{0,200}>\s*DDE\b/i.test(mainXml),
   };
   const alerts = officeAlerts(office);
   return {

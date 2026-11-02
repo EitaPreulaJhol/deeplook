@@ -199,7 +199,7 @@ ensure(
   'MINIO_ROOT_PASSWORD=deeplook123',
   '-p',
   '59000:9000',
-  'elestio/minio@sha256:25348a257f1ece1b192f25f6cd9854618fa86422ac87b494b5d4e629c556d4bd',
+  'pgsty/silo@sha256:7bb2aff6b89efe1cb1303c10fc21d579447434ed06649ac9ec05a5e2dbf30ad7',
   'server',
   '/data',
 );

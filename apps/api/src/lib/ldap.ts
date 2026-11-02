@@ -115,7 +115,7 @@ const all = (v: unknown): string[] =>
     Buffer.isBuffer(x) ? x.toString('utf8') : String(x),
   );
 const normalDn = (dn: string) => dn.replace(/\s*,\s*/g, ',').toLowerCase();
-const sameDn = (a: string, b: string) => normalDn(a) === normalDn(b);
+export const sameDn = (a: string, b: string) => normalDn(a) === normalDn(b);
 
 /** Teto de grupos lidos por login: acima disso o papel sai so do que ja foi visto. */
 const NESTED_GROUPS_MAX = 200;

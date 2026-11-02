@@ -49,6 +49,22 @@ displayName: Ana do AD
 mail: ana@empresa.test
 userPassword: Senha-AD-5
 
+dn: uid=gemeo1,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: gemeo1
+cn: Gemeo Um
+sn: Um
+mail: gemeo@empresa.test
+userPassword: Senha-Gemeo-1
+
+dn: uid=gemeo2,ou=people,dc=empresa,dc=test
+objectClass: inetOrgPerson
+uid: gemeo2
+cn: Gemeo Dois
+sn: Dois
+mail: gemeo@empresa.test
+userPassword: Senha-Gemeo-2
+
 dn: cn=analistas,ou=groups,dc=empresa,dc=test
 objectClass: groupOfUniqueNames
 cn: analistas

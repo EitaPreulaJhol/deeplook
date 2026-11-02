@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
+
 import { env } from '../env';
 import type { PublicUser } from './auth';
 import { isAnalyst } from './auth';
-import { prisma } from './prisma';
+import { advisoryLock, type Db, prisma } from './prisma';
 
 /** Janela da cota: as ultimas 24 horas (e nao o dia do calendario). */
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -36,6 +38,32 @@ export async function uploadQuota(user: PublicUser): Promise<UploadQuota> {
   const resetAt =
     remaining === 0 ? new Date(recent[recent.length - 1].createdAt.getTime() + WINDOW_MS) : null;
   return { limit, used, remaining, resetAt };
+}
+
+/** A cota acabou entre a conferencia inicial e a gravacao (envios simultaneos). */
+export class QuotaExceeded extends Error {}
+
+/**
+ * Grava a amostra conferindo a cota na mesma transacao, com trava por pessoa: sem
+ * isso, envios simultaneos leem a mesma contagem e todos passam. A conferencia na
+ * entrada da rota continua, para recusar antes de receber o arquivo.
+ */
+export async function createWithinQuota<T>(
+  ownerId: string,
+  limited: boolean,
+  create: (db: Db) => Promise<T>,
+): Promise<T> {
+  const limit = env.UPLOAD_DAILY_LIMIT;
+  if (!limited || !limit) return create(prisma);
+  const key = createHash('sha256').update(`quota:${ownerId}`).digest().readUIntBE(0, 6);
+  return prisma.$transaction(async (tx) => {
+    await advisoryLock(tx, key);
+    const used = await tx.entry.count({
+      where: { ownerId, createdAt: { gte: new Date(Date.now() - WINDOW_MS) } },
+    });
+    if (used >= limit) throw new QuotaExceeded();
+    return create(tx);
+  });
 }
 
 /** "3 h 20 min" / "12 min" ate o instante (minimo de 1 min). */
