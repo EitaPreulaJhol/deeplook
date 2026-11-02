@@ -3582,3 +3582,107 @@ Achado pelo Strix, que mediu 27 de 20. Na reprodução passaram 30 de 30.
 Reais na imagem fixada, e só alcançáveis de dentro da rede `deeplook`. O `minio/minio` foi arquivado e a correção oficial saiu só no AIStor, então não havia tag da mesma fonte para atualizar.
 ✅ **Implementado:** o padrão passou para o fork comunitário `pgsty/silo` (`RELEASE.2026-10-26T00-00-00Z`, fixado por digest), que declara os dois corrigidos desde `RELEASE.2026-04-17T00-00-00Z`. Testado: uma cópia de `data/minio` leu igual nas duas imagens (objetos, hashes e metadados), um volume de teste foi e voltou entre as imagens, com envio simples e multipart, e a suíte de integração passou sobre o Silo.
 **Limite:** a correção dos CVEs vem do aviso do projeto; não houve prova de exploração antes e depois. Para voltar, basta `MINIO_IMAGE` com a imagem anterior, mas ela tem os dois CVEs.
+
+## Décima primeira leva — itens 163 a 181
+
+Escolhidos em 01/11/2026, depois de um levantamento do que a ferramenta já faz: busca dentro da análise,
+IOC de URL e IPv6, leitura de ELF, APK e JAR, abertura de 7z e RAR, captura automática de links,
+preferências de aviso e coleta na sandbox. Webhooks (65), e-mail (79) e IA continuam fora. Ordem de
+entrega: os parsers antes da busca, a fila de captura antes da ação nas regras, o serviço de extração
+antes da rota, e o cliente do guest agent antes da coleta.
+
+**Decisões de 01/11/2026:**
+- busca na análise: o usuário comum busca só nas próprias amostras, mesmo com "só as próprias" desligado;
+- 7z e RAR: só analistas extraem, como na imagem de disco, sem recursão automática;
+- coleta na sandbox: só liga com um pool do Proxmox, e o privilégio fica limitado a ele;
+- captura automática: uma chave global, desligada, que só o admin liga; com ela, analistas marcam a
+  captura em cada regra.
+
+**Assumidas no plano:** o corpo do e-mail não entra no índice; URL importada fica como URL, e não como
+o domínio; o serviço de extração sobe ligado, como o de captura; as strings indexadas saem quando a
+retenção expurga o arquivo; a coleta também roda ao descartar o ambiente, sem atrasar a destruição.
+
+### 163. Correções achadas no levantamento
+- A ficha do indicador devolve o motivo da lista de permitidos a qualquer usuário, e a lista em si é só
+  para analistas.
+- O envio de link aceita `javascript:` e `ftp:`, sem limite de tamanho.
+- A query string vai para os logs da API e do nginx; com a URL completa pesquisável, isso inclui links
+  com o token da vítima.
+- A extração de imagem de disco lê a imagem na thread principal.
+- A conferir com teste: eventos de regra de triagem mostram nome e tags da regra ao usuário comum.
+
+### 164. Preferências de aviso por tipo
+Cada pessoa escolhe, em Minha Conta, que avisos chegam à Caixa de entrada. **Decisão:** não se
+silencia o que pede ação de alguém: atribuição (amostra e caso), atraso, atualização de pacote YARA,
+resolução e relatório devolvido. Silenciar vale para os próximos avisos; o histórico não muda.
+
+### 165. IOC de URL e IPv6: extração e índice
+Os tipos hoje são IPv4, domínio, e-mail e hashes. **Decisão:** URL só http/https, sem usuário, senha e
+fragmento, até 2048 caracteres; IPv6 na forma canônica (RFC 5952), com `::ffff:` virando IPv4. A
+reputação não muda: a URL completa nunca sai do servidor.
+
+### 166. Página do indicador de URL
+O caminho `/iocs/:tipo/:valor` não comporta uma URL, e ela levaria o token da vítima para o histórico
+do navegador e os logs. **Decisão:** a URL é aberta pelo SHA-256 dela; só vê o valor quem tem uma
+aparição visível ou a própria vigilância.
+
+### 167. URL e IPv6 em permitidos, importação, exportação, relacionadas e mapa
+Inclui faixas IPv6 na lista de permitidos. Hoje a URL importada vira o domínio dela.
+
+### 168. ELF
+Seções, bibliotecas, interpretador, símbolos suspeitos, segmentos RWX e packer, sem dependência nova.
+Junto, o `parsePe` ganha orçamento de entropia e leitura de string limitada.
+
+### 169. JAR e o tipo pelo conteúdo do ZIP
+Hoje o tipo vem dos primeiros 64 KB: o JAR vence o APK, e um manifesto mais adiante dá `zip`. O APK
+malicioso marca membros como cifrados para quebrar ferramentas, e a leitura de ZIP atual desiste.
+
+### 170. APK
+Manifesto binário (AXML): pacote, permissões perigosas, componentes, `debuggable`, bibliotecas nativas
+e certificados. Malware apaga nomes no manifesto; os atributos são lidos pelo mapa de recursos.
+
+### 171. Índice de busca da análise
+Strings, imports, símbolos, permissões, classes, regras YARA, assinatura do ClamAV e campos do e-mail,
+uma linha por termo, com índice de trigramas. Hoje esses dados nem são guardados. **Limites:** até
+1000 strings e 4096 imports por amostra; a ficha avisa quando o índice fica parcial.
+
+### 172. Busca na análise: rota e tela
+
+### 173. Índice das amostras antigas e retenção
+Reanálise em segundo plano, só com a fila de análise vazia, retomando de onde parou, sem triagem nem
+avisos.
+
+### 174. Fila de captura
+A API não tem fila: o prazo de 90 s corre enquanto o pedido espera no serviço, e o serviço continua
+visitando depois que a API desiste. Com poucas páginas lentas, as seguintes falham na ficha e são
+visitadas mesmo assim.
+
+### 175. Captura automática pela regra de triagem
+Só com as condições de domínio e de domínio parecido, as únicas que casam com um link na chegada. Não
+captura URL de permitidos nem de domínio da empresa, nem a mesma URL duas vezes em 24 h; limite de 30
+por hora. Na ficha, o autor aparece como "Sistema (regra)".
+
+### 176. Serviço de extração (7z e RAR)
+O `7zz` oficial num contêiner próprio, sem rede, somente leitura, com memória, CPU e processos
+limitados. Na API ele leria os segredos dela em `/proc`. As alternativas em WebAssembly não abrem 7z
+com senha ou estão atrás das correções do 7-Zip.
+
+### 177. Extrair 7z e RAR em amostras filhas
+Pedido assíncrono, porque pode passar do tempo do nginx. A API trata o serviço como comprometido:
+confere contagens e bytes e limpa os nomes. A senha não é guardada nem registrada.
+
+### 178. Guest agent: cliente, simulador e escopo
+No PVE 9, executar comandos na VM exige `VM.GuestAgent.Unrestricted`. Antes de cada chamada, confere a
+etiqueta e o nome da VM, porque o vmid é reaproveitado. Os comandos são fixos.
+
+### 179. Coleta de processos e arquivos
+Linha de base quando o agente responde, "Coletar agora" (até 5 por sessão) e uma última ao descartar.
+Tudo o que vem da VM foi escrito pelo atacante: a ficha marca "relatado pelo convidado".
+
+### 180. Arquivo da VM como amostra filha
+Só a pedido do analista e pelo id do artefato, nunca pelo caminho. Passa pela análise completa, e o
+dono é o analista.
+
+### 181. Termos da sandbox na busca, documentação e roteiro no Proxmox real
+O simulador não prova a coleta. Até o roteiro rodar num Proxmox de verdade, fica "testado só no
+simulador".
