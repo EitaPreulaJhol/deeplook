@@ -2,6 +2,7 @@ import { domainToUnicode } from 'node:url';
 
 import type { LookalikeReason } from '../generated/prisma/client';
 import { baseDomain } from './domains';
+import { log } from './log';
 import type { Db } from './prisma';
 import { prisma } from './prisma';
 
@@ -289,7 +290,7 @@ export async function scanLookalikesQuietly(entryId: string, db: Db = prisma): P
   try {
     await scanLookalikes(db, entryId);
   } catch (err) {
-    console.error('Falha ao procurar dominios parecidos', err);
+    log.error({ err }, 'Falha ao procurar dominios parecidos');
   }
 }
 

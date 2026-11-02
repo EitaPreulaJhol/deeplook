@@ -17,6 +17,7 @@ import {
 } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
+import { log } from './log';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { ZipWriter } from './zip-writer';
@@ -203,7 +204,7 @@ export async function runBackup(id: string, password: string | null = null): Pro
   const setStep = (step: string, progress: number) =>
     prisma.backup
       .update({ where: { id }, data: { step, progress: Math.round(progress) } })
-      .catch((err: unknown) => console.error('[backup] falha ao gravar o progresso', err));
+      .catch((err: unknown) => log.error({ err }, '[backup] falha ao gravar o progresso'));
   let zip: ZipWriter | null = null;
   try {
     await setStep('Exportando o banco...', 2);

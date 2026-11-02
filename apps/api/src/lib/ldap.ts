@@ -4,6 +4,7 @@ import type { ConnectionOptions } from 'node:tls';
 import { Client, ResultCodeError } from 'ldapts';
 
 import { env } from '../env';
+import { log } from './log';
 
 /**
  * Login pelo AD/LDAP (item 94), opcional: sem LDAP_URL nada muda. So com TLS
@@ -135,7 +136,7 @@ export async function expandGroups(
   let read = 0;
   while (queue.length) {
     if (read >= max) {
-      console.error(`AD: mais de ${max} grupos no login; o papel usa só os já vistos.`);
+      log.error(`AD: mais de ${max} grupos no login; o papel usa só os já vistos.`);
       break;
     }
     const group = queue.shift()!;

@@ -2,6 +2,7 @@ import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
 import { recordEvent } from './events';
+import { log, reason } from './log';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { ACTIVE_STATUSES } from './sandbox';
@@ -50,9 +51,7 @@ export async function purgeExpiredFiles(now = new Date()): Promise<number> {
     try {
       await deleteStoredFile(entry);
     } catch (err) {
-      console.warn(
-        `[retencao] falha ao apagar ${entry.storageKey}: ${err instanceof Error ? err.message : err}`,
-      );
+      log.warn(`[retencao] falha ao apagar ${entry.storageKey}: ${reason(err)}`);
       continue;
     }
     await prisma.$transaction(async (tx) => {

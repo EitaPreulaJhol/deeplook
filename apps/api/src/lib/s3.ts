@@ -1,6 +1,7 @@
 import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
+import { log } from './log';
 
 export const s3 = new S3Client({
   endpoint: env.S3_ENDPOINT,
@@ -29,7 +30,7 @@ export async function ensureBucket(retries = 30, delayMs = 2000): Promise<void> 
     try {
       await s3.send(new HeadBucketCommand({ Bucket: env.S3_BUCKET }));
 
-      console.log(`[s3] Bucket "${env.S3_BUCKET}" pronto.`);
+      log.info(`[s3] Bucket "${env.S3_BUCKET}" pronto.`);
       return;
     } catch (err: any) {
       const name = err?.name || err?.Code;
@@ -39,7 +40,7 @@ export async function ensureBucket(retries = 30, delayMs = 2000): Promise<void> 
         try {
           await s3.send(new CreateBucketCommand({ Bucket: env.S3_BUCKET }));
 
-          console.log(`[s3] Bucket "${env.S3_BUCKET}" criado.`);
+          log.info(`[s3] Bucket "${env.S3_BUCKET}" criado.`);
           return;
         } catch (createErr: any) {
           if (
@@ -49,10 +50,10 @@ export async function ensureBucket(retries = 30, delayMs = 2000): Promise<void> 
             return;
           }
 
-          console.warn(`[s3] Falha ao criar bucket (tentativa ${i + 1}): ${createErr?.message}`);
+          log.warn(`[s3] Falha ao criar bucket (tentativa ${i + 1}): ${createErr?.message}`);
         }
       } else {
-        console.warn(`[s3] MinIO indisponivel (tentativa ${i + 1}): ${err?.message}`);
+        log.warn(`[s3] MinIO indisponivel (tentativa ${i + 1}): ${err?.message}`);
       }
 
       await new Promise((r) => setTimeout(r, delayMs));

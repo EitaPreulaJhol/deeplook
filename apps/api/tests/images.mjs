@@ -246,7 +246,7 @@ async function apiImage() {
       'dl-test-run',
       'node',
       '-e',
-      "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+      "fetch('http://localhost:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
     );
     ok('healthcheck do compose responde', health.status === 0, health.stderr);
     const start = Date.now();

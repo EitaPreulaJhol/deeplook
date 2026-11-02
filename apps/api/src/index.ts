@@ -10,6 +10,7 @@ import { startBackups } from './lib/backup';
 import { reindexIocs } from './lib/ioc-reindex';
 import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
+import { setLogger } from './lib/log';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { prisma } from './lib/prisma';
 import { requestLogSerializer } from './lib/request-log';
@@ -40,6 +41,7 @@ import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
 import { favoritesRoutes } from './routes/favorites';
 import { graphRoutes } from './routes/graph';
+import { healthRoutes } from './routes/health';
 import { hexRoutes } from './routes/hex';
 import { iocImportRoutes } from './routes/ioc-import';
 import { iocRoutes } from './routes/iocs';
@@ -69,6 +71,10 @@ async function main() {
     bodyLimit: 5 * 1024 * 1024,
   });
 
+  // Trabalhos de fundo (bucket, retencao, backup, sandbox) escrevem no logger
+  // do Fastify a partir daqui, e nao mais em texto solto no console (item 1.3).
+  setLogger(app.log);
+
   await app.register(cookie, { secret: env.SESSION_SECRET });
   // Limite de tentativas so nas rotas que pedem (config.rateLimit da rota).
   await app.register(rateLimit, { global: false });
@@ -84,11 +90,8 @@ async function main() {
     },
   });
 
-  app.get('/api/health', async () => ({
-    status: 'ok',
-    service: 'deeplook-api',
-    time: new Date().toISOString(),
-  }));
+  // Liveness (/api/health) e readiness (/api/health/ready), item 1.2.
+  await app.register(healthRoutes);
 
   await app.register(authRoutes);
   await app.register(meRoutes);
@@ -235,6 +238,7 @@ async function main() {
 }
 
 main().catch((err) => {
+  // Console de proposito: aqui o Fastify pode nem ter chegado a existir.
   console.error('[fatal]', err);
   prisma.$disconnect().finally(() => process.exit(1));
 });

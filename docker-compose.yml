@@ -36,12 +36,15 @@ services:
     build:
       context: ./apps/api
     restart: unless-stopped
+    # Readiness (item 1.2): o banco e o MinIO respondem, entao da para atender.
+    # So /api/health diria "saudavel" com o Postgres fora, e o web liberaria o
+    # trafego para uma API sem como responder.
     healthcheck:
       test:
         - CMD
         - node
         - -e
-        - "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+        - "fetch('http://localhost:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
       interval: 15s
       timeout: 5s
       retries: 5

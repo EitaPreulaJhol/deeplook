@@ -12,6 +12,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '../env';
 import type { Entry, Prisma, SandboxSession } from '../generated/prisma/client';
 import { recordEvent } from './events';
+import { log, reason } from './log';
 import { prisma } from './prisma';
 import { pve, pveNode, pveUploadIso, waitTask } from './proxmox';
 import { s3 } from './s3';
@@ -467,9 +468,7 @@ export async function dispose(
       });
       await waitTask(upid, 120_000);
     } catch (err) {
-      console.warn(
-        `[sandbox] falha ao destruir a VM ${vmid}: ${err instanceof Error ? err.message : err}`,
-      );
+      log.warn(`[sandbox] falha ao destruir a VM ${vmid}: ${reason(err)}`);
     }
   }
 
@@ -530,14 +529,12 @@ export async function reapExpired(): Promise<number> {
         }),
       )
       .catch((err: unknown) => {
-        console.warn(
-          `[sandbox] falha ao expirar ${item.id}: ${err instanceof Error ? err.message : err}`,
-        );
+        log.warn(`[sandbox] falha ao expirar ${item.id}: ${reason(err)}`);
       });
   }
 
   if (expired.length) {
-    console.log(`[sandbox] reaper encerrou ${expired.length} ambiente(s) expirado(s).`);
+    log.info(`[sandbox] reaper encerrou ${expired.length} ambiente(s) expirado(s).`);
   }
   return expired.length;
 }
@@ -598,9 +595,7 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
       }
     }
   } catch (err) {
-    console.warn(
-      `[sandbox] nao foi possivel listar VMs: ${err instanceof Error ? err.message : err}`,
-    );
+    log.warn(`[sandbox] nao foi possivel listar VMs: ${reason(err)}`);
   }
 
   try {
@@ -614,13 +609,11 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
       isos += 1;
     }
   } catch (err) {
-    console.warn(
-      `[sandbox] nao foi possivel listar ISOs: ${err instanceof Error ? err.message : err}`,
-    );
+    log.warn(`[sandbox] nao foi possivel listar ISOs: ${reason(err)}`);
   }
 
   if (vms || isos) {
-    console.log(`[sandbox] reconciliacao removeu ${vms} VM(s) e ${isos} ISO(s) orfaos.`);
+    log.info(`[sandbox] reconciliacao removeu ${vms} VM(s) e ${isos} ISO(s) orfaos.`);
   }
   return { vms, isos };
 }
@@ -663,7 +656,7 @@ export async function initSandbox(log: {
 export function startSandboxReaper(): void {
   const timer = setInterval(() => {
     void reapExpired().catch((err: unknown) => {
-      console.warn(`[sandbox] reaper falhou: ${err instanceof Error ? err.message : err}`);
+      log.warn(`[sandbox] reaper falhou: ${reason(err)}`);
     });
   }, 60_000);
   timer.unref();

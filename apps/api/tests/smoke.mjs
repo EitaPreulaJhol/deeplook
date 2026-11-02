@@ -83,7 +83,7 @@ try {
     'dl-smoke-api-img',
   );
   const health =
-    "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))";
+    "fetch('http://localhost:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))";
   await until('API', () => quiet('exec', 'dl-smoke-api', 'node', '-e', health).status === 0);
   run('dl-smoke-web', 'dl-smoke-web-img');
   const res = spawnSync(
