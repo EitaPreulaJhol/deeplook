@@ -1,6 +1,13 @@
 import { isIP } from 'node:net';
 
 import type { IocKind } from '../generated/prisma/client';
+import {
+  bigIntToIpv6,
+  canonicalIpv6,
+  hostIndicator,
+  ipv6ToBigInt,
+  normalizeUrl,
+} from './ioc-normalize';
 import { prisma } from './prisma';
 
 /**
@@ -10,7 +17,16 @@ import { prisma } from './prisma';
  * que o analista escreveu no relatorio.
  */
 
-export const ALLOW_KINDS = ['DOMAIN', 'IPV4', 'EMAIL', 'MD5', 'SHA1', 'SHA256'] as const;
+export const ALLOW_KINDS = [
+  'DOMAIN',
+  'IPV4',
+  'IPV6',
+  'URL',
+  'EMAIL',
+  'MD5',
+  'SHA1',
+  'SHA256',
+] as const;
 export type AllowKind = (typeof ALLOW_KINDS)[number];
 
 const HASH_LENGTH: Partial<Record<AllowKind, number>> = { MD5: 32, SHA1: 40, SHA256: 64 };
@@ -18,6 +34,8 @@ const DOMAIN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a
 
 /** Valor normalizado (minusculas, sem ponto final) ou null se nao vale para o tipo. */
 export function normalizeAllowed(kind: AllowKind, raw: string): string | null {
+  // URL exata (item 167): o caminho guarda maiusculas, entao nao passa pelo toLowerCase.
+  if (kind === 'URL') return normalizeUrl(raw);
   const value = raw.trim().toLowerCase().replace(/\.$/, '');
   switch (kind) {
     case 'DOMAIN':
@@ -32,11 +50,26 @@ export function normalizeAllowed(kind: AllowKind, raw: string): string | null {
       const network = n === 0 ? 0 : (ipToInt(ip) & (~0 << (32 - n))) >>> 0;
       return `${intToIp(network)}/${n}`;
     }
+    case 'IPV6': {
+      // Endereco ou faixa CIDR, guardada pelo endereco de rede na forma canonica.
+      const [ip, bits, ...rest] = value.split('/');
+      const canonical = canonicalIpv6(ip);
+      if (rest.length || !canonical) return null;
+      if (bits === undefined) return canonical;
+      if (!/^\d{1,3}$/.test(bits) || Number(bits) > 128) return null;
+      const n = Number(bits);
+      return `${bigIntToIpv6(ipv6ToBigInt(canonical) & mask6(n))}/${n}`;
+    }
     case 'EMAIL':
       return /^[^\s@]+@[^\s@]+$/.test(value) && DOMAIN.test(value.split('@')[1]) ? value : null;
     default:
       return new RegExp(`^[a-f0-9]{${HASH_LENGTH[kind]}}$`).test(value) ? value : null;
   }
+}
+
+/** Mascara de 128 bits com os `bits` primeiros ligados. */
+function mask6(bits: number): bigint {
+  return bits === 0 ? 0n : ((1n << 128n) - 1n) ^ ((1n << BigInt(128 - bits)) - 1n);
 }
 
 function ipToInt(ip: string): number {
@@ -51,6 +84,10 @@ export interface Allowlist {
   domains: Set<string>;
   ips: Set<string>;
   ranges: { network: number; mask: number }[];
+  /** IPv6 (item 167): enderecos e faixas, com o texto do item para o motivo. */
+  ips6: Set<string>;
+  ranges6: { network: bigint; mask: bigint; label: string }[];
+  urls: Set<string>;
   emails: Set<string>;
   hashes: Set<string>;
   reasons: Map<string, string>;
@@ -83,12 +120,23 @@ export function allowedBy(list: Allowlist, kind: IocKind | string, raw: string):
       const domain = value.split('@')[1];
       return domain ? allowedBy(list, 'DOMAIN', domain) : null;
     }
+    case 'IPV6': {
+      const canonical = canonicalIpv6(value);
+      if (!canonical) return null;
+      if (list.ips6.has(canonical)) return `IPV6:${canonical}`;
+      const n = ipv6ToBigInt(canonical);
+      const range = list.ranges6.find((r) => (n & r.mask) === r.network);
+      return range ? `IPV6:${range.label}` : null;
+    }
     case 'URL': {
-      try {
-        return allowedBy(list, 'DOMAIN', new URL(value).hostname);
-      } catch {
-        return null;
-      }
+      // A URL exata, ou o host dela: dominio (com os pais), IPv4 ou IPv6.
+      const url = normalizeUrl(raw);
+      if (!url) return null;
+      if (list.urls.has(url)) return `URL:${url}`;
+      const hostname = new URL(url).hostname;
+      const host = hostIndicator(hostname);
+      if (host) return allowedBy(list, host.kind, host.value);
+      return isIP(hostname.replace(/^\[|\]$/g, '')) ? null : allowedBy(list, 'DOMAIN', hostname);
     }
     case 'MD5':
     case 'SHA1':
@@ -116,6 +164,9 @@ export async function loadAllowlist(): Promise<Allowlist> {
     domains: new Set(),
     ips: new Set(),
     ranges: [],
+    ips6: new Set(),
+    ranges6: [],
+    urls: new Set(),
     emails: new Set(),
     hashes: new Set(),
     reasons: new Map(),
@@ -124,7 +175,15 @@ export async function loadAllowlist(): Promise<Allowlist> {
     list.reasons.set(`${row.kind}:${row.value}`, row.reason);
     if (row.kind === 'DOMAIN') list.domains.add(row.value);
     else if (row.kind === 'EMAIL') list.emails.add(row.value);
-    else if (row.kind === 'IPV4') {
+    else if (row.kind === 'URL') list.urls.add(row.value);
+    else if (row.kind === 'IPV6') {
+      const [ip, bits] = row.value.split('/');
+      if (bits === undefined) list.ips6.add(ip);
+      else {
+        const mask = mask6(Number(bits));
+        list.ranges6.push({ network: ipv6ToBigInt(ip) & mask, mask, label: row.value });
+      }
+    } else if (row.kind === 'IPV4') {
       const [ip, bits] = row.value.split('/');
       if (bits === undefined) list.ips.add(ip);
       else {

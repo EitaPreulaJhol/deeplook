@@ -2,12 +2,13 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import type { IocKind } from '../generated/prisma/client';
-import { allowedBy, invalidateAllowlist, loadAllowlist } from '../lib/allowlist';
+import { ALLOW_KINDS, allowedBy, invalidateAllowlist, loadAllowlist } from '../lib/allowlist';
 import { audit } from '../lib/audit';
 import type { PublicUser } from '../lib/auth';
 import { isAnalyst, requireUser } from '../lib/auth';
 import type { ImportTarget } from '../lib/ioc-import';
 import { IMPORT_MAX_ITEMS, ImportError, parseImport, validateImported } from '../lib/ioc-import';
+import { rememberUrls } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
@@ -22,7 +23,7 @@ const PreviewSchema = z.object({
 const ImportSchema = z.object({
   target: Target,
   items: z
-    .array(z.object({ kind: z.string(), value: z.string().max(300) }))
+    .array(z.object({ kind: z.string(), value: z.string().max(2048) }))
     .min(1, 'nada para importar')
     .max(IMPORT_MAX_ITEMS),
   /** Motivo (obrigatorio na lista de permissoes). */
@@ -130,7 +131,7 @@ export async function iocImportRoutes(app: FastifyInstance) {
     let rejected = 0;
     for (const item of parsed.data.items) {
       const kind = item.kind as IocKind;
-      const checked = ['IPV4', 'DOMAIN', 'EMAIL', 'MD5', 'SHA1', 'SHA256'].includes(kind)
+      const checked = (ALLOW_KINDS as readonly string[]).includes(kind)
         ? validateImported(kind, item.value, target)
         : { reason: 'tipo inválido' };
       if ('reason' in checked) rejected++;
@@ -140,6 +141,8 @@ export async function iocImportRoutes(app: FastifyInstance) {
     const { result } = await statuses(user, target, [...valid.values()]);
     const fresh = [...valid.values()].filter((i) => result.get(`${i.kind}:${i.value}`) === 'new');
 
+    // URLs abrem a ficha pela chave (item 166).
+    await rememberUrls(prisma, fresh);
     let added = 0;
     if (target === 'watch') {
       added = (

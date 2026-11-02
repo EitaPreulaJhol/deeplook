@@ -52,19 +52,42 @@ function mappedIpv4(canonical: string): string | null {
   return [hi >> 8, hi & 255, lo >> 8, lo & 255].join('.');
 }
 
-/**
- * IPv6 na forma canonica (RFC 5952: minusculas, zeros cortados, "::" no maior trecho).
- * Com zona (%eth0) ou de rede interna, null; IPv4 mapeado vira o IPv4.
- */
-export function normalizeIpv6(raw: string): { kind: 'IPV4' | 'IPV6'; value: string } | null {
+/** IPv6 na forma canonica (RFC 5952: minusculas, zeros cortados, "::" no maior trecho). */
+export function canonicalIpv6(raw: string): string | null {
   const text = raw.trim().replace(/^\[|\]$/g, '');
   if (text.includes('%') || isIP(text) !== 6) return null;
-  let canonical: string;
   try {
-    canonical = new URL(`http://[${text}]/`).hostname.slice(1, -1);
+    return new URL(`http://[${text}]/`).hostname.slice(1, -1);
   } catch {
     return null;
   }
+}
+
+/** IPv6 canonico como numero de 128 bits (faixas da lista de permissoes, item 167). */
+export function ipv6ToBigInt(canonical: string): bigint {
+  const [head, tail = ''] = canonical.split('::');
+  const left = head ? head.split(':') : [];
+  const right = canonical.includes('::') && tail ? tail.split(':') : [];
+  const groups = canonical.includes('::')
+    ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right]
+    : left;
+  return groups.reduce((acc, g) => (acc << 16n) | BigInt(parseInt(g, 16)), 0n);
+}
+
+export function bigIntToIpv6(n: bigint): string {
+  const groups = Array.from({ length: 8 }, (_, i) =>
+    ((n >> BigInt(16 * (7 - i))) & 0xffffn).toString(16),
+  );
+  return canonicalIpv6(groups.join(':'))!;
+}
+
+/**
+ * IPv6 como indicador: forma canonica; com zona (%eth0) ou de rede interna, null; IPv4
+ * mapeado vira o IPv4.
+ */
+export function normalizeIpv6(raw: string): { kind: 'IPV4' | 'IPV6'; value: string } | null {
+  const canonical = canonicalIpv6(raw);
+  if (!canonical) return null;
   const v4 = mappedIpv4(canonical);
   if (v4) return isPrivateIpv4(v4) ? null : { kind: 'IPV4', value: v4 };
   if (PRIVATE_V6.check(canonical, 'ipv6')) return null;

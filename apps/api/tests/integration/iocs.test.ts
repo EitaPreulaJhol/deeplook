@@ -14,10 +14,14 @@ import { prisma } from '../../src/lib/prisma';
 import { setOwnSamplesOnly } from '../../src/lib/settings';
 import { requestLogSerializer } from '../../src/lib/request-log';
 import { ensureBucket } from '../../src/lib/s3';
+import { allowedBy, invalidateAllowlist, loadAllowlist } from '../../src/lib/allowlist';
+import { allowlistRoutes } from '../../src/routes/allowlist';
 import { authRoutes } from '../../src/routes/auth';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
 import { entryRoutes, URL_MAX } from '../../src/routes/entries';
+import { iocImportRoutes } from '../../src/routes/ioc-import';
 import { iocRoutes } from '../../src/routes/iocs';
+import { findRelated } from '../../src/routes/related';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -33,7 +37,8 @@ async function main() {
   await app.register(cookie, { secret: env.SESSION_SECRET });
   await app.register(rateLimit, { global: false });
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, iocRoutes]) await app.register(r);
+  for (const r of [authRoutes, entryRoutes, iocRoutes, allowlistRoutes, iocImportRoutes])
+    await app.register(r);
   await app.ready();
 
   for (const [email, role] of [
@@ -342,6 +347,163 @@ async function main() {
       ),
     upload.statusCode,
   );
+
+  // 11. Lista de permissoes com IPv6 e URL (item 167).
+  const allow = (kind: string, value: string) =>
+    req('POST', '/api/allowlist', cAna, { kind, value, reason: 'teste do item 167' });
+  ok(
+    'IPv6 na lista',
+    (await allow('IPV6', '2606:4700:0::1111')).json().item?.value === '2606:4700::1111',
+  );
+  ok(
+    'faixa IPv6 guardada pelo endereço de rede',
+    (await allow('IPV6', '2a00:1450:4001:abcd::1/48')).json().item?.value === '2a00:1450:4001::/48',
+  );
+  ok('faixa IPv6 inválida = 400', (await allow('IPV6', '2a00::/129')).statusCode === 400);
+  ok(
+    'URL exata, com maiúsculas no caminho',
+    (await allow('URL', 'https://Portal.Empresa.com.br/Login#x')).json().item?.value ===
+      'https://portal.empresa.com.br/Login',
+  );
+  invalidateAllowlist();
+  const list = await loadAllowlist();
+  ok('IPv6 exato coberto', allowedBy(list, 'IPV6', '2606:4700::1111') === 'IPV6:2606:4700::1111');
+  ok(
+    'IPv6 dentro da faixa coberto',
+    allowedBy(list, 'IPV6', '2a00:1450:4001:ff::5') === 'IPV6:2a00:1450:4001::/48' &&
+      !allowedBy(list, 'IPV6', '2a00:1450:4002::5'),
+  );
+  ok(
+    'URL: só o link exato, não o domínio',
+    allowedBy(list, 'URL', 'https://portal.empresa.com.br/Login') ===
+      'URL:https://portal.empresa.com.br/Login' &&
+      !allowedBy(list, 'URL', 'https://portal.empresa.com.br/outra') &&
+      !allowedBy(list, 'DOMAIN', 'portal.empresa.com.br'),
+  );
+  ok(
+    'URL em host IPv6 permitido herda a permissão',
+    allowedBy(list, 'URL', 'http://[2a00:1450:4001::9]/x') === 'IPV6:2a00:1450:4001::/48',
+  );
+
+  // 12. Importacao: URL fica URL, IPv6 aceito, ";" na query nao corta o link.
+  const csv = [
+    'tipo;valor',
+    'url;https://golpe.top/a?x=1;y=2',
+    'hxxps://outro[.]top/b,c',
+    '2606:4700:4700::1001',
+    'ip-dst,2001:4860:4860::8844',
+    'fe80::1',
+    'ftp://arquivos.top/x',
+  ].join('\n');
+  const preview = (
+    await req('POST', '/api/iocs/import/preview', cBob, { target: 'watch', text: csv })
+  ).json();
+  const got =
+    preview.items?.map((i: { kind: string; value: string }) => `${i.kind} ${i.value}`) ?? [];
+  ok(
+    'CSV: URL inteira e IPv6',
+    got.includes('URL https://golpe.top/a?x=1;y=2') &&
+      got.includes('URL https://outro.top/b,c') &&
+      got.includes('IPV6 2606:4700:4700::1001') &&
+      got.includes('IPV6 2001:4860:4860::8844'),
+    preview,
+  );
+  ok('CSV: IPv6 interno e ftp recusados', preview.invalid?.length === 2, preview.invalid);
+  const stix = JSON.stringify({
+    type: 'bundle',
+    objects: [
+      {
+        type: 'indicator',
+        id: 'indicator--1',
+        pattern_type: 'stix',
+        pattern: "[ipv6-addr:value = '2606:4700::6810:1']",
+      },
+      { type: 'url', id: 'url--1', value: 'https://stix.top/Pagina' },
+    ],
+  });
+  const stixPreview = (
+    await req('POST', '/api/iocs/import/preview', cBob, { target: 'watch', text: stix })
+  ).json();
+  ok(
+    'STIX: ipv6-addr e url',
+    stixPreview.items?.some((i: { kind: string }) => i.kind === 'IPV6') &&
+      stixPreview.items?.some(
+        (i: { kind: string; value: string }) =>
+          i.kind === 'URL' && i.value === 'https://stix.top/Pagina',
+      ),
+    stixPreview,
+  );
+  res = await req('POST', '/api/iocs/import', cBob, {
+    target: 'watch',
+    items: [{ kind: 'URL', value: 'https://golpe.top/a?x=1;y=2' }],
+  });
+  ok(
+    'importar URL guarda a chave para a ficha',
+    res.json().added === 1 &&
+      Boolean(
+        await prisma.iocUrl.findUnique({ where: { key: urlKey('https://golpe.top/a?x=1;y=2') } }),
+      ),
+    res.json(),
+  );
+
+  // 13. Relacionadas: o link de outra amostra citado num relatorio, e o host IP.
+  const target = await prisma.entry.create({
+    data: {
+      type: 'URL',
+      title: 'alvo',
+      ownerId: bob.id,
+      url: 'https://alvo.top/entrar',
+      urlDomain: 'alvo.top',
+      urlKey: urlKey('https://alvo.top/entrar'),
+    },
+  });
+  const ipLink = await prisma.entry.create({
+    data: {
+      type: 'URL',
+      title: 'ip',
+      ownerId: bob.id,
+      url: 'http://9.9.9.9/x',
+      urlDomain: '9.9.9.9',
+    },
+  });
+  const citing = await prisma.entry.create({
+    data: { type: 'FILE', title: 'cita', ownerId: bob.id },
+  });
+  const citeReport = await prisma.report.create({
+    data: {
+      entryId: citing.id,
+      analystId: ana.id,
+      summary: 's',
+      status: 'PUBLISHED',
+      iocs: 'https://alvo.top/entrar?utm=1\n9.9.9.9',
+    },
+  });
+  await syncReportIocs(prisma, citeReport.id, { notify: false });
+  // O link citado com outra query nao e o mesmo link: liga so pelo dominio.
+  const sharedWith = async (id: string) =>
+    ((await findRelated(citing.id)) ?? [])
+      .find((r) => r.entry.id === id)
+      ?.reasons.flatMap((r) => (r.kind === 'SHARED_IOCS' ? r.detail : [])) ?? [];
+  ok(
+    'host IP citado liga a amostra hospedada nele',
+    (await sharedWith(ipLink.id)).includes('9.9.9.9'),
+  );
+  ok(
+    'link com query diferente não conta como o mesmo link',
+    !(await sharedWith(target.id)).includes('https://alvo.top/entrar'),
+  );
+  await prisma.report.update({
+    where: { id: citeReport.id },
+    data: { iocs: 'https://alvo.top/entrar' },
+  });
+  await syncReportIocs(prisma, citeReport.id, { notify: false });
+  ok(
+    'link citado liga a amostra daquele link',
+    (await sharedWith(target.id)).includes('https://alvo.top/entrar'),
+    await sharedWith(target.id),
+  );
+  const back = ((await findRelated(target.id)) ?? []).map((r) => r.entry.id);
+  ok('e o caminho de volta', back.includes(citing.id), back);
 
   await app.close();
   await prisma.$disconnect();

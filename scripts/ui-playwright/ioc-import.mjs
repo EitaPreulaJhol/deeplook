@@ -26,7 +26,7 @@ await context.route((url) => url.pathname.startsWith('/api/iocs/import'), async 
       format: body.text.trim().startsWith('{') ? 'stix' : 'csv',
       items: [
         { kind: 'IPV4', value: '185.0.2.10', where: 'linha 2', status: 'new' },
-        { kind: 'DOMAIN', value: 'evil.test', where: 'linha 3', fromUrl: true, status: 'exists' },
+        { kind: 'URL', value: 'https://evil.test/x', where: 'linha 3', status: 'exists' },
         { kind: 'DOMAIN', value: watch ? 'cdn.evil.test' : 'mail.empresa.test', where: 'linha 4', status: watch ? 'new' : 'covered' },
         { kind: 'MD5', value: 'd41d8cd98f00b204e9800998ecf8427e', where: 'linha 5', status: watch ? 'limit' : 'new' },
       ],
@@ -67,7 +67,7 @@ expect('pré-visualização com o destino', previews.at(-1)?.target === 'watch' 
 const summary = (await dialog.locator('.dl-import__summary').innerText()).replace(/\s+/g, ' ');
 expect('resumo com novos, já seguidos, sem vaga, inválidos, repetidos e vagas', summary === 'Lista: 2 novo(s), 1 já seguido(s), 1 sem vaga, 1 inválido(s), 1 repetido(s). Vagas para seguir: 2.', summary);
 const rows = (await dialog.locator('table[aria-label="Indicadores reconhecidos"] tbody tr').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
-expect('situação por indicador', rows[1] === 'Domínio evil.test (de uma URL) linha 3 Já sigo' && rows[3].endsWith('Sem vaga (limite de 200)'), rows.join(' | '));
+expect('situação por indicador', rows[1] === 'URL https://evil.test/x linha 3 Já sigo' && rows[3].endsWith('Sem vaga (limite de 200)'), rows.join(' | '));
 const invalid = (await dialog.locator('table[aria-label="Linhas não importadas"] tbody tr').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
 expect('inválido com o motivo', invalid[0] === 'linha 6 192.168.1.5 IP privado não aparece nos relatórios', invalid.join(' | '));
 expect('Importar 2', (await importButton.innerText()) === 'Importar 2');

@@ -1,7 +1,6 @@
-import { isIP } from 'node:net';
-
 import type { IocKind } from '../generated/prisma/client';
 import { normalizeAllowed } from './allowlist';
+import { isPrivateIpv4, normalizeIpv6, normalizeUrl } from './ioc-normalize';
 import { refang } from './iocs';
 
 /**
@@ -22,8 +21,6 @@ export interface ImportedIoc {
   value: string;
   /** Onde estava: "linha 3" ou o id do objeto STIX. */
   where: string;
-  /** Veio de uma URL (o indicador e o host). */
-  fromUrl?: boolean;
 }
 
 export interface InvalidLine {
@@ -49,6 +46,10 @@ const KIND_NAMES: Record<string, IocKind> = {
   'ipv4-addr': 'IPV4',
   'ip-dst': 'IPV4',
   'ip-src': 'IPV4',
+  ipv6: 'IPV6',
+  'ipv6-addr': 'IPV6',
+  url: 'URL',
+  link: 'URL',
   dominio: 'DOMAIN',
   domínio: 'DOMAIN',
   domain: 'DOMAIN',
@@ -66,23 +67,11 @@ const KIND_NAMES: Record<string, IocKind> = {
   'sha-256': 'SHA256',
 };
 
-const PRIVATE = (ip: string) => {
-  const [a, b] = ip.split('.').map(Number);
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224
-  );
-};
-
 /** Tipo pelo formato do valor (ja sem desarmacao). */
-function guessKind(v: string): IocKind | 'URL' | null {
+function guessKind(v: string): IocKind | null {
   if (/^https?:\/\//i.test(v)) return 'URL';
   if (/^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/.test(v)) return 'IPV4';
+  if (/^\[?[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\]?(\/\d{1,3})?$/i.test(v)) return 'IPV6';
   if (v.includes('@')) return 'EMAIL';
   if (/^[a-f0-9]{64}$/i.test(v)) return 'SHA256';
   if (/^[a-f0-9]{40}$/i.test(v)) return 'SHA1';
@@ -97,34 +86,24 @@ function guessKind(v: string): IocKind | 'URL' | null {
  * aceita faixas CIDR.
  */
 export function validateImported(
-  kind: IocKind | 'URL',
+  kind: IocKind,
   raw: string,
   target: ImportTarget,
-): { kind: IocKind; value: string; fromUrl?: boolean } | { reason: string } {
+): { kind: IocKind; value: string } | { reason: string } {
+  // A URL fica URL (item 167): permitir ou seguir um link nao vale para o dominio inteiro.
   if (kind === 'URL') {
-    let host: string;
-    try {
-      host = new URL(raw).hostname.toLowerCase();
-    } catch {
-      return { reason: 'URL inválida' };
-    }
-    if (isIP(host.replace(/^\[|\]$/g, '')) === 6) return { reason: IPV6_LATER };
-    const hostKind = isIP(host) === 4 ? 'IPV4' : 'DOMAIN';
-    const result = validateImported(hostKind, host, target);
-    return 'reason' in result ? result : { ...result, fromUrl: true };
+    const value = normalizeUrl(raw);
+    return value ? { kind, value } : { reason: 'URL inválida (só http e https)' };
   }
-  if (kind === 'IPV6') return { reason: IPV6_LATER };
   const value = normalizeAllowed(kind, raw);
   if (!value) return { reason: `não é um ${LABEL[kind]} válido` };
-  if (kind === 'IPV4' && target === 'watch') {
+  if ((kind === 'IPV4' || kind === 'IPV6') && target === 'watch') {
     if (value.includes('/')) return { reason: 'faixa de IPs só vale na lista de permissões' };
-    if (PRIVATE(value)) return { reason: 'IP privado não aparece nos relatórios' };
+    const ok = kind === 'IPV4' ? !isPrivateIpv4(value) : normalizeIpv6(value)?.kind === 'IPV6';
+    if (!ok) return { reason: 'IP privado não aparece nos relatórios' };
   }
   return { kind, value };
 }
-
-/** O IPv6 entra na importacao e na lista de permissoes no item 167. */
-const IPV6_LATER = 'IPv6 ainda não é importado';
 
 const LABEL: Record<IocKind, string> = {
   IPV4: 'IP',
@@ -170,7 +149,9 @@ function parseCsv(text: string, target: ImportTarget): ParsedImport {
     // trim() tira tambem o BOM que o Excel poe no inicio.
     const raw = line.trim();
     if (!raw || raw.startsWith('#')) return;
-    const row = cells(refang(raw));
+    // Link inteiro na linha, com ou sem coluna de tipo antes: ";" e "," na query nao separam.
+    const link = /^(?:[\w-]+\s*[;,\t]\s*)?(https?:\/\/\S+)$/i.exec(refang(raw));
+    const row = link ? [link[1]] : cells(refang(raw));
     // Coluna de tipo ("ip;1.2.3.4" ou "1.2.3.4,domain") e o primeiro valor que parece IOC.
     const hint = row.map((c) => KIND_NAMES[c.toLowerCase()]).find(Boolean);
     const candidates = row.filter((c) => !KIND_NAMES[c.toLowerCase()]);
@@ -185,7 +166,9 @@ function parseCsv(text: string, target: ImportTarget): ParsedImport {
       });
       return;
     }
-    const kind = guessed.kind === 'URL' ? 'URL' : (hint ?? guessed.kind!);
+    // A URL e o IPv6 pelo formato: "ip-dst" tambem marca IPv6 no MISP.
+    const kind =
+      guessed.kind === 'URL' || guessed.kind === 'IPV6' ? guessed.kind : (hint ?? guessed.kind!);
     const checked = validateImported(kind, guessed.c, target);
     if ('reason' in checked) {
       result.invalid.push({ where, text: raw.slice(0, 200), reason: checked.reason });
@@ -198,8 +181,9 @@ function parseCsv(text: string, target: ImportTarget): ParsedImport {
 
 /** Comparacoes de um pattern STIX: [tipo:caminho = 'valor'] (OR/AND aceitos). */
 const STIX_COMPARISON = /([a-z0-9-]+):([a-z0-9_.'-]+)\s*=\s*'((?:[^'\\]|\\.)*)'/gi;
-const STIX_PATHS: Record<string, IocKind | 'URL'> = {
+const STIX_PATHS: Record<string, IocKind> = {
   'ipv4-addr:value': 'IPV4',
+  'ipv6-addr:value': 'IPV6',
   'domain-name:value': 'DOMAIN',
   'email-addr:value': 'EMAIL',
   'url:value': 'URL',
@@ -217,7 +201,7 @@ function parseStix(json: unknown, target: ImportTarget): ParsedImport {
     throw new ImportError(`No máximo ${IMPORT_MAX_ITEMS} objetos por importação.`);
   }
   const result: ParsedImport = { format: 'stix', items: [], invalid: [], repeated: 0 };
-  const take = (kind: IocKind | 'URL', value: string, where: string, text: string) => {
+  const take = (kind: IocKind, value: string, where: string, text: string) => {
     const checked = validateImported(kind, value, target);
     if ('reason' in checked)
       result.invalid.push({ where, text: text.slice(0, 200), reason: checked.reason });
@@ -254,6 +238,7 @@ function parseStix(json: unknown, target: ImportTarget): ParsedImport {
       }
     } else if (
       type === 'ipv4-addr' ||
+      type === 'ipv6-addr' ||
       type === 'domain-name' ||
       type === 'email-addr' ||
       type === 'url'

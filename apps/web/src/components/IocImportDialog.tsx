@@ -10,7 +10,7 @@ type Status = 'new' | 'exists' | 'covered' | 'limit';
 
 interface Preview {
   format: 'csv' | 'stix';
-  items: { kind: IocKind; value: string; where: string; fromUrl?: boolean; status: Status }[];
+  items: { kind: IocKind; value: string; where: string; status: Status }[];
   invalid: { where: string; text: string; reason: string }[];
   repeated: number;
   counts: Record<Status, number>;
@@ -211,10 +211,7 @@ export function IocImportDialog({
                     {preview.items.slice(0, SHOWN).map((i) => (
                       <tr key={`${i.kind}:${i.value}`} className={`is-${i.status}`}>
                         <td>{IOC_KIND_LABELS[i.kind]}</td>
-                        <td className="dl-mono">
-                          {i.value}
-                          {i.fromUrl && <span className="dl-hint-muted"> (de uma URL)</span>}
-                        </td>
+                        <td className="dl-mono">{i.value}</td>
                         <td>{i.where}</td>
                         <td>{STATUS[target][i.status]}</td>
                       </tr>

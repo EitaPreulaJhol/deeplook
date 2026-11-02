@@ -39,6 +39,16 @@ interface Allowed {
 const KINDS: { id: IocKind; placeholder: string; help: string }[] = [
   { id: 'DOMAIN', placeholder: 'empresa.com.br', help: 'Vale também para os subdomínios.' },
   { id: 'IPV4', placeholder: '10.0.0.0/8 ou 203.0.113.10', help: 'Um IP ou uma faixa (CIDR).' },
+  {
+    id: 'IPV6',
+    placeholder: '2001:db8::/32 ou 2606:4700::1111',
+    help: 'Um IPv6 ou uma faixa (CIDR).',
+  },
+  {
+    id: 'URL',
+    placeholder: 'https://portal.empresa.com.br/login',
+    help: 'Só este link. Para o site inteiro, permita o domínio.',
+  },
   { id: 'EMAIL', placeholder: 'avisos@empresa.com.br', help: 'Endereço exato.' },
   { id: 'SHA256', placeholder: '64 caracteres hexadecimais', help: 'Arquivo legítimo conhecido.' },
   { id: 'SHA1', placeholder: '40 caracteres hexadecimais', help: 'Arquivo legítimo conhecido.' },

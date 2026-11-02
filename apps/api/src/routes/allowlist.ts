@@ -16,7 +16,7 @@ import { sendValidationError } from '../lib/validation';
 
 const CreateSchema = z.object({
   kind: z.enum(ALLOW_KINDS),
-  value: z.string().trim().min(1).max(300),
+  value: z.string().trim().min(1).max(2048),
   reason: z.string().trim().min(3).max(300),
 });
 const FilterSchema = z.object({ values: z.array(z.string().max(2000)).max(500) });
@@ -26,6 +26,7 @@ function guessKind(value: string): string {
   const v = value.trim().toLowerCase();
   if (/^https?:\/\//.test(v)) return 'URL';
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return 'IPV4';
+  if (/^\[?[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\]?$/.test(v)) return 'IPV6';
   if (v.includes('@')) return 'EMAIL';
   if (/^[a-f0-9]{64}$/.test(v)) return 'SHA256';
   if (/^[a-f0-9]{40}$/.test(v)) return 'SHA1';
@@ -74,7 +75,13 @@ export async function allowlistRoutes(app: FastifyInstance) {
     const value = normalizeAllowed(kind, parsed.data.value);
     if (!value) {
       const hint =
-        kind === 'IPV4' ? 'use um IP ou uma faixa, ex.: 10.0.0.0/8' : 'valor inválido para o tipo';
+        kind === 'IPV4'
+          ? 'use um IP ou uma faixa, ex.: 10.0.0.0/8'
+          : kind === 'IPV6'
+            ? 'use um IPv6 ou uma faixa, ex.: 2001:db8::/32'
+            : kind === 'URL'
+              ? 'use um link http:// ou https://'
+              : 'valor inválido para o tipo';
       return reply.code(400).send({ error: 'Dados inválidos.', details: { value: [hint] } });
     }
     try {

@@ -3685,6 +3685,18 @@ a amostra ser analisada de novo.
 
 ### 167. URL e IPv6 em permitidos, importação, exportação, relacionadas e mapa
 Inclui faixas IPv6 na lista de permitidos. Hoje a URL importada vira o domínio dela.
+✅ **Implementado:**
+- **Lista de permissões:** aceita IPv6, como endereço ou faixa CIDR comparada em 128 bits, e URL exata.
+  Uma URL sem item exato herda a permissão do host, seja domínio, IPv4 ou IPv6. Permitir uma URL não
+  libera o domínio.
+- **Importação:** a URL entra como URL, para seguir e para permitir; antes virava o domínio, "(de
+  uma URL)". O IPv6 entra pelo formato, inclusive com a coluna `ip-dst` do MISP, e pelo STIX
+  (`ipv6-addr`). Uma linha que é um link inteiro não passa mais pelo corte em `;` e `,`, que quebrava
+  links com esses sinais na query. Seguir recusa IPv6 interno, como já recusava IPv4.
+- **Relacionadas:** o host IP de um link liga pelo IP, e não mais como domínio. Um link citado num
+  relatório liga a amostra daquele link, pela chave. Link com outra query não conta como o mesmo
+  link, e continua ligando pelo domínio.
+- **Mapa:** os nós de URL e IPv6 abrem a ficha certa.
 
 ### 168. ELF
 Seções, bibliotecas, interpretador, símbolos suspeitos, segmentos RWX e packer, sem dependência nova.

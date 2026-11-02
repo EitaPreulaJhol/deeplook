@@ -4,6 +4,8 @@ import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
+import { urlKey } from '../lib/ioc-normalize';
+import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
 import { prisma } from '../lib/prisma';
 import { tlshDistance, tlshSimilarity } from '../lib/tlsh';
 
@@ -61,6 +63,7 @@ async function sharedIocs(
   entryId: string,
   sha256: string | null,
   host: string | null,
+  url: string | null,
 ): Promise<Map<string, Set<string>>> {
   const mine = await prisma.reportIoc.findMany({
     where: { entryId },
@@ -70,7 +73,8 @@ async function sharedIocs(
   const ownHash = sha256?.toLowerCase() ?? null;
   const own: { kind: IocKind; value: string }[] = [];
   if (ownHash) own.push({ kind: 'SHA256', value: ownHash });
-  if (host) own.push({ kind: 'DOMAIN', value: host });
+  // Host do link como dominio ou IP, e o proprio link (item 167).
+  for (const ioc of [linkHostIndicator(host), linkIndicator(url)]) if (ioc) own.push(ioc);
   // Lista de permissoes (item 69): indicador legitimo nao liga amostras.
   const list = await loadAllowlist();
   const probes = [...mine, ...own].filter((p) => !allowedBy(list, p.kind, p.value));
@@ -102,22 +106,34 @@ async function sharedIocs(
   const hashes = usable
     .filter((i) => i.kind === 'SHA256' && i.value !== ownHash)
     .map((i) => i.value);
-  const domains = usable.filter((i) => i.kind === 'DOMAIN' && i.value !== host).map((i) => i.value);
-  if (hashes.length || domains.length) {
+  // Host de link como esta em urlDomain: dominio, IPv4, ou IPv6 entre colchetes.
+  const hosts = new Map(
+    usable
+      .filter((i) => ['DOMAIN', 'IPV4', 'IPV6'].includes(i.kind))
+      .map((i) => [i.kind === 'IPV6' ? `[${i.value}]` : i.value, i.value] as const)
+      .filter(([stored]) => stored !== host),
+  );
+  // Links citados nos relatorios desta que sao o link de outra amostra (item 167).
+  const links = new Map(
+    usable.filter((i) => i.kind === 'URL').map((i) => [urlKey(i.value), i.value] as const),
+  );
+  if (hashes.length || hosts.size || links.size) {
     const direct = await prisma.entry.findMany({
       where: {
         id: { not: entryId },
         OR: [
           ...(hashes.length ? [{ sha256: { in: hashes } }] : []),
-          ...(domains.length ? [{ urlDomain: { in: domains } }] : []),
+          ...(hosts.size ? [{ urlDomain: { in: [...hosts.keys()] } }] : []),
+          ...(links.size ? [{ urlKey: { in: [...links.keys()] } }] : []),
         ],
       },
-      select: { id: true, sha256: true, urlDomain: true },
+      select: { id: true, sha256: true, urlDomain: true, urlKey: true },
       take: CANDIDATES,
     });
     for (const d of direct) {
       if (d.sha256 && hashes.includes(d.sha256)) note(d.id, d.sha256);
-      if (d.urlDomain && domains.includes(d.urlDomain)) note(d.id, d.urlDomain);
+      if (d.urlDomain && hosts.has(d.urlDomain)) note(d.id, hosts.get(d.urlDomain)!);
+      if (d.urlKey && links.has(d.urlKey)) note(d.id, links.get(d.urlKey)!);
     }
   }
   return matches;
@@ -142,6 +158,7 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
       id: true,
       sha256: true,
       tlsh: true,
+      url: true,
       urlDomain: true,
       tags: { select: { id: true, name: true } },
     },
@@ -151,7 +168,10 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
   const notSelf = { id: { not: entry.id } };
   const host = entry.urlDomain?.toLowerCase() ?? null;
   // Dominio permitido (ex.: docs.google.com) nao liga amostras pelo dominio.
-  const hostAllowed = host ? Boolean(allowedBy(await loadAllowlist(), 'DOMAIN', host)) : false;
+  const hostIoc = linkHostIndicator(host);
+  const hostAllowed = hostIoc
+    ? Boolean(allowedBy(await loadAllowlist(), hostIoc.kind, hostIoc.value))
+    : false;
   const base = host && !hostAllowed ? baseDomain(host) : null;
   const tagIds = entry.tags.map((t) => t.id);
 
@@ -207,7 +227,7 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
 
   // IOCs em comum: as amostras que ainda nao vieram por outro motivo sao lidas
   // aqui (as com mais indicadores em comum primeiro).
-  const iocMatches = await sharedIocs(entry.id, entry.sha256, host);
+  const iocMatches = await sharedIocs(entry.id, entry.sha256, host, entry.url);
   if (iocMatches.size) {
     const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
     const missing = [...iocMatches.entries()]
