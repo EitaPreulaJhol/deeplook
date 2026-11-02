@@ -168,7 +168,12 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const { id } = req.params as { id: string };
     const reports = await prisma.report.findMany({
-      where: { entryId: id, ...(isAnalyst(user) ? {} : { status: 'PUBLISHED' as const }) },
+      where: {
+        entryId: id,
+        // Usuario comum nao ve relatorio de amostra na lixeira (a ficha ja da 404);
+        // a extensao do Prisma so filtra Entry, nao Report (item: vazamento lixeira).
+        ...(isAnalyst(user) ? {} : { status: 'PUBLISHED' as const, entry: { deletedAt: null } }),
+      },
       orderBy: { createdAt: 'desc' },
       include: reportInclude,
     });

@@ -19,7 +19,11 @@ interface AuthContextValue {
   preferences: Preferences;
   loading: boolean;
   /** Entra; com 2FA ativo devolve o desafio da etapa do codigo (sem sessao ainda). */
-  login: (email: string, password: string) => Promise<{ challenge: string } | null>;
+  login: (
+    email: string,
+    password: string,
+    captcha?: { token: string; answer: string },
+  ) => Promise<{ challenge: string } | null>;
   /** Segunda etapa do login com 2FA; devolve quantos codigos de recuperacao restam se usou um. */
   verifyTwoFactor: (
     challenge: string,
@@ -78,12 +82,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, captcha?: { token: string; answer: string }) => {
       const data = await api.post<{
         user?: CurrentUser;
         twoFactorRequired?: boolean;
         challenge?: string;
-      }>('/auth/login', { email, password });
+      }>('/auth/login', {
+        email,
+        password,
+        ...(captcha && { captchaToken: captcha.token, captchaAnswer: captcha.answer }),
+      });
       if (data.twoFactorRequired && data.challenge) {
         pendingPassword = password;
         return { challenge: data.challenge };

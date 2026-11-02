@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { env } from '../env';
 import { audit } from '../lib/audit';
 import { createSession, currentSession, destroySession, loadUser } from '../lib/auth';
+import { checkCaptcha, createCaptcha } from '../lib/captcha';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { ldapAccountsGone, ldapAuthenticate, ldapConfig, sameDn } from '../lib/ldap';
 import { passwordField, passwordState } from '../lib/password-policy';
@@ -40,6 +41,9 @@ const LoginSchema = z.object({
   /** E-mail; com o AD ligado (item 94), tambem o usuario do AD. */
   email: z.string().trim().min(1).max(254),
   password: z.string().min(1).max(1024),
+  /** Resposta do CAPTCHA, exigida de dispositivo novo depois de varias falhas na conta. */
+  captchaToken: z.string().max(200).optional(),
+  captchaAnswer: z.string().max(20).optional(),
 });
 
 function publicUser(u: {
@@ -182,6 +186,8 @@ export async function authRoutes(app: FastifyInstance) {
   // abaixo seguram o resto: muitas contas de um IP e uma conta de muitos IPs.
   const failuresByIp = new FailureWindow(30, 5 * 60 * 1000);
   const failuresByEmail = new FailureWindow(20, 5 * 60 * 1000);
+  // Teto duro da conta: so se chega a ele resolvendo um CAPTCHA por palpite de senha.
+  const failuresByEmailHard = new FailureWindow(200, 5 * 60 * 1000);
   /**
    * Navegador onde a conta ja entrou: cookie assinado, que so existe depois da senha
    * certa. Quem o tem nao para na janela por e-mail, e assim ninguem de fora tranca a
@@ -224,6 +230,7 @@ export async function authRoutes(app: FastifyInstance) {
   ) => {
     failuresByIp.note(req.ip);
     failuresByEmail.note(email);
+    failuresByEmailHard.note(email);
     return recordLoginFailure(req, email, userId, reason);
   };
   const recordLoginFailure = (
@@ -344,7 +351,24 @@ export async function authRoutes(app: FastifyInstance) {
     }
     const local = await prisma.user.findUnique({ where: { email: normalized } });
     if (failuresByEmail.exceeded(normalized) && !knownDevice(req, local?.id)) {
-      return reply.code(429).send({ error: 'Muitas tentativas. Tente novamente em 5 minutos.' });
+      // Dispositivo novo numa conta com muitas falhas: em vez de trancar a dona (qualquer
+      // um de fora poderia provocar isso), pede um CAPTCHA a cada palpite. So o teto duro bloqueia.
+      if (failuresByEmailHard.exceeded(normalized)) {
+        return reply.code(429).send({ error: 'Muitas tentativas. Tente novamente em 5 minutos.' });
+      }
+      const { captchaToken, captchaAnswer } = parsed.data;
+      if (!checkCaptcha(captchaToken, captchaAnswer)) {
+        // Errar o CAPTCHA tambem custa na janela do IP (quem automatiza para aqui).
+        if (captchaToken) failuresByIp.note(req.ip);
+        const c = createCaptcha();
+        return reply.code(428).send({
+          error: captchaToken
+            ? 'Código da imagem incorreto. Tente com a nova imagem.'
+            : 'Confirme o código da imagem para continuar.',
+          captchaRequired: true,
+          captcha: { token: c.token, image: c.svg },
+        });
+      }
     }
     let user = local;
     if (local?.authSource === 'LOCAL') {
@@ -497,6 +521,16 @@ export async function authRoutes(app: FastifyInstance) {
     if (!session) return reply.code(401).send({ error: 'Sessão expirada.' });
     return reply.send({ expiresAt: session.expiresAt });
   });
+
+  // Nova imagem do CAPTCHA do login (botao "outra imagem"); limite proprio por IP.
+  app.get(
+    '/api/auth/captcha',
+    { config: attemptLimit((req) => `captcha:${req.ip}`, { max: 20 }) },
+    async (_req, reply) => {
+      const c = createCaptcha();
+      return reply.header('Cache-Control', 'no-store').send({ token: c.token, image: c.svg });
+    },
+  );
 
   // Tela de login (item 94): com o AD ligado, o campo aceita o usuario do AD.
   app.get('/api/auth/options', async (_req, reply) => reply.send({ ldap: Boolean(ldapConfig()) }));

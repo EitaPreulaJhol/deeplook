@@ -69,7 +69,7 @@ try {
     '-e',
     'DATABASE_URL=postgresql://postgres:pg@dl-smoke-pg:5432/smoke?schema=public',
     '-e',
-    'SESSION_SECRET=0123456789abcdef0123',
+    'SESSION_SECRET=0123456789abcdef0123456789abcdef',
     '-e',
     'S3_ENDPOINT=http://dl-smoke-minio:9000',
     '-e',

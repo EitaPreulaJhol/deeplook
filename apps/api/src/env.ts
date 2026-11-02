@@ -157,14 +157,19 @@ const KNOWN_SECRETS = new Set([
   'change-me-please-use-a-long-random-secret',
   'troque-este-token-da-captura',
 ]);
+/** Em producao o SESSION_SECRET curto (ex.: literais de teste) assinaria o cookie de
+ * dispositivo e puloria o bloqueio da conta: exija entropia minima (item 97). */
+const MIN_PROD_SECRET = 32;
 const refused = [
-  KNOWN_SECRETS.has(env.SESSION_SECRET) && 'SESSION_SECRET',
+  (KNOWN_SECRETS.has(env.SESSION_SECRET) || env.SESSION_SECRET.length < MIN_PROD_SECRET) &&
+    'SESSION_SECRET',
   env.CAPTURE_URL && KNOWN_SECRETS.has(env.CAPTURE_TOKEN) && 'CAPTURE_TOKEN',
 ].filter(Boolean);
 if (refused.length && isProd && env.ALLOW_INSECURE_DEFAULTS !== 'true') {
   console.error(
-    `[env] ${refused.join(' e ')} com o valor padrao, que e publico. Defina um valor longo e ` +
-      'aleatorio no .env (ex.: openssl rand -hex 32). Para uma demonstracao local, use ' +
+    `[env] ${refused.join(' e ')} com valor publico ou curto demais (minimo de ` +
+      `${MIN_PROD_SECRET} caracteres em producao). Defina um valor longo e aleatorio no ` +
+      '.env (ex.: openssl rand -hex 32). Para uma demonstracao local, use ' +
       'ALLOW_INSECURE_DEFAULTS=true.',
   );
   process.exit(1);

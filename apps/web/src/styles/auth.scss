@@ -342,3 +342,25 @@
   color: var(--dl-text-muted);
   font-size: 0.75rem;
 }
+
+/* CAPTCHA de imagem do login: aparece depois de varias falhas na conta. */
+.dl-auth__captcha {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+
+  .dl-auth__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+  }
+}
+
+.dl-auth__captcha-img {
+  border: 1px solid var(--dl-border, #c9ced6);
+  border-radius: 2px;
+  background: #f3f4f6;
+}

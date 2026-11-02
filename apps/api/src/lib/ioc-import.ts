@@ -13,6 +13,8 @@ import { refang } from './iocs';
 export const IMPORT_MAX_ITEMS = 5000;
 /** Tamanho maximo do texto importado. */
 export const IMPORT_MAX_BYTES = 2 * 1024 * 1024;
+/** Tamanho maximo de uma linha do CSV (um indicador cabe de sobra). */
+export const IMPORT_MAX_LINE_LEN = 4096;
 
 export type ImportTarget = 'watch' | 'allow';
 
@@ -149,8 +151,19 @@ function parseCsv(text: string, target: ImportTarget): ParsedImport {
     // trim() tira tambem o BOM que o Excel poe no inicio.
     const raw = line.trim();
     if (!raw || raw.startsWith('#')) return;
+    // Uma linha enorme (ex.: 80 mil tabs) so serve para gastar CPU: indicador
+    // de verdade cabe de sobra em IMPORT_MAX_LINE_LEN (item: DoS no import).
+    if (raw.length > IMPORT_MAX_LINE_LEN) {
+      result.invalid.push({
+        where,
+        text: raw.slice(0, 200),
+        reason: `linha acima de ${IMPORT_MAX_LINE_LEN} caracteres`,
+      });
+      return;
+    }
     // Link inteiro na linha, com ou sem coluna de tipo antes: ";" e "," na query nao separam.
-    const link = /^(?:[\w-]+\s*[;,\t]\s*)?(https?:\/\/\S+)$/i.exec(refang(raw));
+    // As alternativas do separador nao se sobrepoem num run de tabs (passada linear).
+    const link = /^(?:[\w-]+(?:[^\S\t]*\t|\s*[;,])\s*)?(https?:\/\/\S+)$/i.exec(refang(raw));
     const row = link ? [link[1]] : cells(refang(raw));
     // Coluna de tipo ("ip;1.2.3.4" ou "1.2.3.4,domain") e o primeiro valor que parece IOC.
     const hint = row.map((c) => KIND_NAMES[c.toLowerCase()]).find(Boolean);

@@ -12,6 +12,39 @@ const MAX_LINKS = 100;
 const MAX_BODY_CHARS = 20_000;
 const MAX_RECEIVED = 30;
 const MAX_RECIPIENTS = 50;
+/**
+ * Teto de delimitadores de parte MIME antes de entregar ao postal-mime, cujo
+ * tratamento de partes cresce superlinearmente: uma mensagem com dezenas de
+ * milhares de partes travaria a thread por dezenas de segundos. O corte em 1000
+ * e folgado (o limite util de anexos e MAX_ATTACHMENTS = 20) e barra o abuso.
+ */
+const MAX_MIME_PARTS = 1000;
+
+/** O Postgres recusa \u0000 em JSON (viraria 500): tira o NUL de nomes e textos. */
+function stripNul<T>(value: T): T {
+  if (typeof value === 'string') return value.replaceAll('\u0000', '') as T;
+  if (Array.isArray(value)) return value.map(stripNul) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k.replaceAll('\u0000', ''), stripNul(v)]),
+    ) as T;
+  }
+  return value;
+}
+
+/**
+ * Conta delimitadores de parte MIME (linhas iniciadas por "--") como teto superior
+ * do numero de partes, numa unica passada linear sobre os bytes (sem alocar a string
+ * inteira), antes da analise cara. Para na contagem assim que passa o teto.
+ */
+function countMimeParts(buffer: Buffer, cap: number): number {
+  let count = buffer.length >= 2 && buffer[0] === 0x2d && buffer[1] === 0x2d ? 1 : 0;
+  for (let i = 0; i + 2 < buffer.length && count <= cap; i++) {
+    // "\n--": inicio de uma fronteira MIME.
+    if (buffer[i] === 0x0a && buffer[i + 1] === 0x2d && buffer[i + 2] === 0x2d) count++;
+  }
+  return count;
+}
 
 export interface EmailParty {
   name: string | null;
@@ -172,9 +205,12 @@ export function htmlToText(html: string): string {
 export function extractLinks(text: string, html: string | undefined): string[] {
   const found = new Set<string>();
   const add = (raw: string) => {
-    const url = decodeEntities(raw)
-      .trim()
-      .replace(/[.,;:!?)\]]+$/, '');
+    // Corte linear da pontuacao final: o /[...]+$/ reavalia cada inicio de uma
+    // sequencia longa (quadratico) e travava a thread (item: DoS no .eml).
+    let url = decodeEntities(raw).trim();
+    let end = url.length;
+    while (end > 0 && '.,;:!?)]'.includes(url[end - 1])) end--;
+    url = url.slice(0, end);
     if (/^https?:\/\/[^\s/]+/i.test(url) && url.length <= 2000) found.add(url);
   };
   for (const m of text.matchAll(/https?:\/\/[^\s<>"'`]+/gi)) {
@@ -213,6 +249,11 @@ function toBuffer(content: ArrayBuffer | Uint8Array | string): Buffer {
 
 /** Le o .eml; lanca se o conteudo nao for um e-mail. */
 export async function parseEmail(buffer: Buffer, maxAttachmentBytes: number): Promise<ParsedEmail> {
+  // Barra a mensagem com milhares de partes ANTES de montar a arvore: o parser
+  // cresce superlinearmente e travaria a thread unica (item: DoS no .eml).
+  if (countMimeParts(buffer, MAX_MIME_PARTS) > MAX_MIME_PARTS) {
+    throw new Error(`e-mail com mais de ${MAX_MIME_PARTS} partes MIME`);
+  }
   const email: Email = await PostalMime.parse(buffer, {
     attachmentEncoding: 'arraybuffer',
     // E-mail encaminhado como anexo continua anexo (vira outra amostra .eml).
@@ -275,5 +316,7 @@ export async function parseEmail(buffer: Buffer, maxAttachmentBytes: number): Pr
     bodyTruncated: text.length > MAX_BODY_CHARS,
     attachments: attachments.slice(0, MAX_ATTACHMENTS + 30),
   };
-  return { info, files };
+  // O corpo e os cabecalhos vem do arquivo: um NUL no texto faria o Postgres
+  // recusar o JSON (500) e deixar amostra pela metade (item: upload .eml com NUL).
+  return { info: stripNul(info), files };
 }

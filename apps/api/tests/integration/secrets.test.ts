@@ -11,7 +11,7 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
   console.log(`${cond ? 'ok  ' : 'FALHA'} ${label}${cond ? '' : ' ' + JSON.stringify(detail)}`);
 };
 
-const GOOD = '0123456789abcdef0123';
+const GOOD = '0123456789abcdef0123456789abcdef';
 const DEFAULT_SECRET = 'change-me-please-use-a-long-random-secret';
 const DEFAULT_TOKEN = 'troque-este-token-da-captura';
 
@@ -56,6 +56,14 @@ async function main() {
       CAPTURE_URL: 'http://capture:3100',
       CAPTURE_TOKEN: 'abcdefabcdefabcdef12',
     }).status === 0,
+  );
+  ok(
+    'SESSION_SECRET curto recusado em produção',
+    boot({ SESSION_SECRET: '0123456789abcdef0123' }).status === 1,
+  );
+  ok(
+    'SESSION_SECRET curto sobe fora de produção',
+    boot({ NODE_ENV: 'development', SESSION_SECRET: '0123456789abcdef0123' }).status === 0,
   );
   ok(
     'fora de produção sobe',

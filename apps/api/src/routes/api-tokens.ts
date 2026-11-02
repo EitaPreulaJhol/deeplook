@@ -1,10 +1,12 @@
+import { createHash } from 'node:crypto';
+
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { hashToken, newTokenSecret, TOKEN_MAX_ACTIVE, TOKEN_MAX_DAYS } from '../lib/api-tokens';
 import { audit } from '../lib/audit';
 import { requireAdmin, requireUser } from '../lib/auth';
-import { prisma } from '../lib/prisma';
+import { advisoryLock, prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 
 const CreateSchema = z.object({
@@ -27,6 +29,12 @@ const tokenSelect = {
 } as const;
 
 const activeWhere = () => ({ revokedAt: null, expiresAt: { gt: new Date() } });
+
+/** Conferir o teto e inserir fora de uma transacao deixava passar pedidos paralelos. */
+class TokenLimit extends Error {}
+
+const tokenLockKey = (userId: string) =>
+  createHash('sha256').update(`api-token:${userId}`).digest().readUIntBE(0, 6);
 
 /**
  * Tokens de API pessoais. So quem tem "Acesso por API" (liberado por um admin
@@ -55,35 +63,44 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     }
     const parsed = CreateSchema.safeParse(req.body);
     if (!parsed.success) return sendValidationError(reply, parsed.error);
-    const active = await prisma.apiToken.count({ where: { userId: user.id, ...activeWhere() } });
-    if (active >= TOKEN_MAX_ACTIVE) {
+
+    const secret = newTokenSecret();
+    const { name, expiresInDays } = parsed.data;
+    // Trava por usuario e conta DENTRO da transacao (como a cota de envio), senao
+    // pedidos paralelos passam todos no count e furam o teto (item: corrida de tokens).
+    const token = await prisma
+      .$transaction(async (tx) => {
+        await advisoryLock(tx, tokenLockKey(user.id));
+        const active = await tx.apiToken.count({ where: { userId: user.id, ...activeWhere() } });
+        if (active >= TOKEN_MAX_ACTIVE) throw new TokenLimit();
+        const created = await tx.apiToken.create({
+          data: {
+            userId: user.id,
+            name,
+            prefix: secret.slice(0, 12),
+            tokenHash: hashToken(secret),
+            expiresAt: new Date(Date.now() + expiresInDays * 86400000),
+          },
+          select: tokenSelect,
+        });
+        await audit(tx, req, {
+          action: 'API_TOKEN_CREATED',
+          actorId: user.id,
+          targetUserId: user.id,
+          targetLabel: `${name} (${created.prefix}…)`,
+          detail: `validade de ${expiresInDays} dia(s)`,
+        });
+        return created;
+      })
+      .catch((err: unknown) => {
+        if (err instanceof TokenLimit) return err;
+        throw err;
+      });
+    if (token instanceof TokenLimit) {
       return reply.code(409).send({
         error: `Limite de ${TOKEN_MAX_ACTIVE} tokens ativos. Revogue um antes de gerar outro.`,
       });
     }
-
-    const secret = newTokenSecret();
-    const { name, expiresInDays } = parsed.data;
-    const token = await prisma.$transaction(async (tx) => {
-      const created = await tx.apiToken.create({
-        data: {
-          userId: user.id,
-          name,
-          prefix: secret.slice(0, 12),
-          tokenHash: hashToken(secret),
-          expiresAt: new Date(Date.now() + expiresInDays * 86400000),
-        },
-        select: tokenSelect,
-      });
-      await audit(tx, req, {
-        action: 'API_TOKEN_CREATED',
-        actorId: user.id,
-        targetUserId: user.id,
-        targetLabel: `${name} (${created.prefix}…)`,
-        detail: `validade de ${expiresInDays} dia(s)`,
-      });
-      return created;
-    });
     return reply.code(201).send({ token, secret });
   });
 

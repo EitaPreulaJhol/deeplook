@@ -173,7 +173,7 @@ async function apiImage() {
       '-e',
       `DATABASE_URL=postgresql://postgres:pg@dl-test-pg:5432/${db}?schema=public`,
       '-e',
-      'SESSION_SECRET=0123456789abcdef0123',
+      'SESSION_SECRET=0123456789abcdef0123456789abcdef',
       '-e',
       'S3_ENDPOINT=http://dl-test-minio:9000',
       '-e',

@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 
 import { env } from '../../src/env';
 import { TRUST_PROXY } from '../../src/lib/auth';
+import { createCaptcha } from '../../src/lib/captcha';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { insecureDefaults } from '../../src/lib/status';
@@ -96,14 +97,60 @@ async function main() {
     (await login('alvo1@x.io', 'Senha123', '203.0.113.4')).statusCode === 401,
   );
 
-  // 4. Uma conta de muitos IPs.
+  // 4. Uma conta de muitos IPs: CAPTCHA para dispositivo novo, sem trancar a dona.
   await mk('muitos@x.io');
   const many = [];
   for (let i = 0; i < 21; i++) many.push(await login('muitos@x.io', 'errada', `198.18.0.${i + 1}`));
   ok(
-    'uma conta de muitos IPs: barrado',
-    many.slice(0, 20).every((r) => r.statusCode === 401) && many[20].statusCode === 429,
+    'uma conta de muitos IPs: pede CAPTCHA',
+    many.slice(0, 20).every((r) => r.statusCode === 401) &&
+      many[20].statusCode === 428 &&
+      many[20].json().captchaRequired === true &&
+      typeof many[20].json().captcha?.token === 'string' &&
+      many[20].json().captcha?.image.includes('<svg'),
     many.map((r) => r.statusCode).join(),
+  );
+  const withCaptcha = (password: string, token?: string, answer?: string, ip = '198.18.9.9') =>
+    app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'muitos@x.io', password, captchaToken: token, captchaAnswer: answer },
+      remoteAddress: ip,
+    });
+  const first = createCaptcha();
+  ok('sem resposta: 428', (await withCaptcha(PASSWORD)).statusCode === 428);
+  ok(
+    'resposta errada: 428 e nova imagem',
+    (await withCaptcha(PASSWORD, first.token, 'zzzzz')).statusCode === 428,
+  );
+  ok(
+    'token gasto não vale de novo, nem com a resposta certa',
+    (await withCaptcha(PASSWORD, first.token, first.text)).statusCode === 428,
+  );
+  const second = createCaptcha();
+  ok(
+    'a dona entra com o CAPTCHA certo (maiúsculas e espaços não importam)',
+    (await withCaptcha(PASSWORD, second.token, ` ${second.text.toUpperCase()} `)).statusCode ===
+      200,
+  );
+  const forged = createCaptcha();
+  const [exp, nonce] = forged.token.split('.');
+  ok(
+    'token adulterado recusado',
+    (await withCaptcha(PASSWORD, `${exp}.${nonce}.AAAA`, forged.text)).statusCode === 428,
+  );
+  ok(
+    'palpite errado com CAPTCHA certo segue 401',
+    await (async () => {
+      const c = createCaptcha();
+      return (await withCaptcha('errada', c.token, c.text, '198.18.9.10')).statusCode === 401;
+    })(),
+  );
+  const fresh = await app.inject({ method: 'GET', url: '/api/auth/captcha' });
+  ok(
+    'nova imagem sob demanda',
+    fresh.statusCode === 200 && fresh.json().token && fresh.json().image.includes('<svg'),
+    fresh.body.slice(0, 100),
   );
 
   // 5. Suspensa so aparece com a senha certa.

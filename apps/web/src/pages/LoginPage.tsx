@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
@@ -29,6 +29,18 @@ export function LoginPage() {
   // 2FA: depois da senha certa, a etapa do codigo (desafio valido por 5 min).
   const [challenge, setChallenge] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  // CAPTCHA de imagem: a API pede (428) depois de varias falhas na conta num dispositivo novo.
+  const [captcha, setCaptcha] = useState<{ token: string; image: string } | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+
+  const newCaptcha = async () => {
+    try {
+      setCaptcha(await api.get<{ token: string; image: string }>('/auth/captcha'));
+      setCaptchaAnswer('');
+    } catch (err) {
+      setError((err as Error).message || 'Não foi possível trocar a imagem.');
+    }
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -36,7 +48,12 @@ export function LoginPage() {
     setNotice(null);
     setLoading(true);
     try {
-      const step = await login(email.trim(), password);
+      const step = await login(
+        email.trim(),
+        password,
+        captcha ? { token: captcha.token, answer: captchaAnswer } : undefined,
+      );
+      setCaptcha(null);
       if (step) {
         setChallenge(step.challenge);
         setCode('');
@@ -44,6 +61,13 @@ export function LoginPage() {
       }
       navigate('/');
     } catch (err) {
+      const data = err instanceof ApiError && err.status === 428 ? err.data : null;
+      const next = (data as { captcha?: { token: string; image: string } } | null)?.captcha;
+      if (next) {
+        // Cada imagem vale uma tentativa: a API manda outra a cada erro.
+        setCaptcha(next);
+        setCaptchaAnswer('');
+      }
       setError((err as Error).message || 'Falha ao entrar.');
     } finally {
       setLoading(false);
@@ -148,6 +172,33 @@ export function LoginPage() {
           autoComplete="current-password"
           required
         />
+
+        {captcha && (
+          <div className="dl-auth__captcha">
+            <img
+              className="dl-auth__captcha-img"
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(captcha.image)}`}
+              alt="Imagem com um código de 5 caracteres"
+              width={160}
+              height={56}
+            />
+            <button type="button" className="dl-auth__link" onClick={newCaptcha}>
+              Outra imagem
+            </button>
+          </div>
+        )}
+        {captcha && (
+          <AuthField
+            id="captcha"
+            label="Código da imagem"
+            value={captchaAnswer}
+            onChange={setCaptchaAnswer}
+            placeholder="5 caracteres"
+            autoComplete="off"
+            helperText="Letras e números, sem diferenciar maiúsculas."
+            required
+          />
+        )}
 
         {/* "Esqueceu a senha?" a esquerda e o botao a direita, na coluna dos campos. */}
         <div className="dl-auth__actions">

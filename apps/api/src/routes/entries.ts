@@ -1086,7 +1086,11 @@ export async function entryRoutes(app: FastifyInstance) {
     const events = await prisma.entryEvent.findMany({
       where: {
         entryId: id,
-        ...(analyst ? {} : { type: { notIn: [...ANALYST_ONLY_EVENTS] } }),
+        // Usuario comum nao ve o historico de amostra na lixeira (a ficha ja da 404);
+        // a extensao do Prisma so filtra Entry, nao EntryEvent (item: vazamento lixeira).
+        ...(analyst
+          ? {}
+          : { type: { notIn: [...ANALYST_ONLY_EVENTS] }, entry: { deletedAt: null } }),
       },
       // Eventos da mesma transacao podem ter o mesmo milissegundo: o id (cuid,
       // crescente) desempata na ordem em que foram gravados.

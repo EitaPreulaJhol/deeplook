@@ -472,7 +472,7 @@ COOKIE_SECURE=true
 | Variável | Descrição | Padrão |
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL | `deeplook` |
-| `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório); com o valor padrão a API não sobe | — |
+| `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório, mínimo de 32 caracteres em produção); com o valor padrão a API não sobe | — |
 | `SESSION_TTL_HOURS` | Validade máxima da sessão (horas), mesmo com uso contínuo | `168` |
 | `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
 | `SLA_WARN_HOURS` | Amostra não concluída há mais de N horas no status atual ganha bolinha laranja (alerta) | `24` |
