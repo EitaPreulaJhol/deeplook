@@ -42,7 +42,7 @@ export function WatchesTab() {
   const unwatch = async (w: Watch) => {
     setNotice(null);
     try {
-      await api.del(`/iocs/${w.kind.toLowerCase()}/${encodeURIComponent(w.value)}/watch`);
+      await api.del(`${iocHref(w.kind, w.value)}/watch`);
       await queryClient.invalidateQueries({ queryKey: ['me', 'watches'] });
       await queryClient.invalidateQueries({ queryKey: ['ioc'] });
       setNotice({ ok: true, text: `Você deixou de seguir ${w.value}.` });

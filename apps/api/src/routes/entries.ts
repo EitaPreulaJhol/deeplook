@@ -581,6 +581,8 @@ async function createFileEntry(
   let staticInfo: StaticInfo | undefined;
   try {
     staticInfo = await analyzeInThread(buffer, filename);
+    // URLs sugeridas abrem a ficha pela chave (item 166).
+    await rememberUrls(prisma, staticInfo.iocCandidates);
   } catch (err) {
     req.log.warn({ err }, 'Falha na analise estatica');
   }
@@ -1065,6 +1067,7 @@ export async function entryRoutes(app: FastifyInstance) {
       req.log.warn({ err }, 'Falha na analise estatica');
       return reply.code(422).send({ error: 'Não foi possível analisar este arquivo.' });
     }
+    await rememberUrls(prisma, staticInfo.iocCandidates);
     await prisma.entry.update({
       where: { id },
       data: { staticInfo: staticInfo as unknown as Prisma.InputJsonValue },

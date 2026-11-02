@@ -1,4 +1,5 @@
 import type { IocKind } from '../api/types';
+import { sha256Hex } from './sha256';
 
 /** Rotulo do tipo de indicador. */
 export const IOC_KIND_LABELS: Record<IocKind, string> = {
@@ -12,9 +13,24 @@ export const IOC_KIND_LABELS: Record<IocKind, string> = {
   URL: 'URL',
 };
 
-/** Caminho da ficha do indicador. */
+/**
+ * Caminho da ficha do indicador (o mesmo na tela e na API, sem o /api). A URL vai pela
+ * chave (SHA-256 do link, item 166): o link, com token ou e-mail da vitima, fica fora do
+ * endereco, do historico do navegador e dos logs.
+ */
 export function iocHref(kind: IocKind, value: string): string {
-  return `/iocs/${kind.toLowerCase()}/${encodeURIComponent(value)}`;
+  const id = kind === 'URL' ? sha256Hex(value) : value;
+  return `/iocs/${kind.toLowerCase()}/${encodeURIComponent(id)}`;
+}
+
+/** Host de uma URL como indicador (ficha do dominio ou do IP). */
+export function urlHostIoc(url: string): { kind: IocKind; value: string } | null {
+  try {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+    return { kind: iocKindOf(host), value: host };
+  } catch {
+    return null;
+  }
 }
 
 /** Tipo de um valor ja normalizado pela API (ex.: detalhe "IOCs em comum"). */

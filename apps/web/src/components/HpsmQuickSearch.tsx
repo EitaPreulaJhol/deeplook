@@ -44,9 +44,10 @@ export function HpsmQuickSearch() {
         // "kb: termo" busca direto na base de conhecimento.
         target = `/kb?q=${encodeURIComponent(text.slice(3).trim())}`;
       } else if (looksLikeIoc(text)) {
-        const res = await api.get<{ ioc: { kind: IocKind; value: string } }>(
-          `/iocs/lookup?q=${encodeURIComponent(text)}`,
-        );
+        // No corpo, nao na query: o link colado pode ter o token da vitima (item 166).
+        const res = await api.post<{ ioc: { kind: IocKind; value: string } }>('/iocs/resolve', {
+          text,
+        });
         target = iocHref(res.ioc.kind, res.ioc.value);
       } else {
         // Titulo exato de um artigo da base: abre o artigo.

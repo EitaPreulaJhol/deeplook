@@ -305,7 +305,8 @@ use `renderMentions(texto, event.toValue)` para destacar os nomes.
 
 ### Indicadores — `components/iocs.ts` e `pages/IocPage.tsx`
 
-`iocHref(kind, valor)` monta o link da ficha; `iocKindOf(valor)` deduz o tipo de um
+`iocHref(kind, valor)` monta o link da ficha (na URL, pela chave: `sha256Hex` de
+`components/sha256.ts`, síncrono); `urlHostIoc(url)` dá o host como indicador; `iocKindOf(valor)` deduz o tipo de um
 valor já normalizado; `shortIoc` encurta hashes para a grade; `looksLikeIoc(texto)`
 decide se o "Ir para:" consulta `/api/iocs/lookup`. Para baixar algo gerado pela API,
 use `downloadUrl(url)` (`components/entryExport.ts`), sem o atributo `download`: o nome
@@ -553,8 +554,9 @@ Login, cadastro e home usam `PublicMasthead`, a caixa `.dl-box` com cabeçalho e
 | GET | `/api/me/notifications/count` | `{ unread }` (sininho, a cada minuto) |
 | POST | `/api/me/notifications/read` | `{ ids? }` marca como lidas (sem `ids`: todas) |
 | GET | `/api/users/mentionable?q=&analysts=1` | pessoas ativas para o "@" (nome, sem e-mail; até 8); `analysts=1` nos comentários de casos |
-| GET | `/api/iocs/lookup?q=` | texto → indicador reconhecido `{ ioc: { kind, value } }` ou 404 |
-| GET | `/api/iocs/:kind/:value` | ficha: `{ ioc, items: [{ entry, sightings }], total, firstSeen, lastSeen }` |
+| GET | `/api/iocs/lookup?q=` | texto → indicador reconhecido `{ ioc: { kind, value } }` ou 404 (o host antes da URL) |
+| POST | `/api/iocs/resolve` | `{ text }` → `{ ioc }`, como o lookup, mas no corpo; um link sozinho vira URL, guardada pela chave. Usado pelo "Ir para:" (item 166) |
+| GET | `/api/iocs/:kind/:value` | ficha: `{ ioc, items: [{ entry, sightings }], total, firstSeen, lastSeen }`. URL: `/api/iocs/url/<SHA-256 do link>`; chave desconhecida → 404 |
 | GET | `/api/entries/:id/iocs` | indicadores da amostra (relatórios publicados + arquivo/URL/domínio) |
 | GET | `/api/entries/:id/iocs/export?format=` | `csv`, `stix` (STIX 2.1) ou `misp` (evento JSON), como anexo |
 | POST | `/api/entries/:id/comments` | nova atualização `{ text, mentions? }` (1–4000, texto puro) → evento `COMMENT` no histórico; 10/min por sessão |
@@ -646,6 +648,7 @@ banco nem da API rodando.
 | `duplicates.mjs` | duplicatas: caixa com sugestões e foco, ID inválido (erro e foco), Esc, marcar (resumo, histórico, marca na grade, seção na principal), desfazer com confirmação, oculto para usuário comum |
 | `report-templates.mjs` | modelos: aba pelo navegador, validação, criar (Ctrl+S), editar, nome repetido da API no campo, excluir com confirmação; campo Modelo no Novo relatório (preenche, veredito, pergunta antes de sobrescrever) |
 | `notifications.mjs` | caixa de entrada: contador no sininho e no navegador, painel (frases, foco, teclado, abrir marca como lida, marcar todas), página com filtro e teclado; menções (lista, Esc, Enter/Tab, nova linha, ids enviados, destaque no histórico) |
+| `ioc-url.mjs` | ficha de URL: link colado no "Ir para:" vai no corpo e abre a ficha pela chave, sem o link em nenhum pedido; título e host; seguir e deixar de seguir pela chave; Minha Conta abre a mesma ficha; chave desconhecida |
 | `iocs.mjs` | indicadores: seção na aba Relatórios, ficha (título, resumo, onde aparece, aba de documento, teclado), ficha vazia/inválida, "Ir para:" com IOC desarmado/IP/IP privado/texto, links nas Relacionadas e exportação CSV/STIX/MISP |
 | `related.mjs` | aba Relacionadas: total no rótulo, coluna Motivo (vários motivos, singular/plural, IOCs em comum com hash encurtado, "+N" e lista na dica), rodapé com o limite, setas + Enter, Anterior/Próxima pelas relacionadas, lista vazia |
 | `favorites.mjs` | Favoritos: Salvar visão (nome sugerido, sem a página, repetida, limite de 30), Fixar/Desafixar, abrir e destacar pelo navegador, menu de contexto (mover, renomear), Shift+F10, F2, Delete e "×" |

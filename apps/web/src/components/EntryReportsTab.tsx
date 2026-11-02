@@ -410,13 +410,9 @@ export function EntryReportsTab({
             {recognized.map((ioc) => (
               <li key={`${ioc.kind}:${ioc.value}`}>
                 <span className="dl-ioc-list__kind">{IOC_KIND_LABELS[ioc.kind]}</span>
-                {ioc.kind === 'URL' ? (
-                  <span className="dl-mono">{ioc.value}</span>
-                ) : (
-                  <Link className="dl-link dl-mono" to={iocHref(ioc.kind, ioc.value)}>
-                    {ioc.value}
-                  </Link>
-                )}
+                <Link className="dl-link dl-mono" to={iocHref(ioc.kind, ioc.value)}>
+                  {ioc.value}
+                </Link>
                 <span className="dl-ioc-list__source">
                   {ioc.source === 'REPORT' ? 'relatório' : 'amostra'}
                 </span>

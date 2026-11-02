@@ -3670,6 +3670,18 @@ na lista de permissões (167), que até lá respondem "IPv6 ainda não é import
 O caminho `/iocs/:tipo/:valor` não comporta uma URL, e ela levaria o token da vítima para o histórico
 do navegador e os logs. **Decisão:** a URL é aberta pelo SHA-256 dela; só vê o valor quem tem uma
 aparição visível ou a própria vigilância.
+✅ **Implementado:** a ficha da URL fica em `/iocs/url/<SHA-256 do link>`, na tela e na API, e a web
+calcula a chave sem ida ao servidor. A lista da amostra, o caso, as sugestões da análise e Minha Conta
+abrem essa ficha; antes, a URL era só texto. A ficha mostra o link e o host, que leva à ficha do
+domínio ou do IP, e "É o link da amostra" nas amostras de link. O "Ir para:" manda o texto no corpo
+(`POST /api/iocs/resolve`), e um link sozinho abre a ficha da URL; um domínio continua abrindo a do
+domínio. Seguir e deixar de seguir também vão pela chave.
+**Decisão no caminho:** a ficha devolve o link de qualquer chave conhecida, e não só para quem tem uma
+aparição visível. A chave é o SHA-256 do link, então quem a tem já conhece o link, e nenhuma resposta
+lista chaves de links que a pessoa não pode ver. As aparições continuam seguindo "só as próprias". As
+URLs sugeridas pela análise ficam guardadas pela chave quando o arquivo é analisado.
+**Limite:** URL sugerida de uma amostra analisada antes deste item abre "Indicador não encontrado" até
+a amostra ser analisada de novo.
 
 ### 167. URL e IPv6 em permitidos, importação, exportação, relacionadas e mapa
 Inclui faixas IPv6 na lista de permitidos. Hoje a URL importada vira o domínio dela.

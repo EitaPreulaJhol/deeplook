@@ -2,6 +2,8 @@
 // ficha; ficha com tipo, valor, aparicoes e grade navegavel; ficha vazia e
 // invalida; "Indicadores reconhecidos" na aba Relatorios com links; IOCs em comum
 // da aba Relacionadas como links; exportacao CSV/STIX/MISP pelo menu "Mais".
+import { createHash } from 'node:crypto';
+
 import { chromium } from 'playwright';
 
 import { createState, entries, ORIGIN, OUT, setupMock, watchErrors } from './mock-api.mjs';
@@ -93,7 +95,11 @@ expect('tipo inválido avisa', (await page.locator('.hpsm-msg__text').allTextCon
 // 4. "Ir para:" reconhece indicadores.
 await page.goto(ORIGIN + '/inicio', { waitUntil: 'networkidle' });
 await quick('hxxps://Evil-CDN[.]example/login');
-expect('URL desarmada abre a ficha do domínio', url() === '/iocs/domain/evil-cdn.example', url());
+// Item 166: o link inteiro abre a ficha da URL, pela chave (o link nao vai no endereco).
+const evilUrl = createHash('sha256').update('https://evil-cdn.example/login').digest('hex');
+expect('URL desarmada abre a ficha da URL pela chave', url() === `/iocs/url/${evilUrl}`, url());
+await quick('evil-cdn[.]example');
+expect('domínio desarmado abre a ficha do domínio', url() === '/iocs/domain/evil-cdn.example', url());
 await quick('185.0.2.10');
 expect('IP abre a ficha', url() === '/iocs/ipv4/185.0.2.10', url());
 await quick('192.168.0.1');

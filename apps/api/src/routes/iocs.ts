@@ -7,8 +7,9 @@ import { isAnalyst, ownerForViewer, requireUser, visibleEntries } from '../lib/a
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
 import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
-import { extractIocs } from '../lib/iocs';
+import { extractIocs, refang, rememberUrls } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
+import { sendValidationError } from '../lib/validation';
 
 /** Maximo de amostras na ficha do indicador. */
 const SIGHTINGS_LIMIT = 200;
@@ -16,6 +17,7 @@ const SIGHTINGS_LIMIT = 200;
 const KINDS: Record<string, IocKind> = {
   ipv4: 'IPV4',
   ipv6: 'IPV6',
+  url: 'URL',
   domain: 'DOMAIN',
   email: 'EMAIL',
   md5: 'MD5',
@@ -46,7 +48,11 @@ type ListEntry = Prisma.EntryGetPayload<{ include: typeof listInclude }>;
 export type Sighting =
   | { kind: 'REPORT'; reportId: string; analyst: string; createdAt: Date }
   | { kind: 'FILE' }
-  | { kind: 'URL_HOST' };
+  | { kind: 'URL_HOST' }
+  | { kind: 'URL_SAMPLE' };
+
+/** "Ir para:" (item 166): o texto colado, no corpo. */
+const ResolveBody = z.object({ text: z.string().min(1).max(4000) });
 
 /** Exportacao dos IOCs da amostra: ?format=csv | stix | misp. */
 export const ExportQuery = z.object({ format: z.enum(['csv', 'stix', 'misp']) });
@@ -167,21 +173,50 @@ export async function iocRoutes(app: FastifyInstance) {
     return reply.send({ ioc });
   });
 
-  // Ficha do indicador: amostras em que ele aparece (relatorio, arquivo, dominio).
-  /** Indicador da URL (mesma validacao da ficha), ou null. */
-  const parseIoc = (params: { kind: string; value: string }) => {
+  // "Ir para:" da tela (item 166): o texto vai no corpo, porque um link colado pode levar o
+  // token da vitima. Um link sozinho vira o indicador de URL, guardado pela chave.
+  app.post('/api/iocs/resolve', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const parsed = ResolveBody.safeParse(req.body);
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
+    const text = parsed.data.text.trim();
+    const iocs = extractIocs(text);
+    const single = !/\s/.test(refang(text));
+    const ioc = (single && iocs.find((i) => i.kind === 'URL')) || iocs[0];
+    if (!ioc) return reply.code(404).send({ error: 'Não é um indicador reconhecido.' });
+    if (ioc.kind === 'URL') await rememberUrls(prisma, [ioc]);
+    return reply.send({ ioc });
+  });
+
+  /**
+   * Indicador do endereco (mesma validacao da ficha). A URL vem pela chave (item 166),
+   * e o valor sai da tabela IocUrl: 'missing' quando a chave nao e conhecida.
+   */
+  const parseIoc = async (params: {
+    kind: string;
+    value: string;
+  }): Promise<{ kind: IocKind; value: string } | null | 'missing'> => {
     const kind = KINDS[params.kind.toLowerCase()];
+    if (kind === 'URL') {
+      const key = params.value.trim().toLowerCase();
+      if (!/^[a-f0-9]{64}$/.test(key)) return null;
+      const known = await prisma.iocUrl.findUnique({ where: { key } });
+      return known ? { kind, value: known.value } : 'missing';
+    }
     const value = params.value.trim().toLowerCase();
     const valid = kind && extractIocs(value).some((i) => i.kind === kind && i.value === value);
     return valid ? { kind, value } : null;
   };
+  const MISSING = 'Indicador não encontrado.';
 
   // Alertas de IOC (item 60): seguir / deixar de seguir um indicador.
   app.post('/api/iocs/:kind/:value/watch', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    const ioc = parseIoc(req.params as { kind: string; value: string });
+    const ioc = await parseIoc(req.params as { kind: string; value: string });
     if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
+    if (ioc === 'missing') return reply.code(404).send({ error: MISSING });
     const count = await prisma.iocWatch.count({ where: { userId: user.id } });
     if (count >= 200) {
       return reply
@@ -199,8 +234,9 @@ export async function iocRoutes(app: FastifyInstance) {
   app.delete('/api/iocs/:kind/:value/watch', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    const ioc = parseIoc(req.params as { kind: string; value: string });
+    const ioc = await parseIoc(req.params as { kind: string; value: string });
     if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
+    if (ioc === 'missing') return reply.code(404).send({ error: MISSING });
     await prisma.iocWatch.deleteMany({ where: { userId: user.id, ...ioc } });
     return reply.send({ watching: false });
   });
@@ -219,15 +255,14 @@ export async function iocRoutes(app: FastifyInstance) {
   app.get('/api/iocs/:kind/:value', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    const params = req.params as { kind: string; value: string };
-    const kind = KINDS[params.kind.toLowerCase()];
-    const value = params.value.trim().toLowerCase();
     // So indicadores que a extracao reconhece (evita fichas para lixo/IP privado).
-    const valid = kind && extractIocs(value).some((i) => i.kind === kind && i.value === value);
-    if (!valid) return reply.code(400).send({ error: 'Indicador inválido.' });
+    const ioc = await parseIoc(req.params as { kind: string; value: string });
+    if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
+    if (ioc === 'missing') return reply.code(404).send({ error: MISSING });
+    const { kind, value } = ioc;
 
     const visible = await visibleEntries(user);
-    const [reportHits, fileHits, hostHits] = await Promise.all([
+    const [reportHits, fileHits, hostHits, linkHits] = await Promise.all([
       prisma.reportIoc.findMany({
         where: { kind, value, entry: { deletedAt: null, ...visible } },
         select: {
@@ -253,6 +288,14 @@ export async function iocRoutes(app: FastifyInstance) {
             take: SIGHTINGS_LIMIT,
           })
         : [],
+      // O proprio link da amostra (item 166), pela chave da URL normalizada.
+      kind === 'URL'
+        ? prisma.entry.findMany({
+            where: { urlKey: (req.params as { value: string }).value.toLowerCase(), ...visible },
+            select: { id: true },
+            take: SIGHTINGS_LIMIT,
+          })
+        : [],
     ]);
 
     const sightings = new Map<string, Sighting[]>();
@@ -260,6 +303,7 @@ export async function iocRoutes(app: FastifyInstance) {
       sightings.set(entryId, [...(sightings.get(entryId) ?? []), sighting]);
     for (const hit of fileHits) note(hit.id, { kind: 'FILE' });
     for (const hit of hostHits) note(hit.id, { kind: 'URL_HOST' });
+    for (const hit of linkHits) note(hit.id, { kind: 'URL_SAMPLE' });
     for (const hit of reportHits) {
       note(hit.entryId, {
         kind: 'REPORT',

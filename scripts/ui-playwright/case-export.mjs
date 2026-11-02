@@ -1,6 +1,7 @@
 // Exportar o caso (74): secao "Indicadores das amostras" na tela do caso, menu
 // Exportar (Markdown completo e IOCs em CSV/STIX/MISP pela API) e Imprimir
 // (fora da casca, impressao automatica, todas as secoes, PDF).
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { chromium } from 'playwright';
@@ -76,7 +77,9 @@ const ipRow = rows.filter({ hasText: '185.0.2.10' });
 expect('IP leva à ficha do indicador', (await ipRow.locator('a').first().getAttribute('href')) === '/iocs/ipv4/185.0.2.10');
 expect('IP mostra as duas amostras com link', (await ipRow.locator('td').nth(3).locator('a').count()) === 2 && (await ipRow.locator('td').nth(2).innerText()) === 'Relatório publicado');
 const urlRow = rows.filter({ hasText: e2.url });
-expect('URL sem link (só texto)', (await urlRow.locator('td').nth(1).locator('a').count()) === 0);
+// Item 166: a URL abre a propria ficha, pela chave.
+const urlKey = createHash('sha256').update(e2.url).digest('hex');
+expect('URL leva à ficha da URL pela chave', (await urlRow.locator('td').nth(1).locator('a').getAttribute('href')) === `/iocs/url/${urlKey}`);
 await page.screenshot({ path: `${OUT}/caso-indicadores.png`, fullPage: true });
 
 // 2. Menu Exportar.

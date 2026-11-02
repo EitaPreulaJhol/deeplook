@@ -483,7 +483,9 @@ export type IocKind = 'IPV4' | 'IPV6' | 'DOMAIN' | 'EMAIL' | 'MD5' | 'SHA1' | 'S
 export type IocSighting =
   | { kind: 'REPORT'; reportId: string; analyst: string; createdAt: string }
   | { kind: 'FILE' }
-  | { kind: 'URL_HOST' };
+  | { kind: 'URL_HOST' }
+  /** O proprio link da amostra (ficha de URL, item 166). */
+  | { kind: 'URL_SAMPLE' };
 
 /** GET /api/iocs/:kind/:value */
 export interface IocDetail {

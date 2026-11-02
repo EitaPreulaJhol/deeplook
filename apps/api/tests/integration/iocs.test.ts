@@ -11,6 +11,7 @@ import { urlKey } from '../../src/lib/ioc-normalize';
 import { reindexIocs } from '../../src/lib/ioc-reindex';
 import { extractIocs, syncReportIocs } from '../../src/lib/iocs';
 import { prisma } from '../../src/lib/prisma';
+import { setOwnSamplesOnly } from '../../src/lib/settings';
 import { requestLogSerializer } from '../../src/lib/request-log';
 import { ensureBucket } from '../../src/lib/s3';
 import { authRoutes } from '../../src/routes/auth';
@@ -259,6 +260,87 @@ async function main() {
     kinds.filter((k) => k === 'IPV4').length === 15 &&
       kinds.filter((k) => k === 'URL').length === 15,
     kinds,
+  );
+
+  // 9. Ficha de URL pela chave e "Ir para:" pelo corpo (item 166).
+  const resolve = async (text: string) =>
+    (await req('POST', '/api/iocs/resolve', cBob, { text })).json().ioc;
+  const pasted = 'hxxps://novo[.]top/Entrar?token=XYZ#vitima';
+  ok(
+    'link colado vira URL e fica guardado pela chave',
+    (await resolve(pasted))?.value === 'https://novo.top/Entrar?token=XYZ' &&
+      Boolean(
+        await prisma.iocUrl.findUnique({
+          where: { key: urlKey('https://novo.top/Entrar?token=XYZ') },
+        }),
+      ),
+  );
+  ok('domínio continua domínio', (await resolve('novo.top'))?.kind === 'DOMAIN');
+  ok(
+    'texto com link e mais palavras pega o primeiro',
+    (await resolve('veja https://novo.top/a agora'))?.kind === 'DOMAIN',
+  );
+  const urlPage = (await req('GET', `/api/iocs/url/${urlKey(LINK)}`, cAna)).json();
+  const linkRow = urlPage.items?.find((i: { entry: { id: string } }) => i.entry.id === link.id);
+  ok(
+    'ficha da URL pela chave, com o link da amostra',
+    urlPage.ioc?.value === LINK &&
+      linkRow?.sightings.some((x: { kind: string }) => x.kind === 'URL_SAMPLE'),
+    urlPage,
+  );
+  // A secao 7 deixou o relatorio sem indice de proposito.
+  await syncReportIocs(prisma, report.id, { notify: false });
+  const c2page = (await req('GET', `/api/iocs/url/${urlKey(C2)}`, cAna)).json();
+  ok('ficha da URL com o relatório', c2page.items?.[0]?.sightings[0]?.kind === 'REPORT', c2page);
+  ok(
+    'chave desconhecida = 404',
+    (await req('GET', `/api/iocs/url/${'0'.repeat(64)}`, cAna)).statusCode === 404,
+  );
+  ok(
+    'chave malformada = 400',
+    (await req('GET', '/api/iocs/url/https%3A%2F%2Fx.top', cAna)).statusCode === 400,
+  );
+  res = await req('POST', `/api/iocs/url/${urlKey(C2)}/watch`, cAna);
+  ok(
+    'seguir a URL pela chave',
+    res.statusCode === 200 &&
+      Boolean(
+        await prisma.iocWatch.findFirst({ where: { userId: ana.id, kind: 'URL', value: C2 } }),
+      ),
+  );
+  await req('DELETE', `/api/iocs/url/${urlKey(C2)}/watch`, cAna);
+  ok(
+    'deixar de seguir pela chave',
+    !(await prisma.iocWatch.count({ where: { userId: ana.id, kind: 'URL' } })),
+  );
+  await setOwnSamplesOnly(true);
+  const forOwner = (await req('GET', `/api/iocs/url/${urlKey(LINK)}`, cBob)).json();
+  ok('só as próprias: o link de outra pessoa fica de fora', forOwner.items?.length === 0, forOwner);
+  await setOwnSamplesOnly(false);
+
+  // 10. URL sugerida pela analise de um arquivo enviado tambem abre pela chave.
+  const boundary = '----dl' + Math.random();
+  const upload = await app.inject({
+    method: 'POST',
+    url: '/api/entries/file',
+    headers: { cookie: cAna, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="nota.txt"\r\nContent-Type: text/plain\r\n\r\n`,
+      ),
+      Buffer.from('baixe em https://payload.top/stage2.bin agora\n'),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  ok(
+    'URL sugerida guardada pela chave',
+    upload.statusCode === 201 &&
+      Boolean(
+        await prisma.iocUrl.findUnique({
+          where: { key: urlKey('https://payload.top/stage2.bin') },
+        }),
+      ),
+    upload.statusCode,
   );
 
   await app.close();

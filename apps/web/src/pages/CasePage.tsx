@@ -495,13 +495,9 @@ export function CasePage() {
                   <TableRow key={`${ioc.kind}:${ioc.value}`}>
                     <TableCell>{IOC_KIND_LABELS[ioc.kind]}</TableCell>
                     <TableCell className="dl-mono">
-                      {ioc.kind === 'URL' ? (
-                        ioc.value
-                      ) : (
-                        <Link className="dl-link" to={iocHref(ioc.kind, ioc.value)}>
-                          {ioc.value}
-                        </Link>
-                      )}
+                      <Link className="dl-link" to={iocHref(ioc.kind, ioc.value)}>
+                        {ioc.value}
+                      </Link>
                     </TableCell>
                     <TableCell>
                       {ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra'}

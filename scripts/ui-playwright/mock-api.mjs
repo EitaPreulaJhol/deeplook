@@ -176,6 +176,7 @@ export function createState({ loggedIn = false } = {}) {
     lastIocExport: null,
     /** Caixa de entrada (mais recentes primeiro). */
     notifications: [],
+    knownUrls: new Set(),
     /** Corpo do ultimo POST de atualizacao (texto + mencoes). */
     lastCommentBody: null,
     /** Modelos de relatorio (aba Modelos da Administracao / Novo relatorio). */
@@ -285,6 +286,11 @@ export async function setupMock(context, state) {
       console.log(`FALHA CSP: ${msg.text().slice(0, 300)}`);
     }
   });
+  /** URL conhecida pela chave: dos links das amostras ou colada no "Ir para:". */
+  const urlOfKey = (key) =>
+    [...state.knownUrls, ...entries.map((e) => e.url).filter(Boolean)].find(
+      (u) => createHash('sha256').update(u).digest('hex') === key,
+    ) ?? null;
   const currentUser = () => ({
     ...users[0],
     role: state.role ?? users[0].role,
@@ -1121,9 +1127,19 @@ export async function setupMock(context, state) {
         }
         return json(route, 200, { entry: e });
       }
-      // Indicadores: reconhecimento simplificado (a API usa lib/iocs.ts).
-      if (p === '/api/iocs/lookup') {
-        const q = (url.searchParams.get('q') || '').trim().replace(/^hxxp/i, 'http').replace(/\[\.\]/g, '.').toLowerCase();
+      // Indicadores: reconhecimento simplificado (a API usa lib/iocs.ts). O resolve (item 166)
+      // recebe o texto no corpo e prefere a URL inteira; a URL fica conhecida pela chave.
+      if (p === '/api/iocs/resolve' && req.method() === 'POST') {
+        const text = String(body.text ?? '').trim().replace(/^hxxp/i, 'http').replace(/\[\.\]/g, '.');
+        if (/^https?:\/\/[^\s]+$/i.test(text)) {
+          const value = new URL(text).href.replace(/#.*$/, '');
+          state.knownUrls.add(value);
+          return json(route, 200, { ioc: { kind: 'URL', value } });
+        }
+      }
+      if (p === '/api/iocs/lookup' || p === '/api/iocs/resolve') {
+        const raw = p === '/api/iocs/resolve' ? String(body.text ?? '') : url.searchParams.get('q') || '';
+        const q = raw.trim().replace(/^hxxp/i, 'http').replace(/\[\.\]/g, '.').toLowerCase();
         const host = q.match(/^https?:\/\/([^/:?#]+)/)?.[1];
         let ioc = null;
         if (/^[a-f0-9]{64}$/.test(q)) ioc = { kind: 'SHA256', value: q };
@@ -1133,11 +1149,14 @@ export async function setupMock(context, state) {
         else if (host) ioc = { kind: 'DOMAIN', value: host };
         else if (q.includes('@')) ioc = { kind: 'EMAIL', value: q };
         else if (/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(q)) ioc = { kind: 'DOMAIN', value: q };
-        return ioc ? json(route, 200, { ioc }) : json(route, 404, { error: 'Nao e um indicador reconhecido.' });
+        return ioc ? json(route, 200, { ioc }) : json(route, 404, { error: 'Não é um indicador reconhecido.' });
       }
       const iw = p.match(/^\/api\/iocs\/(\w+)\/(.+)\/watch$/);
       if (iw) {
-        const key = `${iw[1].toUpperCase()}:${decodeURIComponent(iw[2])}`;
+        const kindW = iw[1].toUpperCase();
+        const valueW = kindW === 'URL' ? urlOfKey(decodeURIComponent(iw[2])) : decodeURIComponent(iw[2]);
+        if (!valueW) return json(route, 404, { error: 'Indicador não encontrado.' });
+        const key = `${kindW}:${valueW}`;
         if (req.method() === 'DELETE') delete state.watches[key];
         else state.watches[key] = new Date().toISOString();
         return json(route, 200, { watching: req.method() !== 'DELETE' });
@@ -1152,8 +1171,10 @@ export async function setupMock(context, state) {
       const io = p.match(/^\/api\/iocs\/(\w+)\/(.+)$/);
       if (io) {
         const kind = io[1].toUpperCase();
-        const value = decodeURIComponent(io[2]);
-        if (!['IPV4', 'DOMAIN', 'EMAIL', 'MD5', 'SHA1', 'SHA256'].includes(kind)) return json(route, 400, { error: 'Indicador invalido.' });
+        // URL pela chave (SHA-256 do link, item 166).
+        const value = kind === 'URL' ? urlOfKey(decodeURIComponent(io[2])) : decodeURIComponent(io[2]);
+        if (kind === 'URL' && !value) return json(route, 404, { error: 'Indicador não encontrado.' });
+        if (!['IPV4', 'IPV6', 'DOMAIN', 'EMAIL', 'MD5', 'SHA1', 'SHA256', 'URL'].includes(kind)) return json(route, 400, { error: 'Indicador inválido.' });
         const detail = state.iocDetails[`${kind}:${value}`] ?? { ioc: { kind, value }, items: [], total: 0, firstSeen: null, lastSeen: null };
         const cover = state.allowlist.find((x) => x.kind === kind && (x.value === value || (kind === 'DOMAIN' && value.endsWith(`.${x.value}`))));
         return json(route, 200, { ...detail, watching: Boolean(state.watches[`${kind}:${value}`]), allowed: cover ? { by: cover.value, reason: cover.reason } : null });
