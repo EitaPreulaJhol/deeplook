@@ -4,9 +4,10 @@ Ferramenta self-hosted (homelab) para que amigos e especialistas em segurança
 centralizem **amostras de software e links suspeitos** encontrados na web,
 com **triagem e relatórios** feitos pelos analistas.
 
-A interface usa o **Carbon Design System (IBM)** — nada de UI genérica.
-
 Expõe-se à internet via **Cloudflare Tunnel rodando no host (fora do Docker)**.
+
+Créditos especiais ao [Dudu](https://github.com/lluiseduardo-silva) na qual forneceu
+meios de validar a aplicação com o Strix. Obrigado ❤️.
 
 ---
 
