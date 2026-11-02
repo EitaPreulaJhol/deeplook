@@ -3646,6 +3646,25 @@ nem a página inicial `dashboard`.
 Os tipos hoje são IPv4, domínio, e-mail e hashes. **Decisão:** URL só http/https, sem usuário, senha e
 fragmento, até 2048 caracteres; IPv6 na forma canônica (RFC 5952), com `::ffff:` virando IPv4. A
 reputação não muda: a URL completa nunca sai do servidor.
+✅ **Implementado** (migração `20261217000000_ioc_url_ipv6`: tipos `IPV6` e `URL`, tabela `IocUrl` e
+`Entry.urlKey`):
+- **Normalização** em `lib/ioc-normalize.ts`. **URL:** só http/https, sem usuário, senha e fragmento, até
+  2048 caracteres; caminho e query ficam como vieram. **IPv6:** forma canônica, sem zona e sem rede
+  interna; `::ffff:` vira IPv4, e o IPv6 solto só conta com três grupos ou mais, para `add::` e
+  `bad::` não virarem indicador.
+- **Extração:** o e-mail e o domínio de dentro da query de um link deixaram de virar indicador. Antes,
+  `?user=vitima@empresa.com` ligava amostras sem relação nas Relacionadas. O host continua vindo antes
+  da URL, então o "Ir para:" segue abrindo o domínio.
+- **Amostra de link:** passa a ter a URL e o host como IPv4 ou IPv6. Antes, o host IP aparecia como
+  domínio. A ficha do IPv4 e do IPv6 também acha os links hospedados no endereço; antes, isso só
+  valia para domínio. Quem segue uma URL é avisado com só `https://host/…` no texto.
+- **Exportação** CSV, STIX (`ipv6-addr`) e MISP já leva IPv6.
+- **Sugestões da análise:** até 15 de cada tipo, no lugar das primeiras 50.
+- **Bases existentes:** na subida, uma vez e em segundo plano, a chave dos links e os IOCs dos
+  relatórios publicados são refeitos sem avisar quem segue.
+
+**Fica para os itens seguintes:** a ficha da URL e o "Ir para:" com URL (166); IPv6 na importação e
+na lista de permissões (167), que até lá respondem "IPv6 ainda não é importado".
 
 ### 166. Página do indicador de URL
 O caminho `/iocs/:tipo/:valor` não comporta uma URL, e ela levaria o token da vítima para o histórico

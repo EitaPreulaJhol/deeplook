@@ -76,7 +76,10 @@ export interface StaticInfo {
   diskImage?:
     | (Omit<DiskImageInfo, 'files'> & { files: { path: string; size: number; hidden: boolean }[] })
     | null;
-  /** Indicadores encontrados nas strings: so sugestao (nao entram no indice). */
+  /**
+   * Indicadores encontrados nas strings: so sugestao (nao entram no indice). Ate
+   * CANDIDATES_PER_KIND de cada tipo.
+   */
   iocCandidates: Ioc[];
 }
 
@@ -433,6 +436,18 @@ export function parsePe(buf: Buffer): PeInfo | null {
 // ------------------------------------------------------------------ tudo junto
 
 /** Analise completa do conteudo do arquivo (nunca lanca: falha parcial vira campo vazio). */
+/** Sugestoes de indicador por tipo (item 165): com URL e IPv6, um tipo nao toma a lista. */
+const CANDIDATES_PER_KIND = 15;
+
+function capPerKind(iocs: Ioc[], max: number): Ioc[] {
+  const count = new Map<string, number>();
+  return iocs.filter((ioc) => {
+    const n = (count.get(ioc.kind) ?? 0) + 1;
+    count.set(ioc.kind, n);
+    return n <= max;
+  });
+}
+
 export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo {
   return withoutNul(analyzeContent(buf, filename));
 }
@@ -525,6 +540,6 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     script,
     lnk,
     diskImage,
-    iocCandidates: iocCandidates.slice(0, 50),
+    iocCandidates: capPerKind(iocCandidates, CANDIDATES_PER_KIND),
   };
 }

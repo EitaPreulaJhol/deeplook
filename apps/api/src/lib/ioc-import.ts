@@ -108,10 +108,12 @@ export function validateImported(
     } catch {
       return { reason: 'URL inválida' };
     }
+    if (isIP(host.replace(/^\[|\]$/g, '')) === 6) return { reason: IPV6_LATER };
     const hostKind = isIP(host) === 4 ? 'IPV4' : 'DOMAIN';
     const result = validateImported(hostKind, host, target);
     return 'reason' in result ? result : { ...result, fromUrl: true };
   }
+  if (kind === 'IPV6') return { reason: IPV6_LATER };
   const value = normalizeAllowed(kind, raw);
   if (!value) return { reason: `não é um ${LABEL[kind]} válido` };
   if (kind === 'IPV4' && target === 'watch') {
@@ -121,8 +123,13 @@ export function validateImported(
   return { kind, value };
 }
 
+/** O IPv6 entra na importacao e na lista de permissoes no item 167. */
+const IPV6_LATER = 'IPv6 ainda não é importado';
+
 const LABEL: Record<IocKind, string> = {
   IPV4: 'IP',
+  IPV6: 'IPv6',
+  URL: 'URL',
   DOMAIN: 'domínio',
   EMAIL: 'e-mail',
   MD5: 'MD5',

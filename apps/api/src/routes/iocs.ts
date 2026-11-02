@@ -6,6 +6,7 @@ import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { isAnalyst, ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
+import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
 import { extractIocs } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
 
@@ -14,6 +15,7 @@ const SIGHTINGS_LIMIT = 200;
 
 const KINDS: Record<string, IocKind> = {
   ipv4: 'IPV4',
+  ipv6: 'IPV6',
   domain: 'DOMAIN',
   email: 'EMAIL',
   md5: 'MD5',
@@ -21,7 +23,16 @@ const KINDS: Record<string, IocKind> = {
   sha256: 'SHA256',
 };
 
-const KIND_ORDER: ExportIoc['kind'][] = ['SHA256', 'SHA1', 'MD5', 'URL', 'DOMAIN', 'IPV4', 'EMAIL'];
+const KIND_ORDER: ExportIoc['kind'][] = [
+  'SHA256',
+  'SHA1',
+  'MD5',
+  'URL',
+  'DOMAIN',
+  'IPV4',
+  'IPV6',
+  'EMAIL',
+];
 
 const listInclude = {
   owner: { select: { id: true, displayName: true, email: true } },
@@ -76,14 +87,15 @@ export async function entryIocs(entryId: string) {
     item.reportIds.push(row.reportId);
     found.set(key, item);
   }
-  const own = (kind: ExportIoc['kind'], value: string | null) => {
-    if (value && !found.has(`${kind}:${value}`)) {
-      found.set(`${kind}:${value}`, { kind, value, source: 'SAMPLE', reportIds: [] });
+  const own = (ioc: { kind: ExportIoc['kind']; value: string } | null) => {
+    if (ioc && !found.has(`${ioc.kind}:${ioc.value}`)) {
+      found.set(`${ioc.kind}:${ioc.value}`, { ...ioc, source: 'SAMPLE', reportIds: [] });
     }
   };
-  own('SHA256', entry.sha256?.toLowerCase() ?? null);
-  own('URL', entry.url);
-  own('DOMAIN', entry.urlDomain?.toLowerCase() ?? null);
+  own(entry.sha256 ? { kind: 'SHA256', value: entry.sha256.toLowerCase() } : null);
+  // Link normalizado e o host como IP ou dominio (item 165), como no indice dos relatorios.
+  own(linkIndicator(entry.url));
+  own(linkHostIndicator(entry.urlDomain));
 
   const iocs = [...found.values()].sort(
     (a, b) =>
@@ -111,13 +123,13 @@ export async function entriesIocs(entryIds: string[]): Promise<CaseIoc[]> {
   const byId = new Map(entries.map((e) => [e.id, e]));
   const found = new Map<string, CaseIoc>();
   const add = (
-    kind: ExportIoc['kind'],
-    value: string | null,
+    kind: ExportIoc['kind'] | undefined,
+    value: string | null | undefined,
     source: ExportIoc['source'],
     entryId: string,
   ) => {
     const entry = byId.get(entryId);
-    if (!value || !entry) return;
+    if (!kind || !value || !entry) return;
     const key = `${kind}:${value}`;
     const item = found.get(key) ?? { kind, value, source, entries: [] };
     if (source === 'REPORT') item.source = 'REPORT';
@@ -129,8 +141,10 @@ export async function entriesIocs(entryIds: string[]): Promise<CaseIoc[]> {
   for (const row of rows) add(row.kind, row.value, 'REPORT', row.entryId);
   for (const e of entries) {
     add('SHA256', e.sha256?.toLowerCase() ?? null, 'SAMPLE', e.id);
-    add('URL', e.url, 'SAMPLE', e.id);
-    add('DOMAIN', e.urlDomain?.toLowerCase() ?? null, 'SAMPLE', e.id);
+    const link = linkIndicator(e.url);
+    const host = linkHostIndicator(e.urlDomain);
+    add(link?.kind, link?.value, 'SAMPLE', e.id);
+    add(host?.kind, host?.value, 'SAMPLE', e.id);
   }
   return [...found.values()].sort(
     (a, b) =>
@@ -149,7 +163,7 @@ export async function iocRoutes(app: FastifyInstance) {
     if (!user) return;
     const { q = '' } = req.query as { q?: string };
     const [ioc] = extractIocs(q.slice(0, 2000));
-    if (!ioc) return reply.code(404).send({ error: 'Nao e um indicador reconhecido.' });
+    if (!ioc) return reply.code(404).send({ error: 'Não é um indicador reconhecido.' });
     return reply.send({ ioc });
   });
 
@@ -231,9 +245,10 @@ export async function iocRoutes(app: FastifyInstance) {
             take: SIGHTINGS_LIMIT,
           })
         : [],
-      kind === 'DOMAIN'
+      // Links hospedados no indicador: dominio, ou IP (item 165; IPv6 fica entre colchetes).
+      kind === 'DOMAIN' || kind === 'IPV4' || kind === 'IPV6'
         ? prisma.entry.findMany({
-            where: { urlDomain: value, ...visible },
+            where: { urlDomain: kind === 'IPV6' ? `[${value}]` : value, ...visible },
             select: { id: true },
             take: SIGHTINGS_LIMIT,
           })

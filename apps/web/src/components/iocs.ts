@@ -1,8 +1,9 @@
 import type { IocKind } from '../api/types';
 
 /** Rotulo do tipo de indicador. */
-export const IOC_KIND_LABELS: Record<IocKind | 'URL', string> = {
+export const IOC_KIND_LABELS: Record<IocKind, string> = {
   IPV4: 'IPv4',
+  IPV6: 'IPv6',
   DOMAIN: 'Domínio',
   EMAIL: 'E-mail',
   MD5: 'MD5',
@@ -22,6 +23,8 @@ export function iocKindOf(value: string): IocKind {
   if (/^[a-f0-9]{40}$/.test(value)) return 'SHA1';
   if (/^[a-f0-9]{32}$/.test(value)) return 'MD5';
   if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value)) return 'IPV4';
+  if (/^https?:\/\//.test(value)) return 'URL';
+  if (value.includes(':')) return 'IPV6';
   if (value.includes('@')) return 'EMAIL';
   return 'DOMAIN';
 }
@@ -44,6 +47,7 @@ export function looksLikeIoc(text: string): boolean {
     /\[(?:\.|dot|@|at)\]/i.test(t) ||
     /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(t) ||
     /^(?:\d{1,3}\.){3}\d{1,3}$/.test(t) ||
+    /^\[?[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\]?$/i.test(t) ||
     /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(t)
   );
 }

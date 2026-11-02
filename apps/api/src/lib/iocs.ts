@@ -1,4 +1,7 @@
+import { isIP } from 'node:net';
+
 import type { IocKind } from '../generated/prisma/client';
+import { hostIndicator, isPrivateIpv4, normalizeIpv6, normalizeUrl, urlKey } from './ioc-normalize';
 import { notifyWatchers } from './ioc-watch';
 import { scanLookalikes } from './lookalike';
 import type { Db } from './prisma';
@@ -50,19 +53,6 @@ export function refang(text: string): string {
     .replace(/\[(@|at)\]|\((@|at)\)/gi, '@');
 }
 
-function isPrivateIp(ip: string): boolean {
-  const [a, b] = ip.split('.').map(Number);
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224
-  );
-}
-
 function domainOk(domain: string): boolean {
   const tld = domain.slice(domain.lastIndexOf('.') + 1);
   if (FILE_EXTENSIONS.has(tld) || /^\d+$/.test(tld)) return false;
@@ -72,7 +62,10 @@ function domainOk(domain: string): boolean {
 }
 
 const DOMAIN = String.raw`(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}`;
-const URL_RE = /\bhttps?:\/\/([^\s/"'<>:?#]+)/gi;
+/** Link inteiro: termina no espaco, em aspas ou em sinais de HTML. */
+const URL_RE = /\bhttps?:\/\/[^\s"'<>`]+/gi;
+/** Pontuacao que fecha a frase, nao o link ("veja http://x.com/a)."). */
+const URL_TRAIL = /[.,;:!?)\]}*]+$/;
 // Parte local com apostrofo so no meio (o'brien@...), sem casar pedaco de palavra.
 const EMAIL_RE = new RegExp(
   String.raw`(?<![\w.%+'-])[a-z0-9._%+-]+(?:'[a-z0-9._%+-]+)*@(${DOMAIN})\b`,
@@ -81,19 +74,34 @@ const EMAIL_RE = new RegExp(
 const IPV4_RE = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])/g;
 const HASH_RE = /\b(?:[a-f0-9]{64}|[a-f0-9]{40}|[a-f0-9]{32})\b/gi;
 const DOMAIN_RE = new RegExp(String.raw`(?<![\w@.-])${DOMAIN}(?![\w-])`, 'gi');
+/**
+ * Candidato a IPv6: entre colchetes, ou solto com tres grupos nao vazios ou mais (conferido
+ * no laco). Com menos ("add::", "bad::") seria palavra comum; relogio e MAC nao passam
+ * pelo isIP.
+ */
+const IPV6_RE =
+  /\[([0-9a-f:.]{2,45})\]|(?<![\w:.])((?:[0-9a-f]{0,4}:){2,7}(?:[0-9a-f]{1,4}|(?:\d{1,3}\.){3}\d{1,3})?)(?![\w:])/gi;
+
+/** Host de um link ja normalizado como indicador: IP publico ou dominio que liga amostras. */
+function urlHost(hostname: string): Ioc | null {
+  if (isIP(hostname.replace(/^\[|\]$/g, ''))) return hostIndicator(hostname);
+  return new RegExp(`^${DOMAIN}$`, 'i').test(hostname) && domainOk(hostname)
+    ? { kind: 'DOMAIN', value: hostname }
+    : null;
+}
 
 /**
- * Indicadores de um texto livre (campo "IOCs" do relatorio), normalizados:
- * dominios (inclusive o host de URLs), IPv4 publicos, e-mails e hashes
- * MD5/SHA-1/SHA-256, em minusculas e sem repeticao.
+ * Indicadores de um texto livre (campo "IOCs" do relatorio), normalizados: URLs
+ * (item 165) e o host delas, dominios, IPv4 e IPv6 publicos, e-mails e hashes
+ * MD5/SHA-1/SHA-256, sem repeticao. So a URL guarda maiusculas.
  */
 export function extractIocs(text: string | null | undefined): Ioc[] {
   if (!text) return [];
   const clean = refang(text);
   const found = new Map<string, Ioc>();
   const add = (kind: IocKind, raw: string) => {
-    const value = raw.toLowerCase().replace(/\.$/, '');
-    if (value.length > 255 || found.size >= MAX_PER_REPORT) return;
+    const value = kind === 'URL' ? raw : raw.toLowerCase().replace(/\.$/, '');
+    if (value.length > (kind === 'URL' ? 2048 : 255) || found.size >= MAX_PER_REPORT) return;
     found.set(`${kind}:${value}`, { kind, value });
   };
 
@@ -103,21 +111,47 @@ export function extractIocs(text: string | null | undefined): Ioc[] {
   }
   for (const m of clean.matchAll(IPV4_RE)) {
     const ok = m[0].split('.').every((octet) => Number(octet) <= 255);
-    if (ok && !isPrivateIp(m[0])) add('IPV4', m[0]);
+    if (ok && !isPrivateIpv4(m[0])) add('IPV4', m[0]);
   }
-  for (const m of clean.matchAll(EMAIL_RE)) add('EMAIL', m[0]);
+  for (const m of clean.matchAll(IPV6_RE)) {
+    if (!m[1] && m[2].split(':').filter(Boolean).length < 3) continue;
+    const ip = normalizeIpv6(m[1] ?? m[2]);
+    if (ip) add(ip.kind, ip.value);
+  }
+  // Links: o host entra ja; o link inteiro, depois dos outros (a busca "Ir para:" pega o
+  // primeiro, e o host continua vindo antes). O texto segue sem os links: um e-mail ou
+  // dominio na query ("?u=vitima@empresa.com") nao e indicador da amostra.
+  const urls: string[] = [];
   for (const m of clean.matchAll(URL_RE)) {
-    const host = m[1].toLowerCase();
-    if (new RegExp(`^${DOMAIN}$`, 'i').test(host) && domainOk(host)) add('DOMAIN', host);
-    else if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) && !isPrivateIp(host)) add('IPV4', host);
+    const url = normalizeUrl(m[0].replace(URL_TRAIL, ''));
+    if (!url) continue;
+    // Host de rede interna, dominio ignorado (microsoft.com...) ou com cara de arquivo:
+    // nem o host nem o link entram.
+    const host = urlHost(new URL(url).hostname);
+    if (!host) continue;
+    add(host.kind, host.value);
+    urls.push(url);
   }
+  const withoutUrls = clean.replace(URL_RE, ' ');
+  for (const m of withoutUrls.matchAll(EMAIL_RE)) add('EMAIL', m[0]);
   // Dominios soltos (fora de e-mails, que ja contam como EMAIL).
-  const withoutEmails = clean.replace(EMAIL_RE, ' ');
+  const withoutEmails = withoutUrls.replace(EMAIL_RE, ' ');
   for (const m of withoutEmails.matchAll(DOMAIN_RE)) {
     const domain = m[0].toLowerCase();
     if (domainOk(domain)) add('DOMAIN', domain);
   }
+  for (const url of urls) add('URL', url);
   return [...found.values()];
+}
+
+/** Guarda as URLs pela chave (item 165), para a ficha e a vigilancia acharem o valor. */
+export async function rememberUrls(db: Db, iocs: Ioc[]): Promise<void> {
+  const urls = iocs.filter((i) => i.kind === 'URL');
+  if (!urls.length) return;
+  await db.iocUrl.createMany({
+    data: urls.map((u) => ({ key: urlKey(u.value), value: u.value })),
+    skipDuplicates: true,
+  });
 }
 
 /**
@@ -143,6 +177,7 @@ export async function syncReportIocs(
   if (!report) return;
   const iocs = report.status === 'PUBLISHED' ? extractIocs(report.iocs) : [];
   if (iocs.length) {
+    await rememberUrls(db, iocs);
     await db.reportIoc.createMany({
       data: iocs.map((ioc) => ({ reportId: report.id, entryId: report.entryId, ...ioc })),
       skipDuplicates: true,

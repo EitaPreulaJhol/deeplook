@@ -24,7 +24,9 @@ import { toCsv } from '../lib/csv';
 import { extractDiskFile } from '../lib/disk-image';
 import { isEmailFile, parseEmail } from '../lib/eml';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { normalizeUrl, urlKey } from '../lib/ioc-normalize';
 import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
+import { rememberUrls } from '../lib/iocs';
 import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
@@ -1293,6 +1295,9 @@ export async function entryRoutes(app: FastifyInstance) {
     const { url, title, description, tags: tagRaw } = parsed.data;
 
     const tags = await resolveTags(parseTags(tagRaw));
+    // Indicador de URL (item 165): o link normalizado, achado depois pela chave.
+    const normalized = normalizeUrl(url);
+    if (normalized) await rememberUrls(prisma, [{ kind: 'URL', value: normalized }]);
 
     let entry;
     try {
@@ -1305,6 +1310,7 @@ export async function entryRoutes(app: FastifyInstance) {
             description: description || null,
             url,
             urlDomain: domainOf(url),
+            urlKey: normalized ? urlKey(normalized) : null,
             tags: { connect: tags },
           },
           include: {

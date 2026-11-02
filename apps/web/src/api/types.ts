@@ -477,7 +477,7 @@ export interface AppNotification {
 }
 
 /** Tipos de indicador do indice de IOCs (relatorios publicados). */
-export type IocKind = 'IPV4' | 'DOMAIN' | 'EMAIL' | 'MD5' | 'SHA1' | 'SHA256';
+export type IocKind = 'IPV4' | 'IPV6' | 'DOMAIN' | 'EMAIL' | 'MD5' | 'SHA1' | 'SHA256' | 'URL';
 
 /** Onde um indicador aparece numa amostra (ficha do indicador). */
 export type IocSighting =
@@ -500,7 +500,7 @@ export interface IocDetail {
 
 /** GET /api/entries/:id/iocs: indicadores da amostra (relatorios + a propria). */
 export interface EntryIoc {
-  kind: IocKind | 'URL';
+  kind: IocKind;
   value: string;
   source: 'REPORT' | 'SAMPLE';
   reportIds: string[];

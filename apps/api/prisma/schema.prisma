@@ -217,6 +217,8 @@ model Entry {
 
   url       String?
   urlDomain String?
+  /// SHA-256 do link normalizado (item 165): ficha do indicador de URL, sem o link no endereco.
+  urlKey    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -248,6 +250,7 @@ model Entry {
   @@index([createdAt])
   /// Aba "Relacionadas": amostras do mesmo dominio.
   @@index([urlDomain])
+  @@index([urlKey])
   /// Fila "Atrasadas" e ordenacao por idade.
   @@index([status, statusChangedAt])
   @@index([priority, status, statusChangedAt])
@@ -583,6 +586,18 @@ enum IocKind {
   MD5
   SHA1
   SHA256
+  /// Item 165: IPv6 na forma canonica e URL http/https normalizada (src/lib/ioc-normalize.ts).
+  IPV6
+  URL
+}
+
+/// URLs vistas como indicador (item 165), pela chave: a ficha e a vigilancia usam a chave
+/// no endereco, para o link (com token ou e-mail da vitima) nao ir para historico e logs.
+model IocUrl {
+  /// SHA-256 do valor, em hexadecimal.
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
 }
 
 /// IOCs normalizados dos relatorios publicados (src/lib/iocs.ts): base do motivo

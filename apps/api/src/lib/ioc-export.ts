@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import type { EntryStatus, Verdict } from '../generated/prisma/client';
+import type { EntryStatus, IocKind, Verdict } from '../generated/prisma/client';
 import { toCsv } from './csv';
 
-/** Tipos exportados: os do indice (IocKind) mais a URL da propria amostra. */
-export type ExportKind = 'IPV4' | 'DOMAIN' | 'EMAIL' | 'MD5' | 'SHA1' | 'SHA256' | 'URL';
+/** Tipos exportados: os do indice (desde o item 165, a URL tambem e IocKind). */
+export type ExportKind = IocKind;
 
 export interface ExportIoc {
   kind: ExportKind;
@@ -23,6 +23,7 @@ export interface ExportEntry {
 
 const KIND_LABELS: Record<ExportKind, string> = {
   IPV4: 'IPv4',
+  IPV6: 'IPv6',
   DOMAIN: 'Domínio',
   EMAIL: 'E-mail',
   MD5: 'MD5',
@@ -66,6 +67,7 @@ function stixLiteral(value: string): string {
 
 const STIX_PATTERNS: Record<ExportKind, (v: string) => string> = {
   IPV4: (v) => `[ipv4-addr:value = ${stixLiteral(v)}]`,
+  IPV6: (v) => `[ipv6-addr:value = ${stixLiteral(v)}]`,
   DOMAIN: (v) => `[domain-name:value = ${stixLiteral(v)}]`,
   EMAIL: (v) => `[email-addr:value = ${stixLiteral(v)}]`,
   MD5: (v) => `[file:hashes.MD5 = ${stixLiteral(v)}]`,
@@ -120,6 +122,7 @@ export function iocsStix(entry: ExportEntry, iocs: ExportIoc[], now = new Date()
 
 const MISP_TYPES: Record<ExportKind, { type: string; category: string }> = {
   IPV4: { type: 'ip-dst', category: 'Network activity' },
+  IPV6: { type: 'ip-dst', category: 'Network activity' },
   DOMAIN: { type: 'domain', category: 'Network activity' },
   EMAIL: { type: 'email-src', category: 'Payload delivery' },
   MD5: { type: 'md5', category: 'Payload delivery' },

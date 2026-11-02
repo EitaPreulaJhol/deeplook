@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import { env, sandboxEnabled } from './env';
 import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
+import { reindexIocs } from './lib/ioc-reindex';
 import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
 import { failInterruptedCaptures } from './lib/page-capture';
@@ -216,6 +217,9 @@ async function main() {
 
   // TLSH das amostras antigas (item 71), em segundo plano.
   void backfillTlsh(app.log);
+
+  // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
+  void reindexIocs(app.log);
 
   // Escalonamento por prazo (item 73): avisos de alerta/atraso a cada 5 minutos.
   startSlaEscalation(app.log);
