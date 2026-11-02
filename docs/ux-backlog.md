@@ -3701,6 +3701,21 @@ Inclui faixas IPv6 na lista de permitidos. Hoje a URL importada vira o domínio 
 ### 168. ELF
 Seções, bibliotecas, interpretador, símbolos suspeitos, segmentos RWX e packer, sem dependência nova.
 Junto, o `parsePe` ganha orçamento de entropia e leitura de string limitada.
+✅ **Implementado** (`lib/elf-analysis.ts`, na thread de análise):
+- **Ficha:** seção "Executável Linux (ELF)" com arquitetura (32 ou 64 bits, endian), tipo (executável,
+  PIE, biblioteca, objeto), carregador, bibliotecas exigidas e funções importadas que pedem atenção
+  (`ptrace`, `memfd_create`, `execve`...). Mostra também seções com entropia, segmentos graváveis e
+  executáveis, pilha executável e UPX.
+- **Sem tabela de seções**, comum em malware, as bibliotecas vêm do segmento dinâmico.
+- **Limites:** até 512 seções e 256 segmentos lidos, com numeração estendida, deslocamento de 64
+  bits acima de 2^53 tratado como inválido e texto lido só até 256 bytes.
+- **PE:** a entropia das seções tem um orçamento de 64 MB; acabado o orçamento, cada seção entra por
+  uma amostra de 64 KB. Antes, 96 seções apontando para um arquivo de 48 MB levavam 13,4 s; o teste
+  agora exige menos de 3 s. O texto dos imports também é procurado só dentro do limite, e não mais até
+  o fim do arquivo.
+- **Testado** com `/bin/ls`, a `libc` e um binário Go de verdade, além dos construtores hostis.
+**Limite:** símbolos de um ELF sem seções não são lidos, porque contar os da tabela dinâmica exige a
+tabela de hash, que fica para depois. As bibliotecas aparecem mesmo assim.
 
 ### 169. JAR e o tipo pelo conteúdo do ZIP
 Hoje o tipo vem dos primeiros 64 KB: o JAR vence o APK, e um manifesto mais adiante dá `zip`. O APK

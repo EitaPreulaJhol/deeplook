@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { crc32, deflateRawSync, deflateSync } from 'node:zlib';
 
 import cookie from '@fastify/cookie';
@@ -235,6 +236,63 @@ function isoDirFlood(dirs = 5000) {
   return b;
 }
 
+/** PE com 96 secoes apontando para o arquivo inteiro (entropia relida 96 vezes, item 168). */
+function peOverlap(size = 48 * 1024 * 1024) {
+  const b = Buffer.alloc(size, 0x41);
+  b.write('MZ', 0);
+  b.writeUInt32LE(0x40, 0x3c);
+  b.write('PE\0\0', 0x40, 'latin1');
+  const coff = 0x44;
+  b.writeUInt16LE(0x14c, coff);
+  b.writeUInt16LE(96, coff + 2);
+  b.writeUInt16LE(224, coff + 16);
+  const opt = coff + 20;
+  b.writeUInt16LE(0x10b, opt);
+  b.writeUInt32LE(0, opt + 104);
+  for (let i = 0; i < 96; i++) {
+    const sec = opt + 224 + i * 40;
+    b.write(`.s${i}`.padEnd(8, '\0'), sec, 'latin1');
+    b.writeUInt32LE(size, sec + 8);
+    b.writeUInt32LE(0x1000 * (i + 1), sec + 12);
+    b.writeUInt32LE(size, sec + 16);
+    b.writeUInt32LE(0, sec + 20);
+  }
+  return b;
+}
+
+/** ELF de 64 bits minimo, com a tabela de secoes que o teste quiser. */
+function elf64(opts: {
+  size?: number;
+  shnum?: number;
+  shentsize?: number;
+  shstrndx?: number;
+  shoff?: bigint;
+  sections?: { type: number; offset: bigint; size: bigint; link?: number }[];
+}) {
+  const b = Buffer.alloc(opts.size ?? 4096);
+  b.writeUInt32BE(0x7f454c46, 0);
+  b[4] = 2;
+  b[5] = 1;
+  b[6] = 1;
+  b.writeUInt16LE(2, 16);
+  b.writeUInt16LE(62, 18);
+  const shoff = opts.shoff ?? 1024n;
+  b.writeBigUInt64LE(shoff, 40);
+  b.writeUInt16LE(64, 52);
+  b.writeUInt16LE(opts.shentsize ?? 64, 58);
+  b.writeUInt16LE(opts.shnum ?? opts.sections?.length ?? 0, 60);
+  b.writeUInt16LE(opts.shstrndx ?? 0, 62);
+  (opts.sections ?? []).forEach((sec, i) => {
+    const o = Number(shoff) + i * 64;
+    if (o + 64 > b.length) return;
+    b.writeUInt32LE(sec.type, o + 4);
+    b.writeBigUInt64LE(sec.offset, o + 24);
+    b.writeBigUInt64LE(sec.size, o + 32);
+    b.writeUInt32LE(sec.link ?? 0, o + 40);
+  });
+  return b;
+}
+
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
   if (!cond) fails++;
@@ -256,6 +314,33 @@ async function main() {
     ['docx de poucos KB com <Relationship sem fechar', ooxmlRelFlood(30), 'x.docx', 3000],
     ['docx de poucos KB com instrText repetido', ooxmlInstr(30), 'x.docx', 8000],
     ['script numa linha só', ps1(190_000), 'x.ps1', 5000],
+    ['PE com 96 seções sobre o arquivo inteiro', peOverlap(), 'x.exe', 3000],
+    [
+      'ELF com 512 seções sobre o arquivo inteiro',
+      elf64({
+        size: 48 * 1024 * 1024,
+        shoff: 4096n,
+        sections: Array.from({ length: 600 }, () => ({
+          type: 1,
+          offset: 0n,
+          size: BigInt(48 * 1024 * 1024),
+        })),
+      }),
+      'x.elf',
+      3000,
+    ],
+    [
+      'ELF com seção dinâmica gigante',
+      elf64({
+        size: 8 * 1024 * 1024,
+        sections: [
+          { type: 0, offset: 0n, size: 0n },
+          { type: 6, offset: 0n, size: 0xffffffffn },
+        ],
+      }),
+      'x.elf',
+      2000,
+    ],
   ] as [string, Buffer, string, number][]) {
     const t = Date.now();
     const info = analyzeBuffer(buf, name);
@@ -301,6 +386,47 @@ async function main() {
     'PDF continua achando link e JavaScript',
     pdf?.links.includes('http://evil.test/x') && pdf?.pdf?.javascript === true,
     pdf,
+  );
+
+  // ELF hostil (item 168): o arquivo pode mentir em qualquer campo.
+  const extended = analyzeBuffer(
+    elf64({ shnum: 0, sections: [{ type: 0, offset: 0n, size: 0xffffffffn }] }),
+    'x',
+  ).elf;
+  ok(
+    'ELF: numeração estendida enorme fica limitada',
+    extended?.alerts.some((a) => a.includes('seções declaradas')),
+    extended,
+  );
+  const noEnt = analyzeBuffer(elf64({ shentsize: 0, shnum: 5 }), 'x').elf;
+  ok('ELF: tamanho de seção zero não trava', noEnt?.sections.length === 0, noEnt);
+  const huge = analyzeBuffer(
+    elf64({
+      sections: [
+        { type: 0, offset: 0n, size: 0n },
+        { type: 1, offset: 2n ** 62n, size: 2n ** 62n },
+      ],
+    }),
+    'x',
+  ).elf;
+  ok(
+    'ELF: deslocamento de 64 bits absurdo vira seção vazia',
+    huge?.sections[0]?.entropy === 0,
+    huge,
+  );
+  ok(
+    'ELF: sem seções avisa',
+    analyzeBuffer(elf64({ shoff: 0n }), 'x').elf?.alerts.some((a) => a.includes('sem tabela')),
+  );
+  ok(
+    'ELF truncado não quebra',
+    analyzeBuffer(Buffer.from('7f454c4602010100', 'hex'), 'x').elf === null,
+  );
+  const real = existsSync('/bin/ls') ? analyzeBuffer(readFileSync('/bin/ls'), 'ls').elf : undefined;
+  ok(
+    'ELF de verdade (/bin/ls): bibliotecas e símbolos',
+    real === undefined || (real?.needed.includes('libc.so.6') && real.importedSymbols > 20),
+    real,
   );
 
   // 3. A thread: tempo-limite e falta de memoria derrubam so ela.

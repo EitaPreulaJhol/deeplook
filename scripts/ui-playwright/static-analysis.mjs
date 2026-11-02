@@ -113,7 +113,33 @@ await page.goto(ORIGIN + '/entries/e3', { waitUntil: 'networkidle' });
 expect('usuário comum não vê "Analisar agora"', (await section.locator('button:has-text("Analisar agora")').count()) === 0);
 state.role = undefined;
 
-// 5. Ficha impressa.
+// 5. Executavel Linux (168): bloco ELF com alertas, bibliotecas, funcoes e secoes.
+const e1 = entries.find((e) => e.id === 'e1');
+const peInfo = e1.staticInfo;
+e1.staticInfo = {
+  ...INFO,
+  detectedType: { id: 'elf', label: 'Executável Linux (ELF)', extensions: ['', 'elf'], executable: true },
+  extensionMismatch: null,
+  pe: null,
+  elf: {
+    class: 64, endian: 'little', machine: 'x86-64', type: 'executável (PIE)', entry: '0x4010',
+    interpreter: '/lib64/ld-linux-x86-64.so.2', stripped: true, static: false,
+    sections: [{ name: '.text', type: 'PROGBITS', size: 40960, entropy: 7.9 }, { name: 'UPX1', type: 'PROGBITS', size: 4096, entropy: 6.1 }],
+    needed: ['libc.so.6'], importedSymbols: 42, suspiciousSymbols: ['ptrace', 'memfd_create'],
+    rwxSegments: 1, packer: 'UPX', alerts: ['segmento gravável e executável', 'empacotado com UPX'],
+  },
+};
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+const elfBlock = section.locator('.dl-static-block', { hasText: 'Executável Linux (ELF)' });
+const elfText = (await elfBlock.innerText()).replace(/\s+/g, ' ');
+expect('bloco ELF com arquitetura e tipo', elfText.includes('x86-64 · 64 bits · little-endian') && elfText.includes('executável (PIE) · sem símbolos (stripped)'), elfText.slice(0, 300));
+expect('alertas do ELF na seção', (await elfBlock.locator('.dl-doc-alerts li').allInnerTexts()).includes('segmento gravável e executável'));
+expect('bibliotecas e funções suspeitas', elfText.includes('libc.so.6') && elfText.includes('memfd_create') && elfText.includes('42 função(ões) importada(s)'));
+expect('seção de entropia alta destacada', (await elfBlock.locator('tbody tr').count()) === 2);
+await elfBlock.screenshot({ path: `${OUT}/analise-elf.png` });
+e1.staticInfo = peInfo;
+
+// 6. Ficha impressa.
 const print = await context.newPage();
 await print.goto(ORIGIN + '/entries/e1/imprimir', { waitUntil: 'networkidle' });
 const printText = await print.locator('.dl-print__kv').innerText();

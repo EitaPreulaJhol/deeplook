@@ -317,6 +317,8 @@ export interface StaticInfo {
     packer: string | null;
   } | null;
   /** PDF, Office e RTF (item 70). */
+  /** Executavel Linux (item 168). */
+  elf?: ElfInfo | null;
   document?: DocumentInfo | null;
   script?: ScriptInfo | null;
   lnk?: LnkInfo | null;
@@ -433,6 +435,25 @@ export interface ReportTemplate {
   iocs: string | null;
   verdict: Verdict;
   updatedAt: string;
+}
+
+/** Executavel Linux (StaticInfo.elf, item 168). */
+export interface ElfInfo {
+  class: 32 | 64;
+  endian: 'little' | 'big';
+  machine: string;
+  type: string;
+  entry: string;
+  interpreter: string | null;
+  stripped: boolean;
+  static: boolean;
+  sections: { name: string; type: string; size: number; entropy: number }[];
+  needed: string[];
+  importedSymbols: number;
+  suspiciousSymbols: string[];
+  rwxSegments: number;
+  packer: string | null;
+  alerts: string[];
 }
 
 /** Tipos de aviso da caixa de entrada. */

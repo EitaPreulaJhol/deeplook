@@ -1,5 +1,7 @@
 import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
+import { type ElfInfo,parseElf } from './elf-analysis';
+import { entropy } from './entropy';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
 import { analyzeLnk, type LnkInfo } from './lnk-analysis';
@@ -16,6 +18,9 @@ const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_LIST = 20;
 const MAX_DLLS = 64;
 const MAX_FUNCTIONS = 4096;
+/** Bytes somados na entropia das secoes do PE (item 168), e a amostra depois disso. */
+const ENTROPY_BUDGET = 64 * 1024 * 1024;
+const ENTROPY_SAMPLE = 64 * 1024;
 
 export interface DetectedType {
   id: string;
@@ -66,6 +71,8 @@ export interface StaticInfo {
     suspicious: string[];
   };
   pe: PeInfo | null;
+  /** Executavel Linux (item 168): secoes, bibliotecas, simbolos importados e alertas. */
+  elf?: ElfInfo | null;
   /** PDF, Office (OOXML/OLE) e RTF: macros, scripts, links e objetos (item 70). */
   document?: DocumentInfo | null;
   /** PowerShell, JS, VBS, BAT e HTA: chamadas suspeitas e camadas decodificadas (item 83). */
@@ -168,20 +175,7 @@ function declaredExtension(filename: string | null | undefined): string {
 
 // ------------------------------------------------------------------ entropia
 
-export function entropy(buf: Buffer, start = 0, end = buf.length): number {
-  const len = Math.max(0, end - start);
-  if (!len) return 0;
-  const counts = new Array<number>(256).fill(0);
-  for (let i = start; i < end; i++) counts[buf[i]]++;
-  let h = 0;
-  for (const c of counts) {
-    if (c) {
-      const p = c / len;
-      h -= p * Math.log2(p);
-    }
-  }
-  return Math.round(h * 100) / 100;
-}
+export { entropy };
 
 // ------------------------------------------------------------------ strings
 
@@ -328,11 +322,12 @@ const PACKER_SECTIONS: [RegExp, string][] = [
 export function parsePe(buf: Buffer): PeInfo | null {
   const u16 = (o: number) => (o >= 0 && o + 2 <= buf.length ? buf.readUInt16LE(o) : null);
   const u32 = (o: number) => (o >= 0 && o + 4 <= buf.length ? buf.readUInt32LE(o) : null);
+  // NUL procurado so dentro de `max` bytes (item 168): antes, o resto do arquivo inteiro.
   const cstr = (o: number, max = 256) => {
     if (o < 0 || o >= buf.length) return null;
-    const end = buf.indexOf(0, o);
-    const stop = end < 0 ? Math.min(buf.length, o + max) : Math.min(end, o + max);
-    return buf.toString('latin1', o, stop);
+    const window = buf.subarray(o, Math.min(buf.length, o + max));
+    const end = window.indexOf(0);
+    return window.toString('latin1', 0, end < 0 ? window.length : end);
   };
 
   const peOff = u32(0x3c);
@@ -355,6 +350,9 @@ export function parsePe(buf: Buffer): PeInfo | null {
 
   const sections: (PeSection & { va: number; rawPtr: number })[] = [];
   const secTable = opt + optSize;
+  // Orcamento de entropia (item 168): 96 secoes apontando para o arquivo inteiro releriam
+  // tudo 96 vezes; acabado o orcamento, cada secao entra por uma amostra do comeco.
+  let budget = ENTROPY_BUDGET;
   for (let i = 0; i < Math.min(nSections, 96); i++) {
     const s = secTable + i * 40;
     const name = (cstr(s, 8) ?? '').replace(/[^\x20-\x7e]/g, '');
@@ -363,12 +361,13 @@ export function parsePe(buf: Buffer): PeInfo | null {
     const rawSize = u32(s + 16);
     const rawPtr = u32(s + 20);
     if (virtualSize === null || va === null || rawSize === null || rawPtr === null) break;
-    const rawEnd = Math.min(buf.length, rawPtr + rawSize);
+    const span = Math.min(rawSize, buf.length - rawPtr, budget > 0 ? budget : ENTROPY_SAMPLE);
+    if (rawPtr < buf.length) budget -= span;
     sections.push({
       name,
       virtualSize,
       rawSize,
-      entropy: rawPtr < buf.length ? entropy(buf, rawPtr, rawEnd) : 0,
+      entropy: rawPtr < buf.length ? entropy(buf, rawPtr, rawPtr + span) : 0,
       va,
       rawPtr,
     });
@@ -435,7 +434,6 @@ export function parsePe(buf: Buffer): PeInfo | null {
 
 // ------------------------------------------------------------------ tudo junto
 
-/** Analise completa do conteudo do arquivo (nunca lanca: falha parcial vira campo vazio). */
 /** Sugestoes de indicador por tipo (item 165): com URL e IPv6, um tipo nao toma a lista. */
 const CANDIDATES_PER_KIND = 15;
 
@@ -448,6 +446,7 @@ function capPerKind(iocs: Ioc[], max: number): Ioc[] {
   });
 }
 
+/** Analise completa do conteudo do arquivo (nunca lanca: falha parcial vira campo vazio). */
 export function analyzeBuffer(buf: Buffer, filename?: string | null): StaticInfo {
   return withoutNul(analyzeContent(buf, filename));
 }
@@ -499,6 +498,15 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       pe = null;
     }
   }
+  // Executavel Linux (item 168).
+  let elf: ElfInfo | null = null;
+  if (detectedType?.id === 'elf') {
+    try {
+      elf = parseElf(buf)?.info ?? null;
+    } catch {
+      elf = null;
+    }
+  }
   // Documentos (item 70): macros, scripts, links e objetos; os links viram sugestao.
   const document = analyzeDocument(buf, detectedType?.id);
   // Scripts (item 83): as URLs das camadas decodificadas tambem viram sugestao.
@@ -536,6 +544,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     entropyLevel: e >= 7.2 ? 'high' : e < 4 ? 'low' : 'normal',
     strings,
     pe,
+    elf,
     document,
     script,
     lnk,

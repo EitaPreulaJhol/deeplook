@@ -106,6 +106,7 @@ export function StaticAnalysisSection({
   }
 
   const pe = info.pe;
+  const elf = info.elf;
   const mismatch = info.extensionMismatch;
   const entropy = ENTROPY[info.entropyLevel];
   const suggested = info.iocCandidates;
@@ -236,6 +237,112 @@ export function StaticAnalysisSection({
               </Table>
             </TableContainer>
           </div>
+        </div>
+      )}
+
+      {elf && (
+        <div className="dl-static-block">
+          <h4 className="dl-static-title">Executável Linux (ELF)</h4>
+          <HpsmForm columns={2}>
+            {elf.alerts.length > 0 && (
+              <HpsmField label="Alertas" wide top>
+                <ul className="dl-doc-alerts">
+                  {elf.alerts.map((alert) => (
+                    <li key={alert}>
+                      <StatusText tone="orange">{alert}</StatusText>
+                    </li>
+                  ))}
+                </ul>
+              </HpsmField>
+            )}
+            <HpsmField label="Arquitetura">
+              <HpsmReadonly>
+                {elf.machine} · {elf.class} bits · {elf.endian === 'little' ? 'little' : 'big'}
+                -endian
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="Tipo">
+              <HpsmReadonly>
+                {elf.type}
+                {elf.static ? ' · estático' : ''}
+                {elf.stripped ? ' · sem símbolos (stripped)' : ''}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="Carregador" help="Pedido no cabeçalho (PT_INTERP).">
+              <HpsmReadonly>{elf.interpreter ? <code>{elf.interpreter}</code> : '—'}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="Empacotador">
+              <HpsmReadonly>
+                {elf.packer ? (
+                  <StatusText tone="orange">{elf.packer}</StatusText>
+                ) : (
+                  'Nenhum reconhecido'
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="Bibliotecas" wide>
+              <HpsmReadonly>
+                {elf.needed.length ? (
+                  <span className="dl-static-chips">
+                    {elf.needed.map((lib) => (
+                      <code key={lib}>{lib}</code>
+                    ))}
+                  </span>
+                ) : (
+                  'Nenhuma declarada'
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField
+              label="Funções suspeitas"
+              wide
+              help={`${elf.importedSymbols} função(ões) importada(s) no total.`}
+            >
+              <HpsmReadonly>
+                {elf.suspiciousSymbols.length ? (
+                  <span className="dl-static-chips">
+                    {elf.suspiciousSymbols.map((fn) => (
+                      <code key={fn}>{fn}</code>
+                    ))}
+                  </span>
+                ) : (
+                  'Nenhuma da lista de atenção'
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+          </HpsmForm>
+          {elf.sections.length > 0 && (
+            <TableContainer>
+              <Table size="xs" aria-label="Seções do executável Linux">
+                <TableHead>
+                  <TableRow>
+                    <TableHeader scope="col">Seção</TableHeader>
+                    <TableHeader scope="col">Tipo</TableHeader>
+                    <TableHeader scope="col">Tamanho</TableHeader>
+                    <TableHeader scope="col">Entropia</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {elf.sections.map((s, i) => (
+                    <TableRow key={`${s.name}-${i}`}>
+                      <TableCell>
+                        <code>{s.name || '(sem nome)'}</code>
+                      </TableCell>
+                      <TableCell>{s.type}</TableCell>
+                      <TableCell>{formatFileSize(s.size)}</TableCell>
+                      <TableCell>
+                        {s.entropy >= 7.2 ? (
+                          <StatusText tone="orange">{s.entropy.toFixed(2)}</StatusText>
+                        ) : (
+                          s.entropy.toFixed(2)
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </div>
       )}
 
