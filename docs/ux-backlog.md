@@ -3537,3 +3537,10 @@ Ler o conteúdo de uma página travada não tem tempo-limite. Uma única página
 - O mesmo código TOTP era aceito por pedidos simultâneos (8 de 8 no teste). Agora só um passa.
 - O WebSocket do console, que autentica fora do `requireUser`, ignorava a senha a trocar. Agora recusa.
 ✅ **Implementado:** os três com teste, que falhava antes da correção.
+
+### 155. Tag do GCM truncada no segredo do 2FA e vite expondo arquivos negados
+Achados em 01/11/2026 pelo Strix e reproduzidos antes da correção.
+- `decryptSecret` não fixava o tamanho da tag. No Node 22, o da imagem de produção, uma tag de 4 a 15 bytes era aceita. Explorar exige escrita no banco, e quem tem isso já pode apagar o segredo; a severidade real é baixa. O Node 26 já recusa sozinho, então o teste só protege de verdade quando roda no Node 22.
+- O vite 6.4.4 entregava arquivos de `server.fs.deny` com `?raw` e variantes (GHSA-8g5g-mxqh-grgj, CVE-2026-118662; o relatório citava outro CVE). Só afeta o `npm run dev`, mas o `vite.config.ts` usa `host: true`, então qualquer máquina da rede alcança um `.env` em `apps/web`. A produção não usa o vite.
+✅ **Implementado:** `authTagLength: 16` e vite 6.4.5. Testado no Node 22 (tags de 4, 8, 12 e 15 bytes recusadas, a de 16 decifra) e com um `.env` de teste no vite (200 antes, 403 depois).
+**Sem correção por ora:** minimatch abaixo de 11.0.1 (GHSA-g3hv-75wg-m249), via eslint e typescript-eslint. As versões mais recentes deles ainda pedem `^10`, e o `npm audit fix` faria downgrade. Exige padrão de glob vindo do atacante, e aqui os globs vêm só da configuração do lint.

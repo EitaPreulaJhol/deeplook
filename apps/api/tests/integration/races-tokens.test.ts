@@ -9,6 +9,7 @@ import { prisma } from '../../src/lib/prisma';
 import {
   base32Decode,
   currentStep,
+  decryptSecret,
   encryptSecret,
   hotp,
   newSecret,
@@ -69,6 +70,21 @@ async function main() {
   );
   const accepted = totpResults.filter((r) => r.ok).length;
   ok('código 2FA vale uma vez só', accepted === 1, accepted);
+
+  // Segredo do 2FA com a tag do GCM truncada: recusado.
+  const [version, iv, tag, data] = encryptSecret(totp).split(':');
+  const withTag = (size: number) =>
+    [version, iv, Buffer.from(tag, 'base64').subarray(0, size).toString('base64'), data].join(':');
+  ok('segredo do 2FA com tag inteira decifra', decryptSecret(withTag(16)) === totp);
+  for (const size of [4, 8, 12, 15]) {
+    let refused = false;
+    try {
+      decryptSecret(withTag(size));
+    } catch {
+      refused = true;
+    }
+    ok(`segredo do 2FA com tag de ${size} bytes é recusado`, refused);
+  }
 
   const mkToken = async (userId: string) => {
     const secret = newTokenSecret();

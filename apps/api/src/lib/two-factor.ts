@@ -133,7 +133,10 @@ export function encryptSecret(secret: string): string {
 export function decryptSecret(stored: string): string {
   const [version, iv, tag, data] = stored.split(':');
   if (version !== 'v1') throw new Error('formato de segredo desconhecido');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key(), Buffer.from(iv, 'base64'));
+  // Sem authTagLength, o Node 22 aceita tag truncada (4 a 15 bytes), mais facil de forjar.
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key(), Buffer.from(iv, 'base64'), {
+    authTagLength: 16,
+  });
   decipher.setAuthTag(Buffer.from(tag, 'base64'));
   return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString(
     'utf8',
