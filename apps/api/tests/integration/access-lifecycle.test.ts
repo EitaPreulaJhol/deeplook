@@ -282,20 +282,25 @@ async function main() {
   for (let i = 0; i < 4; i++) {
     for (let j = 0; j < 5; j++) await loginAs('fay@x.io', `10.7.${i}.1`, 'errada');
   }
-  ok('IP novo sem cookie é barrado', (await loginAs('fay@x.io', '10.8.1.1')).statusCode === 429);
+  // Dispositivo novo numa conta com muitas falhas pede CAPTCHA (428) em vez de
+  // trancar a dona (429), senao qualquer um de fora a deixaria de fora de casa.
+  const captchaAsked = (r: { statusCode: number; body: string }) =>
+    r.statusCode === 428 && JSON.parse(r.body).captchaRequired === true;
+  const newIp = await loginAs('fay@x.io', '10.8.1.1');
+  ok('IP novo sem cookie cai no CAPTCHA', captchaAsked(newIp), newIp.statusCode);
   ok(
     'navegador conhecido entra',
     (await loginAs('fay@x.io', '10.8.1.2', 'senha-123!', device)).statusCode === 200,
   );
-  ok(
-    'cookie de outra conta não vale',
-    (await loginAs('fay@x.io', '10.8.1.3', 'senha-123!', other)).statusCode === 429,
+  const otherCookie = await loginAs('fay@x.io', '10.8.1.3', 'senha-123!', other);
+  ok('cookie de outra conta não vale', captchaAsked(otherCookie), otherCookie.statusCode);
+  const forged = await loginAs(
+    'fay@x.io',
+    '10.8.1.4',
+    'senha-123!',
+    `dl_device=${ids['fay@x.io']}`,
   );
-  ok(
-    'cookie forjado não vale',
-    (await loginAs('fay@x.io', '10.8.1.4', 'senha-123!', `dl_device=${ids['fay@x.io']}`))
-      .statusCode === 429,
-  );
+  ok('cookie forjado não vale', captchaAsked(forged), forged.statusCode);
   const wrong = await loginAs('fay@x.io', '10.8.1.5', 'errada', device);
   ok('navegador conhecido com senha errada: 401', wrong.statusCode === 401, wrong.statusCode);
 
