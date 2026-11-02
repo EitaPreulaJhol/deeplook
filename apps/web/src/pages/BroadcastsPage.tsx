@@ -18,7 +18,13 @@ import { api } from '../api/client';
 import type { Broadcast } from '../components/BroadcastBanner';
 import type { CaseSummary } from '../components/cases';
 import { useConfirm } from '../components/HpsmConfirm';
-import { HpsmField, HpsmForm, HpsmFormActions, HpsmSection, useRequiredFields } from '../components/HpsmForm';
+import {
+  HpsmField,
+  HpsmForm,
+  HpsmFormActions,
+  HpsmSection,
+  useRequiredFields,
+} from '../components/HpsmForm';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
@@ -188,7 +194,12 @@ export function BroadcastsPage() {
               </Select>
             </HpsmField>
             <HpsmFormActions>
-              <button type="button" className="dl-btn dl-btn--primary" disabled={busy} onClick={publish}>
+              <button
+                type="button"
+                className="dl-btn dl-btn--primary"
+                disabled={busy}
+                onClick={publish}
+              >
                 Publicar aviso
               </button>
             </HpsmFormActions>

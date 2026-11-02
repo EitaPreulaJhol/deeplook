@@ -41,12 +41,13 @@ interface Backup {
   createdBy: { id: string; displayName: string } | null;
 }
 
-const STATUS: Record<Backup['status'], { text: string; tone: 'blue' | 'green' | 'red' | 'gray' }> = {
-  RUNNING: { text: 'Gerando', tone: 'blue' },
-  READY: { text: 'Pronto', tone: 'green' },
-  FAILED: { text: 'Falhou', tone: 'red' },
-  EXPIRED: { text: 'Vencido', tone: 'gray' },
-};
+const STATUS: Record<Backup['status'], { text: string; tone: 'blue' | 'green' | 'red' | 'gray' }> =
+  {
+    RUNNING: { text: 'Gerando', tone: 'blue' },
+    READY: { text: 'Pronto', tone: 'green' },
+    FAILED: { text: 'Falhou', tone: 'red' },
+    EXPIRED: { text: 'Vencido', tone: 'gray' },
+  };
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
 
@@ -61,7 +62,8 @@ export function AdminBackupTab() {
     queryKey: ['admin', 'backups'],
     queryFn: () => api.get<{ items: Backup[]; retentionDays: number }>('/admin/backups'),
     // Acompanha o que esta em andamento.
-    refetchInterval: (q) => (q.state.data?.items.some((b) => b.status === 'RUNNING') ? 2000 : false),
+    refetchInterval: (q) =>
+      q.state.data?.items.some((b) => b.status === 'RUNNING') ? 2000 : false,
   });
   const [withSamples, setWithSamples] = useState(false);
   const [noPassword, setNoPassword] = useState(false);
@@ -261,7 +263,11 @@ export function AdminBackupTab() {
                     <TableCell>{b.status === 'READY' ? fmt(b.expiresAt) : '—'}</TableCell>
                     <TableCell>
                       {b.status === 'READY' && (
-                        <a className="dl-link" href={`/api/admin/backups/${b.id}/download`} download>
+                        <a
+                          className="dl-link"
+                          href={`/api/admin/backups/${b.id}/download`}
+                          download
+                        >
                           Baixar
                         </a>
                       )}{' '}

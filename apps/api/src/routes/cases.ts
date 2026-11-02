@@ -321,7 +321,12 @@ export async function caseRoutes(app: FastifyInstance) {
         await event('ASSIGNED', { fromValue: current.assigneeId, toValue: data.assigneeId });
         if (data.assigneeId) {
           await notify(tx, [
-            { userId: data.assigneeId, type: 'CASE_ASSIGNED', caseId: current.id, actorId: user.id },
+            {
+              userId: data.assigneeId,
+              type: 'CASE_ASSIGNED',
+              caseId: current.id,
+              actorId: user.id,
+            },
           ]);
         }
       }

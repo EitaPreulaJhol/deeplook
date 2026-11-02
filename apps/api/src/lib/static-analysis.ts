@@ -1,6 +1,6 @@
 import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
-import { type ElfInfo,parseElf } from './elf-analysis';
+import { type ElfInfo, parseElf } from './elf-analysis';
 import { entropy } from './entropy';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';

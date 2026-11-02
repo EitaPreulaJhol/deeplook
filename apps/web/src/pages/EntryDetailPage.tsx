@@ -688,7 +688,7 @@ export function EntryDetailPage() {
               <HpsmField label="Enviado por">
                 <HpsmReadonly>
                   {entry.owner.displayName}
-                {entry.owner.email && ` (${entry.owner.email})`}
+                  {entry.owner.email && ` (${entry.owner.email})`}
                 </HpsmReadonly>
               </HpsmField>
               <HpsmField label="Tipo">

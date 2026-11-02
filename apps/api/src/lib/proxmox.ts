@@ -350,7 +350,9 @@ export function pveOrigin(): string {
 /** Checagem de saude usada pelo endpoint /api/sandbox/health. */
 export async function pveVersion(): Promise<string> {
   const data = await pve<{ version?: string; release?: string }>('/version');
-  return data?.version ? `${data.version}${data.release ? `-${data.release}` : ''}` : 'desconhecida';
+  return data?.version
+    ? `${data.version}${data.release ? `-${data.release}` : ''}`
+    : 'desconhecida';
 }
 
 export async function pveTemplateExists(vmid: number): Promise<boolean> {
@@ -366,5 +368,3 @@ export async function pveStorageSupportsIso(storage: string): Promise<boolean> {
   const data = await pve<{ content?: string }>(`/nodes/${pveNode()}/storage/${storage}/status`);
   return (data?.content ?? '').split(',').includes('iso');
 }
-
-

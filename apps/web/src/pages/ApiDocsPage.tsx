@@ -146,15 +146,20 @@ export function ApiDocsPage() {
       <HpsmSection title="Como usar">
         <ol className="dl-apidoc__steps">
           <li>
-            Crie um token em <Link className="dl-link" to="/user?tab=tokens">Minha Conta &gt; Tokens de API</Link>{' '}
+            Crie um token em{' '}
+            <Link className="dl-link" to="/user?tab=tokens">
+              Minha Conta &gt; Tokens de API
+            </Link>{' '}
             (ele aparece uma única vez).
           </li>
           <li>
-            Envie <span className="dl-mono">Authorization: Bearer &lt;token&gt;</span> em cada chamada; nos
-            exemplos, o token está na variável <span className="dl-mono">DEEPLOOK_TOKEN</span>.
+            Envie <span className="dl-mono">Authorization: Bearer &lt;token&gt;</span> em cada
+            chamada; nos exemplos, o token está na variável{' '}
+            <span className="dl-mono">DEEPLOOK_TOKEN</span>.
           </li>
           <li>
-            Erros vêm como <span className="dl-mono">{'{ "error": "...", "details": { campo: [...] } }'}</span>;
+            Erros vêm como{' '}
+            <span className="dl-mono">{'{ "error": "...", "details": { campo: [...] } }'}</span>;
             envios têm limite por dia (429).
           </li>
         </ol>
@@ -195,9 +200,15 @@ export function ApiDocsPage() {
                 })),
               ];
               return (
-                <article key={`${method} ${path}`} className="dl-apidoc__route" data-route={`${method.toUpperCase()} ${path}`}>
+                <article
+                  key={`${method} ${path}`}
+                  className="dl-apidoc__route"
+                  data-route={`${method.toUpperCase()} ${path}`}
+                >
                   <h3>
-                    <span className={`dl-apidoc__method dl-apidoc__method--${method}`}>{method.toUpperCase()}</span>{' '}
+                    <span className={`dl-apidoc__method dl-apidoc__method--${method}`}>
+                      {method.toUpperCase()}
+                    </span>{' '}
                     <span className="dl-mono">{path}</span> — {op.summary}
                   </h3>
                   {op.description && <p>{op.description}</p>}

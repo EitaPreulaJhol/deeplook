@@ -7,3 +7,5 @@ package-lock.json
 *.svg
 apps/api/src/lib/attack-enterprise.json
 apps/api/src/generated
+# Pacotes de regras YARA: o .gitattributes manda copiar sem alterar.
+apps/api/rules

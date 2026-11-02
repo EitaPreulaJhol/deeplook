@@ -16,7 +16,13 @@ import { api } from '../api/client';
 import type { LookalikeHit, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useConfirm } from '../components/HpsmConfirm';
-import { HpsmField, HpsmForm, HpsmFormActions, HpsmSection, useRequiredFields } from '../components/HpsmForm';
+import {
+  HpsmField,
+  HpsmForm,
+  HpsmFormActions,
+  HpsmSection,
+  useRequiredFields,
+} from '../components/HpsmForm';
 import { LOOKALIKE_SOURCE, lookalikeWhy } from '../components/LookalikeWarning';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
@@ -54,7 +60,13 @@ export function CompanyDomainsPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const check = useRequiredFields([
-    { id: 'company-domain', label: 'Domínio', ok: domain.trim().length >= 3, api: 'domain', value: domain },
+    {
+      id: 'company-domain',
+      label: 'Domínio',
+      ok: domain.trim().length >= 3,
+      api: 'domain',
+      value: domain,
+    },
   ]);
 
   const run = async (fn: () => Promise<string>) => {
@@ -114,7 +126,8 @@ export function CompanyDomainsPage() {
       <HpsmSection title={`Domínios (${data?.domains.length ?? 0})`}>
         {data && data.domains.length === 0 && (
           <p className="dl-static-empty">
-            Nenhum domínio cadastrado.{isAdmin ? '' : ' O administrador cadastra os domínios da empresa.'}
+            Nenhum domínio cadastrado.
+            {isAdmin ? '' : ' O administrador cadastra os domínios da empresa.'}
           </p>
         )}
         {data && data.domains.length > 0 && (
@@ -162,7 +175,12 @@ export function CompanyDomainsPage() {
               />
             </HpsmField>
             <HpsmFormActions>
-              <button type="button" className="dl-btn dl-btn--primary" disabled={busy} onClick={add}>
+              <button
+                type="button"
+                className="dl-btn dl-btn--primary"
+                disabled={busy}
+                onClick={add}
+              >
                 Incluir
               </button>
             </HpsmFormActions>
@@ -191,7 +209,9 @@ export function CompanyDomainsPage() {
                     <TableCell className="dl-mono">{s.domain}</TableCell>
                     <TableCell className="dl-mono">{s.companyDomain}</TableCell>
                     <TableCell>{lookalikeWhy(s)}</TableCell>
-                    <TableCell>{s.sources.map((x) => LOOKALIKE_SOURCE[x] ?? x).join(', ')}</TableCell>
+                    <TableCell>
+                      {s.sources.map((x) => LOOKALIKE_SOURCE[x] ?? x).join(', ')}
+                    </TableCell>
                     <TableCell>
                       {s.entries.map((e, i) => (
                         <span key={e.id}>

@@ -104,7 +104,7 @@ function layout(
       kids.forEach((id, i) => {
         const angle = isCenter
           ? (2 * Math.PI * i) / kids.length - Math.PI / 2
-          : away + (kids.length === 1 ? 0 : ((i / (kids.length - 1)) - 0.5) * (Math.PI * 1.1));
+          : away + (kids.length === 1 ? 0 : (i / (kids.length - 1) - 0.5) * (Math.PI * 1.1));
         const r = isCenter ? RING : BRANCH;
         pos.set(id, { x: p.x + r * Math.cos(angle), y: p.y + r * Math.sin(angle) });
         fresh.add(id);
@@ -296,8 +296,18 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
                 {n.kind === 'ENTRY' && (
                   <circle r={isCenter ? 20 : 14} style={{ fill: VERDICT_COLOR[n.verdict] }} />
                 )}
-                {n.kind === 'IOC' && <rect x={-9} y={-9} width={18} height={18} transform="rotate(45)" />}
-                {n.kind === 'CASE' && <rect x={isCenter ? -18 : -14} y={-10} width={isCenter ? 36 : 28} height={20} rx={3} />}
+                {n.kind === 'IOC' && (
+                  <rect x={-9} y={-9} width={18} height={18} transform="rotate(45)" />
+                )}
+                {n.kind === 'CASE' && (
+                  <rect
+                    x={isCenter ? -18 : -14}
+                    y={-10}
+                    width={isCenter ? 36 : 28}
+                    height={20}
+                    rx={3}
+                  />
+                )}
                 <text y={isCenter ? 34 : 28} textAnchor="middle">
                   {short(n.kind === 'CASE' ? n.code : n.label)}
                 </text>

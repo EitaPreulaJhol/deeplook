@@ -53,7 +53,11 @@ export function BroadcastBanner() {
   return (
     <div className="dl-broadcasts" role="region" aria-label="Avisos da equipe de segurança">
       {items.map((b) => (
-        <div key={b.id} className={`dl-broadcast dl-broadcast--${b.level.toLowerCase()}`} role="status">
+        <div
+          key={b.id}
+          className={`dl-broadcast dl-broadcast--${b.level.toLowerCase()}`}
+          role="status"
+        >
           <span className="dl-broadcast__icon" aria-hidden="true">
             {b.level === 'WARNING' ? '⚠' : 'ℹ'}
           </span>
