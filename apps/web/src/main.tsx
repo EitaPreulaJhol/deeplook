@@ -7,6 +7,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import App from './App';
 import { AuthProvider } from './auth/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConfirmProvider } from './components/HpsmConfirm';
 import { SessionWatcher } from './components/SessionWatcher';
 
@@ -25,13 +26,17 @@ const router = createBrowserRouter([
   {
     path: '*',
     element: (
-      <AuthProvider>
-        <ConfirmProvider>
-          {/* Sessao por inatividade: renova com atividade, avisa 2 min antes. */}
-          <SessionWatcher />
-          <App />
-        </ConfirmProvider>
-      </AuthProvider>
+      // Rede de seguranca por fora dos provedores (item 1.1): sem ela, uma
+      // excecao no render deixa a tela em branco, sem mensagem nem saida.
+      <ErrorBoundary variant="app">
+        <AuthProvider>
+          <ConfirmProvider>
+            {/* Sessao por inatividade: renova com atividade, avisa 2 min antes. */}
+            <SessionWatcher />
+            <App />
+          </ConfirmProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     ),
   },
 ]);

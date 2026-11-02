@@ -1,8 +1,10 @@
 import { Theme } from '@carbon/react';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { BroadcastBanner } from './BroadcastBanner';
+import { ErrorBoundary } from './ErrorBoundary';
 import { HpsmSidebar } from './HpsmSidebar';
 import { HpsmTopBar } from './HpsmTopBar';
 import { HpsmMessageBar, MessageSlotProvider } from './messages';
@@ -12,6 +14,8 @@ import { WorkspaceProvider, WorkspaceTabs } from './workspace';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Trocar de tela limpa o aviso de erro: o boundary remonta com a rota nova.
+  const { pathname } = useLocation();
   // Barra de mensagens: guardada em estado para as paginas re-renderizarem
   // (via portal) assim que ela montar.
   const [messageSlot, setMessageSlot] = useState<HTMLElement | null>(null);
@@ -68,7 +72,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <HpsmMessageBar slotRef={setMessageSlot} />
                   <PasswordExpiryNotice />
                   <div id="dl-conteudo" className="dl-content__body" tabIndex={-1}>
-                    {children}
+                    {/* So o miolo cai (item 1.1): topo, navegador e abas ficam. */}
+                    <ErrorBoundary key={pathname} variant="page">
+                      {children}
+                    </ErrorBoundary>
                   </div>
                 </main>
               </div>
