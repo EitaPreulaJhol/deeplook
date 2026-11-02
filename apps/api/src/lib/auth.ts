@@ -98,17 +98,32 @@ function slidingExpiry(createdAt: Date, now = Date.now()): Date {
   return new Date(Math.min(idle, ceiling));
 }
 
+/**
+ * Abre a sessao de quem acabou de provar a senha. `user.passwordHash` e o hash que foi
+ * conferido: se a senha mudou desde entao, nao abre (false). A conta fica travada ate a
+ * sessao gravar, entao uma troca de senha ao mesmo tempo ou termina antes (e aqui o hash
+ * nao confere) ou espera e apaga esta sessao junto com as outras. Sem isso, um login
+ * no meio da troca ganhava uma sessao que sobrevivia a ela.
+ */
 export async function createSession(
   reply: FastifyReply,
-  userId: string,
+  user: { id: string; passwordHash: string },
   req: FastifyRequest,
-): Promise<void> {
+): Promise<boolean> {
   const expiresAt = slidingExpiry(new Date());
   const userAgent = req.headers['user-agent']?.slice(0, 300) ?? null;
-  // O id e o valor do cookie: aleatorio, nao o cuid padrao (previsivel em boa parte).
-  const session = await prisma.session.create({
-    data: { id: randomToken(32), userId, expiresAt, userAgent, ip: req.ip ?? null },
+  const session = await prisma.$transaction(async (tx) => {
+    const current = await tx.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "User"
+      WHERE "id" = ${user.id} AND "passwordHash" = ${user.passwordHash}
+      FOR UPDATE`;
+    if (!current.length) return null;
+    // O id e o valor do cookie: aleatorio, nao o cuid padrao (previsivel em boa parte).
+    return tx.session.create({
+      data: { id: randomToken(32), userId: user.id, expiresAt, userAgent, ip: req.ip ?? null },
+    });
   });
+  if (!session) return false;
 
   reply.setCookie(SESSION_COOKIE, session.id, {
     path: '/',
@@ -117,6 +132,7 @@ export async function createSession(
     secure: env.COOKIE_SECURE === 'true',
     maxAge: env.SESSION_TTL_HOURS * 3600,
   });
+  return true;
 }
 
 /**

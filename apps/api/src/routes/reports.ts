@@ -117,6 +117,30 @@ async function publish(tx: Tx, reportId: string, actorId: string) {
   await syncReportIocs(tx, reportId, { actorId });
 }
 
+/**
+ * Trava o relatorio ate o fim da transacao e le o estado atual. Acoes ao mesmo tempo
+ * (editar e enviar, aprovar e devolver) ficam em fila e a segunda ve o resultado da
+ * primeira; a conferencia de fora da transacao so serve para responder rapido.
+ */
+async function lockReport(tx: Tx, id: string) {
+  await tx.$queryRaw`SELECT "id" FROM "Report" WHERE "id" = ${id} FOR UPDATE`;
+  return tx.report.findUnique({ where: { id } });
+}
+
+/** Recusa descoberta ja com o relatorio travado (outro pedido chegou antes). */
+class Refused extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+const refusedReply = (err: unknown) => {
+  if (err instanceof Refused) return err;
+  throw err;
+};
+
 /** Envia para revisao: some do rascunho, entra na fila "Relatorios para revisar". */
 async function submit(tx: Tx, reportId: string, actorId: string) {
   const report = await tx.report.update({
@@ -245,55 +269,72 @@ export async function reportRoutes(app: FastifyInstance) {
         .send({ error: 'Este servidor exige revisão: publique pela aprovação de outro analista.' });
     }
 
-    // Versoes (item 75): mudou o conteudo, a versao anterior fica guardada.
-    const changed =
-      (data.summary !== undefined && data.summary !== report.summary) ||
-      (data.findings !== undefined && (data.findings || null) !== report.findings) ||
-      (data.iocs !== undefined && (data.iocs || null) !== report.iocs) ||
-      (data.verdict !== undefined && data.verdict !== report.verdict) ||
-      (data.attackTechniques !== undefined &&
-        data.attackTechniques.join() !== report.attackTechniques.join());
-
-    const updated = await prisma.$transaction(async (tx) => {
-      if (changed) {
-        await tx.reportRevision.create({
+    const updated = await prisma
+      .$transaction(async (tx) => {
+        // Enviado para revisao (ou publicado) desde a leitura acima: vale o estado de agora.
+        const current = await lockReport(tx, id);
+        if (!current) throw new Refused(404, 'Relatório não encontrado.');
+        if (current.status === 'IN_REVIEW') {
+          throw new Refused(409, 'Relatório em revisão não pode ser alterado.');
+        }
+        if (reviewRequired() && current.status === 'PUBLISHED') {
+          throw new Refused(
+            400,
+            'Este servidor exige revisão: publique pela aprovação de outro analista.',
+          );
+        }
+        const report = current;
+        // Versoes (item 75): mudou o conteudo, a versao anterior fica guardada.
+        const changed =
+          (data.summary !== undefined && data.summary !== report.summary) ||
+          (data.findings !== undefined && (data.findings || null) !== report.findings) ||
+          (data.iocs !== undefined && (data.iocs || null) !== report.iocs) ||
+          (data.verdict !== undefined && data.verdict !== report.verdict) ||
+          (data.attackTechniques !== undefined &&
+            data.attackTechniques.join() !== report.attackTechniques.join());
+        if (changed) {
+          await tx.reportRevision.create({
+            data: {
+              reportId: id,
+              editorId: user.id,
+              summary: report.summary,
+              findings: report.findings,
+              iocs: report.iocs,
+              verdict: report.verdict,
+              attackTechniques: report.attackTechniques,
+              status: report.status,
+            },
+          });
+        }
+        await tx.report.update({
+          where: { id },
           data: {
-            reportId: id,
-            editorId: user.id,
-            summary: report.summary,
-            findings: report.findings,
-            iocs: report.iocs,
-            verdict: report.verdict,
-            attackTechniques: report.attackTechniques,
-            status: report.status,
+            summary: data.summary,
+            findings: data.findings === undefined ? undefined : data.findings || null,
+            iocs: data.iocs === undefined ? undefined : data.iocs || null,
+            verdict: data.verdict,
+            attackTechniques: data.attackTechniques,
+            ...(data.kbArticleIds && {
+              kbArticles: { set: data.kbArticleIds.map((kbId) => ({ id: kbId })) },
+            }),
+            // Despublicar (sem revisao obrigatoria) volta a rascunho.
+            ...(data.status === 'DRAFT' ? { status: 'DRAFT' as ReportStatus } : {}),
           },
         });
-      }
-      await tx.report.update({
-        where: { id },
-        data: {
-          summary: data.summary,
-          findings: data.findings === undefined ? undefined : data.findings || null,
-          iocs: data.iocs === undefined ? undefined : data.iocs || null,
-          verdict: data.verdict,
-          attackTechniques: data.attackTechniques,
-          ...(data.kbArticleIds && {
-            kbArticles: { set: data.kbArticleIds.map((kbId) => ({ id: kbId })) },
-          }),
-          // Despublicar (sem revisao obrigatoria) volta a rascunho.
-          ...(data.status === 'DRAFT' ? { status: 'DRAFT' as ReportStatus } : {}),
-        },
-      });
-      if (data.status === 'IN_REVIEW' && report.status === 'DRAFT') await submit(tx, id, user.id);
-      if (data.status === 'PUBLISHED' && report.status !== 'PUBLISHED') {
-        await publish(tx, id, user.id);
-      } else if (report.status === 'PUBLISHED' && data.status !== 'DRAFT' && data.verdict) {
-        // Publicado editado: o veredito da amostra acompanha.
-        await tx.entry.update({ where: { id: report.entryId }, data: { verdict: data.verdict } });
-      }
-      await syncReportIocs(tx, id, { actorId: user.id });
-      return tx.report.findUniqueOrThrow({ where: { id }, include: reportInclude });
-    });
+        if (data.status === 'IN_REVIEW' && report.status === 'DRAFT') await submit(tx, id, user.id);
+        if (data.status === 'PUBLISHED' && report.status !== 'PUBLISHED') {
+          await publish(tx, id, user.id);
+        } else if (report.status === 'PUBLISHED' && data.status !== 'DRAFT' && data.verdict) {
+          // Publicado editado: o veredito da amostra acompanha.
+          await tx.entry.update({ where: { id: report.entryId }, data: { verdict: data.verdict } });
+        }
+        await syncReportIocs(tx, id, { actorId: user.id });
+        return tx.report.findUniqueOrThrow({ where: { id }, include: reportInclude });
+      })
+      .catch(refusedReply);
+    if (updated instanceof Refused) {
+      return reply.code(updated.status).send({ error: updated.message });
+    }
 
     return reply.send({ report: updated });
   });
@@ -357,7 +398,14 @@ export async function reportRoutes(app: FastifyInstance) {
     if (report.status !== 'DRAFT') {
       return reply.code(409).send({ error: 'Só rascunhos podem ser enviados para revisão.' });
     }
-    await prisma.$transaction((tx) => submit(tx, id, user.id));
+    const sent = await prisma.$transaction(async (tx) => {
+      if ((await lockReport(tx, id))?.status !== 'DRAFT') return false;
+      await submit(tx, id, user.id);
+      return true;
+    });
+    if (!sent) {
+      return reply.code(409).send({ error: 'Só rascunhos podem ser enviados para revisão.' });
+    }
     return reply.send({
       report: await prisma.report.findUniqueOrThrow({ where: { id }, include: reportInclude }),
     });
@@ -377,7 +425,10 @@ export async function reportRoutes(app: FastifyInstance) {
     if (report.status !== 'IN_REVIEW') {
       return reply.code(409).send({ error: 'O relatório não está em revisão.' });
     }
-    await prisma.$transaction(async (tx) => {
+    const approved = await prisma.$transaction(async (tx) => {
+      // Devolvido (ou aprovado por outro) ao mesmo tempo: so uma das decisoes vale.
+      const current = await lockReport(tx, id);
+      if (current?.status !== 'IN_REVIEW') return false;
       await tx.report.update({
         where: { id },
         data: { reviewedById: user.id, reviewedAt: new Date(), reviewNote: null },
@@ -386,7 +437,7 @@ export async function reportRoutes(app: FastifyInstance) {
         entryId: report.entryId,
         actorId: user.id,
         type: 'REPORT_APPROVED',
-        toValue: report.verdict,
+        toValue: current.verdict,
       });
       await publish(tx, id, user.id);
       await notify(tx, [
@@ -397,7 +448,9 @@ export async function reportRoutes(app: FastifyInstance) {
           actorId: user.id,
         },
       ]);
+      return true;
     });
+    if (!approved) return reply.code(409).send({ error: 'O relatório não está em revisão.' });
     return reply.send({
       report: await prisma.report.findUniqueOrThrow({ where: { id }, include: reportInclude }),
     });
@@ -420,7 +473,8 @@ export async function reportRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: 'O relatório não está em revisão.' });
     }
     const { note } = parsed.data;
-    await prisma.$transaction(async (tx) => {
+    const returned = await prisma.$transaction(async (tx) => {
+      if ((await lockReport(tx, id))?.status !== 'IN_REVIEW') return false;
       await tx.report.update({
         where: { id },
         data: { status: 'DRAFT', reviewedById: user.id, reviewedAt: new Date(), reviewNote: note },
@@ -440,7 +494,9 @@ export async function reportRoutes(app: FastifyInstance) {
           detail: excerpt(note),
         },
       ]);
+      return true;
     });
+    if (!returned) return reply.code(409).send({ error: 'O relatório não está em revisão.' });
     return reply.send({
       report: await prisma.report.findUniqueOrThrow({ where: { id }, include: reportInclude }),
     });

@@ -66,6 +66,14 @@ const MAX_URI_TOKENS = 5_000;
 /** Entradas do diretorio de um OLE percorridas; arquivo real fica muito abaixo. */
 const MAX_CFB_ENTRIES = 50_000;
 const MAX_VBA_MODULES = 1_000;
+/** Maior stream de modulo VBA descompactado. */
+const MAX_VBA_STREAM = 16 * 1024 * 1024;
+/**
+ * Soma do que se descompacta dos modulos de um arquivo: o limite de cima (MAX_CODE_TOTAL)
+ * so conta o codigo guardado, e mil registros apontando para o mesmo stream custavam
+ * mil descompactacoes.
+ */
+const MAX_VBA_DECODE_TOTAL = 32 * 1024 * 1024;
 
 const AUTOEXEC = [
   'AutoOpen',
@@ -384,7 +392,7 @@ class Cfb {
 }
 
 /** Descompressao do VBA (MS-OVBA 2.4.1). */
-export function ovbaDecompress(buf: Buffer, start = 0): Buffer {
+export function ovbaDecompress(buf: Buffer, start = 0, max = MAX_VBA_STREAM): Buffer {
   if (buf[start] !== 0x01) throw new Error('container VBA inválido');
   const out: number[] = [];
   let pos = start + 1;
@@ -417,7 +425,7 @@ export function ovbaDecompress(buf: Buffer, start = 0): Buffer {
           for (let i = 0; i < length; i++) out.push(out[from + i]);
         }
       }
-      if (out.length > 16 * 1024 * 1024) throw new Error('VBA grande demais');
+      if (out.length > max) throw new Error('VBA grande demais');
     }
   }
   return Buffer.from(out);
@@ -447,6 +455,11 @@ function vbaModules(cfb: Cfb): MacroModule[] {
     else if (id === 0x0031 && current) current.offset = data.readUInt32LE(0);
   }
   let budget = MAX_CODE_TOTAL;
+  let decodeBudget = MAX_VBA_DECODE_TOTAL;
+  // Cada stream (e posicao) e descompactado e examinado uma vez so, por mais
+  // registros que apontem para ele; null = ilegivel ou alem do limite.
+  type Decoded = { code: string; lines: number } & ReturnType<typeof scanCode>;
+  const decoded = new Map<string, Decoded | null>();
   const out: MacroModule[] = [];
   const byPath = new Map<string, { path: string; index: number }>();
   for (const p of paths) {
@@ -456,21 +469,32 @@ function vbaModules(cfb: Cfb): MacroModule[] {
   for (const mod of modules.slice(0, MAX_VBA_MODULES)) {
     const entry = byPath.get(`${vbaPrefix}${mod.stream}`.toLowerCase());
     if (!entry) continue;
-    let code: string;
-    try {
-      // Pedacos sem compressao vem completados com NUL: tirados do fim.
-      code = ovbaDecompress(cfb.read(cfb.entries[entry.index]), mod.offset)
-        .toString('latin1')
-        .replace(/\0+$/, '');
-    } catch {
-      continue;
+    const key = `${entry.index}:${mod.offset}`;
+    if (!decoded.has(key)) {
+      let found: Decoded | null = null;
+      if (decodeBudget > 0) {
+        const max = Math.min(MAX_VBA_STREAM, decodeBudget);
+        try {
+          const raw = ovbaDecompress(cfb.read(cfb.entries[entry.index]), mod.offset, max);
+          decodeBudget -= raw.length;
+          // Pedacos sem compressao vem completados com NUL: tirados do fim.
+          const code = raw.toString('latin1').replace(/\0+$/, '');
+          found = { code, lines: code.split(/\r?\n/).length, ...scanCode(code) };
+        } catch (err) {
+          // Estourou: o trabalho ate o limite tambem conta.
+          if ((err as Error).message === 'VBA grande demais') decodeBudget -= max;
+        }
+      }
+      decoded.set(key, found);
     }
-    const { autoExec, suspicious } = scanCode(code);
+    const found = decoded.get(key);
+    if (!found) continue;
+    const { code, lines, autoExec, suspicious } = found;
     const limit = Math.max(0, Math.min(MAX_CODE, budget));
     budget -= Math.min(code.length, limit);
     out.push({
       name: mod.name,
-      lines: code.split(/\r?\n/).length,
+      lines,
       autoExec,
       suspicious,
       code: code.slice(0, limit),

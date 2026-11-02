@@ -46,6 +46,87 @@ function ole(n = 3) {
   }
   return b;
 }
+/**
+ * OLE com um projeto VBA cujo dir lista `records` modulos, todos apontando para o mesmo
+ * stream de ~16 MB descompactado (poucos KB no arquivo).
+ */
+function vbaOle(records = 300) {
+  const SECTOR = 512;
+  // Pedaco comprimido de 6 bytes: um literal e uma copia de 4095 -> 4096 bytes.
+  const chunk = Buffer.from([0x03, 0xb0, 0x02, 0x41, 0xfc, 0x0f]);
+  const module = Buffer.concat([Buffer.from([0x01]), Buffer.alloc(6 * 4000).fill(chunk)]);
+  // dir sem compressao (pedacos crus de 4096), com folga para virar stream normal.
+  const rec = (id: number, data: Buffer) => {
+    const h = Buffer.alloc(6);
+    h.writeUInt16LE(id, 0);
+    h.writeUInt32LE(data.length, 2);
+    return Buffer.concat([h, data]);
+  };
+  const offset = Buffer.alloc(4);
+  const recs = Array.from({ length: records }, (_, i) =>
+    Buffer.concat([
+      rec(0x19, Buffer.from(`M${i}`)),
+      rec(0x1a, Buffer.from('M')),
+      rec(0x31, offset),
+    ]),
+  );
+  let raw = Buffer.concat(recs);
+  raw = Buffer.concat([
+    raw,
+    Buffer.alloc(Math.max(4096, Math.ceil(raw.length / 4096) * 4096) - raw.length),
+  ]);
+  const parts = [Buffer.from([0x01])];
+  for (let i = 0; i < raw.length; i += 4096)
+    parts.push(Buffer.from([0xff, 0x3f]), raw.subarray(i, i + 4096));
+  const dirStream = Buffer.concat(parts);
+  const sectorsOf = (b: Buffer) => Math.ceil(b.length / SECTOR);
+  // Setores: 0 = FAT, 1 = diretorio, depois dir e o modulo.
+  const dirStart = 2;
+  const modStart = dirStart + sectorsOf(dirStream);
+  const total = modStart + sectorsOf(module);
+  const b = Buffer.alloc(SECTOR * (1 + total));
+  Buffer.from('d0cf11e0a1b11ae1', 'hex').copy(b);
+  b.writeUInt16LE(9, 30);
+  b.writeUInt16LE(6, 32);
+  b.writeUInt32LE(1, 44);
+  b.writeUInt32LE(1, 48);
+  b.writeUInt32LE(END, 60);
+  b.writeUInt32LE(END, 68);
+  for (let i = 0; i < 109; i++) b.writeUInt32LE(i === 0 ? 0 : FREE, 76 + i * 4);
+  const fatOff = SECTOR;
+  for (let i = 0; i < 128; i++) b.writeUInt32LE(FREE, fatOff + i * 4);
+  b.writeUInt32LE(0xfffffffd, fatOff);
+  b.writeUInt32LE(END, fatOff + 4);
+  const chainAt = (start: number, n: number) => {
+    for (let i = 0; i < n; i++)
+      b.writeUInt32LE(i + 1 < n ? start + i + 1 : END, fatOff + (start + i) * 4);
+  };
+  chainAt(dirStart, sectorsOf(dirStream));
+  chainAt(modStart, sectorsOf(module));
+  dirStream.copy(b, SECTOR * (1 + dirStart));
+  module.copy(b, SECTOR * (1 + modStart));
+  const entry = (
+    i: number,
+    name: string,
+    type: number,
+    o: { child?: number; right?: number; start?: number; size?: number },
+  ) => {
+    const e = SECTOR * 2 + i * 128;
+    b.write(name, e, 'utf16le');
+    b.writeUInt16LE((name.length + 1) * 2, e + 64);
+    b[e + 66] = type;
+    b.writeUInt32LE(FREE, e + 68);
+    b.writeUInt32LE(o.right ?? FREE, e + 72);
+    b.writeUInt32LE(o.child ?? FREE, e + 76);
+    b.writeUInt32LE(o.start ?? END, e + 116);
+    b.writeUInt32LE(o.size ?? 0, e + 120);
+  };
+  entry(0, 'Root Entry', 5, { child: 1 });
+  entry(1, 'VBA', 1, { child: 2 });
+  entry(2, 'dir', 2, { right: 3, start: dirStart, size: dirStream.length });
+  entry(3, 'M', 2, { start: modStart, size: module.length });
+  return b;
+}
 function zipOf(
   items: { name: string; data: Buffer; declared?: number; crc?: number }[],
   count?: number,
@@ -304,6 +385,7 @@ async function main() {
   for (const [label, buf, name, limit] of [
     ['OLE com irmãos em ciclo (derrubava a API)', ole(3), 'x.doc', 1000],
     ['OLE com 2000 armazenamentos em ciclo', ole(2000), 'x.doc', 1000],
+    ['VBA com 300 módulos no mesmo stream', vbaOle(300), 'x.doc', 3000],
     ['FAT com subpastas no mesmo cluster', fat(3), 'x.img', 1000],
     ['ISO com diretórios até o fim do arquivo', isoDirFlood(), 'x.iso', 3000],
     ['PDF com 1000 streams grandes', pdfStreams(), 'x.pdf', 3000],
@@ -527,7 +609,9 @@ async function main() {
     bomb.json().skipped.slice(0, 3),
   );
   ok('tamanho declarado pequeno não descompacta tudo', small.statusCode === 400, small.statusCode);
-  ok(`maior pausa da thread principal: ${worst} ms`, worst < 1500, worst);
+  // A descompactacao do .zip vai para o pool do libuv, e o CRC em fatias: antes cada
+  // entrada de 200 MB declarados parava a thread por ~0,3 s.
+  ok(`maior pausa da thread principal: ${worst} ms`, worst < 500, worst);
   const good = await send(
     '/api/entries/zip',
     zipOf([
@@ -541,6 +625,16 @@ async function main() {
     'pacote normal continua',
     good.statusCode === 201 && good.json().created.length === 2,
     good.body.slice(0, 300),
+  );
+  // Entrada que falha nao gasta cota: o limite por sessao segura a repeticao.
+  const tiny = zipOf([{ name: 'a.bin', data: Buffer.alloc(1024), crc: 1 }]);
+  const codes: number[] = [];
+  for (let i = 0; i < 19; i++)
+    codes.push((await send('/api/entries/zip', tiny, 't.zip')).statusCode);
+  ok(
+    '.zip: 20 pacotes por sessão em 5 min',
+    codes.filter((c) => c === 400).length === 17 && codes.slice(-2).every((c) => c === 429),
+    codes,
   );
 
   await app.close();

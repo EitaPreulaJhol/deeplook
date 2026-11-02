@@ -179,7 +179,7 @@ async function apiImage() {
       '-e',
       'ADMIN_EMAIL=adm@x.io',
       '-e',
-      'ADMIN_PASSWORD=admin12345',
+      'ADMIN_PASSWORD=Senha-Inicial-77!',
       '-e',
       'CLAMAV_HOST=',
       '-e',
@@ -210,7 +210,7 @@ async function apiImage() {
       body: JSON.stringify(body),
     });
     const first = await (
-      await call('/auth/login', json({ email: 'adm@x.io', password: 'admin12345' }))
+      await call('/auth/login', json({ email: 'adm@x.io', password: 'Senha-Inicial-77!' }))
     ).json();
     ok('admin troca a senha no primeiro acesso', first.user?.mustChangePassword === true, first);
     ok('bloqueado até trocar', (await call('/entries')).status === 403);
@@ -219,7 +219,7 @@ async function apiImage() {
       (
         await call(
           '/me/password',
-          json({ currentPassword: 'admin12345', newPassword: 'Nova-Senha-Forte-77!' }),
+          json({ currentPassword: 'Senha-Inicial-77!', newPassword: 'Nova-Senha-Forte-77!' }),
         )
       ).status === 200,
     );

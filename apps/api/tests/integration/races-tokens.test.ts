@@ -1,9 +1,10 @@
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 
 import { env } from '../../src/env';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
+import { createSession } from '../../src/lib/auth';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import {
@@ -203,6 +204,78 @@ async function main() {
   });
   ok('redefinição pelo admin', res.statusCode === 200, res.json());
   ok('token revogado na redefinição', await revoked(t3.id));
+
+  // 6. Login no meio de uma troca de senha: a sessao nao sobrevive a troca.
+  const race = await mkUser('corrida@x.io');
+  const fakeReply = { setCookie: () => undefined } as unknown as FastifyReply;
+  const fakeReq = { headers: {}, ip: '127.0.0.1' } as unknown as FastifyRequest;
+  const newHash = await hashPassword(NEW_PASSWORD);
+  let opened: Promise<boolean> | null = null;
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: race.id }, data: { passwordHash: newHash } });
+    await tx.session.deleteMany({ where: { userId: race.id } });
+    // A senha antiga ja foi conferida: o login tenta abrir a sessao antes do commit.
+    opened = createSession(fakeReply, race, fakeReq);
+    await new Promise((r) => setTimeout(r, 300));
+  });
+  ok('login durante a troca não abre sessão', (await opened!) === false);
+  ok(
+    'nenhuma sessão depois da troca',
+    (await prisma.session.count({ where: { userId: race.id } })) === 0,
+  );
+  ok(
+    'com o hash atual a sessão abre',
+    await createSession(fakeReply, { id: race.id, passwordHash: newHash }, fakeReq),
+  );
+
+  // 7. Desafio do 2FA de antes da troca de senha nao vira sessao.
+  const totp2 = newSecret();
+  const twoFa = await mkUser('desafio@x.io', {
+    twoFactorSecret: encryptSecret(totp2),
+    twoFactorEnabledAt: new Date(),
+  });
+  const first = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email: 'desafio@x.io', password: PASSWORD },
+  });
+  const { challenge } = first.json() as { challenge: string };
+  await prisma.user.update({ where: { id: twoFa.id }, data: { passwordHash: newHash } });
+  const second = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login/2fa',
+    payload: { challenge, code: hotp(base32Decode(totp2), currentStep()) },
+  });
+  ok('desafio de antes da troca é recusado', second.statusCode === 401, second.json());
+
+  // 8. Senha acima de 72 bytes (o bcrypt ignora o resto) e recusada.
+  await mkUser('longa@x.io');
+  const cLong = await login('longa@x.io');
+  const tooLong = await app.inject({
+    method: 'POST',
+    url: '/api/me/password',
+    headers: { cookie: cLong },
+    payload: { currentPassword: PASSWORD, newPassword: `Ab1!${'x'.repeat(69)}` },
+  });
+  ok('senha de 73 bytes recusada', tooLong.statusCode === 400, tooLong.json());
+  const accented = await app.inject({
+    method: 'POST',
+    url: '/api/me/password',
+    headers: { cookie: cLong },
+    payload: { currentPassword: PASSWORD, newPassword: `Ab1!${'é'.repeat(35)}` },
+  });
+  ok('acento conta 2 bytes', accented.statusCode === 400, accented.json());
+  ok(
+    'senha de 72 bytes aceita',
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/me/password',
+        headers: { cookie: cLong },
+        payload: { currentPassword: PASSWORD, newPassword: `Ab1!${'x'.repeat(68)}` },
+      })
+    ).statusCode === 200,
+  );
 
   await app.close();
   await prisma.$disconnect();

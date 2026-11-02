@@ -6,6 +6,8 @@ import Fastify from 'fastify';
 
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
+import { urlKey } from '../../src/lib/ioc-normalize';
+import { rememberUrls } from '../../src/lib/iocs';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
 import { adminRoutes } from '../../src/routes/admin';
@@ -325,6 +327,42 @@ async function main() {
     (await get('/api/iocs/domain/mal.example.com', cBob)).total === 0,
   );
   ok('analista vê o relatório', (await get('/api/iocs/domain/mal.example.com', cAna)).total === 1);
+  // URL pela chave (item 166): a de uma amostra alheia responde como desconhecida.
+  const secretUrl = 'https://files.example.net/secret-1/token';
+  const ownUrl = 'https://files.example.net/da-bob';
+  const typedUrl = 'https://digitada.example.org/x';
+  await rememberUrls(prisma, [
+    { kind: 'URL', value: secretUrl },
+    { kind: 'URL', value: ownUrl },
+  ]);
+  await prisma.entry.update({
+    where: { id: secret.id },
+    data: { staticInfo: { iocCandidates: [{ kind: 'URL', value: secretUrl }] } },
+  });
+  await prisma.entry.update({
+    where: { id: mine.id },
+    data: { staticInfo: { iocCandidates: [{ kind: 'URL', value: ownUrl }] } },
+  });
+  const byKey = (url: string, c: string) => req('GET', `/api/iocs/url/${urlKey(url)}`, c);
+  const unknown = await req('GET', `/api/iocs/url/${'1'.repeat(64)}`, cBob);
+  const foreign = await byKey(secretUrl, cBob);
+  ok(
+    'URL de amostra alheia: mesmo 404 da desconhecida',
+    foreign.statusCode === 404 && foreign.body === unknown.body,
+    foreign.body,
+  );
+  ok(
+    'seguir a URL alheia pela chave também não',
+    (await req('POST', `/api/iocs/url/${urlKey(secretUrl)}/watch`, cBob)).statusCode === 404,
+  );
+  ok('URL da própria amostra abre', (await byKey(ownUrl, cBob)).statusCode === 200);
+  ok('analista abre a URL alheia', (await byKey(secretUrl, cAna)).statusCode === 200);
+  const resolved = await req('POST', '/api/iocs/resolve', cBob, { text: typedUrl });
+  ok(
+    '"Ir para" abre a URL digitada',
+    resolved.statusCode === 200 && (await byKey(typedUrl, cBob)).statusCode === 200,
+    resolved.body,
+  );
   const related = await get(`/api/entries/${mine.id}/related`, cBob);
   ok(
     'relacionadas só com as próprias',

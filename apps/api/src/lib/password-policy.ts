@@ -12,10 +12,16 @@ import { env } from '../env';
 /** Caractere especial: o que nao e letra (inclusive acentuada), numero nem espaco. */
 const SPECIAL = /[^\p{L}\p{N}\s]/u;
 
+/** O bcrypt so usa os primeiros 72 bytes: o que viesse depois seria ignorado no login. */
+export const MAX_PASSWORD_BYTES = 72;
+
 export const passwordField = z
   .string()
   .min(8)
-  .max(200)
+  .refine(
+    (s) => Buffer.byteLength(s, 'utf8') <= MAX_PASSWORD_BYTES,
+    `no máximo ${MAX_PASSWORD_BYTES} bytes (acentos contam 2)`,
+  )
   .regex(/\d/, 'inclua ao menos um número')
   .regex(SPECIAL, 'inclua ao menos um caractere especial');
 

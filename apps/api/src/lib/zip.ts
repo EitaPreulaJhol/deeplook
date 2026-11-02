@@ -1,5 +1,5 @@
 import { createCipheriv, createHmac, pbkdf2Sync, timingSafeEqual } from 'node:crypto';
-import { crc32, inflateRawSync } from 'node:zlib';
+import { crc32, createInflateRaw, inflateRawSync } from 'node:zlib';
 
 /**
  * Leitor de .zip para o envio em lote (pacote com senha "infected"). So lista e
@@ -142,7 +142,18 @@ const CRC_TABLE = (() => {
 
 const crcByte = (crc: number, b: number) => (CRC_TABLE[(crc ^ b) & 0xff] ^ (crc >>> 8)) >>> 0;
 
-function zipCryptoDecrypt(data: Buffer, password: string, check: number): Buffer {
+/**
+ * Trabalho pesado em fatias: entre uma e outra o gerador pausa (`yield`) e a versao
+ * assincrona devolve a vez a outras requisicoes. Um pacote de poucos KB declarando
+ * 200 MB segurava a thread principal enquanto descompactava.
+ */
+const SLICE = 8 * 1024 * 1024;
+
+/** Pedido de descompactacao feito pelo gerador: quem o conduz escolhe sincrono ou nao. */
+type Inflate = { data: Buffer; max: number };
+type Steps<T> = Generator<Inflate | undefined, T, Buffer | undefined>;
+
+function* zipCryptoDecrypt(data: Buffer, password: string, check: number): Steps<Buffer> {
   let k0 = 0x12345678;
   let k1 = 0x23456789;
   let k2 = 0x34567890;
@@ -154,6 +165,7 @@ function zipCryptoDecrypt(data: Buffer, password: string, check: number): Buffer
   for (const c of Buffer.from(password, 'utf8')) update(c);
   const out = Buffer.allocUnsafe(data.length);
   for (let i = 0; i < data.length; i++) {
+    if (i && i % SLICE === 0) yield;
     const t = (k2 | 2) & 0xffff;
     const c = data[i] ^ (((t * (t ^ 1)) >>> 8) & 0xff);
     out[i] = c;
@@ -169,7 +181,7 @@ function zipCryptoDecrypt(data: Buffer, password: string, check: number): Buffer
 
 // ---- AES do WinZip (AE-1/AE-2) ----
 
-function aesDecrypt(data: Buffer, password: string, strength: number): Buffer {
+function* aesDecrypt(data: Buffer, password: string, strength: number): Steps<Buffer> {
   const keyLen = { 1: 16, 2: 24, 3: 32 }[strength];
   if (!keyLen) throw new ZipError('UNSUPPORTED', 'Criptografia AES desconhecida no .zip.');
   const saltLen = keyLen / 2;
@@ -185,38 +197,47 @@ function aesDecrypt(data: Buffer, password: string, strength: number): Buffer {
   if (!timingSafeEqual(derived.subarray(keyLen * 2), verifier)) {
     throw new ZipError('BAD_PASSWORD', 'Senha incorreta para o .zip.');
   }
-  const expected = createHmac('sha1', authKey).update(body).digest().subarray(0, 10);
+  const hmac = createHmac('sha1', authKey);
+  for (let i = 0; i < body.length; i += SLICE) {
+    hmac.update(body.subarray(i, i + SLICE));
+    yield;
+  }
+  const expected = hmac.digest().subarray(0, 10);
   if (!timingSafeEqual(expected, mac)) {
     throw new ZipError('CORRUPT', 'O conteúdo do .zip foi alterado (falha na autenticação AES).');
   }
 
-  // CTR com contador little-endian comecando em 1 (diferente do CTR padrao).
-  const blocks = Math.ceil(body.length / 16);
-  const counters = Buffer.alloc(blocks * 16);
-  for (let i = 0; i < blocks; i++) {
-    let n = i + 1;
-    for (let b = 0; b < 8 && n > 0; b++) {
-      counters[i * 16 + b] = n % 256;
-      n = Math.floor(n / 256);
-    }
-  }
+  // CTR com contador little-endian comecando em 1 (diferente do CTR padrao). Em ECB
+  // cada bloco e independente: a fatia (multiplo de 16) cifra os contadores dela.
   const cipher = createCipheriv(`aes-${keyLen * 8}-ecb`, encKey, null).setAutoPadding(false);
-  const stream = Buffer.concat([cipher.update(counters), cipher.final()]);
   const out = Buffer.allocUnsafe(body.length);
-  for (let i = 0; i < body.length; i++) out[i] = body[i] ^ stream[i];
+  for (let from = 0; from < body.length; from += SLICE) {
+    const part = body.subarray(from, from + SLICE);
+    const first = from / 16;
+    const blocks = Math.ceil(part.length / 16);
+    const counters = Buffer.alloc(blocks * 16);
+    for (let i = 0; i < blocks; i++) {
+      let n = first + i + 1;
+      for (let b = 0; b < 8 && n > 0; b++) {
+        counters[i * 16 + b] = n % 256;
+        n = Math.floor(n / 256);
+      }
+    }
+    const stream = cipher.update(counters);
+    for (let i = 0; i < part.length; i++) out[from + i] = part[i] ^ stream[i];
+    yield;
+  }
+  cipher.final();
   return out;
 }
 
-/**
- * Extrai uma entrada para a memoria, conferindo senha, tamanho e CRC.
- * `maxSize` barra zip bomb: a descompressao para ao passar do limite.
- */
-export function extractZipEntry(
+/** Extracao em passos (ver SLICE); `extractZipEntry` e `extractZipEntryAsync` conduzem. */
+function* extractSteps(
   buf: Buffer,
   entry: ZipEntry,
   password: string,
   maxSize: number,
-): Buffer {
+): Steps<Buffer> {
   if (entry.flags & 0x40) {
     throw new ZipError('UNSUPPORTED', 'Criptografia forte da PKWARE não é suportada.');
   }
@@ -238,12 +259,12 @@ export function extractZipEntry(
     if (!password) throw new ZipError('BAD_PASSWORD', 'O .zip tem senha: informe a senha.');
     if (method === 99) {
       if (!entry.aes) throw new ZipError('CORRUPT', 'O .zip está corrompido (AES sem parâmetros).');
-      data = aesDecrypt(data, password, entry.aes.strength);
+      data = yield* aesDecrypt(data, password, entry.aes.strength);
       method = entry.aes.method;
     } else {
       // Com o bit 3 (descritor de dados), o byte de conferencia vem da hora.
       const check = entry.flags & 0x8 ? (entry.time >>> 8) & 0xff : entry.crc >>> 24;
-      data = zipCryptoDecrypt(data, password, check);
+      data = yield* zipCryptoDecrypt(data, password, check);
     }
   }
 
@@ -253,7 +274,7 @@ export function extractZipEntry(
   } else if (method === 8) {
     try {
       // Para no tamanho declarado: quem declara pouco nao descompacta ate `maxSize`.
-      out = inflateRawSync(data, { maxOutputLength: Math.max(1, entry.size) });
+      out = (yield { data, max: Math.max(1, entry.size) }) as Buffer;
     } catch (err) {
       if (!entry.encrypted && (err as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') {
         throw new ZipError('CORRUPT', 'O .zip está corrompido (tamanho não confere).');
@@ -271,14 +292,110 @@ export function extractZipEntry(
     throw new ZipError('CORRUPT', 'O .zip está corrompido (tamanho não confere).');
   }
   // AE-2 grava CRC 0 de proposito (a autenticacao HMAC ja cobre o conteudo).
-  const skipCrc = entry.aes?.version === 2;
-  if (!skipCrc && crc32(out) >>> 0 !== entry.crc) {
-    throw new ZipError(
-      entry.encrypted ? 'BAD_PASSWORD' : 'CORRUPT',
-      entry.encrypted
-        ? 'Senha incorreta para o .zip.'
-        : 'O .zip está corrompido (CRC não confere).',
-    );
+  if (entry.aes?.version !== 2) {
+    let crc = 0;
+    for (let i = 0; i < out.length; i += SLICE) {
+      crc = crc32(out.subarray(i, i + SLICE), crc);
+      yield;
+    }
+    if (crc >>> 0 !== entry.crc) {
+      throw new ZipError(
+        entry.encrypted ? 'BAD_PASSWORD' : 'CORRUPT',
+        entry.encrypted
+          ? 'Senha incorreta para o .zip.'
+          : 'O .zip está corrompido (CRC não confere).',
+      );
+    }
   }
   return out;
+}
+
+/**
+ * Extrai uma entrada para a memoria, conferindo senha, tamanho e CRC.
+ * `maxSize` barra zip bomb: a descompressao para ao passar do limite.
+ * Sincrona: para a thread de analise e para o que ja roda fora das requisicoes.
+ */
+export function extractZipEntry(
+  buf: Buffer,
+  entry: ZipEntry,
+  password: string,
+  maxSize: number,
+): Buffer {
+  const steps = extractSteps(buf, entry, password, maxSize);
+  let step = steps.next();
+  while (!step.done) {
+    const req = step.value;
+    if (!req) {
+      step = steps.next();
+      continue;
+    }
+    let out: Buffer;
+    try {
+      out = inflateRawSync(req.data, { maxOutputLength: req.max });
+    } catch (err) {
+      step = steps.throw(err);
+      continue;
+    }
+    step = steps.next(out);
+  }
+  return step.value;
+}
+
+/**
+ * Descompacta no pool do libuv, copiando cada pedaco para um buffer do tamanho declarado
+ * (o inflateRaw assincrono junta tudo no fim, numa copia unica que trava a thread). Mais
+ * que `max` da o mesmo erro do inflateRawSync.
+ */
+function inflateRawAsync(data: Buffer, max: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const out = Buffer.allocUnsafe(max);
+    let filled = 0;
+    const z = createInflateRaw({ chunkSize: 256 * 1024 });
+    z.on('data', (chunk: Buffer) => {
+      if (filled + chunk.length > max) {
+        z.destroy();
+        reject(
+          Object.assign(new Error('saída maior que o declarado'), { code: 'ERR_BUFFER_TOO_LARGE' }),
+        );
+        return;
+      }
+      chunk.copy(out, filled);
+      filled += chunk.length;
+    });
+    z.on('error', reject);
+    z.on('end', () => resolve(out.subarray(0, filled)));
+    z.end(data);
+  });
+}
+const pause = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+/**
+ * O mesmo que `extractZipEntry`, sem segurar a thread principal: a descompactacao vai
+ * para o pool do libuv e o resto pausa entre as fatias. Para as rotas da API.
+ */
+export async function extractZipEntryAsync(
+  buf: Buffer,
+  entry: ZipEntry,
+  password: string,
+  maxSize: number,
+): Promise<Buffer> {
+  const steps = extractSteps(buf, entry, password, maxSize);
+  let step = steps.next();
+  while (!step.done) {
+    const req = step.value;
+    if (!req) {
+      await pause();
+      step = steps.next();
+      continue;
+    }
+    let out: Buffer;
+    try {
+      out = await inflateRawAsync(req.data, req.max);
+    } catch (err) {
+      step = steps.throw(err);
+      continue;
+    }
+    step = steps.next(out);
+  }
+  return step.value;
 }

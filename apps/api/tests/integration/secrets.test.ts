@@ -77,6 +77,22 @@ async function main() {
   });
   seed(vars);
   ok('admin existente com a senha padrão troca', await must());
+  const rotated = await prisma.user.findUniqueOrThrow({ where: { email: 'a@x.io' } });
+  ok(
+    'senha padrão vira a do ADMIN_PASSWORD',
+    (await bcrypt.compare('Senha-Do-Env-1', rotated.passwordHash)) &&
+      !(await bcrypt.compare('admin12345', rotated.passwordHash)),
+  );
+  await prisma.user.update({
+    where: { email: 'a@x.io' },
+    data: { passwordHash: await bcrypt.hash('admin12345', 4), mustChangePassword: false },
+  });
+  seed({ ...vars, ADMIN_PASSWORD: 'admin12345' });
+  const kept = await prisma.user.findUniqueOrThrow({ where: { email: 'a@x.io' } });
+  ok(
+    'sem senha própria no .env, a padrão fica (com troca obrigatória)',
+    kept.mustChangePassword && (await bcrypt.compare('admin12345', kept.passwordHash)),
+  );
 
   // 3. Status do sistema (esta rodada usa a senha de teste do banco e a do MinIO de teste).
   ok(

@@ -1,7 +1,8 @@
 /**
  * Politica de senha (item 51), igual a da API (src/lib/password-policy.ts):
  * minimo de 8 caracteres, com ao menos um numero e um caractere especial (o que
- * nao e letra, inclusive acentuada, numero nem espaco).
+ * nao e letra, inclusive acentuada, numero nem espaco), e no maximo 72 bytes (o
+ * bcrypt ignora o resto).
  */
 export const PASSWORD_HELP =
   'Mínimo de 8 caracteres, com ao menos um número e um caractere especial.';
@@ -11,6 +12,9 @@ const SPECIAL = /[^\p{L}\p{N}\s]/u;
 /** Primeiro problema da senha, ou null se ela segue a regra. */
 export function passwordProblem(password: string): string | null {
   if (password.length < 8) return 'mínimo de 8 caracteres';
+  if (new TextEncoder().encode(password).length > 72) {
+    return 'no máximo 72 bytes (acentos contam 2)';
+  }
   if (!/\d/.test(password)) return 'inclua ao menos um número';
   if (!SPECIAL.test(password)) return 'inclua ao menos um caractere especial';
   return null;

@@ -108,6 +108,7 @@ model User {
   apiTokens         ApiToken[]
   recoveryCodes     TwoFactorRecoveryCode[]
   iocWatches        IocWatch[]
+  iocUrlLookups     IocUrlLookup[]
   yaraRules         YaraRule[]              @relation("YaraRuleAuthor")
   yaraRulesEdited   YaraRule[]              @relation("YaraRuleEditor")
   teamViews         TeamView[]
@@ -598,6 +599,18 @@ model IocUrl {
   key       String   @id
   value     String
   createdAt DateTime @default(now())
+}
+
+/// URL que a pessoa digitou no "Ir para" (POST /api/iocs/resolve). Com "so as proprias
+/// amostras" ligado, a ficha pela chave so abre para quem tem a URL em algo visivel ou a
+/// digitou; para os outros, a chave conhecida responderia o mesmo 404 da desconhecida.
+model IocUrlLookup {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  createdAt DateTime @default(now())
+
+  @@id([userId, key])
 }
 
 /// IOCs normalizados dos relatorios publicados (src/lib/iocs.ts): base do motivo

@@ -44,7 +44,7 @@ import { uploadGate } from '../lib/upload-gate';
 import { sendValidationError } from '../lib/validation';
 import { yaraScanInBackground } from '../lib/yara';
 import type { ZipEntry } from '../lib/zip';
-import { extractZipEntry, listZip, ZipError } from '../lib/zip';
+import { extractZipEntryAsync, listZip, ZipError } from '../lib/zip';
 import { reviewRequired } from './reports';
 
 /**
@@ -1143,7 +1143,10 @@ export async function entryRoutes(app: FastifyInstance) {
   // Envio em lote por .zip (ex.: pacote de malware com a senha "infected"):
   // cada arquivo de dentro vira uma amostra, com a mesma descricao e as mesmas
   // tags. O pacote e aberto so na memoria, nunca no disco nem executado.
-  app.post('/api/entries/zip', async (req, reply) => {
+  // Entrada que falha nao gasta cota, mas custa a descompactacao: pacotes por sessao
+  // tambem tem limite.
+  const zipLimit = attemptLimit(sessionKey('zip'), { max: 20 });
+  app.post('/api/entries/zip', { config: zipLimit }, async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
     const quota = await checkQuota(user, reply);
@@ -1229,7 +1232,7 @@ export async function entryRoutes(app: FastifyInstance) {
       total += cost;
       let buffer: Buffer;
       try {
-        buffer = extractZipEntry(upload.buffer, file, password, ZIP_MAX_FILE_BYTES());
+        buffer = await extractZipEntryAsync(upload.buffer, file, password, ZIP_MAX_FILE_BYTES());
       } catch (err) {
         if (!(err instanceof ZipError)) throw err;
         if (err.code === 'BAD_PASSWORD') passwordError ??= err.message;

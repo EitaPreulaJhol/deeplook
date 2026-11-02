@@ -79,7 +79,10 @@ O **admin** é criado automaticamente no primeiro boot a partir das variáveis
 `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME`.
 
 1. Entre em **/login** com essas credenciais e defina uma senha nova, pedida no primeiro
-   acesso.
+   acesso. Em produção, o login com as senhas padrão publicadas (`admin12345`,
+   `change-me-admin-password`) é recusado, porque qualquer um que as conheça trocaria a senha
+   antes de você: defina `ADMIN_PASSWORD` no `.env` e reinicie (o seed troca a senha padrão
+   pela do `.env`).
 2. Vá em **Administração → Chaves de ativação** e **gere uma chave**.
 3. Compartilhe a chave com o amigo — ele se cadastra em **/register**
    informando a chave (o cadastro só é possível com uma chave válida).
@@ -110,7 +113,8 @@ na Auditoria. Vale também para o token de API.
 ## Política de senha
 
 - **Formato:** mínimo de 8 caracteres, com ao menos um número e um caractere especial
-  (o que não é letra, inclusive acentuada, número nem espaço). Vale no cadastro, em
+  (o que não é letra, inclusive acentuada, número nem espaço), e no máximo 72 bytes (o
+  bcrypt ignora o que vem depois; acentos contam 2). Vale no cadastro, em
   Alterar senha e na tela "Definir nova senha"; senhas antigas fora da regra continuam
   valendo até a próxima troca.
 - **Validade:** 90 dias desde a última troca (`PASSWORD_MAX_AGE_DAYS`; `0` desliga).
@@ -494,8 +498,8 @@ COOKIE_SECURE=true
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN` padrão (só para demonstração local) | `false` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |

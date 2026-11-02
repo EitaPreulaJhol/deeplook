@@ -107,14 +107,60 @@ function decodeEntities(text: string): string {
   });
 }
 
+/**
+ * Tira os blocos script/style/head (abertura ate o fechamento do mesmo nome). Em
+ * tempo linear: a regex com `[\s\S]*?<\/\1>` varria ate o fim a cada abertura sem
+ * fechamento, e milhares delas num .eml travavam a API.
+ */
+function dropSkipBlocks(html: string): string {
+  const open = /<(script|style|head)\b/gi;
+  // Tipo sem fechamento daqui em diante: nao adianta procurar de novo.
+  const unclosed = new Set<string>();
+  let out = '';
+  let copied = 0;
+  let gt = -1;
+  for (let m = open.exec(html); m; m = open.exec(html)) {
+    const name = m[1].toLowerCase();
+    if (unclosed.has(name)) continue;
+    // Fim da abertura: o primeiro '>' depois dela (reaproveitado se ainda vale).
+    if (gt < m.index) gt = html.indexOf('>', m.index);
+    if (gt < 0) break;
+    const close = new RegExp(`</${name}\\s*>`, 'gi');
+    close.lastIndex = gt + 1;
+    if (!close.exec(html)) {
+      unclosed.add(name);
+      continue;
+    }
+    out += `${html.slice(copied, m.index)} `;
+    copied = close.lastIndex;
+    open.lastIndex = copied;
+  }
+  return out + html.slice(copied);
+}
+
+/** Troca cada tag `<...>` por um espaco; um '<' sem '>' depois fica como texto. */
+function stripTags(html: string): string {
+  let out = '';
+  let pos = 0;
+  for (;;) {
+    const lt = html.indexOf('<', pos);
+    if (lt < 0) break;
+    const gt = html.indexOf('>', lt + 1);
+    if (gt < 0) break;
+    out += `${html.slice(pos, lt)} `;
+    pos = gt + 1;
+  }
+  return out + html.slice(pos);
+}
+
 /** HTML -> texto (sem executar nada): tira script/style, quebra blocos, remove tags. */
 export function htmlToText(html: string): string {
   return decodeEntities(
-    html
-      .replace(/<(script|style|head)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote)\s*>/gi, '\n')
-      .replace(/<[^>]*>/g, ' '),
+    stripTags(
+      dropSkipBlocks(html)
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote)\s*>/gi, '\n'),
+    ),
   )
     .replace(/[ \t\u00a0]+/g, ' ')
     .replace(/ *\n */g, '\n')

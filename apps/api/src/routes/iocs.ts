@@ -3,9 +3,16 @@ import { z } from 'zod';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { isAnalyst, ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
+import {
+  isAnalyst,
+  ownerForViewer,
+  type PublicUser,
+  requireUser,
+  visibleEntries,
+} from '../lib/auth';
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
+import { urlKey } from '../lib/ioc-normalize';
 import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
 import { extractIocs, refang, rememberUrls } from '../lib/iocs';
 import { prisma } from '../lib/prisma';
@@ -185,24 +192,57 @@ export async function iocRoutes(app: FastifyInstance) {
     const single = !/\s/.test(refang(text));
     const ioc = (single && iocs.find((i) => i.kind === 'URL')) || iocs[0];
     if (!ioc) return reply.code(404).send({ error: 'Não é um indicador reconhecido.' });
-    if (ioc.kind === 'URL') await rememberUrls(prisma, [ioc]);
+    if (ioc.kind === 'URL') {
+      await rememberUrls(prisma, [ioc]);
+      // Quem digitou a URL abre a ficha dela mesmo com a restricao (ver urlVisible).
+      await prisma.iocUrlLookup.upsert({
+        where: { userId_key: { userId: user.id, key: urlKey(ioc.value) } },
+        create: { userId: user.id, key: urlKey(ioc.value) },
+        update: {},
+      });
+    }
     return reply.send({ ioc });
   });
 
   /**
-   * Indicador do endereco (mesma validacao da ficha). A URL vem pela chave (item 166),
-   * e o valor sai da tabela IocUrl: 'missing' quando a chave nao e conhecida.
+   * Com "so as proprias amostras" (item 140), a tabela IocUrl e de todos: responder pela
+   * chave confirmaria que a URL apareceu na amostra de outra pessoa (e devolveria o valor).
+   * O usuario comum so abre a URL que esta em algo dele, que ele segue ou que digitou.
    */
-  const parseIoc = async (params: {
-    kind: string;
-    value: string;
-  }): Promise<{ kind: IocKind; value: string } | null | 'missing'> => {
+  const urlVisible = async (user: PublicUser, key: string, value: string) => {
+    const { ownerId } = await visibleEntries(user);
+    if (!ownerId) return true;
+    const checks = await Promise.all([
+      prisma.iocUrlLookup.count({ where: { userId: user.id, key } }),
+      prisma.iocWatch.count({ where: { userId: user.id, kind: 'URL', value } }),
+      prisma.entry.count({ where: { ownerId, urlKey: key } }),
+      prisma.reportIoc.count({ where: { kind: 'URL', value, entry: { ownerId } } }),
+      prisma.entry.count({
+        where: {
+          ownerId,
+          staticInfo: { path: ['iocCandidates'], array_contains: [{ kind: 'URL', value }] },
+        },
+      }),
+    ]);
+    return checks.some(Boolean);
+  };
+
+  /**
+   * Indicador do endereco (mesma validacao da ficha). A URL vem pela chave (item 166),
+   * e o valor sai da tabela IocUrl: 'missing' quando a chave nao e conhecida (ou, com a
+   * restricao, nao e de quem pergunta: a mesma resposta).
+   */
+  const parseIoc = async (
+    params: { kind: string; value: string },
+    user: PublicUser,
+  ): Promise<{ kind: IocKind; value: string } | null | 'missing'> => {
     const kind = KINDS[params.kind.toLowerCase()];
     if (kind === 'URL') {
       const key = params.value.trim().toLowerCase();
       if (!/^[a-f0-9]{64}$/.test(key)) return null;
       const known = await prisma.iocUrl.findUnique({ where: { key } });
-      return known ? { kind, value: known.value } : 'missing';
+      if (!known || !(await urlVisible(user, key, known.value))) return 'missing';
+      return { kind, value: known.value };
     }
     const value = params.value.trim().toLowerCase();
     const valid = kind && extractIocs(value).some((i) => i.kind === kind && i.value === value);
@@ -214,7 +254,7 @@ export async function iocRoutes(app: FastifyInstance) {
   app.post('/api/iocs/:kind/:value/watch', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    const ioc = await parseIoc(req.params as { kind: string; value: string });
+    const ioc = await parseIoc(req.params as { kind: string; value: string }, user);
     if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
     if (ioc === 'missing') return reply.code(404).send({ error: MISSING });
     const count = await prisma.iocWatch.count({ where: { userId: user.id } });
@@ -234,7 +274,7 @@ export async function iocRoutes(app: FastifyInstance) {
   app.delete('/api/iocs/:kind/:value/watch', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
-    const ioc = await parseIoc(req.params as { kind: string; value: string });
+    const ioc = await parseIoc(req.params as { kind: string; value: string }, user);
     if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
     if (ioc === 'missing') return reply.code(404).send({ error: MISSING });
     await prisma.iocWatch.deleteMany({ where: { userId: user.id, ...ioc } });
@@ -256,7 +296,7 @@ export async function iocRoutes(app: FastifyInstance) {
     const user = await requireUser(req, reply);
     if (!user) return;
     // So indicadores que a extracao reconhece (evita fichas para lixo/IP privado).
-    const ioc = await parseIoc(req.params as { kind: string; value: string });
+    const ioc = await parseIoc(req.params as { kind: string; value: string }, user);
     if (!ioc) return reply.code(400).send({ error: 'Indicador inválido.' });
     if (ioc === 'missing') return reply.code(404).send({ error: MISSING });
     const { kind, value } = ioc;

@@ -171,20 +171,34 @@ const sign = (payload: string) =>
     .update(payload)
     .digest('base64url');
 
-/** Token assinado "userId.expira.assinatura" entregue depois da senha certa. */
-export function newChallenge(userId: string, now = Date.now()): string {
-  const payload = `${userId}.${now + CHALLENGE_MS}`;
+/**
+ * Marca da senha conferida (do hash, nunca a senha): o desafio de antes de uma troca
+ * de senha nao vira sessao depois dela.
+ */
+export const credentialMark = (passwordHash: string) =>
+  crypto
+    .createHash('sha256')
+    .update(`deeplook-credential:${passwordHash}`)
+    .digest('base64url')
+    .slice(0, 22);
+
+/** Token assinado "userId.marca.expira.assinatura" entregue depois da senha certa. */
+export function newChallenge(userId: string, passwordHash: string, now = Date.now()): string {
+  const payload = `${userId}.${credentialMark(passwordHash)}.${now + CHALLENGE_MS}`;
   return `${payload}.${sign(payload)}`;
 }
 
-/** userId do desafio, ou null se adulterado ou vencido. */
-export function readChallenge(token: string, now = Date.now()): string | null {
+/** Conta e marca da senha do desafio, ou null se adulterado ou vencido. */
+export function readChallenge(
+  token: string,
+  now = Date.now(),
+): { userId: string; mark: string } | null {
   const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [userId, exp, signature] = parts;
-  const expected = sign(`${userId}.${exp}`);
+  if (parts.length !== 4) return null;
+  const [userId, mark, exp, signature] = parts;
+  const expected = sign(`${userId}.${mark}.${exp}`);
   if (signature.length !== expected.length) return null;
   if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   if (!/^\d+$/.test(exp) || Number(exp) < now) return null;
-  return userId;
+  return { userId, mark };
 }

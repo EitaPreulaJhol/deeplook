@@ -12,7 +12,7 @@ const SCENARIOS = join(APPS, '..', 'scripts', 'ui-playwright');
 const NET = 'dl-smoke-net';
 const CONTAINERS = ['dl-smoke-web', 'dl-smoke-api', 'dl-smoke-pg', 'dl-smoke-minio'];
 const PLAYWRIGHT = '1.64.1';
-const ADMIN = { email: 'adm@x.io', password: 'admin12345' };
+const ADMIN = { email: 'adm@x.io', password: 'Senha-Inicial-77!' };
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });

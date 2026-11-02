@@ -11,9 +11,10 @@ import { ldapAccountsGone, ldapAuthenticate, ldapConfig, sameDn } from '../lib/l
 import { passwordField, passwordState } from '../lib/password-policy';
 import { resolvePreferences } from '../lib/preferences';
 import { isUniqueViolation, prisma } from '../lib/prisma';
+import { PUBLIC_ADMIN_PASSWORDS } from '../lib/public-defaults';
 import { attemptLimit, FailureWindow } from '../lib/rate-limit';
 import { closeSessionsOf } from '../lib/sandbox';
-import { newChallenge, readChallenge } from '../lib/two-factor';
+import { credentialMark, newChallenge, readChallenge } from '../lib/two-factor';
 import { sendValidationError } from '../lib/validation';
 import { checkSecondFactor } from './two-factor';
 
@@ -71,6 +72,12 @@ function publicUser(u: {
     preferences: resolvePreferences(u.preferences),
   };
 }
+
+/** Fora de producao, ou com ALLOW_INSECURE_DEFAULTS=true (demonstracao), a senha padrao entra. */
+const publicPasswordRefused = (password: string) =>
+  env.NODE_ENV === 'production' &&
+  env.ALLOW_INSECURE_DEFAULTS !== 'true' &&
+  PUBLIC_ADMIN_PASSWORDS.includes(password);
 
 /** Pausa que separa duas visitas: abrir o app depois disso conta como nova visita. */
 const VISIT_GAP_MS = 30 * 60 * 1000;
@@ -160,7 +167,9 @@ export async function authRoutes(app: FastifyInstance) {
     }
     if (user instanceof Error) return reply.code(409).send({ error: 'E-mail já cadastrado.' });
 
-    await createSession(reply, user.id, req);
+    if (!(await createSession(reply, user, req))) {
+      return reply.code(409).send({ error: 'A conta mudou durante o cadastro. Entre novamente.' });
+    }
     return reply.code(201).send({ user: publicUser(user) });
   });
 
@@ -348,6 +357,18 @@ export async function authRoutes(app: FastifyInstance) {
         await loginFailed(req, normalized, local.id, 'conta suspensa');
         return reply.code(403).send({ error: 'Conta suspensa.' });
       }
+      // Senha padrao do admin (publica): quem chegasse primeiro trocaria a senha e ficaria
+      // com o admin. Em producao so entra depois de o .env trazer uma senha propria.
+      if (publicPasswordRefused(password)) {
+        await loginFailed(req, normalized, local.id, 'senha padrão pública');
+        return reply.code(403).send({
+          error:
+            'Esta conta usa a senha padrão, que é pública, e o login com ela está bloqueado. ' +
+            'Defina ADMIN_PASSWORD no .env e reinicie a API (o admin entra com ela e define ' +
+            'outra no primeiro acesso), ou peça a outro administrador para redefinir a senha.',
+          code: 'PUBLIC_DEFAULT_PASSWORD',
+        });
+      }
     } else if (ldapConfig()) {
       // AD (item 94): sem conta local, ou conta do AD. A mesma mensagem para tudo.
       const result = await ldapAuthenticate(email, password);
@@ -381,10 +402,17 @@ export async function authRoutes(app: FastifyInstance) {
 
     // 2FA: a senha esta certa, mas a sessao so nasce depois do codigo.
     if (user.twoFactorEnabledAt) {
-      return reply.send({ twoFactorRequired: true, challenge: newChallenge(user.id) });
+      return reply.send({
+        twoFactorRequired: true,
+        challenge: newChallenge(user.id, user.passwordHash),
+      });
     }
 
-    await createSession(reply, user.id, req);
+    // A senha mudou enquanto esta era conferida: a senha usada ja nao vale.
+    if (!(await createSession(reply, user, req))) {
+      await loginFailed(req, normalized, user.id, 'senha trocada durante o login');
+      return reply.code(401).send({ error: 'Credenciais inválidas.' });
+    }
     rememberDevice(reply, user.id);
     return reply.send({ user: publicUser(user) });
   });
@@ -393,12 +421,13 @@ export async function authRoutes(app: FastifyInstance) {
   const twoFactorLimit = attemptLimit(
     (req) => {
       const challenge = (req.body as { challenge?: unknown } | undefined)?.challenge;
-      return `2fa:${typeof challenge === 'string' ? (readChallenge(challenge) ?? '-') : '-'}`;
+      return `2fa:${typeof challenge === 'string' ? (readChallenge(challenge)?.userId ?? '-') : '-'}`;
     },
     {
       onExceeded: (req) => {
         const challenge = (req.body as { challenge?: unknown } | undefined)?.challenge;
-        const userId = typeof challenge === 'string' ? readChallenge(challenge) : null;
+        const userId =
+          typeof challenge === 'string' ? (readChallenge(challenge)?.userId ?? null) : null;
         void audit(prisma, req, {
           action: 'LOGIN_LOCKED',
           actorId: null,
@@ -412,12 +441,18 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login/2fa', { config: twoFactorLimit }, async (req, reply) => {
     const parsed = TwoFactorSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Dados inválidos.' });
-    const userId = readChallenge(parsed.data.challenge);
-    if (!userId) {
+    const challenge = readChallenge(parsed.data.challenge);
+    if (!challenge) {
       return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
     }
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.status !== 'ACTIVE' || !user.twoFactorEnabledAt) {
+    const user = await prisma.user.findUnique({ where: { id: challenge.userId } });
+    // Senha trocada depois do desafio: a etapa da senha precisa ser refeita.
+    if (
+      !user ||
+      user.status !== 'ACTIVE' ||
+      !user.twoFactorEnabledAt ||
+      credentialMark(user.passwordHash) !== challenge.mark
+    ) {
       return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
     }
     const factor = await checkSecondFactor(prisma, user.id, parsed.data.code);
@@ -443,7 +478,9 @@ export async function authRoutes(app: FastifyInstance) {
         detail: `login com código de recuperação · restam ${factor.remaining}`,
       });
     }
-    await createSession(reply, user.id, req);
+    if (!(await createSession(reply, user, req))) {
+      return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
+    }
     rememberDevice(reply, user.id);
     return reply.send({ user: publicUser(user), recoveryRemaining: factor.remaining ?? null });
   });

@@ -210,7 +210,31 @@ async function main() {
     (await count('BROADCAST_PUBLISHED')) === 1 && (await count('BROADCAST_ENDED')) === 1,
   );
 
-  // 9. Status avisa o cookie (item 115).
+  // 9. Senha padrao do admin (publica): em producao nao entra.
+  await mk('padrao@x.io', { role: 'ADMIN', passwordHash: await hashPassword('admin12345') });
+  const nodeEnv = env.NODE_ENV;
+  env.NODE_ENV = 'production';
+  const blocked = await login('padrao@x.io', 'admin12345', '10.9.0.1');
+  ok(
+    'senha padrão pública recusada em produção',
+    blocked.statusCode === 403 &&
+      blocked.json().code === 'PUBLIC_DEFAULT_PASSWORD' &&
+      !String(blocked.headers['set-cookie'] ?? '').includes('dl_session='),
+    blocked.json(),
+  );
+  env.ALLOW_INSECURE_DEFAULTS = 'true';
+  ok(
+    'demonstração (ALLOW_INSECURE_DEFAULTS) entra',
+    (await login('padrao@x.io', 'admin12345', '10.9.0.2')).statusCode === 200,
+  );
+  env.ALLOW_INSECURE_DEFAULTS = 'false';
+  env.NODE_ENV = nodeEnv;
+  ok(
+    'fora de produção entra',
+    (await login('padrao@x.io', 'admin12345', '10.9.0.3')).statusCode === 200,
+  );
+
+  // 10. Status avisa o cookie (item 115).
   ok(
     'status avisa COOKIE_SECURE',
     insecureDefaults().some((i) => i.includes('COOKIE_SECURE')),

@@ -144,8 +144,8 @@ export async function meRoutes(app: FastifyInstance) {
       });
     });
 
-    if (forced) {
-      await createSession(reply, user.id, req);
+    // Outra troca logo depois desta tambem derruba esta sessao: entra de novo.
+    if (forced && (await createSession(reply, { id: user.id, passwordHash }, req))) {
       return reply.send({ ok: true, signedIn: true });
     }
     reply.clearCookie(SESSION_COOKIE, { path: '/' });
