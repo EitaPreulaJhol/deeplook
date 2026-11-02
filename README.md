@@ -3,7 +3,7 @@
 Ferramenta self-hosted (homelab) para que amigos e especialistas em segurança
 centralizem **amostras de software e links suspeitos** encontrados na web,
 com **triagem e relatórios** feitos pelos analistas.
-
+ 
 Expõe-se à internet via **Cloudflare Tunnel rodando no host (fora do Docker)**.
 
 Créditos especiais ao [Dudu](https://github.com/lluiseduardo-silva) na qual forneceu
@@ -23,15 +23,15 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
                     │ 127.0.0.1:8080 (publicado apenas no loopback)
    ┌────────────────▼──────────────────────────────────────────┐
    │                     docker compose                        │
-   │  ┌────────┐  /api   ┌────────┐   SQL   ┌──────────────┐    │
-   │  │ web    │────────▶│ api    │────────▶│ db (postgres)│    │
-   │  │ nginx  │         │ Fastify│         └──────────────┘    │
-   │  │ +React │         │ Prisma │   S3    ┌──────────────┐    │
-   │  │ Carbon │         └───┬────┘────────▶│ minio        │    │
-   │  └────────┘             │              └──────────────┘    │
-   │                         │  clamd :3310 ┌──────────────┐    │
-   │                         └─────────────▶│ clamav       │    │
-   │                                        └──────────────┘    │
+   │  ┌────────┐  /api   ┌────────┐   SQL   ┌──────────────┐   │
+   │  │ web    │────────▶│ api    │────────▶│ db (postgres)│   │
+   │  │ nginx  │         │ Fastify│         └──────────────┘   │
+   │  │ +React │         │ Prisma │   S3    ┌──────────────┐   │
+   │  │ Carbon │         └───┬────┘────────▶│ minio        │   │
+   │  └────────┘             │              └──────────────┘   │
+   │                         │  clamd :3310 ┌──────────────┐   │
+   │                         └─────────────▶│ clamav       │   │
+   │                                        └──────────────┘   │
    └───────────────────────────────────────────────────────────┘
 ```
 
