@@ -21,7 +21,7 @@ import { autoAssign } from '../lib/auto-assign';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
-import { analyzeDiskImage, extractDiskFile } from '../lib/disk-image';
+import { extractDiskFile } from '../lib/disk-image';
 import { isEmailFile, parseEmail } from '../lib/eml';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
@@ -35,7 +35,7 @@ import { checkReputationInBackground } from '../lib/reputation';
 import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
 import type { StaticInfo } from '../lib/static-analysis';
-import { analyzeInThread } from '../lib/static-analysis-thread';
+import { analyzeInThread, diskImageInThread } from '../lib/static-analysis-thread';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
 import { applyTriageRules } from '../lib/triage-rules';
 import { uploadGate } from '../lib/upload-gate';
@@ -131,8 +131,12 @@ function listOrderBy(sort: z.infer<typeof ListQuery>['sort'], dir: 'asc' | 'desc
   return [primary, { id: 'asc' as const }];
 }
 
+/** Tamanho maximo de um link enviado (item 163); acima disso nao e um link de verdade. */
+export const URL_MAX = 2048;
+
 export const UrlSchema = z.object({
-  url: z.string().url(),
+  // So http/https (item 163): javascript:, ftp: e afins nao sao links a analisar.
+  url: z.url({ protocol: /^https?$/ }).max(URL_MAX),
   title: z.string().min(2).max(200),
   description: z.string().max(4000).optional(),
   tags: z.string().optional(),
@@ -429,7 +433,8 @@ const VERDICT_LABELS = {
 
 /**
  * Etapas da revisao de relatorio: nota do revisor e veredito de rascunho, que a rota de
- * relatorios so mostra a analistas. A falha do sandbox traz erro do Proxmox.
+ * relatorios so mostra a analistas. A falha do sandbox traz erro do Proxmox, e a regra de
+ * triagem, o nome que os analistas deram a ela.
  */
 const ANALYST_ONLY_EVENTS = [
   'REPORT_CREATED',
@@ -437,6 +442,8 @@ const ANALYST_ONLY_EVENTS = [
   'REPORT_RETURNED',
   'REPORT_APPROVED',
   'SANDBOX_FAILED',
+  // Nome da regra de triagem: configuracao dos analistas (item 163). As tags ficam na amostra.
+  'TRIAGE_RULE',
 ] as const;
 
 /** Com a restricao ligada, a principal de outra pessoa nao aparece no historico (item 140). */
@@ -741,7 +748,8 @@ export async function entryRoutes(app: FastifyInstance) {
       new GetObjectCommand({ Bucket: entry.bucket || env.S3_BUCKET, Key: entry.storageKey }),
     );
     const buffer = Buffer.from(await obj.Body!.transformToByteArray());
-    const image = analyzeDiskImage(buffer);
+    // Listar a imagem roda na thread de analise (item 163): imagem hostil nao trava a API.
+    const image = await diskImageInThread(buffer).catch(() => null);
     if (!image || !image.files.length) {
       return reply
         .code(400)

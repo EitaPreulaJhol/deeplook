@@ -3611,6 +3611,23 @@ retenção expurga o arquivo; a coleta também roda ao descartar o ambiente, sem
 - A extração de imagem de disco lê a imagem na thread principal.
 - A conferir com teste: eventos de regra de triagem mostram nome e tags da regra ao usuário comum.
 
+Os quatro primeiros e o quinto se confirmaram, todos reproduzidos com teste antes da correção.
+✅ **Implementado:**
+- **Permitidos:** quem não é analista recebe `allowed: null` na ficha do indicador, sem o motivo nem o
+  item que cobre o indicador, que também revelaria a lista.
+- **Link:** só `http` e `https`, até 2048 caracteres; `javascript:`, `ftp:` e `data:` recebem 400 com
+  "URL inválida". Links já gravados ficam como estão.
+- **Logs:** a API registra o caminho sem a query string, e o nginx usa um formato com `$uri`, sem a
+  query e sem o referer, que no próprio site é a URL inteira.
+- **Imagem de disco:** a listagem roda na thread de análise. A cópia de cada arquivo continua na
+  principal: é linear e limitada pelo tamanho, e devolver tudo de uma vez deixaria uma ISO hostil, com
+  arquivos que apontam para os mesmos bytes, multiplicar a memória.
+- **Regra de triagem:** o evento sai do histórico de quem não é analista, como os da revisão de
+  relatório. As tags aplicadas continuam na amostra.
+
+**Limite:** os logs antigos continuam com a query string, e o log de erro do nginx ainda traz a linha
+do pedido quando a API não responde.
+
 ### 164. Preferências de aviso por tipo
 Cada pessoa escolhe, em Minha Conta, que avisos chegam à Caixa de entrada. **Decisão:** não se
 silencia o que pede ação de alguém: atribuição (amostra e caso), atraso, atualização de pacote YARA,

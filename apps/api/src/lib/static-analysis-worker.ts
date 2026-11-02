@@ -1,5 +1,6 @@
 import { parentPort } from 'node:worker_threads';
 
+import { analyzeDiskImage } from './disk-image';
 import { analyzeBuffer } from './static-analysis';
 
 /**
@@ -8,10 +9,21 @@ import { analyzeBuffer } from './static-analysis';
  */
 parentPort!.on(
   'message',
-  ({ id, content, filename }: { id: number; content: Uint8Array; filename?: string | null }) => {
+  ({
+    id,
+    op,
+    content,
+    filename,
+  }: {
+    id: number;
+    op: 'analyze' | 'disk';
+    content: Uint8Array;
+    filename?: string | null;
+  }) => {
     try {
       const buf = Buffer.from(content.buffer, content.byteOffset, content.byteLength);
-      parentPort!.postMessage({ id, result: analyzeBuffer(buf, filename) });
+      const result = op === 'disk' ? analyzeDiskImage(buf) : analyzeBuffer(buf, filename);
+      parentPort!.postMessage({ id, result });
     } catch (err) {
       parentPort!.postMessage({ id, error: err instanceof Error ? err.message : String(err) });
     }

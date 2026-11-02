@@ -11,6 +11,7 @@ import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { prisma } from './lib/prisma';
+import { requestLogSerializer } from './lib/request-log';
 import { startRetention } from './lib/retention';
 import { ensureBucket, isMissingObject, MISSING_OBJECT_MESSAGE } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
@@ -62,7 +63,7 @@ import { yaraRoutes } from './routes/yara';
 
 async function main() {
   const app = Fastify({
-    logger: true,
+    logger: { serializers: { req: requestLogSerializer } },
     trustProxy: TRUST_PROXY,
     bodyLimit: 5 * 1024 * 1024,
   });

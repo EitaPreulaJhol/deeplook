@@ -584,6 +584,8 @@ npx prisma generate
   endpoint autenticado da API.
 - O cadastro exige **chave de ativação** gerada por um admin.
 - Senhas usam **hash bcrypt**; a sessão usa **cookie httpOnly**.
+- Os logs da API e do nginx guardam o caminho sem a query string, porque a busca e a ficha do
+  indicador levam URLs de vítima, com token ou e-mail.
 
 ---
 

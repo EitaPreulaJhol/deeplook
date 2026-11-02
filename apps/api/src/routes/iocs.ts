@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
-import { ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
+import { isAnalyst, ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
 import { extractIocs } from '../lib/iocs';
@@ -276,8 +276,9 @@ export async function iocRoutes(app: FastifyInstance) {
       }),
       loadAllowlist(),
     ]);
-    // Lista de permissoes (item 69): qual item cobre o indicador e o motivo.
-    const allowedKey = allowedBy(list, kind, value);
+    // Lista de permissoes (item 69): qual item cobre o indicador e o motivo. So para
+    // analistas, como a propria lista (item 163).
+    const allowedKey = isAnalyst(user) ? allowedBy(list, kind, value) : null;
     return reply.send({
       watching: Boolean(watching),
       allowed: allowedKey

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
+import type { DiskImageInfo } from './disk-image';
 import type { StaticInfo } from './static-analysis';
 
 /** Passou disso, a thread e trocada e a amostra fica sem analise (o envio segue). */
@@ -11,7 +12,7 @@ const MAX_HEAP_MB = 1536;
 let worker: Worker | null = null;
 let nextId = 0;
 let workerRestarts = 0;
-const waiting = new Map<number, { resolve: (v: StaticInfo) => void; reject: (e: Error) => void }>();
+const waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
 
 /** Para os testes: quantas vezes a thread caiu ou foi trocada. */
 export const analysisWorkerRestarts = () => workerRestarts;
@@ -23,7 +24,7 @@ function analysisWorker(): Worker {
     resourceLimits: { maxOldGenerationSizeMb: MAX_HEAP_MB },
   });
   created.unref();
-  created.on('message', (m: { id: number; result?: StaticInfo; error?: string }) => {
+  created.on('message', (m: { id: number; result?: unknown; error?: string }) => {
     const pending = waiting.get(m.id);
     waiting.delete(m.id);
     if (m.error !== undefined) pending?.reject(new Error(m.error));
@@ -51,15 +52,13 @@ function inTurn<T>(job: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/** Analise estatica fora da thread principal. Rejeita se a thread cair ou passar do tempo. */
-export function analyzeInThread(
-  buf: Buffer,
-  filename?: string | null,
-  timeoutMs = TIMEOUT_MS,
-): Promise<StaticInfo> {
+/** Trabalho mandado para a thread: a analise de um envio ou a listagem de uma imagem. */
+type Op = 'analyze' | 'disk';
+
+function inThread<T>(op: Op, buf: Buffer, filename: string | null | undefined, timeoutMs: number) {
   return inTurn(
     () =>
-      new Promise<StaticInfo>((resolve, reject) => {
+      new Promise<T>((resolve, reject) => {
         const id = ++nextId;
         const current = analysisWorker();
         const timer = setTimeout(() => {
@@ -76,10 +75,30 @@ export function analyzeInThread(
             clearTimeout(timer);
             fn(v);
           };
-        waiting.set(id, { resolve: settle(resolve), reject: settle(reject) });
+        waiting.set(id, {
+          resolve: settle(resolve as (v: unknown) => void),
+          reject: settle(reject),
+        });
         // A copia vai transferida: o envio ainda usa o buffer original.
         const content = new Uint8Array(buf);
-        current.postMessage({ id, content, filename }, [content.buffer]);
+        current.postMessage({ id, op, content, filename }, [content.buffer]);
       }),
   );
+}
+
+/** Analise estatica fora da thread principal. Rejeita se a thread cair ou passar do tempo. */
+export function analyzeInThread(
+  buf: Buffer,
+  filename?: string | null,
+  timeoutMs = TIMEOUT_MS,
+): Promise<StaticInfo> {
+  return inThread<StaticInfo>('analyze', buf, filename, timeoutMs);
+}
+
+/** Listagem da imagem de disco (item 163), que a extracao fazia na thread principal. */
+export function diskImageInThread(
+  buf: Buffer,
+  timeoutMs = TIMEOUT_MS,
+): Promise<DiskImageInfo | null> {
+  return inThread<DiskImageInfo | null>('disk', buf, null, timeoutMs);
 }

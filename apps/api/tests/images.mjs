@@ -87,6 +87,18 @@ async function webImage() {
     );
     const tunnel = await seen({ 'cf-connecting-ip': '203.0.113.50' });
     ok('Tunnel: vale o CF-Connecting-IP', tunnel['x-forwarded-for'] === '203.0.113.50', tunnel);
+    // Item 163: a query string (URL de vitima com token) nao vai para o log do nginx.
+    await fetch('http://localhost:58080/api/search?q=token-da-vitima-163', {
+      headers: { referer: 'http://localhost:58080/busca?q=referer-da-vitima-163' },
+    });
+    await sleep(500);
+    const logs = quiet('logs', 'dl-test-webrun');
+    const logged = `${logs.stdout}${logs.stderr}`;
+    ok(
+      'log do nginx sem query string nem referer',
+      logged.includes('/api/search') && !logged.includes('vitima-163'),
+      logged.slice(-600),
+    );
   } finally {
     quiet('rm', '-f', 'dl-test-webrun', 'dl-test-echo');
     quiet('network', 'rm', net);

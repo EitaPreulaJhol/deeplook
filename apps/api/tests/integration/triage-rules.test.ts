@@ -182,6 +182,13 @@ async function main() {
     evs,
   );
   ok('não repete', (await applyTriageRules(link!.id)).length === 0);
+  // Item 163: o nome da regra e configuracao dos analistas; quem enviou ve so as tags.
+  const types = async (c: string) =>
+    (await req('GET', `/api/entries/${link!.id}/events`, c))
+      .json()
+      .events.map((e: { type: string }) => e.type);
+  ok('usuário comum não vê a regra no histórico', !(await types(cBob)).includes('TRIAGE_RULE'));
+  ok('analista vê a regra no histórico', (await types(cAna)).includes('TRIAGE_RULE'));
 
   // 3. Condicoes pela analise.
   const mk = (data: Record<string, unknown>) =>
