@@ -1,0 +1,62 @@
+# Atualizacao de dependencias (item 2.3 do plano de melhorias).
+#
+# A troca do MinIO pelo pgsty/silo (CVE-2026-40344 e CVE-2026-41145) foi
+# reativa, descoberta durante uma rodada do Strix. Isto avisa antes.
+#
+# Os patches vem agrupados num unico PR por app, para nao encher a fila; o que
+# sobe de versao maior vem separado, porque exige leitura.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      patches:
+        update-types: [minor, patch]
+    # O Prisma sobe cliente, adapter e CLI juntos, ou o build quebra.
+    ignore:
+      - dependency-name: '@prisma/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: prisma
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      patches:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /apps/capture
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      patches:
+        update-types: [minor, patch]
+
+  # Imagens base dos tres Dockerfiles (node, nginx, playwright).
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/web
+      - /apps/capture
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+
+  # As acoes usadas no ci.yml (checkout, setup-node).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

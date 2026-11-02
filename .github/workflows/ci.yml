@@ -1,0 +1,153 @@
+# Integracao continua (item 2.1 do plano de melhorias).
+#
+# Antes disto, os 29 arquivos de teste de integracao so rodavam quando alguem
+# lembrava de rodar na mao. Agora cada push e cada pull request passam por:
+#
+#   - lint, formatacao e build (que roda o tsc com noUnusedLocals) nos tres apps;
+#   - os testes de integracao da API, contra Postgres, MinIO e OpenLDAP de
+#     verdade — o runner do GitHub ja tem Docker, que e tudo de que o
+#     tests/run.mjs precisa;
+#   - npm audit (item 2.3), que reprova em vulnerabilidade alta ou critica.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Permite rodar pela aba Actions sem precisar de um push.
+  workflow_dispatch:
+
+# Um push novo no mesmo ramo cancela a rodada anterior, que ja nao interessa.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # A mesma versao das imagens (apps/api/Dockerfile e apps/web/Dockerfile).
+  NODE_VERSION: '22'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint, formatacao e build da API e do web, em paralelo.
+  # ---------------------------------------------------------------------------
+  check:
+    name: Lint e build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+
+      - name: Instalar (versoes exatas do lockfile)
+        run: npm ci
+
+      # O cliente do Prisma 7 nao e versionado (.gitignore): sem isto, nem o
+      # eslint nem o tsc encontram os tipos gerados.
+      - name: Gerar o cliente do Prisma
+        if: matrix.app == 'api'
+        run: npm run prisma:generate
+
+      - name: Formatacao (Prettier)
+        run: npm run format:check
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      # No web o build roda `tsc --noEmit && vite build`; na API, o tsc. Os dois
+      # com noUnusedLocals/noUnusedParameters: import sobrando reprova.
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Navegador isolado da captura de pagina: testes do proxy de saida, sem rede.
+  # ---------------------------------------------------------------------------
+  capture:
+    name: Testes do capture
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/capture
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/capture/package-lock.json
+
+      # --ignore-scripts: o teste do proxy nao abre navegador, entao nao vale
+      # baixar os ~400 MB do Chromium do Playwright aqui.
+      - name: Instalar (sem baixar o navegador)
+        run: npm ci --ignore-scripts
+
+      - name: Testes
+        run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Testes de integracao da API: sobem Postgres, MinIO e OpenLDAP em Docker.
+  # ---------------------------------------------------------------------------
+  integration:
+    name: Testes de integracao da API
+    runs-on: ubuntu-latest
+    # Sobe containers, gera imagens de disco e certificados: mais lento que o resto.
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Instalar (versoes exatas do lockfile)
+        run: npm ci
+
+      - name: Gerar o cliente do Prisma
+        run: npm run prisma:generate
+
+      # --clean derruba Postgres, MinIO e OpenLDAP no fim.
+      - name: Testes de integracao
+        run: npm run test:integration -- --clean
+
+  # ---------------------------------------------------------------------------
+  # Vulnerabilidade conhecida nas dependencias (item 2.3).
+  # ---------------------------------------------------------------------------
+  audit:
+    name: npm audit (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web, capture]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Le o lockfile e consulta o registro: nao precisa instalar nada.
+      - name: Auditoria (reprova em alta ou critica)
+        run: npm audit --audit-level=high
