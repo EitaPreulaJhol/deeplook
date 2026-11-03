@@ -1,0 +1,14 @@
+// Tokens do tema claro do Carbon, e so ele (item 6.10 do plano).
+//
+// O `@use '@carbon/react'` emitia os quatro temas pelo `zone` (dois deles escuros, que o app
+// nunca usa); aqui o tema e emitido so na classe que o <Theme theme="g10"> aplica. Este parcial
+// e carregado ANTES de `tokens`, `auth` e `hpsm` de proposito: o skin do HPSM sobrescreve 55
+// tokens `--cds-*` em `.cds--g10, .cds--white`, e como as duas regras tem a mesma
+// especificidade, quem vem depois vence. Invertendo esta ordem, a paleta do Carbon voltaria a
+// passar por cima da do HPSM (a suite visual pega, mas e melhor nao depender disso).
+@use '@carbon/styles/scss/theme';
+@use '@carbon/styles/scss/themes';
+
+.cds--g10 {
+  @include theme.theme(themes.$g10);
+}

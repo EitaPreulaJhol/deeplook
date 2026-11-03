@@ -74,6 +74,14 @@ jobs:
       - name: Lint (ESLint)
         run: npm run lint
 
+      # CSS seletivo do Carbon (item 6.10): o app.scss declara so os componentes usados; este
+      # passo reprova se um import novo ficou sem o modulo de Sass (ficaria sem estilo, em
+      # silencio) ou se a lista tem modulo sem uso.
+      - name: CSS do Carbon cobre os componentes importados
+        if: matrix.app == 'web'
+        working-directory: .
+        run: node scripts/check-carbon-css.mjs
+
       # No web o build roda `tsc --noEmit && vite build`; na API, o tsc. Os dois
       # com noUnusedLocals/noUnusedParameters: import sobrando reprova.
       - name: Build

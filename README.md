@@ -690,6 +690,10 @@ Regras ativas: `typescript-eslint` (recommended), ordenação de imports
 Além disso, o `tsc` roda com **`noUnusedLocals`** e **`noUnusedParameters`** —
 ou seja, o `npm run build` **falha** se sobrar variável/import/parâmetro sem uso.
 
+O CSS do Carbon é **seletivo** (o `app.scss` importa só os módulos dos componentes usados):
+`node scripts/check-carbon-css.mjs` reprova se um componente importado ficar sem o módulo
+correspondente — o CI roda esse passo no job `check`.
+
 ---
 
 ## Interface (estilo HP Service Manager 9)
@@ -705,7 +709,8 @@ dos controles vem do Carbon Design System; o visual vem dos tokens e do skin:
 | `src/styles/_tokens.scss` | tokens `--dl-*` (cores, tipografia, medidas) — fonte única de verdade |
 | `src/styles/hpsm.scss` | skin do app logado: realinha os tokens `--cds-*` do Carbon e estiliza os componentes `hpsm-*`/`dl-*` |
 | `src/styles/auth.scss` | páginas públicas (home, login, cadastro) |
-| `src/styles/app.scss` | entrada dos estilos + layout da casca |
+| `src/styles/app.scss` | entrada dos estilos + layout da casca; lista os módulos do Carbon usados (CSS seletivo) |
+| `src/styles/_carbon-theme.scss` | tokens do tema claro `g10`, emitidos antes do skin do HPSM |
 
 Componentes, convenções (o que usar e o que evitar do Carbon), rotas, preferências do
 usuário e a verificação visual estão em

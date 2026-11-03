@@ -34,7 +34,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.7 | nginx: cache dos assets, 404 de asset e COOP/CORP | 🟡 | P | Web | ✅ |
 | 6.8 | CI roda `test:images` e `test:smoke` | 🔴 | P | Repositório | ✅ |
 | 6.9 | Vitest: `client.ts`, `cases.ts`, hook da lista, ErrorBoundary, cobertura | 🟡 | M | Web | ✅ |
-| 6.10 | Frontend: code splitting (rotas e noVNC) e CSS do Carbon | 🟡 | M | Web | ✅ (JS; o CSS ficou para depois) |
+| 6.10 | Frontend: code splitting (rotas e noVNC) e CSS do Carbon | 🟡 | M | Web | ✅ |
 | 6.11 | Dependências da API: majors do `postal-mime`, multipart, rate-limit e bcryptjs | 🟡 | M | API | ✅ |
 | 6.12 | Dependências do web: React 19, Vite 8, TypeScript 7 | ⚪ | M–G | Web | ✅ (React e Vite; o TypeScript 7 está bloqueado) |
 | 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⏸ adiado pelo dono |
@@ -74,7 +74,6 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 | 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 | — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
-| — | CSS do Carbon seletivo (sobra do [6.10](#610-frontend-code-splitting-e-css)) | Exige um teste visual (capturas antes e depois) que o repositório não tem | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
 
@@ -129,6 +128,12 @@ cd ../..    && node scripts/check-playwright-version.mjs && node scripts/trivy.m
 - **Exceções do Trivy têm justificativa e validade.** `trivy.yaml` (por arquivo ou pasta) e
   `.trivyignore` (por CVE, com `exp:`). Revise a do `gosu` ao trocar a versão do Postgres.
 - **Os avisos de `if()` do Sass no build** vêm do próprio Carbon, não do projeto.
+- **O CSS do Carbon é seletivo (item 6.10).** Usou um componente novo de `@carbon/react`? Acrescente
+  o módulo em `apps/web/src/styles/app.scss` e rode `node scripts/check-carbon-css.mjs`; o CI
+  reprova se esquecer (componente sem estilo não quebra teste nenhum, só a tela). Componentes do
+  Carbon precisam estar sob `<Theme theme="g10">`; e a emissão do tema (`_carbon-theme.scss`) fica
+  **antes** de `tokens`/`auth`/`hpsm`, porque o skin sobrescreve os mesmos tokens com a mesma
+  especificidade.
 - **A suíte visual roda como o seu usuário** (`docker run --user $(id -u):$(id -g)`). Sem isso o
   container grava `node_modules`, `test-results` e baselines novas como root, e a rodada seguinte
   no host não consegue nem sobrescrever. E os argumentos vão por `"$@"`, não interpolados no
@@ -687,10 +692,37 @@ outro cobre as telas sem casca (impressão e janela do console). O noVNC virou u
 baixado só quando a janela do console abre. Pacote principal: **1.076 kB (383 kB no fio) →
 268 kB (82 kB)**, já contando o Vite 8 do 6.12. Se o pacote de uma página não baixa (deploy novo
 com a aba aberta), o erro vai para o `ErrorBoundary`, que oferece "Recarregar a página"; o 404 de
-asset do 6.7 torna isso explícito. **Ficou de fora, de propósito:** o CSS do Carbon seletivo. O
-app usa 18 componentes e 29 classes `cds--*` diretas, então dá para fazer, mas provar que
-**nenhuma tela mudou** pede uma comparação de capturas que o repositório não tem; o plano
-condicionava o passo a essa prova. O CSS tem 1,04 MB (117 kB no fio, agora com um ano de cache).
+asset do 6.7 torna isso explícito.
+
+**Implementado (o CSS), depois da suíte visual do 6.14.** O `@use '@carbon/react'` virou uma lista
+de módulos em `app.scss`: o Carbon trazia os ~80 componentes, os quatro temas, o grid e as fontes
+IBM Plex, e as telas usam **18 componentes** (10 módulos). Medido nas capturas e nas classes:
+
+| | Antes | Depois |
+|---|---|---|
+| CSS | 1.056 kB (117 kB no fio) | **307 kB (37 kB no fio)** |
+| Fontes woff2 no `dist` | 90 arquivos, 1,5 MB | **0** |
+| `dist` do web | ~4,0 MB | **1,8 MB** |
+
+O corte é seguro porque o SCSS do projeto **não usa** função nem mixin do Carbon (é `var(--dl-*)`
+e CSS puro), a tipografia é a do HPSM (Tahoma, então a IBM Plex nunca era aplicada) e o `hpsm.scss`
+já sobrescreve 55 tokens `--cds-*`. Três cuidados que valem registro:
+
+- **A ordem importa.** O tema é emitido em `_carbon-theme.scss`, carregado **antes** de
+  `tokens`/`auth`/`hpsm`: as duas regras (`.cds--g10` do Carbon e `.cds--g10, .cds--white` do
+  skin) têm a mesma especificidade, e quem vem depois vence. Emitir o tema no fim do `app.scss`
+  faria a paleta do Carbon passar por cima da do HPSM.
+- **Só o tema claro `g10`**, que é o único que o app aplica (`<Theme theme="g10">` no AppShell e
+  nas telas de impressão); os dois escuros saíram.
+- **Componente novo pede módulo novo**, senão fica sem estilo em silêncio. Por isso
+  `scripts/check-carbon-css.mjs` (passo do CI no job `check`) lê os imports de `@carbon/react` e
+  reprova se faltar módulo, se sobrar módulo sem uso ou se aparecer componente fora da tabela; o
+  `form` entra como módulo de suporte, porque todo campo do Carbon renderiza `cds--form-item` e
+  `cds--label`.
+
+**Prova:** as 14 baselines do 6.14 passam **sem uma diferença de pixel** com o CSS seletivo, e o
+`test:images` (45) e o `test:smoke` (100) seguem verdes. O guardião foi testado nos quatro casos
+(componente sem módulo, módulo sem uso, suporte ausente e o estado correto).
 
 ### 6.11 Dependências da API (majors)
 - **Estado (`npm outdated`):** `postal-mime` 2.7.6 → 4.2.0 (lê `.eml` hostil),

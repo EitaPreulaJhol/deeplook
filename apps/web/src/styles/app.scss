@@ -1,5 +1,22 @@
 // Estilos globais do DeepLook sobre o Carbon Design System (look HP Service Manager).
-@use '@carbon/react';
+//
+// Carbon SELETIVO (item 6.10): em vez de `@carbon/react`, que trazia os ~80 componentes, os
+// quatro temas, o grid e as fontes IBM Plex, entra so o que as telas usam. O SCSS do projeto
+// nao usa funcao nem mixin do Carbon (e `var(--dl-*)`), e a tipografia e a do HPSM (Tahoma), o
+// que deixa o corte seguro: 1.056 kB de CSS viram 307 kB, e as 90 fontes woff2 (1,5 MB) saem do
+// pacote. Ao usar um componente novo do Carbon, acrescente o modulo aqui: o
+// `scripts/check-carbon-css.mjs` reprova o CI se esquecer.
+@use '@carbon/styles/scss/reset';
+@use '@carbon/styles/scss/components/form';
+@use '@carbon/styles/scss/components/button';
+@use '@carbon/styles/scss/components/checkbox';
+@use '@carbon/styles/scss/components/data-table';
+@use '@carbon/styles/scss/components/select';
+@use '@carbon/styles/scss/components/text-input';
+@use '@carbon/styles/scss/components/text-area';
+@use '@carbon/styles/scss/components/tile';
+@use '@carbon/styles/scss/components/progress-bar';
+@use './carbon-theme';
 @use './tokens';
 @use './auth';
 @use './hpsm';
