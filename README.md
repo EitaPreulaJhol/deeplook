@@ -864,6 +864,21 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
   console ou da CSP reprova. Pega o que a API simulada das telas esconde.
 - **Telas** (`scripts/ui-playwright/run.ps1`): cenários no navegador com a API simulada. Roda
   todos e lista os que falharam.
+- **Suíte visual** (`scripts/ui-visual`): compara as telas de layout crítico com capturas
+  versionadas. Não olha o comportamento (isso é dos cenários acima), e sim o que a tela
+  *parece*: espaço, alinhamento, tabela, tipografia, densidade. Dez telas no desktop e quatro
+  delas também em 1024 px. Roda na imagem do Playwright, a mesma que gerou as baselines, com
+  relógio congelado, sem animação e sem cursor: o resultado não depende da máquina.
+
+```bash
+cd apps/web && npm run build        # o dist é o que a suíte serve
+sh scripts/ui-visual/run.sh         # compara (no Windows: run.ps1)
+sh scripts/ui-visual/run.sh --update-snapshots   # regrava as baselines de propósito
+```
+
+  Se uma captura divergir, o `test-results/` traz o `actual`, o `expected` e o `diff`; no CI eles
+  sobem como artefato. Mudança de tela intencional atualiza a baseline **no mesmo PR**, e a
+  revisão do diff é a revisão da mudança visual.
 - **Imagens** (`test:images`): o `web` roda com a configuração **lida do compose** (somente
   leitura, sem capacidades, limites, healthcheck): o teste exercita o que vai para produção.
   Confere os cabeçalhos de segurança no `/`, num asset e numa resposta de erro, o cache, o

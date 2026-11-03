@@ -11,6 +11,7 @@
 #     sobem sem root, o nginx entrega os cabecalhos, o backup usa o pg_dump da
 #     imagem e a captura bloqueia rede interna; e, fora de PR, o teste rapido
 #     com navegador contra essas imagens;
+#   - a suite visual (item 6.14): as telas de layout critico comparadas com as baselines;
 #   - npm audit (item 2.3), que reprova em vulnerabilidade alta ou critica.
 # A varredura de CVE das imagens (Trivy) esta em security-scan.yml.
 name: CI
@@ -189,6 +190,42 @@ jobs:
 
       - name: Teste rapido (test:smoke)
         run: npm run test:smoke
+
+  # ---------------------------------------------------------------------------
+  # Suite visual (item 6.14): compara as telas de layout critico com as baselines
+  # versionadas. O dist e o mesmo build dos outros jobs; a comparacao roda na imagem do
+  # Playwright, a mesma que gerou as baselines, entao a renderizacao nao depende do runner.
+  # Se a captura divergir, os PNGs (actual, expected e diff) sobem como artefato.
+  # ---------------------------------------------------------------------------
+  visual:
+    name: Suite visual (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build do web (o dist que a suite visual serve)
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Comparar as capturas
+        run: sh scripts/ui-visual/run.sh
+
+      - name: Capturas da falha (actual, expected e diff)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-visual-diff
+          path: scripts/ui-visual/test-results
+          retention-days: 7
 
   # ---------------------------------------------------------------------------
   # Vulnerabilidade conhecida nas dependencias (item 2.3).

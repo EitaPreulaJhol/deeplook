@@ -34,6 +34,11 @@ const PLACES = [
   { file: 'apps/api/tests/smoke.mjs', label: 'test:smoke', pattern: `PLAYWRIGHT = '${VERSION}'` },
   { file: 'scripts/ui-playwright/run.ps1', label: 'imagem', pattern: `playwright:v${VERSION}-` },
   { file: 'scripts/ui-playwright/run.ps1', label: 'pacote', pattern: `playwright@${VERSION}` },
+  {
+    file: 'scripts/ui-visual/package.json',
+    label: 'suite visual',
+    pattern: `"@playwright/test":\\s*"${VERSION}"`,
+  },
 ];
 
 const found = [];

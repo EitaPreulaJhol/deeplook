@@ -38,6 +38,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.11 | Dependências da API: majors do `postal-mime`, multipart, rate-limit e bcryptjs | 🟡 | M | API | ✅ |
 | 6.12 | Dependências do web: React 19, Vite 8, TypeScript 7 | ⚪ | M–G | Web | ✅ (React e Vite; o TypeScript 7 está bloqueado) |
 | 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⬜ (não escolhido nesta leva) |
+| 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -125,6 +126,11 @@ cd ../..    && node scripts/check-playwright-version.mjs && node scripts/trivy.m
 - **Exceções do Trivy têm justificativa e validade.** `trivy.yaml` (por arquivo ou pasta) e
   `.trivyignore` (por CVE, com `exp:`). Revise a do `gosu` ao trocar a versão do Postgres.
 - **Os avisos de `if()` do Sass no build** vêm do próprio Carbon, não do projeto.
+- **A suíte visual roda como o seu usuário** (`docker run --user $(id -u):$(id -g)`). Sem isso o
+  container grava `node_modules`, `test-results` e baselines novas como root, e a rodada seguinte
+  no host não consegue nem sobrescrever. E os argumentos vão por `"$@"`, não interpolados no
+  `sh -c`: um `--grep 'histórico global'` interpelado vira dois argumentos e o Playwright responde
+  "No tests found".
 
 ---
 
@@ -716,6 +722,48 @@ inteira: **1014 checagens em 33 arquivos**, verdes (eram 917 em 29).
 da linha, e a coluna nova *Finalidade* deslocou os índices; o mock e o cenário foram atualizados
 e ganharam 8 checagens. **TypeScript 7 não entrou:** o `typescript-eslint` só aceita
 `>=4.8.4 <6.1.0`, como o plano previa.
+
+### 6.14 Suíte visual no CI
+- **Problema:** os 91 cenários de tela verificam comportamento e texto e tiram capturas para
+  revisão manual, mas nada compara a aparência entre versões. O `web` é o único componente sem
+  esse tipo de rede, e foi por falta dela que o CSS do Carbon seletivo (6.10) ficou de fora.
+- **Proposta:** uma suíte separada, pequena, com as telas de layout crítico, `toHaveScreenshot`
+  contra baselines versionadas, rodando na imagem do Playwright (renderização idêntica em
+  qualquer máquina) e um job no CI que publica os diffs como artefato.
+
+**Implementado.** `scripts/ui-visual` com `@playwright/test` 1.64.1 e **14 capturas** (10 telas
+no desktop de 1440x900; 4 delas também em 1024x700, pelas listas e pela ficha, onde o layout
+aperta): login, página inicial, histórico, meus uploads, ficha da amostra, ficha para impressão,
+casos, painel, caixa de entrada e configurações da administração. `fullPage`, então o que está
+abaixo da dobra também está na comparação. 1,9 MB de baselines.
+
+O que faz a captura ser estável, e que custou para acertar:
+
+- **Relógio congelado nos dois lados.** `page.clock.setFixedTime` no navegador e `DL_NOW` no
+  mock: o `mock-api` calculava as idades das amostras com `Date.now()` na carga do módulo, então
+  congelar só o navegador deixava o texto "há 30 h" inconsistente. Com os dois no mesmo instante,
+  as datas e as idades param de mudar a cada hora.
+- **Animação, cursor e rolagem fora:** `animations: 'disabled'`, `caret: 'hide'`, uma folha de
+  estilo que zera transições e animação de CSS, e `--hide-scrollbars`.
+- **Estado completo em vez de "carregando".** A amostra `e1` nasce sem TLSH e sem conferência de
+  integridade: a ficha mostraria "Calculando..." e "Ainda não conferido" para sempre. A fixture
+  fixa um TLSH e uma data de conferência, e a baseline cobre a renderização desses campos.
+- **Um worker só**, porque o mock guarda estado global.
+
+**Provas de dentes:** com `.hpsm-status { letter-spacing: 1px }` no CSS do build, a comparação
+reprovou nos dois viewports com **18.378 pixels diferentes** (ratio 0,02) e gerou
+`actual`/`diff`/`expected`; com uma baseline corrompida à mão, também reprovou. Rodada duas vezes
+seguidas, os 14 PNGs saem com o **mesmo hash**.
+
+No CI, o job `visual` constrói o `web`, roda a comparação e, se falhar, sobe o `test-results`
+como artefato. A versão do Playwright entrou no `check-playwright-version.mjs` (agora seis
+lugares), porque a suíte visual usa a mesma imagem das baselines: versão diferente, captura
+diferente.
+
+**Ficou de fora, de propósito:** baseline das 91 telas (manutenção enorme para pouco retorno) e
+captura do console do sandbox, que exigiria um servidor VNC falso. **Próximo uso previsto:** com
+a suíte no lugar, o CSS do Carbon seletivo (6.10) passa a ser verificável — cortar o SCSS e
+comparar as telas.
 
 ### 6.13 Cópia do backup fora do disco (não escolhido)
 - **Problema:** o ZIP do backup fica no bucket (`backups/`), e bucket e Postgres são
