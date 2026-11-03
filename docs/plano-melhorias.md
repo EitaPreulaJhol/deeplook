@@ -5,7 +5,7 @@ e as quatro rodadas do Strix fecharam os buracos de segurança. O que sobra não
 funcionalidade de tela: é **robustez, automação e operação**.
 
 **Legenda** — Prioridade: 🔴 alta · 🟡 média · ⚪ baixa. Esforço: **P** (horas),
-**M** (1–2 dias), **G** (vários dias). Status: ✅ feito · ⬜ pendente · 🚫 fora de escopo.
+**M** (1–2 dias), **G** (vários dias). Status: ✅ feito · ⬜ pendente · ⏸ adiado (registrado, não iniciado) · 🚫 fora de escopo.
 
 ## Resumo
 
@@ -37,7 +37,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.10 | Frontend: code splitting (rotas e noVNC) e CSS do Carbon | 🟡 | M | Web | ✅ (JS; o CSS ficou para depois) |
 | 6.11 | Dependências da API: majors do `postal-mime`, multipart, rate-limit e bcryptjs | 🟡 | M | API | ✅ |
 | 6.12 | Dependências do web: React 19, Vite 8, TypeScript 7 | ⚪ | M–G | Web | ✅ (React e Vite; o TypeScript 7 está bloqueado) |
-| 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⬜ (não escolhido nesta leva) |
+| 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⏸ adiado pelo dono |
 | 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
@@ -52,8 +52,8 @@ e estão no fim, em [Achados no caminho](#achados-no-caminho).
 Validação da leva: `format:check`, `lint` e `build` limpos na API e no web, e **917 checagens
 em 29 arquivos** de integração, todas verdes.
 
-**Terceira leva entregue** (3.2, 4.2 e 6.1 a 6.12; o 6.13, backup fora do disco, ficou de fora por
-escolha). Cinco achados novos estão em [Achados no caminho](#achados-no-caminho) (D a H).
+**Terceira leva entregue** (3.2, 4.2 e 6.1 a 6.12; o 6.13, backup fora do disco, ficou de fora e
+está **adiado pelo dono**, registrado sem código). Cinco achados novos estão em [Achados no caminho](#achados-no-caminho) (D a H).
 Validação: `format:check`, `lint` e `build` limpos na API e no web; **1014 checagens em 33
 arquivos** de integração (eram 917 em 29); **113 testes unitários** do web em 11 arquivos (eram
 55 em 5), com cobertura de 95,7%; `test:images` com 45 checagens e `test:smoke` com 100; os **91
@@ -71,12 +71,15 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-não-escolhido) | Perder o disco perde dado **e** backup; é o maior risco que sobra | **M** |
-| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
-| 3º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
+| 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
+| — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
 | — | CSS do Carbon seletivo (sobra do [6.10](#610-frontend-code-splitting-e-css)) | Exige um teste visual (capturas antes e depois) que o repositório não tem | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
+
+O **6.13 está registrado, não iniciado**: o desenho e os cuidados estão na seção dele, para
+quando o dono do projeto decidir retomar. Nada foi codificado.
 
 ### Para retomar
 
@@ -500,7 +503,7 @@ Levantamento feito depois da segunda leva, com evidência de execução e não s
 requisições reais ao nginx (cabeçalhos, gzip, cache), `npm outdated` nos três apps e os
 scripts `test:images` e `test:smoke` rodados contra as imagens do Node 26. Entram também o
 **3.2** e o **4.2**, com o desenho decidido nas suas seções. O item 6.13 (backup fora do
-disco) **não foi escolhido** para esta leva; fica registrado para não se perder.
+disco) **foi adiado pelo dono**: fica registrado com o desenho, sem código e fora da ordem.
 
 **Ordem de execução** — cada fase termina validada antes da seguinte:
 
@@ -765,11 +768,17 @@ captura do console do sandbox, que exigiria um servidor VNC falso. **Próximo us
 a suíte no lugar, o CSS do Carbon seletivo (6.10) passa a ser verificável — cortar o SCSS e
 comparar as telas.
 
-### 6.13 Cópia do backup fora do disco (não escolhido)
+### 6.13 Cópia do backup fora do disco (adiado)
 - **Problema:** o ZIP do backup fica no bucket (`backups/`), e bucket e Postgres são
   `./data/minio` e `./data/pgdata` na mesma máquina: perder o disco perde dado e backup.
 - **Proposta (quando voltar à mesa):** cópia agendada para fora (`mc mirror` ou `rclone`) ou
   um segundo destino S3, e um teste de restauração periódico.
+
+**Adiado pelo dono do projeto:** registrado aqui com o problema e o desenho, sem código e fora
+da ordem de execução. Não iniciar sem ele pedir. Quando retomar, a decisão que falta é o destino
+(segundo bucket S3, outro host, ou armazenamento frio) e se a cópia leva as amostras junto; o
+teste de restauração vale mais que a cópia em si, porque um backup que nunca foi restaurado é
+uma suposição.
 
 ---
 

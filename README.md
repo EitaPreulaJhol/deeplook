@@ -939,6 +939,8 @@ Melhorias de interface e usabilidade estão priorizadas em
 [`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
 - Notificações por e-mail (SMTP).
+- Cópia do backup para fora do disco (`docs/plano-melhorias.md`, item 6.13) — registrado e
+  **adiado** por decisão do dono do projeto.
 
 Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
 envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa), 2FA
