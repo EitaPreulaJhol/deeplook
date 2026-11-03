@@ -42,7 +42,8 @@ function command(cmd: string, payload: Buffer | null, timeoutMs: number): Promis
     };
     socket.setTimeout(timeoutMs, () => finish(new Error('o ClamAV não respondeu a tempo')));
     socket.on('error', (err) => finish(err));
-    socket.on('data', (d) => chunks.push(d));
+    // Sem setEncoding o chunk e sempre Buffer; os tipos do Node 26 admitem string.
+    socket.on('data', (d) => chunks.push(typeof d === 'string' ? Buffer.from(d) : d));
     socket.on('end', () =>
       finish(null, Buffer.concat(chunks).toString('utf8').replace(/\0+$/, '').trim()),
     );
