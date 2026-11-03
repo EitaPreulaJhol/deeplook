@@ -51,6 +51,8 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
   ENTRY_RESTORED: { label: 'Amostra restaurada', tone: 'green' },
   ENTRY_DELETED: { label: 'Amostra excluída definitivamente', tone: 'red' },
   ENTRY_DOWNLOADED: { label: 'Amostra baixada', tone: 'orange' },
+  ENTRY_INTEGRITY_FAILED: { label: 'Arquivo divergente do SHA-256 da ficha', tone: 'red' },
+  ENTRY_INTEGRITY_RESTORED: { label: 'Arquivo voltou a conferir com o SHA-256', tone: 'green' },
   YARA_RULE_CREATED: { label: 'Regra YARA criada', tone: 'gray' },
   YARA_RULE_UPDATED: { label: 'Regra YARA alterada', tone: 'gray' },
   YARA_RULE_DELETED: { label: 'Regra YARA excluída', tone: 'gray' },

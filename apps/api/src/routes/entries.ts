@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Readable } from 'node:stream';
+import { pipeline, type Readable } from 'node:stream';
 
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -24,6 +24,7 @@ import { toCsv } from '../lib/csv';
 import { extractDiskFile } from '../lib/disk-image';
 import { isEmailFile, parseEmail } from '../lib/eml';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { hashingStream, judge, recordIntegrity } from '../lib/integrity';
 import { normalizeUrl, urlKey } from '../lib/ioc-normalize';
 import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
 import { rememberUrls } from '../lib/iocs';
@@ -1602,7 +1603,41 @@ export async function entryRoutes(app: FastifyInstance) {
     const safeName = (entry.originalFilename || 'sample.bin').replace(/[^\w.-]+/g, '_');
     reply.header('Content-Type', entry.mimeType || 'application/octet-stream');
     reply.header('Content-Disposition', `attachment; filename="${safeName}"`);
-    if (entry.fileSize) reply.header('Content-Length', String(entry.fileSize));
-    return reply.send(obj.Body as Readable);
+    // O tamanho do objeto de verdade, e nao o da ficha: se os dois divergirem, o corpo
+    // continua bem formado para o cliente e a divergencia aparece na conferencia abaixo.
+    const length = obj.ContentLength ?? entry.fileSize;
+    if (length) reply.header('Content-Length', String(length));
+
+    const body = obj.Body as Readable;
+    // Amostra sem hash gravado nao tem com o que comparar.
+    if (!entry.sha256) return reply.send(body);
+
+    // Integridade (item 4.2): confere o SHA-256 e o tamanho enquanto os bytes passam, sem ler
+    // duas vezes. O arquivo e entregue de qualquer jeito (recusar tiraria do analista a unica
+    // copia que resta); a divergencia vai para a Auditoria, marca a amostra e a ficha avisa.
+    // Download abortado no meio nao tem veredito. Se ja estava marcada, os seguintes saem com
+    // o cabecalho abaixo.
+    if (entry.integrityFailedAt) reply.header('X-DeepLook-Integrity', 'mismatch');
+    const target = {
+      id: entry.id,
+      title: entry.title,
+      ownerId: entry.ownerId,
+      sha256: entry.sha256,
+      fileSize: entry.fileSize,
+    };
+    const checked = pipeline(
+      body,
+      hashingStream((read) =>
+        recordIntegrity(target, judge(target, read), {
+          via: 'download',
+          actorId: user.id,
+          req,
+        }),
+      ),
+      (err) => {
+        if (err) req.log.warn({ err }, '[integridade] download interrompido: sem conferencia');
+      },
+    );
+    return reply.send(checked);
   });
 }

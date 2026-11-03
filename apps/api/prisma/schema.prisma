@@ -193,28 +193,33 @@ model Entry {
   duplicateOf   Entry?  @relation("EntryDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
   duplicates    Entry[] @relation("EntryDuplicate")
 
-  originalFilename String?
-  storageKey       String?
-  bucket           String?
-  fileSize         Int?
-  mimeType         String?
-  sha256           String?
+  originalFilename   String?
+  storageKey         String?
+  bucket             String?
+  fileSize           Int?
+  mimeType           String?
+  sha256             String?
   /// Hash parecido (TLSH, item 71; 70 hex sem o "T1"). Vazio = nao calculavel
   /// (arquivo pequeno/simples demais ou acima de 32 MB); null = ainda nao calculado.
-  tlsh             String?
+  tlsh               String?
   /// Analise estatica do arquivo no envio (src/lib/static-analysis.ts): tipo real,
   /// entropia, strings e cabecalho PE. So leitura de bytes; null em URLs.
-  staticInfo       Json?
+  staticInfo         Json?
   /// E-mail (.eml) lido no envio (src/lib/eml.ts): cabecalhos, autenticacao,
   /// caminho, links e corpo em texto. Cada anexo vira uma amostra filha.
-  emailInfo        Json?
+  emailInfo          Json?
   /// Anexo de um e-mail enviado (amostra pai = o .eml).
-  parentEntryId    String?
-  parentEntry      Entry?    @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
-  attachmentsOf    Entry[]   @relation("EntryAttachments")
+  parentEntryId      String?
+  parentEntry        Entry?    @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  attachmentsOf      Entry[]   @relation("EntryAttachments")
   /// Arquivo apagado do armazenamento pela retencao (RETENTION_DAYS); ficha,
   /// relatorios, IOCs e hash continuam (src/lib/retention.ts).
-  filePurgedAt     DateTime?
+  filePurgedAt       DateTime?
+  /// Conferencia do SHA-256 do arquivo guardado (item 4.2): quando o objeto foi lido por inteiro
+  /// e comparado com `sha256` (no download ou no job de scrub) e, se nao bateu ou o objeto sumiu,
+  /// quando foi detectado. Voltando a bater, `integrityFailedAt` limpa (src/lib/integrity.ts).
+  integrityCheckedAt DateTime?
+  integrityFailedAt  DateTime?
 
   url       String?
   urlDomain String?
@@ -743,6 +748,9 @@ enum AuditAction {
   ENTRY_DELETED
   /// Arquivo da amostra baixado (item 122).
   ENTRY_DOWNLOADED
+  /// Arquivo guardado nao confere com o SHA-256 da ficha (ou sumiu) e voltou a conferir (item 4.2).
+  ENTRY_INTEGRITY_FAILED
+  ENTRY_INTEGRITY_RESTORED
   /// Backup (item 81): gerado, baixado e excluido.
   BACKUP_CREATED
   BACKUP_DOWNLOADED

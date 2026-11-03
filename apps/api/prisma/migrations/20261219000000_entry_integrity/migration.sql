@@ -1,0 +1,7 @@
+-- AlterEnum
+ALTER TYPE "AuditAction" ADD VALUE 'ENTRY_INTEGRITY_FAILED';
+ALTER TYPE "AuditAction" ADD VALUE 'ENTRY_INTEGRITY_RESTORED';
+
+-- AlterTable
+ALTER TABLE "Entry" ADD COLUMN     "integrityCheckedAt" TIMESTAMP(3),
+ADD COLUMN     "integrityFailedAt" TIMESTAMP(3);

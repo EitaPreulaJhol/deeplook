@@ -516,6 +516,14 @@ export function EntryDetailPage() {
       <LnkWarning info={entry.staticInfo} />
       <LookalikeWarning hits={entry.lookalikeHits} />
 
+      {entry.integrityFailedAt && (
+        <HpsmMessage kind="error">
+          O arquivo guardado desta amostra não confere com o SHA-256 registrado no envio (detectado
+          em {fmtDate(entry.integrityFailedAt)}). O que se baixa pode estar corrompido ou ter sido
+          alterado: não confie nele e avise um administrador. Os detalhes estão na Auditoria.
+        </HpsmMessage>
+      )}
+
       {pinNotice && (
         <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
           {pinNotice.text}
@@ -718,6 +726,17 @@ export function EntryDetailPage() {
                 <HpsmField label="Tipo MIME">
                   <HpsmReadonly>{entry.mimeType || '—'}</HpsmReadonly>
                 </HpsmField>
+                {entry.sha256 && !entry.filePurgedAt && (
+                  <HpsmField label="Integridade">
+                    <HpsmReadonly>
+                      {entry.integrityFailedAt
+                        ? `Divergente: detectado em ${fmtDate(entry.integrityFailedAt)}`
+                        : entry.integrityCheckedAt
+                          ? `Conferido em ${fmtDate(entry.integrityCheckedAt)}`
+                          : 'Ainda não conferido'}
+                    </HpsmReadonly>
+                  </HpsmField>
+                )}
                 {entry.filePurgedAt && (
                   <HpsmField label="Armazenamento" wide>
                     <HpsmReadonly>

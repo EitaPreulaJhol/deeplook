@@ -27,6 +27,7 @@ export interface StatusCheck {
     | 'capture'
     | 'ldap'
     | 'yaraPacks'
+    | 'integrity'
     | 'config';
   name: string;
   level: StatusLevel;
@@ -303,6 +304,53 @@ async function queuesCheck(): Promise<StatusCheck> {
   };
 }
 
+/**
+ * Integridade dos arquivos (item 4.2): amostras cujo arquivo guardado nao confere com o
+ * SHA-256 da ficha, ou sumiu. Laranja e nao vermelho: pede atencao (uma evidencia pode estar
+ * perdida), mas o servico segue de pe, e o vermelho de um monitor e para o que esta fora do ar.
+ */
+async function integrityCheck(): Promise<StatusCheck> {
+  const stored = {
+    type: 'FILE' as const,
+    storageKey: { not: null },
+    sha256: { not: null },
+    filePurgedAt: null,
+  };
+  const [failed, total, unchecked, last] = await Promise.all([
+    prisma.entry.count({ where: { ...stored, integrityFailedAt: { not: null } } }),
+    prisma.entry.count({ where: stored }),
+    prisma.entry.count({ where: { ...stored, integrityCheckedAt: null } }),
+    prisma.entry.aggregate({ where: stored, _max: { integrityCheckedAt: true } }),
+  ]);
+  const minutes = env.INTEGRITY_SCRUB_INTERVAL_MINUTES;
+  return {
+    id: 'integrity',
+    name: 'Integridade dos arquivos',
+    level: failed > 0 ? 'warn' : 'ok',
+    summary:
+      failed > 0
+        ? `${failed} amostra${failed > 1 ? 's' : ''} com arquivo divergente ou ausente`
+        : 'nenhuma divergência encontrada',
+    details: [
+      { label: 'Com divergência', value: String(failed) },
+      { label: 'Arquivos guardados', value: String(total) },
+      { label: 'Ainda não conferidos', value: String(unchecked) },
+      {
+        label: 'Última conferência',
+        value: last._max.integrityCheckedAt
+          ? last._max.integrityCheckedAt.toISOString().slice(0, 16).replace('T', ' ')
+          : '—',
+      },
+      {
+        label: 'Conferência periódica',
+        value: minutes
+          ? `a cada ${minutes} min, até ${env.INTEGRITY_SCRUB_MAX_MB} MB por rodada`
+          : 'desligada',
+      },
+    ],
+  };
+}
+
 const ORDER: StatusLevel[] = ['ok', 'off', 'warn', 'error'];
 
 /** Todas as verificacoes em paralelo + a situacao geral (a pior, ignorando "off"). */
@@ -546,6 +594,7 @@ export async function systemStatus() {
     reputationCheck(),
     ldapCheck(),
     yaraPacksCheck(),
+    integrityCheck(),
     configCheck(),
   ]);
   const overall = checks

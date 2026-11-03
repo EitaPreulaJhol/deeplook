@@ -398,6 +398,8 @@ export type AuditAction =
   | 'ENTRY_RESTORED'
   | 'ENTRY_DELETED'
   | 'ENTRY_DOWNLOADED'
+  | 'ENTRY_INTEGRITY_FAILED'
+  | 'ENTRY_INTEGRITY_RESTORED'
   | 'YARA_RULE_CREATED'
   | 'YARA_RULE_UPDATED'
   | 'YARA_RULE_DELETED'
@@ -661,6 +663,10 @@ export interface Entry {
   storageKey?: string | null;
   /** Arquivo apagado pela retencao (RETENTION_DAYS); ficha e hash continuam. */
   filePurgedAt?: string | null;
+  /** Ultima conferencia do SHA-256 do arquivo guardado (item 4.2); null = nunca conferido. */
+  integrityCheckedAt?: string | null;
+  /** Quando se detectou que o arquivo nao confere com o SHA-256 da ficha (ou sumiu). */
+  integrityFailedAt?: string | null;
   bucket?: string | null;
   url?: string | null;
   urlDomain?: string | null;

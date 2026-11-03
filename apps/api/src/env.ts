@@ -56,6 +56,13 @@ const EnvSchema = z
     BACKUP_RETENTION_DAYS: z.coerce.number().int().min(1).max(90).default(7),
     BACKUP_PG_DUMP: z.string().min(1).default('pg_dump'),
     /**
+     * Conferencia de integridade (item 4.2): de tempos em tempos o job le as amostras guardadas
+     * e compara o SHA-256 com o da ficha, comecando pelas nunca conferidas. Intervalo em
+     * minutos (0 = desligado) e quanto ler por rodada, em MB.
+     */
+    INTEGRITY_SCRUB_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(10080).default(60),
+    INTEGRITY_SCRUB_MAX_MB: z.coerce.number().int().min(1).max(102400).default(512),
+    /**
      * Login pelo AD/LDAP (item 94), opcional: vazio = desligado. So com TLS
      * (ldaps:// ou ldap:// + LDAP_STARTTLS=true) e certificado verificado
      * (LDAP_TLS_CA = PEM da CA, se nao for uma CA do sistema).

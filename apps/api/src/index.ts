@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import { env, sandboxEnabled } from './env';
 import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
+import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
 import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
@@ -189,6 +190,8 @@ async function main() {
 
   // Retencao de amostras: expurgo do arquivo apos RETENTION_DAYS (0 = desligada).
   startRetention(app.log);
+  // Conferencia de integridade dos arquivos guardados, em segundo plano (item 4.2).
+  startIntegrityScrub();
   startBackups(app.log);
   startLdapSweep(app.log);
   startSessionCleanup(app.log);
