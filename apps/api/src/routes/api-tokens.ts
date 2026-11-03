@@ -12,6 +12,8 @@ import { sendValidationError } from '../lib/validation';
 const CreateSchema = z.object({
   name: z.string().trim().min(2).max(60),
   expiresInDays: z.coerce.number().int().min(1).max(TOKEN_MAX_DAYS),
+  /** SAMPLES (padrao): envio e consulta de amostras. STATUS: leitura do status; so admin cria. */
+  scope: z.enum(['SAMPLES', 'STATUS']).default('SAMPLES'),
 });
 
 const AdminQuery = z.object({ status: z.enum(['active', 'all']).default('active') });
@@ -21,6 +23,7 @@ const tokenSelect = {
   id: true,
   name: true,
   prefix: true,
+  scope: true,
   createdAt: true,
   expiresAt: true,
   lastUsedAt: true,
@@ -65,7 +68,13 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     if (!parsed.success) return sendValidationError(reply, parsed.error);
 
     const secret = newTokenSecret();
-    const { name, expiresInDays } = parsed.data;
+    const { name, expiresInDays, scope } = parsed.data;
+    // O status traz enderecos, versoes e latencias: o mesmo que a tela de Status do admin.
+    if (scope === 'STATUS' && user.role !== 'ADMIN') {
+      return reply
+        .code(403)
+        .send({ error: 'Só administradores criam token de monitoramento (status).' });
+    }
     // Trava por usuario e conta DENTRO da transacao (como a cota de envio), senao
     // pedidos paralelos passam todos no count e furam o teto (item: corrida de tokens).
     const token = await prisma
@@ -79,6 +88,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
             name,
             prefix: secret.slice(0, 12),
             tokenHash: hashToken(secret),
+            scope,
             expiresAt: new Date(Date.now() + expiresInDays * 86400000),
           },
           select: tokenSelect,
@@ -88,7 +98,9 @@ export async function apiTokenRoutes(app: FastifyInstance) {
           actorId: user.id,
           targetUserId: user.id,
           targetLabel: `${name} (${created.prefix}…)`,
-          detail: `validade de ${expiresInDays} dia(s)`,
+          detail:
+            `validade de ${expiresInDays} dia(s)` +
+            (scope === 'STATUS' ? '; escopo: somente leitura do status' : ''),
         });
         return created;
       })

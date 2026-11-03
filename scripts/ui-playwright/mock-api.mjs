@@ -974,8 +974,9 @@ export async function setupMock(context, state) {
           return json(route, 400, { error: 'Dados invalidos.', details: { name: ['mínimo de 2 caracteres'] } });
         }
         const n = state.apiTokens.length + 1;
+        state.lastTokenBody = body;
         const token = {
-          id: `tk${n}`, name: body.name, prefix: `dlk_Ab12Cd3${n}`, createdAt: '2026-10-22T12:00:00.000Z',
+          id: `tk${n}`, name: body.name, scope: body.scope ?? 'SAMPLES', prefix: `dlk_Ab12Cd3${n}`, createdAt: '2026-10-22T12:00:00.000Z',
           expiresAt: new Date(Date.parse('2026-10-22T12:00:00.000Z') + body.expiresInDays * 86400000).toISOString(),
           lastUsedAt: null, lastUsedIp: null, revokedAt: null,
         };

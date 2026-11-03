@@ -605,3 +605,30 @@ export async function systemStatus() {
     );
   return { checkedAt: new Date(), overall, checks };
 }
+
+/** Quanto tempo uma leitura do status serve a quem consulta de novo (monitor externo). */
+const STATUS_CACHE_MS = 10_000;
+let statusCache: { at: number; value: ReturnType<typeof systemStatus> } | null = null;
+
+/**
+ * `systemStatus` com cache curto e uma consulta so em andamento (item 3.2): um monitor que
+ * pergunta de segundos em segundos, ou varios ao mesmo tempo, nao vira uma enxurrada de
+ * consultas ao banco, ao MinIO, ao ClamAV, ao LDAP e ao Proxmox. `checkedAt` mostra a idade.
+ * Falha nao e guardada.
+ */
+export function cachedSystemStatus(): ReturnType<typeof systemStatus> {
+  const now = Date.now();
+  if (!statusCache || now - statusCache.at > STATUS_CACHE_MS) {
+    const value = systemStatus();
+    statusCache = { at: now, value };
+    value.catch(() => {
+      if (statusCache?.value === value) statusCache = null;
+    });
+  }
+  return statusCache.value;
+}
+
+/** Para os testes: esquece o cache. */
+export function resetStatusCache(): void {
+  statusCache = null;
+}

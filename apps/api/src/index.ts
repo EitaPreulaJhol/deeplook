@@ -58,6 +58,7 @@ import { sandboxRoutes } from './routes/sandbox';
 import { searchRoutes } from './routes/search';
 import { sessionRoutes } from './routes/sessions';
 import { settingsRoutes } from './routes/settings';
+import { statusRoutes } from './routes/status';
 import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
@@ -107,6 +108,8 @@ async function main() {
   await app.register(openApiRoutes);
   // Backup em ZIP (item 81).
   await app.register(backupRoutes);
+  // Status do sistema por maquina, com token de escopo STATUS (item 3.2).
+  await app.register(statusRoutes);
   // Configuracoes do sistema (item 140).
   await app.register(settingsRoutes);
   await app.register(iocRoutes);

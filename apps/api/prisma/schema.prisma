@@ -785,21 +785,31 @@ model AuditEvent {
   @@index([action, createdAt])
 }
 
+/// O que um token de API pode fazer (item 3.2). Cada escopo alcanca so as suas rotas
+/// (src/lib/api-tokens.ts): SAMPLES = envio e consulta de amostras; STATUS = somente leitura
+/// do status do sistema, para um monitor externo (so admin cria).
+enum ApiTokenScope {
+  SAMPLES
+  STATUS
+}
+
 /// Token de API pessoal (Minha Conta > Tokens de API): so envio e consulta de
-/// amostras (src/lib/api-tokens.ts). Guarda so o hash; o token aparece uma vez.
+/// amostras (src/lib/api-tokens.ts), ou, com o escopo STATUS, so a leitura do status.
+/// Guarda so o hash; o token aparece uma vez.
 model ApiToken {
-  id         String    @id @default(cuid())
+  id         String        @id @default(cuid())
   userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   name       String
   /// Comeco do token ("dlk_xxxxxxxx"), para reconhecer qual e qual.
   prefix     String
-  tokenHash  String    @unique
+  tokenHash  String        @unique
+  scope      ApiTokenScope @default(SAMPLES)
   expiresAt  DateTime
   lastUsedAt DateTime?
   lastUsedIp String?
   revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime      @default(now())
 
   @@index([userId])
 }

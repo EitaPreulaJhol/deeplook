@@ -14,7 +14,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ApiToken } from '../api/types';
-import { lastUse, tokenState } from './ApiTokensTab';
+import { lastUse, SCOPE_LABEL, tokenState } from './ApiTokensTab';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -101,6 +101,7 @@ export function AdminApiTokensTab() {
               <TableRow>
                 <TableHeader scope="col">Usuário</TableHeader>
                 <TableHeader scope="col">Nome</TableHeader>
+                <TableHeader scope="col">Finalidade</TableHeader>
                 <TableHeader scope="col">Início</TableHeader>
                 <TableHeader scope="col">Criado em</TableHeader>
                 <TableHeader scope="col">Expira em</TableHeader>
@@ -118,6 +119,7 @@ export function AdminApiTokensTab() {
                       <span title={t.user.email}>{t.user.displayName}</span>
                     </TableCell>
                     <TableCell>{t.name}</TableCell>
+                    <TableCell>{SCOPE_LABEL[t.scope]}</TableCell>
                     <TableCell>
                       <span className="dl-mono">{t.prefix}…</span>
                     </TableCell>

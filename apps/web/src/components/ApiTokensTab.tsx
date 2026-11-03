@@ -15,7 +15,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { ApiToken } from '../api/types';
+import type { ApiToken, ApiTokenScope } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { CopyButton } from './CopyButton';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
@@ -27,6 +28,12 @@ import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
 const VALIDITY = [7, 30, 60, 90];
+
+/** Finalidade do token (item 3.2); a de monitoramento so aparece para administradores. */
+export const SCOPE_LABEL: Record<ApiTokenScope, string> = {
+  SAMPLES: 'Amostras',
+  STATUS: 'Status (monitor)',
+};
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR');
@@ -54,6 +61,8 @@ export function ApiTokensTab() {
   const confirm = useConfirm();
   const [name, setName] = useState('');
   const [days, setDays] = useState('30');
+  const [scope, setScope] = useState<ApiTokenScope>('SAMPLES');
+  const isAdmin = useAuth().user?.role === 'ADMIN';
   const [creating, setCreating] = useState(false);
   const [secret, setSecret] = useState<{ name: string; value: string } | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -78,6 +87,7 @@ export function ApiTokensTab() {
       const res = await api.post<{ token: ApiToken; secret: string }>('/me/api-tokens', {
         name: name.trim(),
         expiresInDays: Number(days),
+        scope,
       });
       setSecret({ name: res.token.name, value: res.secret });
       setName('');
@@ -159,6 +169,28 @@ export function ApiTokensTab() {
               onChange={(e) => setName(e.target.value)}
             />
           </HpsmField>
+          {isAdmin && (
+            <HpsmField
+              label="Finalidade"
+              htmlFor="token-scope"
+              help={
+                scope === 'STATUS'
+                  ? 'Só lê o status do sistema (GET /api/status), para Uptime Kuma, Zabbix e similares. Não alcança amostras nem a administração.'
+                  : 'Envio e consulta de amostras, como nos exemplos abaixo.'
+              }
+            >
+              <Select
+                id="token-scope"
+                labelText="Finalidade"
+                hideLabel
+                value={scope}
+                onChange={(e) => setScope(e.target.value as ApiTokenScope)}
+              >
+                <SelectItem value="SAMPLES" text="Envio e consulta de amostras" />
+                <SelectItem value="STATUS" text="Monitoramento: só ler o status do sistema" />
+              </Select>
+            </HpsmField>
+          )}
           <HpsmField label="Validade" htmlFor="token-days" invalid={check.isInvalid('token-days')}>
             <Select
               id="token-days"
@@ -174,8 +206,11 @@ export function ApiTokensTab() {
           </HpsmField>
           <HpsmField label="Uso" top>
             <HpsmReadonly mono multiline>
-              {`curl -H "Authorization: Bearer <token>" "${origin}/api/entries?scope=mine"\n`}
-              {`curl -H "Authorization: Bearer <token>" -F file=@amostra.exe "${origin}/api/entries/file"`}
+              {scope === 'STATUS'
+                ? `curl -H "Authorization: Bearer <token>" "${origin}/api/status"\n` +
+                  `curl -H "Authorization: Bearer <token>" "${origin}/api/status?strict=1"   # 503 se algo estiver fora do ar`
+                : `curl -H "Authorization: Bearer <token>" "${origin}/api/entries?scope=mine"\n` +
+                  `curl -H "Authorization: Bearer <token>" -F file=@amostra.exe "${origin}/api/entries/file"`}
             </HpsmReadonly>
           </HpsmField>
           <HpsmField label="Documentação">
@@ -204,6 +239,7 @@ export function ApiTokensTab() {
               <TableHead>
                 <TableRow>
                   <TableHeader scope="col">Nome</TableHeader>
+                  <TableHeader scope="col">Finalidade</TableHeader>
                   <TableHeader scope="col">Início</TableHeader>
                   <TableHeader scope="col">Criado em</TableHeader>
                   <TableHeader scope="col">Expira em</TableHeader>
@@ -218,6 +254,7 @@ export function ApiTokensTab() {
                   return (
                     <TableRow key={t.id}>
                       <TableCell>{t.name}</TableCell>
+                      <TableCell>{SCOPE_LABEL[t.scope]}</TableCell>
                       <TableCell>
                         <span className="dl-mono">{t.prefix}…</span>
                       </TableCell>

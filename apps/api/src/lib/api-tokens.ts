@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 
 import type { FastifyRequest } from 'fastify';
 
+import type { ApiTokenScope } from '../generated/prisma/client';
 import type { PublicUser, RoleName } from './auth';
 import { passwordState } from './password-policy';
 import { resolvePreferences } from './preferences';
@@ -18,7 +19,7 @@ const RATE_PER_MINUTE = 120;
 const LAST_USED_EVERY_MS = 60_000;
 
 /**
- * Rotas que aceitam token: so enviar e consultar amostras. Triagem, relatorios,
+ * Rotas do escopo SAMPLES: so enviar e consultar amostras. Triagem, relatorios,
  * administracao, conta e download do arquivo continuam so pelo navegador.
  */
 export const ALLOWED_ROUTES = new Set([
@@ -36,6 +37,21 @@ export const ALLOWED_ROUTES = new Set([
   'GET /api/entries/:id/reputation',
   'GET /api/entries/:id/antivirus',
 ]);
+
+/**
+ * Rotas do escopo STATUS (item 3.2): so a leitura do status do sistema, para um monitor externo
+ * (Uptime Kuma, Zabbix). Fica FORA de ALLOWED_ROUTES de proposito: aquela lista e a da
+ * especificacao OpenAPI de quem integra amostras, e cada escopo alcanca so as suas rotas.
+ */
+export const STATUS_ROUTES = new Set(['GET /api/status']);
+
+/** Escopos que alcancam a rota; vazio = a rota nao aceita token. */
+export function scopesFor(route: string): ApiTokenScope[] {
+  const scopes: ApiTokenScope[] = [];
+  if (ALLOWED_ROUTES.has(route)) scopes.push('SAMPLES');
+  if (STATUS_ROUTES.has(route)) scopes.push('STATUS');
+  return scopes;
+}
 
 export function newTokenSecret(): string {
   return TOKEN_PREFIX + crypto.randomBytes(32).toString('base64url');
@@ -75,13 +91,14 @@ function overRate(tokenId: string, now: number): boolean {
 }
 
 /**
- * Autentica a requisicao pelo token. Recusa rota fora da lista, token
- * desconhecido, revogado ou vencido, conta suspensa e usuario sem a liberacao
- * "Acesso por API" (dada manualmente por um admin).
+ * Autentica a requisicao pelo token. Recusa rota fora das listas, token
+ * desconhecido, revogado ou vencido, conta suspensa, token de outro escopo e
+ * usuario sem a liberacao "Acesso por API" (dada manualmente por um admin).
  */
 export async function authenticateToken(req: FastifyRequest, secret: string): Promise<TokenAuth> {
   const route = `${req.method} ${req.routeOptions.url ?? ''}`;
-  if (!ALLOWED_ROUTES.has(route)) {
+  const scopes = scopesFor(route);
+  if (!scopes.length) {
     return {
       ok: false,
       code: 403,
@@ -99,6 +116,25 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
   if (!token || token.revokedAt || token.expiresAt.getTime() <= now) return invalid;
   const u = token.user;
   if (u.status !== 'ACTIVE') return invalid;
+  // So depois de provar que o token e valido: quem erra o token nao descobre os escopos.
+  if (!scopes.includes(token.scope)) {
+    return {
+      ok: false,
+      code: 403,
+      error:
+        token.scope === 'STATUS'
+          ? 'Este token só consulta o status do sistema (GET /api/status).'
+          : 'Este token não vale para esta rota.',
+    };
+  }
+  // O token de status e de um administrador: se a conta deixou de ser, o token para de valer.
+  if (token.scope === 'STATUS' && u.role !== 'ADMIN') {
+    return {
+      ok: false,
+      code: 403,
+      error: 'O dono deste token deixou de ser administrador.',
+    };
+  }
   const password = passwordState(u);
   if (password.mustChangePassword) {
     return {

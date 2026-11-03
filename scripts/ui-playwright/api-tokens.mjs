@@ -11,8 +11,8 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const state = createState({ loggedIn: true });
 const bruno = { id: 'u2', displayName: 'Bruno Lima', email: 'bruno@deeplook.test', apiAccess: true };
 state.adminTokens = [
-  { id: 'ta1', name: 'Coletor SIEM', prefix: 'dlk_Zz98Yy76', createdAt: '2026-10-01T10:00:00.000Z', expiresAt: '2026-12-30T10:00:00.000Z', lastUsedAt: '2026-10-22T09:15:00.000Z', lastUsedIp: '203.0.113.9', revokedAt: null, user: bruno },
-  { id: 'ta2', name: 'Teste antigo', prefix: 'dlk_Xx11Ww22', createdAt: '2026-09-01T10:00:00.000Z', expiresAt: '2026-10-01T10:00:00.000Z', lastUsedAt: null, lastUsedIp: null, revokedAt: '2026-09-10T10:00:00.000Z', user: bruno },
+  { id: 'ta1', name: 'Coletor SIEM', scope: 'SAMPLES', prefix: 'dlk_Zz98Yy76', createdAt: '2026-10-01T10:00:00.000Z', expiresAt: '2026-12-30T10:00:00.000Z', lastUsedAt: '2026-10-22T09:15:00.000Z', lastUsedIp: '203.0.113.9', revokedAt: null, user: bruno },
+  { id: 'ta2', name: 'Teste antigo', scope: 'STATUS', prefix: 'dlk_Xx11Ww22', createdAt: '2026-09-01T10:00:00.000Z', expiresAt: '2026-10-01T10:00:00.000Z', lastUsedAt: null, lastUsedIp: null, revokedAt: '2026-09-10T10:00:00.000Z', user: bruno },
 ];
 await setupMock(context, state);
 const page = await context.newPage();
@@ -67,13 +67,26 @@ expect('botão copiar', (await page.locator('.hpsm-msg button[aria-label*="token
 expect('nome limpo após gerar', (await page.inputValue('#token-name')) === '');
 expect('sem aviso de validação depois de gerar', !msg.includes('Preencha'), msg);
 const cells = (await rowOf('Coletor do SOC').locator('td').allInnerTexts()).map((t) => t.trim());
-expect('linha: início, validade, nunca usado, ativo', cells[1] === 'dlk_Ab12Cd31…' && cells[3].startsWith('20/01/2027') && cells[4] === 'Nunca usado' && cells[5] === 'Ativo', cells.join(' | '));
+expect('linha: finalidade, início, validade, nunca usado, ativo', cells[1] === 'Amostras' && cells[2] === 'dlk_Ab12Cd31…' && cells[4].startsWith('20/01/2027') && cells[5] === 'Nunca usado' && cells[6] === 'Ativo', cells.join(' | '));
+expect('POST sem finalidade escolhida manda SAMPLES', state.lastTokenBody?.scope === 'SAMPLES', state.lastTokenBody);
 await page.screenshot({ path: `${OUT}/tokens-minha-conta.png`, fullPage: true });
 await rowOf('Coletor do SOC').locator('button:has-text("Revogar")').click();
 expect('revogar pede confirmação', (await confirmDialog.innerText()).includes('deixa de funcionar imediatamente'));
 await confirmDialog.locator('button.dl-btn--danger').click();
 await settle();
-expect('revogado', state.calls.includes('DELETE /api/me/api-tokens/tk1') && (await rowOf('Coletor do SOC').locator('td').nth(5).innerText()).trim() === 'Revogado');
+expect('revogado', state.calls.includes('DELETE /api/me/api-tokens/tk1') && (await rowOf('Coletor do SOC').locator('td').nth(6).innerText()).trim() === 'Revogado');
+
+// 3b. Finalidade (item 3.2): so o admin escolhe o token de monitoramento (status do sistema).
+expect('admin vê a finalidade', (await page.locator('#token-scope').count()) === 1);
+await page.selectOption('#token-scope', 'STATUS');
+expect('finalidade de status explica o alcance', (await page.locator('.hpsm-field:has(#token-scope)').innerText()).includes('GET /api/status'));
+expect('finalidade de status troca o exemplo de uso', (await page.locator('.hpsm-field:has(.hpsm-field__label:text-is("Uso:")) .hpsm-readonly').innerText()).includes(`"${ORIGIN}/api/status?strict=1"`));
+await page.fill('#token-name', 'Uptime Kuma');
+await page.click('.hpsm-toolbar__action:has-text("Gerar token")');
+await settle();
+expect('POST manda o escopo STATUS', state.lastTokenBody?.scope === 'STATUS', state.lastTokenBody);
+expect('linha do token de status mostra a finalidade', (await rowOf('Uptime Kuma').locator('td').nth(1).innerText()).trim() === 'Status (monitor)');
+await page.screenshot({ path: `${OUT}/tokens-status.png`, fullPage: true });
 
 // 4. Administracao: aba Tokens de API.
 await page.goto(ORIGIN + '/inicio', { waitUntil: 'networkidle' });
@@ -82,10 +95,11 @@ await settle();
 expect('navegador abre a aba', new URL(page.url()).search === '?tab=tokens');
 expect('só ativos por padrão', (await page.locator('table[aria-label="Tokens de API"] tbody tr').count()) === 1);
 const adm = (await rowOf('Coletor SIEM').locator('td').allInnerTexts()).map((t) => t.trim());
-expect('linha: usuário, último uso com IP', adm[0] === 'Bruno Lima' && adm[5] === '22/10/2026, 06:15:00 · 203.0.113.9' || adm[5].endsWith('· 203.0.113.9'), adm.join(' | '));
+expect('linha: usuário, último uso com IP', adm[0] === 'Bruno Lima' && adm[2] === 'Amostras' && (adm[6] === '22/10/2026, 06:15:00 · 203.0.113.9' || adm[6].endsWith('· 203.0.113.9')), adm.join(' | '));
 await page.selectOption('#tokens-status', 'all');
 await settle();
-expect('todos: inclui revogado', (await page.locator('table[aria-label="Tokens de API"] tbody tr').count()) === 2 && (await rowOf('Teste antigo').locator('td').nth(6).innerText()).trim() === 'Revogado');
+expect('todos: inclui revogado', (await page.locator('table[aria-label="Tokens de API"] tbody tr').count()) === 2 && (await rowOf('Teste antigo').locator('td').nth(7).innerText()).trim() === 'Revogado');
+expect('admin vê a finalidade de um token de status', (await rowOf('Teste antigo').locator('td').nth(2).innerText()).trim() === 'Status (monitor)');
 await page.screenshot({ path: `${OUT}/tokens-admin.png`, fullPage: true });
 await rowOf('Coletor SIEM').locator('button:has-text("Revogar")').click();
 await confirmDialog.locator('button.dl-btn--danger').click();
