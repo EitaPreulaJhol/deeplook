@@ -37,6 +37,40 @@ describe('lineDiff', () => {
     expect(compact(lineDiff('a\r\nb', 'a\nb'))).toEqual(['same:a', 'same:b']);
   });
 
+  it('sobra no fim do trecho: so remocoes ou so adicoes depois de casar', () => {
+    // 'b' casa; 'x' e 'y' do antigo ficam sem par no fim do miolo (e vice-versa).
+    expect(compact(lineDiff('a\nb\nx\ny\nz', 'a\nb\nz'))).toEqual([
+      'same:a',
+      'same:b',
+      'del:x',
+      'del:y',
+      'same:z',
+    ]);
+    expect(compact(lineDiff('a\nb\nz', 'a\nb\nx\ny\nz'))).toEqual([
+      'same:a',
+      'same:b',
+      'add:x',
+      'add:y',
+      'same:z',
+    ]);
+    // Sem inicio nem fim em comum e sem nenhuma linha igual: tudo sai e tudo entra.
+    expect(compact(lineDiff('a\nb', 'c\nd\ne'))).toEqual([
+      'del:a',
+      'del:b',
+      'add:c',
+      'add:d',
+      'add:e',
+    ]);
+  });
+
+  it('diff gigante (acima de 4 milhoes de celulas) vira troca inteira, sem montar a tabela', () => {
+    const many = (prefix: string) => Array.from({ length: 2100 }, (_, i) => `${prefix}${i}`);
+    const diff = lineDiff(many('antiga-').join('\n'), many('nova-').join('\n'));
+    expect(diff).toHaveLength(4200);
+    expect(diff.slice(0, 2100).every((l) => l.kind === 'del')).toBe(true);
+    expect(diff.slice(2100).every((l) => l.kind === 'add')).toBe(true);
+  });
+
   it('preserva a ordem num diff com varias mudancas', () => {
     expect(compact(lineDiff('linha1\nvelha\nfim', 'linha1\nnova1\nnova2\nfim'))).toEqual([
       'same:linha1',

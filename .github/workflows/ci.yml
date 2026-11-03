@@ -78,11 +78,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Testes unitarios do frontend (item 2.2), so no web; mesmo molde do passo
-      # de prisma:generate, que roda so na API.
-      - name: Testes unitarios (Vitest)
+      # Testes unitarios do frontend (itens 2.2 e 6.9), so no web; mesmo molde do passo
+      # de prisma:generate, que roda so na API. Com cobertura: o piso do vitest.config.ts
+      # reprova uma queda grande nos modulos que ja tem teste.
+      - name: Testes unitarios (Vitest, com cobertura)
         if: matrix.app == 'web'
-        run: npm run test:unit
+        run: npm run test:coverage
 
   # ---------------------------------------------------------------------------
   # Navegador isolado da captura de pagina: testes do proxy de saida, sem rede.

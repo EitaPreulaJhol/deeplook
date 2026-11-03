@@ -1,13 +1,13 @@
 import { Theme } from '@carbon/react';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { BroadcastBanner } from './BroadcastBanner';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HpsmSidebar } from './HpsmSidebar';
 import { HpsmTopBar } from './HpsmTopBar';
-import { HpsmMessageBar, MessageSlotProvider } from './messages';
+import { HpsmLoading, HpsmMessageBar, MessageSlotProvider } from './messages';
 import { PasswordExpiryNotice } from './PasswordExpiryNotice';
 import { ShortcutsProvider } from './shortcuts';
 import { WorkspaceProvider, WorkspaceTabs } from './workspace';
@@ -74,7 +74,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <div id="dl-conteudo" className="dl-content__body" tabIndex={-1}>
                     {/* So o miolo cai (item 1.1): topo, navegador e abas ficam. */}
                     <ErrorBoundary key={pathname} variant="page">
-                      {children}
+                      {/* Paginas sob demanda (item 6.10): so o miolo espera o pacote. */}
+                      <Suspense fallback={<HpsmLoading text="Carregando..." />}>
+                        {children}
+                      </Suspense>
                     </ErrorBoundary>
                   </div>
                 </main>
