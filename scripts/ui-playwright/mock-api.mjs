@@ -7,14 +7,18 @@ import { extname, join } from 'node:path';
 // HTTPS: contexto seguro, como em producao (Cloudflare Tunnel). Sem ele o
 // navegador nao expoe crypto.subtle e a checagem de duplicata e pulada.
 export const ORIGIN = 'https://deeplook.test';
-const DIST = '/dist';
+// Os caminhos absolutos sao os do container dos testes de tela; a suite visual roda de dentro
+// do repositorio e aponta os mesmos lugares por variavel de ambiente.
+const DIST = process.env.DIST_DIR || '/dist';
 /** A CSP de producao (nginx.conf) vale nos testes: tela que a viole falha o cenario. */
-const CSP = /add_header Content-Security-Policy "([^"]+)"/.exec(readFileSync('/nginx.conf', 'utf8'))[1];
+const CSP = /add_header Content-Security-Policy "([^"]+)"/.exec(
+  readFileSync(process.env.NGINX_CONF || '/nginx.conf', 'utf8'),
+)[1];
 let cspViolations = 0;
 process.on('exit', () => {
   if (cspViolations) process.exitCode = 1;
 });
-export const OUT = '/work/out';
+export const OUT = process.env.OUT_DIR || '/work/out';
 mkdirSync(OUT, { recursive: true });
 
 const MIME = {
@@ -70,11 +74,17 @@ export const SLA = {
 };
 /** Limites da amostra pela prioridade dela (padrao P3). */
 const limitsOf = (e) => SLA.byPriority[e.priority ?? 'P3'];
-const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
+/**
+ * Instante base das idades ("ha 30 h"). O padrao e agora; a suite visual congela o relogio do
+ * navegador (DL_NOW) e precisa que os dados usem o mesmo instante, senao o texto das horas
+ * muda a cada hora e a captura nunca casa.
+ */
+const NOW = process.env.DL_NOW ? Date.parse(process.env.DL_NOW) : Date.now();
+const hoursAgo = (h) => new Date(NOW - h * 3600 * 1000).toISOString();
 const STATUS_AGE_HOURS = { e1: 30, e2: 200, e3: 100, e4: 300 };
 for (const e of entries) e.statusChangedAt = hoursAgo(STATUS_AGE_HOURS[e.id] ?? 1);
 /** Nao concluida ha mais de N horas no status atual. */
-const olderThan = (e, hours) => e.status !== 'COMPLETED' && Date.parse(e.statusChangedAt) < Date.now() - hours * 3600 * 1000;
+const olderThan = (e, hours) => e.status !== 'COMPLETED' && Date.parse(e.statusChangedAt) < NOW - hours * 3600 * 1000;
 
 // Linha do tempo por amostra (GET /api/entries/:id/events); PATCH acrescenta eventos.
 export const events = Object.fromEntries(

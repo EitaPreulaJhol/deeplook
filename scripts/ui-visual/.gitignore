@@ -1,0 +1,7 @@
+# Dependencias instaladas na imagem do Playwright.
+node_modules/
+# Saida do runner: diffs de falha e relatorio HTML (as capturas de referencia ficam em
+# __screenshots__, essas sim versionadas).
+test-results/
+playwright-report/
+out/
