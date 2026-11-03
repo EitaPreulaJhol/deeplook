@@ -15,12 +15,12 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 1.2 | Health check de *readiness* real | 🔴 | P–M | API / Compose | ✅ |
 | 1.3 | Logger estruturado nos jobs de fundo | 🟡 | P | API | ✅ |
 | 2.1 | CI (GitHub Actions): lint, typecheck, build, testes | 🔴 | M | Repositório | ✅ |
-| 2.2 | Testes unitários no frontend (Vitest) | 🟡 | M | Web | ⬜ |
+| 2.2 | Testes unitários no frontend (Vitest) | 🟡 | M | Web | ✅ |
 | 2.3 | Atualização de dependências e `npm audit` no CI | 🟡 | P | Repositório | ✅ |
 | 2.4 | Limpeza: `infra/nginx/` vazio | ⚪ | P | Repositório | ✅ |
 | 3.1 | Métricas Prometheus (`/metrics`) | ⚪ | M | API | ⬜ |
 | 3.2 | Status do sistema legível por máquina | ⚪ | P | API | ⬜ |
-| 4.1 | Afinar cabeçalhos do nginx | 🟡 | P | Web | ⬜ |
+| 4.1 | Afinar cabeçalhos do nginx | 🟡 | P | Web | ✅ |
 | 4.2 | Conferência de integridade (SHA-256) no download | ⚪ | P | API | ⬜ |
 | 5.1 | Notificações por e-mail (SMTP) | — | G | API | 🚫 |
 | 5.2 | Webhooks de saída | — | M–G | API | 🚫 |
@@ -42,25 +42,24 @@ em 29 arquivos** de integração, todas verdes.
 
 ## ⏸ Onde paramos
 
-A primeira leva fechou com os seis itens acima. O que falta está listado abaixo na ordem
-sugerida, com o estado de cada um já conferido no código — nada aqui depende de relembrar
-conversa.
+A primeira leva fechou com os seis itens de cima; a segunda levou o **2.2 (Vitest)** e o
+**4.1 (cabeçalhos do nginx)**, e de quebra subiu as imagens e o CI para o **Node 26 LTS**, a
+mesma versão da máquina de desenvolvimento. O que falta está listado abaixo na ordem sugerida,
+com o estado de cada um já conferido no código — nada aqui depende de relembrar conversa.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [2.2 Vitest no frontend](#22-testes-unitários-no-frontend) | O CI já existe e tem onde pendurar o job | **M** |
-| 2º | [4.1 Cabeçalhos do nginx](#41-afinar-os-cabeçalhos-do-nginx) | Três linhas; fecha o pouco que falta | **P** |
-| 3º | [3.2 Status em JSON](#32-status-do-sistema-legível-por-máquina) | `lib/status.ts` já calcula tudo | **P** |
-| 4º | [4.2 Integridade no download](#42-conferência-de-integridade-no-download) | Precisa decidir o teto de tamanho | **P** |
-| 5º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana no homelab | **M** |
-| 6º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
+| 1º | [3.2 Status em JSON](#32-status-do-sistema-legível-por-máquina) | `lib/status.ts` já calcula tudo | **P** |
+| 2º | [4.2 Integridade no download](#42-conferência-de-integridade-no-download) | Precisa decidir o teto de tamanho | **P** |
+| 3º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana no homelab | **M** |
+| 4º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 
 ### Para retomar
 
 ```bash
 # a leva anterior deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
-cd ../web   && npm run format:check && npm run lint && npm run build
+cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:unit
 cd ../api   && npm run test:integration          # 917 checagens em 29 arquivos
 ```
 
@@ -73,9 +72,15 @@ cd ../api   && npm run test:integration          # 917 checagens em 29 arquivos
   **não troque para `lf`** sem querer um diff de 144 arquivos.
 - **`format:check` só cobre `apps/api` e `apps/web`.** O `README.md` e os `.md` de `docs/`
   nunca passaram pelo Prettier: está certo que acusem desvio se você rodar na raiz.
-- **Node 22** no CI, igual ao das imagens (a máquina de desenvolvimento está na 26).
+- **Node 26 LTS** no CI e nas imagens (`apps/api/Dockerfile` e `apps/web/Dockerfile`), a
+  mesma da máquina de desenvolvimento. Cuidado: o `npm` 11 que vem com ele **não roda script
+  de instalação de dependência** sem aprovação — no `npm ci` é só aviso, e o build não depende
+  disso (Achado C, no fim).
 - **Os testes de integração pedem só Docker** e sobem o que usam. `-- <filtro>` roda um
   arquivo só; `--clean` derruba os contêineres no fim.
+- **O Vitest do web (`npm run test:unit`) não sobe nada.** É lógica pura, `environment: 'node'`,
+  e os `*.test.ts` são type-checados pelo `build` (o `tsconfig` inclui `src`): erro de tipo no
+  teste reprova o CI mesmo sem rodar o Vitest.
 
 ---
 
@@ -207,7 +212,8 @@ Detalhes que custaram para acertar:
   `.gitignore`: sem o passo, nem o ESLint nem o `tsc` encontram os tipos.
 - **`npm ci --ignore-scripts` no capture.** O teste do proxy não abre navegador, e não vale
   baixar os ~400 MB do Chromium do Playwright.
-- **Node 22**, a mesma versão das imagens, e não a 26 da máquina de desenvolvimento.
+- **Node 22** na época, a mesma versão das imagens (depois a leva do item 2.2 subiu as duas
+  pontas, imagens e CI, para o Node 26 LTS da máquina de desenvolvimento).
 - **`--clean`** nos testes de integração, para derrubar Postgres, MinIO e OpenLDAP no fim.
 
 Todos os passos foram rodados localmente antes de confiar no arquivo, e os dois YAML foram
@@ -238,6 +244,26 @@ conferidos num parser de verdade.
 Como ligar no CI: o job `check` do `.github/workflows/ci.yml` já roda `lint` e `build` na
 matriz `api`/`web`; basta um passo `npm run test:unit` com `if: matrix.app == 'web'`, no
 mesmo molde do passo de `prisma:generate`, que já usa `if: matrix.app == 'api'`.
+
+**Implementado.** `apps/web/vitest.config.ts` com `environment: 'node'` (lógica pura, sem DOM)
+e `include: ['src/**/*.test.ts']`; ele faz `mergeConfig` com o `vite.config.ts` só para herdar
+o plugin do React e o alias `~`, porque `notifications.ts` puxa `tags.tsx` (JSX). **Sem
+globais:** cada teste importa `describe/it/expect` de `vitest`, então nem o ESLint nem o
+`tsconfig` precisaram mudar. Dois scripts novos no `package.json` (`test:unit` = `vitest run`,
+`test:watch` = `vitest`) e o passo "Testes unitários (Vitest)" com `if: matrix.app == 'web'` no
+job `check`.
+
+Os cinco módulos do levantamento viraram **55 checagens**: `decoder.test.ts` (cada passo, o
+encadeamento, o teto de 1 MB, o índice do erro e um gzip de ida e volta pela Web Streams),
+`textDiff.test.ts` (inserção, remoção, troca e CRLF igual a LF), `sha256.test.ts` (os vetores do
+FIPS 180-4 e o cruzamento com a Web Crypto nas bordas do padding e em vários blocos),
+`iocs.test.ts` (tipo, rótulo, a chave SHA-256 da URL e o reconhecimento) e `notifications.test.ts`
+(frase, citação, alvo e destino, com `actor` null caindo em "O sistema"). Rodam em ~300 ms.
+
+Um detalhe que vale lembrar: o `build` do web é `tsc --noEmit && vite build` e o `tsconfig`
+inclui `src`, então os `*.test.ts` são **type-checados no build** — um erro de tipo no teste já
+reprova, antes mesmo do Vitest. Os testes não entram no pacote, porque o `vite build` só
+empacota o que a `index.html` alcança.
 
 ### 2.3 Atualização de dependências e `npm audit`
 - **Problema:** a troca do MinIO pelo `pgsty/silo` (CVE-2026-40344 e CVE-2026-41145) foi
@@ -315,6 +341,13 @@ estava desatualizada e passou a mostrar `apps/capture/`, `apps/api/rules/`,
   nas respostas de erro. E `add_header` em um `location` **substitui** os do servidor: se
   algum bloco ganhar um `add_header` próprio, os de cima somem dali.
 
+**Implementado** em `apps/web/nginx.conf`, no bloco de "Headers de segurança": `server_tokens
+off;` (tira a versão do nginx do cabeçalho `Server` e das páginas de erro), o `Permissions-Policy`
+desligando câmera, microfone, geolocalização e pagamento, e o `includeSubDomains` no HSTS —
+**sem `preload`**, de propósito. Todos com `always`. Conferido que nenhum `location`
+(`/api/sandbox`, `/api/`, `/`) tem `add_header` próprio, então os do servidor valem para todas
+as respostas; se algum ganhar um no futuro, estes precisam ser repetidos lá.
+
 ### 4.2 Conferência de integridade no download
 - **Proposta:** ao servir o arquivo de uma amostra (e ao restaurar um backup), recalcular o
   SHA-256 e comparar com o que está gravado na linha da amostra, registrando divergência na
@@ -380,3 +413,19 @@ sem nenhuma troca de fim de linha. `apps/api/rules` entrou no `.prettierignore`,
 `.gitattributes` manda copiar os pacotes de regras sem alterar — inclusive no fim de linha.
 
 Também havia um erro de ordem de imports no `iocs.test.ts`, corrigido com `eslint --fix`.
+
+### C. O npm 11 do Node 26 não roda script de instalação sem aprovação
+
+Subir as imagens e o CI do Node 22 para o 26 trouxe o `npm` 11, que **bloqueia por padrão o
+script de instalação das dependências** (`postinstall`, `install`) e só os roda depois de um
+`npm install-scripts approve`. No `npm ci` isso é aviso, não erro, e o build não depende dele: o
+binário do esbuild chega pelo pacote por plataforma (`@esbuild/linux-x64`), não pelo script; o
+cliente do Prisma é gerado no passo próprio (`prisma generate`); e os `postinstall` de telemetria
+do Carbon são justamente o que não se quer rodar. Fica o registro para quando alguém vir o aviso
+e achar que quebrou algo.
+
+O `apps/capture` não muda de Node: roda sobre a imagem do Playwright
+(`mcr.microsoft.com/playwright`), que traz o seu próprio runtime; o Dependabot já vigia essa
+imagem. E o teste de tamanho da tag em `decryptSecret` (ux-backlog) agora roda no Node 26, que
+recusa tag curta sozinho — o `authTagLength: 16` continua sendo a defesa real; a camada do Node
+22 era a redundância que se perde.

@@ -26,8 +26,9 @@ permissions:
   contents: read
 
 env:
-  # A mesma versao das imagens (apps/api/Dockerfile e apps/web/Dockerfile).
-  NODE_VERSION: '22'
+  # A mesma versao das imagens (apps/api/Dockerfile e apps/web/Dockerfile) e da
+  # maquina de desenvolvimento: Node 26 LTS.
+  NODE_VERSION: '26'
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -71,6 +72,12 @@ jobs:
       # com noUnusedLocals/noUnusedParameters: import sobrando reprova.
       - name: Build
         run: npm run build
+
+      # Testes unitarios do frontend (item 2.2), so no web; mesmo molde do passo
+      # de prisma:generate, que roda so na API.
+      - name: Testes unitarios (Vitest)
+        if: matrix.app == 'web'
+        run: npm run test:unit
 
   # ---------------------------------------------------------------------------
   # Navegador isolado da captura de pagina: testes do proxy de saida, sem rede.
