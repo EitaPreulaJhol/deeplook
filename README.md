@@ -35,7 +35,9 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
    └───────────────────────────────────────────────────────────┘
 ```
 
-- **web**: nginx servindo o build (React + Carbon) e fazendo proxy de `/api` para a API.
+- **web**: nginx servindo o build (React + Carbon) e fazendo proxy de `/api` para a API. Roda
+  **sem root** (imagem `nginx-unprivileged`, porta interna 8080), com o sistema de arquivos
+  somente leitura, sem capacidades e com limite de memória; o host publica `127.0.0.1:8080`.
 - **api**: Fastify + Prisma. No boot aplica migrações, roda o seed do admin e garante o bucket no MinIO.
 - **db**: PostgreSQL 16.
 - **minio**: armazenamento S3-compatible das amostras (nunca exposto publicamente).
@@ -232,6 +234,33 @@ curl -H "Authorization: Bearer dlk_..." -H "Content-Type: application/json" \
   API ou retira a liberação, o que revoga todos de uma vez. Suspender a conta também corta
   o acesso.
 
+### Monitoramento: o status do sistema por token
+
+Um monitor externo (Uptime Kuma, Zabbix...) lê o mesmo status da tela **Administração >
+Status**, sem raspar HTML, com um token de finalidade **Monitoramento**:
+
+1. Um **admin** com o "Acesso por API" liberado gera o token em **Minha Conta > Tokens de
+   API**, escolhendo a finalidade *Monitoramento: só ler o status do sistema* (só
+   administradores veem essa opção).
+2. O monitor consulta:
+
+```bash
+curl -H "Authorization: Bearer dlk_..." "https://deeplook.exemplo/api/status"
+# 503 quando a situação geral é "error" (para monitor que só olha o código HTTP)
+curl -H "Authorization: Bearer dlk_..." "https://deeplook.exemplo/api/status?strict=1"
+```
+
+- A resposta traz `overall` (`ok`, `warn` ou `error`, a pior das verificações), `checkedAt` e a
+  lista `checks` (banco, MinIO, antivírus, filas, **integridade dos arquivos**...).
+- **Só leitura e só esta rota:** o token de status não alcança amostras, administração nem
+  qualquer outra rota, e o token de amostras não lê o status. Se o dono deixar de ser admin,
+  o token para de valer na hora.
+- **Cache de 10 s** (e uma verificação por vez): `checkedAt` mostra a idade, e um monitor que
+  pergunta de segundos em segundos não vira uma enxurrada de consultas ao banco, ao MinIO, ao
+  ClamAV e ao LDAP. Use `GET`; `HEAD` não vale para token.
+- Não confundir com `/api/health/ready`, que é pública e só diz *ok* ou *não* (usada pelo
+  compose): o status por token é autenticado e traz o detalhe (endereços, versões, latências).
+
 ## Antivírus (ClamAV)
 
 O serviço `clamav` do `docker-compose.yml` roda o `clamd` e o `freshclam` (que atualiza
@@ -427,6 +456,34 @@ migrações mais novas rodam sozinhas.
 - **Backup sem as amostras:** as fichas voltam, mas os arquivos não. Baixar responde "arquivo
   não está no armazenamento"; a análise já feita continua na ficha.
 
+## Integridade dos arquivos
+
+Cada arquivo guardado tem de ter o SHA-256 (e o tamanho) que a ficha gravou no envio. Isso
+pega corrupção silenciosa do armazenamento e adulteração do bucket por fora da API.
+
+- **No download:** o SHA-256 é calculado enquanto os bytes saem, sem ler o arquivo duas vezes.
+  O arquivo é **entregue de qualquer jeito** (recusar tiraria do analista a única cópia que
+  resta); o que muda é o registro.
+- **Divergência:** a amostra fica marcada, a ficha mostra um aviso vermelho (e o campo
+  **Integridade**, em Detalhes, a data da última conferência), a **Auditoria** registra
+  *Arquivo divergente do SHA-256 da ficha* com o hash esperado e o calculado, e os downloads
+  seguintes saem com o cabeçalho `X-DeepLook-Integrity: mismatch`. A auditoria só sai na
+  *mudança* de estado: conferir de novo o mesmo arquivo estragado não enche a trilha.
+- **Download interrompido** no meio não tem veredito e não marca nada.
+- **Verificação periódica:** em segundo plano, o servidor lê as amostras e confere o SHA-256,
+  começando pelas nunca conferidas e seguindo pelas conferidas há mais tempo, até gastar o
+  orçamento da rodada. Pega a corrupção sem esperar alguém baixar. Um objeto que **sumiu** do
+  bucket também é marcado. Falha de leitura (MinIO fora) não marca ninguém.
+- **Voltou a conferir** (o objeto foi restaurado): a marca sai e a Auditoria registra.
+- **O que fazer com uma amostra marcada:** restaurar o objeto do backup (o ZIP traz o SHA-256
+  de cada arquivo) ou reenviar a amostra; o scrub e o próximo download limpam a marca.
+- **Status:** a verificação *Integridade dos arquivos* fica laranja com amostras divergentes e
+  aparece no status por token (`/api/status`).
+- Ajuste com `INTEGRITY_SCRUB_INTERVAL_MINUTES` (padrão 60; `0` desliga) e
+  `INTEGRITY_SCRUB_MAX_MB` (padrão 512 por rodada).
+
+---
+
 ## Cloudflare Tunnel (no host, fora do Docker)
 
 Em produção, com o Tunnel, defina `COOKIE_SECURE=true`. O IP real vem do `CF-Connecting-IP`,
@@ -483,6 +540,8 @@ COOKIE_SECURE=true
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
 | `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket | `7` |
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
+| `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
+| `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
 | `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | login pelo AD (vazio desliga); `ldaps://` ou `ldap://` + StartTLS; PEM da CA que assina o certificado do AD | — · `false` · — |
 | `LDAP_BIND_DN` · `LDAP_BIND_PASSWORD` · `LDAP_BASE_DN` | conta de serviço e base da busca | — |
 | `LDAP_USER_FILTER` · `LDAP_ATTR_NAME` · `LDAP_ATTR_MAIL` | filtro (`{login}` = o digitado) e atributos de nome e e-mail | padrão do AD · `displayName` · `mail` |
@@ -503,6 +562,8 @@ COOKIE_SECURE=true
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |
+| `WEB_MEM_LIMIT` | limite de memória do container do web (nginx) | `256m` |
+| `LOG_MAX_SIZE` · `LOG_MAX_FILE` | rotação dos logs do Docker, em todos os serviços: tamanho de cada arquivo e quantos ficam | `10m` · `3` |
 | `UPLOAD_DAILY_LIMIT` | Envios por usuário comum nas últimas 24 horas (arquivo, link, cada arquivo de um `.zip`); analistas e admins sem limite; `0` desliga | `20` |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO | `deeplook` |
 | `MINIO_CONSOLE_PORT` | Porta (loopback) do console do MinIO no host | `9001` |
@@ -534,7 +595,7 @@ deeplook/
 ├─ docker-compose.yml
 ├─ .env.example
 ├─ README.md
-├─ .github/           # CI (workflows/ci.yml) e Dependabot
+├─ .github/           # CI (ci.yml), varredura de CVE das imagens (security-scan.yml) e Dependabot
 ├─ apps/
 │  ├─ api/            # Fastify + Prisma + S3 (MinIO)
 │  │  ├─ prisma/      # schema, migrações, seed (configuração em prisma.config.ts)
@@ -544,10 +605,12 @@ deeplook/
 │  ├─ capture/        # navegador isolado que captura a página de um link
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
+│     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
 ├─ docs/              # guias: interface-hpsm.md, ux-backlog.md, plano-melhorias.md, proxmox.md
 ├─ icons/             # biblioteca de ícones (estilo HPSM)
-├─ scripts/           # smoke tests (PowerShell) e testes visuais (ui-playwright/)
+├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
+├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
 └─ data/              # volumes (git-ignored): pgdata/, minio/, clamav/
 ```
 
@@ -595,6 +658,16 @@ npx prisma generate
 - Senhas usam **hash bcrypt**; a sessão usa **cookie httpOnly**.
 - Os logs da API e do nginx guardam o caminho sem a query string, porque a busca e a ficha do
   indicador levam URLs de vítima, com token ou e-mail.
+- O `web`, a API e o capture rodam **sem root e sem capacidades**; o `web` ainda com o sistema
+  de arquivos somente leitura. As imagens finais não trazem o `npm`. O nginx não revela a
+  versão, manda `Permissions-Policy`, `Cross-Origin-Opener-Policy` e
+  `Cross-Origin-Resource-Policy`, e os assets com hash saem com um ano de cache.
+- O `Cross-Origin-Opener-Policy` só vale em origem confiável (HTTPS ou `localhost`), que são os
+  dois caminhos de acesso (o Tunnel e a porta em `127.0.0.1`). Por HTTP em outro nome o navegador
+  o ignora e escreve um aviso no console, sem efeito funcional.
+- O `includeSubDomains` do HSTS vale para os subdomínios do endereço que serve o DeepLook: use
+  um nome dedicado (por exemplo, `deeplook.exemplo`), e não o domínio raiz, se outros
+  subdomínios ainda atendem por HTTP.
 
 ---
 
@@ -771,8 +844,16 @@ Precisam só do Docker ligado; sobem o que usam e não mexem na stack em execuç
 cd apps/api
 npm run test:integration            # API contra Postgres, MinIO e OpenLDAP reais
 npm run test:integration -- ldap    # só os arquivos com "ldap" no nome
-npm run test:images                 # imagens reais: lockfile, API sem root, captura
+npm run test:images                 # imagens reais: lockfile, web e API sem root, cabeçalhos, captura
 npm run test:smoke                  # navegador real contra as imagens do web e da API
+
+cd ../web
+npm run test:unit                   # Vitest: lógica pura, hooks e componentes (jsdom)
+npm run test:coverage               # o mesmo, com o piso de cobertura do vitest.config.ts
+
+# da raiz do repositório
+node scripts/check-playwright-version.mjs   # pacote, imagem e testes na mesma versão do Playwright
+node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando do CI)
 ```
 
 - **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
@@ -783,6 +864,19 @@ npm run test:smoke                  # navegador real contra as imagens do web e 
   console ou da CSP reprova. Pega o que a API simulada das telas esconde.
 - **Telas** (`scripts/ui-playwright/run.ps1`): cenários no navegador com a API simulada. Roda
   todos e lista os que falharam.
+- **Imagens** (`test:images`): o `web` roda com a configuração **lida do compose** (somente
+  leitura, sem capacidades, limites, healthcheck): o teste exercita o que vai para produção.
+  Confere os cabeçalhos de segurança no `/`, num asset e numa resposta de erro, o cache, o
+  gzip e o 404 de asset que não existe.
+- **Web unitário** (Vitest): `api/client.ts`, os módulos de lógica, os hooks e o
+  `ErrorBoundary`. O piso de cobertura vale só para os módulos que já têm teste; ao ganhar
+  teste, o módulo entra na lista do `vitest.config.ts`.
+- **CI** (`.github/workflows`): `ci.yml` roda lint, formatação, build e testes do web e da API,
+  os testes do capture (com a conferência do Playwright), a integração, os testes das imagens
+  (`images`, em todo PR) e o teste rápido com navegador (`smoke`, fora de PR); o `audit` barra
+  vulnerabilidade alta. `security-scan.yml` roda toda segunda o **Trivy** nas três imagens do
+  projeto, nas de terceiros do compose e nos Dockerfiles. Reprova em severidade alta ou
+  crítica **com correção disponível**; exceção se justifica em `trivy.yaml`.
 
 ## Smoke test (com a stack no ar)
 
