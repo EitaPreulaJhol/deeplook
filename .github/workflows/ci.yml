@@ -7,7 +7,12 @@
 #   - os testes de integracao da API, contra Postgres, MinIO e OpenLDAP de
 #     verdade — o runner do GitHub ja tem Docker, que e tudo de que o
 #     tests/run.mjs precisa;
+#   - os testes das imagens reais (item 6.8): compilam pelo lockfile, API e web
+#     sobem sem root, o nginx entrega os cabecalhos, o backup usa o pg_dump da
+#     imagem e a captura bloqueia rede interna; e, fora de PR, o teste rapido
+#     com navegador contra essas imagens;
 #   - npm audit (item 2.3), que reprova em vulnerabilidade alta ou critica.
+# A varredura de CVE das imagens (Trivy) esta em security-scan.yml.
 name: CI
 
 on:
@@ -91,6 +96,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # O pacote e a imagem do Playwright precisam ser a mesma versao (item 6.2), e este job
+      # nao abre navegador: so esta conferencia pega a divergencia. O Dependabot ignora os dois.
+      - name: Playwright na mesma versao (pacote, imagem, smoke e run.ps1)
+        working-directory: .
+        run: node scripts/check-playwright-version.mjs
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -134,6 +145,49 @@ jobs:
       # --clean derruba Postgres, MinIO e OpenLDAP no fim.
       - name: Testes de integracao
         run: npm run test:integration -- --clean
+
+  # ---------------------------------------------------------------------------
+  # Imagens reais (item 6.8): o que o bump do Node e os PRs do Dependabot de imagem mexem.
+  # Sem npm ci: o script so usa o Node do runner e o Docker.
+  # ---------------------------------------------------------------------------
+  images:
+    name: Testes das imagens
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Testes das imagens (web, API e captura)
+        run: npm run test:images
+
+  # ---------------------------------------------------------------------------
+  # Teste rapido com navegador real contra as imagens do web e da API (item 6.8). Puxa a
+  # imagem do Playwright (3,6 GB), entao roda so fora de PR: na main e a mao.
+  # ---------------------------------------------------------------------------
+  smoke:
+    name: Teste rapido com navegador
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Teste rapido (test:smoke)
+        run: npm run test:smoke
 
   # ---------------------------------------------------------------------------
   # Vulnerabilidade conhecida nas dependencias (item 2.3).

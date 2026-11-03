@@ -1,0 +1,100 @@
+# Varredura de CVE nas imagens (item 6.4 do plano de melhorias).
+#
+# O item 2.3 nasceu de um CVE do MinIO descoberto por acaso, e o Dependabot nao enxerga as
+# imagens do docker-compose.yml (postgres, clamav, minio) nem o que as imagens ja montadas
+# trazem por baixo (o Alpine do nginx, o Debian do node). Esta esteira varre:
+#   - as tres imagens do projeto, montadas aqui;
+#   - as de terceiros, como o compose as resolve (docker compose config --images);
+#   - os Dockerfiles (trivy config).
+#
+# Roda toda segunda-feira, a mao e em PR que mexa em Dockerfile, compose ou na configuracao
+# do Trivy. Reprova em severidade ALTA ou CRITICA com correcao disponivel (trivy.yaml); a
+# excecao se justifica em trivy.yaml ou no .trivyignore. O Trivy roda pela imagem oficial,
+# sem acao de terceiros, e o mesmo comando roda local: node scripts/trivy.mjs image <imagem>.
+name: Varredura de imagens
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/*/Dockerfile'
+      - 'docker-compose.yml'
+      - 'trivy.yaml'
+      - '.trivyignore'
+      - 'scripts/trivy.mjs'
+      - '.github/workflows/security-scan.yml'
+
+concurrency:
+  group: scan-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Imagens que o compose usa e nao constroi (as construidas se chamam deeplook-*).
+  # ---------------------------------------------------------------------------
+  inventario:
+    name: Imagens de terceiros do compose
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.lista.outputs.images }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: lista
+        run: |
+          images=$(docker compose config --images | grep -v '^deeplook-' | sort -u \
+            | node -e "process.stdout.write(JSON.stringify(require('fs').readFileSync(0, 'utf8').split('\n').filter(Boolean)))")
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "terceiros: $images"
+
+  terceiros:
+    name: Trivy (${{ matrix.image }})
+    needs: inventario
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.inventario.outputs.images) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Varredura
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: node scripts/trivy.mjs image "$IMAGE"
+
+  # ---------------------------------------------------------------------------
+  # As tres imagens do projeto, montadas como em producao.
+  # ---------------------------------------------------------------------------
+  construidas:
+    name: Trivy (imagem ${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web, capture]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Montar a imagem
+        run: docker build -t "deeplook-${{ matrix.app }}" "apps/${{ matrix.app }}"
+
+      - name: Varredura
+        run: node scripts/trivy.mjs image "deeplook-${{ matrix.app }}"
+
+  # ---------------------------------------------------------------------------
+  # Erros de configuracao nos Dockerfiles (usuario root, segredo na imagem...).
+  # ---------------------------------------------------------------------------
+  dockerfiles:
+    name: Trivy (Dockerfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Varredura de configuracao
+        run: node scripts/trivy.mjs config apps

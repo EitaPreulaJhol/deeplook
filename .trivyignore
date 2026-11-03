@@ -1,0 +1,8 @@
+# Excecoes ao scan do Trivy (item 6.4), uma por linha. Cada uma leva a JUSTIFICATIVA acima
+# e uma data de validade, para o risco aceito nao virar permanente sem ninguem rever:
+#
+#   # por que o risco e aceito e quem decidiu
+#   CVE-AAAA-NNNN exp:2027-01-31
+#
+# Vazio de proposito: hoje as seis imagens fecham em zero. A unica excecao, o gosu do
+# postgres, esta no trivy.yaml, porque e um arquivo e nao um CVE.

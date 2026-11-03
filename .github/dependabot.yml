@@ -43,8 +43,13 @@ updates:
     groups:
       patches:
         update-types: [minor, patch]
+    # O pacote e a imagem do Playwright precisam subir juntos (item 6.2): um PR so do
+    # npm quebraria a captura sem o CI notar. Troca manual; scripts/check-playwright-version.mjs
+    # confere os lugares no CI.
+    ignore:
+      - dependency-name: playwright
 
-  # Imagens base dos tres Dockerfiles (node, nginx, playwright).
+  # Imagens base dos tres Dockerfiles (node e nginx; o playwright e manual, ver abaixo).
   - package-ecosystem: docker
     directories:
       - /apps/api
@@ -54,6 +59,14 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
+    ignore:
+      # So LTS (item 6.3): a major seguinte do Node costuma ser a Current (sem LTS), e
+      # a troca para o proximo LTS e manual e deliberada. As tags sao flutuantes (26-slim),
+      # entao o patch vem a cada rebuild; o Trivy semanal avisa de base velha.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
+      # Sobe junto com o pacote npm, a mao (item 6.2).
+      - dependency-name: mcr.microsoft.com/playwright
 
   # As acoes usadas no ci.yml (checkout, setup-node).
   - package-ecosystem: github-actions

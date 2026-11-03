@@ -1,0 +1,28 @@
+# Configuracao do Trivy (item 6.4 do plano de melhorias). Vale igual no CI
+# (.github/workflows/security-scan.yml) e na maquina de desenvolvimento
+# (node scripts/trivy.mjs image <imagem>).
+#
+# Reprova (saida 1) em severidade ALTA ou CRITICA que tenha correcao disponivel: o que nao
+# tem correcao nao se resolve atualizando nada, e uma esteira que reprova sem saida acaba
+# ignorada. Excecoes: aqui (por arquivo) ou no .trivyignore (por CVE, com validade).
+severity:
+  - HIGH
+  - CRITICAL
+exit-code: 1
+ignorefile: .trivyignore
+vulnerability:
+  ignore-unfixed: true
+scan:
+  skip-dirs:
+    # Cache e logs do npm que a imagem base do Playwright (Microsoft) traz gravados numa camada
+    # dela, com um link assinado (SAS, Azure) do feed publico da Microsoft: o scanner de
+    # segredos o acusa. Nao e nosso, e uma assinatura antiga, e apagar na camada seguinte
+    # nao tira o achado das camadas de baixo. Cobre so este diretorio, para um segredo de
+    # verdade em outro lugar continuar reprovando.
+    - /root/.npm
+  skip-files:
+    # gosu, da imagem do postgres: roda uma vez no boot, como root, so para largar o root e
+    # dar exec no postgres; nao le entrada externa nem abre rede. Os 26 achados sao todos da
+    # stdlib do Go com que o binario foi compilado (1.24.6), e so a imagem oficial os corrige,
+    # quando for refeita. Revise ao trocar a versao do postgres.
+    - /usr/local/bin/gosu
