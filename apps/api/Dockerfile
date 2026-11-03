@@ -29,7 +29,11 @@ RUN npm run build
 
 FROM base
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+# Depois da instalacao o npm nao tem mais serventia: o runtime so executa node (o entrypoint
+# usa node_modules/.bin/prisma). Sai da imagem, e com ele os achados do Trivy no npm embutido
+# (undici e brace-expansion), que nao sao dependencias do projeto (item 6.4).
+RUN npm ci --omit=dev \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 COPY --from=build /app/dist ./dist
 COPY prisma.config.ts ./
 COPY prisma ./prisma

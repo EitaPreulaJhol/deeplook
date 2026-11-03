@@ -1,9 +1,18 @@
 ﻿name: deeplook
 
+# Rotacao dos logs do Docker (item 6.6): sem isto o json-file cresce sem limite se o
+# daemon.json do host nao definir um, e o disco e o mesmo dos dados.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILE:-3}"
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-deeplook}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deeplook}
@@ -21,6 +30,7 @@ services:
   minio:
     image: ${MINIO_IMAGE:-pgsty/silo@sha256:7bb2aff6b89efe1cb1303c10fc21d579447434ed06649ac9ec05a5e2dbf30ad7}
     restart: unless-stopped
+    logging: *default-logging
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-deeplook}
@@ -36,6 +46,7 @@ services:
     build:
       context: ./apps/api
     restart: unless-stopped
+    logging: *default-logging
     # Readiness (item 1.2): o banco e o MinIO respondem, entao da para atender.
     # So /api/health diria "saudavel" com o Postgres fora, e o web liberaria o
     # trafego para uma API sem como responder.
@@ -138,6 +149,7 @@ services:
   clamav:
     image: ${CLAMAV_IMAGE:-clamav/clamav:1.5}
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ./data/clamav:/var/lib/clamav
     networks:
@@ -150,6 +162,7 @@ services:
     build:
       context: ./apps/capture
     restart: unless-stopped
+    logging: *default-logging
     environment:
       CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
     shm_size: 512m
@@ -167,11 +180,31 @@ services:
     build:
       context: ./apps/web
     restart: unless-stopped
+    logging: *default-logging
+    # Porta de entrada (atras do Cloudflare Tunnel), endurecida como a API e o capture
+    # (item 6.5): sem root (imagem nginx-unprivileged, porta 8080 interna), sem
+    # capacidades, sistema de arquivos somente leitura (o nginx so escreve em /tmp) e com
+    # limites. O images.mjs roda o web com ESTA configuracao, lida daqui.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${WEB_MEM_LIMIT:-256m}
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${WEB_PORT:-8080}:80"
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
     networks:
       - deeplook
 

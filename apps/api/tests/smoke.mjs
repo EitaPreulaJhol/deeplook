@@ -6,6 +6,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { composeService, runArgs } from './compose-service.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APPS = join(HERE, '..', '..');
 const SCENARIOS = join(APPS, '..', 'scripts', 'ui-playwright');
@@ -85,21 +87,26 @@ try {
   const health =
     "fetch('http://localhost:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))";
   await until('API', () => quiet('exec', 'dl-smoke-api', 'node', '-e', health).status === 0);
-  run('dl-smoke-web', 'dl-smoke-web-img');
+  // O web roda com a configuracao do compose (somente leitura, sem capacidades, 8080 interna).
+  const web = composeService('web');
+  run('dl-smoke-web', ...runArgs(web), 'dl-smoke-web-img');
   const res = spawnSync(
     'docker',
     [
       'run',
       '--rm',
       '--ipc=host',
+      // Navegador na rede do container web: para ele o endereco e localhost, uma origem
+      // confiavel (como na producao, por HTTPS). Pelo nome do container, o Chrome ignora o
+      // Cross-Origin-Opener-Policy e escreve um aviso no console, que este teste trata como erro.
       '--network',
-      NET,
+      'container:dl-smoke-web',
       '-v',
       `${SCENARIOS}:/work`,
       '-w',
       '/work',
       '-e',
-      'SMOKE_URL=http://dl-smoke-web',
+      `SMOKE_URL=http://localhost:${web.ports[0].target}`,
       '-e',
       `SMOKE_ADMIN_EMAIL=${ADMIN.email}`,
       '-e',

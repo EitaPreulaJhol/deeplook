@@ -6,6 +6,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { composeService, runArgs } from './compose-service.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APPS = join(HERE, '..', '..');
 const TMP = join(HERE, '.tmp');
@@ -48,12 +50,15 @@ async function webImage() {
       net,
       '--network-alias',
       'api',
-      'node:22-slim',
+      'node:26-slim',
       'node',
       '-e',
       echo,
     );
     await sleep(1500);
+    // O web roda com a configuracao do compose (somente leitura, sem capacidades, limites e
+    // healthcheck): o teste exercita o que vai para producao.
+    const svc = composeService('web');
     docker(
       'run',
       '-d',
@@ -62,7 +67,8 @@ async function webImage() {
       '--network',
       net,
       '-p',
-      '58080:80',
+      `58080:${svc.ports[0].target}`,
+      ...runArgs(svc),
       'dl-test-web',
     );
     const up = await until(() => fetch('http://localhost:58080/').then((r) => r.ok));
@@ -74,7 +80,86 @@ async function webImage() {
       csp.includes("script-src 'self'") && !csp.includes("script-src 'self' 'unsafe"),
       csp,
     );
-    ok('HSTS', (page.headers.get('strict-transport-security') ?? '').includes('max-age='));
+    // Contrato dos cabecalhos (itens 115, 4.1 e 6.7), em toda resposta, inclusive a de erro.
+    const CONTRACT = {
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'SAMEORIGIN',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'strict-transport-security': 'max-age=31536000; includeSubDomains',
+      'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+      'cross-origin-opener-policy': 'same-origin',
+      'cross-origin-resource-policy': 'same-origin',
+    };
+    const lacking = (res) =>
+      Object.entries(CONTRACT)
+        .filter(([name, value]) => res.headers.get(name) !== value)
+        .map(([name]) => name);
+    ok('cabeçalhos de segurança em /', !lacking(page).length, lacking(page));
+    ok('Server sem a versão do nginx', page.headers.get('server') === 'nginx');
+    ok(
+      'index.html sempre revalida',
+      (page.headers.get('cache-control') ?? '').includes('no-cache'),
+      page.headers.get('cache-control'),
+    );
+    const html = await page.text();
+    const asset = /\/assets\/[^"']+\.js/.exec(html)?.[0] ?? '/assets/index.js';
+    const js = await fetch(`http://localhost:58080${asset}`);
+    ok('asset: 200 com os cabeçalhos de segurança', js.status === 200 && !lacking(js).length, {
+      asset,
+      status: js.status,
+      lacking: lacking(js),
+    });
+    ok(
+      'asset com hash: um ano de cache',
+      (js.headers.get('cache-control') ?? '').includes('max-age=31536000'),
+      js.headers.get('cache-control'),
+    );
+    ok('asset sai compactado (gzip)', js.headers.get('content-encoding') === 'gzip');
+    ok(
+      'asset compactado avisa o Vary: Accept-Encoding',
+      (js.headers.get('vary') ?? '').toLowerCase().includes('accept-encoding'),
+      js.headers.get('vary'),
+    );
+    const gone = await fetch('http://localhost:58080/assets/nao-existe-163.js');
+    ok(
+      'asset que não existe dá 404 (e não o index.html)',
+      gone.status === 404 && !lacking(gone).length,
+      { status: gone.status, lacking: lacking(gone) },
+    );
+    const route = await fetch('http://localhost:58080/entries/abc');
+    ok(
+      'rota da SPA cai no index.html',
+      route.status === 200 && (await route.text()).includes('<div id="root">'),
+    );
+    // Sem root, sem capacidades, somente leitura e saudavel pelo healthcheck do compose.
+    const inWeb = (...cmd) => quiet('exec', 'dl-test-webrun', ...cmd);
+    const uid = inWeb('id', '-u').stdout.trim();
+    ok('web roda sem root', uid !== '' && uid !== '0', uid);
+    ok(
+      'web sem capacidades',
+      /CapEff:\s+0+\s/.test(inWeb('grep', 'CapEff', '/proc/self/status').stdout),
+    );
+    ok(
+      'web com o sistema de arquivos somente leitura',
+      inWeb('touch', '/usr/share/nginx/html/x').status !== 0,
+    );
+    ok(
+      'compose: web somente leitura, sem capacidades e sem novos privilégios',
+      svc.read_only === true &&
+        svc.cap_drop?.includes('ALL') &&
+        svc.security_opt?.includes('no-new-privileges:true'),
+      svc,
+    );
+    const healthy = await until(
+      async () =>
+        quiet('inspect', '-f', '{{.State.Health.Status}}', 'dl-test-webrun').stdout.trim() ===
+        'healthy',
+    );
+    ok(
+      'healthcheck do compose responde (web)',
+      Boolean(healthy),
+      quiet('inspect', '-f', '{{json .State.Health}}', 'dl-test-webrun').stdout.slice(-500),
+    );
     const seen = async (headers) =>
       (await fetch('http://localhost:58080/api/x', { headers })).json();
     const direct = await seen({});

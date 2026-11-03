@@ -4,7 +4,12 @@ FROM mcr.microsoft.com/playwright:v1.64.1-noble
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+# O npm so instala as dependencias: sai da imagem (o runtime e so node) e leva junto os
+# achados do Trivy no npm embutido (undici e brace-expansion; item 6.4). O cache e os logs do
+# npm (/root/.npm) tambem: a imagem base do Playwright os traz com um link assinado (SAS) do
+# feed da Microsoft, que o scanner de segredos do Trivy acusa, e nada disso serve ao runtime.
+RUN npm ci --omit=dev --no-audit --no-fund \
+  && rm -rf /usr/lib/node_modules/npm /usr/bin/npm /usr/bin/npx /root/.npm
 COPY src ./src
 
 # Usuario sem privilegios da imagem.
