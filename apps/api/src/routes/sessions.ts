@@ -3,20 +3,19 @@ import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { audit } from '../lib/audit';
-import { requireUser, SESSION_COOKIE } from '../lib/auth';
+import { requireUser, sessionIdFrom } from '../lib/auth';
 import { prisma } from '../lib/prisma';
 import { describeUserAgent } from '../lib/user-agent';
 
 /**
- * Identificador exibivel da sessao. O id da sessao e o proprio valor do cookie
- * (um segredo), entao a tela usa so um hash curto dele.
+ * Identificador exibivel da sessao: um hash curto do id (que ja e o SHA-256 do cookie), para
+ * a tela nunca levar nada que sirva de cookie.
  */
 export function sessionHandle(sessionId: string): string {
   return crypto.createHash('sha256').update(`session:${sessionId}`).digest('hex').slice(0, 16);
 }
 
-const currentId = (req: FastifyRequest) =>
-  (req as { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE] ?? null;
+const currentId = (req: FastifyRequest) => sessionIdFrom(req);
 
 /** Minha Conta > Sessoes (item 61): onde a conta esta logada e encerrar sessoes. */
 export async function sessionRoutes(app: FastifyInstance) {

@@ -12,6 +12,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APPS = join(HERE, '..', '..');
 const SCENARIOS = join(APPS, '..', 'scripts', 'ui-playwright');
 const NET = 'dl-smoke-net';
+// Sub-rede fixa, como a `deeplook` do compose (outra faixa, para nao colidir com a stack em
+// execucao), e uma segunda rede no papel da `capture`.
+const SUBNET = '172.31.251.0/24';
+const CAPT_NET = 'dl-smoke-capt-net';
 const CONTAINERS = ['dl-smoke-web', 'dl-smoke-api', 'dl-smoke-pg', 'dl-smoke-minio'];
 const PLAYWRIGHT = '1.64.1';
 const ADMIN = { email: 'adm@x.io', password: 'Senha-Inicial-77!' };
@@ -37,7 +41,7 @@ const apiErrors = () =>
 
 function cleanup() {
   quiet('rm', '-f', ...CONTAINERS);
-  quiet('network', 'rm', NET);
+  quiet('network', 'rm', NET, CAPT_NET);
   quiet('rmi', 'dl-smoke-web-img', 'dl-smoke-api-img');
 }
 
@@ -47,7 +51,7 @@ try {
   console.log('compilando as imagens do web e da API...');
   docker('build', '-q', '-t', 'dl-smoke-web-img', join(APPS, 'web'));
   docker('build', '-q', '-t', 'dl-smoke-api-img', join(APPS, 'api'));
-  docker('network', 'create', NET);
+  docker('network', 'create', '--subnet', SUBNET, NET);
   run('dl-smoke-pg', '-e', 'POSTGRES_PASSWORD=pg', '-e', 'POSTGRES_DB=smoke', 'postgres:16-alpine');
   run(
     'dl-smoke-minio',
@@ -82,11 +86,36 @@ try {
     'CLAMAV_HOST=',
     '-e',
     'CAPTURE_URL=',
+    '-e',
+    `TRUSTED_NETWORK=${SUBNET}`,
     'dl-smoke-api-img',
   );
   const health =
     "fetch('http://localhost:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))";
   await until('API', () => quiet('exec', 'dl-smoke-api', 'node', '-e', health).status === 0);
+
+  // Rede confiavel (vuln-0008): da rede do web a API responde; de uma rede como a do capture,
+  // a conexao cai antes do HTTP. A API e chamada pelo mesmo nome nas duas.
+  docker('network', 'create', CAPT_NET);
+  docker('network', 'connect', '--alias', 'api', CAPT_NET, 'dl-smoke-api');
+  const probe = (network) =>
+    quiet(
+      'run',
+      '--rm',
+      '--network',
+      network,
+      '--entrypoint',
+      'node',
+      'dl-smoke-api-img',
+      '-e',
+      "fetch('http://api:3000/api/health').then((r) => console.log(r.status), () => console.log('recusada'))",
+    ).stdout?.trim();
+  const fromWebNet = probe(NET);
+  const fromCaptureNet = probe(CAPT_NET);
+  if (fromWebNet !== '200' || fromCaptureNet !== 'recusada') {
+    throw new Error(`rede confiável: web=${fromWebNet} capture=${fromCaptureNet}`);
+  }
+  console.log('ok   rede confiável: a API atende a rede do web e recusa a do capture');
   // O web roda com a configuracao do compose (somente leitura, sem capacidades, 8080 interna).
   const web = composeService('web');
   run('dl-smoke-web', ...runArgs(web), 'dl-smoke-web-img');

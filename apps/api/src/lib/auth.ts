@@ -1,24 +1,57 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../env';
-import { authenticateToken, bearerOf } from './api-tokens';
+import { authenticateToken, bearerOf, hashToken } from './api-tokens';
 import { randomToken } from './crypto';
+import { network } from './network';
 import { type PasswordChangeReason, passwordState } from './password-policy';
 import { type Preferences, resolvePreferences } from './preferences';
 import { prisma } from './prisma';
 import { ownSamplesOnly } from './settings';
 
-export const SESSION_COOKIE = 'dl_session';
+/**
+ * Sob HTTPS (COOKIE_SECURE), o prefixo __Host- obriga o navegador a aceitar o cookie so do
+ * proprio host, com Secure e Path=/: outro subdominio do mesmo dominio nao consegue gravar
+ * nem trocar a sessao de quem usa o DeepLook (cookie tossing / fixacao de sessao).
+ */
+export const SESSION_COOKIE = env.COOKIE_SECURE === 'true' ? '__Host-dl_session' : 'dl_session';
+const SESSION_COOKIE_OPTIONS = {
+  path: '/',
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: env.COOKIE_SECURE === 'true',
+} as const;
+
+/**
+ * O cookie leva o segredo; o banco guarda so o SHA-256 dele, como nos tokens de API. Assim o
+ * banco e o backup (pg_dump) nao entregam sessoes validas a quem os ler.
+ */
+export function sessionIdOf(token: string): string {
+  return hashToken(token);
+}
+
+/** Id (o hash) da sessao do cookie deste pedido, ou null. */
+export function sessionIdFrom(req: FastifyRequest): string | null {
+  const token = (req as { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE];
+  return token ? sessionIdOf(token) : null;
+}
+
+/** Apaga o cookie da sessao (o __Host- so e apagado com os mesmos atributos). */
+export function clearSessionCookie(reply: FastifyReply): void {
+  reply.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
+}
+
 /** Intervalo minimo entre duas gravacoes do ultimo acesso da sessao. */
 const LAST_SEEN_EVERY_MS = 5 * 60 * 1000;
 
 export type RoleName = 'USER' | 'ANALYST' | 'ADMIN';
 
 /**
- * So um proxy em rede privada (o nginx) informa o IP do cliente; o nginx substitui
- * o X-Forwarded-For, entao o cliente nao o forja (item 112).
+ * So o proxy da rede confiavel (o nginx) informa o IP do cliente; o nginx substitui o
+ * X-Forwarded-For, entao o cliente nao o forja (item 112). A faixa vem de TRUSTED_NETWORK
+ * (src/lib/network.ts); sem ela, qualquer rede privada, como antes.
  */
-export const TRUST_PROXY = 'loopback,linklocal,uniquelocal';
+export const TRUST_PROXY = network.trustProxy;
 
 export type PublicUser = {
   id: string;
@@ -45,7 +78,7 @@ export type PublicUser = {
 };
 
 export async function loadUser(req: FastifyRequest): Promise<PublicUser | null> {
-  const sid = (req as any).cookies?.[SESSION_COOKIE];
+  const sid = sessionIdFrom(req);
   if (!sid) return null;
 
   const session = await prisma.session.findUnique({
@@ -112,24 +145,23 @@ export async function createSession(
 ): Promise<boolean> {
   const expiresAt = slidingExpiry(new Date());
   const userAgent = req.headers['user-agent']?.slice(0, 300) ?? null;
+  // O valor do cookie: aleatorio, nao o cuid padrao (previsivel em boa parte). O banco
+  // guarda so o hash dele.
+  const token = randomToken(32);
   const session = await prisma.$transaction(async (tx) => {
     const current = await tx.$queryRaw<{ id: string }[]>`
       SELECT "id" FROM "User"
       WHERE "id" = ${user.id} AND "passwordHash" = ${user.passwordHash}
       FOR UPDATE`;
     if (!current.length) return null;
-    // O id e o valor do cookie: aleatorio, nao o cuid padrao (previsivel em boa parte).
     return tx.session.create({
-      data: { id: randomToken(32), userId: user.id, expiresAt, userAgent, ip: req.ip ?? null },
+      data: { id: sessionIdOf(token), userId: user.id, expiresAt, userAgent, ip: req.ip ?? null },
     });
   });
   if (!session) return false;
 
-  reply.setCookie(SESSION_COOKIE, session.id, {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: env.COOKIE_SECURE === 'true',
+  reply.setCookie(SESSION_COOKIE, token, {
+    ...SESSION_COOKIE_OPTIONS,
     maxAge: env.SESSION_TTL_HOURS * 3600,
   });
   return true;
@@ -144,7 +176,7 @@ export async function currentSession(
   req: FastifyRequest,
   renew: boolean,
 ): Promise<{ expiresAt: Date } | null> {
-  const sid = (req as any).cookies?.[SESSION_COOKIE];
+  const sid = sessionIdFrom(req);
   if (!sid) return null;
   const session = await prisma.session.findUnique({
     where: { id: sid },
@@ -160,11 +192,11 @@ export async function currentSession(
 }
 
 export async function destroySession(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const sid = (req as any).cookies?.[SESSION_COOKIE];
+  const sid = sessionIdFrom(req);
   if (sid) {
     await prisma.session.delete({ where: { id: sid } }).catch(() => undefined);
   }
-  reply.clearCookie(SESSION_COOKIE, { path: '/' });
+  clearSessionCookie(reply);
 }
 
 /** Sessoes vencidas (item 118): sem isto, so sairiam se a pessoa voltasse com o cookie. */

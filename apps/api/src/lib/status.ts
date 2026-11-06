@@ -474,6 +474,8 @@ export function insecureDefaults(): string[] {
       'senha do MinIO (S3_SECRET_KEY)',
     env.ALLOW_INSECURE_DEFAULTS === 'true' && 'ALLOW_INSECURE_DEFAULTS ligado',
     env.COOKIE_SECURE !== 'true' && 'COOKIE_SECURE desligado (ligue em produção, sob HTTPS)',
+    !env.TRUSTED_NETWORK.trim() &&
+      'TRUSTED_NETWORK vazio (a API aceita conexão de qualquer rede privada)',
   ].filter((item): item is string => Boolean(item));
 }
 

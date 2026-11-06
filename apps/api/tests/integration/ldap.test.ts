@@ -540,7 +540,7 @@ async function main() {
   ok(
     'religar derruba as sessões antigas',
     movedLogin > 0 &&
-      !(await prisma.session.findUnique({ where: { id: oldSession.split('=')[1] } })),
+      !(await prisma.session.findUnique({ where: { id: hashToken(oldSession.split('=')[1]) } })),
   );
 
   await app.close();

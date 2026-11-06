@@ -133,6 +133,7 @@ model User {
 }
 
 model Session {
+  /// SHA-256 do valor do cookie (sessionIdOf, src/lib/auth.ts); o cookie nunca vai para o banco.
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)

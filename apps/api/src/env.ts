@@ -1,4 +1,15 @@
+import net from 'node:net';
+
 import { z } from 'zod';
+
+/** Faixa CIDR (ou um endereco so), IPv4 ou IPv6. */
+function isCidr(value: string): boolean {
+  const [address, prefix, extra] = value.split('/');
+  const family = net.isIP(address);
+  if (!family || extra !== undefined) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 6 ? 128 : 32);
+}
 
 const EnvSchema = z
   .object({
@@ -28,6 +39,22 @@ const EnvSchema = z
     /** Escalonamento (item 73): ao atrasar, sobe a prioridade um nivel (P4 -> P3...). */
     SLA_ESCALATE_PRIORITY: z.enum(['true', 'false']).default('false'),
     COOKIE_SECURE: z.enum(['true', 'false']).default('false'),
+    /**
+     * Rede de onde a API aceita conexao e o X-Forwarded-For (src/lib/network.ts): a
+     * sub-rede fixa da rede `deeplook` do compose. Vazio = qualquer rede privada (antigo).
+     */
+    TRUSTED_NETWORK: z
+      .string()
+      .default('')
+      .refine(
+        (v) =>
+          v
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .every(isCidr),
+        'use faixas CIDR separadas por virgula, ex.: 172.31.250.0/24',
+      ),
     /** Demonstracao local: sobe mesmo com segredos padrao (nunca em producao de verdade). */
     ALLOW_INSECURE_DEFAULTS: z.enum(['true', 'false']).default('false'),
     ADMIN_EMAIL: z.string().email().default('admin@deeplook.local'),

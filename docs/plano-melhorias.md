@@ -39,6 +39,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.12 | Dependências do web: React 19, Vite 8, TypeScript 7 | ⚪ | M–G | Web | ✅ (React e Vite; o TypeScript 7 está bloqueado) |
 | 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⏸ adiado pelo dono |
 | 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
+| 6.15 | Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env` | 🔴 | M | API / Compose | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -65,7 +66,8 @@ zero; `actionlint` nos workflows. Pacote principal do web: de 1.076 kB (383 kB n
 
 ## ⏸ Onde paramos
 
-Três levas entregues. A **primeira** (1.1, 1.2, 1.3, 2.1, 2.3, 2.4), a **segunda** (2.2 Vitest,
+Três levas entregues, mais as fronteiras da API (6.15), que fecham o vuln-0008 que tinha ficado
+aberto. A **primeira** (1.1, 1.2, 1.3, 2.1, 2.3, 2.4), a **segunda** (2.2 Vitest,
 4.1 cabeçalhos do nginx e o Node 26 LTS) e a **terceira** (3.2, 4.2 e 6.1 a 6.12: endurecimento,
 CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
@@ -76,6 +78,8 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 | — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
+| — | Sandbox do Chromium da captura (`chromiumSandbox: true`) | Sobra do [6.15](#615-fronteiras-da-api-rede-confiável-sessão-por-hash-csrf-e-env): é o que contém de fato uma página maliciosa; pede um perfil de seccomp com *user namespaces* e teste no kernel do host | **M** |
+| — | Portas do `CONNECT` do proxy da captura (80, 443, 8080, 8443) e `Content-Type` fixo no download de amostra | Sobras pequenas do 6.15 | **P** |
 
 O **6.13 está registrado, não iniciado**: o desenho e os cuidados estão na seção dele, para
 quando o dono do projeto decidir retomar. Nada foi codificado.
@@ -812,6 +816,67 @@ da ordem de execução. Não iniciar sem ele pedir. Quando retomar, a decisão q
 teste de restauração vale mais que a cópia em si, porque um backup que nunca foi restaurado é
 uma suposição.
 
+### 6.15 Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env`
+
+Uma revisão depois da terceira leva achou quatro buracos de fronteira. O primeiro é o vuln-0008
+do Strix, que a quarta rodada não fechou (Achado I).
+
+- **Rede confiável.** A API confiava no `X-Forwarded-For` de qualquer endereço privado e estava
+  também na rede `capture`, a do Chromium que abre páginas maliciosas. Esse Chromium roda sem o
+  sandbox próprio (o padrão do Playwright é `chromiumSandbox: false`), então uma falha explorada
+  no renderizador já dava código no container. De lá, `api:3000` respondia direto, sem o nginx,
+  e o XFF trocado a cada pedido furava o limite de login por IP. Agora a rede `deeplook` tem
+  sub-rede fixa (`DEEPLOOK_SUBNET`, padrão `172.31.250.0/24`), que chega à API como
+  `TRUSTED_NETWORK`. Só o loopback e essa faixa informam o IP do cliente, e qualquer outra
+  conexão é derrubada no evento `connection` do servidor, antes de o HTTP ser lido
+  (`src/lib/network.ts`). A API continua chamando o `capture`, mas o `capture` não alcança mais
+  a API. Sem `TRUSTED_NETWORK`, vale o comportamento antigo (desenvolvimento e testes) e o
+  status do sistema avisa.
+- **Sessão por hash.** O id da sessão era o próprio valor do cookie, e o `pg_dump` do backup
+  (que pode sair sem senha) levava todas as sessões válidas. O banco passa a guardar o SHA-256
+  do cookie, como já fazia com os tokens de API. A migração
+  `20261221000000_session_id_hash` converte as sessões existentes com o mesmo hash, então
+  ninguém é deslogado. A aba Sessões segue com o hash curto do id.
+- **CSRF.** O `SameSite=Lax` não separa subdomínios: atrás do Tunnel, outro serviço em
+  `*.seu-dominio` é *same-site*. Um `multipart/form-data`, que não pede preflight, enviaria uma
+  amostra em nome de quem estivesse logado, e um WebSocket abriria o console do sandbox. Um hook
+  `onRequest` global (`src/lib/cross-site.ts`) recusa com 403 os métodos não seguros, e todo
+  WebSocket, quando `Sec-Fetch-Site` é `same-site` ou `cross-site`. Sem o cabeçalho (scripts,
+  tokens de API) o pedido passa. Com `COOKIE_SECURE=true` o cookie vira `__Host-dl_session`,
+  o que impede outro subdomínio de gravá-lo ou trocá-lo (fixação de sessão). Ao ligar, quem
+  estava logado entra de novo uma vez.
+- **`.env` com 777.** Numa partição ext4, qualquer usuário da máquina lia e alterava os
+  segredos. Virou `600`. A permissão é da máquina, não do repositório (o `.env` não é
+  versionado), então quem clonar de novo precisa repetir o `chmod 600 .env`.
+
+**Testes.** O `boundaries.test.ts` traz 33 checagens:
+- quem informa o IP: o nginx da faixa sim, um vizinho da rede `capture` não;
+- uma conexão TCP de verdade derrubada fora da faixa e atendida dentro dela;
+- POST e WebSocket de outro site recusados, e os da mesma origem e de script aceitos;
+- o banco sem nenhum valor de cookie, e o id do banco recusado quando usado como cookie;
+- o hash da migração igual ao do código, e uma sessão anterior à migração ainda válida depois
+  dela;
+- o `__Host-` com `Secure` e `Path=/`, inclusive ao sair.
+
+Com cada proteção desligada à mão, 9 das checagens falham. O `test:smoke` ganhou a prova na
+topologia real: a rede do teste com sub-rede fixa e uma segunda rede no papel da `capture`. Da
+primeira, a API responde 200; da segunda, a conexão cai. O navegador real faz o roteiro inteiro
+pelo nginx com o bloqueio de outro site ligado.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API; **1047 checagens em 34 arquivos**
+de integração (eram 1014 em 33); `test:smoke` com 101 (eram 100).
+
+**Para atualizar uma instalação:** `docker compose down` antes do `up -d --build`, porque o
+Docker não muda a sub-rede de uma rede que já existe. Os dados ficam em `./data`.
+
+**Ficou de fora, de propósito:**
+- o sandbox do próprio Chromium (`chromiumSandbox: true`), que precisa de um perfil de seccomp
+  que permita *user namespaces* e de teste no kernel do host;
+- restringir as portas do `CONNECT` do proxy da captura;
+- o `Content-Type` fixo no download de amostra.
+
+Ficam como próximos passos.
+
 ---
 
 ## Achados no caminho
@@ -906,3 +971,13 @@ Os 91 cenários de tela passaram com React 19 e Vite 8, menos o `api-tokens`: a 
 Foi uma regressão **minha**, pega exatamente por essa suíte (e é o argumento para rodá-la inteira
 depois de uma troca de dependência, e não só o smoke). O mock e o cenário foram atualizados e
 ganharam 8 checagens do recurso.
+
+### I. O vuln-0008 não foi fechado na quarta rodada do Strix
+
+O commit 385da17 fechou oito dos nove achados da rodada e deixou o vuln-0008 (X-Forwarded-For
+aceito de qualquer vizinho em rede privada). O `TRUST_PROXY` continuou
+`loopback,linklocal,uniquelocal`, e o plano não registrou nem a correção nem a decisão de
+aceitar o risco. O próprio relatório dizia o que subiria a gravidade: a API dividir rede com
+um container não confiável. Era o caso do `capture`, e com o Chromium sem sandbox. O item 6.15
+fecha. Lição: ao fechar uma rodada, conferir os achados um por um contra o código, e não pela
+mensagem do commit.

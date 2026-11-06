@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { audit } from '../lib/audit';
-import { createSession, requireUser, SESSION_COOKIE } from '../lib/auth';
+import { clearSessionCookie, createSession, requireUser } from '../lib/auth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { notificationTypesFor } from '../lib/notification-types';
 import { passwordField, passwordState } from '../lib/password-policy';
@@ -148,7 +148,7 @@ export async function meRoutes(app: FastifyInstance) {
     if (forced && (await createSession(reply, { id: user.id, passwordHash }, req))) {
       return reply.send({ ok: true, signedIn: true });
     }
-    reply.clearCookie(SESSION_COOKIE, { path: '/' });
+    clearSessionCookie(reply);
     return reply.send({ ok: true });
   });
 }

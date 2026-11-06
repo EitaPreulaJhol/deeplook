@@ -7,11 +7,13 @@ import Fastify from 'fastify';
 import { env, sandboxEnabled } from './env';
 import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
+import { installCrossSiteGuard } from './lib/cross-site';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
 import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
 import { setLogger } from './lib/log';
+import { network } from './lib/network';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { prisma } from './lib/prisma';
 import { requestLogSerializer } from './lib/request-log';
@@ -76,6 +78,17 @@ async function main() {
   // Trabalhos de fundo (bucket, retencao, backup, sandbox) escrevem no logger
   // do Fastify a partir daqui, e nao mais em texto solto no console (item 1.3).
   setLogger(app.log);
+
+  // So a rede confiavel (o nginx e os servicos da rede deeplook) conecta na API: o navegador
+  // isolado da captura, na outra rede, deixa de alcanca-la (src/lib/network.ts).
+  network.guard(app.server, app.log);
+  if (network.networks.length) {
+    app.log.info({ trusted: network.networks }, '[rede] conexoes so da rede confiavel');
+  } else {
+    app.log.warn('[rede] TRUSTED_NETWORK vazio: a API aceita conexao de qualquer rede privada');
+  }
+  // Pedido que muda estado vindo de outro site (CSRF), antes de qualquer rota.
+  installCrossSiteGuard(app);
 
   await app.register(cookie, { secret: env.SESSION_SECRET });
   // Limite de tentativas so nas rotas que pedem (config.rateLimit da rota).

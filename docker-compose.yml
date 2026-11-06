@@ -109,6 +109,9 @@ services:
       CAPTURE_URL: ${CAPTURE_URL-http://capture:3100}
       CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
+      # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
+      TRUSTED_NETWORK: ${DEEPLOOK_SUBNET:-172.31.250.0/24}
       ALLOW_INSECURE_DEFAULTS: ${ALLOW_INSECURE_DEFAULTS:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@deeplook.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
@@ -214,6 +217,11 @@ services:
 networks:
   deeplook:
     driver: bridge
+    # Sub-rede fixa: e a unica de onde a API aceita conexao (TRUSTED_NETWORK). Se ela colidir
+    # com outra rede do host, troque DEEPLOOK_SUBNET no .env (uma /24 basta).
+    ipam:
+      config:
+        - subnet: ${DEEPLOOK_SUBNET:-172.31.250.0/24}
   # So a API e o navegador isolado; a saida para a internet e da captura.
   capture:
     driver: bridge

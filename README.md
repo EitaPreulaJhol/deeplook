@@ -73,6 +73,11 @@ Acesse: **http://localhost:8080**
 > Dica: rode em segundo plano com `docker compose up -d` e veja os logs com
 > `docker compose logs -f`.
 
+> **Atualizando uma instalação anterior à rede confiável:** a rede `deeplook` ganhou uma
+> sub-rede fixa, e o Docker não altera uma rede que já existe. Rode `docker compose down` antes
+> do `docker compose up -d --build` (os dados ficam em `./data`, nada se perde). A migração
+> troca o id das sessões pelo hash sem derrubar ninguém.
+
 ---
 
 ## Primeiro acesso
@@ -486,7 +491,8 @@ pega corrupção silenciosa do armazenamento e adulteração do bucket por fora 
 
 ## Cloudflare Tunnel (no host, fora do Docker)
 
-Em produção, com o Tunnel, defina `COOKIE_SECURE=true`. O IP real vem do `CF-Connecting-IP`,
+Em produção, com o Tunnel, defina `COOKIE_SECURE=true`. Ao ligar, o cookie muda de nome para
+`__Host-dl_session` e quem estava logado entra de novo uma vez. O IP real vem do `CF-Connecting-IP`,
 aceito só de conexões de rede privada, como a do `cloudflared` local. Não publique a porta do web
 em outro endereço além de `127.0.0.1` sem rever isso (`set_real_ip_from` em `apps/web/nginx.conf`).
 
@@ -556,7 +562,8 @@ COOKIE_SECURE=true
 | `CAPTURE_URL` | serviço do navegador isolado (captura de página de link); vazio desliga | `http://capture:3100` |
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
-| `COOKIE_SECURE` | `true` quando servir somente via HTTPS | `false` |
+| `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
+| `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
 | `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
@@ -655,7 +662,16 @@ npx prisma generate
 - Os objetos ficam em bucket **privado** no MinIO; o download só ocorre por
   endpoint autenticado da API.
 - O cadastro exige **chave de ativação** gerada por um admin.
-- Senhas usam **hash bcrypt**; a sessão usa **cookie httpOnly**.
+- Senhas usam **hash bcrypt**; a sessão usa **cookie httpOnly**. O banco guarda só o SHA-256
+  do cookie (como nos tokens de API), então nem o banco nem um backup entregam sessões válidas.
+  Com `COOKIE_SECURE=true` o cookie se chama `__Host-dl_session`: outro subdomínio do mesmo
+  domínio não consegue gravá-lo nem trocá-lo.
+- Pedido que muda alguma coisa vindo de **outro site**, inclusive de outro subdomínio do seu
+  domínio, é recusado com 403 (o navegador informa isso em `Sec-Fetch-Site`). O mesmo vale para
+  o WebSocket do console. Scripts com token de API não mandam esse cabeçalho e não são afetados.
+- A API só aceita conexão da **rede interna `deeplook`** (sub-rede fixa, `DEEPLOOK_SUBNET`) e do
+  próprio container. O navegador isolado da captura fica em outra rede e não alcança a API,
+  mesmo que uma página maliciosa o comprometa; só o nginx dessa rede informa o IP do cliente.
 - Os logs da API e do nginx guardam o caminho sem a query string, porque a busca e a ficha do
   indicador levam URLs de vítima, com token ou e-mail.
 - O `web`, a API e o capture rodam **sem root e sem capacidades**; o `web` ainda com o sistema
