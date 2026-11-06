@@ -171,14 +171,20 @@ services:
     logging: *default-logging
     environment:
       CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
+      # Sandbox do proprio Chromium (item 6.16). false so como saida de emergencia num host sem
+      # user namespaces: a captura volta a rodar, mas sem o que contem uma pagina maliciosa.
+      CAPTURE_CHROMIUM_SANDBOX: ${CAPTURE_CHROMIUM_SANDBOX:-true}
     shm_size: 512m
     mem_limit: 1g
     pids_limit: 512
-    # Abre paginas maliciosas: sem capacidades extras, como a API.
+    # Abre paginas maliciosas: sem capacidades extras, como a API. O perfil seccomp e o padrao
+    # do Docker mais o minimo para o sandbox do proprio Chromium subir (user/pid/net namespace e
+    # chroot; gerado por scripts/seccomp-chromium.mjs). Sem ele, o navegador nao abre.
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - seccomp=./apps/capture/seccomp-chromium.json
     networks:
       - capture
 

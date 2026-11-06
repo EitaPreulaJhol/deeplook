@@ -112,6 +112,12 @@ jobs:
         working-directory: .
         run: node scripts/check-playwright-version.mjs
 
+      # O perfil seccomp do capture (item 6.16) e gerado a partir do padrao do Docker num commit
+      # fixo: editado a mao, ele divergiria do que a revisao do gerador mostra.
+      - name: Perfil seccomp do capture confere com o gerador
+        working-directory: .
+        run: node scripts/seccomp-chromium.mjs --check
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}

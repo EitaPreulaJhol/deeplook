@@ -17,6 +17,13 @@ const ALLOW_HOSTS = new Set(
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean),
 );
+/**
+ * Sandbox do proprio Chromium (item 6.16): cada renderizador num user/pid/net namespace com o
+ * filtro seccomp do Chromium. E o que segura uma pagina que explore o renderizador: sem ele,
+ * a falha ja da codigo no container. Precisa do perfil seccomp do compose
+ * (seccomp-chromium.json); `false` so como saida de emergencia num host sem user namespaces.
+ */
+const SANDBOX = process.env.CAPTURE_CHROMIUM_SANDBOX !== 'false';
 const NAV_TIMEOUT_MS = 20_000;
 const SETTLE_MS = 1500;
 const MAX_HTML = 2 * 1024 * 1024;
@@ -33,6 +40,7 @@ let browser = null;
 async function getBrowser() {
   if (browser?.isConnected()) return browser;
   browser = await chromium.launch({
+    chromiumSandbox: SANDBOX,
     args: [
       '--disable-quic',
       '--dns-prefetch-disable',
@@ -53,6 +61,20 @@ function exclusive(fn) {
   return run;
 }
 
+/** Contexto novo a cada captura, com todo o trafego pelo proxy de saida. */
+async function newContext(proxyPort) {
+  const b = await getBrowser();
+  return b.newContext({
+    proxy: { server: `http://127.0.0.1:${proxyPort}`, bypass: '<-loopback>' },
+    viewport: { width: 1280, height: 800 },
+    ignoreHTTPSErrors: true,
+    acceptDownloads: false,
+    serviceWorkers: 'block',
+    javaScriptEnabled: true,
+    locale: 'pt-BR',
+  });
+}
+
 async function capture(url) {
   const blocked = [];
   const proxy = await startProxy({
@@ -61,16 +83,15 @@ async function capture(url) {
       if (blocked.length < 50 && !blocked.some((b) => b.host === host)) blocked.push({ host, reason });
     },
   });
-  const b = await getBrowser();
-  const context = await b.newContext({
-    proxy: { server: `http://127.0.0.1:${proxy.port}`, bypass: '<-loopback>' },
-    viewport: { width: 1280, height: 800 },
-    ignoreHTTPSErrors: true,
-    acceptDownloads: false,
-    serviceWorkers: 'block',
-    javaScriptEnabled: true,
-    locale: 'pt-BR',
-  });
+  // Navegador que nao sobe (ex.: sandbox sem o perfil seccomp) vira erro legivel da captura,
+  // e o proxy desta captura fecha junto.
+  let context;
+  try {
+    context = await newContext(proxy.port);
+  } catch (err) {
+    await proxy.close().catch(() => undefined);
+    return { ok: false, error: friendly(String(err?.message || err)).slice(0, 300), blocked };
+  }
   try {
     const page = await context.newPage();
     // So http(s): file:, data: de nivel superior, ftp: etc. nao saem.
@@ -136,7 +157,7 @@ async function capture(url) {
       blocked,
     };
   } catch (err) {
-    const message = friendly(String(err?.message || err).split('\n')[0]).slice(0, 300);
+    const message = friendly(String(err?.message || err)).slice(0, 300);
     const internal = blocked.find((b) => b.host === hostOf(url));
     return {
       ok: false,
@@ -177,6 +198,10 @@ async function captureWithDeadline(url) {
 
 /** Erros comuns do Chromium em portugues. */
 const ERRORS = [
+  [
+    /sandboxing failed|No usable sandbox/i,
+    'o sandbox do Chromium não subiu neste host (perfil seccomp do compose ou user namespaces desligados)',
+  ],
   [/Timeout \d+ms exceeded/, `a página não respondeu em ${NAV_TIMEOUT_MS / 1000} s`],
   [/ERR_NAME_NOT_RESOLVED/, 'domínio não encontrado (DNS)'],
   [/ERR_CONNECTION_REFUSED/, 'conexão recusada'],
@@ -186,7 +211,7 @@ const ERRORS = [
 ];
 function friendly(message) {
   const hit = ERRORS.find(([re]) => re.test(message));
-  return hit ? hit[1] : message;
+  return hit ? hit[1] : message.split('\n')[0];
 }
 
 function hostOf(value) {
@@ -205,7 +230,7 @@ function send(res, status, data) {
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
-    return send(res, 200, { ok: true });
+    return send(res, 200, { ok: true, sandbox: SANDBOX });
   }
   if (req.method !== 'POST' || req.url !== '/capture') return send(res, 404, { error: 'rota' });
   if (req.headers.authorization !== `Bearer ${TOKEN}`) return send(res, 401, { error: 'token' });
@@ -233,7 +258,15 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`[capture] ouvindo na porta ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[capture] ouvindo na porta ${PORT}`);
+  if (!SANDBOX) {
+    console.warn(
+      '[capture] CAPTURE_CHROMIUM_SANDBOX=false: renderizadores SEM o sandbox do Chromium. ' +
+        'Uma pagina que explore o navegador roda codigo direto no container.',
+    );
+  }
+});
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
     server.close();

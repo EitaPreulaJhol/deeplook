@@ -40,6 +40,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⏸ adiado pelo dono |
 | 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
 | 6.15 | Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env` | 🔴 | M | API / Compose | ✅ |
+| 6.16 | Sandbox do Chromium da captura (perfil seccomp próprio) | 🔴 | M | Capture / Compose | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -78,7 +79,6 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 | — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
-| — | Sandbox do Chromium da captura (`chromiumSandbox: true`) | Sobra do [6.15](#615-fronteiras-da-api-rede-confiável-sessão-por-hash-csrf-e-env): é o que contém de fato uma página maliciosa; pede um perfil de seccomp com *user namespaces* e teste no kernel do host | **M** |
 | — | Portas do `CONNECT` do proxy da captura (80, 443, 8080, 8443) e `Content-Type` fixo no download de amostra | Sobras pequenas do 6.15 | **P** |
 
 O **6.13 está registrado, não iniciado**: o desenho e os cuidados estão na seção dele, para
@@ -876,6 +876,63 @@ Docker não muda a sub-rede de uma rede que já existe. Os dados ficam em `./dat
 - o `Content-Type` fixo no download de amostra.
 
 Ficam como próximos passos.
+
+### 6.16 Sandbox do Chromium da captura
+
+O `capture` abre páginas maliciosas por definição, e o Chromium rodava com `--no-sandbox` (o
+padrão do Playwright é `chromiumSandbox: false`): uma falha explorada no renderizador dava
+código direto no container. O 6.15 tirou desse container o caminho até a API; este item
+coloca a página atrás do sandbox do próprio Chromium.
+
+**Medido antes de mexer** (num container com `cap_drop: ALL` e `no-new-privileges`, no
+Liquorix 7.2 do host de desenvolvimento):
+
+| Configuração | Resultado |
+|---|---|
+| Hoje: sem sandbox, seccomp padrão | renderizador com `--no-sandbox`, no namespace do container, 1 filtro seccomp (o do Docker) |
+| Sandbox + seccomp padrão do Docker | não sobe ("Chromium sandboxing failed!") |
+| Sandbox + `seccomp=unconfined` | sobe, mas tira a proteção do Docker inteira; só serviu de diagnóstico |
+| Sandbox + perfil estreito | renderizador em *user* e *pid namespace* próprios, 2 filtros seccomp (o do Docker e o do Chromium), sem `--no-sandbox` |
+
+**Implementado:**
+- O perfil `apps/capture/seccomp-chromium.json` é o padrão do Docker (moby/profiles, commit
+  fixo `4b8214fc4971`) mais quatro regras:
+  - `clone`, com as duas ordens de parâmetro (a do s390 é outra), e `unshare`, só quando as
+    flags criam namespaces *user*, *pid* ou *net*: mount, uts, ipc e cgroup continuam
+    barrados (`SCMP_CMP_MASKED_EQ`);
+  - `chroot`.
+- Conferido no container: `unshare -U` e `-U -p -n` passam; `-m`, `-u`, `-i`, `-C` e um
+  `mount` dentro do namespace continuam barrados.
+- O perfil sai de `scripts/seccomp-chromium.mjs`, e o CI confere que o arquivo bate com o
+  gerador (`--check`).
+- O compose aplica o perfil ao `capture`. Ele resolve o caminho a partir da raiz do projeto e
+  embute o conteúdo, mesmo chamado de outra pasta (conferido num projeto descartável).
+- O `server.mjs` liga `chromiumSandbox`. Um navegador que não sobe vira erro legível da
+  captura ("o sandbox do Chromium não subiu neste host...") e fecha o proxy daquela captura;
+  antes, a falha do `launch` escapava como 500 e deixava o proxy aberto.
+- `/health` informa `sandbox`. `CAPTURE_CHROMIUM_SANDBOX=false` fica como saída de emergência
+  para um host sem *user namespaces*, com aviso no log.
+
+**Testes:** o `test:images` passou a subir o `capture` com a configuração lida do compose
+(`runArgs`, que ganhou `shm_size` e resolve o caminho do perfil). Antes, a configuração era
+uma cópia à mão sem o `cap_drop`. Checagens novas:
+- `/health` com o sandbox ligado;
+- uma página que segura o renderizador por 4 s, inspecionado vivo: *user* e *pid namespace*
+  próprios, 2 filtros e nenhum `--no-sandbox`;
+- a mesma página capturada com sucesso;
+- sem o perfil, a captura falha com o motivo.
+
+O `test:images` passou de 45 para **49 checagens**. Fora dos testes, uma captura real de
+`https://example.com/` pelo compose funcionou: print, status 200 e certificado.
+
+**Custo assumido:** o perfil deixa um processo sem capacidades criar *user namespaces*, o que
+amplia a superfície do kernel exposta ao container. É a troca que o próprio Chrome faz no
+desktop. O sandbox protege contra a falha mais provável (o renderizador, com exploits que
+circulam em kits de phishing); a outra exige uma falha de kernel, com namespaces de mount, uts,
+ipc e cgroup continuando barrados e o container ainda sem capacidades.
+
+**Ficou de fora:** o `capture` com sistema de arquivos somente leitura (o Chromium escreve
+perfil e cache temporários, então pede um teste próprio de `tmpfs`).
 
 ---
 

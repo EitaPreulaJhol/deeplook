@@ -350,6 +350,30 @@ async function apiImage() {
   }
 }
 
+/**
+ * Roda dentro do container da captura: os renderizadores vivos, com o namespace (comparado ao
+ * do PID 1, o do container), a contagem de filtros seccomp e a flag --no-sandbox.
+ */
+const RENDERER_PROBE = `
+const fs = require('fs');
+const ns = (pid, kind) => fs.readlinkSync('/proc/' + pid + '/ns/' + kind);
+const out = [];
+for (const pid of fs.readdirSync('/proc').filter((p) => /^\\d+$/.test(p) && p !== String(process.pid))) {
+  let cmd = '';
+  try { cmd = fs.readFileSync('/proc/' + pid + '/cmdline', 'utf8'); } catch { continue; }
+  if (!cmd.includes('--type=renderer')) continue;
+  const status = fs.readFileSync('/proc/' + pid + '/status', 'utf8');
+  out.push({
+    pid,
+    ownUserNs: ns(pid, 'user') !== ns(1, 'user'),
+    ownPidNs: ns(pid, 'pid') !== ns(1, 'pid'),
+    seccompFilters: (/Seccomp_filters:\\s*(\\d+)/.exec(status) || [])[1],
+    noSandbox: cmd.includes('--no-sandbox'),
+  });
+}
+console.log(JSON.stringify(out));
+`;
+
 async function captureImage() {
   docker('build', '-q', '-t', 'dl-test-capture', join(APPS, 'capture'));
   ok('imagem da captura compila pelo lockfile', true);
@@ -358,6 +382,7 @@ async function captureImage() {
     conf,
     `server { listen 80; server_name _;
   location = /r { return 302 http://pagina.test/final; }
+  location = /lenta { default_type text/html; return 200 '<html><body><script>const t = Date.now() + 4000; while (Date.now() < t) {}</script>lenta</body></html>'; }
   location / { default_type text/html; return 200 '<html><head><title>Pagina de Teste</title></head><body><h1>Oi</h1><img src="http://169.254.169.254/x.png"></body></html>'; }
 }\n`,
   );
@@ -377,29 +402,33 @@ async function captureImage() {
       `${conf}:/etc/nginx/conf.d/default.conf:ro`,
       'nginx:1.27-alpine',
     );
-    docker(
-      'run',
-      '-d',
-      '--name',
-      'dl-test-capt',
-      '--network',
-      'dl-test-capt-net',
-      '-p',
-      '53100:3100',
-      '-e',
-      'CAPTURE_TOKEN=0123456789abcdef01',
-      '-e',
-      'CAPTURE_ALLOW_HOSTS=pagina.test',
-      '--security-opt',
-      'no-new-privileges:true',
-      '--shm-size',
-      '512m',
-      'dl-test-capture',
-    );
+    // A captura roda com a configuracao do compose: sem capacidades, limites e o perfil
+    // seccomp do sandbox do Chromium (item 6.16).
+    const service = composeService('capture');
+    const startCapture = (name, port, args) =>
+      docker(
+        'run',
+        '-d',
+        '--name',
+        name,
+        '--network',
+        'dl-test-capt-net',
+        '-p',
+        `${port}:3100`,
+        '-e',
+        'CAPTURE_TOKEN=0123456789abcdef01',
+        '-e',
+        'CAPTURE_ALLOW_HOSTS=pagina.test',
+        ...args,
+        'dl-test-capture',
+      );
+    startCapture('dl-test-capt', 53100, runArgs(service));
     const up = await until(() => fetch('http://localhost:53100/health').then((r) => r.ok));
     ok('captura sobe', Boolean(up));
-    const capture = async (url, token = '0123456789abcdef01') => {
-      const res = await fetch('http://localhost:53100/capture', {
+    const health = await fetch('http://localhost:53100/health').then((r) => r.json());
+    ok('captura com o sandbox do Chromium ligado', health.sandbox === true, health);
+    const capture = async (url, token = '0123456789abcdef01', port = 53100) => {
+      const res = await fetch(`http://localhost:${port}/capture`, {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
         body: JSON.stringify({ url }),
@@ -422,8 +451,47 @@ async function captureImage() {
     );
     ok('rede interna recusada', (await capture('http://10.0.0.1/')).body.ok === false);
     ok('metadados recusados', (await capture('http://169.254.169.254/latest/')).body.ok === false);
+
+    // Sandbox de verdade: a pagina lenta segura o renderizador vivo enquanto ele e inspecionado.
+    const slow = capture('http://pagina.test/lenta');
+    await new Promise((res) => setTimeout(res, 2000));
+    const inspected = quiet('exec', 'dl-test-capt', 'node', '-e', RENDERER_PROBE).stdout?.trim();
+    const renderers = (() => {
+      try {
+        return JSON.parse(inspected);
+      } catch {
+        return [];
+      }
+    })();
+    ok(
+      'renderizador em user e pid namespace próprios, com o seccomp do Chromium',
+      renderers.length > 0 &&
+        renderers.every(
+          (r) => r.ownUserNs && r.ownPidNs && Number(r.seccompFilters) >= 2 && !r.noSandbox,
+        ),
+      inspected,
+    );
+    const slowResult = (await slow).body;
+    ok('página lenta capturada com o sandbox', slowResult.ok === true, slowResult);
+
+    // Sem o perfil do compose (seccomp padrao do Docker), o sandbox nao sobe e a captura diz por que.
+    startCapture(
+      'dl-test-capt-nosbx',
+      53101,
+      runArgs({
+        ...service,
+        security_opt: service.security_opt.filter((o) => !o.startsWith('seccomp=')),
+      }),
+    );
+    await until(() => fetch('http://localhost:53101/health').then((r) => r.ok));
+    const unsandboxed = (await capture('http://pagina.test/', undefined, 53101)).body;
+    ok(
+      'sem o perfil seccomp: a captura falha com o motivo',
+      unsandboxed.ok === false && /sandbox do Chromium/.test(unsandboxed.error ?? ''),
+      unsandboxed,
+    );
   } finally {
-    quiet('rm', '-f', 'dl-test-capt', 'dl-test-page');
+    quiet('rm', '-f', 'dl-test-capt', 'dl-test-capt-nosbx', 'dl-test-page');
     quiet('network', 'rm', 'dl-test-capt-net');
     quiet('rmi', 'dl-test-capture');
   }

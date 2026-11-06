@@ -298,8 +298,15 @@ Nas amostras do tipo link, o analista clica em **Capturar página** e um navegad
 os redirecionamentos, o certificado e o que foi bloqueado.
 
 - **Isolamento:**
-  - o contêiner `capture` fica só na rede `capture`, junto da API, sem banco, MinIO ou
-    ClamAV;
+  - o contêiner `capture` fica só na rede `capture`, sem banco, MinIO ou ClamAV. A API o
+    chama por essa rede, mas recusa conexões que venham dela;
+  - o Chromium roda com o **sandbox próprio**: cada página é renderizada num processo com
+    namespaces de usuário, PID e rede próprios e com o filtro seccomp do Chromium, então uma
+    falha explorada no renderizador fica presa ali, sem chegar ao container. Para isso o
+    `capture` usa um perfil seccomp próprio (`apps/capture/seccomp-chromium.json`): o padrão
+    do Docker mais só o que o sandbox precisa (criar namespaces de usuário, PID e rede, e
+    `chroot`). Montagens e os demais namespaces continuam barrados. O perfil é gerado por
+    `node scripts/seccomp-chromium.mjs`, não edite à mão;
   - todo o tráfego do navegador passa por um proxy interno que resolve o nome uma vez e
     **recusa endereços privados, loopback, link-local e de metadados de nuvem**
     (169.254.169.254), sem nova resolução de DNS;
@@ -311,6 +318,11 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 - **Limites:** 20 s para abrir a página, print de até 6.000 px de altura, HTML de até 2 MB,
   uma captura por vez.
 - **Desligar:** `CAPTURE_URL=` (vazio) no `.env`; o serviço `capture` pode sair do compose.
+- **Host sem user namespaces:** se a captura responder "o sandbox do Chromium não subiu neste
+  host", o kernel não deixa criar namespaces de usuário sem privilégio. Pode acontecer, por
+  exemplo, no Ubuntu 24.04 com `kernel.apparmor_restrict_unprivileged_userns=1`, ou com
+  `user.max_user_namespaces=0`. Libere no host. Só como saída de emergência,
+  `CAPTURE_CHROMIUM_SANDBOX=false` no `.env` volta ao modo sem sandbox.
 - **Token:** troque o `CAPTURE_TOKEN` (16+ caracteres), que vale para a API e para o
   serviço.
 
@@ -561,6 +573,7 @@ COOKIE_SECURE=true
 | `CLAMAV_PORT` | porta do `clamd` | `3310` |
 | `CAPTURE_URL` | serviço do navegador isolado (captura de página de link); vazio desliga | `http://capture:3100` |
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
+| `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
