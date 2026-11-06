@@ -1,7 +1,8 @@
 // Navegador isolado para capturar a pagina de um link (item 80). Recebe
 // POST /capture { url } (com o token da API), abre a pagina num Chromium cujo
 // trafego passa pelo proxy de saida (sem rede interna) e devolve print, HTML,
-// redirecionamentos e certificado. Uma captura por vez; contexto novo a cada uma.
+// redirecionamentos e certificado. Uma captura por vez; contexto novo a cada uma, e (item 6.17)
+// um container novo a cada uma: depois de responder, o processo sai e o Docker sobe outro.
 import http from 'node:http';
 
 import { chromium } from 'playwright';
@@ -24,6 +25,18 @@ const ALLOW_HOSTS = new Set(
  * (seccomp-chromium.json); `false` so como saida de emergencia num host sem user namespaces.
  */
 const SANDBOX = process.env.CAPTURE_CHROMIUM_SANDBOX !== 'false';
+/**
+ * Um container por captura (item 6.17): depois de responder, o processo sai e o Docker
+ * (restart: unless-stopped) sobe outro. Com a raiz somente leitura e o /tmp em tmpfs, nada da
+ * captura anterior sobra: nem arquivo, nem processo que uma pagina tenha deixado rodando. Enquanto
+ * isso, novos pedidos recebem 503 e a API tenta de novo. `false` volta ao processo de longa vida.
+ */
+const RECYCLE = process.env.CAPTURE_RECYCLE !== 'false';
+/**
+ * O Docker dobra a espera para reiniciar um container que viveu menos de 10 s (0,1 s, 0,2 s,
+ * 0,4 s...); com 10 s ou mais, reinicia na hora. Medido no item 6.17.
+ */
+const MIN_UPTIME_MS = 10_500;
 const NAV_TIMEOUT_MS = 20_000;
 const SETTLE_MS = 1500;
 const MAX_HTML = 2 * 1024 * 1024;
@@ -228,12 +241,30 @@ function send(res, status, data) {
   res.end(body);
 }
 
+/** Ja aceitou a sua captura (com RECYCLE, este processo nao faz outra). */
+let used = false;
+
+/** Sai para o Docker subir um container limpo, sem cair no atraso dos reinicios rapidos. */
+function recycleSoon() {
+  const wait = Math.max(0, MIN_UPTIME_MS - process.uptime() * 1000);
+  setTimeout(async () => {
+    server.close();
+    await browser?.close().catch(() => undefined);
+    console.log('[capture] captura entregue: saindo para o Docker subir um container limpo');
+    process.exit(0);
+  }, wait).unref();
+}
+
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
-    return send(res, 200, { ok: true, sandbox: SANDBOX });
+    return send(res, 200, { ok: true, sandbox: SANDBOX, recycle: RECYCLE, ready: !used });
   }
   if (req.method !== 'POST' || req.url !== '/capture') return send(res, 404, { error: 'rota' });
   if (req.headers.authorization !== `Bearer ${TOKEN}`) return send(res, 401, { error: 'token' });
+  if (RECYCLE && used) {
+    res.setHeader('retry-after', '2');
+    return send(res, 503, { error: 'container em troca: tente de novo em instantes' });
+  }
   let raw = '';
   req.setEncoding('utf8');
   req.on('data', (chunk) => {
@@ -250,6 +281,16 @@ const server = http.createServer((req, res) => {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return send(res, 400, { error: 'só http e https' });
     }
+    // Outro pedido chegou enquanto o corpo deste era lido: so um por container.
+    if (RECYCLE && used) {
+      res.setHeader('retry-after', '2');
+      return send(res, 503, { error: 'container em troca: tente de novo em instantes' });
+    }
+    if (RECYCLE) {
+      used = true;
+      // Sai depois que a resposta foi entregue (ou a conexao caiu).
+      res.once('close', recycleSoon);
+    }
     try {
       send(res, 200, await exclusive(() => captureWithDeadline(url.href)));
     } catch (err) {
@@ -259,7 +300,9 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[capture] ouvindo na porta ${PORT}`);
+  console.log(
+    `[capture] ouvindo na porta ${PORT}${RECYCLE ? ' (um container por captura)' : ''}`,
+  );
   if (!SANDBOX) {
     console.warn(
       '[capture] CAPTURE_CHROMIUM_SANDBOX=false: renderizadores SEM o sandbox do Chromium. ' +

@@ -41,6 +41,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
 | 6.15 | Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env` | 🔴 | M | API / Compose | ✅ |
 | 6.16 | Sandbox do Chromium da captura (perfil seccomp próprio) | 🔴 | M | Capture / Compose | ✅ |
+| 6.17 | Captura somente leitura e um container por captura | 🟡 | P–M | Capture / API / Compose | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -931,8 +932,61 @@ desktop. O sandbox protege contra a falha mais provável (o renderizador, com ex
 circulam em kits de phishing); a outra exige uma falha de kernel, com namespaces de mount, uts,
 ipc e cgroup continuando barrados e o container ainda sem capacidades.
 
-**Ficou de fora:** o `capture` com sistema de arquivos somente leitura (o Chromium escreve
-perfil e cache temporários, então pede um teste próprio de `tmpfs`).
+**Ficou de fora:** o `capture` com sistema de arquivos somente leitura, que virou o item 6.17.
+
+### 6.17 Captura somente leitura e um container por captura
+
+O sandbox (6.16) segura a página dentro do renderizador. Este item cuida do que sobraria se
+alguém passasse também por ele: hoje um processo ou arquivo deixado no container
+sobreviveria para espionar as capturas seguintes.
+
+**Medido antes de mexer:**
+- **Somente leitura:** com a raiz somente leitura e só `/tmp` em `tmpfs`, o Chromium sobe e
+  captura `example.com` e a Wikipedia (print e 120 kB de HTML). Ele só escreve o perfil
+  temporário em `/tmp` (144 kB depois da captura); `/app` e `/home/pwuser` recusam escrita.
+- **Reinício do Docker:** um container que vive menos de 10 s volta com espera dobrando a
+  cada vez (0,1 s, 0,2 s, 0,4 s…; com 2 s de vida, passava de 12 s no 8º ciclo). Com 10 s ou
+  mais, volta na hora: num laço de 10,5 s, um reinício a cada ~10,6 s, sem atraso acumulado.
+
+**Implementado:**
+- **Compose:** o `capture` ganha `read_only: true` e `/tmp` em `tmpfs` (256 MB, `noexec`,
+  `nosuid`, `nodev`).
+- **Servidor:** com `CAPTURE_RECYCLE` (padrão `true`), atende uma captura, responde e sai, e o
+  `restart: unless-stopped` sobe um container limpo. A saída acontece no mínimo 10,5 s depois
+  da subida, para não cair no atraso do Docker. Como o container novo fica parado esperando,
+  uma captura manual não fica mais lenta: só duas seguidas ficam com uns 10 s entre si.
+  Enquanto troca, o servidor responde 503 com `Retry-After`. `/health` informa `recycle` e
+  `ready`.
+- **API:** `requestCapture` espera a vez por até 2 minutos, tentando a cada 1 s quando recebe
+  503 ou erro de conexão (container subindo). Estouro de tempo da própria captura não é
+  repetido. Antes, a fila ficava dentro do serviço e contava nos mesmos 90 s, então pedidos
+  simultâneos ganham folga em vez de perder.
+
+**Testes:**
+- `capture-recycle.test.ts` traz 6 checagens com um serviço falso:
+  - espera a conexão e passa do 503;
+  - devolve o 503 no fim da espera;
+  - desiste com o erro de conexão;
+  - ponta a ponta, a captura fica pronta depois de um 503.
+  - Sem a espera, o teste quebra.
+- O `test:images` sobe o `capture` com o `restart` do compose (`runArgs` aprendeu a opção) e
+  ganha 7 checagens:
+  - raiz somente leitura;
+  - `/tmp` em `tmpfs` com `noexec`;
+  - a captura;
+  - o pedido logo depois recusado;
+  - o container trocado;
+  - um arquivo em `/tmp` e um `sleep` deixados antes da captura somem depois dela.
+  - No caso contrário (`CAPTURE_RECYCLE=false`), conferido à mão, o arquivo e o processo
+    continuam lá.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API; **1053 checagens em 35 arquivos**
+de integração (eram 1047 em 34); `test:images` com **56** (eram 49); testes do capture verdes.
+
+**Por que reiniciar o container e não limpar por dentro:** o processo que atende roda com o
+mesmo usuário do navegador. Quem escapasse do sandbox poderia se anexar a ele (ptrace ou
+`/proc/<pid>/mem`) e sobreviver a qualquer limpeza feita de dentro. Um PID namespace novo, que
+só o Docker dá, não deixa nada para trás.
 
 ---
 

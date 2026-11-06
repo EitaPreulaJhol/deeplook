@@ -8,6 +8,59 @@ import { s3 } from './s3';
 
 /** Tempo maximo de uma captura (o servico tem 20 s de navegacao + print). */
 const CAPTURE_TIMEOUT_MS = 90_000;
+/**
+ * Espera pelo servico (item 6.17): cada captura roda num container novo, e entre uma e outra
+ * o `capture` responde 503 ou nem aceita conexao enquanto o Docker o sobe de novo (cerca de
+ * 10 s depois da subida anterior). Pedidos ao mesmo tempo esperam a vez aqui.
+ */
+const SERVICE_WAIT_MS = 120_000;
+const RETRY_EVERY_MS = 1000;
+
+/** Erro de conexao (servico subindo), e nao uma captura que estourou o tempo. */
+function connectionError(err: unknown): boolean {
+  if (!(err instanceof Error) || err.name === 'TimeoutError' || err.name === 'AbortError') {
+    return false;
+  }
+  const code = (err.cause as { code?: string } | undefined)?.code ?? '';
+  return [
+    'ECONNREFUSED',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'EHOSTUNREACH',
+    'UND_ERR_SOCKET',
+    'UND_ERR_CONNECT_TIMEOUT',
+  ].includes(code);
+}
+
+/**
+ * Pede a captura, esperando a vez enquanto o servico troca de container. Devolve a resposta
+ * (que pode ser de erro) ou lanca se o servico nao atendeu dentro da espera.
+ */
+export async function requestCapture(
+  url: string,
+  { waitMs = SERVICE_WAIT_MS, retryEveryMs = RETRY_EVERY_MS } = {},
+): Promise<Response> {
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    try {
+      const res = await fetch(`${env.CAPTURE_URL.replace(/\/$/, '')}/capture`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${env.CAPTURE_TOKEN}`,
+        },
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
+      });
+      if (res.status !== 503 || Date.now() >= deadline) return res;
+      await res.body?.cancel();
+    } catch (err) {
+      if (!connectionError(err) || Date.now() >= deadline) throw err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, retryEveryMs));
+  }
+}
 
 /** Captura de pagina ligada (servico do navegador isolado configurado). */
 export function captureEnabled(): boolean {
@@ -52,12 +105,7 @@ export async function runCapture(
 
   let result: ServiceResult;
   try {
-    const res = await fetch(`${env.CAPTURE_URL.replace(/\/$/, '')}/capture`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${env.CAPTURE_TOKEN}` },
-      body: JSON.stringify({ url: capture.url }),
-      signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
-    });
+    const res = await requestCapture(capture.url);
     if (!res.ok && res.status !== 200) {
       await fail(`serviço de captura respondeu ${res.status}`);
       return;

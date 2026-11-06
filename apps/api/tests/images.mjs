@@ -402,8 +402,9 @@ async function captureImage() {
       `${conf}:/etc/nginx/conf.d/default.conf:ro`,
       'nginx:1.27-alpine',
     );
-    // A captura roda com a configuracao do compose: sem capacidades, limites e o perfil
-    // seccomp do sandbox do Chromium (item 6.16).
+    // A captura roda com a configuracao do compose: sem capacidades, limites, o perfil seccomp
+    // do sandbox do Chromium (item 6.16), raiz somente leitura e o reinicio que troca o
+    // container a cada captura (item 6.17).
     const service = composeService('capture');
     const startCapture = (name, port, args) =>
       docker(
@@ -422,18 +423,33 @@ async function captureImage() {
         ...args,
         'dl-test-capture',
       );
-    startCapture('dl-test-capt', 53100, runArgs(service));
+    startCapture('dl-test-capt', 53100, runArgs(service, { restart: true }));
     const up = await until(() => fetch('http://localhost:53100/health').then((r) => r.ok));
     ok('captura sobe', Boolean(up));
     const health = await fetch('http://localhost:53100/health').then((r) => r.json());
     ok('captura com o sandbox do Chromium ligado', health.sandbox === true, health);
-    const capture = async (url, token = '0123456789abcdef01', port = 53100) => {
-      const res = await fetch(`http://localhost:${port}/capture`, {
+    const post = (url, token, port) =>
+      fetch(`http://localhost:${port}/capture`, {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
         body: JSON.stringify({ url }),
       });
-      return { status: res.status, body: await res.json() };
+    // Como a API: entre uma captura e outra o container troca (503 ou sem conexao), e o
+    // pedido espera a vez.
+    const capture = async (url, token = '0123456789abcdef01', port = 53100) => {
+      const deadline = Date.now() + 60_000;
+      for (;;) {
+        try {
+          const res = await post(url, token, port);
+          if (res.status !== 503 || Date.now() > deadline) {
+            return { status: res.status, body: await res.json() };
+          }
+          await res.body?.cancel();
+        } catch (err) {
+          if (Date.now() > deadline) throw err;
+        }
+        await sleep(500);
+      }
     };
     ok('token errado recusado', (await capture('http://pagina.test/', 'errado')).status === 401);
     const page = (await capture('http://pagina.test/r')).body;
@@ -451,6 +467,42 @@ async function captureImage() {
     );
     ok('rede interna recusada', (await capture('http://10.0.0.1/')).body.ok === false);
     ok('metadados recusados', (await capture('http://169.254.169.254/latest/')).body.ok === false);
+
+    // Somente leitura: so o /tmp (tmpfs, sem executaveis) aceita escrita.
+    const inCapture = (...args) => quiet('exec', 'dl-test-capt', ...args);
+    const ready = () =>
+      fetch('http://localhost:53100/health')
+        .then((r) => r.json())
+        .then((h) => h.ready === true);
+    await until(ready);
+    ok('raiz somente leitura', inCapture('touch', '/app/x').status !== 0);
+    const tmpMount = inCapture('sh', '-c', 'grep " /tmp " /proc/mounts').stdout ?? '';
+    ok(
+      '/tmp em tmpfs, sem executáveis',
+      /^tmpfs /.test(tmpMount) && /noexec/.test(tmpMount),
+      tmpMount,
+    );
+
+    // Um container por captura: nem arquivo nem processo de uma captura chega a proxima.
+    const restarts = () =>
+      Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-capt').trim());
+    const before = restarts();
+    docker('exec', 'dl-test-capt', 'sh', '-c', 'echo sobra > /tmp/marca');
+    docker('exec', '-d', 'dl-test-capt', 'sleep', '600');
+    ok('captura antes da troca', (await capture('http://pagina.test/')).body.ok === true);
+    const busy = await post('http://pagina.test/', '0123456789abcdef01', 53100).then(
+      (r) => r.status,
+      () => 'sem conexão',
+    );
+    ok('logo depois, o container não aceita outra', busy === 503 || busy === 'sem conexão', busy);
+    await until(async () => restarts() > before && (await ready()));
+    ok('container trocado depois da captura', restarts() === before + 1, {
+      before,
+      after: restarts(),
+    });
+    ok('arquivo da captura anterior sumiu', inCapture('test', '-e', '/tmp/marca').status !== 0);
+    const sleeping = inCapture('sh', '-c', 'cat /proc/[0-9]*/comm').stdout ?? '';
+    ok('processo deixado para trás sumiu', !/^sleep$/m.test(sleeping), sleeping);
 
     // Sandbox de verdade: a pagina lenta segura o renderizador vivo enquanto ele e inspecionado.
     const slow = capture('http://pagina.test/lenta');

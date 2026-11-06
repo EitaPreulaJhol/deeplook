@@ -311,12 +311,18 @@ os redirecionamentos, o certificado e o que foi bloqueado.
     **recusa endereços privados, loopback, link-local e de metadados de nuvem**
     (169.254.169.254), sem nova resolução de DNS;
   - WebRTC e QUIC desligados, sem downloads, contexto novo a cada captura;
-  - roda como usuário sem privilégios, com `no-new-privileges`.
+  - roda como usuário sem privilégios, com `no-new-privileges`;
+  - **um container por captura:** a raiz é somente leitura e o Chromium só escreve em `/tmp`
+    (em memória, sem executáveis). Depois de responder, o processo sai e o Docker sobe um
+    container limpo, então nem arquivo nem processo deixado por uma página chega à captura
+    seguinte. Enquanto o container troca, a API espera a vez (até 2 minutos). Duas capturas
+    seguidas ficam com pelo menos uns 10 s entre si, porque o Docker atrasa cada vez mais o
+    reinício de um container que viveu menos que isso.
 - **Saída para a internet:** o servidor precisa alcançar os links. Para sair por um proxy
   ou VPN, use a rede do contêiner `capture`.
 - **HTML:** só baixa como texto (`.html.txt`), nunca abre no navegador.
 - **Limites:** 20 s para abrir a página, print de até 6.000 px de altura, HTML de até 2 MB,
-  uma captura por vez.
+  uma captura por vez (por container).
 - **Desligar:** `CAPTURE_URL=` (vazio) no `.env`; o serviço `capture` pode sair do compose.
 - **Host sem user namespaces:** se a captura responder "o sandbox do Chromium não subiu neste
   host", o kernel não deixa criar namespaces de usuário sem privilégio. Pode acontecer, por
@@ -573,6 +579,7 @@ COOKIE_SECURE=true
 | `CLAMAV_PORT` | porta do `clamd` | `3310` |
 | `CAPTURE_URL` | serviço do navegador isolado (captura de página de link); vazio desliga | `http://capture:3100` |
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
+| `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |

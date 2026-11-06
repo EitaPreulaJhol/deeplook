@@ -20,8 +20,10 @@ export function composeService(name) {
 }
 
 /** Argumentos do `docker run` equivalentes ao endurecimento e ao healthcheck do servico. */
-export function runArgs(service, { healthInterval = '2s' } = {}) {
+export function runArgs(service, { healthInterval = '2s', restart = false } = {}) {
   const args = [];
+  // So quando o teste depende do reinicio (o capture sai a cada captura, item 6.17).
+  if (restart && service.restart) args.push('--restart', service.restart);
   if (service.read_only) args.push('--read-only');
   for (const tmpfs of service.tmpfs ?? []) args.push('--tmpfs', tmpfs);
   for (const cap of service.cap_drop ?? []) args.push('--cap-drop', cap);
