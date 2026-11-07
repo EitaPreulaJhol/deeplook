@@ -44,6 +44,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.17 | Captura somente leitura e um container por captura | 🟡 | P–M | Capture / API / Compose | ✅ |
 | 6.18 | Bateria de verificação: repetição da captura, download de amostra e portas dos testes | 🟡 | P | API / Testes | ✅ |
 | 6.19 | Rede da captura sem saída direta (proxy de saída em container próprio) | 🔴 | M | Capture / Compose | ✅ |
+| 6.20 | Capacidades mínimas em `db`, `minio` e `clamav`; portas proibidas no `egress` | 🟡 | P–M | Compose / Capture | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -80,8 +81,7 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 | 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
-| — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
-| — | Portas do `CONNECT` do proxy da captura | Sobra do 6.15, **revista no 6.18**: não restringir a 80/443/8080/8443 (quebraria phishing em porta alta); espelhar no `egress` a lista de portas proibidas do Chromium (a faixa 1–65535 já é validada desde o 6.19) | **P** |
+| — | Backup agendado (sobra do [6.13](#613-pasta-de-backup-fora-do-disco)) | Pede duas decisões do dono: de onde vem a senha do ZIP automático e se ele leva as amostras | **M** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
 para fora do disco é de quem configura o ambiente. Fica de fora o **backup agendado** (hoje o
@@ -91,12 +91,13 @@ gerar. Está na seção do 6.13.
 ### Para retomar
 
 ```bash
-# o 6.13 deixou tudo verde; confirme antes de mexer
+# o 6.20 deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
 cd ../api   && npm run test:integration          # 1070 checagens em 35 arquivos
-cd ../api   && npm run test:images && npm run test:smoke   # 65 e 101 checagens
-cd ../capture && npm test                         # 11 testes do proxy (sem rede)
+cd ../api   && npm run test:images && npm run test:smoke   # 67 e 101 checagens
+cd ../capture && npm test                         # 13 testes do proxy (sem rede)
+# ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
             && node scripts/seccomp-chromium.mjs --check
 # o repositorio nao tem remoto: os passos do CI so rodam se alguem os rodar aqui
@@ -1207,6 +1208,61 @@ não transforma em interna uma rede que já existe.
   alcançável pelo IP da bridge;
 - as portas proibidas do Chromium espelhadas no `egress` (linha própria em "Onde paramos");
 - as imagens de terceiros (Postgres, MinIO, ClamAV) não foram varridas nesta rodada.
+
+### 6.20 Capacidades mínimas nos serviços com estado e portas proibidas no egress
+
+As duas últimas sobras de endurecimento.
+
+**Capacidades de `db`, `minio` e `clamav`.** Os três rodavam com as 14 capacidades padrão do
+Docker e sem `no-new-privileges`, e o ClamAV lê arquivo malicioso. Os três sobem como root (o
+entrypoint ajusta a posse dos dados e troca de usuário), então `cap_drop: ALL` puro quebra
+todos. O mínimo de cada um foi medido com contêineres e volumes descartáveis, sem tocar em
+`./data`, com volume e com pasta do host (bind, como o compose monta), e cada conjunto conferido
+em três tempos: subir, gravar e **reiniciar com os próprios dados**.
+
+| Serviço | Mínimo | O que acontece sem ele |
+|---|---|---|
+| `db` | `CHOWN DAC_OVERRIDE SETGID SETUID` | sem nenhuma, o entrypoint não troca para `postgres`; sem `DAC_OVERRIDE`, o primeiro boot passa e o **reinício** falha (a pasta já é do `postgres`, com `700`), que é o caso de toda instalação existente; `FOWNER` não é preciso |
+| `minio` | `DAC_OVERRIDE` | roda como root numa pasta do host de outro dono e nem sobe ("file access denied") |
+| `clamav` | `CHOWN DAC_OVERRIDE FOWNER SETGID SETUID` | sem `FOWNER`, o `install -d` não ajusta `/run/clamav`; sem `DAC_OVERRIDE`, o `clamd` não abre o próprio log. Conferido com a base real copiada: responde, detecta o EICAR e reinicia |
+
+Saem `NET_RAW`, `MKNOD`, `SYS_CHROOT`, `SETFCAP`, `SETPCAP`, `KILL`, `FSETID`, `NET_BIND_SERVICE` e
+`AUDIT_WRITE` (e `FOWNER` no banco e no MinIO). Os três ganham `no-new-privileges`.
+
+**Portas proibidas no `egress`.** A lista 80/443/8080/8443 que o 6.15 previa quebraria a captura
+de phishing em porta alta (revisto no 6.18). Em vez dela, o proxy recusa as portas que o próprio
+Chromium recusa. A lista foi **medida, não copiada**: o Chromium 156 da imagem do Playwright
+1.64.1 navegou para cada porta de 1 a 11000 e recusou exatamente 80, com `ERR_UNSAFE_PORT`. A
+lista que eu teria escrito de memória tinha 4190 e 6679, que este Chromium não recusa. O navegador
+já barra essas portas; no `egress` elas valem mesmo que ele seja comprometido. A recusa volta para
+a ficha com o motivo, como as de endereço interno.
+
+**Testes:**
+- O `test:images` sobe o Postgres e o MinIO da API com a configuração lida do compose (`runArgs`
+  aprendeu `cap_add`). Confere que estão sem as capacidades padrão e **reinicia o Postgres** antes
+  da segunda API, que migra, entra e faz backup sobre ele. São 2 checagens novas.
+- O `test:smoke` sobe o banco e o MinIO com a mesma configuração.
+- O ClamAV ficou fora do `test:images`: baixaria 170 MB de base e ocuparia cerca de 1,5 GB de
+  memória a cada rodada. A medição acima é o registro.
+- `chain.test.mjs` traz 2 testes novos:
+  - SMTP por `CONNECT` e SSH por HTTP recusados nos dois proxies, com o motivo;
+  - a lista com as 80 portas, e as altas de phishing (8000, 2083) e as duas que eu erraria
+    (4190, 6679) liberadas.
+- **Prova inversa:** com o `proxy.mjs` anterior, o teste das portas reprova.
+
+**Validação:** 13 testes do capture (eram 11); `test:images` com **67** (eram 65); `test:smoke`
+com 101; o script de portas confere com o navegador. A API não mudou de código (1070 checagens de
+integração, do 6.13).
+
+**Para atualizar uma instalação:** `docker compose up -d` recria os três com o endurecimento; os
+dados ficam onde estão.
+
+**Fica de fora:**
+- portas acima de 11000 não foram varridas (a maior da lista é 10080);
+- a lista é do Chromium 156. Ao trocar o Playwright, rode `node scripts/chromium-unsafe-ports.mjs`:
+  ele mede na imagem da versão do capture, sem rede e com 16 páginas em paralelo (cerca de 50 s),
+  e compara com a do proxy. Hoje confere. Não está no CI, porque leva quase um minuto e só muda
+  com o Playwright.
 
 ---
 

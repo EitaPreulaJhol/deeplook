@@ -4,7 +4,7 @@ import http from 'node:http';
 import net from 'node:net';
 import { after, before, test } from 'node:test';
 
-import { parseUpstream, startProxy } from '../src/proxy.mjs';
+import { parseUpstream, startProxy, UNSAFE_PORTS } from '../src/proxy.mjs';
 
 let page;
 let echo;
@@ -106,6 +106,25 @@ test('porta inválida é recusada sem derrubar o proxy', async () => {
   }
   const health = await viaProxy(egress.port, '/health');
   assert.equal(health.status, 200);
+});
+
+test('portas proibidas pelo navegador: recusadas com o motivo, nos dois modos', async () => {
+  blocked.length = 0;
+  // SMTP por CONNECT e SSH por HTTP, mesmo para um endereco liberado (127.0.0.1).
+  const smtp = await tunnel(inner.port, '127.0.0.1:25');
+  assert.equal(smtp.status, 403);
+  assert.equal((await tunnel(egress.port, '127.0.0.1:25')).status, 403);
+  assert.equal((await viaProxy(inner.port, 'http://127.0.0.1:22/')).status, 403);
+  assert.ok(blocked.some((b) => /porta 25 recusada/.test(b.reason)));
+  assert.ok(blocked.some((b) => /porta 22 recusada/.test(b.reason)));
+});
+
+test('a lista é a medida no Chromium: 80 portas, e as altas de phishing passam', () => {
+  assert.equal(UNSAFE_PORTS.size, 80);
+  for (const port of [25, 22, 6667, 10080]) assert.ok(UNSAFE_PORTS.has(port), String(port));
+  for (const port of [80, 443, 8000, 8080, 8443, 2083, 4190, 6679]) {
+    assert.ok(!UNSAFE_PORTS.has(port), String(port));
+  }
 });
 
 test('proxy de saída fora do ar: 502, e não conexão direta', async () => {

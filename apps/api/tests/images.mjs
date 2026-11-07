@@ -230,6 +230,8 @@ async function apiImage() {
       'POSTGRES_PASSWORD=pg',
       '-e',
       `POSTGRES_DB=${db}`,
+      // Com o endurecimento do compose (item 6.20): a API migra, grava e faz backup com ele.
+      ...runArgs(composeService('db')),
       'postgres:16-alpine',
     );
     docker(
@@ -239,6 +241,7 @@ async function apiImage() {
       'dl-test-minio',
       '--network',
       'dl-test-net',
+      ...runArgs(composeService('minio')),
       '-e',
       'MINIO_ROOT_USER=deeplook',
       '-e',
@@ -362,6 +365,27 @@ async function apiImage() {
     chmodSync(backupDir, 0o777);
     writeFileSync(join(backupDir, '.deeplook-backups'), '');
     docker('rm', '-f', 'dl-test-run');
+    // O Postgres reinicia com os dados ja dele: e o caso que pede DAC_OVERRIDE (item 6.20).
+    const caps = (name) =>
+      docker(
+        'inspect',
+        '-f',
+        '{{json .HostConfig.CapDrop}} {{json .HostConfig.CapAdd}}',
+        name,
+      ).trim();
+    ok(
+      'banco e MinIO sem as capacidades padrão, como no compose',
+      /"ALL"/.test(caps('dl-test-pg')) &&
+        !/NET_RAW|MKNOD|FOWNER/.test(caps('dl-test-pg')) &&
+        // O Docker guarda as capacidades com o prefixo CAP_.
+        /"ALL"\] \["(CAP_)?DAC_OVERRIDE"\]/.test(caps('dl-test-minio')),
+      { pg: caps('dl-test-pg'), minio: caps('dl-test-minio') },
+    );
+    docker('restart', 'dl-test-pg');
+    const pgBack = await until(
+      async () => quiet('exec', 'dl-test-pg', 'pg_isready', '-U', 'postgres').status === 0,
+    );
+    ok('banco endurecido reinicia com os próprios dados', Boolean(pgBack));
     docker(
       'run',
       '-d',

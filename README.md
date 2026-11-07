@@ -741,6 +741,14 @@ npx prisma generate
   de arquivos somente leitura. As imagens finais não trazem o `npm`. O nginx não revela a
   versão, manda `Permissions-Policy`, `Cross-Origin-Opener-Policy` e
   `Cross-Origin-Resource-Policy`, e os assets com hash saem com um ano de cache.
+- O banco, o MinIO e o ClamAV rodam com `no-new-privileges` e **só as capacidades que o
+  entrypoint de cada um precisa** (medidas uma a uma: subir, gravar e reiniciar com os próprios
+  dados). O banco fica com `CHOWN`, `DAC_OVERRIDE`, `SETGID` e `SETUID`. O MinIO fica só com
+  `DAC_OVERRIDE`. O ClamAV, que lê arquivo malicioso, fica com essas quatro mais `FOWNER`. As
+  demais capacidades padrão do Docker, como `NET_RAW`, `MKNOD` e `SYS_CHROOT`, saem.
+- O `egress` recusa as 80 portas que o próprio Chromium recusa (SMTP, SSH, IRC, NFS...),
+  medidas no navegador da imagem, mesmo que o navegador seja comprometido. Nenhuma outra porta é
+  barrada, porque phishing em porta alta precisa ser capturado.
 - O `Cross-Origin-Opener-Policy` só vale em origem confiável (HTTPS ou `localhost`), que são os
   dois caminhos de acesso (o Tunnel e a porta em `127.0.0.1`). Por HTTP em outro nome o navegador
   o ignora e escreve um aviso no console, sem efeito funcional.

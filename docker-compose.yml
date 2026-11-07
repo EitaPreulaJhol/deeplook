@@ -13,6 +13,18 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     logging: *default-logging
+    # So o que o entrypoint precisa (medido, item 6.20): ajustar a posse da pasta de dados e trocar
+    # para o usuario postgres. Sem DAC_OVERRIDE o primeiro boot passa e o REINICIO falha, porque a
+    # pasta ja e do postgres com 700. As outras 10 capacidades padrao do Docker saem.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-deeplook}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deeplook}
@@ -32,6 +44,14 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command: server /data --console-address ":9001"
+    # Roda como root (a imagem so troca de usuario com MINIO_USERNAME) numa pasta do host de outro
+    # dono: so precisa de DAC_OVERRIDE para gravar nela (medido, item 6.20). Sem ele, nem sobe.
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-deeplook}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-deeplook123}
@@ -162,6 +182,19 @@ services:
     image: ${CLAMAV_IMAGE:-clamav/clamav:1.5}
     restart: unless-stopped
     logging: *default-logging
+    # Le arquivo malicioso: so o que o /init precisa (medido, item 6.20) para entregar a base e
+    # /run/clamav ao usuario clamav (CHOWN, FOWNER), trocar para ele (SETUID, SETGID) e abrir os
+    # logs (DAC_OVERRIDE). Saem NET_RAW, MKNOD, SYS_CHROOT e as demais.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./data/clamav:/var/lib/clamav
     networks:

@@ -46,6 +46,7 @@ export function runArgs(service, { healthInterval = '2s', restart = false } = {}
   if (service.read_only) args.push('--read-only');
   for (const tmpfs of service.tmpfs ?? []) args.push('--tmpfs', tmpfs);
   for (const cap of service.cap_drop ?? []) args.push('--cap-drop', cap);
+  for (const cap of service.cap_add ?? []) args.push('--cap-add', cap);
   // O perfil seccomp do compose e relativo a raiz do projeto (o Compose resolve assim); o
   // `docker run` o leria relativo ao diretorio de quem chama.
   for (const opt of service.security_opt ?? []) {

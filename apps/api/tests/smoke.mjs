@@ -52,9 +52,19 @@ try {
   docker('build', '-q', '-t', 'dl-smoke-web-img', join(APPS, 'web'));
   docker('build', '-q', '-t', 'dl-smoke-api-img', join(APPS, 'api'));
   docker('network', 'create', '--subnet', SUBNET, NET);
-  run('dl-smoke-pg', '-e', 'POSTGRES_PASSWORD=pg', '-e', 'POSTGRES_DB=smoke', 'postgres:16-alpine');
+  // Banco e MinIO com o endurecimento do compose (item 6.20): sem as capacidades padrao.
+  run(
+    'dl-smoke-pg',
+    '-e',
+    'POSTGRES_PASSWORD=pg',
+    '-e',
+    'POSTGRES_DB=smoke',
+    ...runArgs(composeService('db')),
+    'postgres:16-alpine',
+  );
   run(
     'dl-smoke-minio',
+    ...runArgs(composeService('minio')),
     '-e',
     'MINIO_ROOT_USER=deeplook',
     '-e',
