@@ -4,6 +4,7 @@
 //   npm run test:integration -- --clean remove os containers ao terminar
 // Cada arquivo roda num banco novo; saida 1 se algum falhar.
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { connect } from 'node:tls';
@@ -20,12 +21,29 @@ const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', std
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
-/** Sobe o container se ainda nao existir (ou so liga, se estiver parado). */
+/**
+ * Sobe o container se ainda nao existir (ou so liga, se estiver parado). A configuracao vai
+ * num rotulo: se ela mudou (ex.: as portas passaram a ouvir so no 127.0.0.1), o container
+ * antigo e recriado, em vez de seguir de pe com a configuracao velha. Os dados sao de teste.
+ */
 function ensure(name, ...runArgs) {
-  const state = quiet('inspect', '-f', '{{.State.Running}}', name).stdout?.trim();
-  if (state === 'true') return;
-  if (state === 'false') docker('start', name);
-  else docker('run', '-d', '--name', name, ...runArgs);
+  const config = createHash('sha256').update(JSON.stringify(runArgs)).digest('hex').slice(0, 16);
+  const found = quiet(
+    'inspect',
+    '-f',
+    '{{.State.Running}} {{index .Config.Labels "dl.config"}}',
+    name,
+  ).stdout?.trim();
+  const [state, label] = (found ?? '').split(' ');
+  if (state && label !== config) {
+    docker('rm', '-f', name);
+  } else if (state === 'true') {
+    return;
+  } else if (state === 'false') {
+    docker('start', name);
+    return;
+  }
+  docker('run', '-d', '--name', name, '--label', `dl.config=${config}`, ...runArgs);
 }
 
 async function waitFor(label, check, tries = 40) {
@@ -84,9 +102,9 @@ async function startLdap() {
     '--hostname',
     'ldap.empresa.test',
     '-p',
-    '6389:389',
+    '127.0.0.1:6389:389',
     '-p',
-    '6636:636',
+    '127.0.0.1:6636:636',
     '-e',
     'LDAP_DOMAIN=empresa.test',
     '-e',
@@ -189,7 +207,9 @@ const files = readdirSync(join(HERE, 'integration'))
 
 mkdirSync(TMP, { recursive: true });
 writeFileSync(join(TMP, '.gitignore'), '*\n');
-ensure(PG, '-e', 'POSTGRES_PASSWORD=pg', '-p', '55432:5432', 'postgres:16-alpine');
+// Portas so no loopback: em 0.0.0.0, o Postgres (senha "pg"), o MinIO e o OpenLDAP de teste
+// ficavam abertos para a rede local, e continuam de pe entre uma rodada e outra.
+ensure(PG, '-e', 'POSTGRES_PASSWORD=pg', '-p', '127.0.0.1:55432:5432', 'postgres:16-alpine');
 await waitFor('Postgres', () => quiet('exec', PG, 'pg_isready', '-U', 'postgres').status === 0);
 ensure(
   MINIO,
@@ -198,7 +218,7 @@ ensure(
   '-e',
   'MINIO_ROOT_PASSWORD=deeplook123',
   '-p',
-  '59000:9000',
+  '127.0.0.1:59000:9000',
   'pgsty/silo@sha256:7bb2aff6b89efe1cb1303c10fc21d579447434ed06649ac9ec05a5e2dbf30ad7',
   'server',
   '/data',

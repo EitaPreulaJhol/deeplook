@@ -16,21 +16,33 @@ const CAPTURE_TIMEOUT_MS = 90_000;
 const SERVICE_WAIT_MS = 120_000;
 const RETRY_EVERY_MS = 1000;
 
-/** Erro de conexao (servico subindo), e nao uma captura que estourou o tempo. */
-function connectionError(err: unknown): boolean {
+/** Nao houve conexao: o pedido nem chegou ao servico (container subindo). Repetir e seguro. */
+const NOT_CONNECTED = [
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+];
+/**
+ * A conexao caiu depois de aberta. Pode ser o container antigo saindo (repetir resolve) ou a
+ * propria captura derrubando o navegador, por exemplo uma pagina que estoura a memoria e leva o
+ * container junto. Repetir sem limite revisitaria a mesma pagina maliciosa a cada reinicio (e
+ * cada container que vive menos de 10 s aumenta o atraso do Docker para as capturas seguintes):
+ * so uma nova tentativa.
+ */
+const DROPPED = ['ECONNRESET', 'UND_ERR_SOCKET'];
+const MAX_DROPPED_RETRIES = 1;
+
+/** Erro de conexao (e de que tipo), e nao uma captura que estourou o tempo. */
+function connectionError(err: unknown): 'not-connected' | 'dropped' | null {
   if (!(err instanceof Error) || err.name === 'TimeoutError' || err.name === 'AbortError') {
-    return false;
+    return null;
   }
   const code = (err.cause as { code?: string } | undefined)?.code ?? '';
-  return [
-    'ECONNREFUSED',
-    'ECONNRESET',
-    'ENOTFOUND',
-    'EAI_AGAIN',
-    'EHOSTUNREACH',
-    'UND_ERR_SOCKET',
-    'UND_ERR_CONNECT_TIMEOUT',
-  ].includes(code);
+  if (NOT_CONNECTED.includes(code)) return 'not-connected';
+  if (DROPPED.includes(code)) return 'dropped';
+  return null;
 }
 
 /**
@@ -42,6 +54,7 @@ export async function requestCapture(
   { waitMs = SERVICE_WAIT_MS, retryEveryMs = RETRY_EVERY_MS } = {},
 ): Promise<Response> {
   const deadline = Date.now() + waitMs;
+  let dropped = 0;
   for (;;) {
     try {
       const res = await fetch(`${env.CAPTURE_URL.replace(/\/$/, '')}/capture`, {
@@ -56,7 +69,9 @@ export async function requestCapture(
       if (res.status !== 503 || Date.now() >= deadline) return res;
       await res.body?.cancel();
     } catch (err) {
-      if (!connectionError(err) || Date.now() >= deadline) throw err;
+      const kind = connectionError(err);
+      if (!kind || Date.now() >= deadline) throw err;
+      if (kind === 'dropped' && ++dropped > MAX_DROPPED_RETRIES) throw err;
     }
     await new Promise((resolve) => setTimeout(resolve, retryEveryMs));
   }

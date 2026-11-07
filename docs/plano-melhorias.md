@@ -42,6 +42,8 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.15 | Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env` | 🔴 | M | API / Compose | ✅ |
 | 6.16 | Sandbox do Chromium da captura (perfil seccomp próprio) | 🔴 | M | Capture / Compose | ✅ |
 | 6.17 | Captura somente leitura e um container por captura | 🟡 | P–M | Capture / API / Compose | ✅ |
+| 6.18 | Bateria de verificação: repetição da captura, download de amostra e portas dos testes | 🟡 | P | API / Testes | ✅ |
+| 6.19 | Rede da captura sem saída direta (proxy de saída em container próprio) | 🔴 | M | Capture / Compose | ⬜ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -75,12 +77,13 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
-| 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
+| 1º | [6.19 Rede da captura sem saída direta](#619-rede-da-captura-sem-saída-direta-pendente) | O proxy que barra a rede interna roda dentro do container do Chromium; a rede `capture` alcança a LAN direto (medido no 6.18) | **M** |
+| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 3º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 | — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
-| — | Portas do `CONNECT` do proxy da captura (80, 443, 8080, 8443) e `Content-Type` fixo no download de amostra | Sobras pequenas do 6.15 | **P** |
+| — | Portas do `CONNECT` do proxy da captura | Sobra do 6.15, **revista no 6.18**: não restringir a 80/443/8080/8443 (quebraria phishing em porta alta); espelhar a lista de portas proibidas do Chromium e validar 1–65535 | **P** |
 
 O **6.13 está registrado, não iniciado**: o desenho e os cuidados estão na seção dele, para
 quando o dono do projeto decidir retomar. Nada foi codificado.
@@ -88,12 +91,14 @@ quando o dono do projeto decidir retomar. Nada foi codificado.
 ### Para retomar
 
 ```bash
-# a terceira leva deixou tudo verde; confirme antes de mexer
+# a bateria do 6.18 deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1014 checagens em 33 arquivos
-cd ../api   && npm run test:images && npm run test:smoke   # 45 e 100 checagens
-cd ../..    && node scripts/check-playwright-version.mjs && node scripts/trivy.mjs image deeplook-api
+cd ../api   && npm run test:integration          # 1055 checagens em 35 arquivos
+cd ../api   && npm run test:images && npm run test:smoke   # 56 e 101 checagens
+cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
+            && node scripts/seccomp-chromium.mjs --check
+# o repositorio nao tem remoto: os passos do CI so rodam se alguem os rodar aqui
 ```
 
 ### Armadilhas conhecidas (custaram tempo na primeira leva)
@@ -987,6 +992,87 @@ de integração (eram 1047 em 34); `test:images` com **56** (eram 49); testes do
 mesmo usuário do navegador. Quem escapasse do sandbox poderia se anexar a ele (ptrace ou
 `/proc/<pid>/mem`) e sobreviver a qualquer limpeza feita de dentro. Um PID namespace novo, que
 só o Docker dá, não deixa nada para trás.
+
+### 6.18 Bateria de verificação (novembro)
+
+Rodada de conferência sobre o que as levas deixaram, rodando tudo o que existe antes de dizer
+que não há pendência (lição do Achado G). Como o repositório **não tem remoto**, os passos que
+só existem no CI (`check-carbon-css`, `check-playwright-version`, `seccomp-chromium --check` e o
+`actionlint`) também foram rodados à mão.
+
+**Ponto de partida, tudo verde:** `format:check`, `lint` e `build` na API e no web; 113 testes
+unitários do web (cobertura de 95,7%); 4 testes do capture; 1053 checagens de integração em 35
+arquivos; os três scripts do CI; `actionlint` sem achados. O `npm audit` acusa 10 moderadas, todas
+em dependência de desenvolvimento (`minimatch` pelo ESLint e `typescript-eslint`); em produção
+(`--omit=dev`) são zero, e o CI só reprova a partir de `high`.
+
+**Corrigido:**
+- **A API repetia uma captura que derrubava o serviço.** O `requestCapture` (6.17) tentava de
+  novo, até o fim dos 120 s, em `ECONNRESET` e `UND_ERR_SOCKET`, que é também o que acontece
+  quando a página estoura a memória e leva o container junto. Medido com um serviço falso que
+  cai no meio do pedido: **11 visitas à mesma URL em 5 s** (21 em 3 s no teste). Cada uma
+  revisitava a página maliciosa, e cada container que vive menos de 10 s aumenta o atraso de
+  reinício do Docker para as capturas seguintes. Agora a falta de conexão (`ECONNREFUSED`, DNS,
+  `EHOSTUNREACH`, tempo de conexão) continua sendo repetida à vontade, porque o pedido nem chegou;
+  conexão que caiu depois de aberta ganha **uma** nova tentativa só (cobre o container antigo
+  saindo). Checagem nova no `capture-recycle.test.ts`, que falha sem a correção.
+- **`Content-Type` do download de amostra** (sobra do 6.15). Saía o `mimeType` gravado, que é o
+  que o navegador de quem enviou declarou: uma amostra enviada como `text/html` voltava como
+  `text/html`. O `attachment` e os cabeçalhos do nginx seguravam no navegador, mas chamada direto
+  na API (token, teste) ia sem `nosniff`. Agora sempre `application/octet-stream`, com `nosniff`
+  e `Content-Security-Policy: default-src 'none'; sandbox`, como já faziam o print e o HTML da
+  captura. Checagem nova no `sample-access.test.ts`, que falha no código antigo.
+- **Os containers de teste abertos para a LAN.** O `tests/run.mjs` publicava o Postgres (senha
+  `pg`, superusuário), o MinIO e o OpenLDAP em `0.0.0.0`, e eles **continuam de pé** entre uma
+  rodada e outra (só o `--clean` derruba): qualquer máquina da rede local entrava. Conferido de
+  outro container: `10.0.0.85:55432` e `:6389` respondiam. Agora tudo publica em `127.0.0.1`,
+  inclusive as três portas do `images.mjs`. O `ensure()` grava a configuração num rótulo e
+  recria o container quando ela muda; sem isso, os containers antigos seguiriam em `0.0.0.0`.
+- **Documentação:** o README dava `clamav/clamav:stable` como padrão do `CLAMAV_IMAGE`, e o
+  compose usa `clamav/clamav:1.5`; o `.env.example` não trazia `CAPTURE_CHROMIUM_SANDBOX` nem
+  `CAPTURE_RECYCLE` (entraram comentados, com o padrão). A tabela de variáveis do README foi
+  cruzada inteira com os padrões do compose: era a única divergência.
+
+**Conferido e descartado:**
+- Suspeita de IDOR nas sub-rotas de amostra (`/captures`, `/antivirus`, `/yara`, `/iocs`,
+  `/reputation` não aplicam `visibleEntries`): não é, porque o `requireUser` faz isso para toda
+  rota `/api/entries/:id`, e o `own-samples.test.ts` varre todas elas.
+- nginx: o `X-Forwarded-For` é o `$remote_addr`, sem concatenar o que o cliente mandou.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API; **1055 checagens em 35
+arquivos** de integração (eram 1053); `test:images` com 56 e `test:smoke` com 101, todos verdes.
+
+**Ficou como recomendação** (não feito nesta rodada):
+- **Rede da captura sem saída direta** — virou o item 6.19.
+- **Portas do `CONNECT`:** a lista 80/443/8080/8443 que o 6.15 previa quebraria a captura de
+  phishing em porta alta (`:8000`, `:2083`...), que é comum. O Chromium já recusa as portas
+  proibidas dele (SMTP, SSH...) antes do proxy; espelhar essa lista no proxy e validar 1–65535
+  dá a mesma proteção sem quebrar captura. O ganho real contra um navegador comprometido está
+  no 6.19, e não aqui.
+- **Permissão dos arquivos:** cerca de 2.800 arquivos versionados têm escrita para outros
+  usuários (cópia do Windows), código da API incluído, mesmo caso do `.env` no 6.15. Como o
+  `core.fileMode` é `false`, `chmod -R o-w` não muda o Git; é da máquina, como o `chmod 600 .env`.
+- **`pids_limit` e raiz somente leitura na API**, que analisa arquivo malicioso: o `capture` e o
+  `web` já têm; a API precisa de teste próprio (o `genisoimage` e o Prisma escrevem em disco).
+
+### 6.19 Rede da captura sem saída direta (pendente)
+
+O proxy que recusa endereço interno roda **dentro** do container do Chromium e só vale para quem
+o usa: o Chromium, enquanto obedece. A rede `capture` é uma bridge comum, com saída para tudo.
+Medido no 6.18 com um container descartável numa bridge igual, com `cap_drop: ALL`: alcançou o
+gateway da LAN (ICMP) e serviços TCP do host pelo IP da LAN. Quem passasse pelo sandbox (6.16)
+até o processo do navegador falaria direto com a rede da casa, inclusive o Proxmox.
+
+**Desenho proposto:** a rede `capture` vira `internal: true` (sem saída), e o proxy de saída vai
+para um container próprio, na `capture` e numa rede com saída. O Chromium só alcança a internet
+através dele, e a regra deixa de depender de o navegador cooperar. O proxy interno pode continuar
+como está (ele anota o que foi bloqueado para a ficha) e encadear no de saída, que aplica a mesma
+lista. Alternativa sem container novo: regra no `DOCKER-USER` do host barrando a sub-rede da
+`capture` para as faixas privadas, que depende do host e fica fora do compose.
+
+**Cuidados:** a API continua alcançando `capture:3100` (rede interna permite tráfego entre os
+containers); o DNS passa a ser só do proxy de saída; o `test:images` precisa provar que, de dentro
+do `capture`, uma conexão direta a um IP público e a um IP da LAN falha.
 
 ---
 

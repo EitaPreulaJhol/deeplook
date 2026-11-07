@@ -76,6 +76,8 @@ async function main() {
       originalFilename: 'fatura.exe',
       fileSize: 8,
       sha256: SHA,
+      // O tipo que o navegador de quem enviou declarou: nao pode chegar a quem baixa.
+      mimeType: 'text/html',
     },
   });
   const url = `/api/entries/${entry.id}/download`;
@@ -87,6 +89,13 @@ async function main() {
   ok('recusa não audita', (await audits()).length === 0);
   const own = await get(url, cDono);
   ok('quem enviou baixa', own.statusCode === 200 && own.body === 'MZ-teste', own.statusCode);
+  ok(
+    'download sai como octet-stream, sem sniff e em sandbox (não como o tipo declarado)',
+    own.headers['content-type'] === 'application/octet-stream' &&
+      own.headers['x-content-type-options'] === 'nosniff' &&
+      /\bsandbox\b/.test(String(own.headers['content-security-policy'])),
+    own.headers,
+  );
   ok('analista baixa', (await get(url, cAna)).statusCode === 200);
   ok('admin baixa', (await get(url, cAdm)).statusCode === 200);
 

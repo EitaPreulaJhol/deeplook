@@ -1601,7 +1601,12 @@ export async function entryRoutes(app: FastifyInstance) {
     });
 
     const safeName = (entry.originalFilename || 'sample.bin').replace(/[^\w.-]+/g, '_');
-    reply.header('Content-Type', entry.mimeType || 'application/octet-stream');
+    // Sempre octet-stream: o mimeType gravado veio do navegador de quem enviou (pode dizer
+    // text/html ou image/svg+xml), e a amostra e maliciosa por definicao. Com nosniff e o
+    // sandbox, nenhum navegador interpreta o conteudo, mesmo chamado direto na API (sem o nginx).
+    reply.header('Content-Type', 'application/octet-stream');
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Content-Security-Policy', "default-src 'none'; sandbox");
     reply.header('Content-Disposition', `attachment; filename="${safeName}"`);
     // O tamanho do objeto de verdade, e nao o da ficha: se os dois divergirem, o corpo
     // continua bem formado para o cliente e a divergencia aparece na conferencia abaixo.

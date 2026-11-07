@@ -91,7 +91,30 @@ async function main() {
     down,
   );
 
-  // 4. Ponta a ponta: a captura fica pronta mesmo com o container trocando no comeco.
+  // 4. O servico recebe o pedido e cai no meio (uma pagina que estoura a memoria leva o
+  // container junto): uma nova tentativa so, e nao uma visita a cada reinicio ate a espera acabar.
+  let crashes = 0;
+  const crashing = http.createServer((req, res) => {
+    crashes++;
+    req.resume();
+    setTimeout(() => res.socket?.destroy(), 50);
+  });
+  await new Promise<void>((res) => crashing.listen(port, '127.0.0.1', res));
+  const crashed = await requestCapture('https://pagina-que-derruba.test/', {
+    waitMs: 3000,
+    retryEveryMs: 100,
+  }).then(
+    () => 'respondeu',
+    (err: Error) => (err.cause as { code?: string } | undefined)?.code ?? err.message,
+  );
+  await new Promise((res) => crashing.close(res));
+  ok(
+    'serviço cai no meio da captura: só uma nova tentativa',
+    ['UND_ERR_SOCKET', 'ECONNRESET'].includes(crashed) && crashes === 2,
+    { crashed, crashes },
+  );
+
+  // 5. Ponta a ponta: a captura fica pronta mesmo com o container trocando no comeco.
   const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
   const real = fakeService(port, 1, {
     ok: true,

@@ -581,7 +581,7 @@ COOKIE_SECURE=true
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
-| `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:stable` |
+| `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:1.5` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
