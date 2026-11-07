@@ -142,7 +142,7 @@ export interface ReputationInfo {
 
 /** Token de API pessoal (GET /api/me/api-tokens); o segredo so vem na criacao. */
 /** O que o token alcanca (item 3.2): amostras (envio e consulta) ou so a leitura do status. */
-export type ApiTokenScope = 'SAMPLES' | 'STATUS';
+export type ApiTokenScope = 'SAMPLES' | 'STATUS' | 'FEED';
 
 export interface ApiToken {
   id: string;

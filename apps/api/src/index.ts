@@ -44,6 +44,7 @@ import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
 import { favoritesRoutes } from './routes/favorites';
+import { feedRoutes } from './routes/feeds';
 import { graphRoutes } from './routes/graph';
 import { healthRoutes } from './routes/health';
 import { hexRoutes } from './routes/hex';
@@ -146,6 +147,8 @@ async function main() {
   await app.register(managementRoutes);
   // Importar indicadores (item 78).
   await app.register(iocImportRoutes);
+  // Feed de indicadores (item 5.3): TAXII 2.1 e feed MISP, para um TIP ou SIEM buscar.
+  await app.register(feedRoutes);
   await app.register(reputationRoutes);
   await app.register(antivirusRoutes);
   await app.register(attackRoutes);

@@ -60,12 +60,27 @@ export function iocsCsv(entry: ExportEntry, iocs: ExportIoc[]): string {
 
 // ------------------------------------------------------------------ STIX 2.1
 
+/** A identidade "DeepLook" que assina os indicadores (a mesma nos arquivos e no TAXII). */
+export const STIX_IDENTITY = {
+  type: 'identity',
+  spec_version: '2.1',
+  id: `identity--${uuidV5('deeplook')}`,
+  created: '2026-01-01T00:00:00.000Z',
+  modified: '2026-01-01T00:00:00.000Z',
+  name: 'DeepLook',
+  identity_class: 'system',
+} as const;
+
+/** Id STIX de um indicador: o mesmo em toda exportacao (arquivo da amostra, caso e TAXII). */
+export const stixIndicatorId = (kind: ExportKind, value: string) =>
+  `indicator--${uuidV5(`${kind}:${value}`)}`;
+
 /** Valor dentro de um pattern STIX: aspas simples e barras escapadas. */
 function stixLiteral(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-const STIX_PATTERNS: Record<ExportKind, (v: string) => string> = {
+export const STIX_PATTERNS: Record<ExportKind, (v: string) => string> = {
   IPV4: (v) => `[ipv4-addr:value = ${stixLiteral(v)}]`,
   IPV6: (v) => `[ipv6-addr:value = ${stixLiteral(v)}]`,
   DOMAIN: (v) => `[domain-name:value = ${stixLiteral(v)}]`,
@@ -76,7 +91,7 @@ const STIX_PATTERNS: Record<ExportKind, (v: string) => string> = {
   URL: (v) => `[url:value = ${stixLiteral(v)}]`,
 };
 
-const STIX_INDICATOR_TYPES: Record<Verdict, string[]> = {
+export const STIX_INDICATOR_TYPES: Record<Verdict, string[]> = {
   MALICIOUS: ['malicious-activity'],
   SUSPICIOUS: ['anomalous-activity'],
   CLEAN: ['benign'],
@@ -120,7 +135,7 @@ export function iocsStix(entry: ExportEntry, iocs: ExportIoc[], now = new Date()
 
 // ------------------------------------------------------------------ MISP
 
-const MISP_TYPES: Record<ExportKind, { type: string; category: string }> = {
+export const MISP_TYPES: Record<ExportKind, { type: string; category: string }> = {
   IPV4: { type: 'ip-dst', category: 'Network activity' },
   IPV6: { type: 'ip-dst', category: 'Network activity' },
   DOMAIN: { type: 'domain', category: 'Network activity' },
@@ -132,7 +147,7 @@ const MISP_TYPES: Record<ExportKind, { type: string; category: string }> = {
 };
 
 /** threat_level_id do MISP: 1 alto, 2 medio, 3 baixo, 4 indefinido. */
-const MISP_THREAT: Record<Verdict, string> = {
+export const MISP_THREAT: Record<Verdict, string> = {
   MALICIOUS: '1',
   SUSPICIOUS: '2',
   CLEAN: '3',

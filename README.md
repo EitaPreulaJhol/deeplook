@@ -266,6 +266,40 @@ curl -H "Authorization: Bearer dlk_..." "https://deeplook.exemplo/api/status?str
 - Não confundir com `/api/health/ready`, que é pública e só diz *ok* ou *não* (usada pelo
   compose): o status por token é autenticado e traz o detalhe (endereços, versões, latências).
 
+### Feed de indicadores: TAXII 2.1 e MISP
+
+Outra ferramenta busca os indicadores sozinha, sem ninguém exportar arquivo, com um token de
+finalidade **Feed de indicadores** (só **admin** gera, com o "Acesso por API" liberado):
+
+- **TAXII 2.1** (OpenCTI, Microsoft Sentinel e outros): descoberta em `/api/taxii2/`, raiz
+  `/api/taxii2/deeplook/` e uma coleção, **Indicadores do DeepLook**. Ela tem os objetos (com
+  `added_after`, `limit`, `next`, `match[type]` e `match[id]`), o objeto, as versões e o
+  manifesto. Autenticação por `Authorization: Bearer <token>` ou **Basic** com qualquer usuário e
+  o token como senha (o conector TAXII do Sentinel só fala Basic). O Basic vale só nestas rotas.
+- **Feed MISP**: no MISP, *Sync Actions > Feeds > Add Feed*, formato **MISP Feed**, URL
+  `https://deeplook.exemplo/api/feeds/misp` e, em *Headers*, `Authorization: Bearer <token>`.
+  O MISP lê o `manifest.json` e busca um evento por amostra.
+
+```bash
+curl -H "Authorization: Bearer dlk_..." "https://deeplook.exemplo/api/taxii2/"
+curl -u "feed:dlk_..." "https://deeplook.exemplo/api/taxii2/deeplook/collections/"
+curl -H "Authorization: Bearer dlk_..." "https://deeplook.exemplo/api/feeds/misp/manifest.json"
+```
+
+- **O que sai:** só os indicadores de amostras **maliciosas ou suspeitas**, fora da lixeira, e
+  **nunca** os da lista de permitidos nem os **domínios da empresa** (com subdomínios, e-mails e
+  URLs deles). Um indicador que também aparece numa amostra limpa sai com o veredito da pior.
+- **Os mesmos ids** dos arquivos `.stix.json` e `.misp.json` da ficha: quem já importou um
+  arquivo não ganha duplicata.
+- **Atualização:** a versão de cada indicador é a última mudança das amostras dele, então quem
+  busca com `added_after` recebe também a amostra que **virou** maliciosa depois. O conjunto é
+  recalculado no máximo a cada minuto. Quando uma amostra deixa de ser maliciosa, o indicador
+  some da coleção, mas o TAXII não avisa quem já o tinha.
+- **Endereço público:** os links da descoberta usam `https` quando `COOKIE_SECURE=true` (atrás
+  do Tunnel, o nginx recebe `http`).
+- **Limite:** 1200 pedidos por minuto para este token (o MISP busca um arquivo por evento); os
+  outros seguem com 120. Se o dono deixar de ser admin, o token para de valer.
+
 ## Antivírus (ClamAV)
 
 O serviço `clamav` do `docker-compose.yml` roda o `clamd` e o `freshclam` (que atualiza

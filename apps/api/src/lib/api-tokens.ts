@@ -13,8 +13,11 @@ export const TOKEN_PREFIX = 'dlk_';
 /** Validade maxima de um token e quantos ativos cada usuario pode ter. */
 export const TOKEN_MAX_DAYS = 90;
 export const TOKEN_MAX_ACTIVE = 10;
-/** Requisicoes por minuto por token. */
-const RATE_PER_MINUTE = 120;
+/**
+ * Requisicoes por minuto por token. O feed (item 5.3) tem teto maior: o MISP busca um arquivo por
+ * evento, e com centenas de amostras 120 por minuto cortaria a sincronizacao no meio.
+ */
+const RATE_PER_MINUTE: Record<ApiTokenScope, number> = { SAMPLES: 120, STATUS: 120, FEED: 1200 };
 /** Ultimo uso gravado no maximo uma vez por minuto (menos escrita no banco). */
 const LAST_USED_EVERY_MS = 60_000;
 
@@ -45,11 +48,32 @@ export const ALLOWED_ROUTES = new Set([
  */
 export const STATUS_ROUTES = new Set(['GET /api/status']);
 
+/**
+ * Rotas do escopo FEED (item 5.3): o TAXII 2.1 e o feed MISP dos indicadores, so leitura. Cada
+ * caminho do TAXII vale com e sem a barra final (os clientes variam).
+ */
+export const FEED_ROUTES = new Set(
+  [
+    '/api/taxii2/',
+    '/api/taxii2/deeplook/',
+    '/api/taxii2/deeplook/collections/',
+    '/api/taxii2/deeplook/collections/:collectionId/',
+    '/api/taxii2/deeplook/collections/:collectionId/objects/',
+    '/api/taxii2/deeplook/collections/:collectionId/objects/:objectId/',
+    '/api/taxii2/deeplook/collections/:collectionId/objects/:objectId/versions/',
+    '/api/taxii2/deeplook/collections/:collectionId/manifest/',
+  ]
+    .flatMap((path) => [path, path.replace(/\/$/, '')])
+    .concat(['/api/feeds/misp/manifest.json', '/api/feeds/misp/:file'])
+    .map((path) => `GET ${path}`),
+);
+
 /** Escopos que alcancam a rota; vazio = a rota nao aceita token. */
 export function scopesFor(route: string): ApiTokenScope[] {
   const scopes: ApiTokenScope[] = [];
   if (ALLOWED_ROUTES.has(route)) scopes.push('SAMPLES');
   if (STATUS_ROUTES.has(route)) scopes.push('STATUS');
+  if (FEED_ROUTES.has(route)) scopes.push('FEED');
   return scopes;
 }
 
@@ -68,6 +92,17 @@ export function hashToken(secret: string): string {
  */
 export function bearerOf(req: FastifyRequest): string | null {
   const header = req.headers.authorization?.trim();
+  // Basic com o token como senha, so no feed (item 5.3): clientes TAXII como o do Sentinel so
+  // falam Basic. A API nunca pede Basic (sem WWW-Authenticate), entao o navegador nao o guarda.
+  if (
+    header &&
+    /^Basic\s/i.test(header) &&
+    FEED_ROUTES.has(`${req.method} ${req.routeOptions.url}`)
+  ) {
+    const decoded = Buffer.from(header.slice(6).trim(), 'base64').toString('utf8');
+    const password = decoded.slice(decoded.indexOf(':') + 1);
+    return decoded.includes(':') && password ? password : '';
+  }
   if (!header || !/^Bearer\b/i.test(header)) return null;
   const match = /^Bearer\s+(\S+)$/i.exec(header);
   return match ? match[1] : '';
@@ -77,7 +112,7 @@ export type TokenAuth = { ok: true; user: PublicUser } | { ok: false; code: numb
 
 const windows = new Map<string, { start: number; count: number }>();
 
-function overRate(tokenId: string, now: number): boolean {
+function overRate(tokenId: string, now: number, limit: number): boolean {
   const w = windows.get(tokenId);
   if (!w || now - w.start >= 60_000) {
     windows.set(tokenId, { start: now, count: 1 });
@@ -87,7 +122,7 @@ function overRate(tokenId: string, now: number): boolean {
     return false;
   }
   w.count += 1;
-  return w.count > RATE_PER_MINUTE;
+  return w.count > limit;
 }
 
 /**
@@ -124,11 +159,13 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
       error:
         token.scope === 'STATUS'
           ? 'Este token só consulta o status do sistema (GET /api/status).'
-          : 'Este token não vale para esta rota.',
+          : token.scope === 'FEED'
+            ? 'Este token só lê o feed de indicadores (TAXII 2.1 e MISP).'
+            : 'Este token não vale para esta rota.',
     };
   }
-  // O token de status e de um administrador: se a conta deixou de ser, o token para de valer.
-  if (token.scope === 'STATUS' && u.role !== 'ADMIN') {
+  // Os tokens de status e de feed sao de um administrador: se a conta deixou de ser, param.
+  if ((token.scope === 'STATUS' || token.scope === 'FEED') && u.role !== 'ADMIN') {
     return {
       ok: false,
       code: 403,
@@ -149,7 +186,7 @@ export async function authenticateToken(req: FastifyRequest, secret: string): Pr
   if (!u.apiAccess) {
     return { ok: false, code: 403, error: 'O acesso por API desta conta não está liberado.' };
   }
-  if (overRate(token.id, now)) {
+  if (overRate(token.id, now, RATE_PER_MINUTE[token.scope])) {
     return {
       ok: false,
       code: 429,

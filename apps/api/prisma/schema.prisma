@@ -792,6 +792,8 @@ model AuditEvent {
 enum ApiTokenScope {
   SAMPLES
   STATUS
+  /// Feed de indicadores (item 5.3): so o TAXII 2.1 e o feed MISP, para um TIP ou SIEM puxar.
+  FEED
 }
 
 /// Token de API pessoal (Minha Conta > Tokens de API): so envio e consulta de

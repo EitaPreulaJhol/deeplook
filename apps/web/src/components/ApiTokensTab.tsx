@@ -29,10 +29,14 @@ import { StatusText } from './tags';
 
 const VALIDITY = [7, 30, 60, 90];
 
-/** Finalidade do token (item 3.2); a de monitoramento so aparece para administradores. */
+/**
+ * Finalidade do token (itens 3.2 e 5.3); a de monitoramento e a do feed de indicadores so
+ * aparecem para administradores.
+ */
 export const SCOPE_LABEL: Record<ApiTokenScope, string> = {
   SAMPLES: 'Amostras',
   STATUS: 'Status (monitor)',
+  FEED: 'Feed de indicadores',
 };
 
 function fmtDate(iso: string): string {
@@ -176,7 +180,9 @@ export function ApiTokensTab() {
               help={
                 scope === 'STATUS'
                   ? 'Só lê o status do sistema (GET /api/status), para Uptime Kuma, Zabbix e similares. Não alcança amostras nem a administração.'
-                  : 'Envio e consulta de amostras, como nos exemplos abaixo.'
+                  : scope === 'FEED'
+                    ? 'Só lê os indicadores de amostras maliciosas e suspeitas (sem a lista de permitidos nem os domínios da empresa), por TAXII 2.1 e feed MISP, para um TIP ou SIEM buscar sozinho.'
+                    : 'Envio e consulta de amostras, como nos exemplos abaixo.'
               }
             >
               <Select
@@ -188,6 +194,10 @@ export function ApiTokensTab() {
               >
                 <SelectItem value="SAMPLES" text="Envio e consulta de amostras" />
                 <SelectItem value="STATUS" text="Monitoramento: só ler o status do sistema" />
+                <SelectItem
+                  value="FEED"
+                  text="Feed de indicadores: TAXII 2.1 e MISP (OpenCTI, Sentinel, MISP)"
+                />
               </Select>
             </HpsmField>
           )}
@@ -209,8 +219,13 @@ export function ApiTokensTab() {
               {scope === 'STATUS'
                 ? `curl -H "Authorization: Bearer <token>" "${origin}/api/status"\n` +
                   `curl -H "Authorization: Bearer <token>" "${origin}/api/status?strict=1"   # 503 se algo estiver fora do ar`
-                : `curl -H "Authorization: Bearer <token>" "${origin}/api/entries?scope=mine"\n` +
-                  `curl -H "Authorization: Bearer <token>" -F file=@amostra.exe "${origin}/api/entries/file"`}
+                : scope === 'FEED'
+                  ? `TAXII 2.1: ${origin}/api/taxii2/   (Bearer <token>, ou Basic com qualquer usuário e o token como senha)\n` +
+                    `MISP: Sync Actions > Feeds > Add Feed, formato "MISP Feed", URL ${origin}/api/feeds/misp\n` +
+                    `      e em Headers: Authorization: Bearer <token>\n` +
+                    `curl -H "Authorization: Bearer <token>" "${origin}/api/taxii2/deeplook/collections/"`
+                  : `curl -H "Authorization: Bearer <token>" "${origin}/api/entries?scope=mine"\n` +
+                    `curl -H "Authorization: Bearer <token>" -F file=@amostra.exe "${origin}/api/entries/file"`}
             </HpsmReadonly>
           </HpsmField>
           <HpsmField label="Documentação">
@@ -223,8 +238,9 @@ export function ApiTokensTab() {
           </HpsmField>
           <HpsmField label="Permite">
             <HpsmReadonly>
-              Enviar arquivos, .zip e links, listar e consultar amostras, relatórios, histórico e
-              IOCs. Não baixa arquivos nem altera triagem, relatórios ou a conta.
+              {scope === 'FEED'
+                ? 'Ler a coleção TAXII e o feed MISP de indicadores. Não alcança amostras, arquivos, relatórios nem a administração; para de valer se o dono deixar de ser administrador.'
+                : 'Enviar arquivos, .zip e links, listar e consultar amostras, relatórios, histórico e IOCs. Não baixa arquivos nem altera triagem, relatórios ou a conta.'}
             </HpsmReadonly>
           </HpsmField>
         </HpsmForm>

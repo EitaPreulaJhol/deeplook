@@ -24,7 +24,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 4.2 | Conferência de integridade (SHA-256) no download e em segundo plano | ⚪ | P–M | API | ✅ |
 | 5.1 | Notificações por e-mail (SMTP) | — | G | API | 🚫 |
 | 5.2 | Webhooks de saída | — | M–G | API | 🚫 |
-| 5.3 | Exportar indicadores em MISP/TAXII | ⚪ | M | API | ⬜ |
+| 5.3 | Feed de indicadores: TAXII 2.1 e feed MISP | ⚪ | M | API / Web | ✅ |
 | 6.1 | Correções pequenas: `.dockerignore` da API, `@types/node`, resíduo do Node 22 | 🟡 | P | API | ✅ |
 | 6.2 | Versão do Playwright em lockstep (CI + Dependabot) | 🟡 | P | Repositório | ✅ |
 | 6.3 | Dependabot ignora a major do `node` (Current, não LTS) | ⚪ | P | Repositório | ✅ |
@@ -79,7 +79,6 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
 | 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
-| 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -90,10 +89,10 @@ Backup.
 ### Para retomar
 
 ```bash
-# o backup agendado (6.13) deixou tudo verde; confirme antes de mexer
+# o feed de indicadores (5.3) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1088 checagens em 35 arquivos
+cd ../api   && npm run test:integration          # 1125 checagens em 36 arquivos
 cd ../api   && npm run test:images && npm run test:smoke   # 67 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
@@ -506,10 +505,100 @@ Avisar um canal de chat ou um SIEM quando uma amostra recebe veredito malicioso 
 indicador vigiado dispara.
 
 ### 5.3 Exportar indicadores em MISP/TAXII
-- **Problema:** a importação já lê CSV e STIX (`lib/ioc-import.ts`), e a exportação
-  (`lib/ioc-export.ts`) sai em formatos próprios. Falta o caminho de volta para quem usa MISP.
-- **Proposta:** exportar um evento MISP (JSON) a partir de um caso ou de uma busca de
-  indicadores, reaproveitando a normalização que o item 165 já fez.
+- **Problema (como estava registrado):** a importação lê CSV e STIX, e faltava o caminho de volta
+  para quem usa MISP.
+- **O que já existia:** ao retomar, a exportação em **arquivo** já estava feita, com evento MISP
+  (`.misp.json`) e bundle STIX 2.1 (`.stix.json`) na ficha da amostra e no caso (itens 74 e
+  165). O que faltava era a outra ponta buscar sozinha.
+- **Decisão do dono:** os dois caminhos de integração contínua, TAXII 2.1 e feed MISP, só com
+  indicadores de amostras **maliciosas ou suspeitas**, sem a lista de permitidos.
+
+**Implementado:**
+- **Conjunto** (`lib/indicator-feed.ts`): amostras maliciosas e suspeitas fora da lixeira, com
+  os indicadores dos relatórios publicados e da própria amostra (o mesmo `entriesIocs` do caso).
+  - Ficam de fora a lista de permitidos e também os **domínios da empresa** (`CompanyDomain`,
+    com subdomínios, e-mails e URLs deles): sem isso, o domínio da própria empresa sairia como
+    ameaça para um SIEM.
+  - Cada indicador leva o pior veredito entre as amostras **que entram**, a primeira aparição e
+    a última mudança (da amostra ou de um relatório publicado dela). Com cache de 60 s.
+- **TAXII 2.1** (`routes/feeds.ts`), só leitura:
+  - descoberta, raiz da API e uma coleção;
+  - objetos com `added_after`, `limit` (até 1000), `next` (cursor por data e id),
+    `match[type]`, `match[id]`, `match[version]` e `match[spec_version]`;
+  - objeto, versões e manifesto, com os cabeçalhos `X-TAXII-Date-Added-First/Last`, erros no
+    formato do TAXII, 406 para outra versão e os caminhos com e sem barra final.
+  - A identidade e os ids dos indicadores são **os mesmos** dos arquivos `.stix.json`, então
+    quem já importou um arquivo não ganha duplicata.
+  - O `date_added` é a última mudança: quem busca com `added_after` recebe também a amostra que
+    **virou** maliciosa depois (um `date_added` pela criação da amostra perderia esse caso).
+- **Feed MISP**: `manifest.json` e um `<uuid>.json` por amostra, com os mesmos uuids do
+  `.misp.json`, organização, `published`, `timestamp` e uma etiqueta com o veredito.
+- **Acesso:** escopo novo de token, `FEED` (migração `20261223000000_api_token_feed`).
+  - Só admin cria, e o token para de valer se o dono deixar de ser admin, como o de status.
+  - Vale só nas rotas do feed, e o token de amostras não lê o feed.
+  - Aceita `Bearer` e **Basic com o token como senha** (o conector do Sentinel só fala Basic),
+    e o Basic vale só nestas rotas. A API nunca manda `WWW-Authenticate`, então o navegador não
+    guarda credencial.
+  - O admin logado também lê. O limite é de 1200 pedidos por minuto, contra 120 dos outros,
+    porque o MISP busca um arquivo por evento.
+- **Tela:** a finalidade **Feed de indicadores** em Minha Conta > Tokens de API, com o que sai,
+  os dois endereços e o passo a passo do MISP.
+
+**No caminho:**
+- **O tipo da resposta.** O Fastify reescreve `application/taxii+json;version=2.1` como
+  `application/taxii+json; version="2.1"; charset=utf-8`. Um cliente que compara o texto
+  recusaria. Um hook `onSend`, só neste plugin, devolve o texto exato da especificação, e o
+  teste exige igualdade.
+- **Um teste que travava, e a minha leitura errada dele.** O passo de interoperabilidade usava
+  `spawnSync`, que bloqueia o processo do próprio servidor que o cliente Python consultava. O
+  arquivo morria nos 10 minutos do executor, e eu cheguei a ler "32 de 33" como se o passo
+  tivesse passado. Com a chamada assíncrona, o arquivo roda em 15 s.
+
+**Testes:** `feeds.test.ts`, com 37 checagens:
+- **Acesso:**
+  - analista não cria o token; sem credencial, 401;
+  - o token de amostras não lê o feed, e o do feed não lê amostras;
+  - Basic só vale no feed, e nunca há `WWW-Authenticate`;
+  - analista logado, não; admin logado, sim;
+  - o token para quando o dono é rebaixado.
+- **TAXII:**
+  - a descoberta, com o tipo exato;
+  - a raiz, a coleção, a 404 no formato do TAXII e a 406.
+- **O que sai:**
+  - entram a maliciosa e a suspeita;
+  - ficam de fora a limpa, a sem veredito e a da lixeira;
+  - ficam de fora a lista de permitidos e o domínio da empresa (subdomínio, e-mail e URL);
+  - vale o veredito da maliciosa mesmo com o domínio também numa limpa;
+  - o id é o mesmo do arquivo.
+- **Paginação e filtros:**
+  - a paginação de 2 em 2 percorre tudo sem repetir;
+  - `match[type]`, os cabeçalhos de data e o `added_after` vazio;
+  - a amostra que vira maliciosa aparece no `added_after`;
+  - objeto, versões, 404 fora do feed e manifesto.
+- **MISP:**
+  - o manifesto tem um evento por amostra;
+  - o evento sai filtrado e publicado;
+  - 404 para amostra limpa e para nome qualquer.
+- **Limite:** 150 pedidos seguidos passam.
+- **Interoperabilidade**, com a API escutando numa porta de verdade e os clientes de referência
+  num container:
+  - o `taxii2-client` (OASIS) pagina a coleção, e o `stix2` valida **cada objeto** sem
+    extensões;
+  - o `pymisp` carrega cada evento do feed.
+- **Prova inversa:** desligando, um de cada vez, o filtro da empresa, a lista de permitidos e o
+  filtro de veredito, reprovam as checagens daquele filtro (inclusive pelo `pymisp`).
+- O cenário de tela `api-tokens` ganhou 5 checagens: o que sai, os dois endereços, o que o token
+  não alcança, o `POST` com `FEED` e a finalidade na lista.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1125 checagens em 36
+arquivos** de integração (eram 1088 em 35); 120 testes unitários do web; `test:images` com 67;
+`test:smoke` com 101; os cenários `api-tokens` e `backup` verdes.
+
+**Fica de fora:**
+- **remoção:** quando uma amostra deixa de ser maliciosa, o indicador some da coleção, mas o
+  TAXII não avisa quem já o tinha (não há "revogado" sem guardar o histórico do que já saiu);
+- o `POST` de objetos no TAXII (a coleção é só leitura);
+- o `hashes.csv` opcional do feed MISP.
 
 ---
 

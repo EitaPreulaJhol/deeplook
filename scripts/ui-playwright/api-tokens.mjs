@@ -88,6 +88,19 @@ expect('POST manda o escopo STATUS', state.lastTokenBody?.scope === 'STATUS', st
 expect('linha do token de status mostra a finalidade', (await rowOf('Uptime Kuma').locator('td').nth(1).innerText()).trim() === 'Status (monitor)');
 await page.screenshot({ path: `${OUT}/tokens-status.png`, fullPage: true });
 
+// 3c. Feed de indicadores (item 5.3): TAXII 2.1 e feed MISP, tambem so para o admin.
+await page.selectOption('#token-scope', 'FEED');
+const scopeHelp = await page.locator('.hpsm-field:has(#token-scope)').innerText();
+expect('finalidade do feed explica o que sai', scopeHelp.includes('maliciosas e suspeitas') && scopeHelp.includes('TAXII 2.1'), scopeHelp);
+const feedUse = await page.locator('.hpsm-field:has(.hpsm-field__label:text-is("Uso:")) .hpsm-readonly').innerText();
+expect('uso do feed: endereço do TAXII e do MISP', feedUse.includes(`${ORIGIN}/api/taxii2/`) && feedUse.includes(`${ORIGIN}/api/feeds/misp`) && feedUse.includes('MISP Feed'), feedUse);
+expect('o feed não alcança amostras', (await page.locator('.hpsm-field:has(.hpsm-field__label:text-is("Permite:")) .hpsm-readonly').innerText()).includes('Não alcança amostras'));
+await page.fill('#token-name', 'OpenCTI');
+await page.click('.hpsm-toolbar__action:has-text("Gerar token")');
+await settle();
+expect('POST manda o escopo FEED', state.lastTokenBody?.scope === 'FEED', state.lastTokenBody);
+expect('linha do token do feed mostra a finalidade', (await rowOf('OpenCTI').locator('td').nth(1).innerText()).trim() === 'Feed de indicadores');
+
 // 4. Administracao: aba Tokens de API.
 await page.goto(ORIGIN + '/inicio', { waitUntil: 'networkidle' });
 await page.click('.hpsm-tree a:has-text("Tokens de API")');

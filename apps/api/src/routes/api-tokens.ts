@@ -12,8 +12,11 @@ import { sendValidationError } from '../lib/validation';
 const CreateSchema = z.object({
   name: z.string().trim().min(2).max(60),
   expiresInDays: z.coerce.number().int().min(1).max(TOKEN_MAX_DAYS),
-  /** SAMPLES (padrao): envio e consulta de amostras. STATUS: leitura do status; so admin cria. */
-  scope: z.enum(['SAMPLES', 'STATUS']).default('SAMPLES'),
+  /**
+   * SAMPLES (padrao): envio e consulta de amostras. STATUS: leitura do status. FEED: TAXII 2.1 e
+   * feed MISP dos indicadores (item 5.3). STATUS e FEED, so admin cria.
+   */
+  scope: z.enum(['SAMPLES', 'STATUS', 'FEED']).default('SAMPLES'),
 });
 
 const AdminQuery = z.object({ status: z.enum(['active', 'all']).default('active') });
@@ -75,6 +78,12 @@ export async function apiTokenRoutes(app: FastifyInstance) {
         .code(403)
         .send({ error: 'Só administradores criam token de monitoramento (status).' });
     }
+    // O feed leva os indicadores de todas as amostras, inclusive as de quem so ve as proprias.
+    if (scope === 'FEED' && user.role !== 'ADMIN') {
+      return reply
+        .code(403)
+        .send({ error: 'Só administradores criam token do feed de indicadores (TAXII/MISP).' });
+    }
     // Trava por usuario e conta DENTRO da transacao (como a cota de envio), senao
     // pedidos paralelos passam todos no count e furam o teto (item: corrida de tokens).
     const token = await prisma
@@ -100,7 +109,11 @@ export async function apiTokenRoutes(app: FastifyInstance) {
           targetLabel: `${name} (${created.prefix}…)`,
           detail:
             `validade de ${expiresInDays} dia(s)` +
-            (scope === 'STATUS' ? '; escopo: somente leitura do status' : ''),
+            (scope === 'STATUS'
+              ? '; escopo: somente leitura do status'
+              : scope === 'FEED'
+                ? '; escopo: feed de indicadores (TAXII/MISP)'
+                : ''),
         });
         return created;
       })
