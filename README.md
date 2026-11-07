@@ -300,6 +300,13 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 - **Isolamento:**
   - o contêiner `capture` fica só na rede `capture`, sem banco, MinIO ou ClamAV. A API o
     chama por essa rede, mas recusa conexões que venham dela;
+  - a rede `capture` é **interna**: sem rota para fora, sem DNS externo e, com a opção
+    `inhibit_ipv4` (Docker 28 ou mais novo), sem IP do host na bridge, então nem a LAN nem o
+    próprio host são alcançáveis de lá. A única saída é o serviço **`egress`**, um proxy só de
+    Node (sem navegador) que fica nessa rede e numa rede com saída. Assim a regra abaixo vale
+    mesmo que o navegador seja comprometido e deixe de obedecer ao proxy dele. Num Docker
+    anterior ao 28 a opção não foi conferida: a rede continua interna, mas o host pode seguir
+    alcançável pelo IP da bridge;
   - o Chromium roda com o **sandbox próprio**: cada página é renderizada num processo com
     namespaces de usuário, PID e rede próprios e com o filtro seccomp do Chromium, então uma
     falha explorada no renderizador fica presa ali, sem chegar ao container. Para isso o
@@ -307,9 +314,9 @@ os redirecionamentos, o certificado e o que foi bloqueado.
     do Docker mais só o que o sandbox precisa (criar namespaces de usuário, PID e rede, e
     `chroot`). Montagens e os demais namespaces continuam barrados. O perfil é gerado por
     `node scripts/seccomp-chromium.mjs`, não edite à mão;
-  - todo o tráfego do navegador passa por um proxy interno que resolve o nome uma vez e
-    **recusa endereços privados, loopback, link-local e de metadados de nuvem**
-    (169.254.169.254), sem nova resolução de DNS;
+  - todo o tráfego do navegador passa pelo `egress`, que resolve o nome uma vez e **recusa
+    endereços privados, loopback, link-local e de metadados de nuvem** (169.254.169.254),
+    sem nova resolução de DNS. O que ele recusa volta para a ficha da captura;
   - WebRTC e QUIC desligados, sem downloads, contexto novo a cada captura;
   - roda como usuário sem privilégios, com `no-new-privileges`;
   - **um container por captura:** a raiz é somente leitura e o Chromium só escreve em `/tmp`
@@ -319,7 +326,9 @@ os redirecionamentos, o certificado e o que foi bloqueado.
     seguidas ficam com pelo menos uns 10 s entre si, porque o Docker atrasa cada vez mais o
     reinício de um container que viveu menos que isso.
 - **Saída para a internet:** o servidor precisa alcançar os links. Para sair por um proxy
-  ou VPN, use a rede do contêiner `capture`.
+  ou VPN, use a rede `capture-egress`, a do contêiner `egress`.
+- **Atualizar uma instalação:** `docker compose down` antes do `up -d --build`, porque o Docker
+  não transforma em interna uma rede que já existe.
 - **HTML:** só baixa como texto (`.html.txt`), nunca abre no navegador.
 - **Limites:** 20 s para abrir a página, print de até 6.000 px de altura, HTML de até 2 MB,
   uma captura por vez (por container).
@@ -629,7 +638,7 @@ deeplook/
 │  │  ├─ rules/       # pacotes de regras YARA de fábrica
 │  │  ├─ tests/       # integração (Postgres, MinIO e OpenLDAP reais)
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
-│  ├─ capture/        # navegador isolado que captura a página de um link
+│  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
@@ -692,9 +701,11 @@ npx prisma generate
 - A API só aceita conexão da **rede interna `deeplook`** (sub-rede fixa, `DEEPLOOK_SUBNET`) e do
   próprio container. O navegador isolado da captura fica em outra rede e não alcança a API,
   mesmo que uma página maliciosa o comprometa; só o nginx dessa rede informa o IP do cliente.
+- A rede da captura é interna e sai só pelo `egress`: um navegador comprometido não chega à
+  LAN, ao host nem a um endereço interno, porque não há rota fora do proxy.
 - Os logs da API e do nginx guardam o caminho sem a query string, porque a busca e a ficha do
   indicador levam URLs de vítima, com token ou e-mail.
-- O `web`, a API e o capture rodam **sem root e sem capacidades**; o `web` ainda com o sistema
+- O `web`, a API, o capture e o egress rodam **sem root e sem capacidades**; o `web` ainda com o sistema
   de arquivos somente leitura. As imagens finais não trazem o `npm`. O nginx não revela a
   versão, manda `Permissions-Policy`, `Cross-Origin-Opener-Policy` e
   `Cross-Origin-Resource-Policy`, e os assets com hash saem com um ano de cache.

@@ -7,7 +7,7 @@ import http from 'node:http';
 
 import { chromium } from 'playwright';
 
-import { startProxy } from './proxy.mjs';
+import { parseUpstream, startProxy } from './proxy.mjs';
 
 const PORT = Number(process.env.PORT || 3100);
 const TOKEN = process.env.CAPTURE_TOKEN || '';
@@ -32,6 +32,12 @@ const SANDBOX = process.env.CAPTURE_CHROMIUM_SANDBOX !== 'false';
  * isso, novos pedidos recebem 503 e a API tenta de novo. `false` volta ao processo de longa vida.
  */
 const RECYCLE = process.env.CAPTURE_RECYCLE !== 'false';
+/**
+ * Proxy de saida (item 6.19, `http://egress:3128` no compose). A rede da captura nao tem saida:
+ * o proxy daqui repassa tudo a ele, que resolve o nome e recusa rede interna. Vazio (fora do
+ * compose), o proxy daqui resolve e confere sozinho, como antes.
+ */
+const UPSTREAM = parseUpstream(process.env.CAPTURE_EGRESS_PROXY || '');
 /**
  * O Docker dobra a espera para reiniciar um container que viveu menos de 10 s (0,1 s, 0,2 s,
  * 0,4 s...); com 10 s ou mais, reinicia na hora. Medido no item 6.17.
@@ -92,6 +98,7 @@ async function capture(url) {
   const blocked = [];
   const proxy = await startProxy({
     allowHosts: ALLOW_HOSTS,
+    upstream: UPSTREAM,
     onBlocked: (host, reason) => {
       if (blocked.length < 50 && !blocked.some((b) => b.host === host)) blocked.push({ host, reason });
     },
@@ -257,7 +264,13 @@ function recycleSoon() {
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
-    return send(res, 200, { ok: true, sandbox: SANDBOX, recycle: RECYCLE, ready: !used });
+    return send(res, 200, {
+      ok: true,
+      sandbox: SANDBOX,
+      recycle: RECYCLE,
+      egress: Boolean(UPSTREAM),
+      ready: !used,
+    });
   }
   if (req.method !== 'POST' || req.url !== '/capture') return send(res, 404, { error: 'rota' });
   if (req.headers.authorization !== `Bearer ${TOKEN}`) return send(res, 401, { error: 'token' });
@@ -302,6 +315,11 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(
     `[capture] ouvindo na porta ${PORT}${RECYCLE ? ' (um container por captura)' : ''}`,
+  );
+  console.log(
+    UPSTREAM
+      ? `[capture] saída pelo proxy ${UPSTREAM.hostname}:${UPSTREAM.port} (rede da captura sem saída)`
+      : '[capture] sem CAPTURE_EGRESS_PROXY: o proxy local resolve e confere sozinho',
   );
   if (!SANDBOX) {
     console.warn(

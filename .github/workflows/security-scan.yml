@@ -77,12 +77,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, web, capture]
+        # O egress (item 6.19) sai da pasta do capture, com Dockerfile proprio.
+        include:
+          - { app: api, dir: api, dockerfile: Dockerfile }
+          - { app: web, dir: web, dockerfile: Dockerfile }
+          - { app: capture, dir: capture, dockerfile: Dockerfile }
+          - { app: egress, dir: capture, dockerfile: Dockerfile.egress }
     steps:
       - uses: actions/checkout@v4
 
       - name: Montar a imagem
-        run: docker build -t "deeplook-${{ matrix.app }}" "apps/${{ matrix.app }}"
+        run: >-
+          docker build -t "deeplook-${{ matrix.app }}"
+          -f "apps/${{ matrix.dir }}/${{ matrix.dockerfile }}" "apps/${{ matrix.dir }}"
 
       - name: Varredura
         run: node scripts/trivy.mjs image "deeplook-${{ matrix.app }}"

@@ -43,7 +43,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.16 | Sandbox do Chromium da captura (perfil seccomp próprio) | 🔴 | M | Capture / Compose | ✅ |
 | 6.17 | Captura somente leitura e um container por captura | 🟡 | P–M | Capture / API / Compose | ✅ |
 | 6.18 | Bateria de verificação: repetição da captura, download de amostra e portas dos testes | 🟡 | P | API / Testes | ✅ |
-| 6.19 | Rede da captura sem saída direta (proxy de saída em container próprio) | 🔴 | M | Capture / Compose | ⬜ |
+| 6.19 | Rede da captura sem saída direta (proxy de saída em container próprio) | 🔴 | M | Capture / Compose | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -77,13 +77,12 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [6.19 Rede da captura sem saída direta](#619-rede-da-captura-sem-saída-direta-pendente) | O proxy que barra a rede interna roda dentro do container do Chromium; a rede `capture` alcança a LAN direto (medido no 6.18) | **M** |
-| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
-| 3º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
+| 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 | — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
-| — | Portas do `CONNECT` do proxy da captura | Sobra do 6.15, **revista no 6.18**: não restringir a 80/443/8080/8443 (quebraria phishing em porta alta); espelhar a lista de portas proibidas do Chromium e validar 1–65535 | **P** |
+| — | Portas do `CONNECT` do proxy da captura | Sobra do 6.15, **revista no 6.18**: não restringir a 80/443/8080/8443 (quebraria phishing em porta alta); espelhar no `egress` a lista de portas proibidas do Chromium (a faixa 1–65535 já é validada desde o 6.19) | **P** |
 
 O **6.13 está registrado, não iniciado**: o desenho e os cuidados estão na seção dele, para
 quando o dono do projeto decidir retomar. Nada foi codificado.
@@ -91,11 +90,12 @@ quando o dono do projeto decidir retomar. Nada foi codificado.
 ### Para retomar
 
 ```bash
-# a bateria do 6.18 deixou tudo verde; confirme antes de mexer
+# o 6.19 deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
 cd ../api   && npm run test:integration          # 1055 checagens em 35 arquivos
-cd ../api   && npm run test:images && npm run test:smoke   # 56 e 101 checagens
+cd ../api   && npm run test:images && npm run test:smoke   # 62 e 101 checagens
+cd ../capture && npm test                         # 11 testes do proxy (sem rede)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
             && node scripts/seccomp-chromium.mjs --check
 # o repositorio nao tem remoto: os passos do CI so rodam se alguem os rodar aqui
@@ -1043,7 +1043,7 @@ em dependência de desenvolvimento (`minimatch` pelo ESLint e `typescript-eslint
 arquivos** de integração (eram 1053); `test:images` com 56 e `test:smoke` com 101, todos verdes.
 
 **Ficou como recomendação** (não feito nesta rodada):
-- **Rede da captura sem saída direta** — virou o item 6.19.
+- **Rede da captura sem saída direta** — virou o item 6.19 (feito).
 - **Portas do `CONNECT`:** a lista 80/443/8080/8443 que o 6.15 previa quebraria a captura de
   phishing em porta alta (`:8000`, `:2083`...), que é comum. O Chromium já recusa as portas
   proibidas dele (SMTP, SSH...) antes do proxy; espelhar essa lista no proxy e validar 1–65535
@@ -1055,24 +1055,96 @@ arquivos** de integração (eram 1053); `test:images` com 56 e `test:smoke` com 
 - **`pids_limit` e raiz somente leitura na API**, que analisa arquivo malicioso: o `capture` e o
   `web` já têm; a API precisa de teste próprio (o `genisoimage` e o Prisma escrevem em disco).
 
-### 6.19 Rede da captura sem saída direta (pendente)
+### 6.19 Rede da captura sem saída direta
 
-O proxy que recusa endereço interno roda **dentro** do container do Chromium e só vale para quem
-o usa: o Chromium, enquanto obedece. A rede `capture` é uma bridge comum, com saída para tudo.
-Medido no 6.18 com um container descartável numa bridge igual, com `cap_drop: ALL`: alcançou o
-gateway da LAN (ICMP) e serviços TCP do host pelo IP da LAN. Quem passasse pelo sandbox (6.16)
-até o processo do navegador falaria direto com a rede da casa, inclusive o Proxmox.
+O proxy que recusa endereço interno rodava **dentro** do container do Chromium e só valia para
+quem o usasse: o Chromium, enquanto obedecesse. A rede `capture` era uma bridge comum, com saída
+para tudo. Quem passasse pelo sandbox (6.16) até o processo do navegador falaria direto com a
+rede da casa, inclusive com o Proxmox.
 
-**Desenho proposto:** a rede `capture` vira `internal: true` (sem saída), e o proxy de saída vai
-para um container próprio, na `capture` e numa rede com saída. O Chromium só alcança a internet
-através dele, e a regra deixa de depender de o navegador cooperar. O proxy interno pode continuar
-como está (ele anota o que foi bloqueado para a ficha) e encadear no de saída, que aplica a mesma
-lista. Alternativa sem container novo: regra no `DOCKER-USER` do host barrando a sub-rede da
-`capture` para as faixas privadas, que depende do host e fica fora do compose.
+**Medido antes de mexer** (Docker 29.9, contêineres descartáveis com `cap_drop: ALL`):
 
-**Cuidados:** a API continua alcançando `capture:3100` (rede interna permite tráfego entre os
-containers); o DNS passa a ser só do proxy de saída; o `test:images` precisa provar que, de dentro
-do `capture`, uma conexão direta a um IP público e a um IP da LAN falha.
+| Rede | LAN e serviços do host pelo IP da LAN | Internet | DNS externo | Host pelo IP da bridge |
+|---|---|---|---|---|
+| bridge comum (a `capture` de antes) | alcança (`10.0.0.85:55432`, o DNS do libvirt) | alcança | resolve | alcança |
+| `internal: true` | não | não | não | **alcança**: o Docker não filtra o tráfego para o próprio host, então um serviço do host em `0.0.0.0` (um sshd) responderia |
+| `internal: true` + `inhibit_ipv4` | não | não | não | não: a bridge fica sem IP no host |
+
+Nas três, os contêineres da mesma rede se veem pelo nome. Um contêiner na rede interna e numa
+comum (o papel da API) sai pela comum, em qualquer ordem de ligação: a interna nunca vira a rota
+padrão.
+
+**Implementado:**
+- **Compose:** a rede `capture` vira `internal: true` com
+  `com.docker.network.bridge.inhibit_ipv4` (Docker 28+). O serviço novo **`egress`** fica nela e
+  na rede `capture-egress`, a única com saída. O `capture` ganha
+  `CAPTURE_EGRESS_PROXY=http://egress:3128` e depende do `egress` saudável. O `egress` roda
+  somente leitura, sem capacidades, com `no-new-privileges`, 256 MB e 64 processos.
+- **Imagem do `egress`** (`apps/capture/Dockerfile.egress`): `node:26-slim` com só o
+  `proxy.mjs` e o `egress.mjs`. Não tem navegador, nem dependência de npm, nem o `npm` na imagem
+  final.
+- **`proxy.mjs`:**
+  - com `upstream`, o proxy de dentro da captura repassa ao `egress` o HTTP (forma absoluta) e
+    o `CONNECT`;
+  - o `egress` resolve e confere com a mesma regra de antes, e o motivo de uma recusa volta no
+    cabeçalho `x-deeplook-blocked`, então a ficha da captura continua listando o que foi
+    barrado;
+  - sem `upstream`, o comportamento é o de antes (fora do compose);
+  - porta fora de 1–65535 recebe 400;
+  - os manipuladores não deixam escapar exceção. No código antigo, `CONNECT 8.8.8.8:99999` chegava
+    ao `net.connect` e o `RangeError` derrubava o processo. Pelo Chromium isso não acontece, mas o
+    `egress` é um processo de vida longa e serve todas as capturas;
+  - `/health` passa a existir, para o healthcheck do compose.
+- **`server.mjs`:** `/health` informa `egress`, e o log diz por onde a captura sai.
+- **CI:** a varredura do Trivy ganha a imagem do `egress` (matriz com `Dockerfile` por imagem).
+
+**Testes:**
+- `apps/capture/tests/chain.test.mjs` traz 7 testes, só em loopback:
+  - HTTP e `CONNECT` passam pelos dois proxies;
+  - rede interna e metadados são recusados pelo de saída, com o motivo chegando ao de dentro;
+  - porta inválida recebe 400 nos dois, sem derrubar nenhum;
+  - de saída fora do ar dá 502, e não conexão direta.
+- O `test:images` monta a topologia do compose: a rede da captura é criada com a configuração
+  lida do compose (`networkArgs`, novo no `compose-service.mjs`); a página de teste fica só na
+  rede do `egress`, então só se chega a ela por ele; um repassador faz o papel da API, porque
+  rede interna não publica porta. São 6 checagens novas:
+  - a imagem do `egress` compila;
+  - o `egress` sobe saudável;
+  - o `egress` roda sem root e somente leitura;
+  - a captura informa que sai pelo `egress`;
+  - de dentro do `capture`, conexão direta à internet, à rede do `egress` e ao host não chega
+    (até `ECONNREFUSED` reprova, porque quem recusa é um host alcançado);
+  - de dentro do `capture`, o DNS externo não resolve.
+- **Prova inversa:** com o `internal` e o `inhibit_ipv4` tirados do compose, exatamente essas
+  duas reprovam: `1.1.1.1:443` conecta, o host responde (`ECONNREFUSED`) e o DNS resolve.
+- O `test:smoke` passa a criar a rede no papel da `capture` com a configuração do compose. A API
+  continua atendendo a rede do web e derrubando a da captura.
+
+**No caminho: as bases das imagens com CVE alta já corrigida.** O Trivy da imagem nova reprovou
+pelo `zlib1g` da `node:26-slim` (duas CVEs altas, corrigidas no Debian em `deb13u1`). A da API,
+na mesma base, também reprovava, e a do `capture` tinha duas no `apt` do Ubuntu. Isso não vinha
+deste item: eram CVEs novas nas bases, que a varredura semanal acusaria sem ninguém rodar, porque
+não há remoto. As três imagens ganham `apt-get upgrade` na base, como o `web` já fazia com o
+`apk upgrade`. As quatro imagens e os Dockerfiles passam no Trivy.
+
+**Validação:**
+- 11 testes do capture (eram 4);
+- `test:images` com **62** (eram 56);
+- `test:smoke` com 101;
+- Trivy limpo nas quatro imagens do projeto e no `config`;
+- `actionlint` limpo;
+- `seccomp --check` confere.
+
+A API não mudou de código neste item, e a integração (1055) é a do 6.18.
+
+**Para atualizar uma instalação:** `docker compose down` antes do `up -d --build`, porque o Docker
+não transforma em interna uma rede que já existe.
+
+**Fica de fora:**
+- o Docker anterior ao 28 não foi conferido: a rede segue interna, mas o host pode continuar
+  alcançável pelo IP da bridge;
+- as portas proibidas do Chromium espelhadas no `egress` (linha própria em "Onde paramos");
+- as imagens de terceiros (Postgres, MinIO, ClamAV) não foram varridas nesta rodada.
 
 ---
 

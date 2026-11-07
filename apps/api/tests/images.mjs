@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { composeService, runArgs } from './compose-service.mjs';
+import { composeService, networkArgs, runArgs } from './compose-service.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APPS = join(HERE, '..', '..');
@@ -374,9 +374,53 @@ for (const pid of fs.readdirSync('/proc').filter((p) => /^\\d+$/.test(p) && p !=
 console.log(JSON.stringify(out));
 `;
 
+/**
+ * Roda dentro do container da captura (item 6.19): tenta sair direto, sem o egress. Cada alvo
+ * precisa falhar sem chegar ao destino: ECONNREFUSED tambem reprova, porque quem recusa e um
+ * host que foi alcancado. E o DNS externo nao pode resolver.
+ */
+const DIRECT_PROBE = `
+const net = require('net');
+const dns = require('dns').promises;
+const attempt = (host, port) => new Promise((res) => {
+  const s = net.connect({ host, port });
+  const t = setTimeout(() => { s.destroy(); res('timeout'); }, 3000);
+  s.on('connect', () => { clearTimeout(t); s.destroy(); res('CONECTOU'); });
+  s.on('error', (e) => { clearTimeout(t); res(e.code); });
+});
+(async () => {
+  const out = {};
+  for (const target of JSON.parse(process.argv[1])) {
+    const i = target.lastIndexOf(':');
+    out[target] = await attempt(target.slice(0, i), Number(target.slice(i + 1)));
+  }
+  out.dns = await dns.lookup('example.com').then(() => 'RESOLVEU', (e) => e.code);
+  console.log(JSON.stringify(out));
+})();
+`;
+
+const CAPTURE_CONTAINERS = [
+  'dl-test-capt',
+  'dl-test-capt-nosbx',
+  'dl-test-page',
+  'dl-test-egress',
+  'dl-test-front',
+];
+const CAPTURE_NETWORKS = ['dl-test-capt-net', 'dl-test-egress-net', 'dl-test-front-net'];
+
 async function captureImage() {
   docker('build', '-q', '-t', 'dl-test-capture', join(APPS, 'capture'));
   ok('imagem da captura compila pelo lockfile', true);
+  docker(
+    'build',
+    '-q',
+    '-t',
+    'dl-test-egress',
+    '-f',
+    join(APPS, 'capture', 'Dockerfile.egress'),
+    join(APPS, 'capture'),
+  );
+  ok('imagem do proxy de saída compila', true);
   const conf = join(TMP, 'pagina.conf');
   writeFileSync(
     conf,
@@ -386,8 +430,15 @@ async function captureImage() {
   location / { default_type text/html; return 200 '<html><head><title>Pagina de Teste</title></head><body><h1>Oi</h1><img src="http://169.254.169.254/x.png"></body></html>'; }
 }\n`,
   );
-  quiet('rm', '-f', 'dl-test-page', 'dl-test-capt');
-  docker('network', 'create', 'dl-test-capt-net');
+  // Sobra de uma rodada interrompida (rede "already exists") nao derruba esta.
+  quiet('rm', '-f', ...CAPTURE_CONTAINERS);
+  for (const net of CAPTURE_NETWORKS) quiet('network', 'rm', net);
+  // A topologia do compose (item 6.19): a rede da captura e interna, como no compose; so o
+  // egress fica nela e na rede com saida, onde esta a pagina de teste. O "front" faz o papel da
+  // API, nas duas redes, porque rede interna nao publica porta para o host.
+  docker('network', 'create', ...networkArgs('capture'), 'dl-test-capt-net');
+  docker('network', 'create', 'dl-test-egress-net');
+  docker('network', 'create', 'dl-test-front-net');
   try {
     docker(
       'run',
@@ -395,18 +446,64 @@ async function captureImage() {
       '--name',
       'dl-test-page',
       '--network',
-      'dl-test-capt-net',
+      'dl-test-egress-net',
       '--network-alias',
       'pagina.test',
       '-v',
       `${conf}:/etc/nginx/conf.d/default.conf:ro`,
       'nginx:1.27-alpine',
     );
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-egress',
+      '--network',
+      'dl-test-capt-net',
+      '--network-alias',
+      'egress',
+      '-e',
+      'CAPTURE_ALLOW_HOSTS=pagina.test',
+      ...runArgs(composeService('egress')),
+      'dl-test-egress',
+    );
+    docker('network', 'connect', 'dl-test-egress-net', 'dl-test-egress');
+    const egressUp = await until(async () =>
+      docker('inspect', '-f', '{{.State.Health.Status}}', 'dl-test-egress').includes('healthy'),
+    );
+    ok('proxy de saída sobe saudável', Boolean(egressUp));
+    const inEgress = (...args) => quiet('exec', 'dl-test-egress', ...args);
+    ok(
+      'proxy de saída sem root e somente leitura',
+      inEgress('id', '-u').stdout?.trim() !== '0' && inEgress('touch', '/app/x').status !== 0,
+    );
+    const forward =
+      "const net=require('net');for(const [p,h] of [[3100,'dl-test-capt'],[3101,'dl-test-capt-nosbx']])" +
+      'net.createServer((c)=>{const u=net.connect(3100,h);c.pipe(u).pipe(c);' +
+      "u.on('error',()=>c.destroy());c.on('error',()=>u.destroy())}).listen(p)";
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-front',
+      '--network',
+      'dl-test-front-net',
+      '-p',
+      '127.0.0.1:53100:3100',
+      '-p',
+      '127.0.0.1:53101:3101',
+      'node:26-slim',
+      'node',
+      '-e',
+      forward,
+    );
+    docker('network', 'connect', 'dl-test-capt-net', 'dl-test-front');
     // A captura roda com a configuracao do compose: sem capacidades, limites, o perfil seccomp
     // do sandbox do Chromium (item 6.16), raiz somente leitura e o reinicio que troca o
     // container a cada captura (item 6.17).
+    // Sem CAPTURE_ALLOW_HOSTS aqui: quem libera a pagina de teste e o egress.
     const service = composeService('capture');
-    const startCapture = (name, port, args) =>
+    const startCapture = (name, args) =>
       docker(
         'run',
         '-d',
@@ -414,20 +511,51 @@ async function captureImage() {
         name,
         '--network',
         'dl-test-capt-net',
-        '-p',
-        `127.0.0.1:${port}:3100`,
         '-e',
         'CAPTURE_TOKEN=0123456789abcdef01',
         '-e',
-        'CAPTURE_ALLOW_HOSTS=pagina.test',
+        `CAPTURE_EGRESS_PROXY=${service.environment.CAPTURE_EGRESS_PROXY}`,
         ...args,
         'dl-test-capture',
       );
-    startCapture('dl-test-capt', 53100, runArgs(service, { restart: true }));
+    startCapture('dl-test-capt', runArgs(service, { restart: true }));
     const up = await until(() => fetch('http://localhost:53100/health').then((r) => r.ok));
     ok('captura sobe', Boolean(up));
     const health = await fetch('http://localhost:53100/health').then((r) => r.json());
     ok('captura com o sandbox do Chromium ligado', health.sandbox === true, health);
+    ok('captura sai pelo proxy de saída', health.egress === true, health);
+
+    // Sem o egress, nada: nem a internet, nem a pagina na rede dele, nem o host pela bridge.
+    const pageIp = docker(
+      'inspect',
+      '-f',
+      '{{(index .NetworkSettings.Networks "dl-test-egress-net").IPAddress}}',
+      'dl-test-page',
+    ).trim();
+    const hostIp = docker(
+      'network',
+      'inspect',
+      '-f',
+      '{{(index .IPAM.Config 0).Gateway}}',
+      'dl-test-egress-net',
+    ).trim();
+    const targets = ['1.1.1.1:443', `${pageIp}:80`, `${hostIp}:1`];
+    const directRaw =
+      quiet('exec', 'dl-test-capt', 'node', '-e', DIRECT_PROBE, JSON.stringify(targets)).stdout ??
+      '';
+    const direct = (() => {
+      try {
+        return JSON.parse(directRaw);
+      } catch {
+        return null;
+      }
+    })();
+    ok(
+      'rede da captura sem saída direta: internet, outra rede e host inalcançáveis',
+      direct !== null && targets.every((t) => !['CONECTOU', 'ECONNREFUSED'].includes(direct[t])),
+      direct ?? directRaw,
+    );
+    ok('rede da captura sem DNS externo', direct !== null && direct.dns !== 'RESOLVEU', direct);
     const post = (url, token, port) =>
       fetch(`http://localhost:${port}/capture`, {
         method: 'POST',
@@ -529,7 +657,6 @@ async function captureImage() {
     // Sem o perfil do compose (seccomp padrao do Docker), o sandbox nao sobe e a captura diz por que.
     startCapture(
       'dl-test-capt-nosbx',
-      53101,
       runArgs({
         ...service,
         security_opt: service.security_opt.filter((o) => !o.startsWith('seccomp=')),
@@ -543,9 +670,9 @@ async function captureImage() {
       unsandboxed,
     );
   } finally {
-    quiet('rm', '-f', 'dl-test-capt', 'dl-test-capt-nosbx', 'dl-test-page');
-    quiet('network', 'rm', 'dl-test-capt-net');
-    quiet('rmi', 'dl-test-capture');
+    quiet('rm', '-f', ...CAPTURE_CONTAINERS);
+    for (const net of CAPTURE_NETWORKS) quiet('network', 'rm', net);
+    quiet('rmi', 'dl-test-capture', 'dl-test-egress');
   }
 }
 

@@ -4,7 +4,10 @@ WORKDIR /app
 
 # pg_dump 16 (backup, item 81) do repositorio oficial do PostgreSQL (PGDG): o
 # Debian traz uma versao mais velha, que nao exporta o Postgres 16 do compose.
+# O upgrade traz as correcoes de seguranca que o Debian ja publicou e a imagem do Node ainda
+# nao tem (item 6.19: o zlib1g da base reprovava no Trivy com duas CVEs altas).
 RUN apt-get update \
+  && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends openssl ca-certificates genisoimage curl \
   && install -d /usr/share/postgresql-common/pgdg \
   && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \

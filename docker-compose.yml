@@ -161,9 +161,10 @@ services:
     networks:
       - deeplook
 
-  # Navegador isolado da captura de pagina (item 80). Fica so na rede "capture"
-  # (sem banco, MinIO ou ClamAV) e o proxy interno recusa qualquer endereco
-  # privado, loopback ou de metadados: o navegador so alcanca a internet.
+  # Navegador isolado da captura de pagina (item 80). Fica so na rede "capture", que e
+  # interna (item 6.19): sem banco, MinIO ou ClamAV, sem LAN, sem o host e sem saida. A unica
+  # porta para a internet e o egress abaixo, que recusa endereco privado, loopback ou de
+  # metadados, obedeca o navegador ao proxy dele ou nao.
   capture:
     build:
       context: ./apps/capture
@@ -177,6 +178,8 @@ services:
       # Um container por captura (item 6.17): depois de responder, o processo sai e o
       # restart abaixo sobe um container limpo. false = processo de longa vida, como antes.
       CAPTURE_RECYCLE: ${CAPTURE_RECYCLE:-true}
+      # Todo o trafego do navegador sai pelo egress (item 6.19).
+      CAPTURE_EGRESS_PROXY: http://egress:3128
     # Somente leitura: o Chromium so escreve o perfil temporario, em /tmp (tmpfs, em memoria,
     # sem executaveis). Junto com o container novo a cada captura, nada sobra de uma para outra.
     read_only: true
@@ -193,8 +196,41 @@ services:
     security_opt:
       - no-new-privileges:true
       - seccomp=./apps/capture/seccomp-chromium.json
+    depends_on:
+      egress:
+        condition: service_healthy
     networks:
       - capture
+
+  # Proxy de saida da captura (item 6.19): o unico caminho do navegador ate a internet. Resolve
+  # o nome uma vez, recusa rede interna, loopback e metadados e conecta no IP conferido. So Node,
+  # sem navegador; nao roda codigo de pagina. Na rede interna da captura e numa rede com saida.
+  egress:
+    build:
+      context: ./apps/capture
+      dockerfile: Dockerfile.egress
+    restart: unless-stopped
+    logging: *default-logging
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 64
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3128/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - capture
+      - capture-egress
 
   web:
     build:
@@ -236,6 +272,14 @@ networks:
     ipam:
       config:
         - subnet: ${DEEPLOOK_SUBNET:-172.31.250.0/24}
-  # So a API e o navegador isolado; a saida para a internet e da captura.
+  # A API, o navegador isolado e o egress. Interna (item 6.19): sem rota para fora, sem DNS
+  # externo e, com inhibit_ipv4 (Docker 28+), sem IP do host na bridge, entao nem o proprio host
+  # e alcancavel. Os containers se veem pelo nome. Mudou isto? `docker compose down` antes do up.
   capture:
+    driver: bridge
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: "true"
+  # So o egress: e por aqui que a captura chega a internet.
+  capture-egress:
     driver: bridge

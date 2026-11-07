@@ -3,6 +3,11 @@
 FROM mcr.microsoft.com/playwright:v1.64.1-noble
 
 WORKDIR /app
+# As correcoes de seguranca que o Ubuntu ja publicou e a imagem do Playwright ainda nao tem (o apt
+# da base reprovava no Trivy com duas CVEs altas). O Chromium e o do Playwright, nao o do sistema.
+RUN apt-get update \
+  && apt-get upgrade -y --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 # O npm so instala as dependencias: sai da imagem (o runtime e so node) e leva junto os
 # achados do Trivy no npm embutido (undici e brace-expansion; item 6.4). O cache e os logs do

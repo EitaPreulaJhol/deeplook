@@ -8,15 +8,34 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-export function composeService(name) {
+function composeConfig() {
   const res = spawnSync('docker', ['compose', 'config', '--format', 'json'], {
     cwd: ROOT,
     encoding: 'utf8',
   });
   if (res.status !== 0) throw new Error(`docker compose config falhou: ${res.stderr}`);
-  const service = JSON.parse(res.stdout).services?.[name];
+  return JSON.parse(res.stdout);
+}
+
+export function composeService(name) {
+  const service = composeConfig().services?.[name];
   if (!service) throw new Error(`o servico ${name} nao existe no compose`);
   return service;
+}
+
+/**
+ * Argumentos do `docker network create` equivalentes a uma rede do compose: interna e com as
+ * opcoes do driver (a rede da captura, item 6.19, e interna e sem IP do host na bridge).
+ */
+export function networkArgs(name) {
+  const network = composeConfig().networks?.[name];
+  if (!network) throw new Error(`a rede ${name} nao existe no compose`);
+  const args = [];
+  if (network.internal) args.push('--internal');
+  for (const [key, value] of Object.entries(network.driver_opts ?? {})) {
+    args.push('-o', `${key}=${value}`);
+  }
+  return args;
 }
 
 /** Argumentos do `docker run` equivalentes ao endurecimento e ao healthcheck do servico. */

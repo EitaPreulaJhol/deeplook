@@ -6,7 +6,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { composeService, runArgs } from './compose-service.mjs';
+import { composeService, networkArgs, runArgs } from './compose-service.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APPS = join(HERE, '..', '..');
@@ -96,7 +96,8 @@ try {
 
   // Rede confiavel (vuln-0008): da rede do web a API responde; de uma rede como a do capture,
   // a conexao cai antes do HTTP. A API e chamada pelo mesmo nome nas duas.
-  docker('network', 'create', CAPT_NET);
+  // Com a configuracao do compose: interna e sem IP do host na bridge (item 6.19).
+  docker('network', 'create', ...networkArgs('capture'), CAPT_NET);
   docker('network', 'connect', '--alias', 'api', CAPT_NET, 'dl-smoke-api');
   const probe = (network) =>
     quiet(
