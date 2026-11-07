@@ -106,6 +106,8 @@ services:
       # Pasta dos backups (item 6.13): com BACKUP_DIR no .env, o ZIP vai para /backups (montado
       # abaixo) em vez do bucket. Levar essa pasta para fora do disco e de quem configura.
       BACKUP_DIR: ${BACKUP_DIR:+/backups}
+      # Senha do ZIP do backup agendado (dias e horario na aba Backup); vazia, ele nao liga.
+      BACKUP_SCHEDULE_PASSWORD: ${BACKUP_SCHEDULE_PASSWORD:-}
       # Conferencia de integridade dos arquivos guardados (item 4.2); 0 minutos desliga.
       INTEGRITY_SCRUB_INTERVAL_MINUTES: ${INTEGRITY_SCRUB_INTERVAL_MINUTES:-60}
       INTEGRITY_SCRUB_MAX_MB: ${INTEGRITY_SCRUB_MAX_MB:-512}

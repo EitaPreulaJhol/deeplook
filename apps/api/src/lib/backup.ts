@@ -25,10 +25,12 @@ import {
   ListObjectsV2Command,
   UploadPartCommand,
 } from '@aws-sdk/client-s3';
+import type { FastifyRequest } from 'fastify';
 
 import { env } from '../env';
+import { audit } from './audit';
 import { log } from './log';
-import { prisma } from './prisma';
+import { advisoryLock, prisma } from './prisma';
 import { s3 } from './s3';
 import { ZipWriter } from './zip-writer';
 
@@ -410,6 +412,58 @@ export async function runBackup(id: string, password: string | null = null): Pro
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+const BACKUP_LOCK = 880_002;
+let inFlight: Promise<void> = Promise.resolve();
+
+/** O backup que esta sendo montado agora (para os testes esperarem). */
+export function backupInFlight(): Promise<void> {
+  return inFlight;
+}
+
+/**
+ * Cria a linha do backup e comeca a monta-lo em segundo plano: um por vez, com a trava no banco
+ * (item 111), pela tela ou pelo agendamento (item 6.13). Devolve o id, ou null se ja ha um em
+ * andamento. Auditado aqui; a senha nunca vai para a auditoria nem para a linha.
+ */
+export async function createBackup(input: {
+  includeSamples: boolean;
+  password: string | null;
+  createdById: string | null;
+  scheduled: boolean;
+  req: FastifyRequest | null;
+}): Promise<string | null> {
+  const id = await prisma.$transaction(async (tx) => {
+    await advisoryLock(tx, BACKUP_LOCK);
+    if (await tx.backup.count({ where: { status: 'RUNNING' } })) return null;
+    const created = await tx.backup.create({
+      data: {
+        includeSamples: input.includeSamples,
+        encrypted: Boolean(input.password),
+        scheduled: input.scheduled,
+        step: 'Na fila...',
+        createdById: input.createdById,
+      },
+      select: { id: true },
+    });
+    await audit(tx, input.req, {
+      action: 'BACKUP_CREATED',
+      actorId: input.createdById,
+      targetLabel: created.id,
+      detail: [
+        ...(input.scheduled ? ['agendado'] : []),
+        input.includeSamples ? 'com os arquivos das amostras' : 'sem as amostras',
+        input.password ? 'com senha' : 'sem senha',
+      ].join(' · '),
+    });
+    return created.id;
+  });
+  if (!id) return null;
+  inFlight = runBackup(id, input.password).catch((err: unknown) =>
+    log.error({ err }, '[backup] falha inesperada'),
+  );
+  return id;
 }
 
 /**

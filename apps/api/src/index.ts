@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import { env, sandboxEnabled } from './env';
 import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
+import { startBackupSchedule } from './lib/backup-schedule';
 import { installCrossSiteGuard } from './lib/cross-site';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
@@ -209,6 +210,8 @@ async function main() {
   // Conferencia de integridade dos arquivos guardados, em segundo plano (item 4.2).
   startIntegrityScrub();
   startBackups(app.log);
+  // Backup agendado (item 6.13): confere a cada minuto se chegou a hora.
+  startBackupSchedule();
   startLdapSweep(app.log);
   startSessionCleanup(app.log);
 

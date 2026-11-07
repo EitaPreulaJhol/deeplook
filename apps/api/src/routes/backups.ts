@@ -11,17 +11,18 @@ import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import {
   backupFilePath,
+  backupInFlight,
   checkBackupDir,
+  createBackup,
   deleteBackupObject,
   expireBackups,
   inBucket,
-  runBackup,
 } from '../lib/backup';
-import { advisoryLock, prisma } from '../lib/prisma';
+import { describe, readSchedule, saveSchedule, ScheduleInput } from '../lib/backup-schedule';
+import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
 
-const BACKUP_LOCK = 880_002;
 /** Senha do ZIP ou a escolha explicita de exportar sem ela (item 116). */
 const CreateSchema = z
   .object({
@@ -40,6 +41,7 @@ const select = {
   status: true,
   includeSamples: true,
   encrypted: true,
+  scheduled: true,
   step: true,
   progress: true,
   size: true,
@@ -88,36 +90,51 @@ export async function backupRoutes(app: FastifyInstance) {
     if (!user) return;
     const parsed = CreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) return sendValidationError(reply, parsed.error);
-    const backup = await prisma.$transaction(async (tx) => {
-      await advisoryLock(tx, BACKUP_LOCK);
-      if (await tx.backup.count({ where: { status: 'RUNNING' } })) return null;
-      const created = await tx.backup.create({
-        data: {
-          includeSamples: parsed.data.includeSamples,
-          encrypted: Boolean(parsed.data.password),
-          step: 'Na fila...',
-          createdById: user.id,
-        },
-        select,
-      });
-      await audit(tx, req, {
-        action: 'BACKUP_CREATED',
-        actorId: user.id,
-        targetLabel: created.id,
-        detail: [
-          parsed.data.includeSamples ? 'com os arquivos das amostras' : 'sem as amostras',
-          parsed.data.password ? 'com senha' : 'sem senha',
-        ].join(' · '),
-      });
-      return created;
+    const id = await createBackup({
+      includeSamples: parsed.data.includeSamples,
+      password: parsed.data.password ?? null,
+      createdById: user.id,
+      scheduled: false,
+      req,
     });
-    if (!backup) {
+    if (!id) {
       return reply.code(409).send({ error: 'Já há um backup em andamento. Aguarde terminar.' });
     }
-    lastRun = runBackup(backup.id, parsed.data.password ?? null).catch((err: unknown) =>
-      req.log.error({ err }, '[backup] falha inesperada'),
-    );
+    lastRun = backupInFlight();
+    const backup = await prisma.backup.findUniqueOrThrow({ where: { id }, select });
     return reply.code(202).send({ item: out(backup) });
+  });
+
+  // Backup agendado (item 6.13): os dias e o horario vem da tela; a senha, do .env.
+  const scheduleView = async () => {
+    const schedule = await readSchedule();
+    return {
+      schedule,
+      summary: schedule?.enabled ? describe(schedule) : null,
+      passwordConfigured: Boolean(env.BACKUP_SCHEDULE_PASSWORD),
+      destination: env.BACKUP_DIR ? 'dir' : 'bucket',
+    };
+  };
+
+  app.get('/api/admin/backups/schedule', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return;
+    return reply.send(await scheduleView());
+  });
+
+  app.put('/api/admin/backups/schedule', async (req, reply) => {
+    const user = await requireAdmin(req, reply);
+    if (!user) return;
+    const parsed = ScheduleInput.safeParse(req.body ?? {});
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
+    if (parsed.data.enabled && !env.BACKUP_SCHEDULE_PASSWORD) {
+      return reply.code(409).send({
+        error:
+          'Defina BACKUP_SCHEDULE_PASSWORD no .env (12 caracteres ou mais) para ligar o ' +
+          'agendamento: o backup agendado leva as amostras e sai sempre com senha.',
+      });
+    }
+    await saveSchedule(parsed.data, user.id, req);
+    return reply.send(await scheduleView());
   });
 
   app.get('/api/admin/backups/:id/download', async (req, reply) => {

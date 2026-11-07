@@ -26,10 +26,10 @@ export default mergeConfig(
         // modulo entra aqui.
         include: [
           'src/api/client.ts',
-          'src/components/{cases,decoder,iocs,notifications,sha256,textDiff,useEntryListState}.ts',
+          'src/components/{backupSchedule,cases,decoder,iocs,notifications,sha256,textDiff,useEntryListState}.ts',
           'src/components/{ErrorBoundary,lazyPage}.{ts,tsx}',
         ],
-        // Piso, nao meta: ~3 a 4 pontos abaixo do medido (95,7% / 88,7% / 97,6% / 94,9%),
+        // Piso, nao meta: ~3 a 4 pontos abaixo do medido (95,9% / 88,4% / 97,8% / 95,3%),
         // para pegar uma regressao sem reprovar por ruido. Suba junto com a cobertura.
         thresholds: { statements: 92, branches: 84, functions: 92, lines: 91 },
       },

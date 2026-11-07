@@ -470,6 +470,25 @@ Funcionamento:
 > **Com os arquivos das amostras, o ZIP contém malware real.** Guarde-o como as amostras.
 > O manifesto diz o que entrou (`containsMalware`).
 
+### Backup agendado
+
+Em **Administração > Backup**, a seção **Backup agendado** liga a geração automática: dias da
+semana (todos os dias é marcar os sete) ou um dia do mês (1 a 28), e o horário. O horário vale
+no fuso do navegador de quem salvou. Um calendário com este mês e o próximo marca os dias e lista
+as próximas execuções antes de salvar.
+
+- **Senha:** o ZIP agendado sai sempre com a senha `BACKUP_SCHEDULE_PASSWORD` do `.env` (12+
+  caracteres). A da tela não fica guardada, por isso o agendamento usa esta. Sem ela, o
+  agendamento não liga; com menos de 12 caracteres, a API não sobe e diz por quê. **Guarde a
+  senha fora do servidor**: sem ela, o backup não abre.
+- **Conteúdo:** leva os arquivos das amostras (malware), protegidos pela senha.
+- **Destino:** o mesmo dos demais. Com `BACKUP_DIR`, vai para a pasta fora do disco (abaixo); sem
+  ele, fica no bucket, no mesmo disco dos dados.
+- **API fora do ar na hora marcada:** o backup sai uma vez quando ela volta, e o calendário segue.
+  Com outro backup em andamento, ele espera e sai no minuto seguinte ao término.
+- Na lista, aparece com **Agendado** em "Por"; a mudança do agendamento vai para a Auditoria, e a
+  página de status mostra o próximo e alerta se ele estiver ligado sem a senha.
+
 ### Pasta de backup fora do disco
 
 Sem configuração, o ZIP fica no bucket, e o bucket e o Postgres ficam no mesmo disco
@@ -604,6 +623,7 @@ COOKIE_SECURE=true
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
 | `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket ou da pasta | `7` |
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
+| `BACKUP_SCHEDULE_PASSWORD` | senha do ZIP do backup agendado (12+ caracteres; dias e horário na aba Backup). Vazia, o agendamento não liga | — |
 | `BACKUP_DIR` | pasta do host onde o ZIP do backup é gravado (disco externo, NAS); precisa ser gravável pelo uid 1000 e ter o arquivo `.deeplook-backups`. Vazio: o ZIP fica no bucket, no mesmo disco dos dados | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
@@ -1031,9 +1051,8 @@ Melhorias de interface e usabilidade estão priorizadas em
 [`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
 - Notificações por e-mail (SMTP).
-- Backup agendado, para a pasta de backup receber cópias sem depender de alguém clicar
-  (`docs/plano-melhorias.md`, item 6.13, "Fica de fora").
 
 Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
 envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa), 2FA
-opcional, política de senha e a pasta de backup fora do disco (`BACKUP_DIR`).
+opcional, política de senha, a pasta de backup fora do disco (`BACKUP_DIR`) e o backup
+agendado.

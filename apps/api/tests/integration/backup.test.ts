@@ -28,6 +28,13 @@ import {
   RESTORE_README,
   startBackups,
 } from '../../src/lib/backup';
+import {
+  readSchedule,
+  runDueSchedule,
+  scheduledRun,
+  ScheduleInput,
+  upcomingRuns,
+} from '../../src/lib/backup-schedule';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
@@ -528,6 +535,160 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
   }
   env.BACKUP_DIR = '';
   rmSync(dir, { recursive: true, force: true });
+
+  // 14. Backup agendado (item 6.13): dias e horario da tela, no fuso de quem salvou; a senha
+  // vem do .env; o ZIP leva as amostras.
+  const iso = (d: Date | undefined) => d?.toISOString().slice(0, 16);
+  // Sabado, 7/11/2026, 10:00 em Sao Paulo (UTC-3).
+  const saturday = new Date('2026-11-07T13:00:00Z');
+  const weekly = {
+    enabled: true,
+    mode: 'weekly' as const,
+    days: [1, 3, 5],
+    dayOfMonth: 1,
+    time: '02:00',
+    timezone: 'America/Sao_Paulo',
+  };
+  ok(
+    'próximas execuções em UTC, no fuso de quem salvou',
+    upcomingRuns(weekly, saturday, 3).map(iso).join(' ') ===
+      '2026-11-09T05:00 2026-11-11T05:00 2026-11-13T05:00',
+    upcomingRuns(weekly, saturday, 3).map(iso),
+  );
+  ok(
+    'mensal vira o mês',
+    iso(upcomingRuns({ ...weekly, mode: 'monthly', dayOfMonth: 5 }, saturday)[0]) ===
+      '2026-12-05T05:00',
+  );
+  // Nova York: em 8/3/2026 as 02:00 viram 03:00 (02:00 nao existe nesse dia); em 1/11/2026 a
+  // 01:00-01:59 acontece duas vezes.
+  const ny = { ...weekly, days: [0, 1, 2, 3, 4, 5, 6], timezone: 'America/New_York' };
+  ok(
+    'início do horário de verão: a hora que não existe sai logo depois, nunca antes',
+    upcomingRuns(ny, new Date('2026-03-06T12:00:00Z'), 4).map(iso).join(' ') ===
+      '2026-03-07T07:00 2026-03-08T07:00 2026-03-09T06:00 2026-03-10T06:00',
+    upcomingRuns(ny, new Date('2026-03-06T12:00:00Z'), 4).map(iso),
+  );
+  ok(
+    'fim do horário de verão: a hora repetida roda uma vez, na primeira',
+    upcomingRuns({ ...ny, time: '01:30' }, new Date('2026-10-31T12:00:00Z'), 3)
+      .map(iso)
+      .join(' ') === '2026-11-01T05:30 2026-11-02T06:30 2026-11-03T06:30',
+    upcomingRuns({ ...ny, time: '01:30' }, new Date('2026-10-31T12:00:00Z'), 3).map(iso),
+  );
+  ok(
+    'dia do mês só até 28 e fuso conhecido',
+    !ScheduleInput.safeParse({ ...weekly, mode: 'monthly', dayOfMonth: 31 }).success &&
+      !ScheduleInput.safeParse({ ...weekly, timezone: 'Marte/Olympus' }).success &&
+      !ScheduleInput.safeParse({ ...weekly, days: [] }).success,
+  );
+
+  env.BACKUP_SCHEDULE_PASSWORD = '';
+  let view = (await req('GET', '/api/admin/backups/schedule', cAdm)).json();
+  ok(
+    'sem a senha no .env: a tela sabe',
+    view.passwordConfigured === false && view.schedule === null,
+  );
+  ok(
+    'sem a senha no .env: não liga',
+    (await req('PUT', '/api/admin/backups/schedule', cAdm, weekly)).statusCode === 409,
+  );
+  ok(
+    'analista não agenda',
+    (await req('PUT', '/api/admin/backups/schedule', cAna, weekly)).statusCode === 403,
+  );
+  const SCHEDULE_PASS = 'Senha-Do-Agendado-123';
+  env.BACKUP_SCHEDULE_PASSWORD = SCHEDULE_PASS;
+  r = await req('PUT', '/api/admin/backups/schedule', cAdm, weekly);
+  view = r.json();
+  ok(
+    'liga com a senha e calcula o próximo',
+    r.statusCode === 200 &&
+      view.schedule.enabled === true &&
+      Date.parse(view.schedule.nextRunAt) > Date.now() &&
+      view.summary === 'seg, qua, sex às 02:00 (America/Sao_Paulo)',
+    view,
+  );
+  ok(
+    'mudança na auditoria, sem a senha',
+    Boolean(
+      await prisma.auditEvent.findFirst({
+        where: { action: 'SETTING_CHANGED', targetLabel: 'Backup agendado' },
+      }),
+    ) &&
+      !JSON.stringify(await prisma.auditEvent.findMany()).includes(SCHEDULE_PASS) &&
+      !JSON.stringify(await prisma.systemSetting.findMany()).includes(SCHEDULE_PASS),
+  );
+
+  const scheduled = await readSchedule();
+  const due = new Date(Date.parse(scheduled!.nextRunAt!));
+  ok('antes da hora: nada', (await runDueSchedule(new Date(due.getTime() - 60_000))) === null);
+  // Outro backup em andamento: espera o minuto seguinte, sem perder a vez.
+  const busyRow = await prisma.backup.create({ data: { status: 'RUNNING', step: 'ocupado' } });
+  ok(
+    'com outro em andamento: espera, sem pular a vez',
+    (await runDueSchedule(due)) === null &&
+      (await readSchedule())!.nextRunAt === scheduled!.nextRunAt,
+  );
+  await prisma.backup.delete({ where: { id: busyRow.id } });
+  // A API voltou tres dias depois da hora: sai um so, e o proximo e o seguinte a agora.
+  const late = new Date(due.getTime() + 3 * 86400000);
+  const scheduledId = await runDueSchedule(late);
+  await scheduledRun();
+  const sb = scheduledId ? await prisma.backup.findUnique({ where: { id: scheduledId } }) : null;
+  ok(
+    'agendado: com as amostras, com senha, sem autor e marcado',
+    sb?.status === 'READY' &&
+      sb.scheduled &&
+      sb.includeSamples &&
+      sb.encrypted &&
+      sb.createdById === null,
+    { status: sb?.status, error: sb?.error },
+  );
+  const afterRun = (await readSchedule())!;
+  ok(
+    'atrasado: roda uma vez e o próximo é depois de agora',
+    afterRun.lastBackupId === scheduledId &&
+      Date.parse(afterRun.nextRunAt!) > late.getTime() &&
+      Date.parse(afterRun.nextRunAt!) - late.getTime() <= 7 * 86400000 &&
+      (await runDueSchedule(late)) === null,
+    afterRun,
+  );
+  ok(
+    'agendado na auditoria',
+    Boolean(
+      await prisma.auditEvent.findFirst({
+        where: { action: 'BACKUP_CREATED', actorId: null, detail: { startsWith: 'agendado' } },
+      }),
+    ),
+  );
+  list = (await req('GET', '/api/admin/backups', cAdm)).json();
+  ok(
+    'a lista diz que foi agendado',
+    list.items.find((x: { id: string }) => x.id === scheduledId)?.scheduled === true,
+  );
+  r = await req('GET', `/api/admin/backups/${scheduledId}/download`, cAdm);
+  writeFileSync(`${OUT}/sealed.zip`, r.rawPayload);
+  const scheduledManifest = (() => {
+    try {
+      return JSON.parse(seven(SCHEDULE_PASS, 'x -so', 'manifest.json').stdout);
+    } catch {
+      return null;
+    }
+  })();
+  ok(
+    'o ZIP agendado abre com a senha do .env e leva as amostras',
+    scheduledManifest?.includeSamples === true &&
+      scheduledManifest.containsMalware === true &&
+      seven('Outra-Senha-Errada', 't').status !== 0,
+    scheduledManifest,
+  );
+  r = await req('PUT', '/api/admin/backups/schedule', cAdm, { ...weekly, enabled: false });
+  ok(
+    'desligado: não roda mais',
+    r.json().schedule.nextRunAt === null && (await runDueSchedule(late)) === null,
+  );
+  env.BACKUP_SCHEDULE_PASSWORD = '';
 
   // 10. LEIA-ME avisa o que a restauracao precisa (itens 105 e 106).
   ok('LEIA-ME cita o SESSION_SECRET', RESTORE_README.includes('SESSION_SECRET'));

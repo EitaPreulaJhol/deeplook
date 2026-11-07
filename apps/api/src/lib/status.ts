@@ -2,6 +2,7 @@ import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import { checkBackupDir } from './backup';
+import { describe, readSchedule } from './backup-schedule';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { ldapConfig, ldapProbe } from './ldap';
 import { captureEnabled } from './page-capture';
@@ -368,13 +369,24 @@ async function backupCheck(): Promise<StatusCheck> {
     label: 'Último backup pronto',
     value: last?.finishedAt ? last.finishedAt.toISOString().slice(0, 16).replace('T', ' ') : '—',
   };
+  // Agendamento (item 6.13): ligado sem a senha do .env nao gera nada, e isso e alerta.
+  const schedule = await readSchedule();
+  const scheduleDetail = {
+    label: 'Agendamento',
+    value: schedule?.enabled
+      ? `${describe(schedule)}; próximo: ${schedule.nextRunAt?.slice(0, 16).replace('T', ' ') ?? '—'} UTC`
+      : 'desligado',
+  };
+  const scheduleBroken = Boolean(schedule?.enabled && !env.BACKUP_SCHEDULE_PASSWORD);
   if (!env.BACKUP_DIR) {
     return {
       id: 'backup',
       name: 'Pasta de backup',
-      level: 'off',
-      summary: 'desligada (BACKUP_DIR vazio): o ZIP fica no bucket, no mesmo disco dos dados',
-      details: [lastDetail],
+      level: scheduleBroken ? 'warn' : 'off',
+      summary: scheduleBroken
+        ? 'agendamento ligado sem BACKUP_SCHEDULE_PASSWORD no .env: nenhum backup sai'
+        : 'desligada (BACKUP_DIR vazio): o ZIP fica no bucket, no mesmo disco dos dados',
+      details: [lastDetail, scheduleDetail],
     };
   }
   const dir = await checkBackupDir();
@@ -382,9 +394,13 @@ async function backupCheck(): Promise<StatusCheck> {
   return {
     id: 'backup',
     name: 'Pasta de backup',
-    level: dir.ok ? 'ok' : 'warn',
-    summary: dir.ok ? `pronta, ${gb(dir.free)} livres` : dir.error,
-    details: [{ label: 'Pasta no container', value: env.BACKUP_DIR }, lastDetail],
+    level: dir.ok && !scheduleBroken ? 'ok' : 'warn',
+    summary: !dir.ok
+      ? dir.error
+      : scheduleBroken
+        ? 'agendamento ligado sem BACKUP_SCHEDULE_PASSWORD no .env: nenhum backup sai'
+        : `pronta, ${gb(dir.free)} livres`,
+    details: [{ label: 'Pasta no container', value: env.BACKUP_DIR }, lastDetail, scheduleDetail],
   };
 }
 

@@ -37,7 +37,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.10 | Frontend: code splitting (rotas e noVNC) e CSS do Carbon | 🟡 | M | Web | ✅ |
 | 6.11 | Dependências da API: majors do `postal-mime`, multipart, rate-limit e bcryptjs | 🟡 | M | API | ✅ |
 | 6.12 | Dependências do web: React 19, Vite 8, TypeScript 7 | ⚪ | M–G | Web | ✅ (React e Vite; o TypeScript 7 está bloqueado) |
-| 6.13 | Pasta de backup fora do disco (`BACKUP_DIR`) | 🔴 | M | API / Operação | ✅ |
+| 6.13 | Pasta de backup fora do disco (`BACKUP_DIR`) e backup agendado | 🔴 | M | API / Web / Operação | ✅ |
 | 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
 | 6.15 | Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env` | 🔴 | M | API / Compose | ✅ |
 | 6.16 | Sandbox do Chromium da captura (perfil seccomp próprio) | 🔴 | M | Capture / Compose | ✅ |
@@ -81,20 +81,19 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 | 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
-| — | Backup agendado (sobra do [6.13](#613-pasta-de-backup-fora-do-disco)) | Pede duas decisões do dono: de onde vem a senha do ZIP automático e se ele leva as amostras | **M** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
-para fora do disco é de quem configura o ambiente. Fica de fora o **backup agendado** (hoje o
-ZIP só sai quando um admin clica): sem ele, a pasta externa só recebe o que alguém lembrar de
-gerar. Está na seção do 6.13.
+para fora do disco é de quem configura o ambiente. Em seguida veio o **backup agendado**, com as
+decisões dele: senha no `.env`, ZIP com as amostras e os dias escolhidos num calendário na aba
+Backup.
 
 ### Para retomar
 
 ```bash
-# o 6.20 deixou tudo verde; confirme antes de mexer
+# o backup agendado (6.13) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1070 checagens em 35 arquivos
+cd ../api   && npm run test:integration          # 1088 checagens em 35 arquivos
 cd ../api   && npm run test:images && npm run test:smoke   # 67 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
@@ -876,10 +875,62 @@ arquivos** de integração (eram 1055); `test:images` com **65** (eram 62); `tes
 definir `BACKUP_DIR` no `.env` e `docker compose up -d` (o passo a passo está no README, em
 "Pasta de backup fora do disco").
 
+**Backup agendado**, a segunda parte, com as decisões do dono: senha numa variável do `.env`,
+ZIP com as amostras (protegido pela senha), e a frequência num calendário na tela.
+
+- **Tela:** a aba Backup ganha a seção **Backup agendado**. Ela oferece:
+  - dias da semana (os sete = todos os dias) ou um dia do mês (1 a 28, para valer em todo mês) e
+    o horário;
+  - um **calendário** deste mês e do próximo, com os dias marcados, e as cinco próximas
+    execuções, atualizados enquanto se escolhe, antes de salvar.
+
+  O horário vale no fuso do navegador de quem salvou, que vai junto (`timezone`); outro admin
+  num fuso diferente vê um aviso. A lógica da prévia é pura (`backupSchedule.ts`, com teste
+  unitário).
+- **Senha:** `BACKUP_SCHEDULE_PASSWORD` no `.env` (12+ caracteres; menos que isso, a API não
+  sobe e diz por quê). Sem ela, o agendamento não liga: a tela informa (sem tom de erro, porque é
+  opcional) e a API recusa com 409. A senha não vai para a linha do backup, para a auditoria nem
+  para a configuração salva (conferido no teste).
+- **API:**
+  - a configuração fica em `systemSetting` (`backupSchedule`), com a próxima execução já em UTC;
+  - um relógio confere a cada minuto. Se a API estava fora do ar na hora, o backup sai **uma
+    vez** quando ela volta e o calendário segue; com outro backup em andamento, espera o minuto
+    seguinte sem perder a vez;
+  - a criação do backup saiu da rota para `createBackup`, que a tela e o agendamento usam (mesma
+    trava de um por vez, mesma auditoria, com "agendado" no detalhe e sem autor);
+  - a linha ganha `scheduled` (migração `20261222000000_backup_scheduled`), e a lista mostra
+    **Agendado** em "Por";
+  - a mudança do agendamento vai para a Auditoria (`SETTING_CHANGED`), e a página de status mostra
+    o próximo e alerta se ele estiver ligado sem a senha.
+- **Horário de verão.** O teste pegou um defeito no meu primeiro cálculo: em 8/3/2026, em Nova
+  York, as 02:00 não existem (viram 03:00), e o backup marcado para 02:00 ia para a 01:00, uma
+  hora **antes**. Agora o cálculo testa o deslocamento de antes e o de depois da troca:
+  - a hora que não existe sai logo depois (03:00), como o `Date` do navegador faz na prévia;
+  - a hora repetida na volta do horário de verão roda uma vez, na primeira.
+
+**Testes do agendamento:**
+- `backup.test.ts` passou de 54 para **72** checagens. Ele cobre:
+  - próximas execuções em UTC, a virada do mês, as duas trocas de horário de verão e a validação
+    (dia 31, fuso inexistente, nenhum dia);
+  - sem senha a tela sabe e não liga, e analista não agenda;
+  - a mudança vai para a auditoria sem a senha;
+  - antes da hora nada sai, e com outro em andamento espera sem pular a vez;
+  - atrasado, roda uma vez e o próximo é depois de agora;
+  - o agendado sai com amostras, com senha, sem autor, marcado e na auditoria;
+  - o ZIP abre no 7-Zip **com a senha do `.env`**, traz as amostras e recusa outra senha;
+  - desligado, não roda mais.
+- 7 testes unitários da prévia, com o módulo na cobertura (97,8% / 100% das linhas).
+- O cenário de tela `backup` ganhou 8 checagens:
+  - sem a senha, avisa e não liga;
+  - os dias marcados no calendário e as próximas execuções, nos dois meses;
+  - o `PUT` com os dias, o horário e o fuso;
+  - a confirmação com o próximo;
+  - o mensal;
+  - "Agendado" na lista.
+- O `test:smoke` reprovou a primeira versão, com razão: numa instalação sem a senha, a aba
+  mostrava em vermelho um recurso opcional desligado. Virou mensagem informativa.
+
 **Fica de fora:**
-- **Backup agendado.** Hoje o ZIP só sai quando um admin clica; a pasta externa só recebe o que
-  alguém lembrar de gerar. Agendar pede duas decisões do dono: a senha do ZIP automático (de onde
-  vem, já que a da tela não é guardada) e se leva as amostras (malware).
 - **Teste de restauração periódico.** O `backup.test.ts` restaura de verdade (`pg_restore` num
   banco novo, contagens batendo), mas isso não roda na instalação.
 - **Retenção própria da pasta.** Vale a mesma `BACKUP_RETENTION_DAYS` (até 90 dias); quem quiser

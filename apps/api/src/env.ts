@@ -88,6 +88,14 @@ const EnvSchema = z
      */
     BACKUP_DIR: z.string().default(''),
     /**
+     * Senha do ZIP do backup agendado (item 6.13): a da tela nao fica guardada, entao o
+     * agendamento usa esta. Vazia, o agendamento nao liga. O ZIP agendado leva as amostras.
+     */
+    BACKUP_SCHEDULE_PASSWORD: z
+      .string()
+      .refine((v) => v === '' || v.length >= 12, 'use 12 caracteres ou mais')
+      .default(''),
+    /**
      * Conferencia de integridade (item 4.2): de tempos em tempos o job le as amostras guardadas
      * e compara o SHA-256 com o da ficha, comecando pelas nunca conferidas. Intervalo em
      * minutos (0 = desligado) e quanto ler por rodada, em MB.

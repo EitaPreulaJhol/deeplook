@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import { AdminBackupSchedule } from './AdminBackupSchedule';
 import { useConfirm } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmSection } from './HpsmForm';
@@ -25,6 +26,8 @@ interface Backup {
   status: 'RUNNING' | 'READY' | 'FAILED' | 'EXPIRED';
   includeSamples: boolean;
   encrypted: boolean;
+  /** Gerado pelo agendamento (item 6.13). */
+  scheduled?: boolean;
   step: string | null;
   progress: number;
   size: number | null;
@@ -228,6 +231,8 @@ export function AdminBackupTab() {
         )}
       </HpsmSection>
 
+      <AdminBackupSchedule />
+
       <HpsmSection title={`Backups (${items.length})`} className="dl-mt-lg">
         {query.isLoading && <HpsmLoading text="Carregando backups..." />}
         {!query.isLoading && items.length === 0 ? (
@@ -250,7 +255,9 @@ export function AdminBackupTab() {
                 {items.map((b) => (
                   <TableRow key={b.id} className={b.status === 'EXPIRED' ? 'is-off' : undefined}>
                     <TableCell>{fmt(b.createdAt)}</TableCell>
-                    <TableCell>{b.createdBy?.displayName ?? '—'}</TableCell>
+                    <TableCell>
+                      {b.scheduled ? 'Agendado' : (b.createdBy?.displayName ?? '—')}
+                    </TableCell>
                     <TableCell>
                       <StatusText tone={STATUS[b.status].tone}>{STATUS[b.status].text}</StatusText>
                       {b.status === 'RUNNING' && ` (${b.progress}%)`}

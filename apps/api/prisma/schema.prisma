@@ -1254,6 +1254,8 @@ model Backup {
   includeSamples Boolean      @default(false)
   /// Com senha (item 116). A senha nao e guardada em lugar nenhum.
   encrypted      Boolean      @default(false)
+  /// Gerado pelo agendamento (item 6.13), e nao por um admin na tela.
+  scheduled      Boolean      @default(false)
   /// Etapa atual ("Exportando o banco...") e 0-100.
   step           String?
   progress       Int          @default(0)

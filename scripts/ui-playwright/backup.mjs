@@ -21,10 +21,20 @@ const calls = [];
 let polls = 0;
 // Destino dos ZIPs (item 6.13): o bucket, ou a pasta BACKUP_DIR e o que a impede de gravar.
 let destination = { destination: 'bucket', destinationProblem: null };
+// Agendamento (item 6.13): a senha do .env existe? E o que foi salvo.
+let schedule = { schedule: null, summary: null, passwordConfigured: false, destination: 'bucket' };
 await context.route((url) => url.pathname.startsWith('/api/admin/backups'), async (route) => {
   const req = route.request();
   const path = new URL(req.url()).pathname;
   const json = (status, data) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+  if (path === '/api/admin/backups/schedule') {
+    if (req.method() === 'PUT') {
+      const body = JSON.parse(req.postData());
+      calls.push({ method: 'PUT', path, body });
+      schedule = { ...schedule, schedule: { ...body, nextRunAt: '2026-11-09T05:00:00.000Z', lastRunAt: null }, summary: 'seg, qua, sex às 02:00 (America/Sao_Paulo)' };
+    }
+    return json(200, schedule);
+  }
   if (req.method() === 'GET' && path === '/api/admin/backups') {
     const running = items.find((b) => b.status === 'RUNNING');
     if (running) {
@@ -139,6 +149,39 @@ await page.reload({ waitUntil: 'networkidle' });
 await settle();
 expect('na pasta: diz onde e cita o .sha256', (await intro()).includes('pasta de backup do servidor') && (await intro()).includes('.sha256'));
 expect('na pasta com problema: mostra o motivo', (await msgs()).includes('.deeplook-backups'), await msgs());
+
+// 7. Agendamento com calendario.
+const enabled = page.locator('#schedule-enabled');
+expect('sem a senha do .env: avisa e não liga', (await msgs()).includes('BACKUP_SCHEDULE_PASSWORD') && (await enabled.isDisabled()));
+schedule = { ...schedule, passwordConfigured: true };
+await page.reload({ waitUntil: 'networkidle' });
+await settle();
+expect('com a senha: liga', !(await enabled.isDisabled()));
+await page.locator('label[for="schedule-enabled"]').click();
+// Padrao: dias uteis. Fica seg, qua e sex.
+for (const day of [2, 4]) await page.locator(`label[for="schedule-day-${day}"]`).click();
+await page.fill('#schedule-time', '02:00');
+await settle(200);
+const marked = await page.locator('.dl-backup-cal td.is-backup').count();
+const next = await page.locator('.dl-backup-schedule__next li').allInnerTexts();
+expect('calendário marca os dias e lista as próximas', marked >= 6 && next.length === 5 && next.every((t) => /^(seg|qua|sex)/.test(t)), `${marked} marcados; ${next.join(' | ')}`);
+expect('dois meses no calendário', (await page.locator('.dl-backup-cal').count()) === 2);
+await page.screenshot({ path: `${OUT}/backup-agendado.png`, fullPage: true });
+await page.click('button:has-text("Salvar agendamento")');
+await settle();
+const put = calls.findLast((c) => c.method === 'PUT');
+expect('salva dias, horário e o fuso do navegador', put?.body.enabled === true && put.body.mode === 'weekly' && JSON.stringify(put.body.days) === '[1,3,5]' && put.body.time === '02:00' && typeof put.body.timezone === 'string' && put.body.timezone.length > 0, JSON.stringify(put?.body));
+expect('confirma e mostra o próximo', (await msgs()).includes('Agendamento salvo: seg, qua e sex às 02:00') && (await page.locator('.dl-backup-schedule__form').innerText()).includes('Próximo:'));
+await page.selectOption('#schedule-mode', 'monthly');
+await page.selectOption('#schedule-day-of-month', '5');
+await settle(200);
+const monthly = await page.locator('.dl-backup-schedule__next li').allInnerTexts();
+expect('mensal: todo dia 5', monthly.length === 5 && monthly.every((t) => /\b05\//.test(t)), monthly.join(' | '));
+// Backup gerado pelo agendamento aparece como "Agendado" na lista.
+items.unshift({ ...items[0], id: 'b9', scheduled: true, createdBy: null });
+await page.reload({ waitUntil: 'networkidle' });
+await settle();
+expect('backup do agendamento: "Agendado" em Por', (await rowText(0)).includes('Agendado'), await rowText(0));
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nbackup: tudo ok');

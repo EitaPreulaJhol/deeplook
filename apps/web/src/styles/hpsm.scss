@@ -4768,6 +4768,92 @@ tr.is-off td {
   color: var(--dl-status-red);
 }
 
+/* Backup agendado (item 6.13): formulario e, ao lado, o calendario dos proximos dois meses. */
+.dl-backup-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.dl-backup-schedule__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 320px;
+  max-width: 100%;
+}
+
+.dl-backup-schedule__days {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.dl-backup-schedule__day-grid {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  gap: 0.25rem 1rem;
+  align-items: center;
+}
+
+.dl-backup-schedule__months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.dl-backup-cal {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  caption {
+    font-weight: 600;
+    text-align: left;
+    padding-bottom: 0.25rem;
+  }
+
+  th {
+    color: var(--dl-text-muted);
+    font-weight: 400;
+    padding: 0.15rem;
+  }
+
+  td {
+    width: 2rem;
+    height: 1.75rem;
+    text-align: center;
+    border: 1px solid var(--dl-table-border);
+  }
+
+  td.is-past {
+    color: var(--dl-placeholder);
+  }
+
+  td.is-today {
+    outline: 2px solid var(--dl-accent);
+    outline-offset: -2px;
+    font-weight: 600;
+  }
+
+  td.is-backup {
+    background: var(--dl-primary);
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+.dl-backup-schedule__next-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.85rem;
+}
+
+.dl-backup-schedule__next {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8rem;
+}
+
 /* --- 17. Falha ao desenhar a tela (ErrorBoundary) ----------------------- */
 /* Painel que entra no lugar do conteudo quando o render quebra. O da casca
    (variant="app") centraliza na janela; o do miolo (variant="page") fica no
