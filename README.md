@@ -458,7 +458,8 @@ com:
 Funcionamento:
 - Um backup por vez. A tela mostra a etapa e o progresso, e **Baixar** aparece quando
   termina.
-- O ZIP fica no bucket (`backups/`) até vencer (`BACKUP_RETENTION_DAYS`, padrão 7 dias).
+- O ZIP fica até vencer (`BACKUP_RETENTION_DAYS`, padrão 7 dias): na **pasta de backup**, se
+  `BACKUP_DIR` estiver definido (abaixo), ou no bucket (`backups/`), no mesmo disco dos dados.
 - Só baixa com admin logado (token de API não serve).
 - **Senha do ZIP:** informada ao gerar (12 caracteres ou mais), em AES-256 no padrão WinZip,
   que o **7-Zip** abre (o `unzip` comum não). Ela não fica guardada: sem ela, o backup não abre.
@@ -468,6 +469,36 @@ Funcionamento:
 
 > **Com os arquivos das amostras, o ZIP contém malware real.** Guarde-o como as amostras.
 > O manifesto diz o que entrou (`containsMalware`).
+
+### Pasta de backup fora do disco
+
+Sem configuração, o ZIP fica no bucket, e o bucket e o Postgres ficam no mesmo disco
+(`./data`): perder o disco perde os dados **e** o backup. Com `BACKUP_DIR` no `.env`, o ZIP é
+gravado numa pasta do host, que você aponta para um disco externo ou um NAS montado. **Levar
+essa pasta para fora do disco é responsabilidade de quem configura o ambiente**; o DeepLook
+só grava nela.
+
+```bash
+sudo mkdir -p /mnt/externo/deeplook
+sudo touch /mnt/externo/deeplook/.deeplook-backups   # a marca: veja abaixo
+sudo chown -R 1000:1000 /mnt/externo/deeplook         # a API roda como uid 1000
+echo 'BACKUP_DIR=/mnt/externo/deeplook' >> .env
+docker compose up -d                                  # recria a API com a pasta montada
+```
+
+- **A marca `.deeplook-backups`:** com o disco desmontado, o ponto de montagem vira uma pasta
+  vazia **no disco principal**, e o backup seria gravado ali sem ninguém perceber. Sem a marca
+  na pasta, a API recusa gravar e diz por quê, na aba Backup e na página de status
+  (**Pasta de backup**).
+- **No disco:** `deeplook-backup-AAAA-MM-DD-<id>.zip` e um `.sha256` ao lado, para conferir uma
+  cópia com `sha256sum -c`. Os dois só são legíveis pelo uid 1000. O ZIP é montado com nome
+  provisório (`.<nome>.partial`) e renomeado no fim, então quem sincroniza a pasta nunca copia
+  um ZIP pela metade (exclua `*.partial` do `rsync`).
+- **Vencimento e exclusão** apagam da pasta só o ZIP e o `.sha256` que a API gravou. O resto
+  da pasta (cópias suas, outros arquivos) não é tocado.
+- **Backups anteriores** à configuração continuam no bucket e baixando normalmente até vencer.
+- Arquivo sumido da pasta (disco desmontado, movido) faz **Baixar** responder com o motivo, em
+  vez de erro.
 
 Para restaurar, com o DeepLook parado:
 
@@ -571,8 +602,9 @@ COOKIE_SECURE=true
 | `SLA_ESCALATE_PRIORITY` | ao entrar em alerta o responsável é avisado (sem responsável, os analistas); ao atrasar, também os admins. `true`: ao atrasar, a prioridade sobe um nível | `false` |
 | `REPORT_REVIEW_REQUIRED` | `true`: relatório só é publicado com a aprovação de outro analista (quatro olhos) | `false` |
 | `RETENTION_DAYS` | apaga o **arquivo** das amostras concluídas há mais de N dias (ficha, relatórios, IOCs e hash ficam); `0` desliga | `0` |
-| `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket | `7` |
+| `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket ou da pasta | `7` |
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
+| `BACKUP_DIR` | pasta do host onde o ZIP do backup é gravado (disco externo, NAS); precisa ser gravável pelo uid 1000 e ter o arquivo `.deeplook-backups`. Vazio: o ZIP fica no bucket, no mesmo disco dos dados | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
 | `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | login pelo AD (vazio desliga); `ldaps://` ou `ldap://` + StartTLS; PEM da CA que assina o certificado do AD | — · `false` · — |
@@ -991,9 +1023,9 @@ Melhorias de interface e usabilidade estão priorizadas em
 [`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
 
 - Notificações por e-mail (SMTP).
-- Cópia do backup para fora do disco (`docs/plano-melhorias.md`, item 6.13) — registrado e
-  **adiado** por decisão do dono do projeto.
+- Backup agendado, para a pasta de backup receber cópias sem depender de alguém clicar
+  (`docs/plano-melhorias.md`, item 6.13, "Fica de fora").
 
 Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
 envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa), 2FA
-opcional e política de senha.
+opcional, política de senha e a pasta de backup fora do disco (`BACKUP_DIR`).

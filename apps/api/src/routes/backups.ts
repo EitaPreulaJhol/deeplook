@@ -1,3 +1,5 @@
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import type { Readable } from 'node:stream';
 
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -7,7 +9,14 @@ import { z } from 'zod';
 import { env } from '../env';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
-import { deleteBackupObject, expireBackups, runBackup } from '../lib/backup';
+import {
+  backupFilePath,
+  checkBackupDir,
+  deleteBackupObject,
+  expireBackups,
+  inBucket,
+  runBackup,
+} from '../lib/backup';
 import { advisoryLock, prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
@@ -64,7 +73,14 @@ export async function backupRoutes(app: FastifyInstance) {
       take: 20,
       select,
     });
-    return reply.send({ items: items.map(out), retentionDays: env.BACKUP_RETENTION_DAYS });
+    // Onde os proximos ZIPs vao parar (item 6.13) e, na pasta, o que impede de gravar.
+    const dir = env.BACKUP_DIR ? await checkBackupDir() : null;
+    return reply.send({
+      items: items.map(out),
+      retentionDays: env.BACKUP_RETENTION_DAYS,
+      destination: env.BACKUP_DIR ? 'dir' : 'bucket',
+      destinationProblem: dir && !dir.ok ? dir.error : null,
+    });
   });
 
   app.post('/api/admin/backups', async (req, reply) => {
@@ -118,7 +134,26 @@ export async function backupRoutes(app: FastifyInstance) {
       await expireBackups();
       return reply.code(410).send({ error: 'Backup vencido.' });
     }
-    const obj = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: backup.key }));
+    // Na pasta (item 6.13) ou no bucket (antes dele, ou sem BACKUP_DIR).
+    let body: Readable;
+    let length: number | undefined;
+    if (inBucket(backup.key)) {
+      const obj = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: backup.key }));
+      body = obj.Body as Readable;
+      length = obj.ContentLength;
+    } else {
+      const file = env.BACKUP_DIR ? backupFilePath(backup.key) : null;
+      const found = file ? await stat(file).catch(() => null) : null;
+      if (!file || !found?.isFile()) {
+        return reply.code(404).send({
+          error:
+            'O arquivo do backup não está na pasta de backup (BACKUP_DIR): o disco pode estar ' +
+            'desmontado, ou o arquivo foi movido ou apagado fora do DeepLook.',
+        });
+      }
+      body = createReadStream(file);
+      length = found.size;
+    }
     await audit(prisma, req, {
       action: 'BACKUP_DOWNLOADED',
       actorId: user.id,
@@ -128,13 +163,13 @@ export async function backupRoutes(app: FastifyInstance) {
     const day = backup.createdAt.toISOString().slice(0, 10);
     return reply
       .header('content-type', 'application/zip')
-      .header('content-length', String(backup.size ?? obj.ContentLength ?? ''))
+      .header('content-length', String(backup.size ?? length ?? ''))
       .header(
         'content-disposition',
         `attachment; filename="deeplook-backup-${day}-${backup.id.slice(-6)}.zip"`,
       )
       .header('cache-control', 'no-store')
-      .send(obj.Body as Readable);
+      .send(body);
   });
 
   app.delete('/api/admin/backups/:id', async (req, reply) => {

@@ -83,6 +83,9 @@ services:
       REPORT_REVIEW_REQUIRED: ${REPORT_REVIEW_REQUIRED:-false}
       RETENTION_DAYS: ${RETENTION_DAYS:-0}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      # Pasta dos backups (item 6.13): com BACKUP_DIR no .env, o ZIP vai para /backups (montado
+      # abaixo) em vez do bucket. Levar essa pasta para fora do disco e de quem configura.
+      BACKUP_DIR: ${BACKUP_DIR:+/backups}
       # Conferencia de integridade dos arquivos guardados (item 4.2); 0 minutos desliga.
       INTEGRITY_SCRUB_INTERVAL_MINUTES: ${INTEGRITY_SCRUB_INTERVAL_MINUTES:-60}
       INTEGRITY_SCRUB_MAX_MB: ${INTEGRITY_SCRUB_MAX_MB:-512}
@@ -141,6 +144,9 @@ services:
       SANDBOX_MAX_ACTIVE: ${SANDBOX_MAX_ACTIVE:-4}
       SANDBOX_MAX_PER_USER: ${SANDBOX_MAX_PER_USER:-2}
       SANDBOX_MOCK_VNC_URL: ${SANDBOX_MOCK_VNC_URL:-}
+    # Sem BACKUP_DIR a pasta montada nao e usada (a API nem a recebe acima).
+    volumes:
+      - ${BACKUP_DIR:-./data/backups}:/backups
     depends_on:
       db:
         condition: service_healthy

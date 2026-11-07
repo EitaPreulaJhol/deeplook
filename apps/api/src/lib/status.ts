@@ -1,6 +1,7 @@
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
+import { checkBackupDir } from './backup';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { ldapConfig, ldapProbe } from './ldap';
 import { captureEnabled } from './page-capture';
@@ -28,6 +29,7 @@ export interface StatusCheck {
     | 'ldap'
     | 'yaraPacks'
     | 'integrity'
+    | 'backup'
     | 'config';
   name: string;
   level: StatusLevel;
@@ -351,6 +353,41 @@ async function integrityCheck(): Promise<StatusCheck> {
   };
 }
 
+/**
+ * Pasta de backup (item 6.13): sem BACKUP_DIR o ZIP fica no bucket, no mesmo disco dos dados
+ * ("desligada"); com ela, a pasta precisa existir, ter a marca de quem configurou e aceitar
+ * escrita. O ultimo backup pronto vale nos dois casos.
+ */
+async function backupCheck(): Promise<StatusCheck> {
+  const last = await prisma.backup.findFirst({
+    where: { status: 'READY' },
+    orderBy: { finishedAt: 'desc' },
+    select: { finishedAt: true },
+  });
+  const lastDetail = {
+    label: 'Último backup pronto',
+    value: last?.finishedAt ? last.finishedAt.toISOString().slice(0, 16).replace('T', ' ') : '—',
+  };
+  if (!env.BACKUP_DIR) {
+    return {
+      id: 'backup',
+      name: 'Pasta de backup',
+      level: 'off',
+      summary: 'desligada (BACKUP_DIR vazio): o ZIP fica no bucket, no mesmo disco dos dados',
+      details: [lastDetail],
+    };
+  }
+  const dir = await checkBackupDir();
+  const gb = (n: number) => `${(n / 1024 ** 3).toFixed(1)} GB`;
+  return {
+    id: 'backup',
+    name: 'Pasta de backup',
+    level: dir.ok ? 'ok' : 'warn',
+    summary: dir.ok ? `pronta, ${gb(dir.free)} livres` : dir.error,
+    details: [{ label: 'Pasta no container', value: env.BACKUP_DIR }, lastDetail],
+  };
+}
+
 const ORDER: StatusLevel[] = ['ok', 'off', 'warn', 'error'];
 
 /** Todas as verificacoes em paralelo + a situacao geral (a pior, ignorando "off"). */
@@ -597,6 +634,7 @@ export async function systemStatus() {
     ldapCheck(),
     yaraPacksCheck(),
     integrityCheck(),
+    backupCheck(),
     configCheck(),
   ]);
   const overall = checks

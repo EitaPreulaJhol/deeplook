@@ -2,7 +2,16 @@
 // sobe sem root e sem capacidades (migra, cria o admin, recebe amostra, gera e
 // baixa backup com o pg_dump), e a captura abre pagina e bloqueia rede interna.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  chmodSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -343,8 +352,82 @@ async function apiImage() {
     });
     const logs = quiet('logs', 'dl-test-run');
     ok('sem erro de permissão', !/EACCES|EPERM/.test(logs.stdout + logs.stderr));
+
+    // Pasta de backup (item 6.13), montada como o compose faz: o usuario sem root da imagem grava
+    // no disco do host, e so ele le o ZIP. A pasta do teste e 777 para valer com qualquer uid de
+    // quem roda; numa instalacao, o README manda dar a pasta ao uid 1000.
+    const backupDir = join(TMP, 'pasta-backup');
+    rmSync(backupDir, { recursive: true, force: true });
+    mkdirSync(backupDir, { recursive: true });
+    chmodSync(backupDir, 0o777);
+    writeFileSync(join(backupDir, '.deeplook-backups'), '');
+    docker('rm', '-f', 'dl-test-run');
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-run',
+      '--network',
+      'dl-test-net',
+      '-p',
+      '127.0.0.1:53000:3000',
+      '--cap-drop',
+      'ALL',
+      '--security-opt',
+      'no-new-privileges:true',
+      '-v',
+      `${backupDir}:/backups`,
+      '-e',
+      'BACKUP_DIR=/backups',
+      '-e',
+      `DATABASE_URL=postgresql://postgres:pg@dl-test-pg:5432/${db}?schema=public`,
+      '-e',
+      'SESSION_SECRET=0123456789abcdef0123456789abcdef',
+      '-e',
+      'S3_ENDPOINT=http://dl-test-minio:9000',
+      '-e',
+      'CLAMAV_HOST=',
+      '-e',
+      'CAPTURE_URL=',
+      'dl-test-api',
+    );
+    await until(() => fetch(`${base}/health`).then((r) => r.ok));
+    cookie = '';
+    await call('/auth/login', json({ email: 'adm@x.io', password: 'Nova-Senha-Forte-77!' }));
+    const toDir = await call('/admin/backups', json({ noPassword: true }));
+    const inDir = await until(async () => {
+      const b = (await (await call('/admin/backups')).json()).items[0];
+      return toDir.status === 202 && b.status !== 'RUNNING' ? b : null;
+    }, 30);
+    const zips = readdirSync(backupDir).filter((f) => f.endsWith('.zip'));
+    ok(
+      'pasta de backup: o ZIP sai no disco do host',
+      inDir?.status === 'READY' && zips.length === 1,
+      {
+        status: inDir?.status,
+        error: inDir?.error,
+        files: readdirSync(backupDir),
+      },
+    );
+    if (zips.length === 1) {
+      const file = join(backupDir, zips[0]);
+      const sha = createHash('sha256').update(readFileSync(file)).digest('hex');
+      ok(
+        'pasta de backup: .sha256 confere, só o uid da API lê',
+        readFileSync(`${file}.sha256`, 'utf8') === `${sha}  ${zips[0]}\n` &&
+          (statSync(file).mode & 0o777) === 0o600 &&
+          statSync(file).uid === 1000,
+        { mode: (statSync(file).mode & 0o777).toString(8), uid: statSync(file).uid },
+      );
+      const dl = await call(`/admin/backups/${inDir.id}/download`);
+      ok(
+        'pasta de backup: baixa pela API',
+        dl.status === 200 && (await dl.arrayBuffer()).byteLength === statSync(file).size,
+      );
+    }
   } finally {
     quiet('rm', '-f', 'dl-test-run', 'dl-test-pg', 'dl-test-minio');
+    rmSync(join(TMP, 'pasta-backup'), { recursive: true, force: true });
     quiet('network', 'rm', 'dl-test-net');
     quiet('rmi', 'dl-test-api');
   }

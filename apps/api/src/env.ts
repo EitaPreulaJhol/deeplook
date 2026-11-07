@@ -83,6 +83,11 @@ const EnvSchema = z
     BACKUP_RETENTION_DAYS: z.coerce.number().int().min(1).max(90).default(7),
     BACKUP_PG_DUMP: z.string().min(1).default('pg_dump'),
     /**
+     * Pasta dos ZIPs (item 6.13), vista de dentro do container (o compose monta ali o
+     * BACKUP_DIR do .env). Vazia, o ZIP vai para o bucket, no mesmo disco dos dados.
+     */
+    BACKUP_DIR: z.string().default(''),
+    /**
      * Conferencia de integridade (item 4.2): de tempos em tempos o job le as amostras guardadas
      * e compara o SHA-256 com o da ficha, comecando pelas nunca conferidas. Intervalo em
      * minutos (0 = desligado) e quanto ler por rodada, em MB.

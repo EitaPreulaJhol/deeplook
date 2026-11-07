@@ -1,13 +1,33 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
 
-import { HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '../../src/env';
-import { configureDump, ensureFreeSpace, RESTORE_README, startBackups } from '../../src/lib/backup';
+import {
+  BACKUP_DIR_MARKER,
+  checkBackupDir,
+  configureDump,
+  ensureFreeSpace,
+  expireBackups,
+  RESTORE_README,
+  startBackups,
+} from '../../src/lib/backup';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
@@ -365,6 +385,149 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
   ok('sem espaço: recusa com o motivo', refused.includes('Espaço insuficiente'), refused);
   await ensureFreeSpace(OUT, 1024);
   ok('com espaço: segue', true);
+
+  // 13. Pasta de backup (item 6.13): o ZIP vai para BACKUP_DIR, que quem configura aponta para
+  // fora do disco dos dados. Sem a marca, um disco desmontado deixaria o backup no disco principal.
+  const legacy = await prisma.backup.findFirstOrThrow({
+    where: { status: 'READY', key: { startsWith: 'backups/' } },
+  });
+  const dir = join(OUT, `pasta-backup-${run}`);
+  mkdirSync(dir, { recursive: true });
+  env.BACKUP_DIR = dir;
+  list = (await req('GET', '/api/admin/backups', cAdm)).json();
+  ok(
+    'pasta sem a marca: a tela mostra o motivo',
+    list.destination === 'dir' && String(list.destinationProblem).includes(BACKUP_DIR_MARKER),
+    list.destinationProblem,
+  );
+  r = await req('POST', '/api/admin/backups', cAdm, { noPassword: true });
+  await routes.lastRun;
+  b = await prisma.backup.findUniqueOrThrow({ where: { id: r.json().item.id } });
+  ok(
+    'pasta sem a marca: recusa gravar, com o motivo, e não deixa nada nela',
+    b.status === 'FAILED' &&
+      (b.error ?? '').includes('disco pode não estar montado') &&
+      readdirSync(dir).length === 0,
+    { error: b.error, files: readdirSync(dir) },
+  );
+
+  writeFileSync(join(dir, BACKUP_DIR_MARKER), '');
+  ok('com a marca: pasta pronta', (await checkBackupDir()).ok === true);
+  r = await req('POST', '/api/admin/backups', cAdm, { noPassword: true });
+  await routes.lastRun;
+  const inDir = await prisma.backup.findUniqueOrThrow({ where: { id: r.json().item.id } });
+  const zipName = inDir.key ?? '';
+  const zipPath = join(dir, zipName);
+  ok(
+    'gravado na pasta, com data e id no nome',
+    inDir.status === 'READY' &&
+      zipName === `deeplook-backup-${inDir.createdAt.toISOString().slice(0, 10)}-${inDir.id}.zip` &&
+      existsSync(zipPath) &&
+      statSync(zipPath).size === Number(inDir.size),
+    { status: inDir.status, error: inDir.error, key: zipName },
+  );
+  let inBucketToo = true;
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: env.S3_BUCKET, Key: `backups/${inDir.id}.zip` }));
+  } catch {
+    inBucketToo = false;
+  }
+  ok('não vai para o bucket', !inBucketToo);
+  const zipBytes = readFileSync(zipPath);
+  const sha = createHash('sha256').update(zipBytes).digest('hex');
+  ok(
+    '.sha256 ao lado, no formato do sha256sum',
+    readFileSync(`${zipPath}.sha256`, 'utf8') === `${sha}  ${zipName}\n`,
+  );
+  ok(
+    'só o dono lê o ZIP e o .sha256',
+    (statSync(zipPath).mode & 0o777) === 0o600 &&
+      (statSync(`${zipPath}.sha256`).mode & 0o777) === 0o600,
+  );
+  ok(
+    'nenhum ZIP pela metade fica na pasta',
+    !readdirSync(dir).some((f) => f.endsWith('.partial')),
+    readdirSync(dir),
+  );
+  r = await req('GET', `/api/admin/backups/${inDir.id}/download`, cAdm);
+  ok(
+    'baixa da pasta, os mesmos bytes',
+    r.statusCode === 200 && Buffer.compare(r.rawPayload, zipBytes) === 0,
+    r.statusCode,
+  );
+  ok(
+    'o backup antigo, no bucket, continua baixando',
+    (await req('GET', `/api/admin/backups/${legacy.id}/download`, cAdm)).statusCode === 200,
+  );
+
+  // Disco desmontado (ou arquivo levado embora): resposta clara, e nada quebra.
+  renameSync(zipPath, `${zipPath}.fora`);
+  r = await req('GET', `/api/admin/backups/${inDir.id}/download`, cAdm);
+  ok(
+    'arquivo fora da pasta: 404 dizendo o que pode ser',
+    r.statusCode === 404 && r.json().error.includes('desmontado'),
+    r.body,
+  );
+  renameSync(`${zipPath}.fora`, zipPath);
+
+  // Falha no meio da montagem do ZIP: o provisorio sai da pasta.
+  const realSend = s3.send.bind(s3);
+  (s3 as unknown as { send: unknown }).send = (command: unknown) =>
+    command instanceof GetObjectCommand
+      ? Promise.reject(new Error('falha simulada ao ler o MinIO'))
+      : realSend(command as never);
+  r = await req('POST', '/api/admin/backups', cAdm, { noPassword: true });
+  await routes.lastRun;
+  (s3 as unknown as { send: unknown }).send = realSend;
+  b = await prisma.backup.findUniqueOrThrow({ where: { id: r.json().item.id } });
+  ok(
+    'falha no meio: FAILED, e nem o provisório nem o .sha256 ficam',
+    b.status === 'FAILED' &&
+      (b.error ?? '').includes('falha simulada') &&
+      readdirSync(dir).filter((f) => f.includes(b.id)).length === 0,
+    { error: b.error, files: readdirSync(dir) },
+  );
+
+  // Vencido e excluido: o ZIP e o .sha256 saem da pasta; o resto da pasta fica.
+  writeFileSync(join(dir, 'copia-de-outra-pessoa.txt'), 'nao e da API');
+  await prisma.backup.update({
+    where: { id: inDir.id },
+    data: { expiresAt: new Date(Date.now() - 1000) },
+  });
+  await expireBackups();
+  ok(
+    'vencido: ZIP e .sha256 saem da pasta, o resto fica',
+    !existsSync(zipPath) &&
+      !existsSync(`${zipPath}.sha256`) &&
+      existsSync(join(dir, 'copia-de-outra-pessoa.txt')) &&
+      existsSync(join(dir, BACKUP_DIR_MARKER)),
+    readdirSync(dir),
+  );
+  r = await req('POST', '/api/admin/backups', cAdm, { noPassword: true });
+  await routes.lastRun;
+  const toDelete = await prisma.backup.findUniqueOrThrow({ where: { id: r.json().item.id } });
+  await req('DELETE', `/api/admin/backups/${toDelete.id}`, cAdm);
+  ok(
+    'excluído: ZIP e .sha256 saem da pasta',
+    toDelete.status === 'READY' &&
+      !existsSync(join(dir, toDelete.key ?? 'x')) &&
+      !existsSync(join(dir, `${toDelete.key}.sha256`)),
+    readdirSync(dir),
+  );
+
+  // Pasta sem escrita para o usuario da API (como root, tudo e gravavel: nao da para provar).
+  if (process.getuid?.() !== 0) {
+    chmodSync(dir, 0o555);
+    const locked = await checkBackupDir();
+    chmodSync(dir, 0o755);
+    ok(
+      'pasta sem escrita: o motivo diz o uid',
+      !locked.ok && locked.error.includes('Sem permissão de escrita'),
+      locked,
+    );
+  }
+  env.BACKUP_DIR = '';
+  rmSync(dir, { recursive: true, force: true });
 
   // 10. LEIA-ME avisa o que a restauracao precisa (itens 105 e 106).
   ok('LEIA-ME cita o SESSION_SECRET', RESTORE_README.includes('SESSION_SECRET'));

@@ -19,6 +19,8 @@ const items = [
 ];
 const calls = [];
 let polls = 0;
+// Destino dos ZIPs (item 6.13): o bucket, ou a pasta BACKUP_DIR e o que a impede de gravar.
+let destination = { destination: 'bucket', destinationProblem: null };
 await context.route((url) => url.pathname.startsWith('/api/admin/backups'), async (route) => {
   const req = route.request();
   const path = new URL(req.url()).pathname;
@@ -30,7 +32,7 @@ await context.route((url) => url.pathname.startsWith('/api/admin/backups'), asyn
       if (polls === 1) Object.assign(running, { step: 'Copiando os arquivos (3 de 9)...', progress: 47 });
       if (polls >= 3) Object.assign(running, { status: 'READY', step: null, progress: 100, size: 2097152, manifest: { ...manifest, containsMalware: true }, expiresAt: '2026-11-05T10:00:00.000Z' });
     }
-    return json(200, { items, retentionDays: 7 });
+    return json(200, { items, retentionDays: 7, ...destination });
   }
   if (req.method() === 'GET' && path.endsWith('/download')) {
     calls.push({ method: 'GET', path });
@@ -128,6 +130,15 @@ expect('confirma a exclusão', (await dlg.innerText()).includes('O ZIP sai do se
 await dlg.locator('button:has-text("Excluir")').click();
 await settle();
 expect('excluído', calls.at(-1)?.method === 'DELETE' && calls.at(-1)?.path === '/api/admin/backups/b1' && (await rows().count()) === 3);
+
+// 6. Destino: no bucket avisa do mesmo disco; na pasta, mostra o que impede de gravar.
+const intro = async () => (await page.locator('.dl-backup__intro').allInnerTexts()).join(' ');
+expect('no bucket: avisa do mesmo disco e do BACKUP_DIR', (await intro()).includes('mesmo disco dos dados') && (await intro()).includes('BACKUP_DIR'));
+destination = { destination: 'dir', destinationProblem: 'A pasta de backup não tem o arquivo .deeplook-backups: o disco pode não estar montado.' };
+await page.reload({ waitUntil: 'networkidle' });
+await settle();
+expect('na pasta: diz onde e cita o .sha256', (await intro()).includes('pasta de backup do servidor') && (await intro()).includes('.sha256'));
+expect('na pasta com problema: mostra o motivo', (await msgs()).includes('.deeplook-backups'), await msgs());
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nbackup: tudo ok');

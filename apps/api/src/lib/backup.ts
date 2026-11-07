@@ -1,9 +1,19 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdtemp, readFile, rm, stat, statfs } from 'node:fs/promises';
+import { constants, createReadStream, createWriteStream } from 'node:fs';
+import {
+  access,
+  chmod,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  stat,
+  statfs,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { Readable } from 'node:stream';
 
 import {
@@ -26,6 +36,65 @@ import { ZipWriter } from './zip-writer';
 export const BACKUP_PREFIX = 'backups/';
 /** Partes do envio ao MinIO (o S3 aceita ate 10 mil partes de ate 5 GB). */
 const PART_SIZE = 64 * 1024 * 1024;
+
+/**
+ * Pasta de backup (item 6.13). Com BACKUP_DIR, o ZIP vai para uma pasta que quem configura o
+ * ambiente aponta para fora do disco dos dados (disco externo, NAS); levar dali para outro lugar
+ * e responsabilidade dele. A marca abaixo precisa ter sido criada por ele na pasta: com o disco
+ * desmontado, o ponto de montagem vira uma pasta vazia NO DISCO DOS DADOS, e sem a marca o
+ * backup seria gravado ali sem ninguem perceber.
+ */
+export const BACKUP_DIR_MARKER = '.deeplook-backups';
+
+/** O ZIP esta no bucket (antes do 6.13, ou sem BACKUP_DIR) ou na pasta? */
+export function inBucket(key: string): boolean {
+  return key.startsWith(BACKUP_PREFIX);
+}
+
+/** Caminho de um backup na pasta (so o nome guardado na linha, sem subir de pasta). */
+export function backupFilePath(key: string): string {
+  return join(env.BACKUP_DIR, basename(key));
+}
+
+/** A pasta de backup esta pronta? Devolve o espaco livre ou o motivo de nao estar. */
+export async function checkBackupDir(
+  dir = env.BACKUP_DIR,
+): Promise<{ ok: true; free: number } | { ok: false; error: string }> {
+  try {
+    if (!(await stat(dir)).isDirectory()) {
+      return { ok: false, error: `${dir} não é uma pasta.` };
+    }
+  } catch {
+    return { ok: false, error: `A pasta de backup ${dir} não existe.` };
+  }
+  try {
+    await access(join(dir, BACKUP_DIR_MARKER));
+  } catch {
+    return {
+      ok: false,
+      error:
+        `A pasta de backup não tem o arquivo ${BACKUP_DIR_MARKER}: o disco pode não estar ` +
+        `montado. Crie o arquivo na pasta de destino (touch ${BACKUP_DIR_MARKER}).`,
+    };
+  }
+  try {
+    await access(dir, constants.W_OK);
+  } catch {
+    return {
+      ok: false,
+      error: `Sem permissão de escrita na pasta de backup para o usuário da API (uid ${process.getuid?.() ?? '?'}).`,
+    };
+  }
+  const fs = await statfs(dir);
+  return { ok: true, free: fs.bavail * fs.bsize };
+}
+
+/** SHA-256 de um arquivo inteiro (o do ZIP, para o arquivo .sha256 ao lado dele). */
+async function fileSha256(file: string): Promise<string> {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  return hash.digest('hex');
+}
 
 /** Para os testes: outro comando/endereco do pg_dump (ex.: docker exec). */
 let dumpConfig: { command: string[]; databaseUrl?: string } = { command: [env.BACKUP_PG_DUMP] };
@@ -206,7 +275,17 @@ export async function runBackup(id: string, password: string | null = null): Pro
       .update({ where: { id }, data: { step, progress: Math.round(progress) } })
       .catch((err: unknown) => log.error({ err }, '[backup] falha ao gravar o progresso'));
   let zip: ZipWriter | null = null;
+  // Com BACKUP_DIR, o ZIP e montado direto na pasta, com nome provisorio: quem sincroniza a
+  // pasta nunca ve um ZIP pela metade, e nao e preciso espaco para duas copias.
+  const toDir = Boolean(env.BACKUP_DIR);
+  const name = `deeplook-backup-${backup.createdAt.toISOString().slice(0, 10)}-${id}.zip`;
+  const partial = toDir ? join(env.BACKUP_DIR, `.${name}.partial`) : null;
   try {
+    if (toDir) {
+      // Antes do pg_dump: pasta errada falha logo, com o motivo.
+      const ready = await checkBackupDir();
+      if (!ready.ok) throw new Error(ready.error);
+    }
     await setStep('Exportando o banco...', 2);
     const dumpFile = join(dir, 'deeplook.dump');
     await dumpDatabase(dumpFile);
@@ -219,9 +298,10 @@ export async function runBackup(id: string, password: string | null = null): Pro
     let doneBytes = 0;
     const files: { path: string; size: number; sha256: string }[] = [];
 
-    const zipFile = join(dir, 'backup.zip');
-    await ensureFreeSpace(dir, dumpSize + objectBytes);
+    const zipFile = partial ?? join(dir, 'backup.zip');
+    await ensureFreeSpace(toDir ? env.BACKUP_DIR : dir, dumpSize + objectBytes);
     zip = await ZipWriter.create(zipFile, { password });
+    if (partial) await chmod(partial, 0o600);
     const add = async (path: string, size: number, source: AsyncIterable<Buffer>, mtime?: Date) => {
       const hash = createHash('sha256');
       await zip!.add(path, size, hashing(source, hash) as unknown as Readable, mtime);
@@ -281,11 +361,23 @@ export async function runBackup(id: string, password: string | null = null): Pro
     const size = await zip.finish();
     zip = null;
 
-    await setStep('Guardando o ZIP...', 90);
-    const key = `${BACKUP_PREFIX}${id}.zip`;
-    await upload(zipFile, key, size, (sent) =>
-      setStep('Guardando o ZIP...', 90 + (sent / size) * 9),
-    );
+    let key: string;
+    if (partial) {
+      // O .sha256 ao lado deixa conferir a copia levada para fora (sha256sum -c) sem abrir o
+      // ZIP. So o dono le: o ZIP tem o banco e, se marcado, malware.
+      await setStep('Conferindo o ZIP na pasta de backup...', 92);
+      const sha256 = await fileSha256(partial);
+      const sidecar = join(env.BACKUP_DIR, `${name}.sha256`);
+      await writeFile(sidecar, `${sha256}  ${name}\n`, { mode: 0o600 });
+      await rename(partial, join(env.BACKUP_DIR, name));
+      key = name;
+    } else {
+      await setStep('Guardando o ZIP...', 90);
+      key = `${BACKUP_PREFIX}${id}.zip`;
+      await upload(zipFile, key, size, (sent) =>
+        setStep('Guardando o ZIP...', 90 + (sent / size) * 9),
+      );
+    }
     await prisma.backup.update({
       where: { id },
       data: {
@@ -301,6 +393,11 @@ export async function runBackup(id: string, password: string | null = null): Pro
     });
   } catch (err) {
     await zip?.abort();
+    // ZIP pela metade nao fica na pasta (nem o .sha256, se a falha veio depois dele).
+    if (partial) {
+      await rm(partial, { force: true });
+      await rm(join(env.BACKUP_DIR, `${name}.sha256`), { force: true });
+    }
     await prisma.backup.update({
       where: { id },
       data: {
@@ -315,12 +412,22 @@ export async function runBackup(id: string, password: string | null = null): Pro
   }
 }
 
-/** Apaga o ZIP do bucket (vencido ou excluido). */
+/**
+ * Apaga o ZIP (vencido ou excluido): do bucket, ou da pasta junto com o .sha256. So o que a
+ * propria API gravou, pelo nome guardado; copias levadas para outro lugar nao sao tocadas.
+ */
 export async function deleteBackupObject(key: string | null): Promise<void> {
   if (!key) return;
-  await s3
-    .send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }))
-    .catch(() => undefined);
+  if (inBucket(key)) {
+    await s3
+      .send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }))
+      .catch(() => undefined);
+    return;
+  }
+  if (!env.BACKUP_DIR) return;
+  const file = backupFilePath(key);
+  await rm(file, { force: true }).catch(() => undefined);
+  await rm(`${file}.sha256`, { force: true }).catch(() => undefined);
 }
 
 /** Vencidos: o ZIP sai do bucket e a linha fica como EXPIRED (historico). */

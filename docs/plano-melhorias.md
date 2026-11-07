@@ -37,7 +37,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.10 | Frontend: code splitting (rotas e noVNC) e CSS do Carbon | 🟡 | M | Web | ✅ |
 | 6.11 | Dependências da API: majors do `postal-mime`, multipart, rate-limit e bcryptjs | 🟡 | M | API | ✅ |
 | 6.12 | Dependências do web: React 19, Vite 8, TypeScript 7 | ⚪ | M–G | Web | ✅ (React e Vite; o TypeScript 7 está bloqueado) |
-| 6.13 | Cópia do backup fora do disco | 🔴 | M | API / Operação | ⏸ adiado pelo dono |
+| 6.13 | Pasta de backup fora do disco (`BACKUP_DIR`) | 🔴 | M | API / Operação | ✅ |
 | 6.14 | Suíte visual (Playwright) no CI | 🟡 | M | Repositório | ✅ |
 | 6.15 | Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env` | 🔴 | M | API / Compose | ✅ |
 | 6.16 | Sandbox do Chromium da captura (perfil seccomp próprio) | 🔴 | M | Capture / Compose | ✅ |
@@ -79,22 +79,23 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 |---|---|---|---|
 | 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | 2º | [5.3 Export MISP/TAXII](#53-exportar-indicadores-em-misptaxii) | Só se alguém for consumir | **M** |
-| — | [6.13 Backup fora do disco](#613-cópia-do-backup-fora-do-disco-adiado) | **Adiado pelo dono:** é o maior risco que sobra (perder o disco perde dado e backup), mas não entra na ordem e não se começa sem ele pedir | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 | — | `cap_drop` e `no-new-privileges` em `db`, `minio` e `clamav` | Não foi tentado: são serviços com estado e precisam de teste próprio | **P–M** |
 | — | Portas do `CONNECT` do proxy da captura | Sobra do 6.15, **revista no 6.18**: não restringir a 80/443/8080/8443 (quebraria phishing em porta alta); espelhar no `egress` a lista de portas proibidas do Chromium (a faixa 1–65535 já é validada desde o 6.19) | **P** |
 
-O **6.13 está registrado, não iniciado**: o desenho e os cuidados estão na seção dele, para
-quando o dono do projeto decidir retomar. Nada foi codificado.
+O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
+para fora do disco é de quem configura o ambiente. Fica de fora o **backup agendado** (hoje o
+ZIP só sai quando um admin clica): sem ele, a pasta externa só recebe o que alguém lembrar de
+gerar. Está na seção do 6.13.
 
 ### Para retomar
 
 ```bash
-# o 6.19 deixou tudo verde; confirme antes de mexer
+# o 6.13 deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1055 checagens em 35 arquivos
-cd ../api   && npm run test:images && npm run test:smoke   # 62 e 101 checagens
+cd ../api   && npm run test:integration          # 1070 checagens em 35 arquivos
+cd ../api   && npm run test:images && npm run test:smoke   # 65 e 101 checagens
 cd ../capture && npm test                         # 11 testes do proxy (sem rede)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
             && node scripts/seccomp-chromium.mjs --check
@@ -810,17 +811,78 @@ captura do console do sandbox, que exigiria um servidor VNC falso. **Próximo us
 a suíte no lugar, o CSS do Carbon seletivo (6.10) passa a ser verificável — cortar o SCSS e
 comparar as telas.
 
-### 6.13 Cópia do backup fora do disco (adiado)
-- **Problema:** o ZIP do backup fica no bucket (`backups/`), e bucket e Postgres são
-  `./data/minio` e `./data/pgdata` na mesma máquina: perder o disco perde dado e backup.
-- **Proposta (quando voltar à mesa):** cópia agendada para fora (`mc mirror` ou `rclone`) ou
-  um segundo destino S3, e um teste de restauração periódico.
+### 6.13 Pasta de backup fora do disco
 
-**Adiado pelo dono do projeto:** registrado aqui com o problema e o desenho, sem código e fora
-da ordem de execução. Não iniciar sem ele pedir. Quando retomar, a decisão que falta é o destino
-(segundo bucket S3, outro host, ou armazenamento frio) e se a cópia leva as amostras junto; o
-teste de restauração vale mais que a cópia em si, porque um backup que nunca foi restaurado é
-uma suposição.
+- **Problema:** o ZIP do backup ficava no bucket (`backups/`), e bucket e Postgres são
+  `./data/minio` e `./data/pgdata` na mesma máquina: perder o disco perdia dado e backup.
+- **Decisão do dono:** uma pasta configurada no `.env`, onde o backup é gravado. Levar essa pasta
+  para um disco externo (montagem, NAS, sincronização) é responsabilidade de quem configura o
+  ambiente; o DeepLook só grava nela.
+
+**Implementado:**
+- **`BACKUP_DIR`** no `.env` (caminho do host). O compose monta a pasta em `/backups` e passa
+  `BACKUP_DIR=/backups` à API só quando ela está definida (`${BACKUP_DIR:+/backups}`, conferido
+  com e sem a variável). Vazio, nada muda: o ZIP vai para o bucket, como antes.
+- **O ZIP vai direto para a pasta**, e não para o bucket também, porque uma cópia no mesmo disco
+  não protege de nada e dobraria o espaço:
+  - o nome é `deeplook-backup-AAAA-MM-DD-<id>.zip`;
+  - é montado como `.<nome>.partial` e renomeado no fim, então quem sincroniza a pasta nunca vê
+    um ZIP pela metade, e o espaço é conferido na própria pasta;
+  - ao lado vai um `.sha256` no formato do `sha256sum -c`;
+  - os dois com permissão `600`, aplicada logo ao criar o provisório, porque o ZIP tem o banco e,
+    se marcado, malware;
+  - numa falha, o provisório e o `.sha256` saem da pasta.
+- **A marca `.deeplook-backups`**, criada por quem configura. Com o disco desmontado, o ponto de
+  montagem vira uma pasta vazia no disco principal, e o backup seria gravado ali sem ninguém
+  perceber, que é exatamente a falha que o item quer evitar. Sem a marca, a pasta inexistente ou
+  sem escrita, a API recusa **antes do `pg_dump`**, com o motivo.
+- **Onde o problema aparece:**
+  - a aba Backup diz para onde o ZIP vai e mostra o que impede de gravar;
+  - a página de status ganha **Pasta de backup**: desligada sem `BACKUP_DIR`, em alerta com o
+    motivo, ou pronta com o espaço livre; nos três casos, com a hora do último backup pronto.
+- **Download, vencimento e exclusão:**
+  - leem e apagam da pasta só o ZIP e o `.sha256` que a API gravou, pelo nome guardado na linha;
+    o resto da pasta não é tocado;
+  - backups anteriores, no bucket, seguem baixando até vencer (a chave em `backups/` diz onde
+    estão; sem migração);
+  - arquivo sumido da pasta faz o download responder 404 com o motivo provável (disco
+    desmontado), e não 500.
+
+**Testes:**
+- `backup.test.ts` ganha 15 checagens (eram 39, são 54):
+  - sem a marca, a tela mostra o motivo e o backup é recusado sem deixar nada na pasta;
+  - com a marca, o ZIP é gravado na pasta com o nome esperado, e não no bucket;
+  - o `.sha256` confere byte a byte, e o ZIP e o `.sha256` saem com `600`;
+  - nenhum `.partial` sobra, o download devolve os mesmos bytes, e um backup antigo do bucket
+    continua baixando;
+  - arquivo fora da pasta dá 404 com o motivo;
+  - falha simulada no meio da montagem não deixa provisório nem `.sha256`;
+  - vencimento e exclusão apagam só o que é da API;
+  - pasta sem escrita: o motivo traz o uid.
+- **Prova inversa:** sem a exigência da marca, o backup é gravado na pasta "desmontada" e as duas
+  checagens da marca reprovam; sem a limpeza, a da falha no meio reprova.
+- O `test:images` sobe a imagem real com a pasta montada, como o compose faz. O usuário sem root
+  grava no disco do host, o arquivo sai com uid 1000 e `600`, o `.sha256` confere e o download
+  pela API devolve o arquivo.
+- O cenário de tela `backup` ganha 3 checagens: o aviso de mesmo disco, o texto da pasta e o
+  motivo do problema na tela.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1070 checagens em 35
+arquivos** de integração (eram 1055); `test:images` com **65** (eram 62); `test:smoke` com 101;
+113 testes unitários do web; o cenário `backup` verde.
+
+**Para ligar numa instalação:** criar a pasta no disco externo, a marca e o dono uid 1000,
+definir `BACKUP_DIR` no `.env` e `docker compose up -d` (o passo a passo está no README, em
+"Pasta de backup fora do disco").
+
+**Fica de fora:**
+- **Backup agendado.** Hoje o ZIP só sai quando um admin clica; a pasta externa só recebe o que
+  alguém lembrar de gerar. Agendar pede duas decisões do dono: a senha do ZIP automático (de onde
+  vem, já que a da tela não é guardada) e se leva as amostras (malware).
+- **Teste de restauração periódico.** O `backup.test.ts` restaura de verdade (`pg_restore` num
+  banco novo, contagens batendo), mas isso não roda na instalação.
+- **Retenção própria da pasta.** Vale a mesma `BACKUP_RETENTION_DAYS` (até 90 dias); quem quiser
+  guardar por mais tempo copia da pasta para outro lugar, e a API não apaga essas cópias.
 
 ### 6.15 Fronteiras da API: rede confiável, sessão por hash, CSRF e `.env`
 

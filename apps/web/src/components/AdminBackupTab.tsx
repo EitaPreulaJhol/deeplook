@@ -60,7 +60,13 @@ export function AdminBackupTab() {
   const confirm = useConfirm();
   const query = useQuery({
     queryKey: ['admin', 'backups'],
-    queryFn: () => api.get<{ items: Backup[]; retentionDays: number }>('/admin/backups'),
+    queryFn: () =>
+      api.get<{
+        items: Backup[];
+        retentionDays: number;
+        destination?: 'dir' | 'bucket';
+        destinationProblem?: string | null;
+      }>('/admin/backups'),
     // Acompanha o que esta em andamento.
     refetchInterval: (q) =>
       q.state.data?.items.some((b) => b.status === 'RUNNING') ? 2000 : false,
@@ -157,6 +163,14 @@ export function AdminBackupTab() {
           SHA-256 de cada parte. Fica disponível por {query.data?.retentionDays ?? 7} dias. A
           restauração está no LEIA-ME dentro do ZIP e no README.
         </p>
+        <p className="dl-backup__intro">
+          {query.data?.destination === 'dir'
+            ? 'Gravado na pasta de backup do servidor (BACKUP_DIR), com um arquivo .sha256 ao lado para conferir a cópia.'
+            : 'Guardado no MinIO, no mesmo disco dos dados: configure BACKUP_DIR no .env para gravar numa pasta fora dele.'}
+        </p>
+        {query.data?.destinationProblem && (
+          <HpsmMessage kind="error">{query.data.destinationProblem}</HpsmMessage>
+        )}
         <Checkbox
           id="backup-samples"
           labelText="Incluir os arquivos das amostras (o ZIP terá malware)"
