@@ -26,6 +26,8 @@ interface ScheduleView {
   summary: string | null;
   passwordConfigured: boolean;
   destination: 'dir' | 'bucket';
+  /** Falhou, atrasado, pasta com problema ou sem a senha (o mesmo erro do status). */
+  problem?: string | null;
 }
 
 const MONTHS = [
@@ -200,6 +202,9 @@ export function AdminBackupSchedule() {
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
         </HpsmMessage>
+      )}
+      {data?.problem && data.passwordConfigured && (
+        <HpsmMessage kind="error">Backup agendado com problema: {data.problem}.</HpsmMessage>
       )}
       {data && !data.passwordConfigured && (
         <HpsmMessage kind="info">

@@ -29,8 +29,11 @@ import {
   startBackups,
 } from '../../src/lib/backup';
 import {
+  lastRunBefore,
+  OVERDUE_GRACE_MS,
   readSchedule,
   runDueSchedule,
+  scheduledBackupProblem,
   scheduledRun,
   ScheduleInput,
   upcomingRuns,
@@ -38,6 +41,7 @@ import {
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
+import { backupCheck } from '../../src/lib/status';
 import { authRoutes } from '../../src/routes/auth';
 import * as routes from '../../src/routes/backups';
 
@@ -688,6 +692,92 @@ print(json.dumps({'names': names, 'bad': bad, 'files': len(m['files'])}))
     'desligado: não roda mais',
     r.json().schedule.nextRunAt === null && (await runDueSchedule(late)) === null,
   );
+  env.BACKUP_SCHEDULE_PASSWORD = '';
+
+  // 15. Alerta do agendamento (revisao, item 2): backup que nao sai vira erro no status, e um
+  // monitor com o token de status (?strict=1) recebe 503.
+  ok(
+    'última hora marcada antes de um instante',
+    lastRunBefore(ny, new Date('2026-03-09T12:00:00Z'))?.toISOString().slice(0, 16) ===
+      '2026-03-09T06:00' &&
+      lastRunBefore(weekly, saturday)?.toISOString().slice(0, 16) === '2026-11-06T05:00',
+  );
+  env.BACKUP_SCHEDULE_PASSWORD = SCHEDULE_PASS;
+  const daily = { ...weekly, days: [0, 1, 2, 3, 4, 5, 6] };
+  await req('PUT', '/api/admin/backups/schedule', cAdm, daily);
+  // Os backups das secoes anteriores ficam com 30 dias: sem isso eles satisfariam a regra e o
+  // teste nao distinguiria "ligado agora" de "atrasado".
+  await prisma.backup.updateMany({ data: { createdAt: new Date(Date.now() - 30 * 86400000) } });
+  let status15 = await backupCheck();
+  ok(
+    'recém-ligado, sem backup desde a última hora marcada (antes de ligar): sem erro',
+    status15.level !== 'error',
+    status15,
+  );
+  // Tres dias depois, sem nenhum backup: a hora marcada passou e nada saiu.
+  const later = new Date(Date.now() + 3 * 86400000);
+  status15 = await backupCheck(later);
+  ok(
+    'hora marcada passou sem backup pronto: erro, com a hora',
+    status15.level === 'error' && status15.summary.startsWith('nenhum backup pronto desde'),
+    status15.summary,
+  );
+  const lateDue = lastRunBefore(daily, new Date(later.getTime() - OVERDUE_GRACE_MS))!;
+  ok(
+    'horário marcado antes de ligar o agendamento não conta',
+    (await scheduledBackupProblem(new Date(Date.now() + OVERDUE_GRACE_MS))) === null,
+  );
+  const onTime = await prisma.backup.create({
+    data: {
+      status: 'READY',
+      scheduled: true,
+      includeSamples: true,
+      encrypted: true,
+      createdAt: new Date(lateDue.getTime() + 60_000),
+    },
+  });
+  ok('backup pronto depois da hora: sem erro', (await scheduledBackupProblem(later)) === null);
+  const failedRun = await prisma.backup.create({
+    data: {
+      status: 'FAILED',
+      scheduled: true,
+      includeSamples: true,
+      encrypted: true,
+      error: 'A pasta de backup não tem o arquivo .deeplook-backups',
+      createdAt: new Date(lateDue.getTime() + 120_000),
+    },
+  });
+  status15 = await backupCheck(later);
+  ok(
+    'último agendado falhou: erro, com o motivo',
+    status15.level === 'error' &&
+      status15.summary.includes('falhou') &&
+      status15.summary.includes('.deeplook-backups'),
+    status15.summary,
+  );
+  await prisma.backup.deleteMany({ where: { id: { in: [onTime.id, failedRun.id] } } });
+  env.BACKUP_DIR = join(OUT, 'pasta-que-nao-existe');
+  status15 = await backupCheck();
+  ok(
+    'pasta com problema e agendamento ligado: erro (o próximo vai falhar)',
+    status15.level === 'error' && status15.summary.includes('vai falhar'),
+    status15.summary,
+  );
+  env.BACKUP_SCHEDULE_PASSWORD = '';
+  ok(
+    'ligado sem a senha: erro',
+    (await backupCheck()).level === 'error' &&
+      (await scheduledBackupProblem())?.includes('BACKUP_SCHEDULE_PASSWORD') === true,
+  );
+  env.BACKUP_SCHEDULE_PASSWORD = SCHEDULE_PASS;
+  await req('PUT', '/api/admin/backups/schedule', cAdm, { ...daily, enabled: false });
+  status15 = await backupCheck(later);
+  ok(
+    'desligado: a pasta com problema volta a ser só alerta',
+    status15.level === 'warn' && (await scheduledBackupProblem(later)) === null,
+    status15,
+  );
+  env.BACKUP_DIR = '';
   env.BACKUP_SCHEDULE_PASSWORD = '';
 
   // 10. LEIA-ME avisa o que a restauracao precisa (itens 105 e 106).

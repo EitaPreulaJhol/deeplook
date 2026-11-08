@@ -182,6 +182,11 @@ items.unshift({ ...items[0], id: 'b9', scheduled: true, createdBy: null });
 await page.reload({ waitUntil: 'networkidle' });
 await settle();
 expect('backup do agendamento: "Agendado" em Por', (await rowText(0)).includes('Agendado'), await rowText(0));
+// O agendado falhou: o motivo aparece na propria aba, como erro (o mesmo da pagina de status).
+schedule = { ...schedule, problem: 'o último backup agendado falhou (2026-11-09 05:00 UTC): A pasta de backup não tem o arquivo .deeplook-backups' };
+await page.reload({ waitUntil: 'networkidle' });
+await settle();
+expect('agendado com problema: erro na aba, com o motivo', (await page.locator('.hpsm-msg--error .hpsm-msg__text').allInnerTexts()).some((t) => t.includes('Backup agendado com problema') && t.includes('.deeplook-backups')), await msgs());
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nbackup: tudo ok');

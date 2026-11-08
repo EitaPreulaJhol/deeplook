@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { audit } from './audit';
-import { backupInFlight, createBackup } from './backup';
+import { backupInFlight, checkBackupDir, createBackup } from './backup';
 import { log } from './log';
 import { prisma } from './prisma';
 import { readSetting, writeSetting } from './settings';
@@ -49,6 +49,8 @@ export type BackupSchedule = ScheduleConfig & {
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastBackupId: string | null;
+  /** Quando foi salvo: horarios anteriores nao contam para o alerta de atraso. */
+  savedAt?: string | null;
 };
 
 /** Ano, mes, dia, hora e minuto de um instante no fuso dado. */
@@ -127,6 +129,74 @@ export function upcomingRuns(config: ScheduleConfig, after: Date, count = 1): Da
   return runs;
 }
 
+/** A ultima execucao marcada ate `before` (inclusive), ou null se nao houver em 400 dias. */
+export function lastRunBefore(config: ScheduleConfig, before: Date): Date | null {
+  const [hour, minute] = config.time.split(':').map(Number);
+  const start = partsIn(before, config.timezone);
+  for (let offset = 0; offset < 400; offset++) {
+    const day = new Date(Date.UTC(start.year, start.month - 1, start.day - offset, 12));
+    const d = day.getUTCDate();
+    const matches =
+      config.mode === 'weekly' ? config.days.includes(day.getUTCDay()) : d === config.dayOfMonth;
+    if (!matches) continue;
+    const at = zonedTimeToUtc(
+      day.getUTCFullYear(),
+      day.getUTCMonth() + 1,
+      d,
+      hour,
+      minute,
+      config.timezone,
+    );
+    if (at.getTime() <= before.getTime()) return at;
+  }
+  return null;
+}
+
+/** Folga para um backup grande terminar antes de a falta dele virar alerta. */
+export const OVERDUE_GRACE_MS = 6 * 60 * 60 * 1000;
+
+const utc = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+
+/**
+ * O que esta errado com o backup agendado, ou null (item 2 da revisao). Sem isto, um backup que
+ * falha so aparece para quem abrir a aba Backup: um disco externo desmontado passaria semanas
+ * sem ninguem saber. A pagina de status mostra como erro, e um monitor com o token de status
+ * (?strict=1) recebe 503. Desligado, nada a dizer.
+ */
+export async function scheduledBackupProblem(now = new Date()): Promise<string | null> {
+  const schedule = await readSchedule();
+  if (!schedule?.enabled) return null;
+  if (!env.BACKUP_SCHEDULE_PASSWORD) {
+    return 'agendamento ligado sem BACKUP_SCHEDULE_PASSWORD no .env: nenhum backup sai';
+  }
+  if (env.BACKUP_DIR) {
+    const dir = await checkBackupDir();
+    if (!dir.ok) return `o próximo backup agendado vai falhar: ${dir.error}`;
+  }
+  const lastScheduled = await prisma.backup.findFirst({
+    where: { scheduled: true },
+    orderBy: { createdAt: 'desc' },
+    select: { status: true, error: true, createdAt: true },
+  });
+  if (lastScheduled?.status === 'FAILED') {
+    return `o último backup agendado falhou (${utc(lastScheduled.createdAt)}): ${lastScheduled.error ?? 'sem motivo registrado'}`;
+  }
+  // A ultima hora marcada que ja teve folga para terminar, depois de o agendamento ser salvo,
+  // precisa ter deixado um backup pronto (manual tambem vale; vencido depois tambem).
+  const due = lastRunBefore(schedule, new Date(now.getTime() - OVERDUE_GRACE_MS));
+  const since = Date.parse(schedule.savedAt ?? schedule.lastRunAt ?? now.toISOString());
+  if (due && due.getTime() > since) {
+    const made = await prisma.backup.count({
+      where: {
+        status: { in: ['READY', 'EXPIRED'] },
+        createdAt: { gte: new Date(due.getTime() - 5 * 60 * 1000) },
+      },
+    });
+    if (!made) return `nenhum backup pronto desde ${utc(due)}, quando o agendado devia ter saído`;
+  }
+  return null;
+}
+
 export async function readSchedule(): Promise<BackupSchedule | null> {
   return (await readSetting(KEY)) as BackupSchedule | null;
 }
@@ -144,6 +214,7 @@ export async function saveSchedule(
     nextRunAt: config.enabled ? (upcomingRuns(config, new Date())[0]?.toISOString() ?? null) : null,
     lastRunAt: previous?.lastRunAt ?? null,
     lastBackupId: previous?.lastBackupId ?? null,
+    savedAt: new Date().toISOString(),
   };
   await writeSetting(KEY, schedule);
   await audit(prisma, req, {

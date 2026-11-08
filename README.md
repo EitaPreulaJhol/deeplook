@@ -520,8 +520,17 @@ as próximas execuções antes de salvar.
   ele, fica no bucket, no mesmo disco dos dados.
 - **API fora do ar na hora marcada:** o backup sai uma vez quando ela volta, e o calendário segue.
   Com outro backup em andamento, ele espera e sai no minuto seguinte ao término.
-- Na lista, aparece com **Agendado** em "Por"; a mudança do agendamento vai para a Auditoria, e a
-  página de status mostra o próximo e alerta se ele estiver ligado sem a senha.
+- Na lista, aparece com **Agendado** em "Por"; a mudança do agendamento vai para a Auditoria.
+- **Quando algo dá errado, avisa.** Com o agendamento ligado, a verificação **Backup** da página
+  de status fica em **erro** (vermelho) quando:
+  - o último agendado falhou;
+  - passou a hora marcada (com 6 h de folga) sem nenhum backup pronto;
+  - a pasta de backup tem problema;
+  - falta a senha.
+
+  A aba Backup mostra o mesmo motivo. Um monitor com o token de status e `?strict=1` recebe
+  **503**, então o Uptime Kuma ou o Zabbix avisam sem configuração nova. Horários anteriores a
+  ligar o agendamento não contam. Com o agendamento desligado, nada disso vira erro.
 
 ### Pasta de backup fora do disco
 
@@ -542,7 +551,7 @@ docker compose up -d                                  # recria a API com a pasta
 - **A marca `.deeplook-backups`:** com o disco desmontado, o ponto de montagem vira uma pasta
   vazia **no disco principal**, e o backup seria gravado ali sem ninguém perceber. Sem a marca
   na pasta, a API recusa gravar e diz por quê, na aba Backup e na página de status
-  (**Pasta de backup**).
+  (**Backup**).
 - **No disco:** `deeplook-backup-AAAA-MM-DD-<id>.zip` e um `.sha256` ao lado, para conferir uma
   cópia com `sha256sum -c`. Os dois só são legíveis pelo uid 1000. O ZIP é montado com nome
   provisório (`.<nome>.partial`) e renomeado no fim, então quem sincroniza a pasta nunca copia

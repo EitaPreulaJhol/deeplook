@@ -18,7 +18,13 @@ import {
   expireBackups,
   inBucket,
 } from '../lib/backup';
-import { describe, readSchedule, saveSchedule, ScheduleInput } from '../lib/backup-schedule';
+import {
+  describe,
+  readSchedule,
+  saveSchedule,
+  scheduledBackupProblem,
+  ScheduleInput,
+} from '../lib/backup-schedule';
 import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
@@ -113,6 +119,8 @@ export async function backupRoutes(app: FastifyInstance) {
       summary: schedule?.enabled ? describe(schedule) : null,
       passwordConfigured: Boolean(env.BACKUP_SCHEDULE_PASSWORD),
       destination: env.BACKUP_DIR ? 'dir' : 'bucket',
+      // O mesmo erro da pagina de status: falhou, atrasado, pasta com problema ou sem senha.
+      problem: await scheduledBackupProblem(),
     };
   };
 

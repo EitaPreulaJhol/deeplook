@@ -45,6 +45,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.18 | Bateria de verificação: repetição da captura, download de amostra e portas dos testes | 🟡 | P | API / Testes | ✅ |
 | 6.19 | Rede da captura sem saída direta (proxy de saída em container próprio) | 🔴 | M | Capture / Compose | ✅ |
 | 6.20 | Capacidades mínimas em `db`, `minio` e `clamav`; portas proibidas no `egress` | 🟡 | P–M | Compose / Capture | ✅ |
+| 6.21 | Alerta do backup agendado no status e permissões dos arquivos da máquina | 🔴 | P | API / Web / Operação | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -92,7 +93,7 @@ Backup.
 # o feed de indicadores (5.3) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1125 checagens em 36 arquivos
+cd ../api   && npm run test:integration          # 1134 checagens em 36 arquivos
 cd ../api   && npm run test:images && npm run test:smoke   # 67 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
@@ -1403,6 +1404,49 @@ dados ficam onde estão.
   ele mede na imagem da versão do capture, sem rede e com 16 páginas em paralelo (cerca de 50 s),
   e compara com a do proxy. Hoje confere. Não está no CI, porque leva quase um minuto e só muda
   com o Playwright.
+
+### 6.21 Alerta do backup agendado e permissões dos arquivos
+
+Os dois primeiros itens da revisão feita depois do 5.3, os pequenos que valiam já.
+
+**Backup que falha não avisava ninguém.** O agendado (6.13) só mostrava a falha na aba Backup;
+um disco externo desmontado passaria semanas sem ninguém saber. Agora `scheduledBackupProblem`
+diz o que está errado, com o agendamento ligado:
+- o último agendado falhou (com a data e o motivo);
+- a última hora marcada, com **6 h de folga** para um backup grande terminar, passou sem nenhum
+  backup pronto (manual também vale; vencido depois também);
+- a pasta de backup tem problema (o próximo vai falhar);
+- falta a senha.
+
+A verificação da página de status passa a se chamar **Backup** e fica em **erro**, e não em
+alerta. É de propósito: o `?strict=1` do token de status só responde 503 em erro, então o monitor
+que já existe avisa sem configuração nova. A aba Backup mostra o mesmo motivo. Com o agendamento
+desligado, nada disso vira erro, e a pasta com problema volta a ser só alerta. Horários anteriores
+a ligar o agendamento não contam: o agendamento guarda `savedAt`, sem isso daria alarme falso logo
+depois de ligar.
+
+**Testes:**
+- `backup.test.ts` passou de 72 para **81** checagens:
+  - a última hora marcada, inclusive na troca do horário de verão;
+  - recém-ligado não acusa;
+  - três dias depois sem backup, erro com a hora;
+  - backup pronto depois da hora, sem erro;
+  - último agendado falhou, erro com o motivo;
+  - pasta com problema e sem senha, erro;
+  - desligado, a pasta volta a ser alerta.
+- **A prova inversa pegou um teste fraco.** Sem a proteção do `savedAt`, o teste continuava verde,
+  porque os backups das seções anteriores, criados minutos antes, já satisfaziam a regra. O teste
+  agora envelhece esses backups antes de conferir, e a prova inversa reprova exatamente as duas
+  checagens da proteção.
+- O cenário de tela `backup` ganhou a checagem do motivo na aba, como erro.
+
+**Permissões dos arquivos da máquina.** Cerca de 2.950 arquivos e pastas do repositório
+(inclusive o código da API, cópia do Windows) e de `data/` eram graváveis por qualquer usuário da
+máquina. Em `data/pgdata` eram **1.524 arquivos do banco**, além do MinIO e do ClamAV. Foi
+aplicado `chmod o-w` em tudo o que é do usuário (links simbólicos de fora). Sobrou zero, e o Git
+não mudou, porque o `core.fileMode` está desligado. É seguro também em `data/`: na subida, cada
+container ajusta o dono da sua pasta, e nenhum depende de "outros" poderem gravar. Como o `chmod
+600 .env` do 6.15, é da máquina: quem copiar o projeto do Windows de novo precisa repetir.
 
 ---
 
