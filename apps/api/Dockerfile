@@ -1,5 +1,12 @@
 FROM node:26-slim AS base
 ENV NODE_ENV=production
+# Sem a telemetria e a checagem de versao do Prisma CLI (o `migrate deploy` da subida chamava a
+# internet e gravava em ~/.cache). Com a raiz somente leitura (revisao, item 4), os caches do
+# CLI vao para o /tmp, o unico lugar gravavel alem da pasta de backup.
+ENV CHECKPOINT_DISABLE=1 \
+  PRISMA_HIDE_UPDATE_MESSAGE=1 \
+  XDG_CACHE_HOME=/tmp/.cache \
+  XDG_CONFIG_HOME=/tmp/.config
 WORKDIR /app
 
 # pg_dump 16 (backup, item 81) do repositorio oficial do PostgreSQL (PGDG): o

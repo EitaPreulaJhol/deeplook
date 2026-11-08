@@ -60,6 +60,11 @@ export function runArgs(service, { healthInterval = '2s', restart = false } = {}
   if (service.shm_size) args.push('--shm-size', String(service.shm_size));
   if (service.mem_limit) args.push('--memory', String(service.mem_limit));
   if (service.pids_limit) args.push('--pids-limit', String(service.pids_limit));
+  // Volume nomeado do compose vira um volume anonimo no mesmo lugar (o /tmp em disco da API,
+  // revisao item 4). Bind (pasta do host) fica com quem chama: o caminho e do teste.
+  for (const v of service.volumes ?? []) {
+    if (v.type === 'volume') args.push('-v', v.target);
+  }
   const test = service.healthcheck?.test;
   if (test) {
     // ["CMD", "a", "b"] vira "a b"; ["CMD-SHELL", "cmd"] ja e o comando.

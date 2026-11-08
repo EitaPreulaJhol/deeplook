@@ -70,6 +70,10 @@ docker compose up
 
 Acesse: **http://localhost:8080**
 
+> **Para abrir a outras pessoas** (homelab, piloto): siga o
+> [checklist de implantação](docs/implantacao.md), que cobre Cloudflare Access, a VPN da captura,
+> o backup fora do disco restaurado uma vez e o monitoramento.
+
 > Dica: rode em segundo plano com `docker compose up -d` e veja os logs com
 > `docker compose logs -f`.
 
@@ -359,8 +363,10 @@ os redirecionamentos, o certificado e o que foi bloqueado.
     seguinte. Enquanto o container troca, a API espera a vez (até 2 minutos). Duas capturas
     seguidas ficam com pelo menos uns 10 s entre si, porque o Docker atrasa cada vez mais o
     reinício de um container que viveu menos que isso.
-- **Saída para a internet:** o servidor precisa alcançar os links. Para sair por um proxy
-  ou VPN, use a rede `capture-egress`, a do contêiner `egress`.
+- **Saída para a internet:** o servidor precisa alcançar os links. Sem VPN, a captura abre
+  links maliciosos **pelo IP da sua casa**. A rede `capture-egress` tem sub-rede fixa
+  (`CAPTURE_EGRESS_SUBNET`) para o host mandá-la por uma VPN com roteamento por origem; o
+  passo a passo está em [docs/implantacao.md](docs/implantacao.md), passo 3.
 - **Atualizar uma instalação:** `docker compose down` antes do `up -d --build`, porque o Docker
   não transforma em interna uma rede que já existe.
 - **HTML:** só baixa como texto (`.html.txt`), nunca abre no navegador.
@@ -687,12 +693,14 @@ COOKIE_SECURE=true
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:1.5` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
+| `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
 | `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |
+| `API_PIDS_LIMIT` | limite de processos e threads da API (pico medido: 32, com amostra e backup) | `256` |
 | `WEB_MEM_LIMIT` | limite de memória do container do web (nginx) | `256m` |
 | `LOG_MAX_SIZE` · `LOG_MAX_FILE` | rotação dos logs do Docker, em todos os serviços: tamanho de cada arquivo e quantos ficam | `10m` · `3` |
 | `UPLOAD_DAILY_LIMIT` | Envios por usuário comum nas últimas 24 horas (arquivo, link, cada arquivo de um `.zip`); analistas e admins sem limite; `0` desliga | `20` |
@@ -800,8 +808,11 @@ npx prisma generate
   LAN, ao host nem a um endereço interno, porque não há rota fora do proxy.
 - Os logs da API e do nginx guardam o caminho sem a query string, porque a busca e a ficha do
   indicador levam URLs de vítima, com token ou e-mail.
-- O `web`, a API, o capture e o egress rodam **sem root e sem capacidades**; o `web` ainda com o sistema
-  de arquivos somente leitura. As imagens finais não trazem o `npm`. O nginx não revela a
+- O `web`, a API, o capture e o egress rodam **sem root e sem capacidades**, com o sistema de
+  arquivos **somente leitura** e limite de processos. A API grava só no `/tmp`, que é um volume
+  em disco (`api-tmp`) e não memória, porque sem `BACKUP_DIR` o ZIP inteiro do backup é montado
+  ali. As sobras de um backup ou ISO interrompido são apagadas na subida. A telemetria do Prisma
+  CLI está desligada (`CHECKPOINT_DISABLE`). As imagens finais não trazem o `npm`. O nginx não revela a
   versão, manda `Permissions-Policy`, `Cross-Origin-Opener-Policy` e
   `Cross-Origin-Resource-Policy`, e os assets com hash saem com um ano de cache.
 - O banco, o MinIO e o ClamAV rodam com `no-new-privileges` e **só as capacidades que o

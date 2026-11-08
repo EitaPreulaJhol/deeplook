@@ -46,6 +46,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.19 | Rede da captura sem saída direta (proxy de saída em container próprio) | 🔴 | M | Capture / Compose | ✅ |
 | 6.20 | Capacidades mínimas em `db`, `minio` e `clamav`; portas proibidas no `egress` | 🟡 | P–M | Compose / Capture | ✅ |
 | 6.21 | Alerta do backup agendado no status e permissões dos arquivos da máquina | 🔴 | P | API / Web / Operação | ✅ |
+| 6.22 | API com raiz somente leitura, `/tmp` em disco e limite de processos; checklist de implantação | 🟡 | P–M | API / Compose / Operação | ✅ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -94,7 +95,7 @@ Backup.
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
 cd ../api   && npm run test:integration          # 1134 checagens em 36 arquivos
-cd ../api   && npm run test:images && npm run test:smoke   # 67 e 101 checagens
+cd ../api   && npm run test:images && npm run test:smoke   # 71 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
@@ -1447,6 +1448,68 @@ aplicado `chmod o-w` em tudo o que é do usuário (links simbólicos de fora). S
 não mudou, porque o `core.fileMode` está desligado. É seguro também em `data/`: na subida, cada
 container ajusta o dono da sua pasta, e nenhum depende de "outros" poderem gravar. Como o `chmod
 600 .env` do 6.15, é da máquina: quem copiar o projeto do Windows de novo precisa repetir.
+
+### 6.22 API com raiz somente leitura e checklist de implantação
+
+O item 4 da revisão. O `capture` e o `web` já rodavam somente leitura e com limite de processos;
+a API, que analisa arquivo malicioso, ainda não.
+
+**Medido antes de mexer:**
+- O `test:images` (migrar, criar o admin, receber amostra, gerar backup) com `docker diff` no
+  container. Fora do `/tmp`, a API só gravava em `/home/node/.cache` e `/home/node/.config`, e
+  era o **Prisma CLI** do `migrate deploy`: a verificação de versão e a telemetria
+  (`checkpoint-nodejs`), que chamavam a internet a cada subida.
+- O *schema engine* já vem na imagem (`node_modules/@prisma/engines`) e roda sem rede: não há
+  download de binário.
+- No código, só `backup.ts` e `sandbox.ts` gravam, e sempre no `tmpdir()` (fora o `BACKUP_DIR`).
+
+**A ressalva que mudou o desenho:** o `/tmp` da API não pode ser `tmpfs` como o do `capture`.
+Sem `BACKUP_DIR`, o ZIP inteiro do backup (banco e arquivos) é montado ali, e o ISO do sandbox
+também passa por lá. Em memória, isso contaria no `mem_limit` (4 GB) e derrubaria a API num
+backup grande.
+
+**Implementado:**
+- O compose dá à API `read_only: true` e o `/tmp` num **volume em disco** (`api-tmp`).
+- `pids_limit` de 256 (`API_PIDS_LIMIT`). O pico medido foi de **32**, depois de migrar, receber
+  amostra e gerar backup (as threads dos workers contam), então há folga de 8 vezes para
+  análises em paralelo.
+- A imagem desliga a telemetria do Prisma (`CHECKPOINT_DISABLE=1`) e aponta os caches do CLI
+  para o `/tmp` (`XDG_CACHE_HOME`, `XDG_CONFIG_HOME`).
+- `cleanStaleWorkDirs` apaga na subida as pastas `deeplook-backup-*` e `deeplook-iso-*` que um
+  travamento deixou. Elas já se acumulavam para sempre na camada gravável do container, e com um
+  volume persistente acumulariam mais.
+
+**Testes:** o `test:images` sobe a API com a configuração **lida do compose** (`runArgs` aprendeu
+os volumes: o nomeado vira anônimo no teste; o bind fica com quem chama). Antes, a configuração
+era escrita à mão. Checagens novas:
+- raiz somente leitura (`/app` e `/home/node` recusam escrita) e `/tmp` gravável;
+- Prisma sem telemetria;
+- pico de processos abaixo da metade do teto (impresso no log);
+- as sobras de backup e ISO limpas no reinício.
+
+A checagem de erros de permissão nos logs passou a procurar também `EROFS`: uma gravação barrada
+pela raiz somente leitura não passa calada. O `test:images` passou de 67 para **71**, com os
+dois backups (bucket e pasta) funcionando na raiz somente leitura.
+
+**Sub-rede fixa da `capture-egress`** (`CAPTURE_EGRESS_SUBNET`, padrão `172.31.252.0/24`; a
+`deeplook` usa a `.250` e o smoke, a `.251`). Sem ela, o host não tem como mandar só a saída da
+captura por uma VPN, e a captura abre links maliciosos pelo IP da casa. Conferido que não colide
+com as redes deste host e que um container nela sai para a internet com origem na faixa (é
+desta origem que o `ip rule` do checklist depende).
+
+**Ficou de fora:** `noexec` no `/tmp` da API. Um volume nomeado não aceita a opção sem amarrar a
+uma pasta do host. A raiz somente leitura, o usuário sem root e o `cap_drop: ALL` seguem valendo.
+
+**Checklist de implantação** ([implantacao.md](implantacao.md)): o roteiro do piloto no homelab,
+na ordem em que um passo protege o seguinte. Ele cobre:
+- requisitos (Docker 28+, memória, *user namespaces*);
+- segredos e permissões;
+- Tunnel, `COOKIE_SECURE` e **Cloudflare Access**, com **service token** para os clientes de
+  máquina (Uptime Kuma, MISP, TAXII), que de outro modo parariam no Access;
+- a captura saindo **por VPN** (roteamento por origem da sub-rede fixa da `capture-egress`);
+- o sandbox desligado no piloto;
+- o backup no disco externo, agendado e **restaurado uma vez**;
+- subida, contas, monitoramento, conferência final, operação e o combinado com quem vai testar.
 
 ---
 

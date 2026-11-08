@@ -263,10 +263,9 @@ async function apiImage() {
       'dl-test-net',
       '-p',
       '127.0.0.1:53000:3000',
-      '--cap-drop',
-      'ALL',
-      '--security-opt',
-      'no-new-privileges:true',
+      // Com o endurecimento do compose: sem capacidades, raiz somente leitura, /tmp em volume,
+      // limites de memoria e de processos (revisao, item 4).
+      ...runArgs(composeService('api')),
       '-e',
       `DATABASE_URL=postgresql://postgres:pg@dl-test-pg:5432/${db}?schema=public`,
       '-e',
@@ -346,6 +345,39 @@ async function apiImage() {
       "fetch('http://localhost:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
     );
     ok('healthcheck do compose responde', health.status === 0, health.stderr);
+    // Raiz somente leitura: so o /tmp (volume em disco) aceita escrita, nem a home do node.
+    const inApi = (...args) => quiet('exec', 'dl-test-run', ...args);
+    ok(
+      'API: raiz somente leitura, /tmp gravável',
+      inApi('touch', '/home/node/x').status !== 0 &&
+        inApi('touch', '/app/x').status !== 0 &&
+        inApi('touch', '/tmp/x').status === 0,
+    );
+    ok(
+      'API: Prisma sem telemetria',
+      inApi('sh', '-c', 'test ! -e /tmp/.cache/checkpoint-nodejs').status === 0,
+      inApi('ls', '-R', '/tmp/.cache').stdout,
+    );
+    // Teto de processos: o pico depois de migrar, receber amostra e gerar backup, com folga.
+    const pidsMax = Number(inApi('cat', '/sys/fs/cgroup/pids.max').stdout?.trim());
+    const pidsPeak = Number(inApi('cat', '/sys/fs/cgroup/pids.peak').stdout?.trim());
+    console.log(`     pids: pico ${pidsPeak} de ${pidsMax}`);
+    ok(
+      'API: limite de processos com folga (pico abaixo da metade)',
+      pidsMax > 0 && pidsPeak > 0 && pidsPeak * 2 <= pidsMax,
+      { pidsPeak, pidsMax },
+    );
+    // Sobras de um backup ou ISO interrompido somem na subida seguinte (o /tmp sobrevive).
+    inApi('mkdir', '-p', '/tmp/deeplook-backup-sobra/x', '/tmp/deeplook-iso-sobra');
+    docker('restart', '-t', '20', 'dl-test-run');
+    await until(() => fetch(`${base}/health`).then((r) => r.ok));
+    await sleep(1000);
+    ok(
+      'API: sobras de backup e ISO limpas na subida',
+      inApi('sh', '-c', 'ls -d /tmp/deeplook-* 2>/dev/null').stdout?.trim() === '' &&
+        inApi('test', '-e', '/tmp/x').status === 0,
+      inApi('ls', '/tmp').stdout,
+    );
     const start = Date.now();
     docker('stop', '-t', '20', 'dl-test-run');
     const code = docker('inspect', '-f', '{{.State.ExitCode}}', 'dl-test-run').trim();
@@ -354,7 +386,10 @@ async function apiImage() {
       ms: Date.now() - start,
     });
     const logs = quiet('logs', 'dl-test-run');
-    ok('sem erro de permissão', !/EACCES|EPERM/.test(logs.stdout + logs.stderr));
+    ok(
+      'sem erro de permissão',
+      !/EACCES|EPERM|EROFS|read-only file system/i.test(logs.stdout + logs.stderr),
+    );
 
     // Pasta de backup (item 6.13), montada como o compose faz: o usuario sem root da imagem grava
     // no disco do host, e so ele le o ZIP. A pasta do teste e 777 para valer com qualquer uid de
@@ -395,10 +430,9 @@ async function apiImage() {
       'dl-test-net',
       '-p',
       '127.0.0.1:53000:3000',
-      '--cap-drop',
-      'ALL',
-      '--security-opt',
-      'no-new-privileges:true',
+      // Com o endurecimento do compose: sem capacidades, raiz somente leitura, /tmp em volume,
+      // limites de memoria e de processos (revisao, item 4).
+      ...runArgs(composeService('api')),
       '-v',
       `${backupDir}:/backups`,
       '-e',

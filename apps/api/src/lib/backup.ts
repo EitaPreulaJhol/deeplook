@@ -5,6 +5,7 @@ import {
   access,
   chmod,
   mkdtemp,
+  readdir,
   readFile,
   rename,
   rm,
@@ -498,7 +499,22 @@ export async function expireBackups(): Promise<number> {
 }
 
 /** Na subida: o que estava em andamento morreu com a API; e de hora em hora, os vencidos. */
+/**
+ * Pastas temporarias que um backup ou um ISO do sandbox deixam quando a API cai no meio. Na
+ * subida nada esta em andamento, entao todas sobram: sem isto elas se acumulam no /tmp, que e um
+ * volume em disco desde a revisao (item 4) e sobrevive a recriacao do container.
+ */
+export async function cleanStaleWorkDirs(dir = tmpdir()): Promise<number> {
+  const names = await readdir(dir).catch(() => [] as string[]);
+  const stale = names.filter((n) => /^deeplook-(backup|iso)-/.test(n));
+  await Promise.all(stale.map((n) => rm(join(dir, n), { recursive: true, force: true })));
+  return stale.length;
+}
+
 export function startBackups(log: { error: (obj: object, msg: string) => void }) {
+  void cleanStaleWorkDirs().catch((err: unknown) =>
+    log.error({ err }, '[backup] falha ao limpar temporarios'),
+  );
   void prisma.backup
     .updateMany({
       where: { status: 'RUNNING' },

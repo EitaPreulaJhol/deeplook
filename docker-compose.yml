@@ -82,6 +82,13 @@ services:
       start_period: 120s
     # Sem limite, um pico derrubaria a maquina inteira, nao so a API.
     mem_limit: ${API_MEM_LIMIT:-4g}
+    # Raiz somente leitura (revisao, item 4): o codigo ja era do root e a API roda como node; agora
+    # nem a home nem o resto da imagem aceitam escrita. Grava so no /tmp, que e um VOLUME EM DISCO
+    # e nao tmpfs: sem BACKUP_DIR o ZIP inteiro do backup e montado ali (e o ISO do sandbox
+    # tambem), e em memoria contaria no mem_limit e derrubaria a API num backup grande.
+    read_only: true
+    # Teto de processos e threads (os workers de analise contam): pico medido no test:images.
+    pids_limit: ${API_PIDS_LIMIT:-256}
     # Analisa arquivos maliciosos: sem root (Dockerfile), sem capacidades extras.
     cap_drop:
       - ALL
@@ -169,6 +176,7 @@ services:
     # Sem BACKUP_DIR a pasta montada nao e usada (a API nem a recebe acima).
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/backups
+      - api-tmp:/tmp
     depends_on:
       db:
         condition: service_healthy
@@ -305,6 +313,10 @@ services:
     networks:
       - deeplook
 
+volumes:
+  # O /tmp da API (revisao, item 4): em disco, e limpo das sobras de backup e ISO a cada subida.
+  api-tmp:
+
 networks:
   deeplook:
     driver: bridge
@@ -321,6 +333,11 @@ networks:
     internal: true
     driver_opts:
       com.docker.network.bridge.inhibit_ipv4: "true"
-  # So o egress: e por aqui que a captura chega a internet.
+  # So o egress: e por aqui que a captura chega a internet. Sub-rede fixa para o host poder
+  # manda-la por uma VPN com roteamento por origem (docs/implantacao.md, passo 3), sem que a
+  # captura saia pelo IP da casa. Se colidir com outra rede do host, troque no .env.
   capture-egress:
     driver: bridge
+    ipam:
+      config:
+        - subnet: ${CAPTURE_EGRESS_SUBNET:-172.31.252.0/24}
