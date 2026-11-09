@@ -156,6 +156,18 @@ const EnvSchema = z
     CAPA_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
     /** Espera por uma analise: acima da soma dos tetos do capa e do FLOSS no servico. */
     CAPA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1000),
+    /**
+     * Analise com o Ghidra (item 7.3): servico ghidra (sob demanda, sem rede) e o token
+     * compartilhado. Vazio = desligada.
+     */
+    GHIDRA_URL: z.string().default(''),
+    GHIDRA_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    GHIDRA_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
+    /** Espera por uma analise: acima do teto do servico (GHIDRA_TIMEOUT_S) mais o empacotamento. */
+    GHIDRA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1300),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -217,6 +229,7 @@ const KNOWN_SECRETS = new Set([
   'change-me-please-use-a-long-random-secret',
   'troque-este-token-da-captura',
   'troque-este-token-do-capa',
+  'troque-este-token-do-ghidra',
 ]);
 /** Em producao o SESSION_SECRET curto (ex.: literais de teste) assinaria o cookie de
  * dispositivo e puloria o bloqueio da conta: exija entropia minima (item 97). */
@@ -226,6 +239,7 @@ const refused = [
     'SESSION_SECRET',
   env.CAPTURE_URL && KNOWN_SECRETS.has(env.CAPTURE_TOKEN) && 'CAPTURE_TOKEN',
   env.CAPA_URL && KNOWN_SECRETS.has(env.CAPA_TOKEN) && 'CAPA_TOKEN',
+  env.GHIDRA_URL && KNOWN_SECRETS.has(env.GHIDRA_TOKEN) && 'GHIDRA_TOKEN',
 ].filter(Boolean);
 if (refused.length && isProd && env.ALLOW_INSECURE_DEFAULTS !== 'true') {
   console.error(

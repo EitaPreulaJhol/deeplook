@@ -2,6 +2,7 @@ import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
 import { recordEvent } from './events';
+import { deleteGhidraProject } from './ghidra';
 import { log, reason } from './log';
 import { prisma } from './prisma';
 import { s3 } from './s3';
@@ -50,6 +51,8 @@ export async function purgeExpiredFiles(now = new Date()): Promise<number> {
   for (const entry of due) {
     try {
       await deleteStoredFile(entry);
+      // O projeto do Ghidra (item 7.3) tem os bytes da amostra: sai junto.
+      await deleteGhidraProject(entry.id);
     } catch (err) {
       log.warn(`[retencao] falha ao apagar ${entry.storageKey}: ${reason(err)}`);
       continue;

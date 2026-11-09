@@ -1,0 +1,103 @@
+# APIs sensiveis (item 7.3): as funcoes que chamam alguma destas tem o pseudo-C exportado.
+# Uma por linha; o mesmo espirito das listas do 7.1 (PE, ELF e P/Invoke do .NET).
+# Injecao e execucao de codigo
+VirtualAlloc
+VirtualAllocEx
+VirtualProtect
+VirtualProtectEx
+WriteProcessMemory
+ReadProcessMemory
+CreateRemoteThread
+CreateRemoteThreadEx
+NtCreateThreadEx
+RtlCreateUserThread
+QueueUserAPC
+NtQueueApcThread
+SetThreadContext
+GetThreadContext
+ResumeThread
+NtUnmapViewOfSection
+ZwUnmapViewOfSection
+NtWriteVirtualMemory
+NtAllocateVirtualMemory
+OpenProcess
+CreateProcessA
+CreateProcessW
+CreateProcessInternalW
+WinExec
+ShellExecuteA
+ShellExecuteW
+ShellExecuteExA
+ShellExecuteExW
+LoadLibraryA
+LoadLibraryW
+LoadLibraryExA
+LoadLibraryExW
+GetProcAddress
+# Rede
+InternetOpenA
+InternetOpenW
+InternetOpenUrlA
+InternetOpenUrlW
+InternetConnectA
+InternetConnectW
+InternetReadFile
+HttpOpenRequestA
+HttpOpenRequestW
+HttpSendRequestA
+HttpSendRequestW
+URLDownloadToFileA
+URLDownloadToFileW
+WinHttpOpen
+WinHttpConnect
+WinHttpSendRequest
+WSAStartup
+socket
+connect
+send
+recv
+gethostbyname
+getaddrinfo
+DnsQuery_A
+DnsQuery_W
+# Persistencia e registro
+RegSetValueExA
+RegSetValueExW
+RegCreateKeyExA
+RegCreateKeyExW
+CreateServiceA
+CreateServiceW
+StartServiceA
+StartServiceW
+# Espionagem
+SetWindowsHookExA
+SetWindowsHookExW
+GetAsyncKeyState
+GetKeyState
+GetClipboardData
+BitBlt
+# Criptografia
+CryptEncrypt
+CryptDecrypt
+CryptAcquireContextA
+CryptAcquireContextW
+BCryptEncrypt
+BCryptDecrypt
+# Antianalise e privilegio
+IsDebuggerPresent
+CheckRemoteDebuggerPresent
+NtQueryInformationProcess
+OutputDebugStringA
+AdjustTokenPrivileges
+# Linux
+ptrace
+execve
+execl
+execvp
+system
+fork
+mprotect
+mmap
+memfd_create
+dlopen
+dlsym

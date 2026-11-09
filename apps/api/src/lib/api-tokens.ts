@@ -41,6 +41,9 @@ export const ALLOWED_ROUTES = new Set([
   'GET /api/entries/:id/antivirus',
   // Analise de funcoes (item 7.2): capacidades, ATT&CK e strings do FLOSS.
   'GET /api/entries/:id/capa',
+  // Analise com o Ghidra (item 7.3): o resumo e o pseudo-C. O projeto .gzf (com os bytes da
+  // amostra) fica de fora, como o download da amostra.
+  'GET /api/entries/:id/ghidra',
 ]);
 
 /**

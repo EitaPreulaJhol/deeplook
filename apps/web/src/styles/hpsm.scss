@@ -2769,6 +2769,21 @@ body:has(.dl-print) {
   overflow-wrap: anywhere;
 }
 
+/* Analise com o Ghidra (item 7.3): uma funcao descompilada por bloco recolhivel. */
+.dl-ghidra-fn summary code {
+  font-weight: 600;
+}
+
+.dl-ghidra-fn__callers {
+  margin: 0.25rem 0;
+  font-size: 0.75rem;
+  color: var(--dl-text-muted);
+}
+
+.dl-ghidra-fn__tools {
+  margin: 0.25rem 0;
+}
+
 /* Analise de funcoes (item 7.2): MBC abaixo da capacidade e tecnicas lado a lado. */
 .dl-capa-mbc {
   margin-top: 0.125rem;

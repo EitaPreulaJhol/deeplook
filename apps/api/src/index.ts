@@ -10,6 +10,7 @@ import { startBackups } from './lib/backup';
 import { startBackupSchedule } from './lib/backup-schedule';
 import { startCapaQueue } from './lib/capa';
 import { installCrossSiteGuard } from './lib/cross-site';
+import { startGhidraQueue } from './lib/ghidra';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
 import { backfillReportIocs } from './lib/iocs';
@@ -48,6 +49,7 @@ import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
 import { favoritesRoutes } from './routes/favorites';
 import { feedRoutes } from './routes/feeds';
+import { ghidraRoutes } from './routes/ghidra';
 import { graphRoutes } from './routes/graph';
 import { healthRoutes } from './routes/health';
 import { hexRoutes } from './routes/hex';
@@ -147,6 +149,7 @@ async function main() {
   // Captura da pagina de um link (item 80).
   await app.register(captureRoutes);
   await app.register(capaRoutes);
+  await app.register(ghidraRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
   // Importar indicadores (item 78).
@@ -253,6 +256,8 @@ async function main() {
 
   // Analise de funcoes (item 7.2): fila do capa e do FLOSS, um executavel por vez.
   void startCapaQueue(app.log).catch((err) => app.log.error({ err }, '[capa] fila não subiu'));
+  // Analise com o Ghidra (item 7.3): fila das analises pedidas, uma por vez.
+  void startGhidraQueue(app.log).catch((err) => app.log.error({ err }, '[ghidra] fila não subiu'));
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

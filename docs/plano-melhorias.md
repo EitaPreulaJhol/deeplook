@@ -49,7 +49,19 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.22 | API com raiz somente leitura, `/tmp` em disco e limite de processos; checklist de implantação | 🟡 | P–M | API / Compose / Operação | ✅ |
 | 7.1 | Análise estática do PE: imphash, Rich header, exports, recursos, overlay, assinatura, .NET e anomalias | 🟡 | M–G | API / Web | ✅ |
 | 7.2 | capa e FLOSS em contêiner isolado (capacidades por função, com ATT&CK, e strings ofuscadas) | 🟡 | M | API / Compose / Web | ✅ |
-| 7.3 | Ghidra headless sob demanda (funções, referências a imports suspeitos, pseudo-C) | ⚪ | G | API / Compose / Web | ⬜ |
+| 7.3 | Ghidra headless sob demanda (funções, referências a imports suspeitos, pseudo-C) | 🟡 | G | API / Compose / Web | ✅ |
+| 7.4 | Regras de triagem com os sinais do 7.1 e do 7.2 | 🔴 | P | API / Web | ⬜ |
+| 7.5 | Pontuação de risco explicável (sugere o veredito) | 🟡 | P–M | API / Web | ⬜ |
+| 7.6 | Relacionadas: mesmo certificado e mesmo comportamento (capacidades do capa) | 🟡 | P | API / Web | ⬜ |
+| 7.7 | Retro-hunt com o capa ao subir as regras | ⚪ | P | API | ⬜ |
+| 7.8 | Desempacotar e extrair (UPX, NSIS/Inno, PyInstaller) em amostras filhas | 🔴 | M | API / Compose | ⬜ |
+| 7.9 | Detect It Easy: compilador, empacotador, instalador e ofuscador | 🟡 | P–M | API / Compose | ⬜ |
+| 7.10 | Descompilar .NET (ilspycmd) | 🟡 | M | API / Compose / Web | ⬜ |
+| 7.11 | Extração de configuração de famílias conhecidas (extratores maco/CAPE) | 🟡 | M–G | API / Compose | ⬜ |
+| 7.12 | Emulação com o Speakeasy (sequência de APIs sem VM) | ⚪ | M | API / Compose | ⬜ |
+| 7.13 | APK, JAR e Mach-O | ⚪ | M | API | ⬜ |
+| 7.14 | Office e PDF mais fundo (oletools, XLM 4.0) | ⚪ | P–M | API / Compose | ⬜ |
+| 7.15 | Sugerir regra YARA a partir da amostra | ⚪ | M | API / Web | ⬜ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -83,8 +95,11 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [7.3 Ghidra sob demanda](#73-ghidra-headless-sob-demanda) | Só se os analistas pedirem além do que o capa entrega | **G** |
-| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 1º | [7.4 Regras de triagem com os sinais novos](#74-regras-de-triagem-com-os-sinais-do-71-e-do-72) | Quase só API; transforma o 7.1 e o 7.2 em decisão automática | **P** |
+| 2º | [7.8 Desempacotar e extrair](#78-desempacotar-e-extrair) | Hoje a análise para na casca (o capa num UPX só diz "packed") | **M** |
+| 3º | [7.9 Detect It Easy](#79-detect-it-easy) | Barato e diz qual ferramenta usar em seguida | **P–M** |
+| 4º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; depois de ver quais famílias aparecem | **M–G** |
+| 5º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -95,11 +110,11 @@ Backup.
 ### Para retomar
 
 ```bash
-# a analise de funcoes (7.2) deixou tudo verde; confirme antes de mexer
+# o Ghidra (7.3) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1380 checagens em 38 arquivos (sobe o capa real)
-cd ../api   && npm run test:images && npm run test:smoke   # 82 e 101 checagens
+cd ../api   && npm run test:integration          # 1411 checagens em 39 arquivos (sobe o capa e o Ghidra reais)
+cd ../api   && npm run test:images && npm run test:smoke   # 93 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
@@ -1704,6 +1719,139 @@ Se os analistas pedirem além do capa: botão "Analisar funções" (só analista
 análise sem rede, e um post-script que exporta só o essencial: funções com tamanho, referências
 cruzadas aos imports suspeitos, grafo de chamadas resumido e o pseudo-C apenas das funções que
 chamam esses imports. O projeto `.gzf` pode ir para download, para abrir no Ghidra local.
+
+
+**Implementado** (o dono pediu o Ghidra antes das ideias 7.4 a 7.15):
+- **Serviço `ghidra`** (`apps/ghidra`): o mesmo esqueleto do capa (token, recusa lendo o corpo,
+  `/health` com o estado, um contêiner por análise) rodando o Ghidra 12.2 headless em **duas
+  passadas**: a primeira importa, analisa e roda `ExportDeepLook.java` (programa, até 300 maiores
+  funções com complexidade, quem chama as APIs de `sensitive-apis.txt` e o pseudo-C de até 25 delas
+  e do ponto de entrada); a segunda abre o programa já gravado, sem analisar de novo, e roda
+  `PackGzf.java`. Na primeira passada o programa ainda não está no projeto quando o script roda: o
+  exportador de `.gzf` devolvia `false` calado, e salvar dali dava "Location does not exist".
+- **Ordinais**: o Ghidra mostra `Ordinal_115` para o ws2_32; o script usa a tabela do pefile do 7.1
+  (`pe-ordinals.json`), e `WSAStartup` entra na lista de APIs sensíveis.
+- **Imagem** (1,45 GB): Debian trixie, OpenJDK 25 (o Ghidra 12 pede 25) sem os `jmods` (337 MB que
+  só servem ao `jlink`), Python para o servidor e o Ghidra sem documentação, extensões, servidor de
+  repositórios e depurador. O pacote vem com `ADD --checksum` (o SHA-256 publicado). Usuário
+  `ghidra` (uid 10002) com a home no `/tmp`: o Java tira `user.home` do `/etc/passwd`, não do
+  `$HOME`, e sem isso o Ghidra nem subia.
+- **Trivy**: a imagem crua tinha 5 achados. Os do netty (1 crítico, 3 altos) eram do `yajsw`, o
+  wrapper do servidor de repositórios, que saiu. O do guava 32.1.3 (alto, negação de serviço ao
+  desserializar) é do núcleo: o build o troca pelo 33.7.2 e o `failureaccess` 1.0.3 do Maven Central,
+  conferidos pelo hash (o SHA-256 publicado do guava; o do `failureaccess` pelo SHA-1 publicado). O
+  `ADD` grava com permissão 600 e o usuário do Ghidra não lia os JARs: `install -m 644`. Sem exceção
+  no `.trivyignore`.
+- **API** (`lib/ghidra.ts`, `routes/ghidra.ts`, tabela `GhidraAnalysis`, migração
+  `20261226000000_ghidra_analysis`): **sob demanda** (só analistas pedem; nada no envio), fila
+  persistida, um por vez, as mesmas novas tentativas do capa. O cliente dos dois serviços virou
+  `lib/analysis-service.ts` (a espera pelo "livre" do 7.2 vale para os dois). Elegível: PE ou ELF até
+  `GHIDRA_MAX_MB`, fora o .NET (o Ghidra não descompila IL). O GET entra para token de API; o
+  download do projeto, não.
+- **O `.gzf` tem os bytes da amostra**: fica em `samples/ghidra/`, então o backup sem amostras o
+  deixa de fora sem mudar a regra do backup; a retenção e a exclusão definitiva o apagam com o
+  arquivo; baixar segue a regra de baixar a amostra (quem enviou e os analistas) e vai para a
+  Auditoria.
+- **Tela**: seção "Análise com o Ghidra" (situação, quem pediu, programa, funções, o link do projeto
+  para quem pode baixar, o pseudo-C recolhível por função com cópia e quem chama, as maiores
+  funções); status do sistema com a versão e a fila.
+
+**Medido:** de 12 a 18 s nos executáveis de teste (o Java e a compilação do script contam a cada
+análise) e de 680 a 840 MB de pico; o `.gzf` de 48 a 210 KB. No UPX, o Ghidra só vê o
+descompactador, como esperado: o 7.8 (desempacotar) é o que resolve.
+
+**Testes:**
+- `ghidra.test.ts` (31) contra o serviço real, subido pelo runner com o endurecimento do compose: a
+  injeção (`OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread` e a URL no
+  pseudo-C), o ordinal com nome, o ponto de entrada, o `.gzf` sob `samples/`, o download (quem
+  enviou e o analista sim, outro usuário não, dois na Auditoria), ELF, um contêiner novo a cada
+  análise, .NET e texto recusados, retenção e lixeira apagando o `.gzf`, desligado, um serviço falso
+  hostil (falha do Ghidra, pseudo-C acima do teto, sem projeto, NUL, travado) e o reinício da API.
+- `test:images`: com a configuração do compose e na rede interna, sem root, raiz somente leitura,
+  `/tmp` sem execução, sem capacidades, sem internet, sem o guava 32 e sem o `yajsw`, token, só
+  executáveis, um ELF analisado e empacotado com a raiz somente leitura, e o contêiner novo livre
+  depois.
+- Cenário de tela `ghidra`.
+- **Prova inversa:** sem apagar o `.gzf` na retenção ou na lixeira, sem a regra de quem baixa e sem
+  a tabela de ordinais, cada um falha a sua checagem e só ela.
+- **Um teste meu errado no caminho:** a retenção não pegava a amostra porque mudar o status regrava o
+  `statusChangedAt` na mesma atualização; a data vai numa segunda atualização.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1411 checagens de
+integração em 39 arquivos** (eram 1380 em 38; o `ghidra` tem 31, e o `capa` segue com 29 depois de o
+cliente virar `analysis-service.ts`); 120 testes unitários do web; `test:images` com **93** (eram 82)
+e `test:smoke` com 101; os **95 cenários de tela** (1700 checagens), com o novo `ghidra`; Trivy sem
+achados na imagem do Ghidra e nos seis Dockerfiles.
+
+**Ficou de fora:** descompilar todas as funções (custa minutos e ninguém lê; o `.gzf` está lá para
+isso), o grafo de chamadas desenhado (por ora, "chamada por" em cada função) e .NET (7.10).
+
+### 7.4 Regras de triagem com os sinais do 7.1 e do 7.2
+
+As regras de triagem passam a aceitar condições sobre a análise nova: capacidade do capa ("inject
+thread"), técnica ATT&CK, alerta do PE (assinatura adulterada, recurso com executável, UPX),
+indicador nas strings do FLOSS. A amostra já chega com prioridade e responsável certos. Como o
+capa termina depois do envio, a regra tem de ser avaliada de novo quando a análise de funções
+concluir.
+
+### 7.5 Pontuação de risco explicável
+
+Junta YARA, ClamAV, alertas do PE, capacidades do capa, IOCs do FLOSS e reputação numa nota com a
+lista dos motivos e o peso de cada um. Sugere o veredito; quem decide continua sendo o analista.
+
+### 7.6 Relacionadas: mesmo certificado e mesmo comportamento
+
+"Mesmo certificado" pela impressão digital de quem assinou (coluna indexada, como o imphash) e
+"mesmo comportamento" pela parecença (Jaccard) entre os conjuntos de capacidades do capa, que pega
+a mesma família recompilada, onde o imphash e o TLSH falham.
+
+### 7.7 Retro-hunt com o capa
+
+Como o retro-hunt de YARA: ao subir a versão das regras do capa, reanalisa as amostras de um
+período, na mesma fila.
+
+### 7.8 Desempacotar e extrair
+
+`upx -d` quando o UPX é detectado, `innoextract` e 7-Zip para instaladores NSIS e Inno Setup, e o
+extrator de PyInstaller. Cada arquivo de dentro vira amostra filha, como os anexos de e-mail, e
+passa por tudo de novo. Num serviço isolado, como o capa.
+
+### 7.9 Detect It Easy
+
+Compilador, empacotador, instalador e ofuscador .NET por assinaturas maduras (muito além do UPX
+pelo código de entrada do 7.1). Tem versão de linha de comando para Linux; num contêiner como o do
+capa.
+
+### 7.10 Descompilar .NET
+
+`ilspycmd` devolve C# legível das classes que usam as chamadas sensíveis já detectadas no 7.1 e no
+7.2. Para .NET serve mais que o Ghidra, que não descompila IL.
+
+### 7.11 Extração de configuração de famílias conhecidas
+
+Extratores no formato *maco* (os do CAPE) tiram C2, chaves e mutex de famílias comuns (AsyncRAT,
+Remcos, AgentTesla...). É o IOC mais confiável e vai direto para o feed MISP/TAXII. O custo é
+manter os extratores.
+
+### 7.12 Emulação com o Speakeasy
+
+O Speakeasy (Mandiant) emula o PE ou um shellcode e devolve a sequência de chamadas de API, sem VM:
+fica entre a análise estática e o sandbox do Proxmox e pode rodar sozinho na fila.
+
+### 7.13 APK, JAR e Mach-O
+
+Já são detectados pelo tipo real, mas não analisados. Androguard dá permissões, componentes e
+chamadas sensíveis do APK; o JAR e o Mach-O, o manifesto, as classes e as bibliotecas.
+
+### 7.14 Office e PDF mais fundo
+
+`oletools` (olevba com desofuscação, macros XLM 4.0, DDE) ao lado do parser em TypeScript que já
+existe (item 70).
+
+### 7.15 Sugerir regra YARA a partir da amostra
+
+Um rascunho com strings exclusivas, imphash e trechos de código, para o analista revisar e salvar
+como regra da equipe.
 
 ---
 

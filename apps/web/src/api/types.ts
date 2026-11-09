@@ -116,6 +116,66 @@ export interface CapaInfo {
   } | null;
 }
 
+/** Funcao com pseudo-C na analise do Ghidra (item 7.3). */
+export interface GhidraFunction {
+  name: string;
+  entry: string;
+  isEntryPoint: boolean;
+  /** APIs sensiveis que a funcao chama. */
+  sensitive: string[];
+  callers: string[];
+  c?: string;
+  truncated?: boolean;
+  error?: string | null;
+}
+
+/** GET /api/entries/:id/ghidra (item 7.3). */
+export interface GhidraInfo {
+  enabled: boolean;
+  /** Executavel do Windows ou do Linux (a secao aparece). */
+  applicable: boolean;
+  /** Da para pedir agora (nao e .NET, cabe no teto, arquivo presente). */
+  eligible: boolean;
+  reason: string | null;
+  maxMb: number;
+  canDownload: boolean;
+  analysis: {
+    status: CapaStatus;
+    summary: {
+      format: string | null;
+      language: string | null;
+      compiler: string | null;
+      imageBase: string | null;
+      entryPoint: string | null;
+      functions: number;
+      thunks: number;
+      sensitiveFunctions: number;
+      largest: {
+        name: string;
+        entry: string;
+        size: number;
+        complexity: number;
+        calls: number;
+        callers: number;
+        apis: string[];
+      }[];
+      decompiled: GhidraFunction[];
+    } | null;
+    hasProject: boolean;
+    gzfSize: number | null;
+    gzfError: string | null;
+    error: string | null;
+    version: string | null;
+    ms: number | null;
+    attempts: number;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    requestedBy: { id: string; displayName: string } | null;
+    ahead: number | null;
+  } | null;
+}
+
 /** Regra YARA (item 56): conjunto de regras escrito pelos analistas. */
 export interface YaraRule {
   id: string;

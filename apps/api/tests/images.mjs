@@ -945,6 +945,140 @@ async function capaImage() {
   }
 }
 
+const GHIDRA_CONTAINERS = ['dl-test-ghidra', 'dl-test-ghidra-front'];
+const GHIDRA_NETWORKS = ['dl-test-ghidra-net', 'dl-test-ghidra-front-net'];
+
+/**
+ * Analise com o Ghidra (item 7.3): o servico com a configuracao do compose, na rede interna
+ * "analysis" (sem internet), como o capa. O "front" faz o papel da API.
+ */
+async function ghidraImage() {
+  docker('build', '-q', '-t', 'dl-test-ghidra', join(APPS, 'ghidra'));
+  ok('imagem do Ghidra compila (pacote e guava conferidos pelo hash)', true);
+  quiet('rm', '-f', ...GHIDRA_CONTAINERS);
+  for (const net of GHIDRA_NETWORKS) quiet('network', 'rm', net);
+  docker('network', 'create', ...networkArgs('analysis'), 'dl-test-ghidra-net');
+  docker('network', 'create', 'dl-test-ghidra-front-net');
+  const TOKEN = '0123456789abcdef01';
+  try {
+    const service = composeService('ghidra');
+    const env = Object.entries(service.environment ?? {})
+      .filter(([k]) => k !== 'GHIDRA_TOKEN')
+      .flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-ghidra',
+      '--network',
+      'dl-test-ghidra-net',
+      '--network-alias',
+      'ghidra',
+      '-e',
+      `GHIDRA_TOKEN=${TOKEN}`,
+      ...env,
+      ...runArgs(service, { restart: true }),
+      'dl-test-ghidra',
+    );
+    const forward =
+      "const net=require('net');net.createServer((c)=>{const u=net.connect(3300,'ghidra');" +
+      "c.pipe(u).pipe(c);u.on('error',()=>c.destroy());c.on('error',()=>u.destroy())}).listen(3300)";
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-ghidra-front',
+      '--network',
+      'dl-test-ghidra-front-net',
+      '-p',
+      '127.0.0.1:53310:3300',
+      'node:26-slim',
+      'node',
+      '-e',
+      forward,
+    );
+    docker('network', 'connect', 'dl-test-ghidra-net', 'dl-test-ghidra-front');
+    const base = 'http://localhost:53310';
+    const health = await until(() => fetch(`${base}/health`).then((r) => (r.ok ? r.json() : null)));
+    ok(
+      'Ghidra sobe com a configuração do compose',
+      health?.state === 'livre' && health.ghidra === '12.2',
+      health,
+    );
+    const inGhidra = (...args) => quiet('exec', 'dl-test-ghidra', ...args);
+    ok('Ghidra sem root', inGhidra('id', '-u').stdout?.trim() === '10002');
+    ok(
+      'Ghidra: raiz somente leitura; /tmp gravável e sem execução',
+      inGhidra('touch', '/opt/ghidra/x').status !== 0 &&
+        inGhidra('sh', '-c', 'cp /bin/true /tmp/t && /tmp/t').status !== 0 &&
+        inGhidra('sh', '-c', 'echo ok > /tmp/ok').status === 0,
+    );
+    const capEff = inGhidra(
+      'sh',
+      '-c',
+      "grep CapEff /proc/1/status | awk '{print $2}'",
+    ).stdout?.trim();
+    ok('Ghidra sem capacidades', capEff === '0000000000000000', capEff);
+    const egress = inGhidra(
+      'python3',
+      '-c',
+      "import socket;s=socket.socket();s.settimeout(3);s.connect(('1.1.1.1',80))",
+    );
+    ok('Ghidra sem saída para a internet', egress.status !== 0);
+    ok(
+      'Ghidra: sem o guava 32 (CVE) e sem o yajsw',
+      inGhidra('sh', '-c', 'ls /opt/ghidra/Ghidra/Framework/Generic/lib').stdout?.includes(
+        'guava-33.7.2',
+      ) &&
+        !inGhidra('sh', '-c', 'ls /opt/ghidra/Ghidra/Framework/Generic/lib').stdout?.includes(
+          'guava-32',
+        ) &&
+        inGhidra('sh', '-c', 'ls -d /opt/ghidra/Ghidra/Features/GhidraServer/data/yajsw-*')
+          .status !== 0,
+    );
+    const post = (body, token = TOKEN) =>
+      fetch(`${base}/analyze`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' },
+        body,
+      });
+    ok('Ghidra: token errado recusado', (await post(Buffer.from('MZ'), 'errado')).status === 401);
+    ok('Ghidra: só executáveis', (await post(Buffer.from('só texto'))).status === 415);
+    // Um ELF de verdade, tirado da propria imagem: o Ghidra analisa e empacota com a raiz somente
+    // leitura (tudo o que ele grava vai para o /tmp).
+    const elf = execFileSync('docker', [
+      'run',
+      '--rm',
+      '--entrypoint',
+      'cat',
+      'dl-test-ghidra',
+      '/bin/true',
+    ]);
+    const before = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-ghidra').trim());
+    const analysis = await (await post(elf)).json();
+    ok(
+      'Ghidra analisa e empacota o projeto com a raiz somente leitura',
+      analysis.ok === true &&
+        /ELF/.test(analysis.summary?.format ?? '') &&
+        analysis.summary.functions > 5 &&
+        typeof analysis.gzf === 'string' &&
+        analysis.gzf.length > 1000,
+      { ok: analysis.ok, error: analysis.error, gzfError: analysis.gzfError },
+    );
+    const swapped = await until(async () => {
+      const count = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-ghidra').trim());
+      if (count <= before) return null;
+      const h = await fetch(`${base}/health`).then((r) => r.json());
+      return h.state === 'livre';
+    });
+    ok('Ghidra: container novo depois da análise, livre de novo', Boolean(swapped));
+  } finally {
+    quiet('rm', '-f', ...GHIDRA_CONTAINERS);
+    for (const net of GHIDRA_NETWORKS) quiet('network', 'rm', net);
+    quiet('rmi', 'dl-test-ghidra');
+  }
+}
+
 const composeCheck = spawnSync('docker', ['compose', 'config', '-q'], {
   cwd: join(APPS, '..'),
   encoding: 'utf8',
@@ -954,5 +1088,6 @@ await webImage();
 await apiImage();
 await captureImage();
 await capaImage();
+await ghidraImage();
 console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
 process.exit(fails ? 1 : 0);

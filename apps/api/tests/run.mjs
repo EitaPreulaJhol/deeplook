@@ -17,6 +17,7 @@ const PG = 'dl-shadow-pg';
 const MINIO = 'dl-minio';
 const LDAP = 'dl-ldap';
 const CAPA = 'dl-capa';
+const GHIDRA = 'dl-ghidra';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -194,44 +195,67 @@ function peFixtures() {
 }
 
 /**
- * Servico capa de verdade (item 7.2), com o endurecimento do compose e o restart que troca o
- * container a cada analise. A primeira construcao compila o binary2strings (alguns minutos); as
- * seguintes vem do cache do Docker.
+ * Servico de analise de verdade (capa, item 7.2; Ghidra, 7.3), com o endurecimento do compose e o
+ * restart que troca o container a cada analise. A primeira construcao demora (o capa compila o
+ * binary2strings; o Ghidra baixa 570 MB); as seguintes vem do cache do Docker.
  */
-async function startCapa() {
-  docker('build', '-q', '-t', 'dl-test-capa', join(API, '..', 'capa'));
-  quiet('rm', '-f', CAPA);
+async function startService({ name, dir, port, inner, env, memory, pids, tmpfs }) {
+  docker('build', '-q', '-t', `dl-test-${dir}`, join(API, '..', dir));
+  quiet('rm', '-f', name);
   docker(
     'run',
     '-d',
     '--name',
-    CAPA,
+    name,
     '--restart',
     'unless-stopped',
     '--read-only',
     '--tmpfs',
-    '/tmp:size=256m,noexec,nosuid,nodev',
+    tmpfs,
     '--cap-drop',
     'ALL',
     '--security-opt',
     'no-new-privileges:true',
     '--memory',
-    '3g',
+    memory,
     '--pids-limit',
-    '64',
+    String(pids),
     '-e',
-    'CAPA_TOKEN=0123456789abcdef01',
+    `${env}=0123456789abcdef01`,
     '-p',
-    '127.0.0.1:53200:3200',
-    'dl-test-capa',
+    `127.0.0.1:${port}:${inner}`,
+    `dl-test-${dir}`,
   );
-  await waitFor('capa', () =>
-    fetch('http://localhost:53200/health').then(
+  await waitFor(name, () =>
+    fetch(`http://localhost:${port}/health`).then(
       (r) => r.ok,
       () => false,
     ),
   );
 }
+
+const startCapa = () =>
+  startService({
+    name: CAPA,
+    dir: 'capa',
+    port: 53200,
+    inner: 3200,
+    env: 'CAPA_TOKEN',
+    memory: '3g',
+    pids: 64,
+    tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
+  });
+const startGhidra = () =>
+  startService({
+    name: GHIDRA,
+    dir: 'ghidra',
+    port: 53300,
+    inner: 3300,
+    env: 'GHIDRA_TOKEN',
+    memory: '6g',
+    pids: 256,
+    tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
+  });
 
 function runTest(file) {
   const db = `it_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -307,8 +331,11 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
-if (files.some((f) => f.startsWith('pe-') || f.includes('capa'))) peFixtures();
+if (files.some((f) => f.startsWith('pe-') || f.includes('capa') || f.includes('ghidra'))) {
+  peFixtures();
+}
 if (files.some((f) => f.includes('capa'))) await startCapa();
+if (files.some((f) => f.includes('ghidra'))) await startGhidra();
 
 let total = 0;
 const bad = [];
@@ -319,8 +346,8 @@ for (const file of files) {
   for (const line of failed) console.log(`      ${line}`);
   if (status !== 0 || failed.length) bad.push(file);
 }
-if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA);
-else quiet('rm', '-f', LDAP, CAPA);
+if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA);
+else quiet('rm', '-f', LDAP, CAPA, GHIDRA);
 console.log(
   bad.length
     ? `\n${bad.length} arquivo(s) com falha: ${bad.join(', ')}`

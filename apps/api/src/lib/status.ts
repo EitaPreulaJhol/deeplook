@@ -5,6 +5,7 @@ import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
 import { capaEnabled } from './capa';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
+import { ghidraEnabled } from './ghidra';
 import { ldapConfig, ldapProbe } from './ldap';
 import { captureEnabled } from './page-capture';
 import { prisma } from './prisma';
@@ -29,6 +30,7 @@ export interface StatusCheck {
     | 'antivirus'
     | 'capture'
     | 'capa'
+    | 'ghidra'
     | 'ldap'
     | 'yaraPacks'
     | 'integrity'
@@ -563,6 +565,62 @@ async function capaCheck(): Promise<StatusCheck> {
   };
 }
 
+/** Analise com o Ghidra (item 7.3): servico ghidra, fila e analises em 24 h. */
+async function ghidraCheck(): Promise<StatusCheck> {
+  const name = 'Análise com o Ghidra';
+  if (!ghidraEnabled()) {
+    return {
+      id: 'ghidra',
+      name,
+      level: 'off',
+      summary: 'desligada (GHIDRA_URL vazio)',
+      details: [],
+    };
+  }
+  const details = [{ label: 'Endereço', value: env.GHIDRA_URL }];
+  const health = () =>
+    timed(async () => {
+      const res = await fetch(`${env.GHIDRA_URL.replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+      return (await res.json()) as { state?: string; ghidra?: string };
+    });
+  let probe = await health();
+  // Um container por analise: na troca, o servico fica fora por alguns segundos (ver o do capa).
+  if (probe.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    probe = await health();
+  }
+  if (probe.error) {
+    return {
+      id: 'ghidra',
+      name,
+      level: 'error',
+      summary: probe.error,
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  details.push({ label: 'Versão', value: `Ghidra ${probe.value?.ghidra ?? '?'}` });
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [queued, done, failed] = await Promise.all([
+    prisma.ghidraAnalysis.count({ where: { status: { in: ['PENDING', 'RUNNING'] } } }),
+    prisma.ghidraAnalysis.count({ where: { finishedAt: { gt: since }, status: 'DONE' } }),
+    prisma.ghidraAnalysis.count({ where: { finishedAt: { gt: since }, status: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Na fila', value: String(queued) });
+  details.push({ label: 'Análises em 24 h', value: `${done} · ${failed} falha(s)` });
+  return {
+    id: 'ghidra',
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: probe.value?.state === 'analisando' ? 'respondendo (analisando)' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
 /** Senhas padrao ainda em uso (item 97): valores publicos do compose e do .env.example. */
 export function insecureDefaults(): string[] {
@@ -699,6 +757,7 @@ export async function systemStatus() {
     antivirusCheck(),
     captureCheck(),
     capaCheck(),
+    ghidraCheck(),
     reputationCheck(),
     ldapCheck(),
     yaraPacksCheck(),

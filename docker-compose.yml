@@ -144,6 +144,10 @@ services:
       CAPA_URL: ${CAPA_URL-http://capa:3200}
       CAPA_TOKEN: ${CAPA_TOKEN:-troque-este-token-do-capa}
       CAPA_MAX_MB: ${CAPA_MAX_MB:-32}
+      # Analise com o Ghidra (item 7.3), sob demanda: o servico ghidra abaixo; GHIDRA_URL= desliga.
+      GHIDRA_URL: ${GHIDRA_URL-http://ghidra:3300}
+      GHIDRA_TOKEN: ${GHIDRA_TOKEN:-troque-este-token-do-ghidra}
+      GHIDRA_MAX_MB: ${GHIDRA_MAX_MB:-32}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
@@ -289,6 +293,38 @@ services:
     networks:
       - analysis
 
+  # Analise com o Ghidra (item 7.3), sob demanda. Mesmo isolamento do capa: sem rede nenhuma, raiz
+  # somente leitura, sem capacidades e sem root, um container por analise. So gasta memoria e CPU
+  # quando um analista pede.
+  ghidra:
+    build:
+      context: ./apps/ghidra
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      GHIDRA_TOKEN: ${GHIDRA_TOKEN:-troque-este-token-do-ghidra}
+      GHIDRA_MAX_MB: ${GHIDRA_MAX_MB:-32}
+      # Teto da primeira passada (a analise automatica para em 70% dele e o resumo ainda sai).
+      GHIDRA_TIMEOUT_S: ${GHIDRA_TIMEOUT_S:-900}
+      # Heap do Java; o container precisa de folga para o descompilador (processo nativo) e o /tmp.
+      GHIDRA_HEADLESS_MAXMEM: ${GHIDRA_HEADLESS_MAXMEM:-3G}
+      GHIDRA_RECYCLE: ${GHIDRA_RECYCLE:-true}
+    # O projeto do Ghidra, a amostra e o .gzf ficam no /tmp em memoria, sem executaveis (o
+    # descompilador nativo roda de /opt, somente leitura).
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,noexec,nosuid,nodev
+    # Medido: 700 MB num executavel pequeno. O teto cobre o heap (3 GB), o descompilador e o /tmp.
+    mem_limit: ${GHIDRA_MEM_LIMIT:-6g}
+    # O Java usa muitas threads (cada uma conta como processo).
+    pids_limit: 256
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
   # Proxy de saida da captura (item 6.19): o unico caminho do navegador ate a internet. Resolve
   # o nome uma vez, recusa rede interna, loopback e metadados e conecta no IP conferido. So Node,
   # sem navegador; nao roda codigo de pagina. Na rede interna da captura e numa rede com saida.
@@ -371,8 +407,8 @@ networks:
     internal: true
     driver_opts:
       com.docker.network.bridge.inhibit_ipv4: "true"
-  # A API e o capa (item 7.2). Interna e sem IP do host na bridge, como a da captura: o capa nao
-  # alcanca nada alem da API, nem a internet.
+  # A API, o capa (item 7.2) e o Ghidra (7.3). Interna e sem IP do host na bridge, como a da
+  # captura: eles nao alcancam nada alem da API, nem a internet.
   analysis:
     driver: bridge
     internal: true

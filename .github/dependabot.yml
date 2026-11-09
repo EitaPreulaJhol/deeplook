@@ -65,13 +65,15 @@ updates:
       - dependency-name: flare-capa
       - dependency-name: flare-floss
 
-  # Imagens base dos Dockerfiles (node, nginx e python; o playwright e manual, ver abaixo).
+  # Imagens base dos Dockerfiles (node, nginx, python e debian; o playwright e manual, ver abaixo).
+  # O Ghidra em si (pacote, hash, Java e a troca do guava no Dockerfile) sobe a mao.
   - package-ecosystem: docker
     directories:
       - /apps/api
       - /apps/web
       - /apps/capture
       - /apps/capa
+      - /apps/ghidra
     schedule:
       interval: weekly
       day: monday

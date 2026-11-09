@@ -22,6 +22,7 @@ import { loadEntrySequence } from '../components/entryNav';
 import { EntryRelatedTab, useRelatedEntries } from '../components/EntryRelatedTab';
 import { EntryReportsTab } from '../components/EntryReportsTab';
 import { useFavorites } from '../components/favorites';
+import { GhidraSection } from '../components/GhidraSection';
 import { HexViewer } from '../components/HexViewer';
 import { useConfirm } from '../components/HpsmConfirm';
 import { formatFileSize } from '../components/HpsmFileDrop';
@@ -799,6 +800,7 @@ export function EntryDetailPage() {
               purged={Boolean(entry.filePurgedAt)}
             />
           )}
+          {entry.type === 'FILE' && <GhidraSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <ScriptSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <LnkSection info={entry.staticInfo} />}

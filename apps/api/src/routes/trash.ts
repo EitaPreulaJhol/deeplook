@@ -5,6 +5,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { recordEvent } from '../lib/events';
+import { deleteGhidraProject } from '../lib/ghidra';
 import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
 import { activeSessionForEntry } from '../lib/sandbox';
@@ -137,6 +138,8 @@ export async function trashRoutes(app: FastifyInstance) {
     // Arquivos primeiro: se o MinIO falhar, a ficha continua na lixeira para tentar de novo.
     try {
       await deleteStoredFile(entry);
+      // O projeto do Ghidra (item 7.3) tem os bytes da amostra.
+      await deleteGhidraProject(id);
       await deleteEvidenceObjects([
         ...evidence.map((e) => e.storageKey),
         ...captures

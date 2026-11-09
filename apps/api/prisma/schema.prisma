@@ -119,6 +119,8 @@ model User {
   reportEvidence    ReportEvidence[]
   assignmentGroups  AssignmentGroupMember[]
   pageCaptures      PageCapture[]
+  /// Analises do Ghidra que o usuario pediu (item 7.3).
+  ghidraAnalyses    GhidraAnalysis[]
   triageRules       TriageRule[]
   casesAssigned     Case[]                  @relation("CaseAssignee")
   casesCreated      Case[]                  @relation("CaseAuthor")
@@ -205,6 +207,8 @@ model Entry {
   tlsh               String?
   /// Analise de funcoes (capa e FLOSS, item 7.2).
   capaAnalysis       CapaAnalysis?
+  /// Analise com o Ghidra, sob demanda (item 7.3).
+  ghidraAnalysis     GhidraAnalysis?
   /// imphash do PE (item 7.1), so quando distingue: fora do .NET e com 10+ funcoes importadas
   /// (tabela minima de empacotador e o _CorExeMain do .NET ligariam amostras sem relacao).
   imphash            String?
@@ -542,6 +546,43 @@ model CapaAnalysis {
   attempts      Int        @default(0)
   nextAttemptAt DateTime   @default(now())
   createdAt     DateTime   @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+}
+
+enum GhidraStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Analise com o Ghidra (item 7.3): sob demanda (analistas pedem), no servico ghidra, um por vez.
+/// Uma por amostra (a mais recente).
+model GhidraAnalysis {
+  id            String       @id @default(cuid())
+  entryId       String       @unique
+  entry         Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  requestedById String?
+  requestedBy   User?        @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  status        GhidraStatus @default(PENDING)
+  /// Resumo (apps/ghidra/scripts/ExportDeepLook.java): programa, maiores funcoes, quem chama APIs
+  /// sensiveis e o pseudo-C dessas funcoes e do ponto de entrada.
+  summary       Json?
+  /// Projeto .gzf no MinIO, sob samples/ (tem os bytes da amostra: o backup sem amostras o deixa
+  /// de fora, e a retencao e a lixeira o apagam junto com o arquivo).
+  gzfKey        String?
+  gzfSize       Int?
+  gzfError      String?
+  error         String?
+  /// Versao do Ghidra que fez a analise.
+  version       String?
+  ms            Int?
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now())
+  createdAt     DateTime     @default(now())
   startedAt     DateTime?
   finishedAt    DateTime?
 

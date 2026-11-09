@@ -20,7 +20,9 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   ```
 - [ ] **Memória:** uns 10 GB livres. O ClamAV usa de 1,5 a 3 GB (a base de assinaturas fica na
   memória), a API tem teto de 4 GB (`API_MEM_LIMIT`), a análise de funções (capa e FLOSS), de
-  3 GB (`CAPA_MEM_LIMIT`; só gasta isso durante uma análise) e a captura, de 1 GB.
+  3 GB (`CAPA_MEM_LIMIT`; só gasta isso durante uma análise), o Ghidra, de 6 GB
+  (`GHIDRA_MEM_LIMIT`; só quando um analista pede) e a captura, de 1 GB. Disco: as imagens somam uns
+  3,5 GB (o Ghidra sozinho, 1,45 GB).
 - [ ] **Disco:** o dos dados (`./data`) e um **disco externo** (ou NAS) para o backup.
 - [ ] **User namespaces liberados** (o sandbox do Chromium da captura precisa):
   ```bash
@@ -38,7 +40,7 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   ```
 - [ ] **Gere os segredos** (um por linha; nunca reaproveite entre eles):
   ```bash
-  for v in POSTGRES_PASSWORD SESSION_SECRET CAPTURE_TOKEN CAPA_TOKEN MINIO_ROOT_PASSWORD; do
+  for v in POSTGRES_PASSWORD SESSION_SECRET CAPTURE_TOKEN CAPA_TOKEN GHIDRA_TOKEN MINIO_ROOT_PASSWORD; do
     echo "$v=$(openssl rand -hex 32)"; done
   ```
   `S3_SECRET_KEY` tem de ser **igual** ao `MINIO_ROOT_PASSWORD`. Defina também `ADMIN_EMAIL` e

@@ -327,6 +327,20 @@ export function openApiDocument(): Schema {
           },
         },
       },
+      '/api/entries/{id}/ghidra': {
+        get: {
+          summary: 'Análise com o Ghidra',
+          description:
+            'Pedida por um analista. Resumo do programa, as maiores funções, quem chama APIs ' +
+            'sensíveis e o pseudo-C dessas funções e do ponto de entrada. `analysis` é null ' +
+            'enquanto ninguém pedir.',
+          parameters: [idParam],
+          responses: {
+            '200': json({ type: 'object' }, 'Situação e resultado da análise.'),
+            ...pick('401', '404'),
+          },
+        },
+      },
       '/api/entries/{id}/capa': {
         get: {
           summary: 'Análise de funções (capa e FLOSS)',

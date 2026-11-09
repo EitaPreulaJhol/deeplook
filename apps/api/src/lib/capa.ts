@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
+import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
 import { normalizeTechniques, TECHNIQUE_ID } from './attack';
 import { extractIocs, type Ioc } from './iocs';
 import { prisma } from './prisma';
@@ -40,14 +41,6 @@ export const capaTiming = {
 };
 /** Indicadores das strings do FLOSS guardados como sugestao, por tipo. */
 const IOCS_PER_KIND = 15;
-
-const NOT_CONNECTED = [
-  'ECONNREFUSED',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'EHOSTUNREACH',
-  'UND_ERR_CONNECT_TIMEOUT',
-];
 
 export function capaEnabled(): boolean {
   return Boolean(env.CAPA_URL && env.CAPA_TOKEN);
@@ -144,71 +137,19 @@ export function flossIocs(floss: FlossResult | null): Ioc[] {
 
 // ------------------------------------------------------------------ chamada ao servico
 
-class ServiceUnavailable extends Error {}
+const service = (): AnalysisService => ({
+  name: 'capa',
+  url: env.CAPA_URL,
+  token: env.CAPA_TOKEN,
+  timeoutS: env.CAPA_REQUEST_TIMEOUT_S,
+});
 
-function notConnected(err: unknown): boolean {
-  if (!(err instanceof Error) || err.name === 'TimeoutError' || err.name === 'AbortError') {
-    return false;
-  }
-  return NOT_CONNECTED.includes((err.cause as { code?: string } | undefined)?.code ?? '');
-}
-
-/** O servico esta de pe e livre (nao analisando nem trocando de container). */
-async function serviceReady(): Promise<boolean> {
-  try {
-    const res = await fetch(`${env.CAPA_URL.replace(/\/$/, '')}/health`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) {
-      await res.body?.cancel();
-      return false;
-    }
-    const body = (await res.json().catch(() => ({}))) as { state?: string };
-    return body.state === undefined || body.state === 'livre';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Manda o arquivo quando o servico estiver livre. Cada analise roda num container novo, e a troca
- * leva alguns segundos: o /health (um GET, seguro de repetir) diz quando o container novo esta
- * pronto, e so entao o arquivo sai. Mandar o POST no meio da troca podia ter a conexao derrubada,
- * o que nao se distingue do arquivo derrubando o container. Conexao que cai depois de aberta NAO
- * e repetida aqui: a fila decide (conta como tentativa).
- */
-export async function requestAnalysis(
+/** Manda o arquivo ao capa quando ele estiver livre (ver analysis-service.ts). */
+export function requestCapa(
   data: Uint8Array,
   { waitMs = capaTiming.serviceWaitMs, retryEveryMs = capaTiming.retryEveryMs } = {},
 ): Promise<Response> {
-  const deadline = Date.now() + waitMs;
-  const pause = () => new Promise((resolve) => setTimeout(resolve, retryEveryMs));
-  for (;;) {
-    if (!(await serviceReady())) {
-      if (Date.now() >= deadline) throw new ServiceUnavailable('o serviço capa não respondeu');
-      await pause();
-      continue;
-    }
-    try {
-      const res = await fetch(`${env.CAPA_URL.replace(/\/$/, '')}/analyze`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/octet-stream',
-          authorization: `Bearer ${env.CAPA_TOKEN}`,
-        },
-        body: data,
-        signal: AbortSignal.timeout(env.CAPA_REQUEST_TIMEOUT_S * 1000),
-      });
-      if (res.status !== 503) return res;
-      await res.body?.cancel();
-      if (Date.now() >= deadline) throw new ServiceUnavailable('o serviço capa está ocupado');
-    } catch (err) {
-      if (err instanceof ServiceUnavailable) throw err;
-      if (!notConnected(err)) throw err;
-      if (Date.now() >= deadline) throw new ServiceUnavailable('o serviço capa não respondeu');
-    }
-    await pause();
-  }
+  return requestAnalysis(service(), data, { waitMs, retryEveryMs });
 }
 
 // ------------------------------------------------------------------ fila
@@ -325,14 +266,9 @@ async function analyzeJob(id: string, entryId: string, attempts: number): Promis
 
   let res: Response;
   try {
-    res = await requestAnalysis(data);
+    res = await requestCapa(data);
   } catch (err) {
-    const reason =
-      err instanceof ServiceUnavailable
-        ? err.message
-        : err instanceof Error && err.name === 'TimeoutError'
-          ? `sem resposta em ${env.CAPA_REQUEST_TIMEOUT_S} s`
-          : 'a conexão com o serviço caiu durante a análise';
+    const reason = requestFailure(service(), err);
     // Servico fora do ar: tenta de novo mais tarde. Conexao que caiu no meio pode ser o proprio
     // arquivo derrubando o container: conta como tentativa, e na ultima a analise falha.
     if (attempts < MAX_ATTEMPTS) {

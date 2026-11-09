@@ -46,6 +46,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 - **capa**: análise de funções (capa e FLOSS) dos executáveis enviados, numa rede interna só
   com a API, sem internet, sem root e com a raiz somente leitura. Ver
   [Análise de funções](#análise-de-funções-capa-e-floss).
+- **ghidra**: o Ghidra headless, sob demanda, no mesmo isolamento do capa. Ver
+  [Análise com o Ghidra](#análise-com-o-ghidra).
 - Porta publicada no host: **`127.0.0.1:8080`** (consumida pelo Cloudflare Tunnel).
 
 ---
@@ -63,8 +65,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 # 1) Configure as variáveis (senhas, segredo de sessão, admin)
 cp .env.example .env
 # edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
-# ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
-# (com SESSION_SECRET, CAPTURE_TOKEN ou CAPA_TOKEN no valor padrão, a API não sobe)
+# GHIDRA_TOKEN, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
+# (com SESSION_SECRET ou um dos tokens no valor padrão, a API não sobe)
 
 # 2) Suba tudo
 docker compose build
@@ -447,6 +449,38 @@ Mandiant leem e emulam o código.
   `CAPA_RULES_VERSION`; o Dependabot não sobe o capa nem o FLOSS sozinho.
 - **Desligar:** `CAPA_URL=` (vazio) no `.env`; o serviço `capa` pode sair do compose.
 
+## Análise com o Ghidra
+
+Um analista pede **Analisar com o Ghidra** na seção da ficha; o serviço `ghidra` roda o Ghidra
+headless (12.2) em segundo plano, um por vez, e a ficha mostra:
+
+- o **programa** (formato, processador, compilador, base e entrada) e quantas funções há;
+- o **pseudo-C** do ponto de entrada e das funções que mais chamam **APIs sensíveis** (injeção,
+  rede, persistência, criptografia, antianálise; a lista está em `apps/ghidra/sensitive-apis.txt`),
+  com quem chama cada uma. Importação por ordinal do ws2_32 vira o nome, pela mesma tabela do
+  `pefile` que o imphash usa;
+- as **maiores funções**, com complexidade e as APIs que chamam;
+- o **projeto `.gzf`**, para abrir no Ghidra local já analisado.
+
+Detalhes:
+
+- **Só executáveis do Windows e do Linux**, até `GHIDRA_MAX_MB`. **.NET fica de fora**: o Ghidra não
+  descompila o código intermediário (IL), e o resultado seria só o stub do CLR.
+- **Tempo:** de 12 a 20 s nos executáveis de teste (o Java sobe a cada análise). Num executável
+  grande, a análise automática para em 70% de `GHIDRA_TIMEOUT_S` e o resumo ainda sai, parcial.
+- **O `.gzf` tem os bytes da amostra.** Baixá-lo segue a regra de baixar a amostra (quem enviou e os
+  analistas) e fica na Auditoria. Ele mora no MinIO junto das amostras: o backup sem amostras o
+  deixa de fora, e a retenção e a exclusão definitiva o apagam com o arquivo.
+- **Isolamento:** como o capa, rede interna só com a API, sem root, sem capacidades, raiz somente
+  leitura, `/tmp` em memória sem execução e um contêiner novo a cada análise.
+- **Imagem:** 1,45 GB (Debian, OpenJDK 25 sem os `jmods` e o Ghidra sem documentação, extensões,
+  servidor e depurador). O pacote é conferido pelo SHA-256 publicado. O guava 32.1.3 que o Ghidra 12.2
+  traz tem CVE alta; o build o troca pelo 33.7.2, conferido pelo hash. Ao subir o Ghidra, troque no
+  `Dockerfile` a URL, o hash e `GHIDRA_VERSION`, e veja se a troca do guava ainda é necessária.
+- **Memória:** o contêiner tem teto de 6 GB, mas só gasta durante uma análise (700 MB nos
+  executáveis de teste).
+- **Desligar:** `GHIDRA_URL=` (vazio) no `.env`; o serviço `ghidra` pode sair do compose.
+
 ## Regras YARA
 
 ### Pacotes de regras
@@ -762,6 +796,13 @@ COOKIE_SECURE=true
 | `CAPA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise (acima da soma dos dois) | `1000` |
 | `CAPA_MEM_LIMIT` | memória do contêiner `capa` | `3g` |
 | `CAPA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
+| `GHIDRA_URL` | serviço do Ghidra (sob demanda); vazio desliga | `http://ghidra:3300` |
+| `GHIDRA_TOKEN` | token compartilhado entre a API e o serviço `ghidra` (16+ caracteres) | — |
+| `GHIDRA_MAX_MB` | executáveis maiores não vão para o Ghidra | `32` |
+| `GHIDRA_TIMEOUT_S` | teto da análise no serviço (a análise automática para em 70% dele e o resumo ainda sai) | `900` |
+| `GHIDRA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise | `1300` |
+| `GHIDRA_HEADLESS_MAXMEM` / `GHIDRA_MEM_LIMIT` | heap do Java e memória do contêiner | `3G` / `6g` |
+| `GHIDRA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:1.5` |
@@ -769,7 +810,7 @@ COOKIE_SECURE=true
 | `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |
@@ -815,6 +856,7 @@ deeplook/
 │  │  ├─ tests/       # integração (Postgres, MinIO e OpenLDAP reais)
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
 │  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
+│  ├─ ghidra/         # Ghidra headless (Java 25), scripts de exportação e o servidor, sem rede
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
