@@ -31,8 +31,14 @@ RECYCLE = os.environ.get("UNPACK_RECYCLE", "true") != "false"
 MAX_BYTES = int(os.environ.get("UNPACK_MAX_MB", "64")) * 1024 * 1024
 TIMEOUT = int(os.environ.get("UNPACK_TIMEOUT_S", "180"))
 # Teto do que sai (contra zip bomb e instalador gigante): arquivos e bytes somados.
-MAX_FILES = int(os.environ.get("UNPACK_MAX_FILES", "50"))
+# A API aceita no maximo 100 arquivos no manifesto (manifestSchema, apps/api/src/lib/unpack.ts):
+# acima disso ela recusaria a resposta inteira, entao o teto vale aqui tambem.
+MAX_FILES_CEILING = 100
+MAX_FILES = max(1, min(int(os.environ.get("UNPACK_MAX_FILES", "50")), MAX_FILES_CEILING))
 MAX_TOTAL = int(os.environ.get("UNPACK_MAX_TOTAL_MB", "256")) * 1024 * 1024
+# A lista do que ficou de fora tambem tem teto (a API aceita 10 mil linhas): um instalador com
+# dezenas de milhares de arquivos nao pode fazer a resposta inteira ser recusada.
+MAX_SKIPPED = 1000
 PLUGINS_DIR = os.environ.get("UNPACK_PLUGINS", os.path.join(os.path.dirname(__file__), "unpackers"))
 DIEC = os.environ.get("DIEC", "/usr/bin/diec")
 DIE_TIMEOUT = 60
@@ -169,6 +175,15 @@ def analyze(data, work, unpack=True):
                 "candidate": any(p.detect(head) for p in PLUGINS),
             }
         )
+    if len(skipped) > MAX_SKIPPED:
+        rest = skipped[MAX_SKIPPED:]
+        skipped = skipped[:MAX_SKIPPED] + [
+            {
+                "name": f"e mais {len(rest)} arquivo(s)",
+                "size": sum(item["size"] for item in rest),
+                "reason": "lista cortada",
+            }
+        ]
     return {
         "ok": True,
         "unpacker": plugin.NAME,
@@ -294,6 +309,8 @@ def main():
     if len(TOKEN) < 16:
         log("UNPACK_TOKEN ausente ou curto (16+ caracteres).")
         sys.exit(1)
+    if os.environ.get("UNPACK_MAX_FILES", "50") != str(MAX_FILES):
+        log(f"UNPACK_MAX_FILES fora de 1 a {MAX_FILES_CEILING}: usando {MAX_FILES}")
     log(f"ouvindo na porta {PORT} (Detect It Easy {DIE_VERSION}; {', '.join(p.NAME for p in PLUGINS)})")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.daemon_threads = True

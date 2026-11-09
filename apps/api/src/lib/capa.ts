@@ -202,7 +202,13 @@ let logger: { info: (m: string) => void; error: (o: object, m: string) => void }
 
 /** Acorda a fila agora (sem esperar o proximo tique). */
 function wake(): void {
-  if (!worker && capaEnabled()) worker = drain().finally(() => (worker = null));
+  if (worker || !capaEnabled()) return;
+  // O catch e o que segura o processo: sem ele, o banco falhando no claim() (ou no finish() de
+  // dentro do catch do drain) vira rejeicao sem tratamento, e o Node encerra a API inteira. A fila
+  // tenta de novo no proximo tique.
+  worker = drain()
+    .catch((err: unknown) => logger.error({ err }, '[capa] a fila parou; volta no próximo tique'))
+    .finally(() => (worker = null));
 }
 
 /** Para os testes: espera a fila esvaziar. */

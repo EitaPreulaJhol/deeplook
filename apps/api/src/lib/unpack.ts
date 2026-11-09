@@ -237,9 +237,13 @@ let logger: FastifyBaseLogger | null = null;
 let createChild: ChildCreator | null = null;
 
 function wake(): void {
-  if (!worker && unpackEnabled() && createChild) {
-    worker = drain().finally(() => (worker = null));
-  }
+  if (worker || !unpackEnabled() || !createChild) return;
+  // Sem o catch, o banco falhando no claim() derruba a API (ver o wake de lib/capa.ts).
+  worker = drain()
+    .catch((err: unknown) =>
+      logger?.error({ err }, '[unpack] a fila parou; volta no próximo tique'),
+    )
+    .finally(() => (worker = null));
 }
 
 /** Para os testes: espera a fila esvaziar. */
@@ -480,7 +484,7 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
       files.push({ name: file.name, size: file.size, skipped: 'igual à própria amostra' });
       continue;
     }
-    const child = await createChild!({
+    const input: UnpackedChild = {
       parentId: entryId,
       ownerId: entry.ownerId,
       tags: entry.tags,
@@ -501,7 +505,26 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
       description: `Extraído de "${entry.title}" pelo desempacotador ${label}${
         file.name === 'desempacotado' ? '' : ` (${file.name})`
       }.`,
-    });
+    };
+    let child: { id: string };
+    try {
+      child = await createChild!(input);
+    } catch (err) {
+      // Falhou no meio (armazenamento ou banco fora): as filhas ja criadas ficam na lista, para a
+      // ficha mostra-las e para um novo pedido nao as duplicar.
+      logger?.error({ err }, '[unpack] falha ao criar a amostra filha');
+      const made = files.filter((f) => f.entryId).length;
+      await finish(id, {
+        status: 'FAILED',
+        unpacker: manifest.unpacker,
+        label,
+        files: files as unknown as Prisma.InputJsonValue,
+        error: `falha ao criar as amostras filhas (${made} de ${manifest.files.length} criadas)`,
+        ms: manifest.ms ?? null,
+        ...identified,
+      });
+      return;
+    }
     files.push({ name: file.name, size: file.size, entryId: child.id });
   }
   for (const s of manifest.skipped) files.push({ name: s.name, size: s.size, skipped: s.reason });

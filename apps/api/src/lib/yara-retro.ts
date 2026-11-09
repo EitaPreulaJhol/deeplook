@@ -65,14 +65,18 @@ export async function startRetroscan(
   });
   void run(retroscan.id, rule).catch(async (err) => {
     log.error({ err }, '[yara] varredura retroativa falhou');
-    await prisma.yaraRetroscan.update({
-      where: { id: retroscan.id },
-      data: {
-        status: 'FAILED',
-        finishedAt: new Date(),
-        error: err instanceof Error ? err.message.slice(0, 300) : 'falha',
-      },
-    });
+    // Se nem gravar a falha der (banco fora), o catch evita a rejeicao sem tratamento, que
+    // encerraria a API; a varredura fica RUNNING e o proximo boot a marca como interrompida.
+    await prisma.yaraRetroscan
+      .update({
+        where: { id: retroscan.id },
+        data: {
+          status: 'FAILED',
+          finishedAt: new Date(),
+          error: err instanceof Error ? err.message.slice(0, 300) : 'falha',
+        },
+      })
+      .catch((e: unknown) => log.error({ err: e }, '[yara] falha ao registrar a falha'));
   });
   return { ok: true, retroscan };
 }

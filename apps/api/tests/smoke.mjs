@@ -20,6 +20,8 @@ const CONTAINERS = ['dl-smoke-web', 'dl-smoke-api', 'dl-smoke-pg', 'dl-smoke-min
 const PLAYWRIGHT = '1.64.1';
 const ADMIN = { email: 'adm@x.io', password: 'Senha-Inicial-77!' };
 
+// Senha propria: a padrao do compose (publica) a API recusa em producao.
+const MINIO_PASSWORD = 'senha-do-minio-so-dos-testes';
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -68,7 +70,7 @@ try {
     '-e',
     'MINIO_ROOT_USER=deeplook',
     '-e',
-    'MINIO_ROOT_PASSWORD=deeplook123',
+    `MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}`,
     'pgsty/silo@sha256:7bb2aff6b89efe1cb1303c10fc21d579447434ed06649ac9ec05a5e2dbf30ad7',
     'server',
     '/data',
@@ -88,6 +90,8 @@ try {
     'SESSION_SECRET=0123456789abcdef0123456789abcdef',
     '-e',
     'S3_ENDPOINT=http://dl-smoke-minio:9000',
+    '-e',
+    `S3_SECRET_KEY=${MINIO_PASSWORD}`,
     '-e',
     `ADMIN_EMAIL=${ADMIN.email}`,
     '-e',

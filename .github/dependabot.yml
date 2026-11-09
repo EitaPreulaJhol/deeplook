@@ -89,6 +89,19 @@ updates:
       - dependency-name: mcr.microsoft.com/playwright
 
   # As acoes usadas no ci.yml (checkout, setup-node).
+  # As imagens de terceiros do docker-compose.yml (Postgres e ClamAV), fixadas por tag e digest:
+  # o Dependabot abre o PR quando a tag ganha uma imagem nova. Sem remoto, o mesmo se faz a mao
+  # com node scripts/pin-images.mjs --write.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: postgres
+        update-types: ['version-update:semver-major']
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

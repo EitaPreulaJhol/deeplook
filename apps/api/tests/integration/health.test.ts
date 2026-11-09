@@ -49,7 +49,7 @@ async function main() {
   //    Derruba so o S3 apontando o cliente para uma porta fechada.
   const { s3 } = await import('../../src/lib/s3');
   const original = s3.config.endpoint;
-  // @ts-expect-error: troca o endpoint em tempo de execucao so para este teste.
+  // Troca o endpoint em tempo de execucao so para este teste.
   s3.config.endpoint = async () => ({
     protocol: 'http:',
     hostname: '127.0.0.1',
@@ -73,7 +73,6 @@ async function main() {
     !/reason|ECONNREFUSED|recusada/i.test(JSON.stringify(downBody)),
     downBody,
   );
-  // @ts-expect-error: devolve o endpoint original.
   s3.config.endpoint = original;
 
   // 4. O cache responde sem repetir a consulta (duas chamadas seguidas).

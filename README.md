@@ -68,7 +68,7 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 cp .env.example .env
 # edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
 # GHIDRA_TOKEN, UNPACK_TOKEN, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
-# (com SESSION_SECRET ou um dos tokens no valor padrão, a API não sobe)
+# (com SESSION_SECRET, um dos tokens ou a senha do banco ou do MinIO no valor padrão, a API não sobe)
 
 # 2) Suba tudo
 docker compose build
@@ -830,7 +830,7 @@ COOKIE_SECURE=true
 
 | Variável | Descrição | Padrão |
 |---|---|---|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL | `deeplook` |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL. Com a senha padrão (`deeplook` ou a do `.env.example`) a API não sobe em produção; num banco que já existe, troque-a com `ALTER USER` antes de mudar o `.env` ([checklist](docs/implantacao.md)) | `deeplook` |
 | `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório, mínimo de 32 caracteres em produção); com o valor padrão a API não sobe | — |
 | `SESSION_TTL_HOURS` | Validade máxima da sessão (horas), mesmo com uso contínuo | `168` |
 | `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
@@ -877,16 +877,16 @@ COOKIE_SECURE=true
 | `UNPACK_TOKEN` | token compartilhado entre a API e o serviço `unpack` (16+ caracteres) | — |
 | `UNPACK_MAX_MB` | executáveis maiores não vão para o desempacotador | `64` |
 | `UNPACK_TIMEOUT_S` | tempo máximo de um desempacotador, no serviço | `180` |
-| `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | quantos arquivos e quantos MB somados saem de uma amostra | `50` / `256` |
+| `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | quantos arquivos (de 1 a 100, o máximo que a API aceita numa resposta; fora disso o serviço ajusta e avisa no log) e quantos MB somados saem de uma amostra | `50` / `256` |
 | `UNPACK_MEM_LIMIT` / `UNPACK_RECYCLE` | memória do contêiner; um container novo a cada trabalho | `2g` / `true` |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
-| `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:1.5` |
+| `CLAMAV_IMAGE` | imagem do contêiner do ClamAV, fixada por tag e digest (como a do Postgres; `node scripts/pin-images.mjs` confere e `--write` atualiza) | `clamav/clamav:1.5@sha256:…` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
 | `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |
@@ -1203,6 +1203,7 @@ Precisam só do Docker ligado; sobem o que usam e não mexem na stack em execuç
 cd apps/api
 npm run test:integration            # API contra Postgres, MinIO e OpenLDAP reais
 npm run test:integration -- ldap    # só os arquivos com "ldap" no nome
+npm run typecheck:tests             # tipos dos testes (o tsx que os roda não checa tipos)
 npm run test:images                 # imagens reais: lockfile, web e API sem root, cabeçalhos, captura
 npm run test:smoke                  # navegador real contra as imagens do web e da API
 

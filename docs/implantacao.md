@@ -46,6 +46,19 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   ```
   `S3_SECRET_KEY` tem de ser **igual** ao `MINIO_ROOT_PASSWORD`. Defina também `ADMIN_EMAIL` e
   um `ADMIN_PASSWORD` próprio: as senhas padrão publicadas são recusadas em produção.
+  O mesmo vale para a senha do banco e a do MinIO: com o valor do compose ou do `.env.example`,
+  a API **não sobe** e diz qual variável trocar.
+- [ ] **Só em instalação que já tem dados** e ainda usa a senha padrão do banco: o Postgres grava
+  a senha na criação do volume, e mudar o `.env` sozinho deixaria a API sem conseguir entrar.
+  Troque primeiro no banco, depois no `.env`:
+  ```bash
+  docker compose exec db psql -U deeplook -d deeplook   # os valores de POSTGRES_USER e POSTGRES_DB
+  # no psql, digite:  \password deeplook     (pede a senha nova duas vezes, sem mostrá-la)
+  # depois ponha a mesma senha em POSTGRES_PASSWORD no .env e:
+  docker compose up -d api
+  ```
+  A do MinIO não precisa disso: ele lê `MINIO_ROOT_PASSWORD` a cada subida; basta trocar as duas
+  variáveis (`MINIO_ROOT_PASSWORD` e `S3_SECRET_KEY`) juntas e subir de novo.
 - [ ] **Permissões:** se os arquivos vieram de uma cópia do Windows, tire a escrita de "outros"
   (item 6.21):
   ```bash

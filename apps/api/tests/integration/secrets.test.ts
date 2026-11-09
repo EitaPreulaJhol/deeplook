@@ -20,7 +20,17 @@ const boot = (vars: Record<string, string>) =>
   spawnSync(
     process.execPath,
     ['--import', 'tsx', '-e', "import('./src/env').then(()=>process.exit(0))"],
-    { env: { ...process.env, NODE_ENV: 'production', CAPTURE_URL: '', ...vars }, encoding: 'utf8' },
+    {
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        CAPTURE_URL: '',
+        // Senha propria: a padrao do MinIO e recusada em producao (bloco proprio abaixo).
+        S3_SECRET_KEY: 'senha-do-minio-de-teste',
+        ...vars,
+      },
+      encoding: 'utf8',
+    },
   );
 const seed = (vars: Record<string, string>) =>
   spawnSync(process.execPath, ['--import', 'tsx', 'src/seed.ts'], {
@@ -68,6 +78,38 @@ async function main() {
   ok(
     'fora de produção sobe',
     boot({ NODE_ENV: 'development', SESSION_SECRET: DEFAULT_SECRET }).status === 0,
+  );
+
+  // Senhas publicas do banco e do MinIO (as do compose e as do .env.example).
+  for (const secret of ['deeplook123', 'change-me-minio-password']) {
+    const r = boot({ SESSION_SECRET: GOOD, S3_SECRET_KEY: secret });
+    ok(
+      `senha pública do MinIO (${secret}) recusada em produção`,
+      r.status === 1 && r.stderr.includes('S3_SECRET_KEY') && !r.stderr.includes('ALTER USER'),
+      r.stderr,
+    );
+  }
+  for (const secret of ['deeplook', 'change-me-db-password']) {
+    const r = boot({
+      SESSION_SECRET: GOOD,
+      DATABASE_URL: `postgresql://deeplook:${secret}@db:5432/deeplook?schema=public`,
+    });
+    ok(
+      `senha pública do banco (${secret}) recusada em produção, com o aviso do ALTER USER`,
+      r.status === 1 && r.stderr.includes('POSTGRES_PASSWORD') && r.stderr.includes('ALTER USER'),
+      r.stderr,
+    );
+  }
+  ok(
+    'senha pública do MinIO e do banco: a demonstração e o desenvolvimento sobem',
+    boot({
+      SESSION_SECRET: GOOD,
+      S3_SECRET_KEY: 'deeplook123',
+      DATABASE_URL: 'postgresql://deeplook:deeplook@db:5432/deeplook?schema=public',
+      ALLOW_INSECURE_DEFAULTS: 'true',
+    }).status === 0 &&
+      boot({ NODE_ENV: 'development', SESSION_SECRET: GOOD, S3_SECRET_KEY: 'deeplook123' })
+        .status === 0,
   );
 
   // 2. Admin.

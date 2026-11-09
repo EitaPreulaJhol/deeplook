@@ -13,6 +13,7 @@ import Fastify from 'fastify';
 
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
+import { unpackChildCreator } from '../../src/lib/entry-create';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
@@ -25,7 +26,7 @@ import {
   unpackTiming,
 } from '../../src/lib/unpack';
 import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes, unpackChildCreator } from '../../src/routes/entries';
+import { entryRoutes } from '../../src/routes/entries';
 import { unpackRoutes } from '../../src/routes/unpack';
 
 // Desempacotar e extrair (item 7.8) contra o servico de verdade (tests/run.mjs o sobe com o
@@ -595,6 +596,108 @@ async function main() {
         (j) => j?.note === 'só identificado: já há duas gerações desempacotadas acima',
       ),
     { geracoes: deepest.length, lastJobs },
+  );
+
+  // ------------------------------------------------------------ 4. falha no meio do trabalho
+  // A criacao da segunda filha falha (armazenamento ou banco fora): a primeira fica na lista do
+  // trabalho, e um novo pedido nao a duplica.
+  const two = [Buffer.from('MZ primeira filha'), Buffer.from('MZ segunda filha')];
+  const twoFiles = (res: http.ServerResponse) =>
+    res.writeHead(200, { 'content-type': 'application/zip' }).end(
+      storedZip([
+        {
+          name: 'manifest.json',
+          data: Buffer.from(
+            JSON.stringify({
+              ok: true,
+              unpacker: 'nsis',
+              label: 'NSIS',
+              note: null,
+              files: two.map((data, i) => ({
+                name: `filha${i + 1}.bin`,
+                entry: `f000${i + 1}`,
+                size: data.length,
+                detections: [],
+                candidate: false,
+              })),
+              skipped: [],
+              ms: 1,
+            }),
+          ),
+        },
+        ...two.map((data, i) => ({ name: `f000${i + 1}`, data })),
+      ]),
+    );
+  const realCreator = unpackChildCreator(app.log);
+  let calls = 0;
+  await startUnpackQueue(app.log, async (child) => {
+    if (++calls === 2) throw new Error('armazenamento fora');
+    return realCreator(child);
+  });
+  stopUnpackQueue();
+  target = await upload(ana, 'meio.exe', file('prog64.exe'));
+  await unpackIdle();
+  await hostile(
+    'falha ao criar a segunda filha: a primeira fica na lista e o trabalho falha com o motivo',
+    twoFiles,
+    (r) => {
+      const files = (r?.files ?? []) as { entryId?: string }[];
+      return (
+        r?.status === 'FAILED' &&
+        r.error === 'falha ao criar as amostras filhas (1 de 2 criadas)' &&
+        files.length === 1 &&
+        Boolean(files[0]?.entryId)
+      );
+    },
+  );
+  const half = await children(target);
+  ok(
+    'pedir de novo depois da falha no meio: 409, sem duplicar a filha',
+    (await ask(ana, target)).statusCode === 409 && half.length === 1,
+    half.length,
+  );
+  // Mesmo sem a lista (o trabalho caiu antes de grava-la), as filhas que existem barram o pedido.
+  await prisma.unpackJob.update({ where: { entryId: target }, data: { files: [] } });
+  ok(
+    'filhas existentes sem a lista no trabalho: 409 do mesmo jeito',
+    (await ask(ana, target)).statusCode === 409,
+  );
+
+  // ------------------------------------------------------------ 5. o banco falha na fila
+  // O claim() rejeitando nao pode virar rejeicao sem tratamento (o Node encerraria a API): a fila
+  // registra, para, e o trabalho continua pendente para o proximo tique.
+  await startUnpackQueue(app.log, realCreator);
+  stopUnpackQueue();
+  target = await upload(ana, 'banco-fora.exe', file('prog32.exe'));
+  await unpackIdle();
+  await prisma.unpackJob.deleteMany({ where: { entryId: target } });
+  let unhandled: unknown = null;
+  const onUnhandled = (reason: unknown) => (unhandled = reason);
+  process.on('unhandledRejection', onUnhandled);
+  const delegate = prisma.unpackJob as unknown as { findFirst: unknown };
+  const findFirst = delegate.findFirst;
+  let rejected = 0;
+  delegate.findFirst = () => {
+    rejected++;
+    return Promise.reject(new Error('banco fora'));
+  };
+  const asked = await ask(ana, target);
+  await unpackIdle();
+  await sleep(50);
+  delegate.findFirst = findFirst;
+  process.off('unhandledRejection', onUnhandled);
+  const waiting = await job(target);
+  ok(
+    'banco fora no claim(): sem rejeição sem tratamento, e o trabalho segue pendente',
+    asked.statusCode === 202 && rejected > 0 && unhandled === null && waiting?.status === 'PENDING',
+    { status: asked.statusCode, rejected, unhandled: String(unhandled), job: waiting?.status },
+  );
+  await startUnpackQueue(app.log, realCreator);
+  await unpackIdle();
+  ok(
+    'com o banco de volta, o tique seguinte conclui o trabalho',
+    (await job(target))?.status === 'DONE',
+    await job(target),
   );
 
   stopUnpackQueue();

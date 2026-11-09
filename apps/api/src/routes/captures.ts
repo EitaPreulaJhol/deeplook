@@ -57,7 +57,11 @@ export async function captureRoutes(app: FastifyInstance) {
       data: { entryId: id, requestedById: user.id, url: entry.url },
       select: captureSelect,
     });
-    void runCapture(capture.id, req.log);
+    // O runCapture grava a falha na ficha; se ate isso falhar (banco fora), o catch evita a
+    // rejeicao sem tratamento, que encerraria a API.
+    void runCapture(capture.id, req.log).catch((err: unknown) =>
+      req.log.error({ err }, '[captura] falha ao registrar o resultado'),
+    );
     return reply.code(202).send({ capture });
   });
 

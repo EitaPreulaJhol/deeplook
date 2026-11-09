@@ -400,7 +400,7 @@ async function main() {
 }
 
 /** Versao atual mais a regra nova. */
-function baseFilesWith() {
+function baseFilesWith(): Record<string, string> {
   return { ...baseFiles(), [NEW_FILE]: NEW_RULE };
 }
 

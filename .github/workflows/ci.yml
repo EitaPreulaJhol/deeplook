@@ -87,6 +87,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Os testes de integracao rodam pelo tsx, que nao checa tipos, e o build so cobre src/
+      # (Achado J): sem este passo, um teste errado no tipo passava calado.
+      - name: Tipos dos testes de integracao
+        if: matrix.app == 'api'
+        run: npm run typecheck:tests
+
       # Testes unitarios do frontend (itens 2.2 e 6.9), so no web; mesmo molde do passo
       # de prisma:generate, que roda so na API. Com cobertura: o piso do vitest.config.ts
       # reprova uma queda grande nos modulos que ja tem teste.

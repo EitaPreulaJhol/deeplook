@@ -201,7 +201,11 @@ let logger: { info: (m: string) => void; error: (o: object, m: string) => void }
 };
 
 function wake(): void {
-  if (!worker && ghidraEnabled()) worker = drain().finally(() => (worker = null));
+  if (worker || !ghidraEnabled()) return;
+  // Sem o catch, o banco falhando no claim() derruba a API (ver o wake de lib/capa.ts).
+  worker = drain()
+    .catch((err: unknown) => logger.error({ err }, '[ghidra] a fila parou; volta no próximo tique'))
+    .finally(() => (worker = null));
 }
 
 /** Para os testes: espera a fila esvaziar. */

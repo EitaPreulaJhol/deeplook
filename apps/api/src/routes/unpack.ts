@@ -98,8 +98,12 @@ export async function unpackRoutes(app: FastifyInstance) {
     if (job && (job.status === 'PENDING' || job.status === 'RUNNING')) {
       return reply.code(409).send({ error: 'O desempacotamento já está na fila.' });
     }
-    // De novo duplicaria as amostras filhas que ja sairam.
-    if (((job?.files ?? []) as { entryId?: string }[]).some((f) => f.entryId)) {
+    // De novo duplicaria as amostras filhas que ja sairam. A contagem cobre o trabalho que falhou
+    // no meio sem chegar a gravar a lista (so um desempacotamento da filhas a um executavel).
+    if (
+      ((job?.files ?? []) as { entryId?: string }[]).some((f) => f.entryId) ||
+      (await prisma.entry.count({ where: { parentEntryId: id } }))
+    ) {
       return reply.code(409).send({ error: 'Os arquivos desta amostra já foram extraídos.' });
     }
     await requestUnpack(id);

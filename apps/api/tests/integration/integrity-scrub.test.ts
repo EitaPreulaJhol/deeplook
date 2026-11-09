@@ -217,7 +217,7 @@ async function main() {
     orderBy: { id: 'asc' },
   });
   const original = s3.config.endpoint;
-  // @ts-expect-error: troca o endpoint em tempo de execucao so para este teste.
+  // Troca o endpoint em tempo de execucao so para este teste.
   s3.config.endpoint = async () => ({
     protocol: 'http:',
     hostname: '127.0.0.1',
@@ -225,7 +225,6 @@ async function main() {
     path: '/',
   });
   const down = await scrubIntegrity();
-  // @ts-expect-error: devolve o endpoint original.
   s3.config.endpoint = original;
   ok('MinIO fora: nada julgado, 3 falhas e desiste', down.checked === 0 && down.errors === 3, down);
   const afterDown = await prisma.entry.findMany({

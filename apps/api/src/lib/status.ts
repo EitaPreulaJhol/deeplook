@@ -1,6 +1,13 @@
 import { HeadBucketCommand } from '@aws-sdk/client-s3';
 
-import { env, proxmoxMock, sandboxEnabled } from '../env';
+import {
+  databasePassword,
+  env,
+  proxmoxMock,
+  PUBLIC_DB_PASSWORDS,
+  PUBLIC_S3_SECRETS,
+  sandboxEnabled,
+} from '../env';
 import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
 import { capaEnabled } from './capa';
@@ -686,17 +693,11 @@ async function unpackCheck(): Promise<StatusCheck> {
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
 /** Senhas padrao ainda em uso (item 97): valores publicos do compose e do .env.example. */
 export function insecureDefaults(): string[] {
-  let dbPassword = '';
-  try {
-    dbPassword = decodeURIComponent(new URL(env.DATABASE_URL).password);
-  } catch {
-    /* endereco em outro formato: nao da para conferir */
-  }
+  // Em producao a API nem sobe com estas duas (env.ts); o aviso fica para a demonstracao e o
+  // desenvolvimento.
   return [
-    ['deeplook', 'change-me-db-password'].includes(dbPassword) &&
-      'senha do banco (POSTGRES_PASSWORD)',
-    ['deeplook123', 'change-me-minio-password'].includes(env.S3_SECRET_KEY) &&
-      'senha do MinIO (S3_SECRET_KEY)',
+    PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'senha do banco (POSTGRES_PASSWORD)',
+    PUBLIC_S3_SECRETS.includes(env.S3_SECRET_KEY) && 'senha do MinIO (S3_SECRET_KEY)',
     env.ALLOW_INSECURE_DEFAULTS === 'true' && 'ALLOW_INSECURE_DEFAULTS ligado',
     env.COOKIE_SECURE !== 'true' && 'COOKIE_SECURE desligado (ligue em produção, sob HTTPS)',
     !env.TRUSTED_NETWORK.trim() &&

@@ -243,6 +243,23 @@ const KNOWN_SECRETS = new Set([
   'troque-este-token-do-ghidra',
   'troque-este-token-do-unpack',
 ]);
+/**
+ * Senhas do banco e do MinIO que o compose e o .env.example trazem: publicas tambem. Com elas,
+ * quem alcanca o console do MinIO (127.0.0.1:9001) baixa todas as amostras. O status do sistema
+ * (lib/status.ts) usa as mesmas listas.
+ */
+export const PUBLIC_DB_PASSWORDS = ['deeplook', 'change-me-db-password'];
+export const PUBLIC_S3_SECRETS = ['deeplook123', 'change-me-minio-password'];
+
+/** Senha dentro do DATABASE_URL ('' se o endereco vier noutro formato: nao da para conferir). */
+export function databasePassword(): string {
+  try {
+    return decodeURIComponent(new URL(env.DATABASE_URL).password);
+  } catch {
+    return '';
+  }
+}
+
 /** Em producao o SESSION_SECRET curto (ex.: literais de teste) assinaria o cookie de
  * dispositivo e puloria o bloqueio da conta: exija entropia minima (item 97). */
 const MIN_PROD_SECRET = 32;
@@ -253,14 +270,25 @@ const refused = [
   env.CAPA_URL && KNOWN_SECRETS.has(env.CAPA_TOKEN) && 'CAPA_TOKEN',
   env.GHIDRA_URL && KNOWN_SECRETS.has(env.GHIDRA_TOKEN) && 'GHIDRA_TOKEN',
   env.UNPACK_URL && KNOWN_SECRETS.has(env.UNPACK_TOKEN) && 'UNPACK_TOKEN',
-].filter(Boolean);
+  PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',
+  PUBLIC_S3_SECRETS.includes(env.S3_SECRET_KEY) && 'S3_SECRET_KEY',
+].filter((name): name is string => Boolean(name));
 if (refused.length && isProd && env.ALLOW_INSECURE_DEFAULTS !== 'true') {
   console.error(
     `[env] ${refused.join(' e ')} com valor publico ou curto demais (minimo de ` +
-      `${MIN_PROD_SECRET} caracteres em producao). Defina um valor longo e aleatorio no ` +
-      '.env (ex.: openssl rand -hex 32). Para uma demonstracao local, use ' +
+      `${MIN_PROD_SECRET} caracteres no SESSION_SECRET em producao). Defina um valor longo e ` +
+      'aleatorio no .env (ex.: openssl rand -hex 32). Para uma demonstracao local, use ' +
       'ALLOW_INSECURE_DEFAULTS=true.',
   );
+  if (refused.includes('POSTGRES_PASSWORD')) {
+    console.error(
+      '[env] Num banco que ja existe, mudar o .env nao muda a senha gravada: troque-a antes com ' +
+        'ALTER USER (passo a passo em docs/implantacao.md).',
+    );
+  }
+  if (refused.includes('S3_SECRET_KEY')) {
+    console.error('[env] O S3_SECRET_KEY tem de ser igual ao MINIO_ROOT_PASSWORD.');
+  }
   process.exit(1);
 }
 

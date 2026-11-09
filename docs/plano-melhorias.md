@@ -62,6 +62,15 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 7.13 | APK, JAR e Mach-O | ⚪ | M | API | ⬜ |
 | 7.14 | Office e PDF mais fundo (oletools, XLM 4.0) | ⚪ | P–M | API / Compose | ⬜ |
 | 7.15 | Sugerir regra YARA a partir da amostra | ⚪ | M | API / Web | ⬜ |
+| 8.1 | Filas de análise e captura: o banco fora não derruba mais a API | 🔴 | P | API | ✅ |
+| 8.2 | Desempacotamento que falha no meio não duplica as filhas | 🟡 | P | API | ✅ |
+| 8.3 | Tetos do serviço `unpack` alinhados com o que a API aceita | 🟡 | P | Unpack | ✅ |
+| 8.4 | Senha padrão do banco e do MinIO recusada em produção | 🟡 | P | API / Operação | ✅ |
+| 8.5 | Tipos dos testes de integração no CI (fecha o Achado J) | 🟡 | P | API / Repositório | ✅ |
+| 8.6 | Postgres e ClamAV fixados por digest, com script de atualização | ⚪ | P | Compose / Repositório | ✅ |
+| 8.7 | Criação de amostra fora de `routes/entries.ts` | ⚪ | P | API | ✅ |
+| 8.8 | Mensagem de commit: assunto curto, o resto no corpo | ⚪ | P | Repositório | ✅ (daqui em diante) |
+| 8.9 | Repositório num remoto privado (liga o CI, o Dependabot e o Trivy) | 🔴 | P | Repositório | ⬜ (depende do dono) |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -88,15 +97,18 @@ zero; `actionlint` nos workflows. Pacote principal do web: de 1.076 kB (383 kB n
 
 ## ⏸ Onde paramos
 
-Três levas entregues, mais as fronteiras da API (6.15), que fecham o vuln-0008 que tinha ficado
-aberto. A **primeira** (1.1, 1.2, 1.3, 2.1, 2.3, 2.4), a **segunda** (2.2 Vitest,
-4.1 cabeçalhos do nginx e o Node 26 LTS) e a **terceira** (3.2, 4.2 e 6.1 a 6.12: endurecimento,
-CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
+Cinco levas. A **primeira** (1.1, 1.2, 1.3, 2.1, 2.3, 2.4), a **segunda** (2.2 Vitest,
+4.1 cabeçalhos do nginx e o Node 26 LTS), a **terceira** (3.2, 4.2 e 6.1 a 6.22: endurecimento,
+CI, desempenho, dependências, backup e as fronteiras da API, que fecharam o vuln-0008), a
+**quarta** (análise estática: 7.1 a 7.4, 7.8 e 7.9 entregues; 7.5 a 7.7 e 7.10 a 7.15 registrados)
+e a **quinta** (8.1 a 8.8: a revisão de novembro, correções e arrumação). O que falta está abaixo,
+na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; o DIE (7.9) já mostra quais famílias e ferramentas aparecem | **M–G** |
-| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 1º | [8.9 Remoto privado](#89-repositório-num-remoto-privado) | Sem ele o CI, o Dependabot e o Trivy semanal não rodam, e o código só existe neste disco | **P** |
+| 2º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; o DIE (7.9) já mostra quais famílias e ferramentas aparecem | **M–G** |
+| 3º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -110,12 +122,14 @@ Backup.
 # a identificação com o Detect It Easy (7.9) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1468 checagens em 41 arquivos (sobe o capa, o Ghidra e o unpack reais)
+cd ../api   && npm run test:integration          # 1478 checagens em 41 arquivos (sobe o capa, o Ghidra e o unpack reais)
 cd ../api   && npm run test:images && npm run test:smoke   # 102 e 101 checagens
+cd ../api   && npm run typecheck:tests            # tipos dos testes (item 8.5)
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
             && node scripts/seccomp-chromium.mjs --check
+node scripts/pin-images.mjs                       # o Postgres e o ClamAV ainda sao os do digest? (8.6)
 # o repositorio nao tem remoto: os passos do CI so rodam se alguem os rodar aqui
 ```
 
@@ -1988,6 +2002,120 @@ como regra da equipe.
 
 ---
 
+## 8. Quinta leva: revisão de novembro
+
+Leitura do código mais novo (o serviço `unpack`, as filas do capa e do Ghidra, o cliente dos
+serviços, o compose, o `env.ts` e o controle de acesso) atrás de defeito, não de funcionalidade.
+Saíram cinco correções e quatro arrumações. O resto da API e o web foram vistos só por amostragem.
+
+### 8.1 Filas de análise e captura: o banco fora não derruba mais a API
+
+O `wake()` das três filas (`lib/capa.ts`, `lib/ghidra.ts`, `lib/unpack.ts`) fazia
+`worker = drain().finally(...)` sem `catch`. O `drain` trata a falha de um trabalho, mas não a do
+próprio `claim()` nem a do `finish()` de dentro do seu `catch`: com o banco reiniciando ou o pool
+esgotado, a promessa rejeitava sem ninguém ouvir, e o Node encerra o processo numa rejeição sem
+tratamento. Como o `wake` roda a cada 15 s, qualquer queda do Postgres matava a API, e com ela os
+envios em andamento e os consoles do sandbox. O `void runCapture(...)` da rota de captura tinha o
+mesmo desenho (o `findUnique` inicial e o `fail()` ficam fora do `try`).
+
+**Implementado:**
+- `catch` nos três `wake()`: registra `a fila parou; volta no próximo tique` e o trabalho continua
+  pendente. Na rota de captura, `catch` no `runCapture`; no YARA retroativo, o `catch` que grava
+  a falha da varredura deixou de poder rejeitar ele mesmo.
+- **Não** foi posto um `process.on('unhandledRejection')` geral: ele esconderia o próximo caso em
+  vez de mostrá-lo, e os outros laços de fundo (retenção, prazo, integridade, sessões, LDAP,
+  backup, atualização do YARA, as reanálises do boot) já tratam o próprio erro, conferidos um a
+  um. **Ficou de fora:** no sandbox, o `catch` do provisionamento ainda grava um evento depois de
+  marcar a sessão como falha; se o banco cair exatamente entre as duas gravações, é o mesmo
+  defeito, numa janela de milissegundos.
+- Teste em `unpack.test.ts`: com o `findFirst` do trabalho rejeitando, não há rejeição sem
+  tratamento, o trabalho segue `PENDING` e o tique seguinte o conclui.
+
+### 8.2 Desempacotamento que falha no meio não duplica as filhas
+
+Se a criação de uma filha lançasse no meio (armazenamento ou banco fora na terceira de dez), o
+trabalho virava `FAILED` sem gravar a lista, as filhas já criadas continuavam existindo, e a rota
+liberava um novo pedido porque só olhava `job.files`: o segundo pedido duplicava as primeiras.
+
+**Implementado:**
+- A fila grava as filhas já criadas ao falhar, com o motivo
+  (`falha ao criar as amostras filhas (2 de 10 criadas)`): a ficha as mostra.
+- A rota `POST /api/entries/:id/unpack` recusa (409) também quando já existem amostras filhas, com
+  ou sem a lista no trabalho, como o `extract-image` já fazia.
+
+### 8.3 Tetos do serviço `unpack` alinhados com o que a API aceita
+
+O serviço aceitava qualquer `UNPACK_MAX_FILES`, e a API valida o manifesto com no máximo 100
+arquivos: com 150, todo desempacotamento virava "resposta do serviço em formato inesperado", sem
+pista do motivo. A lista do que ficou de fora tinha o mesmo problema acima de 10 mil linhas.
+
+**Implementado:** o serviço limita `UNPACK_MAX_FILES` a 1–100 (e avisa no log quando ajusta) e
+corta a lista do que ficou de fora em mil linhas, com uma última dizendo quantos faltaram.
+`test:images` não ganhou checagem para isto: o teto é uma linha, e o caminho de 100 arquivos
+custaria um instalador de teste novo.
+
+### 8.4 Senha padrão do banco e do MinIO recusada em produção
+
+O `env.ts` recusava o `SESSION_SECRET` e os quatro tokens com o valor público, mas a senha
+`deeplook` do banco e a `deeplook123` do MinIO só viravam aviso em Administração > Status. O
+console do MinIO fica em `127.0.0.1:9001`: com a senha pública, quem alcança essa porta baixa
+todas as amostras.
+
+**Implementado:**
+- As duas entram na recusa de produção (as do compose e as do `.env.example`), pelas mesmas
+  listas que o status usa. `ALLOW_INSECURE_DEFAULTS=true` continua liberando a demonstração.
+- **Cuidado de quem atualiza:** o Postgres grava a senha na criação do volume. Numa instalação
+  que já tem dados e usa a senha padrão, mudar só o `.env` trancaria a API para fora do banco. A
+  mensagem de recusa diz isso e o [checklist](implantacao.md) ganhou o passo do `\password`.
+- Os testes de imagem e o smoke passaram a subir o MinIO com uma senha própria.
+
+### 8.5 Tipos dos testes de integração no CI
+
+Fecha o [Achado J](#j-os-testes-de-integração-não-passam-pela-checagem-de-tipos). Os oito erros
+eram seis diretivas `@ts-expect-error` que sobraram (a troca do endpoint do S3 nos testes já não
+é erro de tipo) e dois índices sem tipo no `yara-update.test.ts`. `npm run typecheck:tests` roda o
+`tsc -p tests/tsconfig.json`, e o CI o roda no job da API.
+
+### 8.6 Postgres e ClamAV fixados por digest
+
+`postgres:16-alpine` e `clamav/clamav:1.5` eram tags flutuantes, enquanto o MinIO já vinha por
+digest. Agora o compose traz tag **e** digest, e `scripts/pin-images.mjs` confere se a tag ainda
+aponta para a mesma imagem (`--write` regrava). O Dependabot ganhou o ecossistema
+`docker-compose`. **O preço:** sem remoto, a correção de segurança dessas imagens só chega quando
+alguém roda o script; ele está no bloco "Para retomar".
+
+### 8.7 Criação de amostra fora de `routes/entries.ts`
+
+`createFileEntry`, a leitura do `.eml`, a triagem de chegada e o criador de filhas do
+desempacotador foram para `lib/entry-create.ts` (251 linhas; o arquivo de rotas caiu de 1.710 para
+1.480). Mudança só de lugar: a fila do desempacotador usa essa criação em segundo plano, e o
+`index.ts` importava de uma rota para subir uma fila.
+
+### 8.8 Mensagem de commit
+
+Os assuntos chegaram a 4.600 caracteres numa linha só: `git log --oneline` e `git blame` ficaram
+ilegíveis. Daqui em diante: **assunto de até 72 caracteres** (`tipo: o que mudou`), linha em
+branco, e o detalhe (o porquê, o que foi medido, a prova inversa, a validação) no corpo, em
+parágrafos. O histórico existente fica como está: reescrevê-lo trocaria todos os hashes que este
+plano cita.
+
+### 8.9 Repositório num remoto privado
+
+**Pendente, depende do dono.** O CI (`.github/workflows/ci.yml`), o Trivy semanal e o Dependabot
+só rodam num remoto, e hoje o código existe apenas neste disco. Um repositório privado liga os
+três de uma vez. Falta só o endereço: `git remote add origin <url> && git push -u origin main`.
+
+**Validação da leva:** `format:check`, `lint`, `build` e `typecheck:tests` limpos na API;
+**1478 checagens em 41 arquivos** de integração (eram 1468; o `unpack` foi de 33 para 38 e o
+`secrets` de 15 para 20), `test:images` com 102 e `test:smoke` com 101, todos verdes. Prova
+inversa no `unpack.test.ts`: sem o `catch` do `wake`, sem a gravação das filhas na falha e sem a
+contagem de filhas na rota, falham as três checagens novas correspondentes e só elas (a quarta,
+"filhas existentes sem a lista", não foi isolada: naquela rodada o pedido anterior já tinha
+deixado um trabalho na fila, e o 409 veio por esse motivo). **Não rodaram** nesta leva, por não
+terem código tocado: os testes do web, os cenários de tela e o Trivy.
+
+---
+
 ## Achados no caminho
 
 Duas coisas apareceram ao montar o CI e precisaram de conserto antes, senão a esteira
@@ -2094,7 +2222,7 @@ mensagem do commit.
 
 ### J. Os testes de integração não passam pela checagem de tipos
 
-Achado no 7.1, sem correção. Os testes rodam pelo `tsx`, que não checa tipos, e nem o `build`
+Achado no 7.1 e **corrigido no item 8.5**. Os testes rodam pelo `tsx`, que não checa tipos, e nem o `build`
 nem o CI rodam `tsc -p tests/tsconfig.json`. Esse comando acusa 8 erros em quatro arquivos
 antigos (`health`, `integrity-scrub`, `status-token` e `yara-update`: diretivas
 `@ts-expect-error` que sobraram e índices sem tipo). O arquivo novo (`pe-analysis.test.ts`) foi
