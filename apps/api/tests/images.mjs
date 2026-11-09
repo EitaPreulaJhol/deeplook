@@ -817,6 +817,134 @@ async function captureImage() {
   }
 }
 
+const CAPA_CONTAINERS = ['dl-test-capa', 'dl-test-capa-front'];
+const CAPA_NETWORKS = ['dl-test-capa-net', 'dl-test-capa-front-net'];
+
+/**
+ * Analise de funcoes (item 7.2): o servico capa com a configuracao do compose (raiz somente
+ * leitura, /tmp em memoria sem executaveis, sem capacidades, sem root, limites e o restart que
+ * troca o container a cada analise) e na rede interna "analysis". O "front" faz o papel da API.
+ */
+async function capaImage() {
+  docker('build', '-q', '-t', 'dl-test-capa', join(APPS, 'capa'));
+  ok('imagem do capa compila pelo lockfile (hashes) e com regras conferidas', true);
+  quiet('rm', '-f', ...CAPA_CONTAINERS);
+  for (const net of CAPA_NETWORKS) quiet('network', 'rm', net);
+  docker('network', 'create', ...networkArgs('analysis'), 'dl-test-capa-net');
+  docker('network', 'create', 'dl-test-capa-front-net');
+  const TOKEN = '0123456789abcdef01';
+  try {
+    const service = composeService('capa');
+    const env = Object.entries(service.environment ?? {})
+      .filter(([k]) => k !== 'CAPA_TOKEN')
+      .flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-capa',
+      '--network',
+      'dl-test-capa-net',
+      '--network-alias',
+      'capa',
+      '-e',
+      `CAPA_TOKEN=${TOKEN}`,
+      ...env,
+      ...runArgs(service, { restart: true }),
+      'dl-test-capa',
+    );
+    const forward =
+      "const net=require('net');net.createServer((c)=>{const u=net.connect(3200,'capa');" +
+      "c.pipe(u).pipe(c);u.on('error',()=>c.destroy());c.on('error',()=>u.destroy())}).listen(3200)";
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-capa-front',
+      '--network',
+      'dl-test-capa-front-net',
+      '-p',
+      '127.0.0.1:53210:3200',
+      'node:26-slim',
+      'node',
+      '-e',
+      forward,
+    );
+    docker('network', 'connect', 'dl-test-capa-net', 'dl-test-capa-front');
+    const base = 'http://localhost:53210';
+    const health = await until(() => fetch(`${base}/health`).then((r) => (r.ok ? r.json() : null)));
+    ok(
+      'capa sobe com a configuração do compose (versões no /health)',
+      health?.state === 'livre' && health.capa === '10.0.0' && health.rules === '10.0.0',
+      health,
+    );
+    const inCapa = (...args) => quiet('exec', 'dl-test-capa', ...args);
+    ok('capa sem root', inCapa('id', '-u').stdout?.trim() === '10001');
+    ok(
+      'capa: raiz somente leitura; /tmp gravável e sem execução',
+      inCapa('touch', '/opt/capa/x').status !== 0 &&
+        inCapa('sh', '-c', 'cp /bin/true /tmp/t && /tmp/t').status !== 0 &&
+        inCapa('sh', '-c', 'echo ok > /tmp/ok').status === 0,
+    );
+    const capEff = inCapa(
+      'sh',
+      '-c',
+      "grep CapEff /proc/1/status | awk '{print $2}'",
+    ).stdout?.trim();
+    ok('capa sem capacidades', capEff === '0000000000000000', capEff);
+    const egress = inCapa(
+      'python',
+      '-c',
+      "import socket;s=socket.socket();s.settimeout(3);s.connect(('1.1.1.1',80))",
+    );
+    ok('capa sem saída para a internet', egress.status !== 0);
+    const post = (body, token = TOKEN) =>
+      fetch(`${base}/analyze`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' },
+        body,
+      });
+    ok('capa: token errado recusado', (await post(Buffer.from('MZ'), 'errado')).status === 401);
+    ok('capa: só executáveis', (await post(Buffer.from('só texto'))).status === 415);
+    const big = await post(Buffer.alloc(33 * 1024 * 1024, 0x41)).then(
+      (r) => r.status,
+      (e) => String(e?.cause?.code ?? e),
+    );
+    ok('capa: acima do teto recusado com resposta (não conexão derrubada)', big === 413, big);
+    // Um ELF de verdade, tirado da propria imagem: o capa le as regras do cache pronto (com a raiz
+    // somente leitura, ele nao conseguiria grava-lo) e responde.
+    const elf = execFileSync('docker', [
+      'run',
+      '--rm',
+      '--entrypoint',
+      'cat',
+      'dl-test-capa',
+      '/bin/true',
+    ]);
+    const before = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-capa').trim());
+    const analysis = await (await post(elf)).json();
+    ok(
+      'capa analisa com a raiz somente leitura',
+      analysis.ok === true &&
+        analysis.kind === 'elf' &&
+        analysis.capa?.format === 'elf' &&
+        !analysis.capaError,
+      analysis,
+    );
+    const swapped = await until(async () => {
+      const count = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-capa').trim());
+      if (count <= before) return null;
+      const h = await fetch(`${base}/health`).then((r) => r.json());
+      return h.state === 'livre';
+    });
+    ok('capa: container novo depois da análise, livre de novo', Boolean(swapped));
+  } finally {
+    quiet('rm', '-f', ...CAPA_CONTAINERS);
+    for (const net of CAPA_NETWORKS) quiet('network', 'rm', net);
+    quiet('rmi', 'dl-test-capa');
+  }
+}
+
 const composeCheck = spawnSync('docker', ['compose', 'config', '-q'], {
   cwd: join(APPS, '..'),
   encoding: 'utf8',
@@ -825,5 +953,6 @@ ok('compose válido', composeCheck.status === 0, composeCheck.stderr);
 await webImage();
 await apiImage();
 await captureImage();
+await capaImage();
 console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
 process.exit(fails ? 1 : 0);

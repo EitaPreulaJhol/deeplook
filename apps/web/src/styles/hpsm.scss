@@ -2769,6 +2769,17 @@ body:has(.dl-print) {
   overflow-wrap: anywhere;
 }
 
+/* Analise de funcoes (item 7.2): MBC abaixo da capacidade e tecnicas lado a lado. */
+.dl-capa-mbc {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--dl-text-muted);
+}
+
+.dl-capa-attack + .dl-capa-attack {
+  margin-left: 0.5rem;
+}
+
 /* Funcoes importadas por DLL (item 7.1). */
 .dl-static-imports {
   margin: 0.5rem 0 0.75rem;

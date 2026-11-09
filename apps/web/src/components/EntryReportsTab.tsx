@@ -33,6 +33,8 @@ interface Props {
   onCreated: () => void;
   /** IOCs encontrados pela analise estatica (botao "Inserir IOCs sugeridos"). */
   suggestedIocs?: string[];
+  /** Tecnicas ATT&CK das regras do capa (item 7.2; botao "Inserir tecnicas sugeridas"). */
+  suggestedAttack?: string[];
   /** Servidor exige revisao (quatro olhos): nao ha "Publicar" direto. */
   reviewRequired?: boolean;
 }
@@ -54,6 +56,7 @@ export function EntryReportsTab({
   canTriage,
   onCreated,
   suggestedIocs = [],
+  suggestedAttack = [],
   reviewRequired = false,
 }: Props) {
   const { user } = useAuth();
@@ -537,7 +540,24 @@ export function EntryReportsTab({
               htmlFor="report-attack"
               top
               invalid={reportCheck.isInvalid('report-attack')}
-              help="MITRE ATT&CK: busque pelo código ou pelo nome. Viram filtro nas listas e entram no Painel."
+              help={
+                <>
+                  MITRE ATT&CK: busque pelo código ou pelo nome. Viram filtro nas listas e entram no
+                  Painel.
+                  {suggestedAttack.length > 0 && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className="dl-link-button"
+                        onClick={() => setAttack([...new Set([...attack, ...suggestedAttack])])}
+                      >
+                        Inserir técnicas sugeridas pelo capa ({suggestedAttack.length})
+                      </button>
+                    </>
+                  )}
+                </>
+              }
             >
               <AttackPicker id="report-attack" value={attack} onChange={setAttack} />
             </HpsmField>

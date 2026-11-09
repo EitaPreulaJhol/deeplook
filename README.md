@@ -43,6 +43,9 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 - **minio**: armazenamento S3-compatible das amostras (nunca exposto publicamente).
 - **clamav**: antivírus ClamAV (`clamd` + `freshclam`), só na rede interna; varre cada
   arquivo enviado.
+- **capa**: análise de funções (capa e FLOSS) dos executáveis enviados, numa rede interna só
+  com a API, sem internet, sem root e com a raiz somente leitura. Ver
+  [Análise de funções](#análise-de-funções-capa-e-floss).
 - Porta publicada no host: **`127.0.0.1:8080`** (consumida pelo Cloudflare Tunnel).
 
 ---
@@ -59,9 +62,9 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 ```bash
 # 1) Configure as variáveis (senhas, segredo de sessão, admin)
 cp .env.example .env
-# edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN,
+# edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
 # ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
-# (com SESSION_SECRET ou CAPTURE_TOKEN no valor padrão, a API não sobe)
+# (com SESSION_SECRET, CAPTURE_TOKEN ou CAPA_TOKEN no valor padrão, a API não sobe)
 
 # 2) Suba tudo
 docker compose build
@@ -411,6 +414,39 @@ As amostras enviadas antes ganham a análise nova em segundo plano, uma de cada 
 a API sobe; um analista também pode pedir **Analisar de novo** na ficha. A comparação de
 amostras (A × B) mostra imphash, Rich header e quem assinou.
 
+## Análise de funções (capa e FLOSS)
+
+Cada executável do Windows ou do Linux enviado (até `CAPA_MAX_MB`, 32 MB) entra numa fila, e o
+serviço `capa` o analisa em segundo plano, um por vez. Nada é executado: as duas ferramentas da
+Mandiant leem e emulam o código.
+
+- **[capa](https://github.com/mandiant/capa)** diz o que as funções fazem ("injeta thread em
+  outro processo", "contém strings montadas na pilha", "carrega assembly .NET"), com o grupo, as
+  técnicas **ATT&CK**, o **MBC** e os endereços das funções. As técnicas viram o botão **Inserir
+  técnicas sugeridas pelo capa** no Novo relatório.
+- **[FLOSS](https://github.com/mandiant/flare-floss)** recupera as strings que só existem na
+  execução (montadas na pilha ou decifradas), que a extração comum não vê. Os indicadores nelas
+  entram nas sugestões de IOC. Só em executáveis do Windows.
+- **Na ficha:** seção **Análise de funções (capa)** com a situação (na fila, analisando,
+  concluída, falhou e por quê), as capacidades (as de risco em destaque), as técnicas e as strings
+  escondidas. Analistas pedem **Analisar de novo**; todos que veem a amostra veem a análise. Por
+  token de API: `GET /api/entries/:id/capa`.
+- **Tempo:** de segundos a minutos. Cada ferramenta tem um teto (`CAPA_TIMEOUT_S`,
+  `FLOSS_TIMEOUT_S`); um executável com milhares de funções pode estourar, e a falha diz
+  "tempo esgotado".
+- **Isolamento:** contêiner sem rede nenhuma (rede interna `analysis`, só com a API), sem root,
+  sem capacidades, raiz somente leitura e `/tmp` em memória sem execução. Como a captura, um
+  **contêiner novo a cada análise**: a API espera o novo estar livre antes de mandar o próximo
+  arquivo. Serviço fora do ar: a análise volta para a fila e tenta de novo (até 3 vezes).
+- **Status do sistema:** linha "Análise de funções (capa)" com as versões, a fila e as análises
+  em 24 h.
+- **Versões:** capa 10.0.0 e FLOSS 3.2.0, com as regras e as assinaturas da mesma versão do capa,
+  baixadas no build e conferidas pelo hash. As dependências Python ficam travadas com hash em
+  `apps/capa/requirements.txt` (gerado de `requirements.in`). Para subir o capa, troque a versão
+  no `requirements.in`, regenere o lockfile e troque no `Dockerfile` as URLs, os hashes e
+  `CAPA_RULES_VERSION`; o Dependabot não sobe o capa nem o FLOSS sozinho.
+- **Desligar:** `CAPA_URL=` (vazio) no `.env`; o serviço `capa` pode sair do compose.
+
 ## Regras YARA
 
 ### Pacotes de regras
@@ -719,6 +755,13 @@ COOKIE_SECURE=true
 | `CLAMAV_PORT` | porta do `clamd` | `3310` |
 | `CAPTURE_URL` | serviço do navegador isolado (captura de página de link); vazio desliga | `http://capture:3100` |
 | `CAPTURE_TOKEN` | token compartilhado entre a API e o serviço `capture` (16+ caracteres) | — |
+| `CAPA_URL` | serviço de análise de funções (capa e FLOSS); vazio desliga | `http://capa:3200` |
+| `CAPA_TOKEN` | token compartilhado entre a API e o serviço `capa` (16+ caracteres) | — |
+| `CAPA_MAX_MB` | executáveis maiores não vão para o capa (o serviço tem o mesmo teto) | `32` |
+| `CAPA_TIMEOUT_S` / `FLOSS_TIMEOUT_S` | tempo máximo de cada ferramenta, no serviço | `600` / `300` |
+| `CAPA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise (acima da soma dos dois) | `1000` |
+| `CAPA_MEM_LIMIT` | memória do contêiner `capa` | `3g` |
+| `CAPA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:1.5` |
@@ -726,7 +769,7 @@ COOKIE_SECURE=true
 | `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN` padrão e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |
@@ -771,6 +814,7 @@ deeplook/
 │  │  ├─ rules/       # pacotes de regras YARA de fábrica
 │  │  ├─ tests/       # integração (Postgres, MinIO e OpenLDAP reais)
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
+│  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)

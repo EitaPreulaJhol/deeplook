@@ -49,12 +49,29 @@ updates:
     ignore:
       - dependency-name: playwright
 
-  # Imagens base dos tres Dockerfiles (node e nginx; o playwright e manual, ver abaixo).
+  # Analise de funcoes (item 7.2): o lockfile com hash do pip-compile (requirements.in). O capa
+  # e o FLOSS sobem a mao: as regras e as assinaturas baixadas no Dockerfile (URL, hash e
+  # CAPA_RULES_VERSION) tem de ser da mesma versao do capa, e um PR so do pip as deixaria para tras.
+  - package-ecosystem: pip
+    directory: /apps/capa
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      patches:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: flare-capa
+      - dependency-name: flare-floss
+
+  # Imagens base dos Dockerfiles (node, nginx e python; o playwright e manual, ver abaixo).
   - package-ecosystem: docker
     directories:
       - /apps/api
       - /apps/web
       - /apps/capture
+      - /apps/capa
     schedule:
       interval: weekly
       day: monday

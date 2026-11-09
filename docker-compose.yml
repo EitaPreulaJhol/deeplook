@@ -140,6 +140,10 @@ services:
       # Captura de pagina: o servico capture abaixo; CAPTURE_URL= (vazio) no .env desliga.
       CAPTURE_URL: ${CAPTURE_URL-http://capture:3100}
       CAPTURE_TOKEN: ${CAPTURE_TOKEN:-troque-este-token-da-captura}
+      # Analise de funcoes (item 7.2): o servico capa abaixo; CAPA_URL= (vazio) no .env desliga.
+      CAPA_URL: ${CAPA_URL-http://capa:3200}
+      CAPA_TOKEN: ${CAPA_TOKEN:-troque-este-token-do-capa}
+      CAPA_MAX_MB: ${CAPA_MAX_MB:-32}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
@@ -185,6 +189,7 @@ services:
     networks:
       - deeplook
       - capture
+      - analysis
 
   # Antivirus ClamAV: clamd na rede interna (porta 3310, sem expor para fora) e o
   # freshclam atualizando as assinaturas. Usa ~1,5-3 GB de RAM por causa da base.
@@ -250,6 +255,39 @@ services:
         condition: service_healthy
     networks:
       - capture
+
+  # Analise de funcoes (item 7.2): capa e FLOSS, da Mandiant. Le e emula o codigo de executaveis
+  # maliciosos dentro do vivisect (Python), entao fica como a captura: sem rede nenhuma (nem o
+  # egress; nada aqui precisa da internet), raiz somente leitura, sem capacidades e sem root, e um
+  # container novo a cada analise.
+  capa:
+    build:
+      context: ./apps/capa
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      CAPA_TOKEN: ${CAPA_TOKEN:-troque-este-token-do-capa}
+      CAPA_MAX_MB: ${CAPA_MAX_MB:-32}
+      # Tetos de cada ferramenta: um PE com milhares de funcoes passa de 15 min no capa.
+      CAPA_TIMEOUT_S: ${CAPA_TIMEOUT_S:-600}
+      FLOSS_TIMEOUT_S: ${FLOSS_TIMEOUT_S:-300}
+      # Um container por analise (como a captura, item 6.17). false = processo de longa vida.
+      CAPA_RECYCLE: ${CAPA_RECYCLE:-true}
+    # O unico lugar gravavel e o /tmp em memoria, sem executaveis: a amostra e o JSON das
+    # ferramentas. O cache das regras ja vem pronto na imagem.
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    # Medido: 1,8 GB num PE de 4.000 funcoes. Acima do teto, o kernel mata a ferramenta (a
+    # analise falha com o motivo) e o servidor segue de pe.
+    mem_limit: ${CAPA_MEM_LIMIT:-3g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
 
   # Proxy de saida da captura (item 6.19): o unico caminho do navegador ate a internet. Resolve
   # o nome uma vez, recusa rede interna, loopback e metadados e conecta no IP conferido. So Node,
@@ -329,6 +367,13 @@ networks:
   # externo e, com inhibit_ipv4 (Docker 28+), sem IP do host na bridge, entao nem o proprio host
   # e alcancavel. Os containers se veem pelo nome. Mudou isto? `docker compose down` antes do up.
   capture:
+    driver: bridge
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: "true"
+  # A API e o capa (item 7.2). Interna e sem IP do host na bridge, como a da captura: o capa nao
+  # alcanca nada alem da API, nem a internet.
+  analysis:
     driver: bridge
     internal: true
     driver_opts:

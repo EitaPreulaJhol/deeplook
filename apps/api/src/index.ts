@@ -8,6 +8,7 @@ import { env, sandboxEnabled } from './env';
 import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
 import { startBackupSchedule } from './lib/backup-schedule';
+import { startCapaQueue } from './lib/capa';
 import { installCrossSiteGuard } from './lib/cross-site';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
@@ -36,6 +37,7 @@ import { attackRoutes } from './routes/attack';
 import { authRoutes } from './routes/auth';
 import { backupRoutes } from './routes/backups';
 import { broadcastRoutes } from './routes/broadcasts';
+import { capaRoutes } from './routes/capa';
 import { captureRoutes } from './routes/captures';
 import { caseRoutes } from './routes/cases';
 import { companyDomainRoutes } from './routes/company-domains';
@@ -144,6 +146,7 @@ async function main() {
   await app.register(assignmentRoutes);
   // Captura da pagina de um link (item 80).
   await app.register(captureRoutes);
+  await app.register(capaRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
   // Importar indicadores (item 78).
@@ -247,6 +250,9 @@ async function main() {
   // TLSH das amostras antigas (item 71) e, depois dele, a reanalise dos executaveis antigos
   // (item 7.1), em segundo plano e um de cada vez.
   void backfillTlsh(app.log).then(() => backfillPeAnalysis(app.log));
+
+  // Analise de funcoes (item 7.2): fila do capa e do FLOSS, um executavel por vez.
+  void startCapaQueue(app.log).catch((err) => app.log.error({ err }, '[capa] fila não subiu'));
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

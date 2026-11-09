@@ -203,6 +203,8 @@ model Entry {
   /// Hash parecido (TLSH, item 71; 70 hex sem o "T1"). Vazio = nao calculavel
   /// (arquivo pequeno/simples demais ou acima de 32 MB); null = ainda nao calculado.
   tlsh               String?
+  /// Analise de funcoes (capa e FLOSS, item 7.2).
+  capaAnalysis       CapaAnalysis?
   /// imphash do PE (item 7.1), so quando distingue: fora do .NET e com 10+ funcoes importadas
   /// (tabela minima de empacotador e o _CorExeMain do .NET ligariam amostras sem relacao).
   imphash            String?
@@ -506,6 +508,44 @@ model TriageRule {
   createdById String?
   createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime        @default(now())
+}
+
+enum CapaStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Analise de funcoes (item 7.2): capa e FLOSS no servico capa, em segundo plano, um por vez.
+/// Uma por amostra (a mais recente); executaveis do Windows e do Linux.
+model CapaAnalysis {
+  id            String     @id @default(cuid())
+  entryId       String     @unique
+  entry         Entry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status        CapaStatus @default(PENDING)
+  /// Resumo do capa (apps/capa/server.py): regras com namespace, ATT&CK, MBC e enderecos.
+  capa          Json?
+  /// Strings do FLOSS: montadas na pilha, "apertadas" e decifradas, com a funcao.
+  floss         Json?
+  /// Tecnicas ATT&CK das regras do capa (sugestao no relatorio).
+  attack        String[]
+  /// Indicadores nas strings do FLOSS: so sugestao, como os da analise estatica.
+  iocCandidates Json?
+  capaError     String?
+  flossError    String?
+  /// Falha da analise inteira (servico fora, arquivo indisponivel, recusado).
+  error         String?
+  /// { capa, floss, rules } que fizeram a analise.
+  versions      Json?
+  ms            Int?
+  attempts      Int        @default(0)
+  nextAttemptAt DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
 }
 
 enum CaptureStatus {

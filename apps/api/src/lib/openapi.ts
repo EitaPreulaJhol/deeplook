@@ -327,6 +327,19 @@ export function openApiDocument(): Schema {
           },
         },
       },
+      '/api/entries/{id}/capa': {
+        get: {
+          summary: 'Análise de funções (capa e FLOSS)',
+          description:
+            'O que as funções do executável fazem (regras do capa, com ATT&CK e MBC) e as strings ' +
+            'que só aparecem na execução (FLOSS). `analysis` é null enquanto não houver análise.',
+          parameters: [idParam],
+          responses: {
+            '200': json({ type: 'object' }, 'Situação e resultado da análise.'),
+            ...pick('401', '404'),
+          },
+        },
+      },
     },
   };
 }

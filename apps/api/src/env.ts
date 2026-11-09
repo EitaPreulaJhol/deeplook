@@ -143,6 +143,19 @@ const EnvSchema = z
       .string()
       .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
       .default(''),
+    /**
+     * Analise de funcoes (item 7.2): servico capa (capa e FLOSS, sem rede) e o token
+     * compartilhado. Vazio = desligada.
+     */
+    CAPA_URL: z.string().default(''),
+    CAPA_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    /** Executaveis maiores que isto nao vao para o capa (o servico tem o mesmo teto). */
+    CAPA_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
+    /** Espera por uma analise: acima da soma dos tetos do capa e do FLOSS no servico. */
+    CAPA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1000),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -203,6 +216,7 @@ export const isProd = env.NODE_ENV === 'production';
 const KNOWN_SECRETS = new Set([
   'change-me-please-use-a-long-random-secret',
   'troque-este-token-da-captura',
+  'troque-este-token-do-capa',
 ]);
 /** Em producao o SESSION_SECRET curto (ex.: literais de teste) assinaria o cookie de
  * dispositivo e puloria o bloqueio da conta: exija entropia minima (item 97). */
@@ -211,6 +225,7 @@ const refused = [
   (KNOWN_SECRETS.has(env.SESSION_SECRET) || env.SESSION_SECRET.length < MIN_PROD_SECRET) &&
     'SESSION_SECRET',
   env.CAPTURE_URL && KNOWN_SECRETS.has(env.CAPTURE_TOKEN) && 'CAPTURE_TOKEN',
+  env.CAPA_URL && KNOWN_SECRETS.has(env.CAPA_TOKEN) && 'CAPA_TOKEN',
 ].filter(Boolean);
 if (refused.length && isProd && env.ALLOW_INSECURE_DEFAULTS !== 'true') {
   console.error(

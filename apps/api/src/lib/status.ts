@@ -3,6 +3,7 @@ import { HeadBucketCommand } from '@aws-sdk/client-s3';
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
+import { capaEnabled } from './capa';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { ldapConfig, ldapProbe } from './ldap';
 import { captureEnabled } from './page-capture';
@@ -27,6 +28,7 @@ export interface StatusCheck {
     | 'reputation'
     | 'antivirus'
     | 'capture'
+    | 'capa'
     | 'ldap'
     | 'yaraPacks'
     | 'integrity'
@@ -508,6 +510,59 @@ async function captureCheck(): Promise<StatusCheck> {
   };
 }
 
+/** Analise de funcoes (item 7.2): servico capa, fila e analises em 24 h. */
+async function capaCheck(): Promise<StatusCheck> {
+  const name = 'Análise de funções (capa)';
+  if (!capaEnabled()) {
+    return { id: 'capa', name, level: 'off', summary: 'desligada (CAPA_URL vazio)', details: [] };
+  }
+  const details = [{ label: 'Endereço', value: env.CAPA_URL }];
+  const health = () =>
+    timed(async () => {
+      const res = await fetch(`${env.CAPA_URL.replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+      return (await res.json()) as {
+        state?: string;
+        capa?: string;
+        floss?: string;
+        rules?: string;
+      };
+    });
+  let probe = await health();
+  // Um container por analise: na troca, o servico fica fora por um ou dois segundos. Uma nova
+  // tentativa evita que o monitor externo (strict=1) dispare por isso.
+  if (probe.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    probe = await health();
+  }
+  if (probe.error) {
+    return { id: 'capa', name, level: 'error', summary: probe.error, latencyMs: probe.ms, details };
+  }
+  const v = probe.value ?? {};
+  details.push({
+    label: 'Versões',
+    value: `capa ${v.capa ?? '?'} · FLOSS ${v.floss ?? '?'} · regras ${v.rules ?? '?'}`,
+  });
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [queued, done, failed] = await Promise.all([
+    prisma.capaAnalysis.count({ where: { status: { in: ['PENDING', 'RUNNING'] } } }),
+    prisma.capaAnalysis.count({ where: { finishedAt: { gt: since }, status: 'DONE' } }),
+    prisma.capaAnalysis.count({ where: { finishedAt: { gt: since }, status: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Na fila', value: String(queued) });
+  details.push({ label: 'Análises em 24 h', value: `${done} · ${failed} falha(s)` });
+  return {
+    id: 'capa',
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: v.state === 'analisando' ? 'respondendo (analisando)' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
 /** Senhas padrao ainda em uso (item 97): valores publicos do compose e do .env.example. */
 export function insecureDefaults(): string[] {
@@ -643,6 +698,7 @@ export async function systemStatus() {
     queuesCheck(),
     antivirusCheck(),
     captureCheck(),
+    capaCheck(),
     reputationCheck(),
     ldapCheck(),
     yaraPacksCheck(),

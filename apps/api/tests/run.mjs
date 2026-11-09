@@ -16,6 +16,7 @@ const TMP = join(HERE, '.tmp');
 const PG = 'dl-shadow-pg';
 const MINIO = 'dl-minio';
 const LDAP = 'dl-ldap';
+const CAPA = 'dl-capa';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -192,6 +193,46 @@ function peFixtures() {
   writeFileSync(mark, stamp);
 }
 
+/**
+ * Servico capa de verdade (item 7.2), com o endurecimento do compose e o restart que troca o
+ * container a cada analise. A primeira construcao compila o binary2strings (alguns minutos); as
+ * seguintes vem do cache do Docker.
+ */
+async function startCapa() {
+  docker('build', '-q', '-t', 'dl-test-capa', join(API, '..', 'capa'));
+  quiet('rm', '-f', CAPA);
+  docker(
+    'run',
+    '-d',
+    '--name',
+    CAPA,
+    '--restart',
+    'unless-stopped',
+    '--read-only',
+    '--tmpfs',
+    '/tmp:size=256m,noexec,nosuid,nodev',
+    '--cap-drop',
+    'ALL',
+    '--security-opt',
+    'no-new-privileges:true',
+    '--memory',
+    '3g',
+    '--pids-limit',
+    '64',
+    '-e',
+    'CAPA_TOKEN=0123456789abcdef01',
+    '-p',
+    '127.0.0.1:53200:3200',
+    'dl-test-capa',
+  );
+  await waitFor('capa', () =>
+    fetch('http://localhost:53200/health').then(
+      (r) => r.ok,
+      () => false,
+    ),
+  );
+}
+
 function runTest(file) {
   const db = `it_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   docker('exec', PG, 'psql', '-U', 'postgres', '-c', `create database ${db}`);
@@ -242,6 +283,10 @@ writeFileSync(join(TMP, '.gitignore'), '*\n');
 // ficavam abertos para a rede local, e continuam de pe entre uma rodada e outra.
 ensure(PG, '-e', 'POSTGRES_PASSWORD=pg', '-p', '127.0.0.1:55432:5432', 'postgres:16-alpine');
 await waitFor('Postgres', () => quiet('exec', PG, 'pg_isready', '-U', 'postgres').status === 0);
+// MinIO vazio a cada rodada: cada arquivo usa um banco novo, mas o bucket era o mesmo e guardava as
+// amostras de todas as rodadas anteriores. Com 600 MB acumulados, o backup com amostras passou dos
+// 512 MB que o inject do Fastify consegue montar numa string, e o backup.test caiu (achado K).
+quiet('rm', '-f', MINIO);
 ensure(
   MINIO,
   '-e',
@@ -262,7 +307,8 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
-if (files.some((f) => f.startsWith('pe-'))) peFixtures();
+if (files.some((f) => f.startsWith('pe-') || f.includes('capa'))) peFixtures();
+if (files.some((f) => f.includes('capa'))) await startCapa();
 
 let total = 0;
 const bad = [];
@@ -273,8 +319,8 @@ for (const file of files) {
   for (const line of failed) console.log(`      ${line}`);
   if (status !== 0 || failed.length) bad.push(file);
 }
-if (clean) quiet('rm', '-f', PG, MINIO, LDAP);
-else quiet('rm', '-f', LDAP);
+if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA);
+else quiet('rm', '-f', LDAP, CAPA);
 console.log(
   bad.length
     ? `\n${bad.length} arquivo(s) com falha: ${bad.join(', ')}`

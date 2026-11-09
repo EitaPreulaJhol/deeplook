@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AddToCaseDialog } from '../components/AddToCaseDialog';
 import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { attackHref } from '../components/attack';
+import { CapaSection, useCapa } from '../components/CapaSection';
 import { caseHref } from '../components/cases';
 import { copyText } from '../components/CopyButton';
 import { DiskImageSection, LnkSection, LnkWarning } from '../components/DiskSections';
@@ -109,6 +110,8 @@ export function EntryDetailPage() {
   const reputation = reputationSummary(useReputation(id).data);
   // Antivirus: "Infectado" tambem aparece no topo.
   const antivirus = useAntivirus(id, true).data;
+  // Analise de funcoes (item 7.2): as sugestoes do relatorio usam a mesma consulta da secao.
+  const capa = useCapa(id, query.data?.entry.type === 'FILE').data;
   // Casos da amostra (analistas; item 55).
   const entryCases = useQuery({
     queryKey: ['entry-cases', id],
@@ -280,6 +283,8 @@ export function EntryDetailPage() {
   const suggestedIocs = [
     ...new Set([
       ...(entry.staticInfo?.iocCandidates.map((i) => i.value) ?? []),
+      // Strings que so o FLOSS ve (item 7.2).
+      ...(capa?.analysis?.iocCandidates?.map((i) => i.value) ?? []),
       ...(entry.emailInfo?.links ?? []),
       ...[entry.emailInfo?.from, ...(entry.emailInfo?.replyTo ?? [])]
         .map((p) => p?.address?.split('@')[1]?.toLowerCase())
@@ -787,6 +792,13 @@ export function EntryDetailPage() {
               purged={Boolean(entry.filePurgedAt)}
             />
           )}
+          {entry.type === 'FILE' && (
+            <CapaSection
+              entryId={entry.id}
+              canTriage={canTriage}
+              purged={Boolean(entry.filePurgedAt)}
+            />
+          )}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <ScriptSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <LnkSection info={entry.staticInfo} />}
@@ -936,6 +948,7 @@ export function EntryDetailPage() {
             onCreated={reload}
             reviewRequired={query.data?.reviewRequired ?? false}
             suggestedIocs={suggestedIocs}
+            suggestedAttack={capa?.analysis?.attack ?? []}
           />
         </div>
       )}

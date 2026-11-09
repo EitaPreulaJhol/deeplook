@@ -9,3 +9,5 @@ apps/api/src/lib/attack-enterprise.json
 apps/api/src/generated
 # Pacotes de regras YARA: o .gitattributes manda copiar sem alterar.
 apps/api/rules
+# Gerado pelos testes (fixtures de PE, imagens de disco, certificados): fora do git.
+apps/api/tests/.tmp

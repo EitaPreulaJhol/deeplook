@@ -220,6 +220,9 @@ export function createState({ loggedIn = false } = {}) {
     reputationGets: 0,
     /** Antivirus por amostra (GET; lista = sequencia) e quantas consultas a ficha fez. */
     antivirus: {},
+    /** Analise de funcoes por amostra (GET; lista = sequencia) e os pedidos feitos (POST). */
+    capa: {},
+    capaPosts: [],
     antivirusGets: 0,
     /** 2FA: codigos de recuperacao restantes e corpos das ultimas chamadas. */
     recoveryRemaining: 10,
@@ -815,6 +818,17 @@ export async function setupMock(context, state) {
         return json(route, 200, value ?? { enabled: false, pending: false, scan: null });
       }
       if (av && req.method() === 'POST') return json(route, 202, { ok: true });
+      // Analise de funcoes (capa, item 7.2): lista = sequencia de respostas, como o antivirus.
+      const capa = p.match(/^\/api\/entries\/(\w+)\/capa$/);
+      if (capa && req.method() === 'GET') {
+        const r = state.capa[capa[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { enabled: false, eligible: false, maxMb: 32, analysis: null });
+      }
+      if (capa && req.method() === 'POST') {
+        state.capaPosts.push(capa[1]);
+        return json(route, 202, { ok: true });
+      }
       // Regras YARA: "$b" sem declarar = erro de compilacao (como o YARA-X).
       const yaraErrors = (source) =>
         /\$b\b/.test(source) && !/\$b\s*=/.test(source)

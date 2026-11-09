@@ -48,7 +48,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.21 | Alerta do backup agendado no status e permissões dos arquivos da máquina | 🔴 | P | API / Web / Operação | ✅ |
 | 6.22 | API com raiz somente leitura, `/tmp` em disco e limite de processos; checklist de implantação | 🟡 | P–M | API / Compose / Operação | ✅ |
 | 7.1 | Análise estática do PE: imphash, Rich header, exports, recursos, overlay, assinatura, .NET e anomalias | 🟡 | M–G | API / Web | ✅ |
-| 7.2 | capa e FLOSS em contêiner isolado (capacidades por função, com ATT&CK, e strings ofuscadas) | 🟡 | M | API / Compose | ⬜ |
+| 7.2 | capa e FLOSS em contêiner isolado (capacidades por função, com ATT&CK, e strings ofuscadas) | 🟡 | M | API / Compose / Web | ✅ |
 | 7.3 | Ghidra headless sob demanda (funções, referências a imports suspeitos, pseudo-C) | ⚪ | G | API / Compose / Web | ⬜ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
@@ -83,9 +83,8 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 3º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
-| 1º | [7.2 capa e FLOSS](#72-capa-e-floss-em-contêiner-isolado) | O maior ganho de "análise de funções" pelo menor custo | **M** |
-| 2º | [7.3 Ghidra sob demanda](#73-ghidra-headless-sob-demanda) | Só se os analistas pedirem além do que o capa entrega | **G** |
+| 1º | [7.3 Ghidra sob demanda](#73-ghidra-headless-sob-demanda) | Só se os analistas pedirem além do que o capa entrega | **G** |
+| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -96,11 +95,11 @@ Backup.
 ### Para retomar
 
 ```bash
-# a analise de PE (7.1) deixou tudo verde; confirme antes de mexer
+# a analise de funcoes (7.2) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1351 checagens em 37 arquivos
-cd ../api   && npm run test:images && npm run test:smoke   # 71 e 101 checagens
+cd ../api   && npm run test:integration          # 1380 checagens em 38 arquivos (sobe o capa real)
+cd ../api   && npm run test:images && npm run test:smoke   # 82 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
@@ -1629,6 +1628,76 @@ código via APC", "persiste via Run key"), com o ID do ATT&CK, que entra direto 
 que hoje não viram sugestão de IOC. Os dois rodam sem JDK, num serviço no molde do `capture`: sem
 rede de saída, raiz somente leitura, `cap_drop: ALL`, limite de tempo e memória.
 
+**Implementado:**
+- **Serviço `capa`** (`apps/capa`): `server.py` (só a biblioteca padrão do Python) roda o capa
+  10.0.0 e, em PE, o FLOSS 3.2.0 com tetos de tempo próprios (`CAPA_TIMEOUT_S` 600,
+  `FLOSS_TIMEOUT_S` 300; o grupo de processos inteiro morre no estouro) e devolve um resumo: regras
+  com grupo, ATT&CK, MBC e até 20 endereços; strings da pilha, "tight" e decifradas com a função.
+  Um trabalho por vez (os outros recebem 503), o `/health` responde durante a análise (livre,
+  analisando, trocando) e, como a captura, **um contêiner por análise**.
+- **Imagem**: dois estágios. O `binary2strings` do FLOSS só existe em código-fonte, então o
+  compilador fica no estágio de build; os wheels saem dele conferidos pelo **lockfile com hash**
+  (`requirements.txt`, gerado por `pip-compile` a partir de `requirements.in`). As **regras e as
+  assinaturas FLIRT** não vêm no pacote do pip: o `ADD --checksum` as baixa das tags `v10.0.0` e
+  confere o SHA-256. O cache das regras é gerado no build (com a raiz somente leitura o capa não
+  conseguiria gravá-lo e desistia, medido). Usuário `capa` (uid 10001), 548 MB.
+- **Compose**: rede interna `analysis` só com a API (sem internet nem o egress), raiz somente
+  leitura, `/tmp` de 256 MB em memória sem execução, `cap_drop: ALL`, `no-new-privileges`,
+  `pids_limit` 64, `mem_limit` 3 GB e o restart que troca o contêiner.
+- **Fila na API** (`lib/capa.ts`, tabela `CapaAnalysis`, migração `20261225000000_capa_analysis`):
+  executável do Windows ou do Linux até `CAPA_MAX_MB` entra sozinho depois do envio (anexo de
+  e-mail e arquivo de ZIP também); um por vez, persistida no banco. Serviço fora do ar: volta para
+  a fila com o motivo, até 3 tentativas espaçadas (5 e 10 min). API reiniciada no meio: o que
+  estava em andamento volta para a fila, ou falha se já gastou as tentativas. A resposta do serviço
+  é validada com teto em cada campo, o NUL sai (o Postgres o recusaria) e só entram técnicas que
+  existem no ATT&CK embutido.
+- **Rotas**: `GET /api/entries/:id/capa` (quem vê a amostra; também por token de API, na OpenAPI)
+  e `POST` (analistas; 409 na fila, 400 fora dos executáveis, 503 desligado).
+- **Tela**: seção "Análise de funções (capa)" com situação, executável, ferramentas, técnicas
+  ATT&CK, capacidades (as de risco em destaque) e as strings escondidas, com os IOCs delas. No
+  Novo relatório, **Inserir técnicas sugeridas pelo capa** e os IOCs do FLOSS em "Inserir IOCs
+  sugeridos". Status do sistema com versões, fila e análises em 24 h.
+- **Trivy e Dependabot**: a imagem entra na varredura semanal; o pip sai da imagem final (o pip 26.3
+  traz no SBOM o `pkg_resources` de um setuptools com CVE alta, e o runtime não usa o pip, como o
+  npm no achado D). O Dependabot cuida do lockfile e da imagem base, mas não sobe o capa nem o FLOSS:
+  as regras, as assinaturas e os hashes do Dockerfile têm de subir juntos.
+
+**Medido antes de fixar os tetos:** de 0,6 a 9 s por executável pequeno no capa e de 16 a 21 s no
+FLOSS (ele emula); num PE sintético de 1,8 MB com 4.000 funções, o capa passou de **17 minutos com
+1,8 GB** e foi interrompido. Daí os tetos por ferramenta, a fila fora do caminho do envio e "tempo
+esgotado" como resultado legítimo.
+
+**Uma corrida que só apareceu com o contêiner de verdade:** a segunda análise seguida chegava como
+"conexão derrubada", contada como tentativa. O serviço recusava com 503 sem ler o corpo e saía com
+o arquivo ainda chegando, e o TCP mandava RST. Duas correções: o servidor lê o corpo antes de
+recusar e, na troca, para de aceitar conexões antes de sair; e a API só manda o arquivo depois de o
+`/health` dizer "livre" (um GET, seguro de repetir). **A prova inversa mostrou que a segunda é a que
+resolve:** só com a do servidor, a conexão ainda caía.
+
+**Testes:**
+- `capa.test.ts` (29) contra o serviço real, subido pelo runner com o endurecimento do compose e o
+  restart: o executável ofuscado (capa acha a pilha ofuscada e o XOR; FLOSS devolve
+  `stack.evil.test` e `http://xor.evil.test/painel`, que viram sugestão de IOC), a injeção
+  (`inject thread`, T1055.003), .NET, ELF (sem FLOSS), um contêiner novo a cada análise, rotas e
+  permissões, desligado, serviço parado (volta para a fila; gastas as tentativas, falha) e um serviço
+  falso hostil (campo gigante, NUL, técnica inexistente, recusa, travado, conexão derrubada),
+  reinício da API e exclusão em cascata.
+- `test:images`: com a configuração do compose e na rede interna, sem root, raiz somente leitura,
+  `/tmp` sem execução, sem capacidades, sem saída para a internet, token, só executáveis, 413 com
+  resposta para arquivo acima do teto, análise de um ELF com a raiz somente leitura e o contêiner
+  novo livre depois.
+- Cenário de tela `capa` e os geradores de fixtures ganham o executável ofuscado (x64 e x86) e um ELF.
+- **Prova inversa:** sem a espera pelo "livre", a segunda análise cai; sem tirar o NUL, o Postgres
+  recusa; sem filtrar as técnicas, uma inexistente entra.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1380 checagens de
+integração em 38 arquivos** (eram 1351 em 37; o `capa` tem 29); 120 testes unitários do web;
+`test:images` com **82** (eram 71) e `test:smoke` com 101; os **94 cenários de tela** (1679
+checagens), com o novo `capa`; Trivy sem achados na imagem do capa e nos Dockerfiles.
+
+**Ficou de fora:** reanalisar com o capa as amostras enviadas antes (cada análise leva minutos; o
+analista pede pela ficha), e as regras do capa como condição das regras de triagem.
+
 ### 7.3 Ghidra headless sob demanda
 
 Se os analistas pedirem além do capa: botão "Analisar funções" (só analistas), um contêiner por
@@ -1749,3 +1818,13 @@ nem o CI rodam `tsc -p tests/tsconfig.json`. Esse comando acusa 8 erros em quatr
 antigos (`health`, `integrity-scrub`, `status-token` e `yara-update`: diretivas
 `@ts-expect-error` que sobraram e índices sem tipo). O arquivo novo (`pe-analysis.test.ts`) foi
 deixado sem erros. Corrigir os quatro e pôr o comando no CI é um item pequeno, se valer a pena.
+
+### K. O MinIO de teste acumulava as amostras de todas as rodadas
+
+Achado no 7.2 e corrigido. Cada arquivo de integração roda num banco novo, mas o MinIO de teste
+fica de pé entre rodadas (só o `--clean` o remove), e o bucket guardava tudo: 4,8 GB, 606 MB deles
+em `samples/`. O backup com amostras lista o bucket inteiro (por desenho: em produção é o bucket
+real) e passou de 512 MB, o maior texto que o `inject` do Fastify monta, e o `backup.test` caiu
+com "Cannot create a string longer than 0x1fffffe8 characters". Não era do código: era estado
+de rodadas passadas. O `tests/run.mjs` agora recria o MinIO a cada rodada (o contêiner não tem
+volume, então volta vazio), e o `backup.test` passou inteiro de novo (81).

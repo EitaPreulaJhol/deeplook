@@ -18,6 +18,7 @@ import {
   visibleEntries,
 } from '../lib/auth';
 import { autoAssign } from '../lib/auto-assign';
+import { enqueueCapaIfEligible } from '../lib/capa';
 import { scanInBackground } from '../lib/clamav';
 import { sha256Hex } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
@@ -638,6 +639,8 @@ async function createFileEntry(
   checkReputationInBackground(entry.id, req.log);
   scanInBackground(entry.id, buffer, req.log);
   yaraScanInBackground(entry.id, buffer, req.log);
+  // Analise de funcoes (item 7.2): executavel do Windows ou do Linux vai para a fila do capa.
+  await enqueueCapaIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
   if (quota.remaining !== null) quota.remaining -= 1;
   // E-mail (.eml): le e transforma cada anexo numa amostra filha (ate 3 niveis

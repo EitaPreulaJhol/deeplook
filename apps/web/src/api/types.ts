@@ -54,6 +54,68 @@ export interface AntivirusInfo {
   scan: AntivirusScan | null;
 }
 
+/** Regra do capa que casou (item 7.2): o que uma ou mais funcoes fazem. */
+export interface CapaRule {
+  name: string;
+  /** Ex.: host-interaction/process/inject. */
+  namespace: string;
+  attack: string[];
+  /** Malware Behavior Catalog: "OBJETIVO::Comportamento::Metodo [ID]". */
+  mbc: string[];
+  matches: number;
+  /** Enderecos das funcoes (ate 20). */
+  addresses: string[];
+}
+
+export interface FlossString {
+  string: string;
+  /** Funcao que monta ou decifra a string. */
+  function: string | null;
+}
+
+export type CapaStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+
+/** GET /api/entries/:id/capa (item 7.2). */
+export interface CapaInfo {
+  /** Servico capa configurado (CAPA_URL). */
+  enabled: boolean;
+  /** Executavel do Windows ou do Linux dentro do teto. */
+  eligible: boolean;
+  maxMb: number;
+  analysis: {
+    status: CapaStatus;
+    capa: {
+      format?: string | null;
+      arch?: string | null;
+      os?: string | null;
+      functions?: number | null;
+      libraryFunctions?: number | null;
+      rules: CapaRule[];
+      truncated: boolean;
+    } | null;
+    floss: {
+      stack: FlossString[];
+      tight: FlossString[];
+      decoded: FlossString[];
+      truncated: boolean;
+    } | null;
+    attack: string[];
+    iocCandidates: { kind: IocKind; value: string }[] | null;
+    capaError: string | null;
+    flossError: string | null;
+    error: string | null;
+    versions: { capa: string | null; floss: string | null; rules: string | null } | null;
+    ms: number | null;
+    attempts: number;
+    nextAttemptAt: string;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    /** Na fila: quantas estao na frente. */
+    ahead: number | null;
+  } | null;
+}
+
 /** Regra YARA (item 56): conjunto de regras escrito pelos analistas. */
 export interface YaraRule {
   id: string;
