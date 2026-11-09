@@ -54,7 +54,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 7.5 | Pontuação de risco explicável (sugere o veredito) | 🟡 | P–M | API / Web | ⬜ |
 | 7.6 | Relacionadas: mesmo certificado e mesmo comportamento (capacidades do capa) | 🟡 | P | API / Web | ⬜ |
 | 7.7 | Retro-hunt com o capa ao subir as regras | ⚪ | P | API | ⬜ |
-| 7.8 | Desempacotar e extrair (UPX, NSIS/Inno, PyInstaller) em amostras filhas | 🔴 | M | API / Compose | ⬜ |
+| 7.8 | Desempacotar e extrair (UPX, NSIS/Inno, PyInstaller) em amostras filhas | 🔴 | M | API / Compose / Web | ✅ |
 | 7.9 | Detect It Easy: compilador, empacotador, instalador e ofuscador | 🟡 | P–M | API / Compose | ⬜ |
 | 7.10 | Descompilar .NET (ilspycmd) | 🟡 | M | API / Compose / Web | ⬜ |
 | 7.11 | Extração de configuração de famílias conhecidas (extratores maco/CAPE) | 🟡 | M–G | API / Compose | ⬜ |
@@ -95,10 +95,9 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [7.8 Desempacotar e extrair](#78-desempacotar-e-extrair) | Hoje a análise para na casca (o capa num UPX só diz "packed") | **M** |
-| 2º | [7.9 Detect It Easy](#79-detect-it-easy) | Barato e diz qual ferramenta usar em seguida | **P–M** |
-| 3º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; depois de ver quais famílias aparecem | **M–G** |
-| 4º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 1º | [7.9 Detect It Easy](#79-detect-it-easy) | Barato e diz qual ferramenta usar em seguida | **P–M** |
+| 2º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; depois de ver quais famílias aparecem | **M–G** |
+| 3º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -109,11 +108,11 @@ Backup.
 ### Para retomar
 
 ```bash
-# as regras de triagem com a analise do executavel (7.4) deixaram tudo verde; confirme antes de mexer
+# o desempacotamento (7.8) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1435 checagens em 40 arquivos (sobe o capa e o Ghidra reais)
-cd ../api   && npm run test:images && npm run test:smoke   # 93 e 101 checagens
+cd ../api   && npm run test:integration          # 1462 checagens em 41 arquivos (sobe o capa, o Ghidra e o unpack reais)
+cd ../api   && npm run test:images && npm run test:smoke   # 102 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
 cd ../..    && node scripts/check-playwright-version.mjs && node scripts/check-carbon-css.mjs \
@@ -1844,6 +1843,66 @@ período, na mesma fila.
 `upx -d` quando o UPX é detectado, `innoextract` e 7-Zip para instaladores NSIS e Inno Setup, e o
 extrator de PyInstaller. Cada arquivo de dentro vira amostra filha, como os anexos de e-mail, e
 passa por tudo de novo. Num serviço isolado, como o capa.
+
+**Implementado:**
+- **Serviço `unpack`** (`apps/unpack`, 191 MB): o mesmo esqueleto do capa e do Ghidra, com os
+  desempacotadores como **plugins** (`unpackers/uNN_nome.py`, contrato no `README.md` da pasta: o
+  primeiro que reconhece a amostra a desempacota). O dono tem um desempacotador de Themida para
+  depois: se ele for estático, entra como um plugin; se executar a amostra (como a maioria), o lugar
+  é o sandbox do Proxmox, e o contêiner (sem execução no `/tmp`) não o comportaria.
+- **Desempacotadores**, cada um medido antes:
+  - UPX (`upx -d` 4.2): os três (x64, x86, DLL). O disfarçado (marca `UPX!` apagada) o `upx` recusa;
+    o 7.1 o reconhece pelo código, e a ficha diz por que não saiu.
+  - NSIS (7-Zip 25): a carga sai byte a byte igual, e o script do instalador junto.
+  - Inno Setup (innoextract 1.9, o último lançamento): medido com os instaladores oficiais, lê o
+    formato até o 6.2 e recusa o 6.3, 6.4, 6.7 e 7.1. A falha diz isso.
+  - PyInstaller (pyinstxtractor 2026.07, GPL-3.0, um script baixado do commit exato e conferido pelo
+    hash): só o `.pyc` do autor; o bootstrap e os runtime hooks do PyInstaller, iguais em todo
+    programa, saem do resultado.
+  - Arquivo embutido (7-Zip): ZIP, 7z, RAR ou CAB anexado; o que o 7-Zip só vê como o próprio
+    executável não conta.
+- **Resposta em ZIP sem compressão** com `manifest.json`, lida pelo leitor de ZIP do envio (tamanho,
+  CRC e teto por arquivo); tetos de 50 arquivos e 256 MB somados por amostra, e o que passa vira
+  "ficou de fora" com o motivo.
+- **API** (`lib/unpack.ts`, `routes/unpack.ts`, tabela `UnpackJob`, migração
+  `20261228000000_unpack_job`): um teste barato na chegada decide quem vai (empacotador, dados
+  anexados ou as marcas de NSIS, Inno e PyInstaller), a fila é a do capa, e **cada arquivo vira
+  amostra filha pelo mesmo caminho de um envio** (o `createFileEntry` passou a pedir só o log, não a
+  requisição), do mesmo dono e com as tags da mãe. Duas gerações no máximo; arquivo igual à própria
+  amostra fica de fora; o nome da filha é só o do arquivo (sem `../`). O analista pede quando a
+  chegada não achou nada; de novo, só sem filhas (senão duplicaria).
+- **Tela**: seção "Desempacotamento" com a situação, o desempacotador e os arquivos (link para a
+  filha com o veredito, ou por que ficou de fora). Status do sistema com os desempacotadores e a fila.
+
+**Um achado no caminho:** o UPX desempacotado é o mesmo programa, não o mesmo arquivo (107 bytes
+diferentes em 31 KB: checksum zerado e diretórios do cabeçalho). E o `upx -d` refaz a tabela de
+importação em outra ordem de DLLs: **o imphash muda**. O imphash de um binário desempacotado pelo
+UPX não liga com o do mesmo programa compilado sem UPX; o conjunto de funções, sim.
+
+**Testes:**
+- `unpack.test.ts` (27) contra o serviço real, com o teto em 10 arquivos: quem é candidato; UPX
+  (mesmo tamanho e importações do original, dono, tags, análise feita, a filha fora da fila, o
+  evento na mãe), NSIS (a carga byte a byte), PyInstaller (só o `painel.pyc`, com a URL dele nas
+  sugestões de IOC), Inno 6.2 (10 filhas e o resto pulado), Inno 6.4 (a falha honesta), UPX
+  disfarçado, ZIP anexado, um contêiner novo a cada trabalho, as rotas, o limite de gerações e um
+  serviço falso hostil (não é ZIP, recusa, arquivo igual à amostra, nome com `../`).
+- Os fixtures ganharam um instalador NSIS (`makensis`), um programa PyInstaller 6.22.3 e os
+  instaladores oficiais do Inno Setup 6.2.2 e 6.4.3, conferidos pelo SHA-256 publicado.
+- `test:images`: configuração do compose, sem root, raiz somente leitura, `/tmp` sem execução, sem
+  capacidades, sem internet, token, um ELF empacotado pelo `upx` desempacotado com o manifesto, e o
+  contêiner novo depois.
+- Cenário de tela `unpack`.
+- **Prova inversa:** sem o limite de gerações, sem pular o arquivo igual, sem o motivo do UPX
+  disfarçado, com o caminho no nome e sem o filtro do PyInstaller, cada um falha a sua checagem.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1462 checagens de
+integração em 41 arquivos** (eram 1435 em 40); 120 testes unitários do web; `test:images` com **102**
+(eram 93) e `test:smoke` com 101; os **96 cenários de tela** (1718 checagens), com o novo `unpack`;
+Trivy sem achados na imagem do unpack e nos sete Dockerfiles.
+
+**Ficou de fora:** Inno Setup 6.3 em diante (o innoextract não lê; voltar a olhar quando sair uma
+versão nova dele), descompilar o `.pyc` do PyInstaller (por ora, as strings dele entram na análise
+estática) e os desempacotadores dinâmicos (Themida, VMProtect), que precisam executar a amostra.
 
 ### 7.9 Detect It Easy
 

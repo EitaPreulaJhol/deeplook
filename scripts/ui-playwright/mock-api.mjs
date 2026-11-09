@@ -226,6 +226,9 @@ export function createState({ loggedIn = false } = {}) {
     /** Analise com o Ghidra por amostra (GET; lista = sequencia) e os pedidos feitos (POST). */
     ghidra: {},
     ghidraPosts: [],
+    /** Desempacotamento por amostra (GET; lista = sequencia) e os pedidos feitos (POST). */
+    unpack: {},
+    unpackPosts: [],
     antivirusGets: 0,
     /** 2FA: codigos de recuperacao restantes e corpos das ultimas chamadas. */
     recoveryRemaining: 10,
@@ -845,6 +848,17 @@ export async function setupMock(context, state) {
       }
       if (ghidra && req.method() === 'POST') {
         state.ghidraPosts.push(ghidra[1]);
+        return json(route, 202, { ok: true });
+      }
+      // Desempacotamento (item 7.8): mesma ideia; sem estado, a secao nao se aplica.
+      const unpack = p.match(/^\/api\/entries\/(\w+)\/unpack$/);
+      if (unpack && req.method() === 'GET') {
+        const r = state.unpack[unpack[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { enabled: false, applicable: false, maxMb: 64, job: null, children: [] });
+      }
+      if (unpack && req.method() === 'POST') {
+        state.unpackPosts.push(unpack[1]);
         return json(route, 202, { ok: true });
       }
       // Regras YARA: "$b" sem declarar = erro de compilacao (como o YARA-X).

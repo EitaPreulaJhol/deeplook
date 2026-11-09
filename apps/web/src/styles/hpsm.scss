@@ -2769,6 +2769,17 @@ body:has(.dl-print) {
   overflow-wrap: anywhere;
 }
 
+/* Desempacotamento (item 7.8): os arquivos extraidos, cada um uma amostra filha. */
+.dl-unpack-files {
+  margin: 0.5rem 0 0.25rem 1rem;
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.dl-unpack-files li {
+  margin: 0.15rem 0;
+}
+
 /* Analise com o Ghidra (item 7.3): uma funcao descompilada por bloco recolhivel. */
 .dl-ghidra-fn summary code {
   font-weight: 600;

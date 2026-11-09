@@ -209,6 +209,8 @@ model Entry {
   capaAnalysis       CapaAnalysis?
   /// Analise com o Ghidra, sob demanda (item 7.3).
   ghidraAnalysis     GhidraAnalysis?
+  /// Desempacotar e extrair (item 7.8).
+  unpackJob          UnpackJob?
   /// imphash do PE (item 7.1), so quando distingue: fora do .NET e com 10+ funcoes importadas
   /// (tabela minima de empacotador e o _CorExeMain do .NET ligariam amostras sem relacao).
   imphash            String?
@@ -587,6 +589,37 @@ model GhidraAnalysis {
   error         String?
   /// Versao do Ghidra que fez a analise.
   version       String?
+  ms            Int?
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+}
+
+enum UnpackStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Desempacotar e extrair (item 7.8): UPX, PyInstaller, Inno Setup, NSIS e arquivo compactado
+/// embutido, no servico unpack. Cada arquivo extraido vira uma amostra filha (parentEntryId).
+model UnpackJob {
+  id            String       @id @default(cuid())
+  entryId       String       @unique
+  entry         Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status        UnpackStatus @default(PENDING)
+  /// Desempacotador que reconheceu o arquivo (upx, pyinstaller, inno, nsis, archive) e o rotulo.
+  unpacker      String?
+  label         String?
+  note          String?
+  /// [{ name, size, entryId?, skipped? }]: cada arquivo extraido e a amostra filha criada.
+  files         Json?
+  error         String?
   ms            Int?
   attempts      Int          @default(0)
   nextAttemptAt DateTime     @default(now())

@@ -7,8 +7,9 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
   binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 mingw-w64-x86-64-dev mingw-w64-i686-dev \
-  osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl >/dev/null
-pip install --quiet --break-system-packages dnfile==0.15.1 >/dev/null
+  osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
+  ca-certificates >/dev/null
+pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 >/dev/null
 W=/work
 rm -rf "$W" && mkdir -p "$W" && cp /f/pe/* "$W" && cd "$W"
 
@@ -26,6 +27,30 @@ $X64-gcc -O1 -s -shared -o teste.dll lib.c lib.def
 $X64-gcc -O1 -s -o ofuscado64.exe ofuscado.c
 $X86-gcc -O1 -s -o ofuscado32.exe ofuscado.c
 cp /usr/bin/true linux.elf
+
+# Desempacotar e extrair (item 7.8): instalador NSIS com o prog64.exe dentro, um programa PyInstaller
+# (Linux; o formato do arquivo e o mesmo do Windows) e os instaladores oficiais do Inno Setup 6.2.2
+# (o innoextract 1.9 le) e 6.4.3 (nao le), conferidos pelo SHA-256 publicado.
+cat > instalador.nsi <<NSI
+OutFile "nsis.exe"
+InstallDir "\$TEMP\\deeplook"
+Section
+SetOutPath "\$INSTDIR"
+File /oname=carga.exe prog64.exe
+File /oname=leia.txt lib.c
+SectionEnd
+NSI
+makensis -V1 instalador.nsi
+printf 'import sys\nprint("http://pyinst.evil.test/c2")\nsys.exit(0)\n' > painel.py
+pyinstaller --onefile --log-level ERROR --distpath . --workpath /tmp/pyi --specpath /tmp/pyi \
+  --name pyinst.bin painel.py
+for v in 6.2.2:8117d10d00a2ad33a1390978ea3872861c330e087914410a6377b22c4c5b8563 \
+  6.4.3:f3c42116542c4cc57263c5ba6c4feabfc49fe771f2f98a79d2f7628b8762723b; do
+  ver=${v%%:*} sum=${v#*:}
+  curl -sSLf -o "inno-$ver.exe" \
+    "https://github.com/jrsoftware/issrc/releases/download/is-$(echo "$ver" | tr . _)/innosetup-$ver.exe"
+  echo "$sum  inno-$ver.exe" | sha256sum -c --quiet
+done
 mcs -nologo -out:dotnet.exe hello.cs
 upx -q --best -o upx64.exe prog64.exe >/dev/null
 upx -q --best -o upx32.exe prog32.exe >/dev/null
@@ -61,7 +86,8 @@ python3 reference.py "$W" > reference.json
 mkdir -p /out
 cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe rich.exe \
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
-  autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe linux.elf reference.json /out/
+  autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe linux.elf nsis.exe pyinst.bin \
+  inno-6.2.2.exe inno-6.4.3.exe reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

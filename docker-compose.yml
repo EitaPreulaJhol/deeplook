@@ -148,6 +148,10 @@ services:
       GHIDRA_URL: ${GHIDRA_URL-http://ghidra:3300}
       GHIDRA_TOKEN: ${GHIDRA_TOKEN:-troque-este-token-do-ghidra}
       GHIDRA_MAX_MB: ${GHIDRA_MAX_MB:-32}
+      # Desempacotar e extrair (item 7.8): o servico unpack abaixo; UNPACK_URL= desliga.
+      UNPACK_URL: ${UNPACK_URL-http://unpack:3400}
+      UNPACK_TOKEN: ${UNPACK_TOKEN:-troque-este-token-do-unpack}
+      UNPACK_MAX_MB: ${UNPACK_MAX_MB:-64}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
@@ -325,6 +329,35 @@ services:
     networks:
       - analysis
 
+  # Desempacotar e extrair (item 7.8): upx, 7-Zip, innoextract e pyinstxtractor. So le e extrai;
+  # nada da amostra roda. Mesmo isolamento do capa e um container por trabalho.
+  unpack:
+    build:
+      context: ./apps/unpack
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      UNPACK_TOKEN: ${UNPACK_TOKEN:-troque-este-token-do-unpack}
+      UNPACK_MAX_MB: ${UNPACK_MAX_MB:-64}
+      UNPACK_TIMEOUT_S: ${UNPACK_TIMEOUT_S:-180}
+      # Teto do que sai de uma amostra (contra zip bomb e instalador gigante).
+      UNPACK_MAX_FILES: ${UNPACK_MAX_FILES:-50}
+      UNPACK_MAX_TOTAL_MB: ${UNPACK_MAX_TOTAL_MB:-256}
+      UNPACK_RECYCLE: ${UNPACK_RECYCLE:-true}
+    # A amostra, o que sai dela e o ZIP da resposta ficam no /tmp em memoria, sem executaveis: um
+    # instalador que estoure o /tmp so faz o trabalho falhar.
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,noexec,nosuid,nodev
+    mem_limit: ${UNPACK_MEM_LIMIT:-2g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
   # Proxy de saida da captura (item 6.19): o unico caminho do navegador ate a internet. Resolve
   # o nome uma vez, recusa rede interna, loopback e metadados e conecta no IP conferido. So Node,
   # sem navegador; nao roda codigo de pagina. Na rede interna da captura e numa rede com saida.
@@ -407,8 +440,8 @@ networks:
     internal: true
     driver_opts:
       com.docker.network.bridge.inhibit_ipv4: "true"
-  # A API, o capa (item 7.2) e o Ghidra (7.3). Interna e sem IP do host na bridge, como a da
-  # captura: eles nao alcancam nada alem da API, nem a internet.
+  # A API, o capa (item 7.2), o Ghidra (7.3) e o unpack (7.8). Interna e sem IP do host na bridge,
+  # como a da captura: eles nao alcancam nada alem da API, nem a internet.
   analysis:
     driver: bridge
     internal: true

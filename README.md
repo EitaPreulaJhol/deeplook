@@ -48,6 +48,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
   [Análise de funções](#análise-de-funções-capa-e-floss).
 - **ghidra**: o Ghidra headless, sob demanda, no mesmo isolamento do capa. Ver
   [Análise com o Ghidra](#análise-com-o-ghidra).
+- **unpack**: desempacota e extrai executáveis (UPX, instaladores, PyInstaller), no mesmo
+  isolamento. Ver [Desempacotar e extrair](#desempacotar-e-extrair).
 - Porta publicada no host: **`127.0.0.1:8080`** (consumida pelo Cloudflare Tunnel).
 
 ---
@@ -65,7 +67,7 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 # 1) Configure as variáveis (senhas, segredo de sessão, admin)
 cp .env.example .env
 # edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
-# GHIDRA_TOKEN, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
+# GHIDRA_TOKEN, UNPACK_TOKEN, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
 # (com SESSION_SECRET ou um dos tokens no valor padrão, a API não sobe)
 
 # 2) Suba tudo
@@ -532,6 +534,38 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## Desempacotar e extrair
+
+Quando chega um executável que parece empacotado ou instalador (empacotador reconhecido, dados
+anexados, ou a marca de NSIS, Inno Setup ou PyInstaller), o serviço `unpack` o desempacota em
+segundo plano, e **cada arquivo que sai vira uma amostra filha** ("Extraído de:" na ficha), com
+toda a análise de novo: estática, antivírus, YARA, capa e o Ghidra sob demanda. É assim que o capa
+e o Ghidra veem o código de verdade, e não o descompactador do UPX nem o instalador.
+
+| Desempacotador | Ferramenta | O que sai |
+|---|---|---|
+| UPX | `upx -d` 4.2 | o executável original (funcionalmente; ver abaixo) |
+| PyInstaller | pyinstxtractor 2026.07 | só o script do autor (`.pyc`), sem a biblioteca padrão nem o bootstrap |
+| Inno Setup | innoextract 1.9 | os arquivos do instalador (formato até o Inno Setup 6.2) |
+| NSIS | 7-Zip 25 | os arquivos e o script do instalador (`[NSIS].nsi`) |
+| Arquivo embutido | 7-Zip 25 | o que há no ZIP, 7z, RAR ou CAB anexado ao executável |
+
+- **Nada é executado**: as ferramentas só leem e extraem. Contêiner sem rede, sem root, sem
+  capacidades, raiz somente leitura e `/tmp` em memória sem execução; um contêiner por trabalho.
+- **Limites**: até `UNPACK_MAX_FILES` arquivos e `UNPACK_MAX_TOTAL_MB` somados por amostra (o resto
+  aparece como "ficou de fora", com o motivo), e duas gerações (um instalador com um UPX dentro).
+- **O que não funciona, e a ficha diz**: o UPX disfarçado (com a marca `UPX!` apagada) o 7.1
+  reconhece pelo código, mas o `upx` não desempacota sem ela; o Inno Setup 6.3 em diante o
+  innoextract 1.9 (o último lançamento) não lê.
+- **O UPX desempacotado é o mesmo programa, não o mesmo arquivo**: o `upx -d` zera o checksum e
+  refaz a tabela de importação em outra ordem de DLLs. O conjunto de funções é o mesmo, mas o
+  imphash muda.
+- Executável que não parecia empacotado: um analista pede **Desempacotar** na seção da ficha.
+- **Novos desempacotadores** entram como um arquivo em `apps/unpack/unpackers/`; o contrato está no
+  `README.md` de lá. Os que precisam **executar** a amostra (como a maioria dos de Themida e
+  VMProtect) não cabem nesse contêiner: o lugar deles é o sandbox do Proxmox.
+- **Desligar:** `UNPACK_URL=` (vazio) no `.env`; o serviço `unpack` pode sair do compose.
+
 ## Regras de triagem
 
 Analistas mantêm na tela **Regras de triagem** (pasta Detecção) regras do tipo "quando a análise
@@ -823,6 +857,12 @@ COOKIE_SECURE=true
 | `GHIDRA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise | `1300` |
 | `GHIDRA_HEADLESS_MAXMEM` / `GHIDRA_MEM_LIMIT` | heap do Java e memória do contêiner | `3G` / `6g` |
 | `GHIDRA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
+| `UNPACK_URL` | serviço de desempacotamento; vazio desliga | `http://unpack:3400` |
+| `UNPACK_TOKEN` | token compartilhado entre a API e o serviço `unpack` (16+ caracteres) | — |
+| `UNPACK_MAX_MB` | executáveis maiores não vão para o desempacotador | `64` |
+| `UNPACK_TIMEOUT_S` | tempo máximo de um desempacotador, no serviço | `180` |
+| `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | quantos arquivos e quantos MB somados saem de uma amostra | `50` / `256` |
+| `UNPACK_MEM_LIMIT` / `UNPACK_RECYCLE` | memória do contêiner; um container novo a cada trabalho | `2g` / `true` |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV | `clamav/clamav:1.5` |
@@ -877,6 +917,7 @@ deeplook/
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
 │  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
 │  ├─ ghidra/         # Ghidra headless (Java 25), scripts de exportação e o servidor, sem rede
+│  ├─ unpack/         # desempacotadores (um plugin por arquivo em unpackers/), sem rede
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)

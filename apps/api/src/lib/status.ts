@@ -14,6 +14,7 @@ import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
 import { s3 } from './s3';
 import { countActive } from './sandbox';
 import { slaWhere } from './sla';
+import { unpackEnabled } from './unpack';
 import { yaraUpdateStatus } from './yara-update';
 
 /** ok = verde, warn = laranja (lento/perto do limite), error = vermelho, off = desligado. */
@@ -31,6 +32,7 @@ export interface StatusCheck {
     | 'capture'
     | 'capa'
     | 'ghidra'
+    | 'unpack'
     | 'ldap'
     | 'yaraPacks'
     | 'integrity'
@@ -621,6 +623,65 @@ async function ghidraCheck(): Promise<StatusCheck> {
   };
 }
 
+/** Desempacotar e extrair (item 7.8): servico unpack, fila e trabalhos em 24 h. */
+async function unpackCheck(): Promise<StatusCheck> {
+  const name = 'Desempacotar e extrair';
+  if (!unpackEnabled()) {
+    return {
+      id: 'unpack',
+      name,
+      level: 'off',
+      summary: 'desligado (UNPACK_URL vazio)',
+      details: [],
+    };
+  }
+  const details = [{ label: 'Endereço', value: env.UNPACK_URL }];
+  const health = () =>
+    timed(async () => {
+      const res = await fetch(`${env.UNPACK_URL.replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+      return (await res.json()) as { state?: string; unpackers?: string[] };
+    });
+  let probe = await health();
+  // Um container por trabalho: na troca, o servico fica fora por alguns segundos (ver o do capa).
+  if (probe.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    probe = await health();
+  }
+  if (probe.error) {
+    return {
+      id: 'unpack',
+      name,
+      level: 'error',
+      summary: probe.error,
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  details.push({
+    label: 'Desempacotadores',
+    value: (probe.value?.unpackers ?? []).join(', ') || '—',
+  });
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [queued, done, failed] = await Promise.all([
+    prisma.unpackJob.count({ where: { status: { in: ['PENDING', 'RUNNING'] } } }),
+    prisma.unpackJob.count({ where: { finishedAt: { gt: since }, status: 'DONE' } }),
+    prisma.unpackJob.count({ where: { finishedAt: { gt: since }, status: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Na fila', value: String(queued) });
+  details.push({ label: 'Trabalhos em 24 h', value: `${done} · ${failed} falha(s)` });
+  return {
+    id: 'unpack',
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: probe.value?.state === 'analisando' ? 'respondendo (trabalhando)' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Reputacao externa: servicos ligados (com chave) e falhas nas ultimas 24 h. */
 /** Senhas padrao ainda em uso (item 97): valores publicos do compose e do .env.example. */
 export function insecureDefaults(): string[] {
@@ -758,6 +819,7 @@ export async function systemStatus() {
     captureCheck(),
     capaCheck(),
     ghidraCheck(),
+    unpackCheck(),
     reputationCheck(),
     ldapCheck(),
     yaraPacksCheck(),

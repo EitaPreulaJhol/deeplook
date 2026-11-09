@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { pipeline, type Readable } from 'node:stream';
 
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
@@ -43,6 +43,7 @@ import type { StaticInfo } from '../lib/static-analysis';
 import { analyzeInThread, diskImageInThread } from '../lib/static-analysis-thread';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
 import { applyTriageRules } from '../lib/triage-rules';
+import { enqueueUnpackIfCandidate, type UnpackedChild } from '../lib/unpack';
 import { uploadGate } from '../lib/upload-gate';
 import { sendValidationError } from '../lib/validation';
 import { yaraScanInBackground } from '../lib/yara';
@@ -543,7 +544,13 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
  * Regras de triagem (item 86) e depois a atribuicao automatica (item 72), que ja
  * usa as tags e a prioridade das regras. Falha nao impede o envio.
  */
-async function assignOnArrival(entryId: string, req: FastifyRequest) {
+/**
+ * O que a criacao de uma amostra usa da requisicao: so o log. A fila do desempacotador (item 7.8)
+ * cria amostras filhas em segundo plano, sem requisicao, com o log da API.
+ */
+type EntryContext = Pick<FastifyRequest, 'log'>;
+
+async function assignOnArrival(entryId: string, req: EntryContext) {
   // Dominios parecidos com os da empresa (item 92).
   await scanLookalikesQuietly(entryId);
   try {
@@ -559,7 +566,7 @@ async function assignOnArrival(entryId: string, req: FastifyRequest) {
 }
 
 async function createFileEntry(
-  req: FastifyRequest,
+  req: EntryContext,
   ownerId: string,
   input: {
     buffer: Buffer;
@@ -641,6 +648,8 @@ async function createFileEntry(
   yaraScanInBackground(entry.id, buffer, req.log);
   // Analise de funcoes (item 7.2): executavel do Windows ou do Linux vai para a fila do capa.
   await enqueueCapaIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
+  // Desempacotar e extrair (item 7.8): UPX, instalador, PyInstaller, arquivo embutido.
+  await enqueueUnpackIfCandidate(entry.id, buffer, staticInfo, req.log);
   await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
   if (quota.remaining !== null) quota.remaining -= 1;
   // E-mail (.eml): le e transforma cada anexo numa amostra filha (ate 3 niveis
@@ -650,6 +659,32 @@ async function createFileEntry(
   }
   return { entry };
 }
+
+/**
+ * Amostra filha de um desempacotamento (item 7.8): a mesma criacao de um envio (analise estatica,
+ * antivirus, YARA, capa, e o desempacotador de novo, com limite de geracoes), do mesmo dono e com
+ * as tags da amostra mae, sem cota (como os arquivos de uma imagem de disco).
+ */
+export const unpackChildCreator =
+  (log: FastifyBaseLogger) =>
+  async (child: UnpackedChild): Promise<{ id: string }> => {
+    const { entry } = await createFileEntry(
+      { log },
+      child.ownerId,
+      {
+        buffer: child.buffer,
+        filename: child.filename,
+        mimetype: 'application/octet-stream',
+        title: child.title,
+        description: child.description,
+        tags: child.tags,
+        parentEntryId: child.parentId,
+      },
+      { remaining: null },
+      1,
+    );
+    return { id: entry.id };
+  };
 
 /** Primeiro envio do mesmo arquivo que a pessoa pode ver ("ja enviada antes"). */
 async function previousSubmission(entry: { id: string; sha256: string | null }, user: PublicUser) {
@@ -662,7 +697,7 @@ async function previousSubmission(entry: { id: string; sha256: string | null }, 
 
 /** Le o .eml enviado, cria os anexos como amostras filhas e grava `emailInfo`. */
 async function readEmail(
-  req: FastifyRequest,
+  req: EntryContext,
   ownerId: string,
   entry: { id: string; title: string; originalFilename: string | null },
   buffer: Buffer,

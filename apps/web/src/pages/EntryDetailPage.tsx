@@ -67,6 +67,7 @@ import { useDecoder } from '../components/shortcuts';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
+import { UnpackSection } from '../components/UnpackSection';
 import { useWorkspaceTitle } from '../components/workspace';
 import { useYara, YaraSection } from '../components/YaraSection';
 
@@ -800,6 +801,7 @@ export function EntryDetailPage() {
               purged={Boolean(entry.filePurgedAt)}
             />
           )}
+          {entry.type === 'FILE' && <UnpackSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <GhidraSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <ScriptSection info={entry.staticInfo} />}

@@ -1079,6 +1079,136 @@ async function ghidraImage() {
   }
 }
 
+const UNPACK_CONTAINERS = ['dl-test-unpack', 'dl-test-unpack-front'];
+const UNPACK_NETWORKS = ['dl-test-unpack-net', 'dl-test-unpack-front-net'];
+
+/** Desempacotar e extrair (item 7.8): o servico com a configuracao do compose, como o capa. */
+async function unpackImage() {
+  docker('build', '-q', '-t', 'dl-test-unpack', join(APPS, 'unpack'));
+  ok('imagem do unpack compila (pyinstxtractor conferido pelo hash)', true);
+  quiet('rm', '-f', ...UNPACK_CONTAINERS);
+  for (const net of UNPACK_NETWORKS) quiet('network', 'rm', net);
+  docker('network', 'create', ...networkArgs('analysis'), 'dl-test-unpack-net');
+  docker('network', 'create', 'dl-test-unpack-front-net');
+  const TOKEN = '0123456789abcdef01';
+  try {
+    const service = composeService('unpack');
+    const env = Object.entries(service.environment ?? {})
+      .filter(([k]) => k !== 'UNPACK_TOKEN')
+      .flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-unpack',
+      '--network',
+      'dl-test-unpack-net',
+      '--network-alias',
+      'unpack',
+      '-e',
+      `UNPACK_TOKEN=${TOKEN}`,
+      ...env,
+      ...runArgs(service, { restart: true }),
+      'dl-test-unpack',
+    );
+    const forward =
+      "const net=require('net');net.createServer((c)=>{const u=net.connect(3400,'unpack');" +
+      "c.pipe(u).pipe(c);u.on('error',()=>c.destroy());c.on('error',()=>u.destroy())}).listen(3400)";
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-unpack-front',
+      '--network',
+      'dl-test-unpack-front-net',
+      '-p',
+      '127.0.0.1:53410:3400',
+      'node:26-slim',
+      'node',
+      '-e',
+      forward,
+    );
+    docker('network', 'connect', 'dl-test-unpack-net', 'dl-test-unpack-front');
+    const base = 'http://localhost:53410';
+    const health = await until(() => fetch(`${base}/health`).then((r) => (r.ok ? r.json() : null)));
+    ok(
+      'unpack sobe com a configuração do compose e os desempacotadores',
+      health?.state === 'livre' &&
+        ['upx', 'pyinstaller', 'inno', 'nsis', 'archive'].every((u) =>
+          health.unpackers?.includes(u),
+        ),
+      health,
+    );
+    const inUnpack = (...args) => quiet('exec', 'dl-test-unpack', ...args);
+    ok('unpack sem root', inUnpack('id', '-u').stdout?.trim() === '10003');
+    ok(
+      'unpack: raiz somente leitura; /tmp gravável e sem execução',
+      inUnpack('touch', '/app/x').status !== 0 &&
+        inUnpack('sh', '-c', 'cp /bin/true /tmp/t && /tmp/t').status !== 0 &&
+        inUnpack('sh', '-c', 'echo ok > /tmp/ok').status === 0,
+    );
+    const capEff = inUnpack(
+      'sh',
+      '-c',
+      "grep CapEff /proc/1/status | awk '{print $2}'",
+    ).stdout?.trim();
+    ok('unpack sem capacidades', capEff === '0000000000000000', capEff);
+    const egress = inUnpack(
+      'python3',
+      '-c',
+      "import socket;s=socket.socket();s.settimeout(3);s.connect(('1.1.1.1',80))",
+    );
+    ok('unpack sem saída para a internet', egress.status !== 0);
+    const post = (body, token = TOKEN) =>
+      fetch(`${base}/analyze`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' },
+        body,
+      });
+    ok('unpack: token errado recusado', (await post(Buffer.from('MZ'), 'errado')).status === 401);
+    // Um ELF empacotado com o upx da propria imagem (fora do servico, num container descartavel).
+    const packed = execFileSync('docker', [
+      'run',
+      '--rm',
+      '--entrypoint',
+      'sh',
+      'dl-test-unpack',
+      '-c',
+      'upx -q -o /tmp/t.upx /bin/true >/dev/null && cat /tmp/t.upx',
+    ]);
+    const before = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-unpack').trim());
+    const res = await post(packed);
+    const zipPath = join(TMP, 'unpack-resposta.zip');
+    writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()));
+    const listing = spawnSync('python3', [
+      '-c',
+      "import json,sys,zipfile;z=zipfile.ZipFile(sys.argv[1]);m=json.loads(z.read('manifest.json'));print(json.dumps({'m':m,'n':z.namelist()}))",
+      zipPath,
+    ]);
+    const answer = listing.status === 0 ? JSON.parse(listing.stdout) : null;
+    ok(
+      'unpack desempacota com a raiz somente leitura e devolve o ZIP com o manifesto',
+      res.headers.get('content-type') === 'application/zip' &&
+        answer?.m.ok === true &&
+        answer.m.unpacker === 'upx' &&
+        answer.m.files.length === 1 &&
+        answer.n.includes('f0001'),
+      answer?.m,
+    );
+    const swapped = await until(async () => {
+      const count = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-unpack').trim());
+      if (count <= before) return null;
+      const h = await fetch(`${base}/health`).then((r) => r.json());
+      return h.state === 'livre';
+    });
+    ok('unpack: container novo depois do trabalho, livre de novo', Boolean(swapped));
+  } finally {
+    quiet('rm', '-f', ...UNPACK_CONTAINERS);
+    for (const net of UNPACK_NETWORKS) quiet('network', 'rm', net);
+    quiet('rmi', 'dl-test-unpack');
+  }
+}
+
 const composeCheck = spawnSync('docker', ['compose', 'config', '-q'], {
   cwd: join(APPS, '..'),
   encoding: 'utf8',
@@ -1089,5 +1219,6 @@ await apiImage();
 await captureImage();
 await capaImage();
 await ghidraImage();
+await unpackImage();
 console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
 process.exit(fails ? 1 : 0);

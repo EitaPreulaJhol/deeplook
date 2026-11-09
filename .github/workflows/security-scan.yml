@@ -87,6 +87,8 @@ jobs:
           - { app: capa, dir: capa, dockerfile: Dockerfile }
           # Ghidra (item 7.3): os JARs dele entram na varredura (o guava ja foi trocado no build).
           - { app: ghidra, dir: ghidra, dockerfile: Dockerfile }
+          # Desempacotar e extrair (item 7.8): upx, 7-Zip, innoextract e pyinstxtractor.
+          - { app: unpack, dir: unpack, dockerfile: Dockerfile }
     steps:
       - uses: actions/checkout@v4
 

@@ -1,0 +1,238 @@
+"""Desempacotar e extrair (item 7.8), num container sem rede.
+
+Recebe POST /analyze (corpo = o executavel, com o token da API), escolhe o primeiro desempacotador
+de unpackers/ que reconhece o arquivo (UPX, PyInstaller, Inno Setup, NSIS, arquivo compactado
+embutido) e devolve um ZIP sem compressao com manifest.json e os arquivos extraidos. A API cria uma
+amostra filha para cada um. So le e extrai: nada da amostra e executado.
+
+Novos desempacotadores (um de Themida, por exemplo) entram como um arquivo em unpackers/; o
+contrato esta em unpackers/README.md.
+
+Mesmo esqueleto do apps/capa/server.py (token, recusa lendo o corpo, /health com o estado, um
+container por trabalho): mudou um, confira o outro.
+"""
+
+import hmac
+import importlib.util
+import json
+import os
+import shutil
+import sys
+import tempfile
+import threading
+import time
+import zipfile
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+PORT = int(os.environ.get("PORT", "3400"))
+TOKEN = os.environ.get("UNPACK_TOKEN", "")
+RECYCLE = os.environ.get("UNPACK_RECYCLE", "true") != "false"
+MAX_BYTES = int(os.environ.get("UNPACK_MAX_MB", "64")) * 1024 * 1024
+TIMEOUT = int(os.environ.get("UNPACK_TIMEOUT_S", "180"))
+# Teto do que sai (contra zip bomb e instalador gigante): arquivos e bytes somados.
+MAX_FILES = int(os.environ.get("UNPACK_MAX_FILES", "50"))
+MAX_TOTAL = int(os.environ.get("UNPACK_MAX_TOTAL_MB", "256")) * 1024 * 1024
+PLUGINS_DIR = os.environ.get("UNPACK_PLUGINS", os.path.join(os.path.dirname(__file__), "unpackers"))
+MIN_UPTIME_S = 10.5
+
+STARTED = time.monotonic()
+_busy = threading.Lock()
+_retiring = threading.Event()
+
+
+def log(msg):
+    print(f"[unpack] {msg}", file=sys.stderr, flush=True)
+
+
+def load_plugins():
+    """Os desempacotadores, na ordem do nome do arquivo (u10_upx antes de u90_archive)."""
+    sys.path.insert(0, PLUGINS_DIR)
+    plugins = []
+    for name in sorted(os.listdir(PLUGINS_DIR)):
+        if not (name.startswith("u") and name.endswith(".py")):
+            continue
+        spec = importlib.util.spec_from_file_location(name[:-3], os.path.join(PLUGINS_DIR, name))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for attr in ("NAME", "LABEL", "detect", "unpack"):
+            if not hasattr(module, attr):
+                raise SystemExit(f"[unpack] {name} sem {attr} (ver unpackers/README.md)")
+        plugins.append(module)
+    return plugins
+
+
+PLUGINS = load_plugins()
+from common import UnpackError  # noqa: E402 - so existe depois de load_plugins pôr a pasta no path
+
+
+def safe_name(rel):
+    """Nome para a ficha: so o caminho relativo, sem barras iniciais nem '..'."""
+    parts = [p for p in rel.replace("\\", "/").split("/") if p not in ("", ".", "..")]
+    return "/".join(parts)[:300] or "arquivo"
+
+
+def analyze(data, work):
+    """Devolve (manifest, [(nome no zip, caminho)])."""
+    sample = os.path.join(work, "amostra")
+    outdir = os.path.join(work, "saida")
+    os.mkdir(outdir)
+    with open(sample, "wb") as f:
+        f.write(data)
+    plugin = next((p for p in PLUGINS if p.detect(data)), None)
+    if plugin is None:
+        return {"ok": True, "unpacker": None, "files": [], "skipped": [], "note": None}, []
+    started = time.monotonic()
+    try:
+        result = plugin.unpack(sample, outdir, TIMEOUT)
+    except UnpackError as exc:
+        return {
+            "ok": False,
+            "unpacker": plugin.NAME,
+            "label": plugin.LABEL,
+            "error": str(exc)[:300],
+            "ms": int((time.monotonic() - started) * 1000),
+        }, []
+    files, skipped, chosen, total = [], [], [], 0
+    for rel, path in result["files"]:
+        name = safe_name(rel)
+        size = os.path.getsize(path)
+        if os.path.islink(path) or not os.path.isfile(path):
+            continue
+        if len(chosen) >= MAX_FILES:
+            skipped.append({"name": name, "size": size, "reason": f"limite de {MAX_FILES} arquivos"})
+            continue
+        if total + size > MAX_TOTAL:
+            skipped.append({"name": name, "size": size, "reason": "limite de tamanho somado"})
+            continue
+        if size == 0:
+            skipped.append({"name": name, "size": 0, "reason": "arquivo vazio"})
+            continue
+        total += size
+        entry = f"f{len(chosen) + 1:04d}"
+        chosen.append((entry, path))
+        files.append({"name": name, "entry": entry, "size": size})
+    return {
+        "ok": True,
+        "unpacker": plugin.NAME,
+        "label": plugin.LABEL,
+        "note": result.get("note"),
+        "files": files,
+        "skipped": skipped,
+        "ms": int((time.monotonic() - started) * 1000),
+    }, chosen
+
+
+def retire(server):
+    """Sai depois de responder (ver apps/capa/server.py): primeiro para de aceitar conexoes."""
+    wait = MIN_UPTIME_S - (time.monotonic() - STARTED)
+    if wait > 0:
+        time.sleep(wait)
+    server.shutdown()
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "deeplook-unpack"
+    sys_version = ""
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def send(self, status, body):
+        payload = json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def send_zip(self, path):
+        self.send_response(200)
+        self.send_header("content-type", "application/zip")
+        self.send_header("content-length", str(os.path.getsize(path)))
+        self.end_headers()
+        with open(path, "rb") as f:
+            shutil.copyfileobj(f, self.wfile, 1 << 20)
+
+    def do_GET(self):
+        if self.path == "/health":
+            state = "trocando" if _retiring.is_set() else "analisando" if _busy.locked() else "livre"
+            self.send(200, {"ok": True, "state": state, "unpackers": [p.NAME for p in PLUGINS]})
+        else:
+            self.send(404, {"error": "não encontrado"})
+
+    def refuse(self, status, error, length, limit=MAX_BYTES):
+        """Recusa lendo o corpo antes (senao o TCP manda RST e a API ve a conexao cair)."""
+        if 0 < length <= limit:
+            remaining = length
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 1 << 20))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+        else:
+            self.close_connection = True
+        self.send(status, {"error": error})
+
+    def do_POST(self):
+        try:
+            length = int(self.headers.get("content-length", "-1"))
+        except ValueError:
+            length = -1
+        if self.path != "/analyze":
+            self.refuse(404, "não encontrado", length)
+            return
+        auth = self.headers.get("authorization", "")
+        if not hmac.compare_digest(auth.encode(), f"Bearer {TOKEN}".encode()):
+            self.refuse(401, "token inválido", length)
+            return
+        if length <= 0:
+            self.refuse(411, "corpo vazio ou sem tamanho", length)
+            return
+        if length > MAX_BYTES:
+            self.refuse(413, f"arquivo acima de {MAX_BYTES // (1024 * 1024)} MB", length, 512 << 20)
+            return
+        if _retiring.is_set() or not _busy.acquire(blocking=False):
+            self.refuse(503, "ocupado", length)
+            return
+        work = tempfile.mkdtemp(prefix="unpack-", dir="/tmp")
+        try:
+            data = self.rfile.read(length)
+            if len(data) != length:
+                self.send(400, {"error": "corpo incompleto"})
+                return
+            if RECYCLE:
+                _retiring.set()
+            try:
+                manifest, chosen = analyze(data, work)
+            except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
+                log(f"falha: {exc!r}")
+                manifest, chosen = {"ok": False, "error": "falha interna ao desempacotar"}, []
+            bundle = os.path.join(work, "resposta.zip")
+            with zipfile.ZipFile(bundle, "w", zipfile.ZIP_STORED) as z:
+                z.writestr("manifest.json", json.dumps(manifest))
+                for entry, path in chosen:
+                    z.write(path, entry)
+            self.send_zip(bundle)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+            _busy.release()
+            if _retiring.is_set():
+                threading.Thread(target=retire, args=(self.server,), daemon=True).start()
+
+
+def main():
+    if len(TOKEN) < 16:
+        log("UNPACK_TOKEN ausente ou curto (16+ caracteres).")
+        sys.exit(1)
+    log(f"ouvindo na porta {PORT} ({', '.join(p.NAME for p in PLUGINS)})")
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    server.daemon_threads = True
+    server.serve_forever()
+    server.server_close()
+    time.sleep(1)
+    log("trabalho concluido: saindo para o Docker subir um container limpo")
+    os._exit(0)
+
+
+if __name__ == "__main__":
+    main()

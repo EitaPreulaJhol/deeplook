@@ -26,6 +26,7 @@ import { ensureBucket, isMissingObject, MISSING_OBJECT_MESSAGE } from './lib/s3'
 import { initSandbox } from './lib/sandbox';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { backfillTlsh } from './lib/tlsh-backfill';
+import { startUnpackQueue } from './lib/unpack';
 import { installYaraPacks } from './lib/yara-packs';
 import { failInterruptedRetroscans } from './lib/yara-retro';
 import { startYaraPackUpdates } from './lib/yara-update';
@@ -45,7 +46,7 @@ import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
 import { duplicateRoutes } from './routes/duplicates';
-import { entryRoutes } from './routes/entries';
+import { entryRoutes, unpackChildCreator } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
 import { favoritesRoutes } from './routes/favorites';
 import { feedRoutes } from './routes/feeds';
@@ -73,6 +74,7 @@ import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
 import { triageRuleRoutes } from './routes/triage-rules';
 import { twoFactorRoutes } from './routes/two-factor';
+import { unpackRoutes } from './routes/unpack';
 import { yaraRoutes } from './routes/yara';
 
 async function main() {
@@ -150,6 +152,7 @@ async function main() {
   await app.register(captureRoutes);
   await app.register(capaRoutes);
   await app.register(ghidraRoutes);
+  await app.register(unpackRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
   // Importar indicadores (item 78).
@@ -258,6 +261,10 @@ async function main() {
   void startCapaQueue(app.log).catch((err) => app.log.error({ err }, '[capa] fila não subiu'));
   // Analise com o Ghidra (item 7.3): fila das analises pedidas, uma por vez.
   void startGhidraQueue(app.log).catch((err) => app.log.error({ err }, '[ghidra] fila não subiu'));
+  // Desempacotar e extrair (item 7.8): a fila cria as filhas pelo mesmo caminho de um envio.
+  void startUnpackQueue(app.log, unpackChildCreator(app.log)).catch((err) =>
+    app.log.error({ err }, '[unpack] fila não subiu'),
+  );
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

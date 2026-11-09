@@ -18,6 +18,7 @@ const MINIO = 'dl-minio';
 const LDAP = 'dl-ldap';
 const CAPA = 'dl-capa';
 const GHIDRA = 'dl-ghidra';
+const UNPACK = 'dl-unpack';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -199,7 +200,7 @@ function peFixtures() {
  * restart que troca o container a cada analise. A primeira construcao demora (o capa compila o
  * binary2strings; o Ghidra baixa 570 MB); as seguintes vem do cache do Docker.
  */
-async function startService({ name, dir, port, inner, env, memory, pids, tmpfs }) {
+async function startService({ name, dir, port, inner, env, memory, pids, tmpfs, extra = [] }) {
   docker('build', '-q', '-t', `dl-test-${dir}`, join(API, '..', dir));
   quiet('rm', '-f', name);
   docker(
@@ -222,6 +223,7 @@ async function startService({ name, dir, port, inner, env, memory, pids, tmpfs }
     String(pids),
     '-e',
     `${env}=0123456789abcdef01`,
+    ...extra.flatMap((e) => ['-e', e]),
     '-p',
     `127.0.0.1:${port}:${inner}`,
     `dl-test-${dir}`,
@@ -255,6 +257,20 @@ const startGhidra = () =>
     memory: '6g',
     pids: 256,
     tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
+  });
+
+const startUnpack = () =>
+  startService({
+    name: UNPACK,
+    dir: 'unpack',
+    port: 53400,
+    inner: 3400,
+    env: 'UNPACK_TOKEN',
+    memory: '2g',
+    pids: 64,
+    tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
+    // Teto baixo de proposito: o instalador do Inno Setup tem uns 90 arquivos.
+    extra: ['UNPACK_MAX_FILES=10'],
   });
 
 function runTest(file) {
@@ -331,11 +347,12 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
-if (files.some((f) => f.startsWith('pe-') || f.includes('capa') || f.includes('ghidra'))) {
+if (files.some((f) => /^pe-|capa|ghidra|unpack/.test(f))) {
   peFixtures();
 }
 if (files.some((f) => f.includes('capa'))) await startCapa();
 if (files.some((f) => f.includes('ghidra'))) await startGhidra();
+if (files.some((f) => f.includes('unpack'))) await startUnpack();
 
 let total = 0;
 const bad = [];
@@ -346,8 +363,8 @@ for (const file of files) {
   for (const line of failed) console.log(`      ${line}`);
   if (status !== 0 || failed.length) bad.push(file);
 }
-if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA);
-else quiet('rm', '-f', LDAP, CAPA, GHIDRA);
+if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK);
+else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK);
 console.log(
   bad.length
     ? `\n${bad.length} arquivo(s) com falha: ${bad.join(', ')}`

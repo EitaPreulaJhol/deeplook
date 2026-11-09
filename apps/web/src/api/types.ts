@@ -176,6 +176,29 @@ export interface GhidraInfo {
   } | null;
 }
 
+/** GET /api/entries/:id/unpack (item 7.8). */
+export interface UnpackInfo {
+  enabled: boolean;
+  /** Executavel do Windows ou do Linux (a secao aparece). */
+  applicable: boolean;
+  maxMb: number;
+  job: {
+    status: CapaStatus;
+    unpacker: string | null;
+    label: string | null;
+    note: string | null;
+    /** Cada arquivo extraido: a amostra filha criada ou por que ficou de fora. */
+    files: { name: string; size: number; entryId?: string; skipped?: string }[] | null;
+    error: string | null;
+    ms: number | null;
+    attempts: number;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+  } | null;
+  children: { id: string; title: string; verdict: Verdict }[];
+}
+
 /** Regra YARA (item 56): conjunto de regras escrito pelos analistas. */
 export interface YaraRule {
   id: string;
