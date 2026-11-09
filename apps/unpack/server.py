@@ -1,6 +1,7 @@
-"""Desempacotar e extrair (item 7.8), num container sem rede.
+"""Identificar e desempacotar (itens 7.8 e 7.9), num container sem rede.
 
-Recebe POST /analyze (corpo = o executavel, com o token da API), escolhe o primeiro desempacotador
+Recebe POST /analyze (corpo = o executavel, com o token da API), identifica o arquivo com o Detect It
+Easy (compilador, empacotador, protetor, instalador) e escolhe o primeiro desempacotador
 de unpackers/ que reconhece o arquivo (UPX, PyInstaller, Inno Setup, NSIS, arquivo compactado
 embutido) e devolve um ZIP sem compressao com manifest.json e os arquivos extraidos. A API cria uma
 amostra filha para cada um. So le e extrai: nada da amostra e executado.
@@ -33,6 +34,9 @@ TIMEOUT = int(os.environ.get("UNPACK_TIMEOUT_S", "180"))
 MAX_FILES = int(os.environ.get("UNPACK_MAX_FILES", "50"))
 MAX_TOTAL = int(os.environ.get("UNPACK_MAX_TOTAL_MB", "256")) * 1024 * 1024
 PLUGINS_DIR = os.environ.get("UNPACK_PLUGINS", os.path.join(os.path.dirname(__file__), "unpackers"))
+DIEC = os.environ.get("DIEC", "/usr/bin/diec")
+DIE_TIMEOUT = 60
+MAX_DETECTIONS = 50
 MIN_UPTIME_S = 10.5
 
 STARTED = time.monotonic()
@@ -62,7 +66,44 @@ def load_plugins():
 
 
 PLUGINS = load_plugins()
-from common import UnpackError  # noqa: E402 - so existe depois de load_plugins pôr a pasta no path
+from common import UnpackError, run  # noqa: E402 - so existe depois de load_plugins pôr a pasta no path
+
+
+def die_version():
+    try:
+        _, out = run([DIEC, "--version"], 30)
+        return out.strip().split()[-1]
+    except Exception:  # noqa: BLE001 - versao e so informativa
+        return None
+
+
+DIE_VERSION = die_version()
+
+
+def identify(path):
+    """Detect It Easy (diec -j): [{filetype, type, name, version, info, string}] ou o motivo."""
+    try:
+        code, out = run([DIEC, "-j", path], DIE_TIMEOUT)
+    except UnpackError as exc:
+        return [], str(exc)
+    try:
+        doc = json.loads(out[out.index("{"):])
+    except ValueError:
+        return [], f"o Detect It Easy não respondeu em JSON (código {code})"
+    found = []
+    for part in doc.get("detects", []):
+        for value in part.get("values", []):
+            found.append(
+                {
+                    "filetype": str(part.get("filetype", ""))[:40],
+                    "type": str(value.get("type", ""))[:40],
+                    "name": str(value.get("name", ""))[:120],
+                    "version": str(value.get("version", ""))[:80],
+                    "info": str(value.get("info", ""))[:120],
+                    "string": str(value.get("string", ""))[:240],
+                }
+            )
+    return found[:MAX_DETECTIONS], None
 
 
 def safe_name(rel):
@@ -71,16 +112,18 @@ def safe_name(rel):
     return "/".join(parts)[:300] or "arquivo"
 
 
-def analyze(data, work):
-    """Devolve (manifest, [(nome no zip, caminho)])."""
+def analyze(data, work, unpack=True):
+    """Devolve (manifest, [(nome no zip, caminho)]). unpack=False: so identifica."""
     sample = os.path.join(work, "amostra")
     outdir = os.path.join(work, "saida")
     os.mkdir(outdir)
     with open(sample, "wb") as f:
         f.write(data)
-    plugin = next((p for p in PLUGINS if p.detect(data)), None)
+    detections, die_error = identify(sample)
+    ident = {"detections": detections, "dieError": die_error, "dieVersion": DIE_VERSION}
+    plugin = next((p for p in PLUGINS if p.detect(data)), None) if unpack else None
     if plugin is None:
-        return {"ok": True, "unpacker": None, "files": [], "skipped": [], "note": None}, []
+        return {"ok": True, "unpacker": None, "files": [], "skipped": [], "note": None, **ident}, []
     started = time.monotonic()
     try:
         result = plugin.unpack(sample, outdir, TIMEOUT)
@@ -91,6 +134,7 @@ def analyze(data, work):
             "label": plugin.LABEL,
             "error": str(exc)[:300],
             "ms": int((time.monotonic() - started) * 1000),
+            **ident,
         }, []
     files, skipped, chosen, total = [], [], [], 0
     for rel, path in result["files"]:
@@ -110,7 +154,21 @@ def analyze(data, work):
         total += size
         entry = f"f{len(chosen) + 1:04d}"
         chosen.append((entry, path))
-        files.append({"name": name, "entry": entry, "size": size})
+        # A filha ja sai identificada daqui (o DIE leva ~150 ms): so volta para a fila, com um
+        # container novo, se algum desempacotador a reconhecer.
+        with open(path, "rb") as f:
+            head = f.read()
+        child_detections, child_error = identify(path)
+        files.append(
+            {
+                "name": name,
+                "entry": entry,
+                "size": size,
+                "detections": child_detections,
+                "dieError": child_error,
+                "candidate": any(p.detect(head) for p in PLUGINS),
+            }
+        )
     return {
         "ok": True,
         "unpacker": plugin.NAME,
@@ -119,6 +177,7 @@ def analyze(data, work):
         "files": files,
         "skipped": skipped,
         "ms": int((time.monotonic() - started) * 1000),
+        **ident,
     }, chosen
 
 
@@ -156,7 +215,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
             state = "trocando" if _retiring.is_set() else "analisando" if _busy.locked() else "livre"
-            self.send(200, {"ok": True, "state": state, "unpackers": [p.NAME for p in PLUGINS]})
+            self.send(
+                200,
+                {
+                    "ok": True,
+                    "state": state,
+                    "unpackers": [p.NAME for p in PLUGINS],
+                    "die": DIE_VERSION,
+                },
+            )
         else:
             self.send(404, {"error": "não encontrado"})
 
@@ -178,9 +245,12 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("content-length", "-1"))
         except ValueError:
             length = -1
-        if self.path != "/analyze":
+        path, _, query = self.path.partition("?")
+        if path != "/analyze":
             self.refuse(404, "não encontrado", length)
             return
+        # ?unpack=0: so identificar (a API manda assim a partir da segunda geracao).
+        unpack = "unpack=0" not in query.split("&")
         auth = self.headers.get("authorization", "")
         if not hmac.compare_digest(auth.encode(), f"Bearer {TOKEN}".encode()):
             self.refuse(401, "token inválido", length)
@@ -203,7 +273,7 @@ class Handler(BaseHTTPRequestHandler):
             if RECYCLE:
                 _retiring.set()
             try:
-                manifest, chosen = analyze(data, work)
+                manifest, chosen = analyze(data, work, unpack)
             except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
                 log(f"falha: {exc!r}")
                 manifest, chosen = {"ok": False, "error": "falha interna ao desempacotar"}, []
@@ -224,7 +294,7 @@ def main():
     if len(TOKEN) < 16:
         log("UNPACK_TOKEN ausente ou curto (16+ caracteres).")
         sys.exit(1)
-    log(f"ouvindo na porta {PORT} ({', '.join(p.NAME for p in PLUGINS)})")
+    log(f"ouvindo na porta {PORT} (Detect It Easy {DIE_VERSION}; {', '.join(p.NAME for p in PLUGINS)})")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     server.daemon_threads = True
     server.serve_forever()

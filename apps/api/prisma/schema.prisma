@@ -506,6 +506,8 @@ enum TriageCondition {
   PACKED
   PE_ALERT
   HIDDEN_IOC
+  /// Item 7.9: o que o Detect It Easy reconheceu (compilador, empacotador, protetor...).
+  DIE_DETECTION
 }
 
 /// Regra de triagem (item 86): quando a analise achar X, incluir tags e subir a
@@ -619,6 +621,10 @@ model UnpackJob {
   note          String?
   /// [{ name, size, entryId?, skipped? }]: cada arquivo extraido e a amostra filha criada.
   files         Json?
+  /// Detect It Easy (item 7.9): [{ filetype, type, name, version, info, string }].
+  detections    Json?
+  dieVersion    String?
+  dieError      String?
   error         String?
   ms            Int?
   attempts      Int          @default(0)

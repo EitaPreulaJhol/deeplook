@@ -43,7 +43,12 @@ import type { StaticInfo } from '../lib/static-analysis';
 import { analyzeInThread, diskImageInThread } from '../lib/static-analysis-thread';
 import { tlsh, TLSH_MAX_BYTES } from '../lib/tlsh';
 import { applyTriageRules } from '../lib/triage-rules';
-import { enqueueUnpackIfCandidate, type UnpackedChild } from '../lib/unpack';
+import {
+  enqueueIdentify,
+  type Identified,
+  recordIdentified,
+  type UnpackedChild,
+} from '../lib/unpack';
 import { uploadGate } from '../lib/upload-gate';
 import { sendValidationError } from '../lib/validation';
 import { yaraScanInBackground } from '../lib/yara';
@@ -577,6 +582,8 @@ async function createFileEntry(
     tags: { id: string }[];
     /** Anexo de um e-mail (item 54): amostra pai. */
     parentEntryId?: string;
+    /** Filha de um desempacotamento ja identificada pelo servico (item 7.9). */
+    identified?: Identified;
   },
   /** Cota restante (usuario comum): cada anexo de e-mail tambem conta. */
   quota: { remaining: number | null } = { remaining: null },
@@ -648,8 +655,15 @@ async function createFileEntry(
   yaraScanInBackground(entry.id, buffer, req.log);
   // Analise de funcoes (item 7.2): executavel do Windows ou do Linux vai para a fila do capa.
   await enqueueCapaIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
-  // Desempacotar e extrair (item 7.8): UPX, instalador, PyInstaller, arquivo embutido.
-  await enqueueUnpackIfCandidate(entry.id, buffer, staticInfo, req.log);
+  // Identificar (Detect It Easy, 7.9) e desempacotar (7.8): todo executavel vai para a fila, menos a
+  // filha que o servico ja identificou e que nenhum desempacotador reconhece.
+  if (input.identified && !input.identified.candidate) {
+    await recordIdentified(entry.id, input.identified, staticInfo).catch((err: unknown) =>
+      req.log.error({ err }, '[unpack] falha ao gravar a identificação'),
+    );
+  } else {
+    await enqueueIdentify(entry.id, buffer.length, staticInfo, req.log);
+  }
   await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
   if (quota.remaining !== null) quota.remaining -= 1;
   // E-mail (.eml): le e transforma cada anexo numa amostra filha (ate 3 niveis
@@ -679,6 +693,7 @@ export const unpackChildCreator =
         description: child.description,
         tags: child.tags,
         parentEntryId: child.parentId,
+        identified: child.identified,
       },
       { remaining: null },
       1,

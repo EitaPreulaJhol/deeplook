@@ -58,7 +58,11 @@ export async function serviceReady(url: string): Promise<boolean> {
 export async function requestAnalysis(
   service: AnalysisService,
   data: Uint8Array,
-  { waitMs, retryEveryMs }: { waitMs: number; retryEveryMs: number },
+  {
+    waitMs,
+    retryEveryMs,
+    query = '',
+  }: { waitMs: number; retryEveryMs: number; /** Ex.: "?unpack=0". */ query?: string },
 ): Promise<Response> {
   const deadline = Date.now() + waitMs;
   const pause = () => new Promise((resolve) => setTimeout(resolve, retryEveryMs));
@@ -70,7 +74,7 @@ export async function requestAnalysis(
       continue;
     }
     try {
-      const res = await fetch(`${base(service.url)}/analyze`, {
+      const res = await fetch(`${base(service.url)}/analyze${query}`, {
         method: 'POST',
         headers: {
           'content-type': 'application/octet-stream',

@@ -625,7 +625,7 @@ async function ghidraCheck(): Promise<StatusCheck> {
 
 /** Desempacotar e extrair (item 7.8): servico unpack, fila e trabalhos em 24 h. */
 async function unpackCheck(): Promise<StatusCheck> {
-  const name = 'Desempacotar e extrair';
+  const name = 'Identificar e desempacotar';
   if (!unpackEnabled()) {
     return {
       id: 'unpack',
@@ -642,7 +642,7 @@ async function unpackCheck(): Promise<StatusCheck> {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
-      return (await res.json()) as { state?: string; unpackers?: string[] };
+      return (await res.json()) as { state?: string; unpackers?: string[]; die?: string | null };
     });
   let probe = await health();
   // Um container por trabalho: na troca, o servico fica fora por alguns segundos (ver o do capa).
@@ -660,6 +660,7 @@ async function unpackCheck(): Promise<StatusCheck> {
       details,
     };
   }
+  details.push({ label: 'Detect It Easy', value: probe.value?.die ?? 'não encontrado' });
   details.push({
     label: 'Desempacotadores',
     value: (probe.value?.unpackers ?? []).join(', ') || '—',

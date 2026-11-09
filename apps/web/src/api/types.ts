@@ -176,7 +176,19 @@ export interface GhidraInfo {
   } | null;
 }
 
-/** GET /api/entries/:id/unpack (item 7.8). */
+/** O que o Detect It Easy reconheceu (item 7.9). */
+export interface DieDetection {
+  filetype: string;
+  /** compiler, linker, packer, protector, installer, library, sign tool... */
+  type: string;
+  name: string;
+  version: string;
+  info: string;
+  /** Texto completo, ex.: "Packer: UPX(4.24)[NRV, brute]". */
+  string: string;
+}
+
+/** GET /api/entries/:id/unpack (itens 7.8 e 7.9). */
 export interface UnpackInfo {
   enabled: boolean;
   /** Executavel do Windows ou do Linux (a secao aparece). */
@@ -189,6 +201,9 @@ export interface UnpackInfo {
     note: string | null;
     /** Cada arquivo extraido: a amostra filha criada ou por que ficou de fora. */
     files: { name: string; size: number; entryId?: string; skipped?: string }[] | null;
+    detections: DieDetection[] | null;
+    dieVersion: string | null;
+    dieError: string | null;
     error: string | null;
     ms: number | null;
     attempts: number;

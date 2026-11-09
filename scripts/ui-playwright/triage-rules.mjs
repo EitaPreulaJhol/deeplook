@@ -103,8 +103,8 @@ await page.selectOption('#rule-condition', 'SIGNATURE_INVALID');
 expect('assinatura não pede valor', (await page.locator('#rule-value').count()) === 0);
 const options = await page.locator('#rule-condition option').allInnerTexts();
 expect(
-  'as seis condições da análise do executável no seletor',
-  ['O capa encontrou a capacidade', 'Técnica ATT&CK (pelo capa)', 'Assinatura digital não confere', 'Executável empacotado', 'Alerta do executável', 'Indicador em string escondida (FLOSS)'].every((o) => options.includes(o)),
+  'as condições da análise do executável no seletor (com o Detect It Easy)',
+  ['O capa encontrou a capacidade', 'Técnica ATT&CK (pelo capa)', 'Assinatura digital não confere', 'Executável empacotado', 'Alerta do executável', 'Indicador em string escondida (FLOSS)', 'Detect It Easy detectou'].every((o) => options.includes(o)),
   options.join('|'),
 );
 await rows.last().locator('button:has-text("Excluir")').click();

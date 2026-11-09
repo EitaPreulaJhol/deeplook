@@ -9,12 +9,14 @@ import { sha256Hex } from './crypto';
 import { recordEvent } from './events';
 import { prisma } from './prisma';
 import { s3 } from './s3';
+import { applyTriageRulesQuietly } from './triage-rules';
 import { extractZipEntry, listZip, ZipError } from './zip';
 
 /**
- * Desempacotar e extrair (item 7.8): o servico `unpack` (apps/unpack) roda upx, 7-Zip, innoextract
- * e pyinstxtractor num container sem rede, e cada arquivo que sai vira uma amostra filha, que passa
- * por toda a analise de novo. Assim o capa e o Ghidra veem o codigo de verdade, nao o
+ * Identificar e desempacotar (itens 7.8 e 7.9): o servico `unpack` (apps/unpack) identifica o
+ * arquivo com o Detect It Easy (compilador, empacotador, protetor, instalador) e roda upx, 7-Zip,
+ * innoextract e pyinstxtractor num container sem rede. Cada arquivo que sai vira uma amostra filha,
+ * que passa por toda a analise de novo: assim o capa e o Ghidra veem o codigo de verdade, nao o
  * descompactador do UPX nem o instalador. A fila e a mesma ideia da do capa (7.2).
  */
 
@@ -23,7 +25,8 @@ const RETRY_AFTER_MS = 5 * 60 * 1000;
 const TICK_MS = 15_000;
 /**
  * Geracoes de desempacotamento: a amostra, o que saiu dela e o que saiu disso (um instalador com
- * um UPX dentro). Mais que isso para, contra instalador dentro de instalador sem fim.
+ * um UPX dentro). Dali em diante o arquivo so e identificado, contra instalador dentro de
+ * instalador sem fim.
  */
 const MAX_DEPTH = 2;
 
@@ -38,34 +41,19 @@ export function unpackEnabled(): boolean {
   return Boolean(env.UNPACK_URL && env.UNPACK_TOKEN);
 }
 
-const NSIS = Buffer.from('NullsoftInst');
-const INNO = Buffer.from('Inno Setup Setup Data');
-const PYINSTALLER = Buffer.from([0x4d, 0x45, 0x49, 0x0c, 0x0b, 0x0a, 0x0b, 0x0e]);
-
 /**
- * A amostra vale a viagem ao servico? Barato, na chegada: executavel com empacotador conhecido,
- * dados anexados (instalador, autoextraivel, dropper) ou a marca de NSIS, Inno ou PyInstaller. O
- * servico decide de verdade qual desempacotador usar.
+ * Tipos reais que vao para o servico: o Detect It Easy (item 7.9) identifica todos; os
+ * desempacotadores so agem em executavel do Windows ou do Linux.
  */
-export function unpackCandidate(
-  buffer: Buffer,
-  staticInfo:
-    | {
-        detectedType?: { id?: string } | null;
-        pe?: { packer?: string | null; overlay?: unknown; dotnet?: unknown } | null;
-        elf?: { packer?: string | null } | null;
-      }
-    | null
-    | undefined,
+const KINDS = new Set(['pe', 'elf', 'macho', 'apk', 'jar']);
+
+/** Vai para o servico? Executavel (ou pacote Android/Java) dentro do teto. */
+export function identifiable(
+  staticInfo: { detectedType?: { id?: string } | null } | null | undefined,
+  size: number,
 ): boolean {
   const kind = staticInfo?.detectedType?.id;
-  if ((kind !== 'pe' && kind !== 'elf') || buffer.length > env.UNPACK_MAX_MB * 1024 * 1024) {
-    return false;
-  }
-  if (staticInfo?.pe?.packer || staticInfo?.elf?.packer || staticInfo?.pe?.overlay) return true;
-  if (buffer.includes(NSIS) || buffer.includes(INNO)) return true;
-  // O cookie do PyInstaller fica no fim do arquivo.
-  return buffer.subarray(Math.max(0, buffer.length - (4 << 20))).includes(PYINSTALLER);
+  return Boolean(kind && KINDS.has(kind) && size > 0 && size <= env.UNPACK_MAX_MB * 1024 * 1024);
 }
 
 /** Quantas geracoes de desempacotamento ha acima da amostra (pais que tem um UnpackJob). */
@@ -89,8 +77,24 @@ async function unpackDepth(entryId: string): Promise<number> {
 
 // ------------------------------------------------------------------ resposta do servico
 
+const detectionSchema = z.object({
+  filetype: z.string().max(40),
+  type: z.string().max(40),
+  name: z.string().max(120),
+  version: z.string().max(80),
+  info: z.string().max(120),
+  string: z.string().max(240),
+});
+export type Detection = z.infer<typeof detectionSchema>;
+const ident = {
+  detections: z.array(detectionSchema).max(50).optional(),
+  dieVersion: z.string().max(20).nullish(),
+  dieError: z.string().max(300).nullish(),
+};
+
 const manifestSchema = z.union([
   z.object({
+    ...ident,
     ok: z.literal(true),
     unpacker: z.string().max(40).nullable(),
     label: z.string().max(80).optional(),
@@ -101,6 +105,10 @@ const manifestSchema = z.union([
           name: z.string().max(300),
           entry: z.string().regex(/^f\d{4}$/),
           size: z.number().int().positive(),
+          // A filha ja identificada pelo servico, e se algum desempacotador a reconhece.
+          detections: z.array(detectionSchema).max(50).optional(),
+          dieError: z.string().max(300).nullish(),
+          candidate: z.boolean().optional(),
         }),
       )
       .max(100),
@@ -116,6 +124,7 @@ const manifestSchema = z.union([
     ms: z.number().int().nonnegative().optional(),
   }),
   z.object({
+    ...ident,
     ok: z.literal(false),
     unpacker: z.string().max(40).optional(),
     label: z.string().max(80).optional(),
@@ -133,6 +142,15 @@ export interface UnpackedChild {
   filename: string;
   title: string;
   description: string;
+  /** Ja identificada na mesma rodada; `candidate` falso = nada a desempacotar, sem nova rodada. */
+  identified?: Identified;
+}
+
+export interface Identified {
+  detections: Detection[];
+  dieVersion: string | null;
+  dieError: string | null;
+  candidate: boolean;
 }
 type ChildCreator = (child: UnpackedChild) => Promise<{ id: string }>;
 
@@ -167,20 +185,45 @@ async function enqueue(entryId: string): Promise<void> {
   wake();
 }
 
-/** Na chegada: executavel candidato, servico ligado e sem passar do limite de geracoes. */
-export async function enqueueUnpackIfCandidate(
+/** Na chegada: todo executavel (ou pacote) dentro do teto, com o servico ligado. */
+export async function enqueueIdentify(
   entryId: string,
-  buffer: Buffer,
-  staticInfo: Parameters<typeof unpackCandidate>[1],
+  size: number,
+  staticInfo: Parameters<typeof identifiable>[0],
   log: { error: (o: object, m: string) => void },
 ): Promise<void> {
   try {
-    if (!unpackEnabled() || !unpackCandidate(buffer, staticInfo)) return;
-    if ((await unpackDepth(entryId)) >= MAX_DEPTH) return;
+    if (!unpackEnabled() || !identifiable(staticInfo, size)) return;
     await enqueue(entryId);
   } catch (err) {
     log.error({ err }, '[unpack] falha ao enfileirar');
   }
+}
+
+/**
+ * Amostra filha que o servico ja identificou e que nenhum desempacotador reconhece: o trabalho ja
+ * nasce concluido, sem outra rodada (cada rodada custa um container novo, de 10 s ou mais).
+ */
+export async function recordIdentified(
+  entryId: string,
+  identified: Identified,
+  staticInfo: unknown,
+): Promise<void> {
+  const outcome = notUnpacked(identified.detections, staticInfo, true);
+  await prisma.unpackJob.upsert({
+    where: { entryId },
+    create: {
+      entryId,
+      ...(outcome as Prisma.UnpackJobCreateWithoutEntryInput),
+      detections: identified.detections as unknown as Prisma.InputJsonValue,
+      dieVersion: identified.dieVersion,
+      dieError: identified.dieError,
+      attempts: 0,
+      finishedAt: new Date(),
+    },
+    update: {},
+  });
+  await applyTriageRulesQuietly(entryId);
 }
 
 /** Pedido do analista (mesmo sem a amostra parecer candidata). */
@@ -235,6 +278,54 @@ function finish(id: string, data: Prisma.UnpackJobUpdateInput) {
   return prisma.unpackJob.update({ where: { id }, data: { finishedAt: new Date(), ...data } });
 }
 
+/**
+ * Nenhum desempacotador agiu: por que, com o que o Detect It Easy viu. Protetor (Themida,
+ * VMProtect...) e empacotador sem desempacotador estatico viram nota; o UPX alterado (marca UPX!
+ * apagada), que o 7.1 e o DIE reconhecem mas o upx nao desempacota, vira falha com o motivo.
+ */
+function notUnpacked(
+  detections: Detection[],
+  staticInfo: unknown,
+  unpack: boolean,
+): Prisma.UnpackJobUpdateInput {
+  if (!unpack) {
+    return {
+      status: 'DONE',
+      files: [],
+      note: 'só identificado: já há duas gerações desempacotadas acima',
+    };
+  }
+  const packer7 = (staticInfo as { pe?: { packer?: string | null } | null } | null)?.pe?.packer;
+  const upxModified = detections.some(
+    (d) => d.type.toLowerCase() === 'packer' && /upx/i.test(d.name) && /modified/i.test(d.info),
+  );
+  if (packer7 === 'UPX' || upxModified) {
+    return {
+      status: 'FAILED',
+      unpacker: 'upx',
+      label: 'UPX',
+      error: 'UPX sem a marca UPX! (disfarçado): o upx não desempacota sem ela',
+    };
+  }
+  const protector = detections.find((d) => d.type.toLowerCase() === 'protector');
+  if (protector) {
+    return {
+      status: 'DONE',
+      files: [],
+      note: `protegido com ${protector.name} (Detect It Easy): precisa de um desempacotador que execute a amostra`,
+    };
+  }
+  const packer = detections.find((d) => d.type.toLowerCase() === 'packer');
+  if (packer) {
+    return {
+      status: 'DONE',
+      files: [],
+      note: `empacotado com ${packer.name} (Detect It Easy): nenhum desempacotador estático para ele`,
+    };
+  }
+  return { status: 'DONE', files: [], note: 'nada a desempacotar' };
+}
+
 /** Nome do arquivo da filha: o caminho dentro do pacote ou, no UPX, o nome da amostra marcado. */
 function childFilename(name: string, parentFilename: string | null): string {
   const base = name.split('/').pop() || 'arquivo';
@@ -279,11 +370,14 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
     return;
   }
 
+  // Duas geracoes de desempacotamento acima: so identificar.
+  const unpack = (await unpackDepth(entryId)) < MAX_DEPTH;
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
       waitMs: unpackTiming.serviceWaitMs,
       retryEveryMs: unpackTiming.retryEveryMs,
+      query: unpack ? '' : '?unpack=0',
     });
   } catch (err) {
     const reason = requestFailure(service(), err);
@@ -331,6 +425,11 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
     return;
   }
 
+  const identified = {
+    detections: (manifest.detections ?? []) as unknown as Prisma.InputJsonValue,
+    dieVersion: manifest.dieVersion ?? null,
+    dieError: manifest.dieError ?? null,
+  };
   if (!manifest.ok) {
     await finish(id, {
       status: 'FAILED',
@@ -338,24 +437,19 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
       label: manifest.label ?? null,
       error: manifest.error,
       ms: manifest.ms ?? null,
+      ...identified,
     });
+    await applyTriageRulesQuietly(entryId);
     return;
   }
-  if (!manifest.unpacker) {
-    // O 7.1 reconhece o UPX pelo codigo de entrada mesmo sem a marca UPX!; o upx, nao.
-    const packer = (entry.staticInfo as { pe?: { packer?: string | null } | null } | null)?.pe
-      ?.packer;
-    await finish(
-      id,
-      packer === 'UPX'
-        ? {
-            status: 'FAILED',
-            unpacker: 'upx',
-            label: 'UPX',
-            error: 'UPX sem a marca UPX! (disfarçado): o upx não desempacota sem ela',
-          }
-        : { status: 'DONE', note: 'nenhum desempacotador reconheceu o arquivo', files: [] },
-    );
+  // O limite de geracoes vale aqui, nao so no servico: um que ignore o ?unpack=0 e devolva arquivos
+  // (o que este teste simula) criaria filha de filha sem fim.
+  if (!manifest.unpacker || !unpack) {
+    await finish(id, {
+      ...notUnpacked(manifest.detections ?? [], entry.staticInfo, unpack),
+      ...identified,
+    });
+    await applyTriageRulesQuietly(entryId);
     return;
   }
 
@@ -396,6 +490,14 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
         file.name === 'desempacotado'
           ? `${entry.title} (desempacotado)`.slice(0, 200)
           : file.name.slice(0, 200),
+      identified: file.detections
+        ? {
+            detections: file.detections,
+            dieVersion: manifest.dieVersion ?? null,
+            dieError: file.dieError ?? null,
+            candidate: file.candidate ?? true,
+          }
+        : undefined,
       description: `Extraído de "${entry.title}" pelo desempacotador ${label}${
         file.name === 'desempacotado' ? '' : ` (${file.name})`
       }.`,
@@ -411,7 +513,9 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
     note: manifest.note ?? null,
     files: files as unknown as Prisma.InputJsonValue,
     ms: manifest.ms ?? null,
+    ...identified,
   });
+  await applyTriageRulesQuietly(entryId);
   if (created) {
     await recordEvent(prisma, {
       entryId,

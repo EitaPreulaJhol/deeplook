@@ -26,6 +26,7 @@ const CONDITIONS = [
   'PACKED',
   'PE_ALERT',
   'HIDDEN_IOC',
+  'DIE_DETECTION',
 ] as const;
 
 const TAG = z

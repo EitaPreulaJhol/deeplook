@@ -48,8 +48,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
   [Análise de funções](#análise-de-funções-capa-e-floss).
 - **ghidra**: o Ghidra headless, sob demanda, no mesmo isolamento do capa. Ver
   [Análise com o Ghidra](#análise-com-o-ghidra).
-- **unpack**: desempacota e extrai executáveis (UPX, instaladores, PyInstaller), no mesmo
-  isolamento. Ver [Desempacotar e extrair](#desempacotar-e-extrair).
+- **unpack**: identifica os executáveis com o Detect It Easy e desempacota (UPX, instaladores,
+  PyInstaller), no mesmo isolamento. Ver [Identificar e desempacotar](#identificar-e-desempacotar).
 - Porta publicada no host: **`127.0.0.1:8080`** (consumida pelo Cloudflare Tunnel).
 
 ---
@@ -534,13 +534,27 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
-## Desempacotar e extrair
+## Identificar e desempacotar
 
-Quando chega um executável que parece empacotado ou instalador (empacotador reconhecido, dados
-anexados, ou a marca de NSIS, Inno Setup ou PyInstaller), o serviço `unpack` o desempacota em
-segundo plano, e **cada arquivo que sai vira uma amostra filha** ("Extraído de:" na ficha), com
-toda a análise de novo: estática, antivírus, YARA, capa e o Ghidra sob demanda. É assim que o capa
-e o Ghidra veem o código de verdade, e não o descompactador do UPX nem o instalador.
+Todo executável que chega (Windows, Linux, macOS, APK e JAR, até `UNPACK_MAX_MB`) passa pelo
+serviço `unpack` em segundo plano:
+
+1. O **[Detect It Easy](https://github.com/horsicq/DIE-engine)** 3.21 (MIT) o identifica pelas
+   assinaturas: compilador ("MinGW", "Delphi 10.3"), empacotador ("UPX 4.24", inclusive o UPX
+   alterado), protetor ("Themida"), instalador ("NSIS 3.11"), assinatura digital, .NET. A ficha
+   mostra a lista, com empacotador e protetor em destaque. É uma pista, não um veredito: o DIE
+   também erra (num programa PyInstaller, por exemplo, ele vê "Go").
+2. Se um desempacotador o reconhece, ele é desempacotado, e **cada arquivo que sai vira uma
+   amostra filha** ("Extraído de:" na ficha), com toda a análise de novo: estática, antivírus, YARA,
+   capa e o Ghidra sob demanda. É assim que o capa e o Ghidra veem o código de verdade, e não o
+   descompactador do UPX nem o instalador. A filha já sai identificada da mesma rodada e só volta
+   para a fila se houver o que desempacotar nela.
+3. Se nada desempacota, a ficha diz por quê, com o que o DIE viu: "protegido com Themida: precisa
+   de um desempacotador que execute a amostra", "empacotado com MPRESS: nenhum desempacotador
+   estático para ele", ou "nada a desempacotar".
+
+As regras de triagem ganham a condição **Detect It Easy detectou** (trecho como `Themida`, `Inno
+Setup` ou `Delphi`; vazio = qualquer empacotador ou protetor).
 
 | Desempacotador | Ferramenta | O que sai |
 |---|---|---|
@@ -553,14 +567,15 @@ e o Ghidra veem o código de verdade, e não o descompactador do UPX nem o insta
 - **Nada é executado**: as ferramentas só leem e extraem. Contêiner sem rede, sem root, sem
   capacidades, raiz somente leitura e `/tmp` em memória sem execução; um contêiner por trabalho.
 - **Limites**: até `UNPACK_MAX_FILES` arquivos e `UNPACK_MAX_TOTAL_MB` somados por amostra (o resto
-  aparece como "ficou de fora", com o motivo), e duas gerações (um instalador com um UPX dentro).
+  aparece como "ficou de fora", com o motivo), e duas gerações de desempacotamento (um instalador
+  com um UPX dentro); dali em diante o arquivo só é identificado.
 - **O que não funciona, e a ficha diz**: o UPX disfarçado (com a marca `UPX!` apagada) o 7.1
   reconhece pelo código, mas o `upx` não desempacota sem ela; o Inno Setup 6.3 em diante o
   innoextract 1.9 (o último lançamento) não lê.
 - **O UPX desempacotado é o mesmo programa, não o mesmo arquivo**: o `upx -d` zera o checksum e
   refaz a tabela de importação em outra ordem de DLLs. O conjunto de funções é o mesmo, mas o
   imphash muda.
-- Executável que não parecia empacotado: um analista pede **Desempacotar** na seção da ficha.
+- Amostras enviadas antes: um analista pede **Identificar e desempacotar** na seção da ficha.
 - **Novos desempacotadores** entram como um arquivo em `apps/unpack/unpackers/`; o contrato está no
   `README.md` de lá. Os que precisam **executar** a amostra (como a maioria dos de Themida e
   VMProtect) não cabem nesse contêiner: o lugar deles é o sandbox do Proxmox.
@@ -583,6 +598,7 @@ tag nem baixa prioridade, e cada uma fica no histórico da amostra.
 | **O capa encontrou a capacidade** | parte do nome (`inject`) ou grupo (`persistence`); vazio = qualquer capacidade de risco | o fim da análise de funções |
 | **Técnica ATT&CK (pelo capa)** | código, ex.: `T1055` (vale também para as subtécnicas) | o fim da análise de funções |
 | **Indicador em string escondida (FLOSS)** | domínio ou trecho (opcional) | o fim da análise de funções |
+| **Detect It Easy detectou** | trecho, ex.: `Themida` (vazio = qualquer empacotador ou protetor) | o fim da identificação |
 
 As regras também rodam de novo quando um analista pede **Analisar de novo** na análise estática.
 
@@ -917,7 +933,7 @@ deeplook/
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
 │  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
 │  ├─ ghidra/         # Ghidra headless (Java 25), scripts de exportação e o servidor, sem rede
-│  ├─ unpack/         # desempacotadores (um plugin por arquivo em unpackers/), sem rede
+│  ├─ unpack/         # Detect It Easy e os desempacotadores (um plugin por arquivo em unpackers/)
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)

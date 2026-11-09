@@ -55,7 +55,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 7.6 | Relacionadas: mesmo certificado e mesmo comportamento (capacidades do capa) | 🟡 | P | API / Web | ⬜ |
 | 7.7 | Retro-hunt com o capa ao subir as regras | ⚪ | P | API | ⬜ |
 | 7.8 | Desempacotar e extrair (UPX, NSIS/Inno, PyInstaller) em amostras filhas | 🔴 | M | API / Compose / Web | ✅ |
-| 7.9 | Detect It Easy: compilador, empacotador, instalador e ofuscador | 🟡 | P–M | API / Compose | ⬜ |
+| 7.9 | Detect It Easy: compilador, empacotador, instalador e ofuscador | 🟡 | P–M | API / Compose | ✅ |
 | 7.10 | Descompilar .NET (ilspycmd) | 🟡 | M | API / Compose / Web | ⬜ |
 | 7.11 | Extração de configuração de famílias conhecidas (extratores maco/CAPE) | 🟡 | M–G | API / Compose | ⬜ |
 | 7.12 | Emulação com o Speakeasy (sequência de APIs sem VM) | ⚪ | M | API / Compose | ⬜ |
@@ -95,9 +95,8 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [7.9 Detect It Easy](#79-detect-it-easy) | Barato e diz qual ferramenta usar em seguida | **P–M** |
-| 2º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; depois de ver quais famílias aparecem | **M–G** |
-| 3º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 1º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; o DIE (7.9) já mostra quais famílias e ferramentas aparecem | **M–G** |
+| 2º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -108,10 +107,10 @@ Backup.
 ### Para retomar
 
 ```bash
-# o desempacotamento (7.8) deixou tudo verde; confirme antes de mexer
+# a identificação com o Detect It Easy (7.9) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1462 checagens em 41 arquivos (sobe o capa, o Ghidra e o unpack reais)
+cd ../api   && npm run test:integration          # 1468 checagens em 41 arquivos (sobe o capa, o Ghidra e o unpack reais)
 cd ../api   && npm run test:images && npm run test:smoke   # 102 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
@@ -1909,6 +1908,52 @@ estática) e os desempacotadores dinâmicos (Themida, VMProtect), que precisam e
 Compilador, empacotador, instalador e ofuscador .NET por assinaturas maduras (muito além do UPX
 pelo código de entrada do 7.1). Tem versão de linha de comando para Linux; num contêiner como o do
 capa.
+
+**Implementado:**
+- **Detect It Easy 3.21** (MIT; a 4.0.0 saiu 4 dias antes e ficou para depois, pela regra das duas
+  semanas), no serviço `unpack`: o pacote oficial para Debian 13, conferido pelo SHA-256 publicado,
+  mas só o `diec` e o banco de assinaturas. O pacote pede o Qt5 inteiro (a imagem de sondagem foi
+  a 650 MB); o `ldd` mostrou que o `diec` só carrega o Qt Core, o Qt Script e a glib, e o resultado
+  saiu **idêntico** nos 11 executáveis de teste com o pacote completo e com o enxuto (a imagem foi de
+  191 para 294 MB).
+- **O que ele traz** nos executáveis de teste: "MinGW (GCC 13)", "UPX(4.24)[NRV, brute]", o UPX
+  disfarçado como "UPX(3.91+)[modified]", o NSIS 3.11, o Delphi 10.3 e a assinatura do instalador
+  do Inno Setup, o .NET; e um falso positivo ("Go" no programa PyInstaller), que a tela trata como
+  pista.
+- **Todo executável vai para a fila** (PE, ELF, Mach-O, APK, JAR), não só os que pareciam
+  empacotados: o DIE identifica, e os desempacotadores agem quando reconhecem. A partir da segunda
+  geração, `?unpack=0`: só identifica.
+- **Sem desempacotador, a ficha diz por quê:** protetor ("precisa de um desempacotador que execute a
+  amostra"), empacotador sem desempacotador estático, o UPX alterado, ou "nada a desempacotar".
+- **Regra de triagem** "Detect It Easy detectou" (migração `20261229000000_detect_it_easy`, que
+  também grava as detecções, a versão e um eventual erro do DIE no trabalho), avaliada quando a
+  identificação termina.
+- **Um ajuste de desempenho que o teste mostrou:** com a identificação de todo executável, cada
+  arquivo extraído voltava para a fila só para ser identificado, e cada rodada custa um contêiner
+  novo (10,5 s ou mais): o `unpack.test` passou de 10 minutos. Agora o serviço identifica as filhas
+  na mesma rodada (cerca de 150 ms cada) e diz se algum desempacotador as reconhece; a filha nasce
+  com o trabalho concluído e só volta para a fila se houver o que desempacotar. Cada
+  desempacotamento de verdade continua num contêiner limpo.
+- **Atualizar o DIE é à mão:** o `diec` não fica registrado no dpkg (só o binário e o banco saem do
+  pacote), então o Trivy varre as bibliotecas do Qt que vêm do Debian, mas não o DIE em si, e o
+  Dependabot não vê um `ADD` de release. Ao trocar de versão: URL, SHA-256 e o `health.die` do
+  `test:images`, juntos.
+- **Um defeito que o teste hostil achou:** no 7.8, o limite de gerações era aplicado na fila (a neta
+  não entrava). Com a identificação de todo executável, a neta entra e a API manda `?unpack=0`;
+  mas um serviço falso que ignorava o parâmetro e devolvia arquivos criou filha de filha sem fim
+  (o teste travou até o tempo do runner). A API agora descarta o que vier com `unpack` desligado,
+  sem depender do serviço, e o teste conta as gerações.
+
+**Testes** (`unpack.test.ts`, agora 33): quem vai para a fila; as detecções do UPX (com a versão e o
+método) e do NSIS; a regra pelo DIE (vazio e pelo trecho "Nullsoft"), na mãe e não na filha; a
+filha identificada na mesma rodada (`attempts` 0); o executável comum e o .NET identificados sem
+nada a desempacotar; a neta da terceira geração só identificada; e, com um serviço falso, as notas
+de protegido (Themida) e de empacotador sem desempacotador estático (MPRESS) e um serviço que
+ignora o `?unpack=0` (a API para em duas gerações). Prova inversa: sem a identificação na mesma
+rodada, sem a trava de gerações na API, ou com o valor vazio da regra valendo para qualquer
+detecção, cada um derruba a própria checagem (sem a trava, o teste trava). `test:images` confere
+a versão do DIE e a detecção do UPX com a raiz somente leitura. Cenários de tela do desempacotamento
+(o DIE, o protetor em destaque) e das regras.
 
 ### 7.10 Descompilar .NET
 

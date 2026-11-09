@@ -4,6 +4,13 @@ Cada arquivo `uNN_nome.py` desta pasta é um desempacotador. O servidor (`../ser
 na ordem do nome e usa **o primeiro que reconhece** a amostra; por isso os específicos (UPX, 10)
 vêm antes dos genéricos (arquivo compactado embutido, 90).
 
+Antes deles, o servidor identifica a amostra com o Detect It Easy (item 7.9). O `detect` do plugin
+continua sendo quem decide: ele recebe os bytes, não a saída do DIE, porque o DIE também erra. Se
+nenhum plugin reconhece, a API usa o que o DIE viu para explicar por quê (por exemplo, "protegido
+com Themida"). Os arquivos extraídos também são identificados na mesma rodada, e o `detect` de
+cada plugin é chamado neles para saber se a filha precisa de outra rodada; por isso ele tem de ser
+barato e não pode falhar.
+
 ## Contrato
 
 ```python

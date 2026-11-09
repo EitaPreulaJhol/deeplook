@@ -1132,8 +1132,9 @@ async function unpackImage() {
     const base = 'http://localhost:53410';
     const health = await until(() => fetch(`${base}/health`).then((r) => (r.ok ? r.json() : null)));
     ok(
-      'unpack sobe com a configuração do compose e os desempacotadores',
+      'unpack sobe com a configuração do compose, o Detect It Easy e os desempacotadores',
       health?.state === 'livre' &&
+        health.die === '3.21' &&
         ['upx', 'pyinstaller', 'inno', 'nsis', 'archive'].every((u) =>
           health.unpackers?.includes(u),
         ),
@@ -1187,11 +1188,13 @@ async function unpackImage() {
     ]);
     const answer = listing.status === 0 ? JSON.parse(listing.stdout) : null;
     ok(
-      'unpack desempacota com a raiz somente leitura e devolve o ZIP com o manifesto',
+      'unpack identifica e desempacota com a raiz somente leitura e devolve o ZIP com o manifesto',
       res.headers.get('content-type') === 'application/zip' &&
         answer?.m.ok === true &&
         answer.m.unpacker === 'upx' &&
         answer.m.files.length === 1 &&
+        // O Detect It Easy le o banco de assinaturas com a raiz somente leitura.
+        answer.m.detections.some((d) => d.type.toLowerCase() === 'packer' && d.name === 'UPX') &&
         answer.n.includes('f0001'),
       answer?.m,
     );

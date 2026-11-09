@@ -6,9 +6,10 @@ import { prisma } from '../lib/prisma';
 import { requestUnpack, unpackEnabled } from '../lib/unpack';
 
 /**
- * Desempacotar e extrair (item 7.8): roda sozinho na chegada quando o executavel parece empacotado
- * ou instalador; analistas pedem de novo (ou pela primeira vez, se o teste da chegada nao achou
- * nada). Quem ve a amostra ve o resultado (o requireUser ja barra a amostra de outro dono).
+ * Identificar e desempacotar (itens 7.8 e 7.9): roda sozinho na chegada de todo executavel (o
+ * Detect It Easy identifica; os desempacotadores agem quando reconhecem); analistas pedem de novo
+ * enquanto nao houver filhas. Quem ve a amostra ve o resultado (o requireUser ja barra a amostra
+ * de outro dono).
  */
 export async function unpackRoutes(app: FastifyInstance) {
   const executable = (staticInfo: unknown) => {
@@ -33,6 +34,9 @@ export async function unpackRoutes(app: FastifyInstance) {
         label: true,
         note: true,
         files: true,
+        detections: true,
+        dieVersion: true,
+        dieError: true,
         error: true,
         ms: true,
         attempts: true,

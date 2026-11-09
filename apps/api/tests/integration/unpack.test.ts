@@ -17,10 +17,10 @@ import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
 import {
-  enqueueUnpackIfCandidate,
+  enqueueIdentify,
+  identifiable,
   startUnpackQueue,
   stopUnpackQueue,
-  unpackCandidate,
   unpackIdle,
   unpackTiming,
 } from '../../src/lib/unpack';
@@ -109,25 +109,20 @@ async function fakeService(handle: (res: http.ServerResponse) => void) {
 
 async function main() {
   // ------------------------------------------------------------ 1. quem vai para a fila
-  const candidate = (name: string) => {
+  const identifies = (name: string) => {
     const b = file(name);
-    return unpackCandidate(b, analyzeBuffer(b, name) as never);
+    return identifiable(analyzeBuffer(b, name) as never, b.length);
   };
   ok(
-    'candidatos: UPX (marca e disfarçado), NSIS, Inno, PyInstaller, ZIP anexado',
-    [
-      'upx64.exe',
-      'upx-disfarcado.exe',
-      'nsis.exe',
-      'inno-6.2.2.exe',
-      'pyinst.bin',
-      'overlay.exe',
-    ].every(candidate),
+    'todo executável vai (o Detect It Easy identifica; o desempacotador age se reconhecer)',
+    ['upx64.exe', 'prog64.exe', 'dotnet.exe', 'linux.elf', 'pyinst.bin', 'nsis.exe'].every(
+      identifies,
+    ),
   );
-  ok('executável comum e .NET não', !candidate('prog64.exe') && !candidate('dotnet.exe'));
   ok(
-    'texto não',
-    !unpackCandidate(Buffer.from('nada'), analyzeBuffer(Buffer.from('nada'), 'a.txt') as never),
+    'texto e acima do teto não',
+    !identifiable(analyzeBuffer(Buffer.from('nada'), 'a.txt') as never, 4) &&
+      !identifiable({ detectedType: { id: 'pe' } }, env.UNPACK_MAX_MB * 1024 * 1024 + 1),
   );
 
   // ------------------------------------------------------------ 2. pela API, com o servico real
@@ -165,6 +160,18 @@ async function main() {
         })
       ).headers['set-cookie'],
     ).split(';')[0];
+  // Regras de triagem pelo Detect It Easy (item 7.9).
+  await prisma.triageRule.createMany({
+    data: [
+      { name: 'Instalador NSIS', condition: 'DIE_DETECTION', value: 'Nullsoft', tags: ['nsis'] },
+      {
+        name: 'Empacotador (DIE)',
+        condition: 'DIE_DETECTION',
+        value: null,
+        tags: ['empacotado-die'],
+      },
+    ],
+  });
   const ana = await login('ana@x.io');
   const bob = await login('bob@x.io');
   const upload = async (c: string, name: string, data: Buffer, tags = ''): Promise<string> => {
@@ -240,7 +247,32 @@ async function main() {
       (unpacked.staticInfo as any)?.pe?.packer === null &&
       (unpacked.staticInfo as any)?.pe?.suspiciousImports?.includes('CreateRemoteThread'),
   );
-  ok('a filha comum não volta para a fila', unpacked && !(await job(unpacked.id)));
+  const childJob = unpacked ? await job(unpacked.id) : null;
+  ok(
+    'a filha também é identificada (MinGW, sem empacotador) e não há o que desempacotar',
+    childJob?.status === 'DONE' &&
+      childJob.note === 'nada a desempacotar' &&
+      ((childJob.detections ?? []) as { name: string; type: string }[]).some(
+        (d) => d.name === 'MinGW',
+      ) &&
+      !((childJob.detections ?? []) as { type: string }[]).some((d) => d.type === 'packer'),
+    childJob,
+  );
+  ok(
+    'Detect It Easy na mãe: o UPX com a versão e o método',
+    ((upxJob?.detections ?? []) as { string: string }[]).some(
+      (d) => d.string === 'Packer: UPX(4.24)[NRV, brute]',
+    ) && upxJob?.dieVersion === '3.21',
+    upxJob?.detections,
+  );
+  const upxTags = (
+    await prisma.entry.findUnique({ where: { id: upx }, select: { tags: true } })
+  )?.tags.map((t) => t.name);
+  ok(
+    'regra de triagem pelo Detect It Easy (vazio = empacotador) na mãe, não na filha',
+    upxTags?.includes('empacotado-die') && !unpacked?.tags.some((t) => t.name === 'empacotado-die'),
+    upxTags,
+  );
   const extracted = await prisma.entryEvent.findFirst({
     where: { entryId: upx, type: 'FILES_EXTRACTED' },
   });
@@ -253,6 +285,23 @@ async function main() {
   const nsis = await upload(ana, 'instalador.exe', file('nsis.exe'));
   await unpackIdle();
   const nsisKids = await children(nsis);
+  const nsisEntry = await prisma.entry.findUnique({ where: { id: nsis }, select: { tags: true } });
+  const payload = nsisKids.find((k) => k.originalFilename === 'carga.exe');
+  const payloadJob = payload ? await job(payload.id) : null;
+  ok(
+    'a filha sai identificada da mesma rodada, sem voltar para a fila (attempts 0)',
+    payloadJob?.status === 'DONE' &&
+      payloadJob.attempts === 0 &&
+      payloadJob.note === 'nada a desempacotar' &&
+      ((payloadJob.detections ?? []) as { name: string }[]).some((d) => d.name === 'MinGW'),
+    payloadJob,
+  );
+  ok(
+    'Detect It Easy reconhece o NSIS e a regra pelo trecho "Nullsoft" marca a amostra',
+    ((await job(nsis))?.detections as { string: string }[]).some((d) =>
+      d.string.startsWith('Installer: Nullsoft Scriptable Install System'),
+    ) && nsisEntry?.tags.some((t) => t.name === 'nsis'),
+  );
   ok(
     'NSIS: a carga (prog64.exe) e o texto',
     (await job(nsis))?.unpacker === 'nsis' &&
@@ -326,20 +375,32 @@ async function main() {
 
   // Rotas.
   const plain = await upload(bob, 'comum.exe', file('prog64.exe'));
+  await unpackIdle();
   const plainState = (await get(bob, plain)).json();
   ok(
-    'executável comum: aplicável, sem trabalho (não parecia empacotado)',
-    plainState.applicable && plainState.job === null,
+    'executável comum: identificado na chegada, nada a desempacotar, sem a tag de empacotador',
+    plainState.applicable &&
+      plainState.job?.status === 'DONE' &&
+      plainState.job.note === 'nada a desempacotar' &&
+      plainState.job.detections.some((d: { string: string }) =>
+        d.string.startsWith('Compiler: MinGW'),
+      ) &&
+      !(await prisma.entry.findUnique({ where: { id: plain }, select: { tags: true } }))?.tags.some(
+        (t) => t.name === 'empacotado-die',
+      ),
     plainState,
   );
   ok('usuário comum não pede', (await ask(bob, plain)).statusCode === 403);
-  ok('analista pede mesmo assim', (await ask(ana, plain)).statusCode === 202);
+  ok('analista pede de novo (sem filhas)', (await ask(ana, plain)).statusCode === 202);
   await unpackIdle();
-  const plainJob = await job(plain);
+  const net = await upload(ana, 'carregador.exe', file('dotnet.exe'));
+  await unpackIdle();
+  const netJob = await job(net);
   ok(
-    'nada reconhecido: concluído, sem filhas, com a nota',
-    plainJob?.status === 'DONE' && plainJob.note === 'nenhum desempacotador reconheceu o arquivo',
-    plainJob,
+    '.NET: identificado (.NET Framework) e nada a desempacotar',
+    netJob?.note === 'nada a desempacotar' &&
+      ((netJob.detections ?? []) as { name: string }[]).some((d) => d.name === '.NET Framework'),
+    netJob,
   );
   const shown = (await get(bob, upx)).json();
   ok(
@@ -357,7 +418,7 @@ async function main() {
   env.UNPACK_URL = '';
   ok('desligado: 503', (await ask(ana, inno64)).statusCode === 503);
 
-  // Geracoes: amostra com dois desempacotamentos acima nao entra na fila; com um, entra.
+  // Geracoes: com dois desempacotamentos acima, so identifica; com um, desempacota.
   const a = await upload(ana, 'g1.exe', file('upx32.exe'));
   const b = await upload(ana, 'g2.exe', file('upx-dll.dll'));
   const c2 = await upload(ana, 'g3.exe', file('upx64.exe'));
@@ -375,16 +436,23 @@ async function main() {
   stopUnpackQueue();
   const upxBuf = file('upx64.exe');
   const upxInfo = analyzeBuffer(upxBuf, 'x.exe');
-  await enqueueUnpackIfCandidate(c2, upxBuf, upxInfo as never, log);
-  await enqueueUnpackIfCandidate(d, upxBuf, upxInfo as never, log);
-  ok(
-    'limite de gerações: a neta de dois desempacotamentos fica de fora; a filha entra',
-    !(await job(c2)) && Boolean(await job(d)),
-  );
+  await enqueueIdentify(c2, upxBuf.length, upxInfo as never, log);
+  await enqueueIdentify(d, upxBuf.length, upxInfo as never, log);
   await unpackIdle();
+  const neta = await job(c2);
+  ok(
+    'limite de gerações: a neta de dois desempacotamentos só é identificada; a filha desempacota',
+    neta?.status === 'DONE' &&
+      neta.note === 'só identificado: já há duas gerações desempacotadas acima' &&
+      ((neta.detections ?? []) as { type: string }[]).some((x) => x.type === 'packer') &&
+      (await children(c2)).length === 0 &&
+      (await job(d))?.unpacker === 'upx' &&
+      (await children(d)).length === 1,
+    { neta, d: await job(d) },
+  );
 
   // ------------------------------------------------------------ 3. respostas hostis
-  const target = await upload(ana, 'alvo.exe', file('upx32.exe'));
+  let target = await upload(ana, 'alvo.exe', file('upx32.exe'));
   await unpackIdle();
   const hostile = async (
     label: string,
@@ -419,6 +487,54 @@ async function main() {
     (r) => r?.status === 'FAILED' && r.error === 'arquivo acima de 64 MB',
   );
 
+  const noUnpacker = (detections: object[]) => (res: http.ServerResponse) =>
+    res.writeHead(200, { 'content-type': 'application/zip' }).end(
+      storedZip([
+        {
+          name: 'manifest.json',
+          data: Buffer.from(
+            JSON.stringify({
+              ok: true,
+              unpacker: null,
+              files: [],
+              skipped: [],
+              note: null,
+              detections,
+              dieVersion: '3.21',
+              dieError: null,
+            }),
+          ),
+        },
+      ]),
+    );
+  const die = (type: string, name: string) => ({
+    filetype: 'PE32',
+    type,
+    name,
+    version: '',
+    info: '',
+    string: `${type}: ${name}`,
+  });
+  // Alvo sem empacotador pelo 7.1 (num UPX, a regra do UPX disfarcado vem antes, como deve).
+  const plainTarget = target;
+  target = await upload(ana, 'comum2.exe', file('prog32.exe'));
+  await unpackIdle();
+  await hostile(
+    'protegido (Themida, pelo DIE): nota de que precisa executar a amostra',
+    noUnpacker([die('Protector', 'Themida')]),
+    (r) =>
+      r?.status === 'DONE' &&
+      r.note ===
+        'protegido com Themida (Detect It Easy): precisa de um desempacotador que execute a amostra',
+  );
+  await hostile(
+    'empacotador sem desempacotador estático: nota',
+    noUnpacker([die('Packer', 'MPRESS')]),
+    (r) =>
+      r?.status === 'DONE' &&
+      r.note === 'empacotado com MPRESS (Detect It Easy): nenhum desempacotador estático para ele',
+  );
+  target = plainTarget;
   const same = file('upx32.exe');
   const other = Buffer.from('MZ outro arquivo');
   await hostile(
@@ -460,6 +576,26 @@ async function main() {
     where: { parentEntryId: target, originalFilename: 'outro.bin' },
   });
   ok('o nome da filha não carrega o caminho', Boolean(sneaky), sneaky?.originalFilename);
+  // O servico falso ignora o ?unpack=0 e devolve os dois arquivos a cada rodada (alternando qual
+  // e igual a amostra): a API para sozinha na segunda geracao abaixo do alvo.
+  let level = [target];
+  const deepest: string[][] = [];
+  while (level.length && deepest.length < 6) {
+    const next = (
+      await prisma.entry.findMany({ where: { parentEntryId: { in: level } }, select: { id: true } })
+    ).map((e) => e.id);
+    if (next.length) deepest.push(next);
+    level = next;
+  }
+  const lastJobs = await Promise.all((deepest.at(-1) ?? []).map((id) => job(id)));
+  ok(
+    'serviço que ignora o ?unpack=0: a API não cria filhas além de duas gerações',
+    deepest.length === 2 &&
+      lastJobs.every(
+        (j) => j?.note === 'só identificado: já há duas gerações desempacotadas acima',
+      ),
+    { geracoes: deepest.length, lastJobs },
+  );
 
   stopUnpackQueue();
   await app.close();

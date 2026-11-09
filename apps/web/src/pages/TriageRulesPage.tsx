@@ -44,7 +44,8 @@ type Condition =
   | 'SIGNATURE_INVALID'
   | 'PACKED'
   | 'PE_ALERT'
-  | 'HIDDEN_IOC';
+  | 'HIDDEN_IOC'
+  | 'DIE_DETECTION';
 
 interface TriageRule {
   id: string;
@@ -116,6 +117,14 @@ const CONDITIONS: Record<
   HIDDEN_IOC: {
     label: 'Indicador em string escondida (FLOSS)',
     value: { required: false, hint: 'domínio ou trecho (vazio = qualquer)' },
+  },
+  // Item 7.9.
+  DIE_DETECTION: {
+    label: 'Detect It Easy detectou',
+    value: {
+      required: false,
+      hint: 'trecho, ex.: Themida, Inno Setup, Delphi (vazio = qualquer empacotador ou protetor)',
+    },
   },
 };
 

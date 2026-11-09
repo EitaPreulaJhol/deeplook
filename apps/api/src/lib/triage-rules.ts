@@ -30,6 +30,7 @@ export const CONDITION_LABEL: Record<TriageCondition, string> = {
   PACKED: 'executável empacotado',
   PE_ALERT: 'alerta do executável',
   HIDDEN_IOC: 'indicador em string escondida',
+  DIE_DETECTION: 'Detect It Easy detectou',
 };
 
 /** Condicoes que usam o campo "valor" (vazio = qualquer, onde fizer sentido). */
@@ -47,6 +48,7 @@ export const OPTIONAL_VALUE: TriageCondition[] = [
   'PACKED',
   'PE_ALERT',
   'HIDDEN_IOC',
+  'DIE_DETECTION',
 ];
 
 /** "regra YARA casou (Emotet)" / "documento com macro". */
@@ -79,6 +81,8 @@ type Facts = {
   packer: string | null;
   peAlerts: { level: string; text: string }[];
   hiddenIocs: string[];
+  /** Detect It Easy (item 7.9): tipo e o texto completo ("Packer: UPX(4.24)[NRV, brute]"). */
+  die: { type: string; string: string }[];
 };
 
 /** Sem acento e em minusculas: "assinatura" casa "Assinatura" e "não" casa "nao". */
@@ -151,6 +155,11 @@ function matches(rule: { condition: TriageCondition; value: string | null }, f: 
       return value
         ? f.peAlerts.some((a) => plain(a.text).includes(plain(value)))
         : f.peAlerts.some((a) => a.level === 'high');
+    case 'DIE_DETECTION':
+      // Trecho do que o DIE disse (Themida, Inno Setup, Delphi); vazio = empacotador ou protetor.
+      return value
+        ? f.die.some((d) => plain(d.string).includes(plain(value)))
+        : f.die.some((d) => ['packer', 'protector'].includes(d.type.toLowerCase()));
     case 'HIDDEN_IOC':
       return value
         ? f.hiddenIocs.some((v) => v.toLowerCase().includes(value) || domainMatches(v, value))
@@ -177,6 +186,7 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
       antivirus: { select: { status: true, signature: true } },
       lookalikeHits: { select: { companyDomain: true } },
       capaAnalysis: { select: { status: true, capa: true, attack: true, iocCandidates: true } },
+      unpackJob: { select: { detections: true } },
     },
   });
   if (!entry) return [];
@@ -227,6 +237,10 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
     packer: st.pe?.packer ?? null,
     peAlerts: st.pe?.alerts ?? [],
     hiddenIocs: ((capa?.iocCandidates ?? []) as { value: string }[]).map((i) => i.value),
+    die: ((entry.unpackJob?.detections ?? []) as { type: string; string: string }[]).map((d) => ({
+      type: d.type,
+      string: d.string,
+    })),
   };
 
   const have = new Set(entry.tags.map((t) => t.name.toLowerCase()));

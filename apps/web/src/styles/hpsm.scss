@@ -2769,6 +2769,18 @@ body:has(.dl-print) {
   overflow-wrap: anywhere;
 }
 
+/* Detect It Easy (item 7.9): uma deteccao por linha. */
+.dl-die-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+}
+
+.dl-die-list li {
+  margin: 0.1rem 0;
+}
+
 /* Desempacotamento (item 7.8): os arquivos extraidos, cada um uma amostra filha. */
 .dl-unpack-files {
   margin: 0.5rem 0 0.25rem 1rem;

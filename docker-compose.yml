@@ -148,7 +148,7 @@ services:
       GHIDRA_URL: ${GHIDRA_URL-http://ghidra:3300}
       GHIDRA_TOKEN: ${GHIDRA_TOKEN:-troque-este-token-do-ghidra}
       GHIDRA_MAX_MB: ${GHIDRA_MAX_MB:-32}
-      # Desempacotar e extrair (item 7.8): o servico unpack abaixo; UNPACK_URL= desliga.
+      # Identificar e desempacotar (itens 7.8 e 7.9): o servico unpack abaixo; UNPACK_URL= desliga.
       UNPACK_URL: ${UNPACK_URL-http://unpack:3400}
       UNPACK_TOKEN: ${UNPACK_TOKEN:-troque-este-token-do-unpack}
       UNPACK_MAX_MB: ${UNPACK_MAX_MB:-64}
@@ -329,8 +329,8 @@ services:
     networks:
       - analysis
 
-  # Desempacotar e extrair (item 7.8): upx, 7-Zip, innoextract e pyinstxtractor. So le e extrai;
-  # nada da amostra roda. Mesmo isolamento do capa e um container por trabalho.
+  # Identificar e desempacotar (itens 7.8 e 7.9): Detect It Easy, upx, 7-Zip, innoextract e
+  # pyinstxtractor. So le e extrai; nada da amostra roda. Mesmo isolamento do capa e um container por trabalho.
   unpack:
     build:
       context: ./apps/unpack
