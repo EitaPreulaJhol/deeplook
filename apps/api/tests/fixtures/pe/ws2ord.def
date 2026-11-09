@@ -1,0 +1,5 @@
+; ws2_32 importado so por ordinal, como faz muito malware: o imphash resolve o nome pela tabela.
+LIBRARY ws2_32.dll
+EXPORTS
+socket @23 NONAME
+WSAStartup @115 NONAME

@@ -209,6 +209,99 @@ export interface EmailInfo {
   }[];
 }
 
+/** Certificado da assinatura Authenticode (item 7.1). */
+export interface CertSummary {
+  subject: string;
+  issuer: string;
+  serial: string;
+  validFrom: string;
+  validTo: string;
+  sha1: string;
+  sha256: string;
+}
+
+/** Alerta da analise do PE (item 7.1). */
+export interface PeAlert {
+  level: 'high' | 'medium' | 'info';
+  text: string;
+}
+
+/**
+ * Executavel do Windows. Os campos do item 7.1 sao opcionais: amostras analisadas antes nao os
+ * tem (ate a reanalise em segundo plano chegar a elas).
+ */
+export interface PeInfo {
+  machine: string;
+  is64: boolean;
+  isDll: boolean;
+  subsystem: string;
+  compiledAt: string | null;
+  sections: {
+    name: string;
+    virtualSize: number;
+    rawSize: number;
+    entropy: number;
+    /** R, W e X. */
+    flags?: string;
+  }[];
+  imports: { dll: string; functions: number; names?: string[] }[];
+  suspiciousImports: string[];
+  packer: string | null;
+  imphash?: string | null;
+  rich?: {
+    hash: string;
+    checksumValid: boolean;
+    entries: { product: number; build: number; count: number }[];
+  } | null;
+  exports?: {
+    dll: string | null;
+    total: number;
+    symbols: { ordinal: number; name: string | null; forwarder: string | null }[];
+    truncated: boolean;
+  } | null;
+  entryPoint?: { rva: number; section: string | null } | null;
+  tlsCallbacks?: number;
+  overlay?: { offset: number; size: number; entropy: number; type: string | null } | null;
+  checksum?: { declared: number; computed: number | null };
+  resources?: {
+    type: string;
+    name: string;
+    lang: number;
+    size: number;
+    entropy: number;
+    content: string | null;
+  }[];
+  resourcesTruncated?: boolean;
+  version?: Record<string, string> | null;
+  manifest?: { executionLevel: string | null; uiAccess: boolean } | null;
+  signature?: {
+    digestAlgorithm: string | null;
+    digestMatches: boolean | null;
+    signatureValid: boolean;
+    programName: string | null;
+    programUrl: string | null;
+    signer: CertSummary | null;
+    chain: CertSummary[];
+    selfSigned: boolean;
+    timestamp: string | null;
+    nested: number;
+    error?: string;
+  } | null;
+  dotnet?: {
+    runtime: string | null;
+    flags: string[];
+    assembly: { name: string; version: string } | null;
+    module: string | null;
+    assemblyRefs: string[];
+    pinvoke: { dll: string; name: string }[];
+    suspicious: string[];
+    obfuscator: string | null;
+    types: number;
+    methods: number;
+  } | null;
+  alerts?: PeAlert[];
+}
+
 /** Analise estatica do arquivo enviado (Entry.staticInfo). */
 /** Atalho do Windows (.lnk) (item 84). */
 export interface LnkInfo {
@@ -309,17 +402,7 @@ export interface StaticInfo {
     registry: string[];
     suspicious: string[];
   };
-  pe: {
-    machine: string;
-    is64: boolean;
-    isDll: boolean;
-    subsystem: string;
-    compiledAt: string | null;
-    sections: { name: string; virtualSize: number; rawSize: number; entropy: number }[];
-    imports: { dll: string; functions: number }[];
-    suspiciousImports: string[];
-    packer: string | null;
-  } | null;
+  pe: PeInfo | null;
   /** PDF, Office e RTF (item 70). */
   /** Executavel Linux (item 168). */
   elf?: ElfInfo | null;
@@ -543,7 +626,11 @@ export type RelatedReason =
   | { kind: 'SHARED_TAGS'; detail: string[] }
   | { kind: 'SHARED_IOCS'; detail: string[] }
   /** Arquivo parecido pelo TLSH: similaridade em % (100 - distancia). */
-  | { kind: 'SIMILAR'; detail: number };
+  | { kind: 'SIMILAR'; detail: number }
+  /** Mesma tabela de importacoes (imphash, item 7.1). */
+  | { kind: 'SAME_IMPHASH'; detail: string }
+  /** Mesmo Rich header (item 7.1). */
+  | { kind: 'SAME_RICH'; detail: string };
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {

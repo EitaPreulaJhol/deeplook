@@ -96,6 +96,10 @@ async function profile(id: string) {
             subsystem: info.pe.subsystem,
             compiledAt: info.pe.compiledAt,
             packer: info.pe.packer,
+            // Item 7.1 (null em analise antiga).
+            imphash: info.pe.imphash ?? null,
+            richHash: info.pe.rich?.hash ?? null,
+            signer: info.pe.signature?.signer?.subject ?? null,
           }
         : null,
     },

@@ -16,6 +16,7 @@ import { startLdapSweep } from './lib/ldap-sweep';
 import { setLogger } from './lib/log';
 import { network } from './lib/network';
 import { failInterruptedCaptures } from './lib/page-capture';
+import { backfillPeAnalysis } from './lib/pe-backfill';
 import { prisma } from './lib/prisma';
 import { requestLogSerializer } from './lib/request-log';
 import { startRetention } from './lib/retention';
@@ -243,8 +244,9 @@ async function main() {
   await app.listen({ host: '0.0.0.0', port: env.PORT });
   app.log.info(`DeepLook API ouvindo em http://0.0.0.0:${env.PORT}`);
 
-  // TLSH das amostras antigas (item 71), em segundo plano.
-  void backfillTlsh(app.log);
+  // TLSH das amostras antigas (item 71) e, depois dele, a reanalise dos executaveis antigos
+  // (item 7.1), em segundo plano e um de cada vez.
+  void backfillTlsh(app.log).then(() => backfillPeAnalysis(app.log));
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

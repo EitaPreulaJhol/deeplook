@@ -203,6 +203,11 @@ model Entry {
   /// Hash parecido (TLSH, item 71; 70 hex sem o "T1"). Vazio = nao calculavel
   /// (arquivo pequeno/simples demais ou acima de 32 MB); null = ainda nao calculado.
   tlsh               String?
+  /// imphash do PE (item 7.1), so quando distingue: fora do .NET e com 10+ funcoes importadas
+  /// (tabela minima de empacotador e o _CorExeMain do .NET ligariam amostras sem relacao).
+  imphash            String?
+  /// MD5 do Rich header decodificado (item 7.1), como o pefile; so binarios do Visual Studio.
+  richHash           String?
   /// Analise estatica do arquivo no envio (src/lib/static-analysis.ts): tipo real,
   /// entropia, strings e cabecalho PE. So leitura de bytes; null em URLs.
   staticInfo         Json?
@@ -258,6 +263,8 @@ model Entry {
   /// Aba "Relacionadas": amostras do mesmo dominio.
   @@index([urlDomain])
   @@index([urlKey])
+  @@index([imphash])
+  @@index([richHash])
   /// Fila "Atrasadas" e ordenacao por idade.
   @@index([status, statusChangedAt])
   @@index([priority, status, statusChangedAt])

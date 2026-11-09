@@ -72,6 +72,10 @@ function reasonLabel(reason: RelatedReason): string | null {
       return `mesmo domínio ${reason.detail}`;
     case 'SHARED_IOCS':
       return 'indicador em comum';
+    case 'SAME_IMPHASH':
+      return 'mesmas importações';
+    case 'SAME_RICH':
+      return 'mesmo Rich header';
     case 'SHARED_TAGS':
       return null;
   }

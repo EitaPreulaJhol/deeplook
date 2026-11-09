@@ -47,6 +47,9 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 6.20 | Capacidades mínimas em `db`, `minio` e `clamav`; portas proibidas no `egress` | 🟡 | P–M | Compose / Capture | ✅ |
 | 6.21 | Alerta do backup agendado no status e permissões dos arquivos da máquina | 🔴 | P | API / Web / Operação | ✅ |
 | 6.22 | API com raiz somente leitura, `/tmp` em disco e limite de processos; checklist de implantação | 🟡 | P–M | API / Compose / Operação | ✅ |
+| 7.1 | Análise estática do PE: imphash, Rich header, exports, recursos, overlay, assinatura, .NET e anomalias | 🟡 | M–G | API / Web | ✅ |
+| 7.2 | capa e FLOSS em contêiner isolado (capacidades por função, com ATT&CK, e strings ofuscadas) | 🟡 | M | API / Compose | ⬜ |
+| 7.3 | Ghidra headless sob demanda (funções, referências a imports suspeitos, pseudo-C) | ⚪ | G | API / Compose / Web | ⬜ |
 
 Os itens **5.1** e **5.2** ficaram **fora do escopo** por decisão do dono do projeto;
 continuam registrados para quando voltarem à mesa.
@@ -80,7 +83,9 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 3º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 1º | [7.2 capa e FLOSS](#72-capa-e-floss-em-contêiner-isolado) | O maior ganho de "análise de funções" pelo menor custo | **M** |
+| 2º | [7.3 Ghidra sob demanda](#73-ghidra-headless-sob-demanda) | Só se os analistas pedirem além do que o capa entrega | **G** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -91,10 +96,10 @@ Backup.
 ### Para retomar
 
 ```bash
-# o feed de indicadores (5.3) deixou tudo verde; confirme antes de mexer
+# a analise de PE (7.1) deixou tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1134 checagens em 36 arquivos
+cd ../api   && npm run test:integration          # 1351 checagens em 37 arquivos
 cd ../api   && npm run test:images && npm run test:smoke   # 71 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
@@ -1513,6 +1518,126 @@ na ordem em que um passo protege o seguinte. Ele cobre:
 
 ---
 
+## 7. Quarta leva: análise estática
+
+Pedido do dono depois da 6.22: melhorar a análise estática e avaliar o **Ghidra + JDK** para
+analisar as funções. A conclusão foi que o Ghidra vale, mas por último e fora da API. Antes vêm o
+que falta no parser de PE (barato, sem dependência nova) e o capa, que é a análise de funções
+voltada para triagem.
+
+**Por que o Ghidra não vem primeiro:**
+- **Custo:** Ghidra e JDK 21 somam 1 a 1,5 GB de imagem, e uma análise headless leva de 30 s a
+  minutos e de 1 a 4 GB de RAM. Não cabe na thread de análise (60 s, 1,5 GB de heap).
+- **Trivy:** o Ghidra traz dezenas de JARs de terceiros; com a varredura semanal que reprova CVE
+  alta (6.4, 6.19), viraria fonte recorrente de achados que não dependem do projeto.
+- **Superfície:** é mais um parser de binário hostil, em Java, com histórico de CVEs.
+- **Retorno:** amostra empacotada mostra só o stub do empacotador, e os especialistas do grupo já
+  têm Ghidra ou IDA na própria máquina. O que falta a eles é triagem rápida e pesquisável aqui.
+
+### 7.1 Análise estática do PE
+
+O `parsePe` lia cabeçalho, seções e imports e parava aí. Entram, todos na thread de análise e com
+limites para arquivo hostil:
+- **imphash** e **hash do Rich header**, iguais aos do `pefile` (a referência do VirusTotal), e a
+  aba Relacionadas passa a ligar amostras com o mesmo imphash ou o mesmo Rich header;
+- **exports** (com encaminhamentos), **TLS callbacks**, **overlay** (com tipo e entropia) e
+  **checksum** declarado contra o calculado;
+- **recursos** (tipo, idioma, tamanho, entropia, conteúdo embutido), **informações de versão**
+  (OriginalFilename, empresa, produto) e o **manifesto** (pede administrador?);
+- **assinatura Authenticode**: quem assinou, a cadeia que veio no arquivo e se o hash do arquivo e
+  a assinatura conferem;
+- **.NET**: versão do runtime, assembly, referências, P/Invoke (as APIs nativas que o .NET chama) e
+  marcas de ofuscador;
+- **anomalias**: seção gravável e executável, entry point fora do lugar, resolução dinâmica de
+  APIs, data de compilação no futuro, e o empacotador reconhecido pelos bytes, não só pelo nome da
+  seção.
+
+**Implementado** (tudo em TypeScript, na thread de análise que já existia; nenhuma dependência
+nova na imagem):
+- `pe-analysis.ts` (cabeçalhos, imports, imphash, Rich header, exports, TLS, overlay, checksum,
+  empacotador e alertas), `pe-resources.ts`, `pe-authenticode.ts`, `pe-dotnet.ts` e
+  `file-type.ts` (o `detectType`, agora usado também nos recursos e no overlay).
+- **imphash igual ao do pefile**, inclusive nas importações por ordinal: a tabela `ordlookup` do
+  pefile (MIT) foi copiada para `pe-ordinals.json` (ws2_32, wsock32 e oleaut32). Sem ela, malware
+  que importa o ws2_32 por ordinal teria imphash diferente do VirusTotal.
+- **Rich header** no mesmo recorte do pefile, e a chave conferida contra o cabeçalho DOS e as
+  entradas (como o linker da Microsoft a calcula): editado ou copiado de outro binário vira alerta.
+- **Assinatura Authenticode** sem internet: o hash do arquivo contra o assinado, o messageDigest
+  contra o conteúdo, a assinatura contra a chave do certificado (RSA e ECDSA), a cadeia que veio no
+  arquivo, autoassinado, carimbo de tempo (contra-assinatura ou RFC 3161), nome e endereço do
+  programa. A cadeia **não** é conferida contra as raízes do Windows, e a tela diz isso.
+- **.NET**: as 45 tabelas de metadados do ECMA-335 com os índices codificados, para chegar ao
+  assembly, às referências, ao P/Invoke (o "import" real de um carregador .NET), às chamadas
+  sensíveis (`Assembly.Load`, `WebClient`...) e às marcas de ofuscador.
+- **UPX pelo código de entrada**, medido nos binários do upx 4.2 para x86 e x64 (EXE e DLL): pega
+  o UPX com as seções renomeadas e a marca `UPX!` apagada.
+- **Relacionadas**: colunas `imphash` e `richHash` indexadas (migração
+  `20261224000000_entry_pe_hashes`), motivos "Mesmas importações" e "Mesmo Rich header", e o
+  mesmo rótulo no Mapa. O imphash só liga com tabela própria: fora o .NET (todo ele importa só
+  `mscoree.dll!_CorExeMain`) e tabelas com menos de 10 funções (empacotador).
+- **Amostras antigas**: `pe-backfill.ts` reanalisa os PEs em segundo plano depois do TLSH, um de
+  cada vez, na thread; expurgado ou ilegível ganha só a marca, para não voltar à fila. A ficha de
+  análise antiga avisa e oferece **Analisar de novo**; a reanálise grava as colunas.
+- **Tela**: alertas por gravidade, imphash e Rich header com cópia, ponto de entrada, checksum,
+  dados anexados, TLS, manifesto, permissões das seções (RWX em vermelho), assinatura, versão,
+  recursos (com o idioma), exports, funções importadas por DLL e .NET. A comparação A × B ganha
+  imphash, Rich header e quem assinou.
+
+**Uma diferença do pefile, de propósito:** o pefile conta a tabela da assinatura como overlay, e
+todo binário assinado teria "dados anexados". Aqui o overlay é o que sobra fora dela.
+
+**Testes** (`pe-analysis.test.ts`): executáveis reais gerados por `tests/fixtures/pe/gen.sh` num
+Debian trixie (mingw-w64 12, windres, mcs do Mono, upx 4.2, osslsigncode 2.9 com o TSA embutido e
+data fixa), com o gabarito do **pefile 2024.8.26**, do **dnfile 0.15.1** e do **osslsigncode**.
+O runner os gera em `.tmp/pe` e só refaz quando as fontes mudam (cerca de 40 s na primeira vez).
+- Contra o gabarito, em 16 executáveis: imphash, Rich hash e entradas, imports na ordem, exports,
+  TLS, checksum, ponto de entrada, recursos, versão, overlay, .NET e o hash da assinatura.
+- O que cada achado quer dizer: recurso com executável, manifesto, "diz ser da Microsoft",
+  assinado, adulterado (o hash não confere e a assinatura em si continua íntegra), autoassinado
+  ECDSA, UPX disfarçado, Rich editado, .NET com P/Invoke e `Assembly.Load`.
+- Checksum em blocos contra a porta literal do pefile, inclusive a soma múltipla de 2³²−1.
+- Hostis: recursos em laço com 65.535 entradas, exports com 4 bilhões de funções, TLS sem fim de
+  lista, tabela de assinatura gigante, DER com tamanho mentiroso, assinatura de lixo, .NET com 4
+  bilhões de linhas por tabela, 2.400 mutações e cortes dos executáveis reais e um PE de 120 MB.
+- Pela API: envio grava a coluna, Relacionadas por imphash e por Rich header, .NET não se liga
+  pelo imphash genérico, reanálise devolve as colunas, e o preenchimento das amostras antigas
+  (inclusive a expurgada, que não volta para a fila).
+
+**Prova inversa:** sem a tabela de ordinais, o imphash dos executáveis com ws2_32 diverge do
+pefile; sem o código de entrada, o UPX disfarçado passa; com a entrada da tabela de assinatura no
+hash, assinado e autoassinado deixam de conferir; sem o filtro do imphash, o .NET se liga a outro
+.NET. **A prova inversa pegou um teste fraco:** o caso dos recursos em laço tinha só 8 entradas
+apontando para a raiz e passava mesmo sem o teto de entradas e sem a marca de visitado. Com as
+65.535 apontando para a raiz, o parser sem os limites ficou preso mais de 60 s.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1351 checagens de
+integração em 37 arquivos** (eram 1134 em 36; o `pe-analysis` tem 217); 120 testes unitários do
+web (cobertura de 95,9%); `test:images` com 71 e `test:smoke` com 101, como antes; os cenários de
+tela `static-analysis` (com a ficha nova, o .NET e a ficha de análise antiga), `related` e
+`compare` verdes.
+
+**Desempenho:** o checksum é a única conta que percorre o arquivo inteiro. Com `readUInt32LE` a
+análise de um PE de 190 MB subiu de 0,35 s para 1,6 s; somando em blocos de 2²⁰ dwords num
+`Uint32Array` (o "vai-um" do pefile equivale à soma módulo 2³²−1), o checksum caiu de 479 ms para
+64 ms, com o mesmo resultado em 1.610 casos.
+
+### 7.2 capa e FLOSS em contêiner isolado
+
+O [capa](https://github.com/mandiant/capa) desmonta o binário e diz o que cada função faz ("injeta
+código via APC", "persiste via Run key"), com o ID do ATT&CK, que entra direto no `attack.ts`. O
+[FLOSS](https://github.com/mandiant/flare-floss) recupera strings ofuscadas e montadas na pilha,
+que hoje não viram sugestão de IOC. Os dois rodam sem JDK, num serviço no molde do `capture`: sem
+rede de saída, raiz somente leitura, `cap_drop: ALL`, limite de tempo e memória.
+
+### 7.3 Ghidra headless sob demanda
+
+Se os analistas pedirem além do capa: botão "Analisar funções" (só analistas), um contêiner por
+análise sem rede, e um post-script que exporta só o essencial: funções com tamanho, referências
+cruzadas aos imports suspeitos, grafo de chamadas resumido e o pseudo-C apenas das funções que
+chamam esses imports. O projeto `.gzf` pode ir para download, para abrir no Ghidra local.
+
+---
+
 ## Achados no caminho
 
 Duas coisas apareceram ao montar o CI e precisaram de conserto antes, senão a esteira
@@ -1615,3 +1740,12 @@ aceitar o risco. O próprio relatório dizia o que subiria a gravidade: a API di
 um container não confiável. Era o caso do `capture`, e com o Chromium sem sandbox. O item 6.15
 fecha. Lição: ao fechar uma rodada, conferir os achados um por um contra o código, e não pela
 mensagem do commit.
+
+
+### J. Os testes de integração não passam pela checagem de tipos
+
+Achado no 7.1, sem correção. Os testes rodam pelo `tsx`, que não checa tipos, e nem o `build`
+nem o CI rodam `tsc -p tests/tsconfig.json`. Esse comando acusa 8 erros em quatro arquivos
+antigos (`health`, `integrity-scrub`, `status-token` e `yara-update`: diretivas
+`@ts-expect-error` que sobraram e índices sem tipo). O arquivo novo (`pe-analysis.test.ts`) foi
+deixado sem erros. Corrigir os quatro e pôr o comando no CI é um item pequeno, se valer a pena.

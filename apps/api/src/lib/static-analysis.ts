@@ -2,10 +2,16 @@ import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
 import { type ElfInfo, parseElf } from './elf-analysis';
 import { entropy } from './entropy';
+import { type DetectedType, detectType, EXE_EXTS } from './file-type';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
 import { analyzeLnk, type LnkInfo } from './lnk-analysis';
+import { parsePe, type PeInfo } from './pe-analysis';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
+
+export type { DetectedType, PeInfo };
+export { detectType, parsePe };
+export type { PeSection } from './pe-analysis';
 
 /**
  * Analise estatica do arquivo enviado: SO LEITURA de bytes (nunca executa, nunca
@@ -16,40 +22,6 @@ import { analyzeScript, type ScriptInfo } from './script-analysis';
 /** Bytes lidos para entropia e strings (o tipo e o PE usam o comeco do arquivo). */
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_LIST = 20;
-const MAX_DLLS = 64;
-const MAX_FUNCTIONS = 4096;
-/** Bytes somados na entropia das secoes do PE (item 168), e a amostra depois disso. */
-const ENTROPY_BUDGET = 64 * 1024 * 1024;
-const ENTROPY_SAMPLE = 64 * 1024;
-
-export interface DetectedType {
-  id: string;
-  label: string;
-  /** Extensoes esperadas para este conteudo. */
-  extensions: string[];
-  /** Executavel/script: disfarcado com outra extensao e um forte indicio. */
-  executable: boolean;
-}
-
-export interface PeSection {
-  name: string;
-  virtualSize: number;
-  rawSize: number;
-  entropy: number;
-}
-
-export interface PeInfo {
-  machine: string;
-  is64: boolean;
-  isDll: boolean;
-  subsystem: string;
-  /** Data de compilacao declarada no cabecalho (pode ser forjada). */
-  compiledAt: string | null;
-  sections: PeSection[];
-  imports: { dll: string; functions: number }[];
-  suspiciousImports: string[];
-  packer: string | null;
-}
 
 export interface StaticInfo {
   version: 1;
@@ -88,83 +60,6 @@ export interface StaticInfo {
    * CANDIDATES_PER_KIND de cada tipo.
    */
   iocCandidates: Ioc[];
-}
-
-// ------------------------------------------------------------------ tipo real
-
-const startsWith = (buf: Buffer, bytes: number[], offset = 0) =>
-  buf.length >= offset + bytes.length && bytes.every((b, i) => buf[offset + i] === b);
-const ascii = (buf: Buffer, text: string, offset = 0) =>
-  buf.length >= offset + text.length &&
-  buf.toString('latin1', offset, offset + text.length) === text;
-
-const EXE_EXTS = ['exe', 'dll', 'sys', 'scr', 'cpl', 'ocx', 'drv', 'efi', 'com'];
-
-export function detectType(buf: Buffer): DetectedType | null {
-  const t = (id: string, label: string, extensions: string[], executable = false) => ({
-    id,
-    label,
-    extensions,
-    executable,
-  });
-  if (startsWith(buf, [0x4d, 0x5a])) return t('pe', 'Executável do Windows (PE)', EXE_EXTS, true);
-  if (startsWith(buf, [0x7f, 0x45, 0x4c, 0x46]))
-    return t('elf', 'Executável Linux (ELF)', ['', 'elf', 'so', 'bin', 'o'], true);
-  if (
-    startsWith(buf, [0xfe, 0xed, 0xfa, 0xce]) ||
-    startsWith(buf, [0xfe, 0xed, 0xfa, 0xcf]) ||
-    startsWith(buf, [0xcf, 0xfa, 0xed, 0xfe]) ||
-    startsWith(buf, [0xce, 0xfa, 0xed, 0xfe])
-  ) {
-    return t('macho', 'Executável macOS (Mach-O)', ['', 'dylib', 'bundle', 'app'], true);
-  }
-  if (ascii(buf, '%PDF-')) return t('pdf', 'Documento PDF', ['pdf']);
-  if (startsWith(buf, [0x50, 0x4b, 0x03, 0x04])) {
-    // ZIP: Office moderno e Java se reconhecem pelos nomes internos (sem descompactar).
-    const head = buf.toString('latin1', 0, Math.min(buf.length, 64 * 1024));
-    if (head.includes('word/'))
-      return t('docx', 'Documento Word (OOXML)', ['docx', 'docm', 'dotx', 'dotm']);
-    if (head.includes('xl/'))
-      return t('xlsx', 'Planilha Excel (OOXML)', ['xlsx', 'xlsm', 'xltx', 'xltm']);
-    if (head.includes('ppt/'))
-      return t('pptx', 'Apresentação PowerPoint (OOXML)', ['pptx', 'pptm', 'potx']);
-    if (head.includes('META-INF/MANIFEST.MF')) return t('jar', 'Pacote Java (JAR)', ['jar'], true);
-    if (head.includes('AndroidManifest.xml'))
-      return t('apk', 'Aplicativo Android (APK)', ['apk'], true);
-    return t('zip', 'Arquivo ZIP', ['zip']);
-  }
-  if (startsWith(buf, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) {
-    return t('ole', 'Documento Office antigo / MSI (OLE)', [
-      'doc',
-      'xls',
-      'ppt',
-      'msi',
-      'msg',
-      'dot',
-      'xlt',
-    ]);
-  }
-  if (startsWith(buf, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]))
-    return t('7z', 'Arquivo 7-Zip', ['7z']);
-  if (ascii(buf, 'Rar!')) return t('rar', 'Arquivo RAR', ['rar']);
-  if (startsWith(buf, [0x1f, 0x8b])) return t('gzip', 'Arquivo GZIP', ['gz', 'tgz']);
-  if (ascii(buf, 'MSCF')) return t('cab', 'Arquivo CAB', ['cab']);
-  if (ascii(buf, 'ITSF')) return t('chm', 'Ajuda compilada (CHM)', ['chm'], true);
-  if (startsWith(buf, [0x4c, 0x00, 0x00, 0x00, 0x01, 0x14, 0x02, 0x00])) {
-    return t('lnk', 'Atalho do Windows (LNK)', ['lnk'], true);
-  }
-  if (ascii(buf, 'CD001', 0x8001)) return t('iso', 'Imagem de disco (ISO)', ['iso', 'img']);
-  if (startsWith(buf, [0x89, 0x50, 0x4e, 0x47])) return t('png', 'Imagem PNG', ['png']);
-  if (startsWith(buf, [0xff, 0xd8, 0xff])) return t('jpeg', 'Imagem JPEG', ['jpg', 'jpeg']);
-  if (ascii(buf, 'GIF8')) return t('gif', 'Imagem GIF', ['gif']);
-  if (ascii(buf, '{\\rtf')) return t('rtf', 'Documento RTF', ['rtf', 'doc']);
-  if (ascii(buf, '#!'))
-    return t('script', 'Script com interpretador (#!)', ['sh', 'py', 'pl', 'rb', ''], true);
-  const text = buf.toString('latin1', 0, Math.min(buf.length, 512)).trimStart().toLowerCase();
-  if (text.startsWith('<!doctype html') || text.startsWith('<html')) {
-    return t('html', 'Página HTML', ['html', 'htm', 'hta', 'xhtml']);
-  }
-  return null;
 }
 
 function declaredExtension(filename: string | null | undefined): string {
@@ -268,170 +163,6 @@ function categorize(strings: string[]): StaticInfo['strings'] {
   };
 }
 
-// ------------------------------------------------------------------ PE
-
-const MACHINES: Record<number, string> = {
-  0x14c: 'x86 (32 bits)',
-  0x8664: 'x64 (64 bits)',
-  0x1c0: 'ARM',
-  0x1c4: 'ARM Thumb-2',
-  0xaa64: 'ARM64',
-};
-const SUBSYSTEMS: Record<number, string> = {
-  1: 'Nativo (driver)',
-  2: 'Janelas (GUI)',
-  3: 'Console',
-  9: 'Windows CE',
-  10: 'EFI',
-};
-const SUSPICIOUS_IMPORTS = [
-  'VirtualAllocEx',
-  'WriteProcessMemory',
-  'CreateRemoteThread',
-  'NtUnmapViewOfSection',
-  'SetWindowsHookExA',
-  'SetWindowsHookExW',
-  'GetAsyncKeyState',
-  'URLDownloadToFileA',
-  'URLDownloadToFileW',
-  'WinExec',
-  'ShellExecuteA',
-  'ShellExecuteW',
-  'InternetOpenA',
-  'InternetOpenW',
-  'InternetReadFile',
-  'CryptEncrypt',
-  'IsDebuggerPresent',
-  'CheckRemoteDebuggerPresent',
-  'RegSetValueExA',
-  'RegSetValueExW',
-  'AdjustTokenPrivileges',
-  'OpenProcess',
-  'QueueUserAPC',
-];
-const PACKER_SECTIONS: [RegExp, string][] = [
-  [/^UPX\d?$/i, 'UPX'],
-  [/^\.aspack$/i, 'ASPack'],
-  [/^\.petite$/i, 'Petite'],
-  [/^\.themida$/i, 'Themida'],
-  [/^\.vmp\d$/i, 'VMProtect'],
-  [/^\.mpress\d$/i, 'MPRESS'],
-];
-
-/** Le o cabecalho PE com checagem de limites em cada acesso (arquivo pode ser hostil). */
-export function parsePe(buf: Buffer): PeInfo | null {
-  const u16 = (o: number) => (o >= 0 && o + 2 <= buf.length ? buf.readUInt16LE(o) : null);
-  const u32 = (o: number) => (o >= 0 && o + 4 <= buf.length ? buf.readUInt32LE(o) : null);
-  // NUL procurado so dentro de `max` bytes (item 168): antes, o resto do arquivo inteiro.
-  const cstr = (o: number, max = 256) => {
-    if (o < 0 || o >= buf.length) return null;
-    const window = buf.subarray(o, Math.min(buf.length, o + max));
-    const end = window.indexOf(0);
-    return window.toString('latin1', 0, end < 0 ? window.length : end);
-  };
-
-  const peOff = u32(0x3c);
-  if (peOff === null || !ascii(buf, 'PE\0\0', peOff)) return null;
-  const coff = peOff + 4;
-  const machine = u16(coff);
-  const nSections = u16(coff + 2);
-  const timestamp = u32(coff + 4);
-  const optSize = u16(coff + 16);
-  const characteristics = u16(coff + 18);
-  if (machine === null || nSections === null || optSize === null || characteristics === null)
-    return null;
-  const opt = coff + 20;
-  const magic = u16(opt);
-  const is64 = magic === 0x20b;
-  if (magic !== 0x10b && magic !== 0x20b) return null;
-  const subsystem = u16(opt + 68);
-  const importDirOff = opt + (is64 ? 120 : 104);
-  const importRva = u32(importDirOff);
-
-  const sections: (PeSection & { va: number; rawPtr: number })[] = [];
-  const secTable = opt + optSize;
-  // Orcamento de entropia (item 168): 96 secoes apontando para o arquivo inteiro releriam
-  // tudo 96 vezes; acabado o orcamento, cada secao entra por uma amostra do comeco.
-  let budget = ENTROPY_BUDGET;
-  for (let i = 0; i < Math.min(nSections, 96); i++) {
-    const s = secTable + i * 40;
-    const name = (cstr(s, 8) ?? '').replace(/[^\x20-\x7e]/g, '');
-    const virtualSize = u32(s + 8);
-    const va = u32(s + 12);
-    const rawSize = u32(s + 16);
-    const rawPtr = u32(s + 20);
-    if (virtualSize === null || va === null || rawSize === null || rawPtr === null) break;
-    const span = Math.min(rawSize, buf.length - rawPtr, budget > 0 ? budget : ENTROPY_SAMPLE);
-    if (rawPtr < buf.length) budget -= span;
-    sections.push({
-      name,
-      virtualSize,
-      rawSize,
-      entropy: rawPtr < buf.length ? entropy(buf, rawPtr, rawPtr + span) : 0,
-      va,
-      rawPtr,
-    });
-  }
-  const rvaToOffset = (rva: number) => {
-    const sec = sections.find(
-      (s) => rva >= s.va && rva < s.va + Math.max(s.virtualSize, s.rawSize),
-    );
-    return sec ? rva - sec.va + sec.rawPtr : -1;
-  };
-
-  const imports: PeInfo['imports'] = [];
-  const suspicious = new Set<string>();
-  let totalFunctions = 0;
-  if (importRva) {
-    let desc = rvaToOffset(importRva);
-    for (let i = 0; desc >= 0 && i < MAX_DLLS; i++, desc += 20) {
-      const original = u32(desc);
-      const nameRva = u32(desc + 12);
-      const first = u32(desc + 16);
-      if (!nameRva || (original === 0 && first === 0)) break;
-      const dll = cstr(rvaToOffset(nameRva), 128);
-      if (!dll) break;
-      let thunk = rvaToOffset(original || first || 0);
-      let functions = 0;
-      const step = is64 ? 8 : 4;
-      while (thunk >= 0 && totalFunctions < MAX_FUNCTIONS) {
-        const lo = u32(thunk);
-        const hi = is64 ? u32(thunk + 4) : 0;
-        if (lo === null || hi === null || (lo === 0 && hi === 0)) break;
-        const byOrdinal = is64 ? (hi & 0x80000000) !== 0 : (lo & 0x80000000) !== 0;
-        if (!byOrdinal) {
-          const fn = cstr(rvaToOffset(lo) + 2, 128);
-          if (fn && SUSPICIOUS_IMPORTS.includes(fn)) suspicious.add(fn);
-        }
-        functions++;
-        totalFunctions++;
-        thunk += step;
-      }
-      imports.push({ dll: dll.toLowerCase(), functions });
-    }
-  }
-
-  const packer =
-    sections.map((s) => PACKER_SECTIONS.find(([re]) => re.test(s.name))?.[1]).find(Boolean) ?? null;
-  return {
-    machine: MACHINES[machine] ?? `0x${machine.toString(16)}`,
-    is64,
-    isDll: (characteristics & 0x2000) !== 0,
-    subsystem:
-      subsystem !== null ? (SUBSYSTEMS[subsystem] ?? `outro (${subsystem})`) : 'desconhecido',
-    compiledAt: timestamp ? new Date(timestamp * 1000).toISOString() : null,
-    sections: sections.map(({ name, virtualSize, rawSize, entropy: e }) => ({
-      name,
-      virtualSize,
-      rawSize,
-      entropy: e,
-    })),
-    imports,
-    suspiciousImports: [...suspicious].sort(),
-    packer,
-  };
-}
-
 // ------------------------------------------------------------------ tudo junto
 
 /** Sugestoes de indicador por tipo (item 165): com URL e IPv6, um tipo nao toma a lista. */
@@ -493,7 +224,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
   let pe: PeInfo | null = null;
   if (detectedType?.id === 'pe') {
     try {
-      pe = parsePe(buf);
+      pe = parsePe(buf, filename);
     } catch {
       pe = null;
     }

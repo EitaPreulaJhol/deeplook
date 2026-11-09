@@ -381,6 +381,36 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 - **Token:** troque o `CAPTURE_TOKEN` (16+ caracteres), que vale para a API e para o
   serviço.
 
+## Análise estática de executáveis do Windows
+
+Todo arquivo enviado passa pela análise estática (só leitura de bytes, numa thread com limite
+de tempo e memória). Nos executáveis do Windows (PE), a seção **Análise estática** da ficha
+mostra, além de seções, imports e empacotador:
+
+- **Alertas** por gravidade: assinatura que não confere com o arquivo, executável escondido
+  num recurso, seção gravável e executável, ponto de entrada fora do lugar, poucas
+  importações com `GetProcAddress`/`LoadLibrary`, data de compilação no futuro, Rich header
+  editado, manifesto que pede administrador, "diz ser da Microsoft" sem assinatura.
+- **imphash** e **hash do Rich header**, iguais aos do `pefile` (e do VirusTotal). A aba
+  **Relacionadas** liga amostras com o mesmo imphash ou o mesmo Rich header. O imphash só liga
+  com tabela própria: .NET (todo ele importa só `_CorExeMain`) e tabelas de empacotador
+  (menos de 10 funções) ficam de fora, senão ligariam amostras sem relação nenhuma.
+- **Assinatura Authenticode**: quem assinou, quem emitiu, validade, impressão digital, carimbo
+  de tempo e a cadeia que veio no arquivo. A situação diz se o arquivo foi **alterado depois de
+  assinado** e se a assinatura confere com o certificado. A cadeia **não** é conferida contra
+  as raízes confiáveis do Windows (a API não as tem): "íntegra" quer dizer íntegra, não
+  confiável.
+- **Recursos** (tipo, idioma, tamanho, entropia e o que há dentro), **informações de versão**
+  (empresa, nome original...), **manifesto**, **exports** (com encaminhamentos), **TLS
+  callbacks**, **dados anexados** (overlay, fora a assinatura) e **checksum**.
+- **.NET**: runtime, assembly, referências, as funções nativas chamadas por **P/Invoke**,
+  chamadas sensíveis (`Assembly.Load`, `WebClient`, `Process.Start`...) e marcas de ofuscador.
+- O **UPX** é reconhecido também pelo código de entrada, com as seções renomeadas.
+
+As amostras enviadas antes ganham a análise nova em segundo plano, uma de cada vez, depois que
+a API sobe; um analista também pode pedir **Analisar de novo** na ficha. A comparação de
+amostras (A × B) mostra imphash, Rich header e quem assinou.
+
 ## Regras YARA
 
 ### Pacotes de regras
@@ -1025,6 +1055,9 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
 - **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
   de disco e os certificados são gerados na hora, em `tests/.tmp`. `--clean` remove os
   containers ao terminar.
+  Os executáveis do `pe-analysis` são compilados num Debian (mingw-w64, mcs, upx, osslsigncode)
+  com o gabarito do `pefile`, do `dnfile` e do `osslsigncode` (`tests/fixtures/pe/gen.sh`); a
+  primeira rodada leva cerca de 40 s a mais, e eles só são refeitos quando as fontes mudam.
 - **Teste rápido** (`test:smoke`): com Postgres e MinIO reais, faz o caminho principal (primeiro
   acesso, envio, triagem em massa, usuário comum) e abre as telas. Erro inesperado da API, no
   console ou da CSP reprova. Pega o que a API simulada das telas esconde.

@@ -1,4 +1,5 @@
-// Registros relacionados: aba "Relacionadas (n)" com Motivo, varios motivos na
+// Registros relacionados: aba "Relacionadas (n)" com Motivo (inclusive imphash e Rich header,
+// item 7.1), varios motivos na
 // mesma linha, rodape com o limite, teclado (setas + Enter), Anterior/Proxima
 // pela lista de relacionadas e lista vazia.
 import { chromium } from 'playwright';
@@ -17,6 +18,8 @@ state.related.e2 = {
       reasons: [
         { kind: 'SAME_HOST', detail: 'banco-seguro-login.example' },
         { kind: 'SHARED_TAGS', detail: ['phishing'] },
+        { kind: 'SAME_IMPHASH', detail: 'b1f24be7621e0e845cc9e28d113ca280' },
+        { kind: 'SAME_RICH', detail: '2f3d7179f6890c4f2b6e9625cd202627' },
       ],
     },
     { entry: byId('e3'), score: 40, reasons: [{ kind: 'SAME_BASE_DOMAIN', detail: 'seguro-login.example' }] },
@@ -57,7 +60,8 @@ expect('4 linhas', (await rows.count()) === 4);
 const firstReasons = await rows.nth(0).locator('.dl-related-reasons li').allTextContents();
 expect(
   'vários motivos na mesma linha',
-  firstReasons.join('|') === 'Mesmo domínio: banco-seguro-login.example|Tag em comum: phishing',
+  firstReasons.join('|') ===
+    'Mesmo domínio: banco-seguro-login.example|Tag em comum: phishing|Mesmas importações (imphash b1f24be7621e…)|Mesmo Rich header (2f3d7179f689…)',
   firstReasons.join('|'),
 );
 const second = await rows.nth(1).locator('.dl-related-reasons li').textContent();

@@ -18,6 +18,7 @@ import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
 import { HpsmMessage } from './messages';
+import { PeAlerts, PeExtraBlocks, PeHeaderFields, SectionFlags } from './PeDetails';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
@@ -150,7 +151,24 @@ export function StaticAnalysisSection({
       {pe && (
         <div className="dl-static-block">
           <h4 className="dl-static-title">Executável do Windows (PE)</h4>
+          {pe.imphash === undefined && (
+            <p className="dl-static-empty">
+              Análise anterior ao imphash, à assinatura e aos recursos: eles aparecem quando a
+              reanálise em segundo plano chegar a esta amostra.{' '}
+              {canTriage && !purged && (
+                <button
+                  type="button"
+                  className="dl-link-button"
+                  disabled={running}
+                  onClick={analyze}
+                >
+                  {running ? 'Analisando...' : 'Analisar de novo'}
+                </button>
+              )}
+            </p>
+          )}
           <HpsmForm columns={2}>
+            <PeAlerts alerts={pe.alerts} />
             <HpsmField label="Arquitetura">
               <HpsmReadonly>{pe.machine}</HpsmReadonly>
             </HpsmField>
@@ -184,6 +202,7 @@ export function StaticAnalysisSection({
                 )}
               </HpsmReadonly>
             </HpsmField>
+            <PeHeaderFields pe={pe} />
           </HpsmForm>
           <div className="dl-static-tables">
             <TableContainer>
@@ -194,6 +213,7 @@ export function StaticAnalysisSection({
                     <TableHeader scope="col">Tamanho virtual</TableHeader>
                     <TableHeader scope="col">Tamanho em disco</TableHeader>
                     <TableHeader scope="col">Entropia</TableHeader>
+                    <TableHeader scope="col">Permissões</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -210,6 +230,9 @@ export function StaticAnalysisSection({
                         ) : (
                           s.entropy.toFixed(2)
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <SectionFlags flags={s.flags} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -237,6 +260,7 @@ export function StaticAnalysisSection({
               </Table>
             </TableContainer>
           </div>
+          <PeExtraBlocks pe={pe} />
         </div>
       )}
 

@@ -2769,6 +2769,17 @@ body:has(.dl-print) {
   overflow-wrap: anywhere;
 }
 
+/* Funcoes importadas por DLL (item 7.1). */
+.dl-static-imports {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.dl-static-imports strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+}
+
 .dl-static-empty {
   margin: 0;
   padding: 0.25rem 0;

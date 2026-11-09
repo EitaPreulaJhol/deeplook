@@ -1,0 +1,32 @@
+#include <windows.h>
+
+1 24 "app.manifest"
+
+LANGUAGE LANG_PORTUGUESE, SUBLANG_PORTUGUESE_BRAZILIAN
+101 RCDATA "payload.bin"
+CONFIG RCDATA { "chave=valor\0" }
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 10,0,19041,1
+PRODUCTVERSION 10,0,19041,1
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "Microsoft Corporation"
+      VALUE "FileDescription", "Host Process for Windows Services"
+      VALUE "FileVersion", "10.0.19041.1"
+      VALUE "InternalName", "svchost.exe"
+      VALUE "OriginalFilename", "svchost.exe"
+      VALUE "ProductName", "Microsoft Windows Operating System"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

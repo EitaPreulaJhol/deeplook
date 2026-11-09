@@ -5,7 +5,7 @@
 // Cada arquivo roda num banco novo; saida 1 se algum falhar.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { connect } from 'node:tls';
 import { fileURLToPath } from 'node:url';
@@ -161,6 +161,37 @@ function diskFixtures() {
   );
 }
 
+/**
+ * Executaveis de teste da analise de PE (item 7.1), compilados por ferramentas reais num Debian
+ * (mingw-w64, mcs, upx, osslsigncode) com o gabarito do pefile e do dnfile. Ficam em .tmp/pe e so
+ * sao refeitos quando as fontes em fixtures/pe mudam (a primeira vez leva cerca de 40 s).
+ */
+function peFixtures() {
+  const src = join(HERE, 'fixtures', 'pe');
+  const dir = join(TMP, 'pe');
+  const hash = createHash('sha256');
+  for (const f of readdirSync(src).sort()) hash.update(f).update(readFileSync(join(src, f)));
+  const stamp = hash.digest('hex');
+  const mark = join(dir, '.fontes');
+  if (existsSync(mark) && readFileSync(mark, 'utf8') === stamp) return;
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  docker(
+    'run',
+    '--rm',
+    '-e',
+    `OWNER=${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`,
+    '-v',
+    `${dir}:/out`,
+    '-v',
+    `${join(HERE, 'fixtures')}:/f:ro`,
+    'debian:trixie',
+    'sh',
+    '/f/pe/gen.sh',
+  );
+  writeFileSync(mark, stamp);
+}
+
 function runTest(file) {
   const db = `it_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   docker('exec', PG, 'psql', '-U', 'postgres', '-c', `create database ${db}`);
@@ -231,6 +262,7 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
+if (files.some((f) => f.startsWith('pe-'))) peFixtures();
 
 let total = 0;
 const bad = [];

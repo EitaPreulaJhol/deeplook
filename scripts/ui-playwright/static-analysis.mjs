@@ -2,6 +2,8 @@
 // (tipo real, entropia, PE com empacotador, funcoes suspeitas, secoes e imports,
 // strings por categoria, IOCs sugeridos com link), "Inserir IOCs sugeridos" no
 // Novo relatorio, "Analisar agora" para amostras antigas e linha na ficha impressa.
+// Item 7.1: alertas do PE, imphash, Rich header, assinatura, versao, recursos, exports, .NET
+// e o aviso da analise antiga (o INFO abaixo tem o formato de antes do 7.1).
 import { chromium } from 'playwright';
 
 import { createState, entries, ORIGIN, OUT, setupMock, watchErrors } from './mock-api.mjs';
@@ -139,7 +141,114 @@ expect('seção de entropia alta destacada', (await elfBlock.locator('tbody tr')
 await elfBlock.screenshot({ path: `${OUT}/analise-elf.png` });
 e1.staticInfo = peInfo;
 
-// 6. Ficha impressa.
+// 6. Analise nova do PE (item 7.1): alertas, hashes, assinatura, versao, recursos, exports.
+const SIGNER = {
+  subject: 'Fornecedor Teste Ltda', issuer: 'DeepLook Teste AC', serial: '0A1B', validFrom: '2026-01-01T00:00:00.000Z',
+  validTo: '2036-01-01T00:00:00.000Z', sha1: 'c'.repeat(40), sha256: 'd'.repeat(64),
+};
+const NEW_PE = {
+  ...INFO.pe,
+  machine: 'x64 (64 bits)', is64: true, packer: null,
+  sections: [
+    { name: '.text', virtualSize: 8192, rawSize: 8192, entropy: 6.1, flags: 'R-X' },
+    { name: '.injt', virtualSize: 4096, rawSize: 4096, entropy: 7.4, flags: 'RWX' },
+  ],
+  imports: [
+    { dll: 'kernel32.dll', functions: 3, names: ['OpenProcess', 'VirtualAllocEx', 'WriteProcessMemory'] },
+    { dll: 'ws2_32.dll', functions: 1, names: ['socket'] },
+  ],
+  imphash: 'b1f24be7621e0e845cc9e28d113ca280',
+  rich: { hash: '2f3d7179f6890c4f2b6e9625cd202627', checksumValid: false, entries: [{ product: 261, build: 30795, count: 12 }] },
+  exports: { dll: 'teste.dll', total: 2, truncated: false, symbols: [{ ordinal: 1, name: 'ServiceMain', forwarder: null }, { ordinal: 2, name: 'Dormir', forwarder: 'kernel32.Sleep' }] },
+  entryPoint: { rva: 0x13f0, section: '.text' },
+  tlsCallbacks: 3,
+  overlay: { offset: 31232, size: 964, entropy: 7.9, type: 'Arquivo ZIP' },
+  checksum: { declared: 82427, computed: 82427 },
+  resources: [
+    { type: 'RCDATA', name: '101', lang: 1049, size: 14336, entropy: 5.9, content: 'pe' },
+    { type: 'VERSION', name: '1', lang: 1033, size: 688, entropy: 3.2, content: null },
+  ],
+  resourcesTruncated: false,
+  version: { CompanyName: 'Microsoft Corporation', OriginalFilename: 'svchost.exe' },
+  manifest: { executionLevel: 'requireAdministrator', uiAccess: false },
+  signature: {
+    digestAlgorithm: 'sha256', digestMatches: false, signatureValid: true, programName: 'Teste DeepLook', programUrl: 'https://deeplook.test',
+    signer: SIGNER, chain: [SIGNER, { ...SIGNER, subject: 'DeepLook Teste AC' }], selfSigned: false, timestamp: '2026-01-01T12:00:00.000Z', nested: 0,
+  },
+  dotnet: null,
+  alerts: [
+    { level: 'high', text: 'A assinatura não confere com o conteúdo: o arquivo foi alterado depois de assinado.' },
+    { level: 'medium', text: 'O manifesto pede execução como administrador.' },
+    { level: 'info', text: '964 bytes anexados depois do fim do executável (Arquivo ZIP).' },
+  ],
+};
+e1.staticInfo = { ...INFO, pe: NEW_PE };
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+const peBlock = section.locator('.dl-static-block', { hasText: 'Executável do Windows (PE)' }).first();
+expect('análise nova: sem o aviso de análise antiga', (await section.getByText('Análise anterior ao imphash').count()) === 0);
+const peAlerts = peBlock.locator('.dl-doc-alerts li');
+expect(
+  'alertas do PE com o tom de cada nível',
+  (await peAlerts.count()) === 3 &&
+    (await peAlerts.nth(0).locator('.hpsm-status--red').count()) === 1 &&
+    (await peAlerts.nth(1).locator('.hpsm-status--orange').count()) === 1 &&
+    (await peAlerts.nth(2).locator('.hpsm-status--none').count()) === 1,
+);
+expect('imphash com botão de copiar', (await field('Imphash').innerText()).includes('b1f24be7621e0e845cc9e28d113ca280') && (await field('Imphash').locator('button').count()) === 1);
+expect('Rich header editado em laranja', (await field('Rich header').locator('.hpsm-status--orange').innerText()) === 'editado');
+expect('ponto de entrada', (await field('Ponto de entrada').innerText()) === '0x13f0 na seção .text', await field('Ponto de entrada').innerText());
+expect('checksum confere', (await field('Checksum').innerText()) === 'Confere');
+expect('dados anexados', (await field('Dados anexados').innerText()).startsWith('964 B · Arquivo ZIP · entropia 7.90'), await field('Dados anexados').innerText());
+expect('manifesto pede administrador', (await field('Manifesto').innerText()) === 'pede administrador');
+const rwx = await section.locator('table[aria-label="Seções do executável"] tbody tr:has-text(".injt") .hpsm-status--red').textContent();
+expect('seção gravável e executável em vermelho', rwx === 'RWX', rwx);
+const sigBlock = section.locator('.dl-static-block:has(> .dl-static-title:text-is("Assinatura digital"))');
+const sigField = (label) => sigBlock.locator(`.hpsm-field:has(.hpsm-field__label:text-is("${label}:")) .hpsm-readonly`).first();
+expect('assinatura alterada em vermelho', (await sigField('Situação').locator('.hpsm-status--red').innerText()) === 'Alterado depois de assinado');
+expect('quem assinou, cadeia e carimbo', (await sigField('Assinado por').innerText()) === 'Fornecedor Teste Ltda' && (await sigField('Cadeia no arquivo').innerText()) === 'Fornecedor Teste Ltda → DeepLook Teste AC' && (await sigField('Carimbo de tempo').innerText()).startsWith('01/01/2026'));
+const versionRows = await section.locator('table[aria-label="Informações de versão"] tbody tr').allInnerTexts();
+expect('informações de versão com rótulo', versionRows.map((r) => r.replace(/\s+/g, ' ')).join('|') === 'Empresa Microsoft Corporation|Nome original svchost.exe', versionRows.join('|'));
+const resRow = section.locator('table[aria-label="Recursos do executável"] tbody tr').first();
+expect('recurso com executável dentro e idioma russo', (await resRow.locator('.hpsm-status--orange').innerText()) === 'pe' && (await resRow.innerText()).includes('russo'));
+const details = section.locator('.dl-static-strings summary');
+expect('exports e funções importadas recolhidos', (await details.filter({ hasText: 'Exports (2) · teste.dll' }).count()) === 1 && (await details.filter({ hasText: 'Funções importadas (4)' }).count()) === 1);
+await details.filter({ hasText: 'Exports (2)' }).click();
+expect('export encaminhado', (await section.locator('table[aria-label="Funções exportadas"] tbody tr:has-text("Dormir")').innerText()).includes('kernel32.Sleep'));
+await page.screenshot({ path: `${OUT}/analise-pe.png`, fullPage: true });
+
+// 7. .NET (item 7.1): P/Invoke, chamadas sensiveis e ofuscador.
+e1.staticInfo = {
+  ...INFO,
+  pe: {
+    ...NEW_PE,
+    signature: null,
+    rich: null,
+    dotnet: {
+      runtime: 'v4.0.30319', flags: ['IL only'], assembly: { name: 'carregador', version: '1.2.3.4' }, module: 'carregador.exe',
+      assemblyRefs: ['mscorlib'], pinvoke: [{ dll: 'kernel32.dll', name: 'VirtualAlloc' }], suspicious: ['Assembly.Load (carrega código da memória)'],
+      obfuscator: 'ConfuserEx', types: 4, methods: 12,
+    },
+  },
+};
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+const netBlock = section.locator('.dl-static-block:has(> .dl-static-title:text-is(".NET"))');
+const netText = (await netBlock.innerText()).replace(/\s+/g, ' ');
+expect(
+  '.NET: assembly, P/Invoke, chamadas sensíveis e ofuscador',
+  netText.includes('carregador 1.2.3.4') && netText.includes('kernel32.dll!VirtualAlloc') && netText.includes('Assembly.Load') && (await netBlock.locator('.hpsm-status--orange').innerText()) === 'ConfuserEx',
+  netText.slice(0, 300),
+);
+expect('sem assinatura', (await sigBlock.innerText()).includes('Sem assinatura digital.'));
+expect('sem Rich header', (await field('Rich header').innerText()).startsWith('Ausente'));
+
+// 8. Analise antiga do PE: aviso e "Analisar de novo".
+e1.staticInfo = INFO;
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+expect('análise antiga: aviso e botão', (await section.getByText('Análise anterior ao imphash').count()) === 1 && (await section.locator('button:has-text("Analisar de novo")').count()) === 1);
+expect('análise antiga: sem os campos novos', (await section.locator('.hpsm-field__label:text-is("Imphash:")').count()) === 0);
+e1.staticInfo = peInfo;
+
+// 9. Ficha impressa.
 const print = await context.newPage();
 await print.goto(ORIGIN + '/entries/e1/imprimir', { waitUntil: 'networkidle' });
 const printText = await print.locator('.dl-print__kv').innerText();

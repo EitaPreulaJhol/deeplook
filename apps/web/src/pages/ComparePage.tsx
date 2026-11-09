@@ -45,6 +45,10 @@ interface CompareEntry {
     subsystem: string;
     compiledAt: string | null;
     packer: string | null;
+    /** Item 7.1: ausentes em analise antiga. */
+    imphash?: string | null;
+    richHash?: string | null;
+    signer?: string | null;
   } | null;
 }
 
@@ -184,6 +188,21 @@ export function ComparePage() {
           ? `${e.pe.machine} · ${e.pe.isDll ? 'DLL' : 'EXE'} · ${e.pe.subsystem}${e.pe.packer ? ` · ${e.pe.packer}` : ''}`
           : '—',
       key: (e) => (e.pe ? `${e.pe.machine}|${e.pe.isDll}|${e.pe.subsystem}|${e.pe.packer}` : ''),
+    },
+    {
+      label: 'Imphash',
+      render: (e) => <span className="dl-mono">{e.pe?.imphash ?? '—'}</span>,
+      key: (e) => e.pe?.imphash ?? '',
+    },
+    {
+      label: 'Rich header',
+      render: (e) => <span className="dl-mono">{e.pe?.richHash ?? '—'}</span>,
+      key: (e) => e.pe?.richHash ?? '',
+    },
+    {
+      label: 'Assinado por',
+      render: (e) => e.pe?.signer ?? '—',
+      key: (e) => e.pe?.signer ?? '',
     },
     {
       label: 'Compilado em',

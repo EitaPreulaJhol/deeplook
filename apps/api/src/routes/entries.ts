@@ -30,6 +30,7 @@ import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
 import { rememberUrls } from '../lib/iocs';
 import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
+import { relationHashes } from '../lib/pe-analysis';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { createWithinQuota, QuotaExceeded, quotaMessage, uploadQuota } from '../lib/quota';
@@ -612,6 +613,7 @@ async function createFileEntry(
         mimeType: mimetype,
         sha256,
         tlsh: fuzzy,
+        ...relationHashes(staticInfo?.pe),
         staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
         parentEntryId: input.parentEntryId ?? null,
         tags: { connect: input.tags },
@@ -1071,7 +1073,10 @@ export async function entryRoutes(app: FastifyInstance) {
     await rememberUrls(prisma, staticInfo.iocCandidates);
     await prisma.entry.update({
       where: { id },
-      data: { staticInfo: staticInfo as unknown as Prisma.InputJsonValue },
+      data: {
+        staticInfo: staticInfo as unknown as Prisma.InputJsonValue,
+        ...relationHashes(staticInfo.pe),
+      },
     });
     await scanLookalikesQuietly(id);
     return reply.send({ staticInfo });

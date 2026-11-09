@@ -47,6 +47,10 @@ export function describeReason(reason: RelatedReason): string {
     }
     case 'SIMILAR':
       return `Arquivo parecido (TLSH): ${reason.detail}%`;
+    case 'SAME_IMPHASH':
+      return `Mesmas importações (imphash ${reason.detail.slice(0, 12)}…)`;
+    case 'SAME_RICH':
+      return `Mesmo Rich header (${reason.detail.slice(0, 12)}…)`;
   }
 }
 

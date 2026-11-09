@@ -23,7 +23,11 @@ export type RelatedReason =
   | { kind: 'SHARED_TAGS'; detail: string[] }
   | { kind: 'SHARED_IOCS'; detail: string[] }
   /** Arquivo parecido pelo TLSH (item 71): similaridade em % (100 - distancia). */
-  | { kind: 'SIMILAR'; detail: number };
+  | { kind: 'SIMILAR'; detail: number }
+  /** Mesma tabela de importacoes (imphash, item 7.1). */
+  | { kind: 'SAME_IMPHASH'; detail: string }
+  /** Mesmo Rich header: mesmo ambiente de compilacao, ou cabecalho copiado (item 7.1). */
+  | { kind: 'SAME_RICH'; detail: string };
 
 /** Peso de cada motivo na ordenacao (arquivo identico pesa mais que uma tag). */
 function weight(reason: RelatedReason): number {
@@ -42,6 +46,10 @@ function weight(reason: RelatedReason): number {
     case 'SIMILAR':
       // 100% parecida pesa quase como o mesmo arquivo.
       return Math.round(reason.detail * 0.9);
+    case 'SAME_IMPHASH':
+      return 45;
+    case 'SAME_RICH':
+      return 30;
   }
 }
 
@@ -158,6 +166,8 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
       id: true,
       sha256: true,
       tlsh: true,
+      imphash: true,
+      richHash: true,
       url: true,
       urlDomain: true,
       tags: { select: { id: true, name: true } },
@@ -175,7 +185,22 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
   const base = host && !hostAllowed ? baseDomain(host) : null;
   const tagIds = entry.tags.map((t) => t.id);
 
-  const [sameFile, sameDomain, sharedTags] = await Promise.all([
+  // Mesmo imphash ou Rich header (item 7.1); o mesmo arquivo ja entra como "Mesmo arquivo".
+  const samePe = (field: 'imphash' | 'richHash', value: string | null) =>
+    value
+      ? prisma.entry.findMany({
+          where: {
+            ...notSelf,
+            [field]: value,
+            ...(entry.sha256 ? { NOT: { sha256: entry.sha256 } } : {}),
+          },
+          include: listInclude,
+          orderBy: { createdAt: 'desc' },
+          take: CANDIDATES,
+        })
+      : Promise.resolve([] as ListEntry[]);
+
+  const [sameFile, sameDomain, sharedTags, sameImphash, sameRich] = await Promise.all([
     entry.sha256
       ? prisma.entry.findMany({
           where: { ...notSelf, sha256: entry.sha256 },
@@ -203,6 +228,8 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
           take: CANDIDATES,
         })
       : [],
+    samePe('imphash', entry.imphash),
+    samePe('richHash', entry.richHash),
   ]);
 
   const found = new Map<string, { entry: ListEntry; reasons: RelatedReason[] }>();
@@ -219,6 +246,8 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
     if (otherHost === host) add(item, { kind: 'SAME_HOST', detail: otherHost });
     else add(item, { kind: 'SAME_BASE_DOMAIN', detail: base });
   }
+  for (const item of sameImphash) add(item, { kind: 'SAME_IMPHASH', detail: entry.imphash! });
+  for (const item of sameRich) add(item, { kind: 'SAME_RICH', detail: entry.richHash! });
   const myTags = new Map(entry.tags.map((t) => [t.id, t.name]));
   for (const item of sharedTags) {
     const common = item.tags.filter((t) => myTags.has(t.id)).map((t) => t.name);

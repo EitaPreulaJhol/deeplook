@@ -1,0 +1,7 @@
+LIBRARY teste.dll
+EXPORTS
+Alpha
+Beta
+ServiceMain
+Hidden @7 NONAME
+Dormir = kernel32.Sleep
