@@ -38,7 +38,13 @@ type Condition =
   | 'SCRIPT_RISK'
   | 'DOCUMENT_RISK'
   | 'LNK'
-  | 'LOOKALIKE';
+  | 'LOOKALIKE'
+  | 'CAPA_CAPABILITY'
+  | 'ATTACK_TECHNIQUE'
+  | 'SIGNATURE_INVALID'
+  | 'PACKED'
+  | 'PE_ALERT'
+  | 'HIDDEN_IOC';
 
 interface TriageRule {
   id: string;
@@ -82,6 +88,34 @@ const CONDITIONS: Record<
   LOOKALIKE: {
     label: 'Parecido com domínio da empresa',
     value: { required: false, hint: 'domínio da empresa (vazio = qualquer)' },
+  },
+  // Item 7.4: analise do executavel (7.1) e de funcoes, capa e FLOSS (7.2).
+  CAPA_CAPABILITY: {
+    label: 'O capa encontrou a capacidade',
+    value: {
+      required: false,
+      hint: 'parte do nome (inject) ou grupo (persistence); vazio = qualquer capacidade de risco',
+    },
+  },
+  ATTACK_TECHNIQUE: {
+    label: 'Técnica ATT&CK (pelo capa)',
+    value: { required: true, hint: 'ex.: T1055 (vale também para T1055.003)' },
+  },
+  SIGNATURE_INVALID: { label: 'Assinatura digital não confere' },
+  PACKED: {
+    label: 'Executável empacotado',
+    value: { required: false, hint: 'empacotador, ex.: UPX (vazio = qualquer)' },
+  },
+  PE_ALERT: {
+    label: 'Alerta do executável',
+    value: {
+      required: false,
+      hint: 'trecho do alerta, ex.: administrador (vazio = qualquer alerta alto)',
+    },
+  },
+  HIDDEN_IOC: {
+    label: 'Indicador em string escondida (FLOSS)',
+    value: { required: false, hint: 'domínio ou trecho (vazio = qualquer)' },
   },
 };
 

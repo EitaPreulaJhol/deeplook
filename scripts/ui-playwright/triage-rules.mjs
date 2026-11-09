@@ -10,7 +10,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const state = createState({ loggedIn: true });
 await setupMock(context, state);
-const LABEL = { MACRO: 'documento com macro', DOMAIN: 'domínio do link', YARA: 'regra YARA casou', DETECTED_TYPE: 'tipo real é', LOOKALIKE: 'parecido com domínio da empresa' };
+const LABEL = { MACRO: 'documento com macro', DOMAIN: 'domínio do link', YARA: 'regra YARA casou', DETECTED_TYPE: 'tipo real é', LOOKALIKE: 'parecido com domínio da empresa', ATTACK_TECHNIQUE: 'técnica ATT&CK' };
 const rules = [
   { id: 't1', name: 'Documento com macro', condition: 'MACRO', value: null, tags: ['macro'], priority: 'P2', enabled: true, createdBy: null },
   { id: 't2', name: 'TLD suspeito', condition: 'DOMAIN', value: '.top', tags: ['tld-suspeito'], priority: null, enabled: false, createdBy: null },
@@ -83,6 +83,30 @@ await page.click('button:has-text("Incluir regra")');
 await settle();
 expect('parecido vazio vale qualquer domínio', calls.at(-1)?.body.condition === 'LOOKALIKE' && calls.at(-1)?.body.value === null, JSON.stringify(calls.at(-1)?.body));
 expect('parecido na lista', (await rowTexts()).at(-1).startsWith('Parecido com a empresa parecido com domínio da empresa dominio-parecido P1 Crítica Ligada'), (await rowTexts()).at(-1));
+await rows.last().locator('button:has-text("Excluir")').click();
+await settle(300);
+await page.locator('[role=alertdialog] button:has-text("Excluir")').click();
+await settle();
+
+// 2c. Item 7.4: tecnica ATT&CK do capa (valor obrigatorio, com a dica) e assinatura (sem valor).
+await page.selectOption('#rule-condition', 'ATTACK_TECHNIQUE');
+const techniqueField = page.locator('.hpsm-field:has(#rule-value)');
+expect('técnica pede valor, com a dica do código', (await page.locator('#rule-value').count()) === 1 && (await techniqueField.innerText()).includes('ex.: T1055 (vale também para T1055.003)'), await techniqueField.innerText());
+await page.fill('#rule-name', 'Injeção de processo');
+await page.fill('#rule-value', 'T1055');
+await page.fill('#rule-tags', 'injecao');
+await page.selectOption('#rule-priority', 'P1');
+await page.click('button:has-text("Incluir regra")');
+await settle();
+expect('técnica incluída com o código', JSON.stringify(calls.at(-1)?.body) === JSON.stringify({ name: 'Injeção de processo', condition: 'ATTACK_TECHNIQUE', value: 'T1055', tags: ['injecao'], priority: 'P1' }), JSON.stringify(calls.at(-1)?.body));
+await page.selectOption('#rule-condition', 'SIGNATURE_INVALID');
+expect('assinatura não pede valor', (await page.locator('#rule-value').count()) === 0);
+const options = await page.locator('#rule-condition option').allInnerTexts();
+expect(
+  'as seis condições da análise do executável no seletor',
+  ['O capa encontrou a capacidade', 'Técnica ATT&CK (pelo capa)', 'Assinatura digital não confere', 'Executável empacotado', 'Alerta do executável', 'Indicador em string escondida (FLOSS)'].every((o) => options.includes(o)),
+  options.join('|'),
+);
 await rows.last().locator('button:has-text("Excluir")').click();
 await settle(300);
 await page.locator('[role=alertdialog] button:has-text("Excluir")').click();

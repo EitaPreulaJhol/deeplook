@@ -1082,6 +1082,10 @@ export async function entryRoutes(app: FastifyInstance) {
       },
     });
     await scanLookalikesQuietly(id);
+    // A analise nova pode casar regras de triagem do executavel (item 7.4).
+    await applyTriageRules(id).catch((err: unknown) =>
+      req.log.error({ err }, 'Falha nas regras de triagem'),
+    );
     return reply.send({ staticInfo });
   });
 

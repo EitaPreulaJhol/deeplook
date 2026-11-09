@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { TECHNIQUE_ID } from '../lib/attack';
 import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
@@ -19,6 +20,12 @@ const CONDITIONS = [
   'DOCUMENT_RISK',
   'LNK',
   'LOOKALIKE',
+  'CAPA_CAPABILITY',
+  'ATTACK_TECHNIQUE',
+  'SIGNATURE_INVALID',
+  'PACKED',
+  'PE_ALERT',
+  'HIDDEN_IOC',
 ] as const;
 
 const TAG = z
@@ -55,7 +62,18 @@ const RuleSchema = z
   .refine((r) => !NEEDS_VALUE.includes(r.condition) || r.value, {
     message: 'esta condição precisa de um valor',
     path: ['value'],
-  });
+  })
+  .refine(
+    (r) => r.condition !== 'ATTACK_TECHNIQUE' || TECHNIQUE_ID.test((r.value ?? '').toUpperCase()),
+    {
+      message: 'use o código da técnica, como T1055 ou T1055.012',
+      path: ['value'],
+    },
+  )
+  // Normalizacao: T1055 em maiusculas (o valor e comparado com as tecnicas do capa).
+  .transform((r) =>
+    r.condition === 'ATTACK_TECHNIQUE' && r.value ? { ...r, value: r.value.toUpperCase() } : r,
+  );
 
 /**
  * Regras de triagem (item 86): "quando a analise achar X, incluir tags Y e

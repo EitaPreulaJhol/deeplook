@@ -532,6 +532,26 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## Regras de triagem
+
+Analistas mantêm na tela **Regras de triagem** (pasta Detecção) regras do tipo "quando a análise
+achar X, incluir as tags Y e subir a prioridade para Z". Todas as que casarem valem; nenhuma tira
+tag nem baixa prioridade, e cada uma fica no histórico da amostra.
+
+| Condição | Valor | Vale a partir de |
+|---|---|---|
+| Tipo real, executável disfarçado, macro, script ou documento com risco alto, atalho suspeito | tipo real (só nele) | a chegada |
+| Domínio do link, remetente do e-mail, parecido com domínio da empresa | domínio ou endereço | a chegada |
+| Regra YARA casou, antivírus detectou | parte do nome (opcional) | o fim da varredura |
+| **Assinatura digital não confere** (adulterada ou inválida; a ilegível não conta) | — | a chegada |
+| **Executável empacotado** | empacotador, ex.: UPX (opcional) | a chegada |
+| **Alerta do executável** | trecho do alerta (vazio = qualquer alerta alto) | a chegada |
+| **O capa encontrou a capacidade** | parte do nome (`inject`) ou grupo (`persistence`); vazio = qualquer capacidade de risco | o fim da análise de funções |
+| **Técnica ATT&CK (pelo capa)** | código, ex.: `T1055` (vale também para as subtécnicas) | o fim da análise de funções |
+| **Indicador em string escondida (FLOSS)** | domínio ou trecho (opcional) | o fim da análise de funções |
+
+As regras também rodam de novo quando um analista pede **Analisar de novo** na análise estática.
+
 ## Casos
 
 Analistas agrupam amostras da mesma campanha em **casos** (`CASO-0001`), pela ficha

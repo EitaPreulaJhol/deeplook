@@ -8,6 +8,7 @@ import { normalizeTechniques, TECHNIQUE_ID } from './attack';
 import { extractIocs, type Ioc } from './iocs';
 import { prisma } from './prisma';
 import { s3 } from './s3';
+import { applyTriageRulesQuietly } from './triage-rules';
 
 /**
  * Analise de funcoes (item 7.2): o servico `capa` (apps/capa) roda o capa e o FLOSS num container
@@ -315,6 +316,8 @@ async function analyzeJob(id: string, entryId: string, attempts: number): Promis
     ms: result.ms,
   });
   logger.info(`[capa] amostra ${entryId}: ${done ? 'concluída' : 'falhou'} em ${result.ms} ms`);
+  // Regras de triagem com capacidade, tecnica ou string escondida (item 7.4) so valem agora.
+  if (done) await applyTriageRulesQuietly(entryId);
 }
 
 /**

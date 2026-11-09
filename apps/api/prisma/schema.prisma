@@ -496,6 +496,14 @@ enum TriageCondition {
   LNK
   /// Dominio parecido com o da empresa (item 124).
   LOOKALIKE
+  /// Item 7.4: capacidade do capa, tecnica ATT&CK do capa, assinatura que nao confere,
+  /// empacotador, alerta do PE e indicador numa string que so o FLOSS ve.
+  CAPA_CAPABILITY
+  ATTACK_TECHNIQUE
+  SIGNATURE_INVALID
+  PACKED
+  PE_ALERT
+  HIDDEN_IOC
 }
 
 /// Regra de triagem (item 86): quando a analise achar X, incluir tags e subir a

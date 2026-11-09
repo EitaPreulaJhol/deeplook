@@ -50,7 +50,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 7.1 | Análise estática do PE: imphash, Rich header, exports, recursos, overlay, assinatura, .NET e anomalias | 🟡 | M–G | API / Web | ✅ |
 | 7.2 | capa e FLOSS em contêiner isolado (capacidades por função, com ATT&CK, e strings ofuscadas) | 🟡 | M | API / Compose / Web | ✅ |
 | 7.3 | Ghidra headless sob demanda (funções, referências a imports suspeitos, pseudo-C) | 🟡 | G | API / Compose / Web | ✅ |
-| 7.4 | Regras de triagem com os sinais do 7.1 e do 7.2 | 🔴 | P | API / Web | ⬜ |
+| 7.4 | Regras de triagem com os sinais do 7.1 e do 7.2 | 🔴 | P | API / Web | ✅ |
 | 7.5 | Pontuação de risco explicável (sugere o veredito) | 🟡 | P–M | API / Web | ⬜ |
 | 7.6 | Relacionadas: mesmo certificado e mesmo comportamento (capacidades do capa) | 🟡 | P | API / Web | ⬜ |
 | 7.7 | Retro-hunt com o capa ao subir as regras | ⚪ | P | API | ⬜ |
@@ -95,11 +95,10 @@ CI, desempenho e dependências). O que falta está abaixo, na ordem sugerida.
 
 | Próximo | Item | Por que nesta ordem | Esforço |
 |---|---|---|---|
-| 1º | [7.4 Regras de triagem com os sinais novos](#74-regras-de-triagem-com-os-sinais-do-71-e-do-72) | Quase só API; transforma o 7.1 e o 7.2 em decisão automática | **P** |
-| 2º | [7.8 Desempacotar e extrair](#78-desempacotar-e-extrair) | Hoje a análise para na casca (o capa num UPX só diz "packed") | **M** |
-| 3º | [7.9 Detect It Easy](#79-detect-it-easy) | Barato e diz qual ferramenta usar em seguida | **P–M** |
-| 4º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; depois de ver quais famílias aparecem | **M–G** |
-| 5º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
+| 1º | [7.8 Desempacotar e extrair](#78-desempacotar-e-extrair) | Hoje a análise para na casca (o capa num UPX só diz "packed") | **M** |
+| 2º | [7.9 Detect It Easy](#79-detect-it-easy) | Barato e diz qual ferramenta usar em seguida | **P–M** |
+| 3º | [7.11 Extração de configuração](#711-extração-de-configuração-de-famílias-conhecidas) | Maior ganho de IOC; depois de ver quais famílias aparecem | **M–G** |
+| 4º | [3.1 Métricas Prometheus](#31-métricas-prometheus) | Vale com Grafana; o status por token (3.2) já cobre o básico | **M** |
 | — | TypeScript 7 (sobra do [6.12](#612-dependências-do-web-majors)) | Bloqueado: o `typescript-eslint` só aceita `<6.1.0`; rever quando ele aceitar | **P** |
 
 O **6.13 saiu do adiamento** a pedido do dono, no desenho dele: uma pasta no `.env`, e levá-la
@@ -110,10 +109,10 @@ Backup.
 ### Para retomar
 
 ```bash
-# o Ghidra (7.3) deixou tudo verde; confirme antes de mexer
+# as regras de triagem com a analise do executavel (7.4) deixaram tudo verde; confirme antes de mexer
 cd apps/api && npm run format:check && npm run lint && npm run build
 cd ../web   && npm run format:check && npm run lint && npm run build && npm run test:coverage
-cd ../api   && npm run test:integration          # 1411 checagens em 39 arquivos (sobe o capa e o Ghidra reais)
+cd ../api   && npm run test:integration          # 1435 checagens em 40 arquivos (sobe o capa e o Ghidra reais)
 cd ../api   && npm run test:images && npm run test:smoke   # 93 e 101 checagens
 cd ../capture && npm test                         # 13 testes do proxy (sem rede)
 # ao trocar o Playwright: node scripts/chromium-unsafe-ports.mjs (lista de portas do egress)
@@ -1793,6 +1792,36 @@ thread"), técnica ATT&CK, alerta do PE (assinatura adulterada, recurso com exec
 indicador nas strings do FLOSS. A amostra já chega com prioridade e responsável certos. Como o
 capa termina depois do envio, a regra tem de ser avaliada de novo quando a análise de funções
 concluir.
+
+**Implementado:**
+- **Seis condições novas** (migração `20261227000000_triage_analysis_conditions`): o capa encontrou a
+  capacidade (parte do nome ou grupo; vazio = qualquer capacidade de risco), técnica ATT&CK do capa
+  (`T1055` casa as subtécnicas; o código é conferido e vai em maiúsculas), assinatura que não
+  confere (adulterada ou inválida; a ilegível não conta, porque não foi conferida), empacotado (com o
+  empacotador, opcional), alerta do executável (trecho sem acento e sem caixa; vazio = qualquer
+  alerta alto) e indicador numa string que só o FLOSS vê.
+- **Quando rodam:** as do executável já valem na chegada (a análise estática roda antes). As do capa
+  pedem as regras de novo quando a análise de funções conclui, e a reanálise estática pedida pelo
+  analista também as roda. O preenchimento em segundo plano das amostras antigas (7.1) não roda:
+  mudaria em massa a prioridade de amostras já concluídas sem ninguém pedir.
+- **"Capacidade de risco"** é uma lista só (`lib/capa-risk.ts`), a mesma do destaque na ficha.
+- **Tela** com as seis condições e as dicas de valor; o README ganhou a seção de regras de triagem,
+  que não existia.
+
+**Testes** (`pe-triage.test.ts`, 24): validação da técnica; com os executáveis reais do 7.1, UPX
+(empacotado e pede administrador, sem alerta alto), adulterado (assinatura, alerta alto, P1),
+assinado e autoassinado (não casam) e a assinatura ilegível (não casa); com um capa falso, nada do
+capa na chegada e tudo quando ele conclui (capacidade, técnica pela subtécnica, risco, IOC escondido,
+P1, o histórico), rodar de novo sem repetir, capacidade comum sem risco, o grupo como valor; e a
+reanálise aplicando uma regra criada depois do envio. Cenário de tela das regras com a técnica e a
+lista das condições.
+
+**Prova inversa:** sem rodar as regras quando o capa conclui, sem excluir a assinatura ilegível,
+tratando qualquer capacidade como de risco e sem rodar na reanálise, cada um falha a sua checagem.
+
+**Validação:** `format:check`, `lint` e `build` limpos na API e no web; **1435 checagens de
+integração em 40 arquivos** (eram 1411 em 39; o `triage-rules` antigo segue com 30); `test:images`
+com 93 e `test:smoke` com 101; os 95 cenários de tela (1704 checagens).
 
 ### 7.5 Pontuação de risco explicável
 
