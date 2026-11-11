@@ -1,0 +1,247 @@
+# 🔌 Communicating with Proxmox VE (analysis sandbox)
+
+> 🇧🇷 [Leia em português](proxmox.pt-BR.md)
+
+This guide explains how to configure DeepLook to talk to a real **Proxmox VE (PVE)** and open the
+**analysis VM** (sandbox) from a sample.
+
+> The integration **is already implemented in the code**. To "turn on" PVE you only need to
+> **prepare Proxmox** and **fill in the `.env`** — there is no new code to write.
+
+---
+
+## 1. How it works
+
+A sample becomes an **isolated VM per sample**: a clone of the template is created on
+Proxmox, receives the sample as a **read-only CD-ROM** (an ISO9660 generated on the spot) and is
+accessed through the **noVNC console** embedded in the sample's page. When it ends — or when the
+deadline passes — the VM is destroyed and the ISO is deleted.
+
+```
+Analyst -> POST /api/entries/:id/sandbox
+              │
+              ├─ 1. MinIO: downloads the sample
+              ├─ 2. genisoimage: builds the ISO (sample + SHA256.txt + LEIA-ME.txt)
+              ├─ 3. PVE: uploads the ISO to the storage (streaming multipart)
+              ├─ 4. PVE: clones the template (linked clone; falls back to a full copy if it fails)
+              ├─ 5. PVE: config (tags + ide2=<iso>,media=cdrom)  # cdrom is already read-only
+              └─ 6. PVE: start -> status RUNNING (console released)
+```
+
+Components involved (none needs to be changed):
+
+| Component | File |
+|---|---|
+| PVE HTTP client (ticket, `pve()`, ISO upload, tasks, VNC) | `apps/api/src/lib/proxmox.ts` |
+| Provisioning pipeline + reaper/cleanup | `apps/api/src/lib/sandbox.ts` |
+| REST routes + console WebSocket | `apps/api/src/routes/sandbox.ts` |
+| Simulator (without PVE) | `apps/api/src/lib/proxmox-mock.ts` |
+| Console WebSocket proxy | `apps/web/nginx.conf` (`location /api/sandbox`) |
+| `genisoimage` in the API image | `apps/api/Dockerfile` |
+| Variables injected into the container | `docker-compose.yml` |
+| Variable validation | `apps/api/src/env.ts` |
+
+### Why ISO (and not uploading the file)?
+
+The Proxmox API has no endpoint to "put a file inside the guest": the official path is to
+mount a volume with `content=iso` and attach it as a CD-ROM. A `.exe` renamed to `.iso`
+**does not** mount — that is why the API generates a real ISO9660 with `genisoimage` (already
+installed in the API image).
+
+### Console: why user/password and not an API token?
+
+The console endpoints (`vncproxy`/`vncwebsocket`) **do not accept an API token**, only a user
+ticket. The API then authenticates with `PROXMOX_USER`/`PROXMOX_PASSWORD` (`POST /access/ticket`),
+caches the ticket (~2h) and opens the `vncwebsocket` **on the backend**. The browser only sees
+`/api/sandbox/<id>/console/ws` (our WebSocket, proxied by nginx). The ticket never reaches the front end.
+
+As the PVE ticket is bound to the IP, the proxy must leave from the **same container** that
+requested the ticket — which is why the console tunnel is handled by the API, not by the browser.
+
+**VNC auth:** `vncproxy` also returns a **password** (`data.password`), and PVE's `vncwebsocket`
+requires **VNC auth** (type 2: DES over the challenge). The backend keeps that password per session,
+and noVNC fetches it from `GET /api/sandbox/<id>/console/credentials` during the handshake; the
+ticket stays only on the backend.
+
+### Screen capture (screenshot)
+
+The **"Capture screen"** button in the console window toolbar reads the pixels of the **noVNC canvas**
+directly in the browser and opens the PNG in a new tab. This is deliberate: PVE **removed the
+server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}/screenshot` responds
+`501 Not implemented`), so client-side capture works on any PVE version. (DeepLook's
+`GET /api/sandbox/:id/screenshot` endpoint still exists for PVE ≤ 8.)
+
+---
+
+## 2. Preparing Proxmox VE
+
+### 2.1 Analysis VM template
+
+1. Create a VM (Windows/Linux) with `qemu-guest-agent`, an **isolated network** (bridge with no
+   route to the LAN) and **no corporate credentials**.
+2. Install the analysis tools you use.
+3. **Create a snapshot** (the linked clone uses this state as its base; without a snapshot DeepLook
+   automatically falls back to a full copy, which is slower).
+4. Convert it to a template: `qm template <vmid>`. Note the `<vmid>`.
+
+### 2.2 Dedicated user and permissions
+
+Create a dedicated user (e.g. `deeplook@pve`) with a **password** — the console requires
+user/password, **an API token does not work**.
+
+Grant the permissions below (**Datastore** is the most often forgotten — without it the ISO upload
+fails with `403`):
+
+| Path | Suggested role | Covers |
+|---|---|---|
+| `/` | `PVEAuditor` | `GET /version` (health) and general auditing |
+| `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot) |
+| `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.Allocate`, `Datastore.AllocateSpace` (ISO upload/delete) |
+
+Calls the API makes to PVE (reference for the permissions above):
+
+- `GET /version`
+- `GET /nodes/{node}/qemu` and `GET /nodes/{node}/qemu/{vmid}/status/current`
+- `GET /cluster/nextid`
+- `POST /nodes/{node}/qemu/{tpl}/clone`
+- `PUT /nodes/{node}/qemu/{vmid}/config`
+- `POST /nodes/{node}/qemu/{vmid}/status/start` (and `shutdown`)
+- `DELETE /nodes/{node}/qemu/{vmid}`
+- `POST /nodes/{node}/storage/{storage}/upload`
+- `GET/DELETE /nodes/{node}/storage/{storage}/content`
+- `GET /nodes/{node}/storage/{storage}/status`
+- `POST /nodes/{node}/qemu/{vmid}/vncproxy` + `vncwebsocket`
+- `POST /nodes/{node}/qemu/{vmid}/screenshot` *(removed in PVE 9 — the panel's capture was moved to the browser)*
+
+### 2.3 Storage with `content iso`
+
+The storage where the ISO will be written must accept `content=iso` (e.g. `local`).
+In PVE: **Datacenter → Storage → <storage> → Content → tick "ISO image"**.
+The `/api/sandbox/health` endpoint validates this.
+
+---
+
+## 3. Configuring the `.env`
+
+The root `.env` is read automatically by `docker-compose.yml` (no need to edit the compose file).
+Start from `.env.example` (`cp .env.example .env`) and adjust the sandbox block. **Real mode** (points to PVE):
+
+```dotenv
+# ---- Sandbox (isolated VM on Proxmox VE) ----
+SANDBOX_ENABLED=true
+SANDBOX_CONSOLE_ENABLED=true
+PROXMOX_MOCK=false                            # turns off the simulator
+
+PROXMOX_API_URL=https://192.168.0.10:8006     # real PVE IP (port 8006)
+PROXMOX_NODE=pve                              # cluster node
+PROXMOX_USER=deeplook@pve                     # user+password (a token will NOT work for the console)
+PROXMOX_PASSWORD=<strong-password>
+PROXMOX_TEMPLATE_VMID=9000                    # template vmid (section 2.1)
+PROXMOX_ISO_STORAGE=local                     # storage with content "iso"
+PROXMOX_VERIFY_TLS=false                      # false if the PVE certificate is self-signed
+
+SANDBOX_TAG=deeplook-sandbox
+SANDBOX_TTL_MINUTES=60
+SANDBOX_MAX_ACTIVE=4
+SANDBOX_MAX_PER_USER=2
+```
+
+> ⚠️ The repository's development `.env` usually comes with `PROXMOX_MOCK=true` (in-memory
+> simulator). While it is `true`, **nothing touches the real PVE**. The first change is to switch it to `false`.
+
+**Mandatory validation:** when `SANDBOX_ENABLED=true` and `PROXMOX_MOCK=false`, `apps/api/src/env.ts`
+requires `PROXMOX_API_URL`, `PROXMOX_USER`, `PROXMOX_PASSWORD` and `PROXMOX_TEMPLATE_VMID`. If any of
+them is missing, the API **does not start** and logs the validation error at boot.
+
+---
+
+## 4. Network (Docker → PVE)
+
+The `api` container runs on the `deeplook` bridge and must reach `https://<pve>:8006`:
+
+- Traffic leaves NATed through the Docker host, so PVE sees the **IP of the Docker host**. The PVE
+  ticket is bound to that IP — and since **all** calls (ticket + `vncwebsocket`) leave from the same
+  container, this is consistent.
+- If there is a **firewall** on PVE, allow port **8006** from the Docker host's IP.
+- Use the **LAN IP** of PVE (not `localhost`, which inside the container points to the container itself).
+- `PROXMOX_VERIFY_TLS=false` (default) avoids the self-signed certificate error; only use `true` if
+  the PVE certificate is trusted.
+
+---
+
+## 5. Starting up and validating
+
+```powershell
+docker compose up -d --build api web
+docker compose logs -f api
+```
+
+The logs should show something like:
+`[sandbox] habilitado (node pve, template 9000, ttl 60min)` (enabled).
+
+Validation:
+
+1. **Diagnostics** — `GET /api/sandbox/health` (admin) returns the checks `pve-acessivel`,
+   `template`, `storage-iso` and `usuario-console`, plus `enabled`, `mock`, `node`, `templateVmid`,
+   `isoStorage` and the limits.
+2. **Full flow**:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts/smoke-sandbox.ps1
+   ```
+   The script opens the environment, follows the stages (`gerando-iso` → `enviando-iso` → `clonando`
+   → `configurando` → `iniciando`), tests the screenshot, validates the console WebSocket
+   (`scripts/ws-console-check.mjs`), extends the deadline and discards the VM.
+
+---
+
+## 6. Quick reference of the variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `SANDBOX_ENABLED` | Enables the sandbox (isolated VM on Proxmox) | `false` |
+| `SANDBOX_CONSOLE_ENABLED` | Enables the noVNC console (dedicated window) for the analyst | `true` |
+| `PROXMOX_MOCK` | Simulates Proxmox in memory (no real PVE) | `false` |
+| `PROXMOX_API_URL` | PVE API URL (e.g. `https://192.168.0.10:8006`) | — |
+| `PROXMOX_NODE` | Cluster node where the VMs are created | `pve` |
+| `PROXMOX_USER` / `PROXMOX_PASSWORD` | Dedicated PVE user (the console does not accept an API token) | — |
+| `PROXMOX_TEMPLATE_VMID` | VMID of the template with `qemu-guest-agent` and isolated network | `0` |
+| `PROXMOX_ISO_STORAGE` | Storage that accepts `content iso` (where the sample becomes an ISO) | `local` |
+| `PROXMOX_VERIFY_TLS` | `true` only if the PVE certificate is trusted | `false` |
+| `SANDBOX_TAG` | Tag of the DeepLook VMs (used in cleanup) | `deeplook-sandbox` |
+| `SANDBOX_TTL_MINUTES` | Lifetime of the environment before automatic disposal | `60` |
+| `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` | Limit of active environments (total / per analyst) | `4` / `2` |
+| `SANDBOX_MOCK_VNC_URL` | (mock mode) test VNC to validate the console | — |
+
+---
+
+## 7. Troubleshooting
+
+| Symptom | Likely cause / fix |
+|---|---|
+| API does not start / env error at boot | Missing `PROXMOX_API_URL`/`USER`/`PASSWORD`/`TEMPLATE_VMID` with `SANDBOX_ENABLED=true` and `MOCK=false` |
+| `sandbox/health` → `pve-acessivel: FALHOU` (failed) | Wrong IP/port, PVE unreachable from the container, or firewall on 8006 |
+| ISO upload fails with `403` | Missing `PVEDatastoreAdmin` (Datastore.Allocate/AllocateSpace) on the ISO storage |
+| `template: false` | Wrong `PROXMOX_TEMPLATE_VMID`, template does not exist, or missing `VM.Audit`/`VM.Clone` |
+| `storage-iso: false` | The storage does not have `content "iso"` enabled |
+| Console does not open | Missing user/password (`usuario-console`) or the `nginx` WebSocket was changed; check `location /api/sandbox` |
+| Slow clone | Template without a snapshot → falls back to a full copy. Create a snapshot |
+| VM "stuck" in PROVISIONING | The API recovers it on boot (marks it FAILED after 15 min) and the reaper cleans up orphans every minute |
+
+Always start with diagnostics: **`GET /api/sandbox/health`** (admin).
+
+---
+
+## 8. Mock mode and shutting down
+
+- **Without PVE (development):** `SANDBOX_ENABLED=true` + `PROXMOX_MOCK=true` simulates clone,
+  start, tasks, vncproxy and screenshot in memory. Validate with `scripts/smoke-sandbox.ps1`.
+- **Turning the feature off:** `SANDBOX_ENABLED=false`. The analyst panel shows "not enabled" and the
+  endpoints respond `503`, without requiring anything from PVE.
+
+### Limits, TTL and cleanup
+
+- `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limit how many environments exist.
+- `SANDBOX_TTL_MINUTES` sets the deadline; the **reaper** runs every minute and ends whatever has expired.
+- On boot the API marks interrupted provisionings as failed, removes VMs with the `SANDBOX_TAG` label
+  that have no active session, and orphan `deeplook-*` ISOs.
+- `GET /api/sandbox/health` (admin) shows the full diagnostics.

@@ -1,5 +1,7 @@
 # 🖥️ Interface no estilo HP Service Manager 9
 
+> 🇬🇧 [Read in English](interface-hpsm.md)
+
 Este guia descreve como a interface do DeepLook foi construída para se parecer com o
 **web client do HP Service Manager 9** e como manter esse visual ao criar ou alterar
 telas. A regra geral é **não modernizar**: densidade alta, fonte pequena, cinzas com
@@ -730,6 +732,6 @@ O script sai com erro se alguma checagem falhar; screenshots ficam em
 
 ## 8. Próximas melhorias
 
-Ideias de UX/usabilidade priorizadas estão em [`docs/ux-backlog.md`](ux-backlog.md):
+Ideias de UX/usabilidade priorizadas estão em [`docs/ux-backlog.pt-BR.md`](ux-backlog.pt-BR.md):
 a primeira leva (1–18) está implementada; a segunda (19–30, padrões do HPSM 9 como
 painel de detalhe, atualização em massa e Favoritos) está pendente.

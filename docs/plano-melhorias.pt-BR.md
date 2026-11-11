@@ -1,6 +1,8 @@
 # 🧱 Plano de melhorias técnicas
 
-Levantamento feito depois que o [backlog de UX](ux-backlog.md) chegou ao fim (251 itens)
+> 🇬🇧 [Read in English](plano-melhorias.md)
+
+Levantamento feito depois que o [backlog de UX](ux-backlog.pt-BR.md) chegou ao fim (251 itens)
 e as quatro rodadas do Strix fecharam os buracos de segurança. O que sobra não é
 funcionalidade de tela: é **robustez, automação e operação**.
 
@@ -1530,7 +1532,7 @@ desta origem que o `ip rule` do checklist depende).
 **Ficou de fora:** `noexec` no `/tmp` da API. Um volume nomeado não aceita a opção sem amarrar a
 uma pasta do host. A raiz somente leitura, o usuário sem root e o `cap_drop: ALL` seguem valendo.
 
-**Checklist de implantação** ([implantacao.md](implantacao.md)): o roteiro do piloto no homelab,
+**Checklist de implantação** ([implantacao.md](implantacao.pt-BR.md)): o roteiro do piloto no homelab,
 na ordem em que um passo protege o seguinte. Ele cobre:
 - requisitos (Docker 28+, memória, *user namespaces*);
 - segredos e permissões;
@@ -2066,7 +2068,7 @@ todas as amostras.
   listas que o status usa. `ALLOW_INSECURE_DEFAULTS=true` continua liberando a demonstração.
 - **Cuidado de quem atualiza:** o Postgres grava a senha na criação do volume. Numa instalação
   que já tem dados e usa a senha padrão, mudar só o `.env` trancaria a API para fora do banco. A
-  mensagem de recusa diz isso e o [checklist](implantacao.md) ganhou o passo do `\password`.
+  mensagem de recusa diz isso e o [checklist](implantacao.pt-BR.md) ganhou o passo do `\password`.
 - Os testes de imagem e o smoke passaram a subir o MinIO com uma senha própria.
 
 ### 8.5 Tipos dos testes de integração no CI

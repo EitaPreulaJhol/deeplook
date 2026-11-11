@@ -1,5 +1,7 @@
 # 🔍 DeepLook
 
+> 🇬🇧 [Read in English](README.md)
+
 Ferramenta self-hosted (homelab) para que amigos e especialistas em segurança
 centralizem **amostras de software e links suspeitos** encontrados na web,
 com **triagem e relatórios** feitos pelos analistas.
@@ -78,7 +80,7 @@ docker compose up
 Acesse: **http://localhost:8080**
 
 > **Para abrir a outras pessoas** (homelab, piloto): siga o
-> [checklist de implantação](docs/implantacao.md), que cobre Cloudflare Access, a VPN da captura,
+> [checklist de implantação](docs/implantacao.pt-BR.md), que cobre Cloudflare Access, a VPN da captura,
 > o backup fora do disco restaurado uma vez e o monitoramento.
 
 > Dica: rode em segundo plano com `docker compose up -d` e veja os logs com
@@ -373,7 +375,7 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 - **Saída para a internet:** o servidor precisa alcançar os links. Sem VPN, a captura abre
   links maliciosos **pelo IP da sua casa**. A rede `capture-egress` tem sub-rede fixa
   (`CAPTURE_EGRESS_SUBNET`) para o host mandá-la por uma VPN com roteamento por origem; o
-  passo a passo está em [docs/implantacao.md](docs/implantacao.md), passo 3.
+  passo a passo está em [docs/implantacao.pt-BR.md](docs/implantacao.pt-BR.md), passo 3.
 - **Atualizar uma instalação:** `docker compose down` antes do `up -d --build`, porque o Docker
   não transforma em interna uma rede que já existe.
 - **HTML:** só baixa como texto (`.html.txt`), nunca abre no navegador.
@@ -830,7 +832,7 @@ COOKIE_SECURE=true
 
 | Variável | Descrição | Padrão |
 |---|---|---|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL. Com a senha padrão (`deeplook` ou a do `.env.example`) a API não sobe em produção; num banco que já existe, troque-a com `ALTER USER` antes de mudar o `.env` ([checklist](docs/implantacao.md)) | `deeplook` |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL. Com a senha padrão (`deeplook` ou a do `.env.example`) a API não sobe em produção; num banco que já existe, troque-a com `ALTER USER` antes de mudar o `.env` ([checklist](docs/implantacao.pt-BR.md)) | `deeplook` |
 | `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório, mínimo de 32 caracteres em produção); com o valor padrão a API não sobe | — |
 | `SESSION_TTL_HOURS` | Validade máxima da sessão (horas), mesmo com uso contínuo | `168` |
 | `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
@@ -883,7 +885,7 @@ COOKIE_SECURE=true
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV, fixada por tag e digest (como a do Postgres; `node scripts/pin-images.mjs` confere e `--write` atualiza) | `clamav/clamav:1.5@sha256:…` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
-| `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
+| `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.pt-BR.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
 | `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
@@ -923,7 +925,8 @@ Console do MinIO (administração, apenas no loopback): http://localhost:9001
 deeplook/
 ├─ docker-compose.yml
 ├─ .env.example
-├─ README.md
+├─ README.md          # English (principal)
+├─ README.pt-BR.md    # Português (pt-BR)
 ├─ .github/           # CI (ci.yml), varredura de CVE das imagens (security-scan.yml) e Dependabot
 ├─ apps/
 │  ├─ api/            # Fastify + Prisma + S3 (MinIO)
@@ -939,7 +942,7 @@ deeplook/
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guias: interface-hpsm.md, ux-backlog.md, plano-melhorias.md, proxmox.md
+├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox
 ├─ icons/             # biblioteca de ícones (estilo HPSM)
 ├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
 ├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
@@ -1068,8 +1071,8 @@ dos controles vem do Carbon Design System; o visual vem dos tokens e do skin:
 
 Componentes, convenções (o que usar e o que evitar do Carbon), rotas, preferências do
 usuário e a verificação visual estão em
-**[`docs/interface-hpsm.md`](docs/interface-hpsm.md)**. Ideias de UX priorizadas:
-**[`docs/ux-backlog.md`](docs/ux-backlog.md)**.
+**[`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md)**. Ideias de UX priorizadas:
+**[`docs/ux-backlog.pt-BR.md`](docs/ux-backlog.pt-BR.md)**.
 
 ### Minha Conta e preferências
 
@@ -1158,7 +1161,7 @@ endpoint server-side de screenshot no PVE 9, que agora responde `501`.
 
 > 📖 Passo a passo completo — template, permissões (incluindo **Datastore** para o
 > upload da ISO), `.env`, rede Docker→PVE, validação e troubleshooting:
-> **[`docs/proxmox.md`](docs/proxmox.md)**.
+> **[`docs/proxmox.pt-BR.md`](docs/proxmox.pt-BR.md)**.
 
 ### Modo mock (desenvolvimento sem PVE)
 
@@ -1292,14 +1295,14 @@ cd apps/web; npm run build; cd ../..
 powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 ```
 
-Detalhes em [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-verificação-visual-playwright).
+Detalhes em [`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md#7-verificação-visual-playwright).
 
 ---
 
 ## Roadmap (próximos passos)
 
 Melhorias de interface e usabilidade estão priorizadas em
-[`docs/ux-backlog.md`](docs/ux-backlog.md). Outros próximos passos:
+[`docs/ux-backlog.pt-BR.md`](docs/ux-backlog.pt-BR.md). Outros próximos passos:
 
 - Notificações por e-mail (SMTP).
 
@@ -1307,3 +1310,11 @@ Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e o
 envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa), 2FA
 opcional, política de senha, a pasta de backup fora do disco (`BACKUP_DIR`) e o backup
 agendado.
+
+---
+
+## Créditos
+
+- **Ícones:** a pasta [`icons/`](icons/) teve origem nos ícones **Silk**, do
+  [FamFamFam](http://www.famfamfam.com/lab/icons/silk/), de Mark James, licenciados sob
+  [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Obrigado!

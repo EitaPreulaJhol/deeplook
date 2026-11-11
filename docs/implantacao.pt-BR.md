@@ -1,8 +1,10 @@
 # 🚀 Checklist de implantação (piloto no homelab)
 
+> 🇬🇧 [Read in English](implantacao.md)
+
 Roteiro para subir o DeepLook no homelab e abrir para um grupo pequeno de pessoas testarem.
 Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde está o detalhe** no
-[README](../README.md). Siga na ordem: os primeiros protegem o que vem depois.
+[README](../README.pt-BR.md). Siga na ordem: os primeiros protegem o que vem depois.
 
 > Convenção: `deeplook.seu-dominio.com` é o endereço público; `/srv/deeplook` é onde o projeto
 > fica no host; `/mnt/externo` é o disco externo do backup. Troque pelos seus.
@@ -29,7 +31,7 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   sysctl user.max_user_namespaces                          # maior que 0
   sysctl kernel.apparmor_restrict_unprivileged_userns 2>/dev/null   # 0, ou ausente
   ```
-  Detalhe em README > [Captura da página de um link](../README.md#captura-da-página-de-um-link).
+  Detalhe em README > [Captura da página de um link](../README.pt-BR.md#captura-da-página-de-um-link).
 
 ## 1. Código e segredos
 
@@ -68,7 +70,7 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
 ## 2. Acesso pela internet: Tunnel, cookie seguro e Cloudflare Access
 
 - [ ] **Cloudflare Tunnel** no host apontando para `http://localhost:8080`. Passo a passo em
-  README > [Cloudflare Tunnel](../README.md#cloudflare-tunnel-no-host-fora-do-docker).
+  README > [Cloudflare Tunnel](../README.pt-BR.md#cloudflare-tunnel-no-host-fora-do-docker).
 - [ ] **`COOKIE_SECURE=true`** no `.env` (o Tunnel serve HTTPS). Sem isso o cookie da sessão
   sai sem `Secure` e sem o prefixo `__Host-`.
 - [ ] **Cloudflare Access na frente** (Zero Trust > Access > Applications > *Self-hosted*,
@@ -118,7 +120,7 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 ## 4. Sandbox (Proxmox): desligado no piloto
 
 - [ ] **`SANDBOX_ENABLED=false`**, a menos que as VMs de análise estejam numa **VLAN sem rota
-  para a sua LAN** e com saída controlada. Detalhe em [docs/proxmox.md](proxmox.md).
+  para a sua LAN** e com saída controlada. Detalhe em [docs/proxmox.pt-BR.md](proxmox.pt-BR.md).
 
 ## 5. Backup fora do disco, agendado e restaurado uma vez
 
@@ -140,7 +142,7 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 - [ ] Depois de subir (passo 6): **Administração > Backup > Backup agendado**, escolha os dias e
   o horário (o calendário mostra as próximas execuções) e salve.
 - [ ] **Restaure uma vez, de verdade**, antes de convidar alguém. Gere um backup manual,
-  baixe e siga README > [Backup e restauração](../README.md#backup-e-restauração) num banco à
+  baixe e siga README > [Backup e restauração](../README.pt-BR.md#backup-e-restauração) num banco à
   parte:
   ```bash
   7z x deeplook-backup-*.zip -o/tmp/restauracao && cd /tmp/restauracao
@@ -166,7 +168,7 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 
 - [ ] Entre com o `ADMIN_EMAIL` e troque a senha (pedida no primeiro acesso).
 - [ ] **Ligue o 2FA** do admin (Minha Conta > 2FA). Detalhe em
-  README > [2FA](../README.md#autenticação-em-dois-fatores-2fa).
+  README > [2FA](../README.pt-BR.md#autenticação-em-dois-fatores-2fa).
 - [ ] Decida em **Administração > Configurações** se o usuário comum só vê as próprias amostras.
 - [ ] **Administração > Chaves de ativação:** uma chave por pessoa. Testadores entram como
   **usuário**; promova a **analista** só quem vai triar e escrever relatório.

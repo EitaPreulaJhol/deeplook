@@ -1,5 +1,7 @@
 # 🔌 Comunicação com o Proxmox VE (sandbox de análise)
 
+> 🇬🇧 [Read in English](proxmox.md)
+
 Este guia explica como configurar o DeepLook para falar com um **Proxmox VE (PVE)**
 real e abrir a **VM de análise** (sandbox) a partir de uma amostra.
 

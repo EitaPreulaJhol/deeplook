@@ -1,7 +1,9 @@
 # 🧭 Backlog de UX e usabilidade
 
+> 🇬🇧 [Read in English](ux-backlog.md)
+
 Ideias levantadas depois da reformulação visual no estilo HP Service Manager 9
-(ver [`docs/interface-hpsm.md`](interface-hpsm.md)). Todas seguem o mesmo princípio:
+(ver [`docs/interface-hpsm.pt-BR.md`](interface-hpsm.pt-BR.md)). Todas seguem o mesmo princípio:
 **melhorar o uso sem modernizar o visual** — os padrões citados (diálogo de
 confirmação, filas com contadores, aba de atividades, Anterior/Próximo) existem no
 próprio HPSM.
