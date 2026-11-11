@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" role="img" aria-label="DeepLook">
+  <title>DeepLook — VM wallpaper</title>
+  <desc>Fundo no azul da topbar do site (#2c7cc0 a #0d5a9e) com a lupa do favicon e o nome DeepLook.</desc>
+
+  <defs>
+    <!-- Mesmo gradiente da topbar (dl topbar 1 para dl topbar 2) -->
+    <linearGradient id="dl-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c7cc0"/>
+      <stop offset="0.58" stop-color="#1b6cb1"/>
+      <stop offset="1" stop-color="#0d5a9e"/>
+    </linearGradient>
+
+    <radialGradient id="dl-glow" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.13"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="dl-vignette" x1="0" y1="0.55" x2="0" y2="1">
+      <stop offset="0" stop-color="#062e52" stop-opacity="0"/>
+      <stop offset="1" stop-color="#062e52" stop-opacity="0.34"/>
+    </linearGradient>
+
+    <filter id="dl-mark-shadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#04294a" flood-opacity="0.38"/>
+    </filter>
+
+    <filter id="dl-word-shadow" x="-30%" y="-60%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="7" stdDeviation="14" flood-color="#04294a" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- Fundo: preenche a tela inteira (corta as bordas em proporções diferentes) -->
+  <svg width="100%" height="100%" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <rect width="1920" height="1080" fill="url(#dl-bg)"/>
+    <rect width="1920" height="1080" fill="url(#dl-glow)"/>
+
+    <!-- Aros de lente bem discretos, centrados no logo -->
+    <g fill="none" stroke="#ffffff">
+      <circle cx="960" cy="540" r="330" stroke-opacity="0.10" stroke-width="2"/>
+      <circle cx="960" cy="540" r="500" stroke-opacity="0.07" stroke-width="1.75"/>
+      <circle cx="960" cy="540" r="700" stroke-opacity="0.05" stroke-width="1.5"/>
+      <circle cx="960" cy="540" r="950" stroke-opacity="0.035" stroke-width="1.5"/>
+    </g>
+    <rect width="1920" height="1080" fill="url(#dl-vignette)"/>
+  </svg>
+
+  <!-- Conteúdo: escala inteiro e centralizado (não distorce em outra proporção) -->
+  <svg width="100%" height="100%" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet">
+    <!-- Lupa do favicon (apps/web/public/icons/magnifier.svg), ampliada -->
+    <g filter="url(#dl-mark-shadow)">
+      <svg x="339" y="412" width="300" height="300" viewBox="1 1 13 13" overflow="visible">
+        <defs>
+          <linearGradient id="dl-handle" x1="11" y1="9" x2="11" y2="13" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#E8CBAB"/>
+            <stop offset="1" stop-color="#DDB589"/>
+          </linearGradient>
+          <linearGradient id="dl-handle-stroke" x1="9" y1="10" x2="13" y2="12" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#DCAC78"/>
+            <stop offset="1" stop-color="#975F18"/>
+          </linearGradient>
+          <linearGradient id="dl-lens" x1="1.00063" y1="1" x2="10.9994" y2="11" gradientUnits="userSpaceOnUse">
+            <stop offset="0.22016" stop-color="#CCE1F6"/>
+            <stop offset="0.785979" stop-color="#BBD6F3"/>
+          </linearGradient>
+          <linearGradient id="dl-lens-stroke" x1="1" y1="1.00742" x2="11" y2="10.9926" gradientUnits="userSpaceOnUse">
+            <stop offset="0.151975" stop-color="#CDE2F9"/>
+            <stop offset="0.851206" stop-color="#7CA1D0"/>
+          </linearGradient>
+        </defs>
+        <path d="M13.5 12C13.5 11.8674 13.4473 11.7402 13.3536 11.6464L10.3536 8.64645C10.2598 8.55268 10.1326 8.5 10 8.5H9C8.72386 8.5 8.5 8.72386 8.5 9V10C8.5 10.1326 8.55268 10.2598 8.64645 10.3536L11.6464 13.3536C11.7402 13.4473 11.8674 13.5 12 13.5H13C13.2761 13.5 13.5 13.2761 13.5 13V12Z" fill="url(#dl-handle)" stroke="url(#dl-handle-stroke)" stroke-linejoin="round"/>
+        <circle cx="6" cy="6" r="4.5" fill="url(#dl-lens)" stroke="url(#dl-lens-stroke)"/>
+        <circle cx="6" cy="6" r="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.33"/>
+      </svg>
+    </g>
+
+    <!-- Nome, alinhado ao centro da lupa (como no masthead da topbar) -->
+    <text x="1146" y="604.4" text-anchor="middle"
+          font-family="Tahoma, Arial, 'Liberation Sans', 'DejaVu Sans', Helvetica, sans-serif"
+          font-size="180" font-weight="700" letter-spacing="0.4"
+          fill="#ffffff" filter="url(#dl-word-shadow)">DeepLook</text>
+  </svg>
+</svg>
