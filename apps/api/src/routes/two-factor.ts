@@ -47,7 +47,8 @@ export async function checkSecondFactor(
     select: { twoFactorSecret: true, twoFactorLastStep: true },
   });
   if (!user?.twoFactorSecret) return { ok: false };
-  // SESSION_SECRET trocado: o segredo nao decifra mais; so os codigos de recuperacao valem.
+  // Chave trocada sem recifrar (DATA_KEY, ou o SESSION_SECRET no modo antigo): o segredo nao
+  // decifra mais; so os codigos de recuperacao valem.
   let secret: string | null;
   try {
     secret = decryptSecret(user.twoFactorSecret);

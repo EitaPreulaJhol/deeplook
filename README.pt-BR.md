@@ -207,13 +207,21 @@ Opcional, por usuário, em **Minha Conta > 2FA**:
   o celular e os códigos (confirme a identidade antes).
 - **Segurança:**
   - padrão TOTP (RFC 6238);
-  - segredo guardado cifrado (AES-GCM, chave derivada do `SESSION_SECRET`);
+  - segredo guardado cifrado (AES-GCM) com a chave de dados: o `DATA_KEY` do `.env` ou, sem ele,
+    uma chave derivada do `SESSION_SECRET`;
   - códigos de recuperação só como hash;
   - um código não vale duas vezes;
   - 5 tentativas a cada 5 minutos na etapa do código;
   - tudo entra na auditoria.
-- **Trocar o `SESSION_SECRET`** invalida os 2FA já ativados, porque o segredo não decifra
-  mais. O login avisa que o 2FA precisa ser reconfigurado; os códigos de recuperação
+- **Chave de dados (`DATA_KEY`):** defina-a (`openssl rand -hex 32`, diferente do
+  `SESSION_SECRET`) e guarde-a junto do backup. Na subida seguinte a API recifra com ela os 2FA
+  já ativados, e a partir daí o `SESSION_SECRET` pode ser trocado sem afetar o 2FA. Para trocar
+  o próprio `DATA_KEY`, ponha a chave nova em `DATA_KEY` e a antiga em `DATA_KEY_PREVIOUS`,
+  reinicie e, quando o status do sistema (Configuração) disser que a troca terminou, apague o
+  `DATA_KEY_PREVIOUS`.
+- **Sem `DATA_KEY`** (modo antigo), trocar o `SESSION_SECRET` invalida os 2FA já ativados,
+  porque o segredo não decifra mais; o status do sistema avisa enquanto houver conta nessa
+  situação. O login avisa que o 2FA precisa ser reconfigurado; os códigos de recuperação
   continuam valendo, e o admin pode desativar o 2FA para a pessoa ativar de novo.
 - **Tokens de API** não passam pelo 2FA (são para scripts).
 
@@ -848,6 +856,8 @@ COOKIE_SECURE=true
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
 | `BACKUP_SCHEDULE_PASSWORD` | senha do ZIP do backup agendado (12+ caracteres; dias e horário na aba Backup). Vazia, o agendamento não liga | — |
 | `BACKUP_DIR` | pasta do host onde o ZIP do backup é gravado (disco externo, NAS); precisa ser gravável pelo uid 1000 e ter o arquivo `.deeplook-backups`. Vazio: o ZIP fica no bucket, no mesmo disco dos dados | — |
+| `DATA_KEY` | Chave de dados: cifra o segredo do 2FA no banco (32+ caracteres, diferente do `SESSION_SECRET`; guarde com o backup). Vazia, a chave sai do `SESSION_SECRET` | — |
+| `DATA_KEY_PREVIOUS` | Só durante a troca do `DATA_KEY`: a chave antiga, para a subida recifrar com a nova | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
 | `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | login pelo AD (vazio desliga); `ldaps://` ou `ldap://` + StartTLS; PEM da CA que assina o certificado do AD | — · `false` · — |

@@ -10,6 +10,7 @@ import { startBackups } from './lib/backup';
 import { startBackupSchedule } from './lib/backup-schedule';
 import { startCapaQueue } from './lib/capa';
 import { installCrossSiteGuard } from './lib/cross-site';
+import { startDataKeyRekey } from './lib/data-key-rekey';
 import { unpackChildCreator } from './lib/entry-create';
 import { startGhidraQueue } from './lib/ghidra';
 import { startIntegrityScrub } from './lib/integrity-scrub';
@@ -266,6 +267,9 @@ async function main() {
   void startUnpackQueue(app.log, unpackChildCreator(app.log)).catch((err) =>
     app.log.error({ err }, '[unpack] fila não subiu'),
   );
+
+  // Chave de dados: recifra com o DATA_KEY atual o 2FA que ainda esta sob outra chave.
+  void startDataKeyRekey(app.log);
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

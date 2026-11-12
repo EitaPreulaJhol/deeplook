@@ -17,6 +17,16 @@ const EnvSchema = z
     PORT: z.coerce.number().default(3000),
     DATABASE_URL: z.string().min(1, 'DATABASE_URL e obrigatoria'),
     SESSION_SECRET: z.string().min(16, 'SESSION_SECRET deve ter ao menos 16 caracteres'),
+    /**
+     * Chave de dados (lib/data-key.ts): cifra o segredo do 2FA no banco. Vazia, a chave sai do
+     * SESSION_SECRET (antigo), e troca-lo quebra o 2FA de todos. DATA_KEY_PREVIOUS so existe
+     * durante a troca do proprio DATA_KEY: a chave antiga, para a subida recifrar com a nova.
+     */
+    DATA_KEY: z
+      .string()
+      .refine((v) => v === '' || v.length >= 32, 'use 32 caracteres ou mais (openssl rand -hex 32)')
+      .default(''),
+    DATA_KEY_PREVIOUS: z.string().default(''),
     SESSION_TTL_HOURS: z.coerce.number().default(168),
     /** Expiracao por inatividade (min); o TTL acima vira o teto absoluto. */
     SESSION_IDLE_MINUTES: z.coerce.number().min(5).max(1440).default(30),
@@ -272,6 +282,10 @@ const refused = [
   env.UNPACK_URL && KNOWN_SECRETS.has(env.UNPACK_TOKEN) && 'UNPACK_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',
   PUBLIC_S3_SECRETS.includes(env.S3_SECRET_KEY) && 'S3_SECRET_KEY',
+  // Igual ao SESSION_SECRET nao separa nada: quem tem um tem o outro.
+  env.DATA_KEY !== '' &&
+    env.DATA_KEY === env.SESSION_SECRET &&
+    'DATA_KEY (igual ao SESSION_SECRET)',
 ].filter((name): name is string => Boolean(name));
 if (refused.length && isProd && env.ALLOW_INSECURE_DEFAULTS !== 'true') {
   console.error(

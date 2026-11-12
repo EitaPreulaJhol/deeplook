@@ -12,6 +12,7 @@ import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
 import { capaEnabled } from './capa';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
+import { pendingRekey } from './data-key-rekey';
 import { ghidraEnabled } from './ghidra';
 import { ldapConfig, ldapProbe } from './ldap';
 import { captureEnabled } from './page-capture';
@@ -705,14 +706,42 @@ export function insecureDefaults(): string[] {
   ].filter((item): item is string => Boolean(item));
 }
 
-function configCheck(): StatusCheck {
+/** Chave de dados (lib/data-key.ts): o que falta para o 2FA nao depender do SESSION_SECRET. */
+export async function dataKeyNotes(): Promise<string[]> {
+  if (!env.DATA_KEY) {
+    const using = await prisma.user.count({ where: { twoFactorSecret: { not: null } } });
+    return using
+      ? [
+          `DATA_KEY vazio: o 2FA de ${using} conta(s) depende do SESSION_SECRET (trocá-lo quebra o 2FA)`,
+        ]
+      : [];
+  }
+  const pending = await pendingRekey();
+  return [
+    pending > 0 &&
+      `${pending} segredo(s) do 2FA fora do DATA_KEY atual (reinicie a API; se continuar, a chave que os cifrou não está no .env)`,
+    env.DATA_KEY_PREVIOUS !== '' &&
+      pending === 0 &&
+      'DATA_KEY_PREVIOUS ainda definido: a troca terminou, pode sair do .env',
+  ].filter((item): item is string => Boolean(item));
+}
+
+async function configCheck(): Promise<StatusCheck> {
   const found = insecureDefaults();
+  const keys = await dataKeyNotes().catch(() => []);
+  const parts = [
+    found.length && `${found.length} valor(es) padrão em uso`,
+    keys.length && 'chave de dados a rever',
+  ].filter(Boolean);
   return {
     id: 'config',
     name: 'Configuração',
-    level: found.length ? 'warn' : 'ok',
-    summary: found.length ? `${found.length} valor(es) padrão em uso` : 'sem senhas padrão',
-    details: found.map((value) => ({ label: 'Trocar', value })),
+    level: parts.length ? 'warn' : 'ok',
+    summary: parts.length ? parts.join('; ') : 'sem senhas padrão',
+    details: [
+      ...found.map((value) => ({ label: 'Trocar', value })),
+      ...keys.map((value) => ({ label: 'Chave de dados', value })),
+    ],
   };
 }
 

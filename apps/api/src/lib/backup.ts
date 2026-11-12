@@ -126,8 +126,9 @@ Restauração (com o DeepLook parado, na mesma versão ou mais nova)
      pg_restore -U postgres -d deeplook --no-owner --clean --if-exists db/deeplook.dump
 3. Arquivos: copie a pasta objects/ para o bucket (S3_BUCKET), mantendo os caminhos
      mc cp --recursive objects/ local/deeplook-samples/
-4. Use o mesmo SESSION_SECRET da instalação de origem: com outro, os 2FA ativados param de
-   funcionar (só os códigos de recuperação valem, até reconfigurar).
+4. Use a mesma chave de dados da instalação de origem: o DATA_KEY do .env ou, se ela não o
+   tinha, o SESSION_SECRET. Com outra, os 2FA ativados param de funcionar (só os códigos de
+   recuperação valem, até reconfigurar).
 5. Suba o DeepLook: as migrações novas, se houver, rodam sozinhas.
 
 Sem objects/samples/ (backup sem as amostras), as fichas voltam, mas os arquivos das

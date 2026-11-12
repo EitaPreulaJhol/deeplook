@@ -485,7 +485,9 @@ export async function authRoutes(app: FastifyInstance) {
         req,
         user.email,
         user.id,
-        factor.broken ? '2FA ilegível (SESSION_SECRET trocado?)' : 'código 2FA incorreto',
+        factor.broken
+          ? '2FA ilegível (DATA_KEY ou SESSION_SECRET trocado?)'
+          : 'código 2FA incorreto',
       );
       return reply.code(401).send({
         error: factor.broken

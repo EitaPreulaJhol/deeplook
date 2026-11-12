@@ -55,6 +55,18 @@ async function main() {
     'token padrão sem captura sobe',
     boot({ SESSION_SECRET: GOOD, CAPTURE_TOKEN: DEFAULT_TOKEN }).status === 0,
   );
+  // Chave de dados (revisao de novembro, 1.1): igual ao SESSION_SECRET nao separa nada.
+  const sameKey = boot({ SESSION_SECRET: GOOD, DATA_KEY: GOOD });
+  ok(
+    'DATA_KEY igual ao SESSION_SECRET recusado',
+    sameKey.status === 1 && sameKey.stderr.includes('DATA_KEY'),
+    sameKey.stderr,
+  );
+  ok('DATA_KEY curto recusado', boot({ SESSION_SECRET: GOOD, DATA_KEY: 'curta' }).status === 1);
+  ok(
+    'DATA_KEY próprio sobe',
+    boot({ SESSION_SECRET: GOOD, DATA_KEY: 'k'.repeat(40) }).status === 0,
+  );
   ok(
     'demonstração sobe',
     boot({ SESSION_SECRET: DEFAULT_SECRET, ALLOW_INSECURE_DEFAULTS: 'true' }).status === 0,

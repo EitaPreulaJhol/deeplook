@@ -207,13 +207,20 @@ Optional, per user, in **My Account > 2FA**:
   and the codes (confirm the identity first).
 - **Security:**
   - TOTP standard (RFC 6238);
-  - secret stored encrypted (AES-GCM, key derived from `SESSION_SECRET`);
+  - secret stored encrypted (AES-GCM) with the data key: `DATA_KEY` from `.env` or, without it, a key
+    derived from `SESSION_SECRET`;
   - recovery codes stored only as hashes;
   - a code cannot be used twice;
   - 5 attempts every 5 minutes at the code step;
   - everything goes to the Audit log.
-- **Changing `SESSION_SECRET`** invalidates the 2FA already enabled, because the secret can no longer be
-  decrypted. Login warns that 2FA must be set up again; recovery codes keep working, and the admin can
+- **Data key (`DATA_KEY`):** set it (`openssl rand -hex 32`, different from `SESSION_SECRET`) and keep it
+  with the backup. On the next startup the API re-encrypts the already enabled 2FA with it, and from then
+  on `SESSION_SECRET` can be changed without affecting 2FA. To change `DATA_KEY` itself, put the new key in
+  `DATA_KEY` and the old one in `DATA_KEY_PREVIOUS`, restart and, once system status (Configuration) says
+  the change is done, delete `DATA_KEY_PREVIOUS`.
+- **Without `DATA_KEY`** (legacy mode), changing `SESSION_SECRET` invalidates the 2FA already enabled,
+  because the secret can no longer be decrypted; system status warns while any account is in that
+  situation. Login warns that 2FA must be set up again; recovery codes keep working, and the admin can
   disable 2FA for the person so they can enable it again.
 - **API tokens** do not go through 2FA (they are for scripts).
 
@@ -837,6 +844,8 @@ COOKIE_SECURE=true
 | `BACKUP_RETENTION_DAYS` | days until the backup ZIP (Administration > Backup) expires and leaves the bucket or the folder | `7` |
 | `BACKUP_PG_DUMP` | the `pg_dump` command used in the backup (version 16 or newer; the API image already includes it) | `pg_dump` |
 | `BACKUP_SCHEDULE_PASSWORD` | password of the scheduled backup ZIP (12+ characters; days and time on the Backup tab). Empty, the schedule does not turn on | — |
+| `DATA_KEY` | Data key: encrypts the 2FA secret in the database (32+ characters, different from `SESSION_SECRET`; keep it with the backup). Empty, the key is derived from `SESSION_SECRET` | — |
+| `DATA_KEY_PREVIOUS` | Only while changing `DATA_KEY`: the old key, so startup re-encrypts with the new one | — |
 | `BACKUP_DIR` | host folder where the backup ZIP is written (external disk, NAS); must be writable by uid 1000 and contain the `.deeplook-backups` file. Empty: the ZIP stays in the bucket, on the same disk as the data | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | how often, in minutes, the server checks the SHA-256 of the stored files; `0` turns it off | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | how much to read per round of the periodic check (a file larger than that is still checked, on its own) | `512` |

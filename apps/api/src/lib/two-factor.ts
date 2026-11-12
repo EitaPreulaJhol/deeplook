@@ -3,11 +3,12 @@ import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 
 import { env } from '../env';
+import { openSecret, sealSecret } from './data-key';
 
 /**
  * 2FA opcional (item 50): TOTP do RFC 6238 (SHA-1, 6 digitos, 30 s), o mesmo
- * dos aplicativos autenticadores. O segredo fica cifrado (AES-256-GCM com chave
- * derivada do SESSION_SECRET); codigos de recuperacao so como hash.
+ * dos aplicativos autenticadores. O segredo fica cifrado (AES-256-GCM com a chave de
+ * dados, lib/data-key.ts); codigos de recuperacao so como hash.
  */
 
 const STEP_SECONDS = 30;
@@ -116,31 +117,13 @@ export function qrSvg(uri: string): Promise<string> {
 
 // ---- Cifra do segredo ----
 
-const key = () => crypto.createHash('sha256').update(`deeplook-2fa:${env.SESSION_SECRET}`).digest();
-
+/** Cifra com a chave de dados (lib/data-key.ts): DATA_KEY, ou o SESSION_SECRET sem ele. */
 export function encryptSecret(secret: string): string {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key(), iv);
-  const data = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
-  return [
-    'v1',
-    iv.toString('base64'),
-    cipher.getAuthTag().toString('base64'),
-    data.toString('base64'),
-  ].join(':');
+  return sealSecret(secret);
 }
 
 export function decryptSecret(stored: string): string {
-  const [version, iv, tag, data] = stored.split(':');
-  if (version !== 'v1') throw new Error('formato de segredo desconhecido');
-  // Sem authTagLength, o Node 22 aceita tag truncada (4 a 15 bytes), mais facil de forjar.
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key(), Buffer.from(iv, 'base64'), {
-    authTagLength: 16,
-  });
-  decipher.setAuthTag(Buffer.from(tag, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString(
-    'utf8',
-  );
+  return openSecret(stored);
 }
 
 // ---- Codigos de recuperacao ----
