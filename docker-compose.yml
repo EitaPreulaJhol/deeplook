@@ -416,6 +416,11 @@ services:
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
       interval: 15s
+    environment:
+      # De onde o nginx aceita o CF-Connecting-IP (alem do loopback): o gateway da rede deeplook,
+      # que e como o cloudflared do host chega pela porta publicada. Trocou DEEPLOOK_SUBNET? Este
+      # e o primeiro endereco dela. Aceita um endereco ou uma faixa CIDR.
+      REAL_IP_FROM: ${REAL_IP_FROM:-172.31.250.1}
       timeout: 5s
       retries: 5
       start_period: 10s

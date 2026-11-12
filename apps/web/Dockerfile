@@ -20,8 +20,17 @@ USER root
 RUN apk upgrade --no-cache
 USER 101
 
-# Sobrescreve o default.conf da imagem (COPY grava como root, qualquer que seja o USER).
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# O nginx.conf e um modelo: na subida, o entrypoint da imagem troca o REAL_IP_FROM (e so ele:
+# o filtro deixa as variaveis do proprio nginx, como $uri, em paz) e grava o resultado em /tmp, o
+# unico lugar gravavel com a raiz somente leitura. O default.conf da imagem passa a so incluir
+# esse arquivo (COPY grava como root, qualquer que seja o USER).
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY nginx-include.conf /etc/nginx/conf.d/default.conf
+# Padrao: o gateway da rede `deeplook` do compose (DEEPLOOK_SUBNET), por onde chega o cloudflared
+# do host. O compose repassa o REAL_IP_FROM do .env.
+ENV NGINX_ENVSUBST_OUTPUT_DIR=/tmp \
+  NGINX_ENVSUBST_FILTER=^REAL_IP_FROM$ \
+  REAL_IP_FROM=172.31.250.1
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

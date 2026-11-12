@@ -74,6 +74,13 @@ jobs:
       - name: Lint (ESLint)
         run: npm run lint
 
+      # A tabela de ordinais existe na API e no Ghidra (cada Dockerfile so ve a propria pasta):
+      # atualizada so numa, os dois passariam a nomear o mesmo import de jeitos diferentes.
+      - name: pe-ordinals.json igual na API e no Ghidra
+        if: matrix.app == 'api'
+        working-directory: .
+        run: node scripts/check-pe-ordinals.mjs
+
       # CSS seletivo do Carbon (item 6.10): o app.scss declara so os componentes usados; este
       # passo reprova se um import novo ficou sem o modulo de Sass (ficaria sem estilo, em
       # silencio) ou se a lista tem modulo sem uso.

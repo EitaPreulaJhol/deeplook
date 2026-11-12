@@ -49,6 +49,15 @@ async function webImage() {
   const net = 'dl-test-web-net';
   quiet('rm', '-f', 'dl-test-echo', 'dl-test-webrun');
   docker('network', 'create', net);
+  // O nginx so aceita o CF-Connecting-IP do gateway da rede (REAL_IP_FROM): e por onde chega
+  // quem entra pela porta publicada no host, como o cloudflared.
+  const gateway = docker(
+    'network',
+    'inspect',
+    net,
+    '-f',
+    '{{range .IPAM.Config}}{{.Gateway}}{{end}}',
+  ).trim();
   try {
     const echo =
       "require('http').createServer((q,s)=>{s.setHeader('content-type','application/json');s.end(JSON.stringify(q.headers))}).listen(3000)";
@@ -79,6 +88,8 @@ async function webImage() {
       net,
       '-p',
       `127.0.0.1:58080:${svc.ports[0].target}`,
+      '-e',
+      `REAL_IP_FROM=${gateway}`,
       ...runArgs(svc),
       'dl-test-web',
     );
@@ -183,6 +194,25 @@ async function webImage() {
     );
     const tunnel = await seen({ 'cf-connecting-ip': '203.0.113.50' });
     ok('Tunnel: vale o CF-Connecting-IP', tunnel['x-forwarded-for'] === '203.0.113.50', tunnel);
+    // De outro container da mesma rede (ou de um proxy que repasse o cabecalho do cliente), o
+    // CF-Connecting-IP nao vale: quem o forja nao escolhe o IP que a API ve.
+    const inside = quiet(
+      'exec',
+      'dl-test-echo',
+      'node',
+      '-e',
+      "fetch('http://dl-test-webrun:8080/api/x',{headers:{'cf-connecting-ip':'203.0.113.66'}}).then(r=>r.json()).then(h=>console.log(h['x-forwarded-for']))",
+    ).stdout.trim();
+    ok(
+      'CF-Connecting-IP forjado de outro container é ignorado',
+      /^[\d.]+$/.test(inside) && inside !== '203.0.113.66' && inside !== gateway,
+      inside,
+    );
+    ok(
+      'compose: REAL_IP_FROM é o gateway da rede deeplook',
+      svc.environment?.REAL_IP_FROM === '172.31.250.1',
+      svc.environment,
+    );
     // Item 163: a query string (URL de vitima com token) nao vai para o log do nginx.
     await fetch('http://localhost:58080/api/search?q=token-da-vitima-163', {
       headers: { referer: 'http://localhost:58080/busca?q=referer-da-vitima-163' },

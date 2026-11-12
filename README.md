@@ -781,8 +781,10 @@ silent storage corruption and tampering with the bucket from outside the API.
 
 In production, with the Tunnel, set `COOKIE_SECURE=true`. On startup, the cookie is renamed to
 `__Host-dl_session` and whoever was logged in signs in again once. The real IP comes from `CF-Connecting-IP`,
-accepted only from private network connections, such as that of the local `cloudflared`. Do not publish the web
-port on any address other than `127.0.0.1` without reviewing this (`set_real_ip_from` in `apps/web/nginx.conf`).
+accepted only from the gateway of the `deeplook` network (that is how the host's `cloudflared` arrives through the
+published port) and from loopback; from another container it is ignored. Changed `DEEPLOOK_SUBNET`, or running
+`cloudflared` in a container? Adjust `REAL_IP_FROM` in `.env`. Do not publish the web port on any address other
+than `127.0.0.1` without reviewing this (`set_real_ip_from` in `apps/web/nginx.conf`).
 
 DeepLook only publishes `127.0.0.1:8080`, so install the official `cloudflared`
 on the host and point the tunnel to that port:

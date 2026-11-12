@@ -295,6 +295,26 @@ try {
   expect('amostra de outra pessoa sem baixar', !other.includes('Baixar amostra'));
   expect('API recusa o download', (await api(userSession, 'GET', `/api/entries/${entryId}/download`)).status === 403);
 
+  // 5a. CSP: connect-src 'self' tem de deixar o WebSocket do console (mesma origem) chegar a API.
+  // Bloqueado pela CSP, o navegador nem conecta: fecha com 1006 e dispara a violacao. Chegando,
+  // a API responde com um codigo dela (4xxx: aqui o sandbox esta desligado).
+  const socket = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const violations = [];
+        document.addEventListener('securitypolicyviolation', (e) => violations.push(e.violatedDirective));
+        const ws = new WebSocket(`${location.origin.replace('http', 'ws')}/api/sandbox/x/console/ws`, ['binary']);
+        ws.onclose = (e) => setTimeout(() => resolve({ code: e.code, violations }), 200);
+        setTimeout(() => resolve({ code: 0, violations }), 10_000);
+      }),
+  );
+  expect(
+    'CSP deixa o WebSocket do console chegar à API',
+    socket.code >= 4000 && !socket.violations.length,
+    JSON.stringify(socket),
+  );
+  drain(admin);
+
   // 5b. Restricao ligada pelo admin: o usuario comum fica so com o que enviou.
   await visit(admin, '/admin?tab=settings');
   await page.locator('label[for="setting-own-samples"]').click();
