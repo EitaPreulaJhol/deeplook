@@ -119,7 +119,12 @@ Se o ZIP foi gerado com senha, ela não fica guardada: sem ela, o backup não ab
 ATENÇÃO: com os arquivos das amostras (objects/samples/), este ZIP contém MALWARE
 real. Guarde-o como as amostras: fora de máquinas de uso comum e sem abrir os arquivos.
 
-Restauração (com o DeepLook parado, na mesma versão ou mais nova)
+Restauração pelo script (recomendado): na pasta do DeepLook,
+     scripts/restore.sh <este.zip> --rehearsal   ensaio: restaura num banco e bucket temporários
+     scripts/restore.sh <este.zip>               restaura na instalação
+O script confere este ZIP com o manifest.json antes de escrever qualquer coisa.
+
+Restauração à mão (com o DeepLook parado, na mesma versão ou mais nova)
 1. Confira os SHA-256 do manifest.json (sha256sum).
 2. Banco: crie um banco vazio e restaure
      createdb -U postgres deeplook

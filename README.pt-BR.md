@@ -748,22 +748,35 @@ docker compose up -d                                  # recria a API com a pasta
 - Arquivo sumido da pasta (disco desmontado, movido) faz **Baixar** responder com o motivo, em
   vez de erro.
 
-Para restaurar, com o DeepLook parado:
+Para restaurar, use o `scripts/restore.sh`. Ele roda na imagem da API (no host só é preciso o
+Docker), pede a senha do ZIP (ou lê `RESTORE_PASSWORD`) e sempre confere o ZIP inteiro com o
+`manifest.json` antes de escrever qualquer coisa:
 
 ```bash
-7z x deeplook-backup-AAAA-MM-DD-xxxxxx.zip -obackup && cd backup   # pede a senha, se houver
-sha256sum db/deeplook.dump            # confira com o manifest.json
-docker compose up -d db minio
-docker compose exec -T db createdb -U deeplook deeplook_restaurado
-docker compose exec -T db pg_restore -U deeplook -d deeplook_restaurado --no-owner < db/deeplook.dump
-# arquivos: copie objects/ para o bucket mantendo os caminhos (ex.: mc cp --recursive)
+scripts/restore.sh deeplook-backup-AAAA-MM-DD-xxxxxx.zip --check       # só confere; não muda nada
+scripts/restore.sh deeplook-backup-AAAA-MM-DD-xxxxxx.zip --rehearsal   # ensaio (abaixo)
+scripts/restore.sh deeplook-backup-AAAA-MM-DD-xxxxxx.zip               # restaura nesta instalação
 ```
 
-Depois aponte `DATABASE_URL` para o banco restaurado (ou renomeie-o) e suba o resto. As
-migrações mais novas rodam sozinhas.
+- **`--check`:** abre o ZIP e confere o tamanho e o SHA-256 de cada arquivo. ZIP adulterado,
+  truncado ou com a senha errada é recusado com o motivo.
+- **`--rehearsal` (ensaio):** restaura num banco e num bucket temporários, compara as contagens
+  de amostras, relatórios, usuários e casos com as do manifesto e apaga os dois. Prova que o
+  backup volta sem tocar na instalação, e pode rodar com o DeepLook no ar. Vale repetir de tempos
+  em tempos: backup que nunca foi restaurado é uma suposição.
+- **Sem opção:** para a API e o web, substitui o banco (numa transação só: se falhar no meio, o
+  banco fica como estava) e devolve os arquivos ao bucket. Pede confirmação; numa instalação que
+  já tem amostras, exige `--force`. Depois, `docker compose up -d`: as migrações mais novas
+  rodam sozinhas.
+- O ZIP precisa ser legível pelo usuário da API (uid 1000), como os que ela grava na pasta de
+  backup.
 
-- **`SESSION_SECRET`:** use o mesmo da instalação de origem, porque ele não vai no ZIP. Com
-  outro, os 2FA ativados param de funcionar (só os códigos de recuperação valem).
+À mão, sem o script, o `LEIA-ME-RESTAURACAO.txt` de dentro do ZIP traz o passo a passo com
+`7z`, `pg_restore` e `mc`.
+
+- **Chave de dados:** use a mesma da instalação de origem, porque ela não vai no ZIP: o
+  `DATA_KEY` ou, se a origem não o tinha, o `SESSION_SECRET`. Com outra, os 2FA ativados param
+  de funcionar (só os códigos de recuperação valem).
 - **Backup sem as amostras:** as fichas voltam, mas os arquivos não. Baixar responde "arquivo
   não está no armazenamento"; a análise já feita continua na ficha.
 
@@ -843,6 +856,8 @@ COOKIE_SECURE=true
 | Variável | Descrição | Padrão |
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do PostgreSQL. Com a senha padrão (`deeplook` ou a do `.env.example`) a API não sobe em produção; num banco que já existe, troque-a com `ALTER USER` antes de mudar o `.env` ([checklist](docs/implantacao.pt-BR.md)) | `deeplook` |
+| `DATA_KEY` | Chave de dados: cifra o segredo do 2FA no banco (32+ caracteres, diferente do `SESSION_SECRET`; guarde com o backup). Vazia, a chave sai do `SESSION_SECRET` | — |
+| `DATA_KEY_PREVIOUS` | Só durante a troca do `DATA_KEY`: a chave antiga, para a subida recifrar com a nova | — |
 | `SESSION_SECRET` | Segredo para os cookies de sessão (longo e aleatório, mínimo de 32 caracteres em produção); com o valor padrão a API não sobe | — |
 | `SESSION_TTL_HOURS` | Validade máxima da sessão (horas), mesmo com uso contínuo | `168` |
 | `SESSION_IDLE_MINUTES` | Expira a sessão após N minutos sem atividade do usuário (aviso 2 min antes) | `30` |
@@ -856,8 +871,6 @@ COOKIE_SECURE=true
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
 | `BACKUP_SCHEDULE_PASSWORD` | senha do ZIP do backup agendado (12+ caracteres; dias e horário na aba Backup). Vazia, o agendamento não liga | — |
 | `BACKUP_DIR` | pasta do host onde o ZIP do backup é gravado (disco externo, NAS); precisa ser gravável pelo uid 1000 e ter o arquivo `.deeplook-backups`. Vazio: o ZIP fica no bucket, no mesmo disco dos dados | — |
-| `DATA_KEY` | Chave de dados: cifra o segredo do 2FA no banco (32+ caracteres, diferente do `SESSION_SECRET`; guarde com o backup). Vazia, a chave sai do `SESSION_SECRET` | — |
-| `DATA_KEY_PREVIOUS` | Só durante a troca do `DATA_KEY`: a chave antiga, para a subida recifrar com a nova | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
 | `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | login pelo AD (vazio desliga); `ldaps://` ou `ldap://` + StartTLS; PEM da CA que assina o certificado do AD | — · `false` · — |

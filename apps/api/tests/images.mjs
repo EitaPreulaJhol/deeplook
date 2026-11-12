@@ -370,7 +370,46 @@ async function apiImage() {
     }, 30);
     ok('backup pronto com o pg_dump da imagem', done?.status === 'READY', done);
     const zip = await call(`/admin/backups/${done?.id}/download`);
-    ok('baixa o ZIP', zip.status === 200 && (await zip.arrayBuffer()).byteLength > 1000);
+    const zipBytes = Buffer.from(await zip.arrayBuffer());
+    ok('baixa o ZIP', zip.status === 200 && zipBytes.byteLength > 1000);
+    // Restauracao (revisao de novembro, 1.2): o ensaio roda na imagem de producao, com o
+    // pg_restore dela e o endurecimento do compose, num banco e bucket temporarios.
+    const zipFile = join(TMP, `restore-${db}.zip`);
+    writeFileSync(zipFile, zipBytes, { mode: 0o644 });
+    const rehearsal = quiet(
+      'run',
+      '--rm',
+      '--network',
+      'dl-test-net',
+      ...runArgs(composeService('api')),
+      '-v',
+      `${zipFile}:/restore/backup.zip:ro`,
+      '-e',
+      'RESTORE_PASSWORD=Senha-Do-Zip-123',
+      '-e',
+      `DATABASE_URL=postgresql://postgres:pg@dl-test-pg:5432/${db}?schema=public`,
+      '-e',
+      'SESSION_SECRET=0123456789abcdef0123456789abcdef',
+      '-e',
+      'S3_ENDPOINT=http://dl-test-minio:9000',
+      '-e',
+      `S3_SECRET_KEY=${MINIO_PASSWORD}`,
+      '-e',
+      'CLAMAV_HOST=',
+      '-e',
+      'CAPTURE_URL=',
+      'dl-test-api',
+      'node',
+      'dist/restore.js',
+      '/restore/backup.zip',
+      '--rehearsal',
+    );
+    ok(
+      'restauração: o ensaio roda na imagem da API e o backup volta',
+      rehearsal.status === 0 && rehearsal.stdout.includes('ensaio concluído'),
+      `${rehearsal.stdout}${rehearsal.stderr}`.slice(-800),
+    );
+    rmSync(zipFile, { force: true });
     const health = quiet(
       'exec',
       'dl-test-run',

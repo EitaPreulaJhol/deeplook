@@ -157,17 +157,13 @@ owner of the page sees that IP, and your ISP may receive an abuse complaint.
   backup cannot be opened, and a backup that only opens with something that was on the lost disk is useless.
 - [ ] After starting it up (step 6): **Administration > Backup > Scheduled backup**, choose the days and
   the time (the calendar shows the upcoming runs) and save.
-- [ ] **Restore once, for real**, before inviting anyone. Generate a manual backup, download it and follow
-  the README > [Backup and restore](../README.md#backup-and-restore) on a separate database:
+- [ ] **Rehearse the restore once**, before inviting anyone. Generate a manual backup and run the
+  rehearsal, which restores into a temporary database and bucket, compares the counts with those in
+  `manifest.json` and deletes both (README > [Backup and restore](../README.md#backup-and-restore)):
   ```bash
-  7z x deeplook-backup-*.zip -o/tmp/restauracao && cd /tmp/restauracao
-  sha256sum -c <(python3 -c "import json;[print(f['sha256']+'  '+f['path']) for f in json.load(open('manifest.json'))['files']]")
-  docker compose exec -T db createdb -U deeplook deeplook_restaurado
-  docker compose exec -T db pg_restore -U deeplook -d deeplook_restaurado --no-owner < db/deeplook.dump
-  docker compose exec -T db psql -U deeplook -d deeplook_restaurado -c 'select count(*) from "Entry"'
-  docker compose exec -T db dropdb -U deeplook deeplook_restaurado
+  scripts/restore.sh /mnt/externo/deeplook/deeplook-backup-*.zip --rehearsal
   ```
-  The counts must match those in `manifest.json`.
+  It must end with `ensaio concluído: o backup volta`.
 
 ## 6. Start up
 

@@ -159,18 +159,14 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
   backup não abre, e um backup que só abre com algo que estava no disco perdido não serve.
 - [ ] Depois de subir (passo 6): **Administração > Backup > Backup agendado**, escolha os dias e
   o horário (o calendário mostra as próximas execuções) e salve.
-- [ ] **Restaure uma vez, de verdade**, antes de convidar alguém. Gere um backup manual,
-  baixe e siga README > [Backup e restauração](../README.pt-BR.md#backup-e-restauração) num banco à
-  parte:
+- [ ] **Ensaie a restauração uma vez**, antes de convidar alguém. Gere um backup manual e rode
+  o ensaio, que restaura num banco e num bucket temporários, compara as contagens com as do
+  `manifest.json` e apaga os dois (README >
+  [Backup e restauração](../README.pt-BR.md#backup-e-restauração)):
   ```bash
-  7z x deeplook-backup-*.zip -o/tmp/restauracao && cd /tmp/restauracao
-  sha256sum -c <(python3 -c "import json;[print(f['sha256']+'  '+f['path']) for f in json.load(open('manifest.json'))['files']]")
-  docker compose exec -T db createdb -U deeplook deeplook_restaurado
-  docker compose exec -T db pg_restore -U deeplook -d deeplook_restaurado --no-owner < db/deeplook.dump
-  docker compose exec -T db psql -U deeplook -d deeplook_restaurado -c 'select count(*) from "Entry"'
-  docker compose exec -T db dropdb -U deeplook deeplook_restaurado
+  scripts/restore.sh /mnt/externo/deeplook/deeplook-backup-*.zip --rehearsal
   ```
-  As contagens devem bater com as do `manifest.json`.
+  Tem de terminar com `ensaio concluído: o backup volta`.
 
 ## 6. Subir
 

@@ -737,22 +737,34 @@ docker compose up -d                                  # recreates the API with t
 - A file missing from the folder (disk unmounted, moved) makes **Download** respond with the reason, instead
   of an error.
 
-To restore, with DeepLook stopped:
+To restore, use `scripts/restore.sh`. It runs in the API image (the host only needs Docker), asks
+for the ZIP password (or reads `RESTORE_PASSWORD`) and always checks the whole ZIP against
+`manifest.json` before writing anything:
 
 ```bash
-7z x deeplook-backup-AAAA-MM-DD-xxxxxx.zip -obackup && cd backup   # asks for the password, if any
-sha256sum db/deeplook.dump            # check against manifest.json
-docker compose up -d db minio
-docker compose exec -T db createdb -U deeplook deeplook_restaurado
-docker compose exec -T db pg_restore -U deeplook -d deeplook_restaurado --no-owner < db/deeplook.dump
-# files: copy objects/ to the bucket keeping the paths (e.g. mc cp --recursive)
+scripts/restore.sh deeplook-backup-AAAA-MM-DD-xxxxxx.zip --check       # only checks; changes nothing
+scripts/restore.sh deeplook-backup-AAAA-MM-DD-xxxxxx.zip --rehearsal   # rehearsal (below)
+scripts/restore.sh deeplook-backup-AAAA-MM-DD-xxxxxx.zip               # restores into this installation
 ```
 
-Then point `DATABASE_URL` to the restored database (or rename it) and bring up the rest. Newer
-migrations run by themselves.
+- **`--check`:** opens the ZIP and checks the size and SHA-256 of each file. A tampered or truncated ZIP,
+  or a wrong password, is refused with the reason.
+- **`--rehearsal`:** restores into a temporary database and bucket, compares the counts of samples,
+  reports, users and cases with those in the manifest, and deletes both. It proves the backup comes back
+  without touching the installation, and can run with DeepLook up. Worth repeating from time to time: a
+  backup that was never restored is an assumption.
+- **No option:** stops the API and the web, replaces the database (in a single transaction: if it fails
+  midway, the database stays as it was) and puts the files back in the bucket. It asks for confirmation;
+  on an installation that already has samples, it requires `--force`. Then `docker compose up -d`: newer
+  migrations run by themselves.
+- The ZIP must be readable by the API user (uid 1000), like the ones it writes to the backup folder.
 
-- **`SESSION_SECRET`:** use the same one as the source installation, because it is not in the ZIP. With
-  a different one, the enabled 2FA stop working (only the recovery codes work).
+By hand, without the script, the `LEIA-ME-RESTAURACAO.txt` inside the ZIP has the walkthrough with `7z`,
+`pg_restore` and `mc`.
+
+- **Data key:** use the same one as the source installation, because it is not in the ZIP: `DATA_KEY` or,
+  if the source did not have it, `SESSION_SECRET`. With a different one, the enabled 2FA stop working
+  (only the recovery codes work).
 - **Backup without the samples:** the cards come back, but the files do not. Download responds "file
   is not in storage"; the analysis already done stays on the card.
 
@@ -832,6 +844,8 @@ COOKIE_SECURE=true
 | Variable | Description | Default |
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | PostgreSQL credentials. With the default password (`deeplook` or the one in `.env.example`) the API does not start in production; in an existing database, change it with `ALTER USER` before changing `.env` ([checklist](docs/implantacao.md)) | `deeplook` |
+| `DATA_KEY` | Data key: encrypts the 2FA secret in the database (32+ characters, different from `SESSION_SECRET`; keep it with the backup). Empty, the key is derived from `SESSION_SECRET` | — |
+| `DATA_KEY_PREVIOUS` | Only while changing `DATA_KEY`: the old key, so startup re-encrypts with the new one | — |
 | `SESSION_SECRET` | Secret for the session cookies (long and random, minimum of 32 characters in production); with the default value the API does not start | — |
 | `SESSION_TTL_HOURS` | Maximum session lifetime (hours), even with continuous use | `168` |
 | `SESSION_IDLE_MINUTES` | Expires the session after N minutes without user activity (warning 2 min before) | `30` |
@@ -844,8 +858,6 @@ COOKIE_SECURE=true
 | `BACKUP_RETENTION_DAYS` | days until the backup ZIP (Administration > Backup) expires and leaves the bucket or the folder | `7` |
 | `BACKUP_PG_DUMP` | the `pg_dump` command used in the backup (version 16 or newer; the API image already includes it) | `pg_dump` |
 | `BACKUP_SCHEDULE_PASSWORD` | password of the scheduled backup ZIP (12+ characters; days and time on the Backup tab). Empty, the schedule does not turn on | — |
-| `DATA_KEY` | Data key: encrypts the 2FA secret in the database (32+ characters, different from `SESSION_SECRET`; keep it with the backup). Empty, the key is derived from `SESSION_SECRET` | — |
-| `DATA_KEY_PREVIOUS` | Only while changing `DATA_KEY`: the old key, so startup re-encrypts with the new one | — |
 | `BACKUP_DIR` | host folder where the backup ZIP is written (external disk, NAS); must be writable by uid 1000 and contain the `.deeplook-backups` file. Empty: the ZIP stays in the bucket, on the same disk as the data | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | how often, in minutes, the server checks the SHA-256 of the stored files; `0` turns it off | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | how much to read per round of the periodic check (a file larger than that is still checked, on its own) | `512` |

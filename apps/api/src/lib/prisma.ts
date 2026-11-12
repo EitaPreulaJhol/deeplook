@@ -16,9 +16,9 @@ export async function advisoryLock(tx: Tx, key: number): Promise<void> {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${key}::bigint)::text`;
 }
 
-export function createPrismaClient(): PrismaClient {
+export function createPrismaClient(url = process.env.DATABASE_URL): PrismaClient {
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: url,
     connectionTimeoutMillis: 5_000,
   });
   return new PrismaClient({ adapter });
