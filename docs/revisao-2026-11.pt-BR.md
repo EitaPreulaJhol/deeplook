@@ -217,7 +217,24 @@ para o planejado:
   agora a leitura não repete setor nem passa do tamanho do arquivo, e o caso leva 1 ms. Depois
   da correção, 280 mil casos em duas sementes sem achado. Limite: o fuzzer não é guiado por
   cobertura; o alvo do ZIP, por exemplo, rejeita cedo quase todas as mutações.
-- **2.3, 2.4 e 2.5:** pendentes.
+- **2.3 ✅**: o envio vai para o disco (`/tmp` da API) enquanto chega, com SHA-256 e tamanho
+  calculados em trânsito, e só entra na memória depois de inteiro, com a reserva feita pelo
+  tamanho real. **O que muda na prática:** antes a memória era reservada ao começar, pelo tamanho
+  declarado, e ficava presa enquanto o corpo chegava: três envios lentos de 200 MB deixavam todo
+  mundo recebendo 503. Agora o que está chegando ocupa disco (`MAX_UPLOAD_SPOOL_MB`), cada pessoa
+  ocupa no máximo metade dele, e quem já enviou tudo espera a vez da memória por até 30 s em vez
+  de ser mandado enviar de novo. **Diferença para o planejado:** a análise continua lendo o
+  arquivo inteiro para a memória (os parsers trabalham sobre um Buffer), e o MinIO recebe a partir
+  dela; "streaming direto para o S3" não foi feito. **Regressão pega pela bateria e corrigida
+  antes do commit:** a primeira versão limitava a 4 envios simultâneos por pessoa, o que quebrava
+  o lote de 30 arquivos; o limite passou a ser por espaço em disco.
+- **2.4 ✅**: testes para os módulos de lógica do web que não tinham (política de senha, página
+  inicial, sequência Anterior/Próxima, estados e contadores do sandbox, favoritos, exportação de
+  amostra e de caso, base de conhecimento, visões da equipe, "pegar a próxima"): de 120 para 175
+  testes. **Diferença para o planejado:** o piso de cobertura passou a contar toda a lógica fora
+  de componente (os `.ts` de `api`, `auth` e `components`), e não todos os módulos: as telas
+  (`.tsx`) continuam com os cenários do Playwright. Medido: 87,3% das instruções; piso em 84%.
+- **2.5:** pendente (fica para depois da fase 3).
 
 Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem o que a fase 3 mexe.
 

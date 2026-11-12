@@ -37,7 +37,8 @@ import { slaConfig, slaWhere } from '../lib/sla';
 import type { StaticInfo } from '../lib/static-analysis';
 import { analyzeInThread, diskImageInThread } from '../lib/static-analysis-thread';
 import { applyTriageRules } from '../lib/triage-rules';
-import { uploadGate } from '../lib/upload-gate';
+import { enterUpload, spoolGate, uploadGate, uploadLimits } from '../lib/upload-gate';
+import { spoolToDisk } from '../lib/upload-spool';
 import { sendValidationError } from '../lib/validation';
 import type { ZipEntry } from '../lib/zip';
 import { extractZipEntryAsync, listZip, ZipError } from '../lib/zip';
@@ -476,8 +477,24 @@ interface Upload {
   fields: Record<string, string>;
 }
 
-/** Le o multipart (um arquivo e os campos). Em erro ja responde e devolve null. */
-async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upload | null> {
+const busy = (reply: FastifyReply) =>
+  reply
+    .code(503)
+    .header('Retry-After', '30')
+    .send({ error: 'Muitos envios ao mesmo tempo. Tente de novo em instantes.' });
+
+/**
+ * Le o multipart (um arquivo e os campos). Em erro ja responde e devolve null.
+ *
+ * O corpo vai para o disco enquanto chega (revisao de novembro, 2.3); so depois de inteiro ele
+ * entra na memoria, com a reserva feita pelo tamanho real. Enquanto chega, o que limita e o
+ * orcamento de disco (pelo tamanho declarado) e a parte dele que cabe a cada pessoa.
+ */
+async function readUpload(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  userId: string,
+): Promise<Upload | null> {
   // Item 117: antes de ler. Sem Content-Length, conta como o maior envio possivel.
   const limit = env.MAX_UPLOAD_MB * 1024 * 1024;
   const declared = Number(req.headers['content-length']) || limit;
@@ -486,17 +503,29 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
     reply.code(413).send({ error: `Arquivo maior que o limite de ${env.MAX_UPLOAD_MB} MB.` });
     return null;
   }
-  const release = uploadGate.tryAcquire(declared);
-  if (!release) {
-    reply
-      .code(503)
-      .header('Retry-After', '30')
-      .send({ error: 'Muitos envios ao mesmo tempo. Tente de novo em instantes.' });
+  const leave = enterUpload(userId, declared);
+  if (!leave) {
+    reply.code(429).header('Retry-After', '30').send({
+      error: 'Você tem envios grandes demais em andamento. Aguarde um deles terminar.',
+    });
     return null;
   }
-  reply.raw.once('finish', release);
-  reply.raw.once('close', release);
-  let buffer: Buffer | null = null;
+  // Tudo o que foi reservado e devolvido quando a resposta termina ou a conexao cai.
+  const cleanup: (() => void | Promise<void>)[] = [leave];
+  const done = () => {
+    for (const fn of cleanup.splice(0)) void Promise.resolve(fn()).catch(() => undefined);
+  };
+  reply.raw.once('finish', done);
+  reply.raw.once('close', done);
+
+  const disk = spoolGate.tryAcquire(declared);
+  if (!disk) {
+    busy(reply);
+    return null;
+  }
+  cleanup.push(disk);
+
+  let spooled: Awaited<ReturnType<typeof spoolToDisk>> | null = null;
   let filename = 'arquivo';
   let mimetype = 'application/octet-stream';
   const fields: Record<string, string> = {};
@@ -506,7 +535,14 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
       if (part.type === 'file') {
         filename = part.filename || filename;
         mimetype = part.mimetype || mimetype;
-        buffer = await part.toBuffer();
+        spooled = await spoolToDisk(part.file);
+        cleanup.push(spooled.remove);
+        // Passou do limite: o multipart corta o fluxo e marca (o toBuffer de antes lancava).
+        if (part.file.truncated) {
+          await spooled.remove();
+          reply.code(413).send({ error: `Arquivo maior que o limite de ${env.MAX_UPLOAD_MB} MB.` });
+          return null;
+        }
       } else {
         fields[part.fieldname] = String(part.value);
       }
@@ -521,10 +557,30 @@ async function readUpload(req: FastifyRequest, reply: FastifyReply): Promise<Upl
     return null;
   }
 
-  if (!buffer) {
+  if (!spooled) {
     reply.code(400).send({ error: 'Nenhum arquivo enviado.' });
     return null;
   }
+  // O corpo ja chegou inteiro: espera a vez da memoria em vez de mandar a pessoa enviar de novo.
+  const memory = await uploadGate.acquire(spooled.size, uploadLimits.waitMs);
+  if (!memory) {
+    // Apagado antes de responder: o envio recusado nao ocupa disco nem por um instante a mais.
+    await spooled.remove();
+    busy(reply);
+    return null;
+  }
+  cleanup.push(memory);
+  let buffer: Buffer;
+  try {
+    buffer = await spooled.read();
+  } catch (err) {
+    req.log.error(err);
+    reply.code(500).send({ error: 'Falha ao ler o arquivo enviado.' });
+    return null;
+  }
+  // Em memoria, o disco ja pode ser devolvido para os envios que estao chegando.
+  await spooled.remove();
+  disk();
   return { buffer, filename, mimetype, fields };
 }
 
@@ -953,7 +1009,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
     const quota = await checkQuota(user, reply);
     if (!quota) return;
-    const upload = await readUpload(req, reply);
+    const upload = await readUpload(req, reply, user.id);
     if (!upload) return;
 
     try {
@@ -988,7 +1044,7 @@ export async function entryRoutes(app: FastifyInstance) {
     if (!user) return;
     const quota = await checkQuota(user, reply);
     if (!quota) return;
-    const upload = await readUpload(req, reply);
+    const upload = await readUpload(req, reply, user.id);
     if (!upload) return;
 
     const password = upload.fields.password ?? '';

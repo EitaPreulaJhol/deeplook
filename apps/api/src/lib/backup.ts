@@ -517,7 +517,8 @@ export async function expireBackups(): Promise<number> {
  */
 export async function cleanStaleWorkDirs(dir = tmpdir()): Promise<number> {
   const names = await readdir(dir).catch(() => [] as string[]);
-  const stale = names.filter((n) => /^deeplook-(backup|iso)-/.test(n));
+  // Tambem os envios que estavam chegando (lib/upload-spool.ts).
+  const stale = names.filter((n) => /^deeplook-(backup|iso|upload)-/.test(n));
   await Promise.all(stale.map((n) => rm(join(dir, n), { recursive: true, force: true })));
   return stale.length;
 }

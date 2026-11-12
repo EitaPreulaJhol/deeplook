@@ -1,3 +1,9 @@
+import { readdirSync, writeFileSync } from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
@@ -5,11 +11,19 @@ import Fastify from 'fastify';
 
 import { env } from '../../src/env';
 import { deleteExpiredSessions } from '../../src/lib/auth';
+import { cleanStaleWorkDirs } from '../../src/lib/backup';
 import { hashPassword } from '../../src/lib/crypto';
 import { matchLookalike } from '../../src/lib/lookalike';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
-import { UploadGate, uploadGate } from '../../src/lib/upload-gate';
+import {
+  enterUpload,
+  spoolGate,
+  UploadGate,
+  uploadGate,
+  uploadLimits,
+} from '../../src/lib/upload-gate';
+import { SPOOL_PREFIX } from '../../src/lib/upload-spool';
 import { authRoutes } from '../../src/routes/auth';
 import { entryRoutes } from '../../src/routes/entries';
 import { meRoutes } from '../../src/routes/me';
@@ -19,6 +33,9 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
   if (!cond) fails++;
   console.log(`${cond ? 'ok  ' : 'FALHA'} ${label}${cond ? '' : ' ' + JSON.stringify(detail)}`);
 };
+
+/** Envios que estao (ou sobraram) no disco. */
+const spooled = () => readdirSync(tmpdir()).filter((name) => name.startsWith(SPOOL_PREFIX));
 
 async function main() {
   await ensureBucket(3, 500);
@@ -138,18 +155,122 @@ async function main() {
   ok('acima do limite: 413 antes de ler', huge.statusCode === 413, huge.statusCode);
   ok('413 não reserva', uploadGate.inUse === 0);
 
+  // Memoria cheia: o corpo ja chegou (esta no disco), entao o envio espera a vez; so depois do
+  // tempo de espera responde 503 (revisao de novembro, 2.3).
+  uploadLimits.waitMs = 300;
   const hold = uploadGate.tryAcquire(uploadGate.budget);
   const busy = await send();
   ok(
-    'orçamento cheio: 503 com o aviso',
+    'memória cheia até o fim da espera: 503 com o aviso',
     busy.statusCode === 503 &&
       busy.headers['retry-after'] === '30' &&
       busy.json().error.includes('Tente de novo'),
     busy.body,
   );
-  hold?.();
-  ok('depois de liberar, entra', (await send({}, 'de novo')).statusCode === 201);
+  ok('503: nada ficou no disco nem reservado', spooled().length === 0 && spoolGate.inUse === 0, {
+    files: spooled(),
+    disk: spoolGate.inUse,
+  });
+  uploadLimits.waitMs = 5000;
+  const waited = send({}, 'esperou a vez');
+  setTimeout(() => hold?.(), 150);
+  ok('memória liberada durante a espera: o envio entra', (await waited).statusCode === 201);
   ok('amostra só das aceitas', (await prisma.entry.count()) === 2);
+
+  // Disco cheio (o que esta chegando): 503 na hora, antes de ler o corpo.
+  const holdDisk = spoolGate.tryAcquire(spoolGate.budget);
+  ok('orçamento de disco cheio: 503', (await send()).statusCode === 503);
+  holdDisk?.();
+
+  // Cada pessoa ocupa no maximo uma parte do disco com o que esta chegando: muitos envios
+  // pequenos ao mesmo tempo entram, envios grandes e lentos de uma pessoa so, nao.
+  const share = spoolGate.budget * uploadLimits.perUserShare;
+  const big = enterUpload(user.id, share);
+  const capped = await send();
+  ok(
+    'pessoa com a parte dela do disco ocupada: 429',
+    Boolean(big) && capped.statusCode === 429 && capped.json().error.includes('em andamento'),
+    capped.body,
+  );
+  ok('a parte é por pessoa', Boolean(enterUpload('outra-pessoa', share)));
+  big?.();
+  ok('parte devolvida: entra', (await send({}, 'depois do teto')).statusCode === 201);
+  const many = await Promise.all(Array.from({ length: 12 }, (_, i) => send({}, `em lote ${i}`)));
+  ok(
+    'doze envios pequenos ao mesmo tempo entram',
+    many.every((r) => r.statusCode === 201),
+    many.map((r) => r.statusCode),
+  );
+  ok(
+    'um envio sozinho sempre entra, mesmo maior que a parte',
+    Boolean(enterUpload('pessoa-nova', share * 3)),
+  );
+  ok('nada sobra no disco depois dos envios', spooled().length === 0, spooled());
+  ok('orçamentos zerados', uploadGate.inUse === 0 && spoolGate.inUse === 0);
+
+  // Envio lento, por HTTP de verdade: enquanto o corpo chega, ocupa disco e nao memoria. Era o
+  // defeito: tres envios lentos de 200 MB seguravam o orcamento de memoria de todo mundo.
+  await app.listen({ host: '127.0.0.1', port: 0 });
+  const { port } = app.server.address() as AddressInfo;
+  const slowBody = body('conteudo que chega devagar');
+  const payload = Buffer.from(slowBody.payload);
+  const during = await new Promise<{ memory: number; disk: number; files: number; status: number }>(
+    (resolve, reject) => {
+      const request = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/api/entries/file',
+          method: 'POST',
+          headers: { ...slowBody.headers, 'content-length': payload.length },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => resolve({ ...seen, status: res.statusCode ?? 0 }));
+        },
+      );
+      request.on('error', reject);
+      let seen = { memory: -1, disk: -1, files: -1 };
+      // Metade do corpo, uma pausa em que se mede, e o resto.
+      request.write(payload.subarray(0, payload.length - 20));
+      setTimeout(() => {
+        seen = { memory: uploadGate.inUse, disk: spoolGate.inUse, files: spooled().length };
+        request.end(payload.subarray(payload.length - 20));
+      }, 400);
+    },
+  );
+  ok(
+    'envio lento: enquanto chega, reserva disco e nenhuma memória',
+    during.status === 201 &&
+      during.memory === 0 &&
+      during.disk === payload.length &&
+      during.files === 1,
+    during,
+  );
+  ok('envio lento: no fim, nada sobra', spooled().length === 0 && spoolGate.inUse === 0);
+
+  // Arquivo que passa do limite sem declarar o tamanho certo: o multipart corta o fluxo, e o que
+  // ja foi para o disco e apagado. Outra instancia, com o limite em 1 KB, para nao enviar 200 MB.
+  const small = Fastify();
+  await small.register(cookie, { secret: env.SESSION_SECRET });
+  await small.register(rateLimit, { global: false });
+  await small.register(multipart, { limits: { fileSize: 1024, files: 1 } });
+  await small.register(entryRoutes);
+  await small.ready();
+  const over = body('x'.repeat(5000));
+  const cut = await small.inject({ method: 'POST', url: '/api/entries/file', ...over });
+  ok('acima do limite no meio do corpo: 413', cut.statusCode === 413, cut.body);
+  ok(
+    '413 no meio: nada sobra no disco nem reservado',
+    spooled().length === 0 && uploadGate.inUse === 0 && spoolGate.inUse === 0,
+    spooled(),
+  );
+  await small.close();
+
+  // Sobra de uma queda no meio do envio: apagada na subida, com as pastas do backup e do ISO.
+  writeFileSync(join(tmpdir(), `${SPOOL_PREFIX}sobra-de-teste`), 'x');
+  await cleanStaleWorkDirs();
+  ok('subida apaga o envio que sobrou de uma queda', spooled().length === 0, spooled());
 
   // 2. Sessoes vencidas (item 118).
   const old = await prisma.session.create({

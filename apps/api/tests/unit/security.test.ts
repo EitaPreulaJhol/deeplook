@@ -252,3 +252,41 @@ test('política de senha: redefinida, vencida, admin e conta do AD', () => {
   );
   assert.equal(ldap.mustChangePassword, false, 'a senha e a política ficam no AD');
 });
+
+test('orçamento de envios: espera em fila, em ordem, e desiste no tempo', async () => {
+  const { UploadGate } = await import('../../src/lib/upload-gate');
+  const gate = new UploadGate(100);
+  const first = gate.tryAcquire(80)!;
+  const order: string[] = [];
+  const big = gate.acquire(60, 1000).then((release) => (order.push('grande'), release));
+  const small = gate.acquire(10, 1000).then((release) => (order.push('pequeno'), release));
+  assert.equal(gate.tryAcquire(10), null, 'com fila, quem chega não fura');
+  first();
+  const [releaseBig, releaseSmall] = await Promise.all([big, small]);
+  assert.deepEqual(order, ['grande', 'pequeno'], 'o pequeno não ultrapassa o grande');
+  assert.equal(gate.inUse, 70);
+  releaseBig?.();
+  releaseSmall?.();
+  assert.equal(gate.inUse, 0);
+
+  const hold = gate.tryAcquire(100)!;
+  assert.equal(await gate.acquire(10, 30), null, 'tempo esgotado');
+  assert.equal(await gate.acquire(10, 0), null, 'sem espera');
+  assert.equal(await gate.acquire(101, 1000), null, 'maior que o orçamento nunca cabe');
+  hold();
+  assert.ok(gate.tryAcquire(100), 'quem desistiu não deixa a fila presa');
+});
+
+test('orçamento de envios: quem desiste da frente libera os de trás', async () => {
+  const { UploadGate } = await import('../../src/lib/upload-gate');
+  const gate = new UploadGate(100);
+  const hold = gate.tryAcquire(60)!;
+  const front = gate.acquire(90, 40);
+  const back = gate.acquire(30, 1000);
+  assert.equal(await front, null);
+  const release = await back;
+  assert.ok(release, 'cabia desde o começo; só esperava o da frente');
+  release?.();
+  hold();
+  assert.equal(gate.inUse, 0);
+});

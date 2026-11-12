@@ -938,7 +938,8 @@ COOKIE_SECURE=true
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
 | `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
-| `MAX_UPLOAD_MEMORY_MB` | soma dos envios simultâneos em memória; acima, responde 503 "tente de novo em instantes" | `600` |
+| `MAX_UPLOAD_MEMORY_MB` | soma dos envios em análise na memória. O envio vai para o disco enquanto chega e só entra na memória depois de inteiro; sem espaço, espera a vez por até 30 s e então responde 503 "tente de novo em instantes" | `600` |
+| `MAX_UPLOAD_SPOOL_MB` | soma dos envios que estão chegando, em disco (`/tmp` da API); acima, 503. Cada pessoa ocupa no máximo metade (além disso, 429) | `2048` |
 | `API_MEM_LIMIT` | limite de memória do container da API | `4g` |
 | `API_PIDS_LIMIT` | limite de processos e threads da API (pico medido: 32, com amostra e backup) | `256` |
 | `WEB_MEM_LIMIT` | limite de memória do container do web (nginx) | `256m` |

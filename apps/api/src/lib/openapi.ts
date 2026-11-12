@@ -151,7 +151,10 @@ export function openApiDocument(): Schema {
               },
               'Amostra criada.',
             ),
-            '429': json(ref('Error'), 'Limite de envios do dia.'),
+            '429': json(
+              ref('Error'),
+              'Limite de envios do dia, ou envios grandes demais em andamento ao mesmo tempo.',
+            ),
             ...pick('400', '401'),
           },
         },
@@ -188,7 +191,10 @@ export function openApiDocument(): Schema {
               },
               'Amostras criadas e arquivos ignorados.',
             ),
-            '429': json(ref('Error'), 'Limite de envios do dia.'),
+            '429': json(
+              ref('Error'),
+              'Limite de envios do dia, ou envios grandes demais em andamento ao mesmo tempo.',
+            ),
             ...pick('400', '401'),
           },
         },
@@ -202,7 +208,10 @@ export function openApiDocument(): Schema {
           },
           responses: {
             '201': json({ type: 'object', properties: { entry: ref('Entry') } }, 'Amostra criada.'),
-            '429': json(ref('Error'), 'Limite de envios do dia.'),
+            '429': json(
+              ref('Error'),
+              'Limite de envios do dia, ou envios grandes demais em andamento ao mesmo tempo.',
+            ),
             ...pick('400', '401'),
           },
         },

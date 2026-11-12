@@ -219,7 +219,24 @@ Differences from the plan:
   reading no longer repeats a sector nor exceeds the file size, and the case takes 1 ms. After the
   fix, 280 thousand cases over two seeds with no finding. Limit: the fuzzer is not
   coverage-guided; the ZIP target, for example, rejects almost every mutation early.
-- **2.3, 2.4 and 2.5:** pending.
+- **2.3 ✅**: an upload goes to disk (the API's `/tmp`) while it arrives, with SHA-256 and size
+  computed in transit, and only enters memory once complete, reserved by its real size. **What
+  changes in practice:** memory used to be reserved at the start, by the declared size, and held
+  while the body arrived: three slow 200 MB uploads left everyone getting 503. Now what is
+  arriving takes disk (`MAX_UPLOAD_SPOOL_MB`), each person takes at most half of it, and whoever
+  has already sent everything waits for memory for up to 30 s instead of being told to send
+  again. **Difference from the plan:** analysis still reads the whole file into memory (the
+  parsers work on a Buffer), and MinIO receives it from there; "streaming straight to S3" was not
+  done. **Regression caught by the battery and fixed before the commit:** the first version
+  capped a person at 4 simultaneous uploads, which broke the 30-file batch; the limit became disk
+  space instead.
+- **2.4 ✅**: tests for the web logic modules that had none (password policy, start page,
+  Previous/Next sequence, sandbox states and countdowns, favorites, sample and case export,
+  knowledge base, team views, "take next"): from 120 to 175 tests. **Difference from the plan:**
+  the coverage floor now counts all logic outside components (the `.ts` files in `api`, `auth`
+  and `components`), not every module: screens (`.tsx`) stay with the Playwright scenarios.
+  Measured: 87.3% of statements; floor at 84%.
+- **2.5:** pending (left for after phase 3).
 
 It comes before the analysis features because tests and fuzzing protect what phase 3 touches.
 

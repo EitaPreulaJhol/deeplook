@@ -926,7 +926,8 @@ COOKIE_SECURE=true
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin seeded on the first boot; change the password on first access. With the default password, its login is refused in production | — |
 | `ALLOW_INSECURE_DEFAULTS` | `true`: starts even with the default `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN`, with the default database or MinIO password, and accepts the admin login with the default password (local demonstration only) | `false` |
 | `MAX_UPLOAD_MB` | Maximum upload size | `200` |
-| `MAX_UPLOAD_MEMORY_MB` | sum of simultaneous uploads in memory; above it, responds 503 "try again shortly" | `600` |
+| `MAX_UPLOAD_MEMORY_MB` | sum of the uploads under analysis in memory. An upload goes to disk while it arrives and only enters memory once complete; with no room, it waits its turn for up to 30 s and then responds 503 "try again shortly" | `600` |
+| `MAX_UPLOAD_SPOOL_MB` | sum of the uploads still arriving, on disk (the API's `/tmp`); above it, 503. Each person takes at most half of it (beyond that, 429) | `2048` |
 | `API_MEM_LIMIT` | memory limit of the API container | `4g` |
 | `API_PIDS_LIMIT` | limit of processes and threads for the API (measured peak: 32, with sample and backup) | `256` |
 | `WEB_MEM_LIMIT` | memory limit of the web container (nginx) | `256m` |

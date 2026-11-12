@@ -73,6 +73,11 @@ const EnvSchema = z
     MAX_UPLOAD_MB: z.coerce.number().default(200),
     /** Envios ao mesmo tempo somam ate isto em memoria; acima, 503 (item 117). */
     MAX_UPLOAD_MEMORY_MB: z.coerce.number().int().min(1).default(600),
+    /**
+     * Envios chegando ao mesmo tempo somam ate isto em disco, no /tmp da API (revisao de
+     * novembro, 2.3); acima, 503. O corpo so vai para a memoria depois de chegar inteiro.
+     */
+    MAX_UPLOAD_SPOOL_MB: z.coerce.number().int().min(1).default(2048),
     /** Envios por usuario comum nas ultimas 24 h (item 64); 0 desliga. */
     UPLOAD_DAILY_LIMIT: z.coerce.number().int().min(0).default(20),
     S3_ENDPOINT: z.string().default('http://minio:9000'),

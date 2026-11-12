@@ -27,3 +27,6 @@ apps/api/tests/.tmp/
 # runs do strix
 strix_runs/
 .source-aware/
+
+# entradas que quebraram o fuzzing (apps/api: npm run test:fuzz)
+apps/api/tests/fuzz/crashes/

@@ -172,6 +172,8 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Administrator}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
       MAX_UPLOAD_MEMORY_MB: ${MAX_UPLOAD_MEMORY_MB:-600}
+      # O que esta chegando fica no /tmp (o volume api-tmp, em disco) ate este total.
+      MAX_UPLOAD_SPOOL_MB: ${MAX_UPLOAD_SPOOL_MB:-2048}
       UPLOAD_DAILY_LIMIT: ${UPLOAD_DAILY_LIMIT:-20}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_REGION: ${S3_REGION:-us-east-1}
