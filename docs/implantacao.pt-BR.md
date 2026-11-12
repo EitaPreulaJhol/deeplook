@@ -121,6 +121,24 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 
 - [ ] **`SANDBOX_ENABLED=false`**, a menos que as VMs de análise estejam numa **VLAN sem rota
   para a sua LAN** e com saída controlada. Detalhe em [docs/proxmox.pt-BR.md](proxmox.pt-BR.md).
+- [ ] **Se for ligar o sandbox**, prepare o usuário dedicado no PVE **antes** de subir a API. Troque
+  `<template>`, `<bridge>`, `<iso-storage>` e `<disco-storage>` pelos valores do
+  `qm config <template>` (`net0`; `sata0`/`scsi0`/`efidisk0`/`tpmstate0`):
+  ```bash
+  # o clone usa um VMID novo: VM.Allocate vai em /vms (propagate), não em /vms/<template>
+  pveum acl modify /vms --users deeplook@pve --roles PVEVMAdmin --propagate 1
+  pveum acl modify /sdn/zones/localnetwork/<bridge> --users deeplook@pve --roles PVESDNUser
+  pveum acl modify /storage/<iso-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+  pveum acl modify /storage/<disco-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+  ```
+- [ ] **Confira** o que a conta do PVE enxerga (a lista precisa ter `VM.Allocate` em `/vms`) e a
+  integração pelo `GET /api/sandbox/health` (admin), antes de abrir o primeiro ambiente:
+  ```bash
+  pvesh get /access/permissions --output-format json | grep -A20 '"/vms"'
+  ```
+  Sem `VM.Allocate` em `/vms`, o clone falha com `403 Permission check failed` **sem caminho** no
+  corpo (a checagem `ou` do PVE não detalha o privilégio); o restante está em
+  [docs/proxmox.pt-BR.md](proxmox.pt-BR.md).
 
 ## 5. Backup fora do disco, agendado e restaurado uma vez
 

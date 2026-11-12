@@ -90,13 +90,44 @@ Create a dedicated user (e.g. `deeplook@pve`) with a **password** — the consol
 user/password, **an API token does not work**.
 
 Grant the permissions below (**Datastore** is the most often forgotten — without it the ISO upload
-fails with `403`):
+**or** the clone fails with `403`):
 
 | Path | Suggested role | Covers |
 |---|---|---|
 | `/` | `PVEAuditor` | `GET /version` (health) and general auditing |
 | `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot) |
-| `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.Allocate`, `Datastore.AllocateSpace` (ISO upload/delete) |
+| `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.AllocateTemplate` (ISO upload), `Datastore.Allocate` (ISO delete) |
+| `/storage/<storage of the template disks>` | `PVEDatastoreAdmin` | `Datastore.AllocateSpace` so the clone can create its disks |
+| `/sdn/zones/<zone>/<template bridge>` | `PVESDNUser` | `SDN.Use` so the clone can reuse the template network |
+
+> **`/vms`, never `/vms/<vmid>`.** The clone gets a **new VMID** and PVE checks
+> `VM.Allocate` on `/vms/<new vmid>`; a permission granted only on the template
+> (`/vms/1000`) does not apply to the clone. In that case PVE answers just
+> `Permission check failed` (no path), because the `clone` check is an `or`.
+
+> **Network:** the `SDN.Use` check uses the `localnetwork` zone for classic bridges
+> (`vmbr1` → `/sdn/zones/localnetwork/vmbr1`). The template's bridge is in
+> `qm config <template>` (line `net0`).
+
+With your template values (replace `<template>`, the storages and the bridge with
+the ones from `qm config <template>`):
+
+```bash
+# 1. VMs: the clone uses a new VMID, so the permission goes on /vms (propagate).
+pveum acl modify /vms --users deeplook@pve --roles PVEVMAdmin --propagate 1
+# 2. Template network (net0 line): a classic bridge lives in the localnetwork zone.
+pveum acl modify /sdn/zones/localnetwork/<bridge> --users deeplook@pve --roles PVESDNUser
+# 3. ISO storage and every storage that holds a template disk.
+pveum acl modify /storage/<iso-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+pveum acl modify /storage/<disk-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+```
+
+To check what the account really sees (PVE lists the effective privileges per
+path):
+
+```bash
+pvesh get /access/permissions --output-format json | grep -A20 '"/vms"'
+```
 
 Calls the API makes to PVE (reference for the permissions above):
 
@@ -220,7 +251,10 @@ Validation:
 |---|---|
 | API does not start / env error at boot | Missing `PROXMOX_API_URL`/`USER`/`PASSWORD`/`TEMPLATE_VMID` with `SANDBOX_ENABLED=true` and `MOCK=false` |
 | `sandbox/health` → `pve-acessivel: FALHOU` (failed) | Wrong IP/port, PVE unreachable from the container, or firewall on 8006 |
-| ISO upload fails with `403` | Missing `PVEDatastoreAdmin` (Datastore.Allocate/AllocateSpace) on the ISO storage |
+| ISO upload fails with `403` | Missing `PVEDatastoreAdmin` on the ISO storage: `Datastore.AllocateTemplate` for upload and `Datastore.Allocate` for delete |
+| Clone fails with `403` and the message is only `Permission check failed` (no path) | Missing `VM.Allocate` on `/vms`: the permission was granted on `/vms/<template>`. The clone uses a new VMID and PVE's `or` check does not detail the path |
+| Clone fails with `403 (/sdn/zones/..., SDN.Use)` | Missing `PVESDNUser` (or `SDN.Use`) on the template bridge — classic bridges live in the `localnetwork` zone |
+| Clone fails with `403 (/storage/<id>, Datastore.AllocateSpace)` | Missing `PVEDatastoreAdmin` on the storage of the template disks (`qm config <template>`: `sata0`, `scsi0`, `efidisk0`, `tpmstate0`...), not only on the ISO storage |
 | `template: false` | Wrong `PROXMOX_TEMPLATE_VMID`, template does not exist, or missing `VM.Audit`/`VM.Clone` |
 | `storage-iso: false` | The storage does not have `content "iso"` enabled |
 | Console does not open | Missing user/password (`usuario-console`) or the `nginx` WebSocket was changed; check `location /api/sandbox` |

@@ -94,14 +94,45 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
 Crie um usuário dedicado (ex.: `deeplook@pve`) com **senha** — o console exige
 usuário/senha, **API token não serve**.
 
-Conceda as permissões abaixo (a de **Datastore** é a mais esquecida — sem ela o
-upload da ISO falha com `403`):
+Conceda as permissões abaixo (as de **Datastore** são as mais esquecidas — sem
+elas o upload da ISO **ou** o clone falham com `403`):
 
 | Caminho | Papel sugerido | Cobre |
 |---|---|---|
 | `/` | `PVEAuditor` | `GET /version` (health) e auditoria geral |
 | `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot) |
-| `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.Allocate`, `Datastore.AllocateSpace` (upload/delete da ISO) |
+| `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.AllocateTemplate` (upload da ISO), `Datastore.Allocate` (apagar a ISO) |
+| `/storage/<storage dos discos do template>` | `PVEDatastoreAdmin` | `Datastore.AllocateSpace` para o clone criar os discos |
+| `/sdn/zones/<zona>/<bridge do template>` | `PVESDNUser` | `SDN.Use` para o clone reutilizar a rede do template |
+
+> **`/vms`, nunca `/vms/<vmid>`.** O clone recebe um **VMID novo** e o PVE confere
+> `VM.Allocate` em `/vms/<vmid novo>`; uma permissão dada só no template
+> (`/vms/1000`) não vale para o clone. Nesse caso o PVE responde apenas
+> `Permission check failed` (sem caminho), porque a checagem do `clone` é um `ou`.
+
+> **Rede:** a checagem de `SDN.Use` usa a zona `localnetwork` para bridges
+> clássicas (`vmbr1` → `/sdn/zones/localnetwork/vmbr1`). A bridge do template
+> aparece no `qm config <template>` (linha `net0`).
+
+Com os valores do seu template (troque `<template>`, os storages e a bridge
+pelos que aparecem no `qm config <template>`):
+
+```bash
+# 1. VMs: o clone usa um VMID novo, entao a permissao vai em /vms (propagate).
+pveum acl modify /vms --users deeplook@pve --roles PVEVMAdmin --propagate 1
+# 2. Rede do template (linha net0): bridge classica fica na zona localnetwork.
+pveum acl modify /sdn/zones/localnetwork/<bridge> --users deeplook@pve --roles PVESDNUser
+# 3. Storage da ISO e cada storage que tem disco no template.
+pveum acl modify /storage/<iso-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+pveum acl modify /storage/<disco-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+```
+
+Para conferir o que a conta realmente enxerga (o PVE mostra os privilégios
+efetivos por caminho):
+
+```bash
+pvesh get /access/permissions --output-format json | grep -A20 '"/vms"'
+```
 
 Chamadas que a API faz ao PVE (referência das permissões acima):
 
@@ -230,7 +261,10 @@ Validação:
 |---|---|
 | API não sobe / erro de env no boot | Faltou `PROXMOX_API_URL`/`USER`/`PASSWORD`/`TEMPLATE_VMID` com `SANDBOX_ENABLED=true` e `MOCK=false` |
 | `sandbox/health` → `pve-acessivel: FALHOU` | IP/porta errados, PVE inacessível do container ou firewall na 8006 |
-| Upload da ISO falha com `403` | Faltou `PVEDatastoreAdmin` (Datastore.Allocate/AllocateSpace) no storage da ISO |
+| Upload da ISO falha com `403` | Faltou `PVEDatastoreAdmin` no storage da ISO: `Datastore.AllocateTemplate` no upload e `Datastore.Allocate` ao apagar |
+| Clone falha com `403` e a mensagem é só `Permission check failed` (sem caminho) | Falta `VM.Allocate` em `/vms`: a permissão foi concedida em `/vms/<template>`. O clone usa um VMID novo e a checagem `ou` do PVE não detalha o caminho |
+| Clone falha com `403 (/sdn/zones/..., SDN.Use)` | Falta `PVESDNUser` (ou `SDN.Use`) na bridge do template — bridges clássicas ficam na zona `localnetwork` |
+| Clone falha com `403 (/storage/<id>, Datastore.AllocateSpace)` | Faltou `PVEDatastoreAdmin` no storage dos discos do template (`qm config <template>`: `sata0`, `scsi0`, `efidisk0`, `tpmstate0`...), não só no storage da ISO |
 | `template: false` | `PROXMOX_TEMPLATE_VMID` errado, template inexistente ou sem `VM.Audit`/`VM.Clone` |
 | `storage-iso: false` | O storage não tem `content "iso"` habilitado |
 | Console não abre | Falta usuário/senha (`usuario-console`) ou o WebSocket do `nginx` foi alterado; confira `location /api/sandbox` |

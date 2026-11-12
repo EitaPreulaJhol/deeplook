@@ -14,7 +14,7 @@ import type { Entry, Prisma, SandboxSession } from '../generated/prisma/client';
 import { recordEvent } from './events';
 import { log, reason } from './log';
 import { prisma } from './prisma';
-import { pve, pveNode, pveUploadIso, waitTask } from './proxmox';
+import { ProxmoxError, pve, pveNode, pveUploadIso, waitTask } from './proxmox';
 import { s3 } from './s3';
 
 const execFileAsync = promisify(execFile);
@@ -294,7 +294,10 @@ async function cloneTemplate(vmid: number, name: string): Promise<void> {
     const upid = await pve<string>(path, { method: 'POST', body: { ...base, full: false } });
     await waitTask(upid);
     return;
-  } catch {
+  } catch (err) {
+    // Permissao nao melhora com copia cheia: devolve o erro do PVE como veio
+    // (senao a falta de VM.Allocate em /vms vira so um clone completo falhando).
+    if (err instanceof ProxmoxError && (err.pveStatus === 401 || err.pveStatus === 403)) throw err;
     // Sem snapshot no template o linked clone falha: limpa e tenta copia cheia.
     await pve(`/nodes/${pveNode()}/qemu/${vmid}`, {
       method: 'DELETE',

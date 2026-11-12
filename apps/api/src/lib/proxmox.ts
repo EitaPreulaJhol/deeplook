@@ -8,12 +8,16 @@ import { env, proxmoxMock } from '../env';
 import { pveMock, pveMockScreenshot, pveMockUploadIso } from './proxmox-mock';
 
 export class ProxmoxError extends Error {
+  /** Status que a API do DeepLook devolve (502/504). */
   status: number;
+  /** Status HTTP devolvido pelo PVE, quando a falha veio de uma resposta dele. */
+  pveStatus: number | null;
 
-  constructor(message: string, status = 502) {
+  constructor(message: string, status = 502, pveStatus: number | null = null) {
     super(message);
     this.name = 'ProxmoxError';
     this.status = status;
+    this.pveStatus = pveStatus;
   }
 }
 
@@ -120,14 +124,54 @@ function parseJson(buf: Buffer): unknown {
   }
 }
 
-function errorMessage(status: number, json: unknown, fallback: string): string {
-  const errors = (json as { errors?: Record<string, string> } | null)?.errors;
+/**
+ * O 403 do PVE nao diz o que falta em todo endpoint (o clone, por exemplo,
+ * responde so "Permission check failed"). A dica aponta o privilegio provavel.
+ */
+function permissionHint(path: string): string {
+  if (path.endsWith('/clone')) {
+    return (
+      ' O clone precisa de VM.Clone no template (o VMID do path) e de VM.Allocate em /vms, ' +
+      'porque o clone usa um VMID novo; os discos do template tambem exigem ' +
+      'Datastore.AllocateSpace no storage de cada um.'
+    );
+  }
+  if (path.endsWith('/upload')) {
+    return ' O upload precisa de Datastore.AllocateTemplate no storage da ISO (PROXMOX_ISO_STORAGE).';
+  }
+  if (path.endsWith('/config')) {
+    return ' Alterar a configuracao precisa de VM.Config.* (Options/Disk/CDROM) no VMID alvo.';
+  }
+  if (path.endsWith('/status/current')) {
+    return ' Ler o estado da VM precisa de VM.Audit no VMID alvo.';
+  }
+  if (path.includes('/status/')) {
+    return ' Ligar/desligar precisa de VM.PowerMgmt no VMID alvo.';
+  }
+  if (path.includes('/tasks/')) {
+    return ' Ler a task exige que ela seja sua ou Sys.Audit no node.';
+  }
+  return '';
+}
+
+function errorMessage(
+  method: PveMethod,
+  path: string,
+  status: number,
+  json: unknown,
+  fallback: string,
+): string {
+  const body = json as { errors?: Record<string, string>; message?: unknown } | null;
+  const errors = body?.errors;
   if (errors) {
     const parts = Object.entries(errors).map(([field, msg]) => `${field}: ${msg}`);
-    if (parts.length) return `Proxmox: ${parts.join(' | ')}`;
+    if (parts.length) return `Proxmox: ${parts.join(' | ')} (${method} ${path})`;
   }
-  const detail = fallback ? ` (${fallback.slice(0, 200)})` : '';
-  return `Proxmox respondeu HTTP ${status}${detail}.`;
+  const pve = typeof body?.message === 'string' ? body.message.trim() : '';
+  const detail = pve || fallback.trim().slice(0, 200);
+  const detailText = detail ? ` (${detail})` : '';
+  const hint = status === 403 ? permissionHint(path) : '';
+  return `Proxmox respondeu HTTP ${status} em ${method} ${path}${detailText}.${hint}`;
 }
 
 function httpRequest(
@@ -209,7 +253,11 @@ export async function pve<T>(path: string, opts: PveRequestOptions = {}): Promis
     if (res.status === 401 && !retry) return call(true);
 
     if (res.status >= 400 || (json as { errors?: unknown } | null)?.errors) {
-      throw new ProxmoxError(errorMessage(res.status, json, res.body.toString('utf8')));
+      throw new ProxmoxError(
+        errorMessage(method, path, res.status, json, res.body.toString('utf8')),
+        502,
+        res.status,
+      );
     }
     return ((json as { data?: unknown } | null)?.data ?? null) as T;
   };
@@ -273,9 +321,10 @@ export async function pveUploadIso(
     })(),
   );
 
+  const uploadPath = `/nodes/${pveNode()}/storage/${env.PROXMOX_ISO_STORAGE}/upload`;
   const res = await httpRequest(
     'POST',
-    `/api2/json/nodes/${pveNode()}/storage/${env.PROXMOX_ISO_STORAGE}/upload`,
+    `/api2/json${uploadPath}`,
     {
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
       'Content-Length': String(head.length + size + tail.length),
@@ -288,7 +337,11 @@ export async function pveUploadIso(
 
   const json = parseJson(res.body);
   if (res.status >= 400) {
-    throw new ProxmoxError(errorMessage(res.status, json, res.body.toString('utf8')));
+    throw new ProxmoxError(
+      errorMessage('POST', uploadPath, res.status, json, res.body.toString('utf8')),
+      502,
+      res.status,
+    );
   }
   const upid = (json as { data?: string } | null)?.data;
   if (!upid) throw new ProxmoxError('Proxmox nao retornou a task do upload do ISO.');
@@ -304,7 +357,14 @@ export async function waitTask(upid: string, timeoutMs = 10 * 60_000): Promise<v
     );
     if (status?.status === 'stopped') {
       if (status.exitstatus && status.exitstatus !== 'OK') {
-        throw new ProxmoxError(`Task do Proxmox terminou com erro: ${status.exitstatus}`);
+        // A task que falha por permissao nao melhora com outra tentativa: marca 403
+        // para o chamador (ex.: o clone) nao cair no fallback de copia cheia.
+        const denied = /permission check failed/i.test(status.exitstatus);
+        throw new ProxmoxError(
+          `Task do Proxmox terminou com erro: ${status.exitstatus}`,
+          502,
+          denied ? 403 : null,
+        );
       }
       return;
     }

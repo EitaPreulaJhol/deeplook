@@ -1138,8 +1138,11 @@ server-side screenshot endpoint in PVE 9, which now responds `501`.
 3. **Create a snapshot** (the linked clone uses this state as the base; without a snapshot
    DeepLook automatically falls back to a full copy, which is slower).
 4. Convert it to a template (`qm template <vmid>`).
-5. Create a dedicated user (`deeplook@pve`) with `PVEAuditor` + `PVEVMAdmin`
-   (`/vms/<template vmid>` to clone and `/vms` to manage the clones).
+5. Create a dedicated user (`deeplook@pve`) with `PVEVMAdmin` on `/vms` (the clone
+   gets a new VMID, so the permission goes on `/vms`, not on `/vms/<template vmid>`),
+   `PVEDatastoreAdmin` on the ISO storage and on every storage that holds a template
+   disk, and `PVESDNUser` on the template bridge. Details in
+   [`docs/proxmox.md`](docs/proxmox.md).
 6. Fill in the `PROXMOX_*` variables in `.env` and turn it on with `SANDBOX_ENABLED=true`.
 
 > 📖 Full step by step — template, permissions (including **Datastore** for the
