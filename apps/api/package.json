@@ -11,6 +11,8 @@
     "prisma:generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx src/seed.ts",
+    "test:unit": "node --import ./tests/unit/setup.mjs --import tsx --test \"tests/unit/*.test.ts\"",
+    "test:fuzz": "node --import ./tests/unit/setup.mjs --import tsx tests/fuzz/run.ts",
     "test:integration": "node tests/run.mjs",
     "test:images": "node tests/images.mjs",
     "test:smoke": "node tests/smoke.mjs",

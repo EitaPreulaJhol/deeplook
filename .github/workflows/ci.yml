@@ -100,6 +100,12 @@ jobs:
         if: matrix.app == 'api'
         run: npm run typecheck:tests
 
+      # Testes unitarios da API (revisao de novembro, 2.1): as bibliotecas puras, sem banco nem
+      # Docker, em menos de um segundo. Os de integracao ficam no job proprio, abaixo.
+      - name: Testes unitarios (node:test)
+        if: matrix.app == 'api'
+        run: npm run test:unit
+
       # Testes unitarios do frontend (itens 2.2 e 6.9), so no web; mesmo molde do passo
       # de prisma:generate, que roda so na API. Com cobertura: o piso do vitest.config.ts
       # reprova uma queda grande nos modulos que ja tem teste.
