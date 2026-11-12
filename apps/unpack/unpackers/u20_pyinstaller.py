@@ -31,7 +31,11 @@ def unpack(path, outdir, timeout):
     for name in entries:
         name = name.strip()
         candidate = os.path.join(extracted, name)
-        if os.path.isfile(candidate):
+        # O nome vem do indice da amostra: com '..' ou caminho absoluto sairia da extracao.
+        root = os.path.realpath(extracted)
+        if os.path.commonpath([root, os.path.realpath(candidate)]) != root:
+            continue
+        if os.path.isfile(candidate) and not os.path.islink(candidate):
             files.append((name, candidate))
     if not files:
         # Sem ponto de entrada identificado: o que sair na raiz da extracao (sem o PYZ).

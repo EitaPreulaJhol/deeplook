@@ -11,6 +11,9 @@ const WINDOW_MS = 5 * 60 * 1000;
  * Falhas por chave numa janela: alem do limite por rota. Barra quem testa uma senha
  * em muitas contas (por IP) ou uma conta de muitos IPs (por e-mail).
  */
+/** Chaves guardadas a partir das quais cada falha nova varre as vencidas. */
+const SWEEP_ABOVE = 5_000;
+
 export class FailureWindow {
   private readonly hits = new Map<string, number[]>();
 
@@ -32,6 +35,19 @@ export class FailureWindow {
 
   note(key: string, now = Date.now()): void {
     this.hits.set(key, [...this.recent(key, now), now]);
+    // Uma chave so saia do mapa ao ser consultada de novo: e-mails aleatorios (cada um
+    // tentado uma vez) ficavam para sempre. Acima do teto, varre as janelas vencidas.
+    if (this.hits.size > SWEEP_ABOVE) this.sweep(now);
+  }
+
+  /** Remove as chaves sem falha dentro da janela. */
+  sweep(now = Date.now()): void {
+    for (const key of [...this.hits.keys()]) this.recent(key, now);
+  }
+
+  /** Chaves guardadas (para os testes). */
+  get size(): number {
+    return this.hits.size;
   }
 }
 

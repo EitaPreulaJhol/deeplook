@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import WebSocket from 'ws';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
@@ -43,6 +43,20 @@ function notEnabled(reply: FastifyReply) {
   return reply
     .code(503)
     .send({ error: 'O sandbox não está habilitado neste servidor (SANDBOX_ENABLED).' });
+}
+
+/** Teto do que o navegador manda antes de o console do Proxmox abrir (o noVNC manda quase nada). */
+const PENDING_MAX_BYTES = 1024 * 1024;
+
+function rawSize(data: WebSocket.RawData): number {
+  if (Array.isArray(data)) return data.reduce((sum, part) => sum + part.byteLength, 0);
+  return data.byteLength;
+}
+
+/** A sessao do cookie continua valendo e a pessoa ainda pode operar este ambiente? */
+async function stillAllowed(req: FastifyRequest, analystId: string): Promise<boolean> {
+  const user = await loadUser(req);
+  return Boolean(user && !user.mustChangePassword && canOperate({ analystId }, user));
 }
 
 /** Admin, ou o dono que continua analista: quem perdeu o papel nao opera o que abriu. */
@@ -365,15 +379,14 @@ export async function sandboxRoutes(app: FastifyInstance) {
   // ---- WebSocket do console: proxy autenticado para o vncwebsocket do PVE ----
   // O navegador nunca ve o ticket do Proxmox: ele fica so no backend.
   app.get('/api/sandbox/:id/console/ws', { websocket: true }, (socket, req) => {
+    const fail = (code: number, reason: string) => {
+      try {
+        socket.close(code, reason.slice(0, 120));
+      } catch {
+        /* socket ja fechado */
+      }
+    };
     void (async () => {
-      const fail = (code: number, reason: string) => {
-        try {
-          socket.close(code, reason.slice(0, 120));
-        } catch {
-          /* socket ja fechado */
-        }
-      };
-
       const user = await loadUser(req);
       if (!user) return fail(4401, 'nao autenticado');
       // Fora do requireUser: a senha a trocar tambem bloqueia o console.
@@ -431,10 +444,15 @@ export async function sandboxRoutes(app: FastifyInstance) {
       // O noVNC so fala depois do handshake do servidor, mas guardamos o que
       // chegar antes do upstream abrir para nao perder nada.
       const pending: { data: WebSocket.RawData; binary: boolean }[] = [];
+      let pendingBytes = 0;
       let upstreamOpen = false;
 
       socket.on('message', (data: WebSocket.RawData, isBinary: boolean) => {
         if (!upstreamOpen) {
+          // O noVNC manda poucos bytes antes do handshake: acima do teto e abuso de memoria.
+          pendingBytes += rawSize(data);
+          if (pendingBytes > PENDING_MAX_BYTES)
+            return shutdown(1009, 'dados demais antes da conexão');
           pending.push({ data, binary: isBinary });
           return;
         }
@@ -468,9 +486,18 @@ export async function sandboxRoutes(app: FastifyInstance) {
         fail(code, reason);
       };
 
-      // Ping periodico para manter o tunel (browser -> nginx -> API -> PVE) vivo.
+      // Ping periodico para manter o tunel (browser -> nginx -> API -> PVE) vivo. No mesmo
+      // tique, confere se quem abriu o console ainda pode: sem isto, sair, expirar a sessao ou
+      // perder o papel nao fechava um console ja aberto.
       ping = setInterval(() => {
         if (upstream.readyState === WebSocket.OPEN) upstream.ping();
+        void stillAllowed(req, session.analystId).then(
+          (allowed) => {
+            if (!allowed) shutdown(4401, 'sessão encerrada');
+          },
+          // Banco fora: nao derruba o console por causa da rede; confere de novo no proximo tique.
+          () => undefined,
+        );
       }, 30_000);
       ping.unref();
 
@@ -478,6 +505,11 @@ export async function sandboxRoutes(app: FastifyInstance) {
       socket.on('error', () => shutdown(1011, 'erro no console'));
       upstream.on('close', () => shutdown(1000, ''));
       upstream.on('error', (err: Error) => shutdown(1011, msg(err)));
-    })();
+    })().catch((err: unknown) => {
+      // O loadUser e o getSession ficam fora de qualquer try: com o banco fora, a promessa
+      // rejeitava sem ninguem ouvir e o Node encerrava a API (mesma classe do item 8.1).
+      req.log.error({ err }, '[sandbox] falha ao abrir o console');
+      fail(1011, 'erro interno');
+    });
   });
 }

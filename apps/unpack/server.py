@@ -118,6 +118,12 @@ def safe_name(rel):
     return "/".join(parts)[:300] or "arquivo"
 
 
+def inside(root, path):
+    """O caminho (resolvido) fica dentro da pasta?"""
+    root = os.path.realpath(root)
+    return os.path.commonpath([root, os.path.realpath(path)]) == root
+
+
 def analyze(data, work, unpack=True):
     """Devolve (manifest, [(nome no zip, caminho)]). unpack=False: so identifica."""
     sample = os.path.join(work, "amostra")
@@ -145,9 +151,15 @@ def analyze(data, work, unpack=True):
     files, skipped, chosen, total = [], [], [], 0
     for rel, path in result["files"]:
         name = safe_name(rel)
-        size = os.path.getsize(path)
+        # Antes do getsize: num link quebrado ele lanca, e o trabalho inteiro falhava.
         if os.path.islink(path) or not os.path.isfile(path):
             continue
+        # So o que esta dentro da pasta de saida: um desempacotador que monte o caminho a partir
+        # de um nome vindo da amostra nao entrega arquivo do container.
+        if not inside(outdir, path):
+            skipped.append({"name": name, "size": 0, "reason": "fora da pasta de extração"})
+            continue
+        size = os.path.getsize(path)
         if len(chosen) >= MAX_FILES:
             skipped.append({"name": name, "size": size, "reason": f"limite de {MAX_FILES} arquivos"})
             continue

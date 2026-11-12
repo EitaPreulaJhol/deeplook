@@ -3,6 +3,7 @@
 // trafego passa pelo proxy de saida (sem rede interna) e devolve print, HTML,
 // redirecionamentos e certificado. Uma captura por vez; contexto novo a cada uma, e (item 6.17)
 // um container novo a cada uma: depois de responder, o processo sai e o Docker sobe outro.
+import { timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 
 import { chromium } from 'playwright';
@@ -248,6 +249,13 @@ function send(res, status, data) {
   res.end(body);
 }
 
+/** Compara o cabecalho com o token em tempo constante (como o compare_digest do capa e do unpack). */
+function tokenMatches(header) {
+  const given = Buffer.from(typeof header === 'string' ? header : '');
+  const expected = Buffer.from(`Bearer ${TOKEN}`);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
 /** Ja aceitou a sua captura (com RECYCLE, este processo nao faz outra). */
 let used = false;
 
@@ -273,7 +281,7 @@ const server = http.createServer((req, res) => {
     });
   }
   if (req.method !== 'POST' || req.url !== '/capture') return send(res, 404, { error: 'rota' });
-  if (req.headers.authorization !== `Bearer ${TOKEN}`) return send(res, 401, { error: 'token' });
+  if (!tokenMatches(req.headers.authorization)) return send(res, 401, { error: 'token' });
   if (RECYCLE && used) {
     res.setHeader('retry-after', '2');
     return send(res, 503, { error: 'container em troca: tente de novo em instantes' });

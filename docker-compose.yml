@@ -110,6 +110,7 @@ services:
       REPORT_REVIEW_REQUIRED: ${REPORT_REVIEW_REQUIRED:-false}
       RETENTION_DAYS: ${RETENTION_DAYS:-0}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_PG_DUMP: ${BACKUP_PG_DUMP:-pg_dump}
       # Pasta dos backups (item 6.13): com BACKUP_DIR no .env, o ZIP vai para /backups (montado
       # abaixo) em vez do bucket. Levar essa pasta para fora do disco e de quem configura.
       BACKUP_DIR: ${BACKUP_DIR:+/backups}
@@ -144,14 +145,20 @@ services:
       CAPA_URL: ${CAPA_URL-http://capa:3200}
       CAPA_TOKEN: ${CAPA_TOKEN:-troque-este-token-do-capa}
       CAPA_MAX_MB: ${CAPA_MAX_MB:-32}
+      # Espera da API por uma analise: acima de CAPA_TIMEOUT_S + FLOSS_TIMEOUT_S do servico.
+      CAPA_REQUEST_TIMEOUT_S: ${CAPA_REQUEST_TIMEOUT_S:-1000}
       # Analise com o Ghidra (item 7.3), sob demanda: o servico ghidra abaixo; GHIDRA_URL= desliga.
       GHIDRA_URL: ${GHIDRA_URL-http://ghidra:3300}
       GHIDRA_TOKEN: ${GHIDRA_TOKEN:-troque-este-token-do-ghidra}
       GHIDRA_MAX_MB: ${GHIDRA_MAX_MB:-32}
+      # Acima do GHIDRA_TIMEOUT_S do servico, com folga para o empacotamento do projeto.
+      GHIDRA_REQUEST_TIMEOUT_S: ${GHIDRA_REQUEST_TIMEOUT_S:-1300}
       # Identificar e desempacotar (itens 7.8 e 7.9): o servico unpack abaixo; UNPACK_URL= desliga.
       UNPACK_URL: ${UNPACK_URL-http://unpack:3400}
       UNPACK_TOKEN: ${UNPACK_TOKEN:-troque-este-token-do-unpack}
       UNPACK_MAX_MB: ${UNPACK_MAX_MB:-64}
+      # Acima do UNPACK_TIMEOUT_S do servico.
+      UNPACK_REQUEST_TIMEOUT_S: ${UNPACK_REQUEST_TIMEOUT_S:-400}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
