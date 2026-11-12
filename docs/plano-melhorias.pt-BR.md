@@ -53,7 +53,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 7.2 | capa e FLOSS em contêiner isolado (capacidades por função, com ATT&CK, e strings ofuscadas) | 🟡 | M | API / Compose / Web | ✅ |
 | 7.3 | Ghidra headless sob demanda (funções, referências a imports suspeitos, pseudo-C) | 🟡 | G | API / Compose / Web | ✅ |
 | 7.4 | Regras de triagem com os sinais do 7.1 e do 7.2 | 🔴 | P | API / Web | ✅ |
-| 7.5 | Pontuação de risco explicável (sugere o veredito) | 🟡 | P–M | API / Web | ⬜ |
+| 7.5 | Pontuação de risco explicável (sugere o veredito) | 🟡 | P–M | API / Web | ✅ |
 | 7.6 | Relacionadas: mesmo certificado e mesmo comportamento (capacidades do capa) | 🟡 | P | API / Web | ⬜ |
 | 7.7 | Retro-hunt com o capa ao subir as regras | ⚪ | P | API | ⬜ |
 | 7.8 | Desempacotar e extrair (UPX, NSIS/Inno, PyInstaller) em amostras filhas | 🔴 | M | API / Compose / Web | ✅ |
@@ -1841,6 +1841,10 @@ com 93 e `test:smoke` com 101; os 95 cenários de tela (1704 checagens).
 
 Junta YARA, ClamAV, alertas do PE, capacidades do capa, IOCs do FLOSS e reputação numa nota com a
 lista dos motivos e o peso de cada um. Sugere o veredito; quem decide continua sendo o analista.
+
+**Implementado** na revisão de novembro (item 3.1 de `docs/revisao-2026-11.pt-BR.md`):
+`lib/risk-score.ts`, `GET /api/entries/:id/risk` (só analistas) e a seção **Pontuação de risco** na
+ficha da amostra. Os pesos e os limiares estão no README > Pontuação de risco.
 
 ### 7.6 Relacionadas: mesmo certificado e mesmo comportamento
 

@@ -3254,6 +3254,52 @@ li .dl-link {
   font-style: italic;
 }
 
+/* Pontuacao de risco (ficha da amostra): motivos com o peso de cada um. */
+.dl-risk__note {
+  margin: 0.5rem 0 0;
+  color: var(--dl-text-muted);
+  font-size: 0.8125rem;
+}
+
+.dl-risk__reasons {
+  inline-size: 100%;
+  margin-block-start: 0.5rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th,
+  td {
+    padding: 0.25rem 0.5rem;
+    border-block-end: 1px solid var(--dl-table-border);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--dl-text-muted);
+    font-weight: 600;
+  }
+
+  td:first-child,
+  th:first-child {
+    inline-size: 4rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  td:nth-child(2) {
+    white-space: nowrap;
+  }
+}
+
+.dl-risk__plus {
+  font-weight: 600;
+}
+
+.dl-risk__minus {
+  color: var(--dl-text-muted);
+}
+
 /* Estado da cadeia de hash, acima da lista. */
 .dl-audit__chain {
   margin: 0 0 0.5rem;

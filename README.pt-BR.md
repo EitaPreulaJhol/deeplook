@@ -612,6 +612,38 @@ tag nem baixa prioridade, e cada uma fica no histórico da amostra.
 
 As regras também rodam de novo quando um analista pede **Analisar de novo** na análise estática.
 
+## Pontuação de risco
+
+Na ficha da amostra, **só para analistas**, a seção **Pontuação de risco** junta o que as análises
+já encontraram numa nota de 0 a 100, com a lista dos motivos e o peso de cada um. É uma sugestão
+para a triagem: **quem dá o veredito continua sendo o analista**, e nada muda sozinho na amostra.
+
+| Origem | Motivo | Peso |
+|---|---|---|
+| Antivírus | o ClamAV detectou | +60 |
+| Reputação externa | malicioso em algum serviço · suspeito · limpo | +60 · +25 · −10 |
+| YARA | conjuntos de regras que casaram | +35, mais 5 por conjunto além do primeiro (teto 50) |
+| Script | risco alto · médio | +35 · +15 |
+| Documento | risco alto · contém macros · risco médio | +35 · +15 · +10 |
+| Domínio parecido | imita um domínio da empresa | +35 |
+| Tipo do arquivo | executável ou script disfarçado com outra extensão | +30 |
+| Atalho | `.lnk` com alertas | +25 |
+| Executável | alertas altos · médios | +12 cada (teto 30) · +4 cada (teto 12) |
+| Assinatura | não confere · válida | +20 · −15 |
+| Análise de funções | grupos de capacidades de risco do capa · indicadores em strings ofuscadas | +6 por grupo (teto 30) · +10 |
+| Empacotamento | empacotado ou protegido | +10 |
+
+- **Sugestão:** a partir de 70, *Malicioso*; de 35 a 69, *Suspeito*; abaixo disso, nenhuma.
+- **Nunca sugere "limpo":** a nota só soma evidência de que a amostra é ruim. Nota baixa quer dizer
+  que nada foi detectado, não que a amostra é segura, e a tela diz isso.
+- **Cada origem tem teto**, para vinte alertas da mesma análise não valerem mais do que um
+  antivírus e uma regra YARA juntos. A reputação conta uma vez, pelo pior veredito.
+- **Análises em andamento** aparecem no aviso, e a nota se atualiza sozinha quando terminam.
+- Os pesos são fixos (`apps/api/src/lib/risk-score.ts`). Para agir sobre os mesmos sinais de forma
+  automática (tags, prioridade), use as **regras de triagem** acima.
+
+---
+
 ## Casos
 
 Analistas agrupam amostras da mesma campanha em **casos** (`CASO-0001`), pela ficha

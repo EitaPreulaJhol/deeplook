@@ -1019,6 +1019,18 @@ export async function setupMock(context, state) {
         if (!existing) state.yaraRules.push(rule);
         return json(route, existing ? 200 : 201, { rule, warnings: [] });
       }
+      // Pontuacao de risco: sem roteiro, nota 0 (a secao aparece com "nenhum sinal").
+      const rk = p.match(/^\/api\/entries\/(\w+)\/risk$/);
+      if (rk && req.method() === 'GET') {
+        state.riskGets = (state.riskGets ?? 0) + 1;
+        if (state.role === 'USER') return json(route, 403, { error: 'Somente analistas veem a pontuação de risco.' });
+        const r = state.risk?.[rk[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, {
+          risk: value ?? { score: 0, level: 'low', suggestedVerdict: null, reasons: [], pending: [] },
+          thresholds: { malicious: 70, suspicious: 35 },
+        });
+      }
       // Reputacao externa: o roteiro define o que cada GET devolve (lista = sequencia).
       const rp = p.match(/^\/api\/entries\/(\w+)\/reputation$/);
       if (rp && req.method() === 'GET') {

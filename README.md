@@ -604,6 +604,39 @@ the priority, and each one is recorded in the sample's history.
 
 The rules also run again when an analyst requests **Analyze again** on the static analysis.
 
+## Risk score
+
+On the sample record, **for analysts only**, the **Pontuação de risco** section joins what the
+analyses have already found into a score from 0 to 100, with the list of reasons and the weight of each.
+It is a suggestion for triage: **the analyst still gives the verdict**, and nothing changes on the sample
+by itself.
+
+| Source | Reason | Weight |
+|---|---|---|
+| Antivirus | ClamAV detected | +60 |
+| External reputation | malicious in some service · suspicious · clean | +60 · +25 · −10 |
+| YARA | rule sets that matched | +35, plus 5 per set beyond the first (cap 50) |
+| Script | high risk · medium | +35 · +15 |
+| Document | high risk · contains macros · medium risk | +35 · +15 · +10 |
+| Lookalike domain | imitates a company domain | +35 |
+| File type | executable or script disguised with another extension | +30 |
+| Shortcut | `.lnk` with alerts | +25 |
+| Executable | high alerts · medium | +12 each (cap 30) · +4 each (cap 12) |
+| Signature | does not match · valid | +20 · −15 |
+| Function analysis | groups of risky capa capabilities · indicators in obfuscated strings | +6 per group (cap 30) · +10 |
+| Packing | packed or protected | +10 |
+
+- **Suggestion:** from 70, *Malicious*; from 35 to 69, *Suspicious*; below that, none.
+- **It never suggests "clean":** the score only adds evidence that the sample is bad. A low score means
+  nothing was detected, not that the sample is safe, and the screen says so.
+- **Each source has a cap**, so twenty alerts from the same analysis are not worth more than an antivirus
+  and a YARA rule together. Reputation counts once, by the worst verdict.
+- **Analyses still running** show in the notice, and the score updates by itself when they finish.
+- The weights are fixed (`apps/api/src/lib/risk-score.ts`). To act on the same signals automatically
+  (tags, priority), use the **triage rules** above.
+
+---
+
 ## Cases
 
 Analysts group samples from the same campaign into **cases** (`CASO-0001`), from the card

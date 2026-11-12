@@ -67,6 +67,7 @@ import { openApiRoutes } from './routes/openapi';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
+import { riskRoutes } from './routes/risk';
 import { sandboxRoutes } from './routes/sandbox';
 import { searchRoutes } from './routes/search';
 import { sessionRoutes } from './routes/sessions';
@@ -163,6 +164,8 @@ async function main() {
   // Feed de indicadores (item 5.3): TAXII 2.1 e feed MISP, para um TIP ou SIEM buscar.
   await app.register(feedRoutes);
   await app.register(reputationRoutes);
+  // Pontuacao de risco explicavel (item 7.5).
+  await app.register(riskRoutes);
   await app.register(antivirusRoutes);
   await app.register(attackRoutes);
   await app.register(compareRoutes);

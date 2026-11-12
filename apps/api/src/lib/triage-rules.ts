@@ -61,7 +61,7 @@ export function triageRuleLabel(rule: {
     : CONDITION_LABEL[rule.condition];
 }
 
-type Facts = {
+export type Facts = {
   detectedType: string | null;
   urlDomain: string | null;
   sender: string | null;
@@ -167,13 +167,11 @@ function matches(rule: { condition: TriageCondition; value: string | null }, f: 
   }
 }
 
-/** Aplica as regras ativas a amostra. Devolve os nomes das regras que mudaram algo. */
-export async function applyTriageRules(entryId: string): Promise<string[]> {
-  const rules = await prisma.triageRule.findMany({
-    where: { enabled: true },
-    orderBy: { createdAt: 'asc' },
-  });
-  if (!rules.length) return [];
+/**
+ * Os sinais da amostra que as regras de triagem (e a pontuacao de risco, lib/risk-score.ts)
+ * leem, juntados de todas as analises ja feitas. Null se a amostra nao existe.
+ */
+export async function loadFacts(entryId: string) {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
     select: {
@@ -189,7 +187,7 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
       unpackJob: { select: { detections: true } },
     },
   });
-  if (!entry) return [];
+  if (!entry) return null;
   const st = (entry.staticInfo ?? {}) as {
     detectedType?: { id?: string } | null;
     extensionMismatch?: { dangerous?: boolean } | null;
@@ -242,6 +240,20 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
       string: d.string,
     })),
   };
+
+  return { facts, entry };
+}
+
+/** Aplica as regras ativas a amostra. Devolve os nomes das regras que mudaram algo. */
+export async function applyTriageRules(entryId: string): Promise<string[]> {
+  const rules = await prisma.triageRule.findMany({
+    where: { enabled: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!rules.length) return [];
+  const loaded = await loadFacts(entryId);
+  if (!loaded) return [];
+  const { facts, entry } = loaded;
 
   const have = new Set(entry.tags.map((t) => t.name.toLowerCase()));
   let priority: Priority = entry.priority;

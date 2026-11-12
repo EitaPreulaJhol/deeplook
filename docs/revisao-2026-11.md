@@ -248,7 +248,14 @@ It comes before the analysis features because tests and fuzzing protect what pha
 | 2.4 | Web coverage | Tests for the modules with logic that have none yet, and the coverage floor counting every module, not only the tested ones. | M |
 | 2.5 | English interface (i18n) | 33 pages and about 90 components with Portuguese text, plus the API error messages. In stages: infrastructure and language switch, then extraction screen by screen; API errors carry a code and the text lives in the front end. Being the largest item, it goes last (after phase 3). | L |
 
-### Phase 3 — Analysis
+### Phase 3 — Analysis — in progress
+
+- **3.1 ✅**: explainable risk score. The score (0 to 100) is computed on request by the API from
+  the same signals the triage rules already read, plus external reputation; each reason shows on
+  the record with the weight it had, and the weight table is in the README. Analysts only.
+  **Decisions worth checking:** the suggestion is never "clean"; antivirus alone (60) suggests
+  *Suspicious*, not *Malicious*; the weights are fixed in code, not configurable from the screen.
+- **3.2 to 3.7:** pending.
 
 | # | Item | How | Size |
 |---|---|---|---|
@@ -268,3 +275,14 @@ It comes before the analysis features because tests and fuzzing protect what pha
    screenshots go in.
 3. **Push to MISP (3.6):** deferred, no code.
 4. **Section 2 fixes:** committed before phase 0.
+
+## 6. Findings along the way (depend on the owner)
+
+- **The visual suite has no reference screenshots.** Commit `7f4bb5d` (Nov 10, "remove obsolete UI
+  screenshots") deleted the 14 PNGs in `scripts/ui-visual/__screenshots__`, which are the
+  comparison baselines. Without them, `sh scripts/ui-visual/run.sh` fails all 14 tests (the first
+  run writes the screenshots and fails), and the CI *Suíte visual* job would fail. They were not
+  recreated here because the removal was a recent choice: if it was a mistake,
+  `cd apps/web && npm run build && cd ../.. && sh scripts/ui-visual/run.sh --update-snapshots` and
+  committing the PNGs is enough (the sample record already comes out with the risk score
+  section); if it was deliberate, the CI job and the `scripts/ui-visual` folder can go together.

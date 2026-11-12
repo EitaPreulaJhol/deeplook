@@ -675,6 +675,18 @@ export interface AuditEvent {
   createdAt: string;
 }
 
+/** Pontuacao de risco explicavel (GET /api/entries/:id/risk, so analistas). */
+export interface RiskInfo {
+  risk: {
+    score: number;
+    level: 'high' | 'medium' | 'low';
+    suggestedVerdict: 'MALICIOUS' | 'SUSPICIOUS' | null;
+    reasons: { source: string; text: string; weight: number }[];
+    pending: string[];
+  };
+  thresholds: { malicious: number; suspicious: number };
+}
+
 /** Cadeia da auditoria conferida agora (GET /api/admin/audit/verify). */
 export interface AuditChainState {
   ok: boolean;

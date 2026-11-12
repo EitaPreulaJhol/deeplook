@@ -246,7 +246,14 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
 | 2.4 | Cobertura do web | Testes para os módulos com lógica ainda sem teste e o piso de cobertura passando a contar todos os módulos, não só os testados. | M |
 | 2.5 | Interface em inglês (i18n) | 33 páginas e cerca de 90 componentes com texto em português, mais as mensagens de erro da API. Em etapas: infraestrutura e seletor de idioma, depois extração tela a tela; os erros da API passam a levar código, e o texto fica no front. Por ser o maior item, fica por último (depois da fase 3). | G |
 
-### Fase 3 — Análise
+### Fase 3 — Análise — em andamento
+
+- **3.1 ✅**: pontuação de risco explicável. A nota (0 a 100) é calculada na hora pela API a
+  partir dos mesmos sinais que as regras de triagem já leem, mais a reputação externa; cada motivo
+  aparece na ficha com o peso que teve, e a tabela de pesos está no README. Só analistas veem.
+  **Decisões que valem conferir:** a sugestão nunca é "limpo"; antivírus sozinho (60) sugere
+  *Suspeito*, não *Malicioso*; os pesos são fixos no código, não configuráveis pela tela.
+- **3.2 a 3.7:** pendentes.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|
@@ -266,3 +273,14 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
    tela.
 3. **Envio para o MISP (3.6):** adiado, sem código.
 4. **Correções da seção 2:** commitadas antes da fase 0.
+
+## 6. Achados no caminho (dependem do dono)
+
+- **A suíte visual está sem as capturas de referência.** O commit `7f4bb5d` (10/11, "remove
+  obsolete UI screenshots") apagou os 14 PNGs de `scripts/ui-visual/__screenshots__`, que são as
+  baselines da comparação. Sem eles, `sh scripts/ui-visual/run.sh` falha nos 14 testes (a primeira
+  rodada grava as capturas e reprova), e o job *Suíte visual* do CI reprovaria. Não foram
+  recriados aqui porque a remoção foi uma escolha recente: se foi engano, basta
+  `cd apps/web && npm run build && cd ../.. && sh scripts/ui-visual/run.sh --update-snapshots` e
+  commitar os PNGs (a ficha da amostra já sai com a seção de pontuação de risco); se foi de
+  propósito, o job do CI e a pasta `scripts/ui-visual` podem sair juntos.

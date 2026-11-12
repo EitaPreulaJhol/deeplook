@@ -53,7 +53,7 @@ functionality: it is **robustness, automation and operation**.
 | 7.2 | capa and FLOSS in an isolated container (capabilities per function, with ATT&CK, and obfuscated strings) | 🟡 | M | API / Compose / Web | ✅ |
 | 7.3 | Ghidra headless on demand (functions, references to suspicious imports, pseudo-C) | 🟡 | G | API / Compose / Web | ✅ |
 | 7.4 | Triage rules with the signals from 7.1 and 7.2 | 🔴 | P | API / Web | ✅ |
-| 7.5 | Explainable risk score (suggests the verdict) | 🟡 | P–M | API / Web | ⬜ |
+| 7.5 | Explainable risk score (suggests the verdict) | 🟡 | P–M | API / Web | ✅ |
 | 7.6 | Related: same certificate and same behavior (capa capabilities) | 🟡 | P | API / Web | ⬜ |
 | 7.7 | Retro-hunt with capa when the rules are updated | ⚪ | P | API | ⬜ |
 | 7.8 | Unpack and extract (UPX, NSIS/Inno, PyInstaller) into child samples | 🔴 | M | API / Compose / Web | ✅ |
@@ -1837,6 +1837,10 @@ with 93 and `test:smoke` with 101; the 95 screen scenarios (1704 checks).
 
 Joins YARA, ClamAV, PE alerts, capa capabilities, FLOSS IOCs and reputation into a score with the
 list of reasons and the weight of each one. It suggests the verdict; the analyst still decides.
+
+**Implemented** in the November review (item 3.1 of `docs/revisao-2026-11.md`): `lib/risk-score.ts`,
+`GET /api/entries/:id/risk` (analysts only) and the **Pontuação de risco** section on the sample record.
+The weights and thresholds are in the README > Risk score.
 
 ### 7.6 Related: same certificate and same behavior
 

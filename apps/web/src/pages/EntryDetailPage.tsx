@@ -60,6 +60,7 @@ import {
   ResolutionForm,
   ResolutionNotice,
 } from '../components/ResolutionSection';
+import { RiskSection } from '../components/RiskSection';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
@@ -829,6 +830,7 @@ export function EntryDetailPage() {
             </HpsmSection>
           )}
           {entry.emailInfo && <EmailSection info={entry.emailInfo} />}
+          {canTriage && <RiskSection entryId={entry.id} />}
           {entry.type === 'FILE' && (
             <AntivirusSection
               entryId={entry.id}
