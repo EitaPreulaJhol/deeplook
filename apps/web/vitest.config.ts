@@ -21,17 +21,21 @@ export default mergeConfig(
       coverage: {
         provider: 'v8',
         reporter: ['text'],
-        // So os modulos que ja tem teste: o piso abaixo vale para eles, e a tela inteira
-        // (centenas de componentes sem teste) nao derruba a conta. Ao ganhar teste, o
-        // modulo entra aqui.
+        // Toda a logica fora de componente: os modulos .ts de api, auth e components (revisao de
+        // novembro, 2.4). Antes a lista era so dos modulos que ja tinham teste, e um modulo novo
+        // de logica sem teste nao aparecia na conta. As telas (.tsx, centenas de componentes)
+        // continuam de fora: quem as cobre sao os cenarios do Playwright.
         include: [
-          'src/api/client.ts',
-          'src/components/{backupSchedule,cases,decoder,iocs,notifications,sha256,textDiff,useEntryListState}.ts',
-          'src/components/{ErrorBoundary,lazyPage}.{ts,tsx}',
+          'src/{api,auth}/*.ts',
+          'src/components/*.ts',
+          'src/components/{ErrorBoundary,sandboxStatus}.tsx',
         ],
-        // Piso, nao meta: ~3 a 4 pontos abaixo do medido (95,9% / 88,4% / 97,8% / 95,3%),
-        // para pegar uma regressao sem reprovar por ruido. Suba junto com a cobertura.
-        thresholds: { statements: 92, branches: 84, functions: 92, lines: 91 },
+        // So tipos, sem codigo para medir.
+        exclude: ['src/api/types.ts', 'src/**/*.test.{ts,tsx}'],
+        // Piso, nao meta: ~3 pontos abaixo do medido (87,3% / 84,4% / 86,6% / 86,6%), para pegar
+        // uma regressao sem reprovar por ruido. Suba junto com a cobertura. O que puxa a conta para
+        // baixo hoje: useUnsavedChanges (preso ao roteador) e parte das acoes dos favoritos.
+        thresholds: { statements: 84, branches: 81, functions: 83, lines: 83 },
       },
     },
   }),
