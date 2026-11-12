@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
 import { env, sandboxEnabled } from './env';
+import { startAuditCheck } from './lib/audit-check';
 import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
 import { startBackups } from './lib/backup';
 import { startBackupSchedule } from './lib/backup-schedule';
@@ -229,6 +230,8 @@ async function main() {
   startBackupSchedule();
   startLdapSweep(app.log);
   startSessionCleanup(app.log);
+  // Auditoria (revisao de novembro, 1.3): encadeia o historico e confere a cadeia de hora em hora.
+  startAuditCheck(app.log);
 
   // Desligamento controlado (item 119): termina o que esta em andamento, com teto.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {

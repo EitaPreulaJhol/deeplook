@@ -796,6 +796,29 @@ silent storage corruption and tampering with the bucket from outside the API.
 
 ---
 
+## Hash-chained audit log
+
+Each **Audit** record carries a sequence number, the hash of the previous record and its own hash
+(SHA-256 over the fields that do not change once written). Whoever alters a record directly in the
+database breaks its hash; whoever deletes one from the middle breaks the sequence.
+
+- **Check:** on startup and every hour, the API walks the chain. The **Audit** tab shows
+  `Cadeia íntegra` with the head (sequence and start of the hash) or an error with the first record
+  that does not match; system status (**Auditoria**) turns red, and `/api/status` by token carries
+  the same.
+- **Earlier history:** records from before this version join the chain on the first startup, in the
+  order they were written.
+- **CSV:** **Export CSV** carries each record's sequence and hash.
+- **Anchors outside the database:** the head goes into the `manifest.json` of every backup and into
+  the API log on each check. Restore (`scripts/restore.sh`, including the rehearsal) checks the
+  restored database's chain against the head in the manifest.
+- **What it does not cover:** whoever controls the database can rewrite the whole chain, or delete
+  the last records, and it stays internally consistent. Only comparing against a head kept elsewhere
+  (a backup taken off the machine, the log) catches that. The periodic check also flags a chain that
+  shrinks below the highest head the API has seen since it started.
+
+---
+
 ## Cloudflare Tunnel (on the host, outside Docker)
 
 In production, with the Tunnel, set `COOKIE_SECURE=true`. On startup, the cookie is renamed to
@@ -1213,6 +1236,7 @@ They only need Docker running; they bring up what they use and do not touch the 
 
 ```bash
 cd apps/api
+npm run test:unit                   # pure libraries, no database or Docker (under 1 s)
 npm run test:integration            # API against real Postgres, MinIO and OpenLDAP
 npm run test:integration -- ldap    # only the files with "ldap" in the name
 npm run typecheck:tests             # test types (the tsx that runs them does not check types)
@@ -1228,6 +1252,10 @@ node scripts/check-playwright-version.mjs   # package, image and tests on the sa
 node scripts/trivy.mjs image deeplook-api   # CVE in an image (the same command as CI)
 ```
 
+- **API unit tests** (`apps/api/tests/unit`, `node:test`): what needs neither the database nor MinIO,
+  such as CSV, entropy, indicator normalization, ZIP (the writer and both readers), TLSH, file type,
+  TOTP, CAPTCHA, password policy, the login failure limit and the trusted network. They run without
+  Docker; the rest stays with the integration tests.
 - **Integration** (`apps/api/tests/integration`): each file runs on a new database. The disk images
   and the certificates are generated on the spot, in `tests/.tmp`. `--clean` removes the
   containers when finished.

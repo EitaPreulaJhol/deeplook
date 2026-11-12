@@ -3254,6 +3254,13 @@ li .dl-link {
   font-style: italic;
 }
 
+/* Estado da cadeia de hash, acima da lista. */
+.dl-audit__chain {
+  margin: 0 0 0.5rem;
+  color: var(--dl-text-muted);
+  font-size: 0.8125rem;
+}
+
 /* Envio em lote: total da lista e aviso de amostra repetida no resultado. */
 .hpsm-filedrop__total {
   color: var(--dl-text-muted);

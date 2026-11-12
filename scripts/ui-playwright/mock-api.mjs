@@ -591,6 +591,13 @@ export async function setupMock(context, state) {
         const scope = state.role === 'USER' ? 'mine' : base.scope;
         return json(route, 200, { ...base, scope, days, tz: url.searchParams.get('tz'), workload: scope === 'mine' ? [] : base.workload });
       }
+      if (p === '/api/admin/audit/verify') {
+        return json(route, 200, state.auditChain ?? {
+          ok: true, events: state.audit.length, unchained: 0,
+          head: state.audit.length ? { seq: state.audit.length, hash: 'ab12cd34ef56ab78'.repeat(4) } : null,
+          problem: null, checkedAt: new Date().toISOString(),
+        });
+      }
       if (p === '/api/admin/audit' || p === '/api/admin/audit/export.csv') {
         const sp = url.searchParams;
         const text = (sp.get('q') ?? '').toLowerCase();

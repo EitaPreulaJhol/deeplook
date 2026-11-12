@@ -808,6 +808,29 @@ pega corrupção silenciosa do armazenamento e adulteração do bucket por fora 
 
 ---
 
+## Auditoria com encadeamento de hash
+
+Cada registro da **Auditoria** leva um número de sequência, o hash do registro anterior e o
+próprio hash (SHA-256 sobre os campos que não mudam depois de gravados). Quem alterar um
+registro direto no banco quebra o hash dele; quem apagar um do meio quebra a sequência.
+
+- **Conferência:** na subida e de hora em hora, a API percorre a cadeia. A aba **Auditoria**
+  mostra `Cadeia íntegra` com a ponta (sequência e início do hash) ou um erro com o primeiro
+  registro que não confere; o status do sistema (**Auditoria**) fica vermelho, e o
+  `/api/status` por token leva o mesmo.
+- **Histórico anterior:** os registros de antes desta versão entram na cadeia na primeira subida,
+  na ordem em que foram gravados.
+- **CSV:** o **Exportar CSV** traz a sequência e o hash de cada registro.
+- **Âncoras de fora do banco:** a ponta vai no `manifest.json` de cada backup e no log da API a
+  cada conferência. A restauração (`scripts/restore.sh`, inclusive o ensaio) confere a cadeia
+  do banco restaurado contra a ponta do manifesto.
+- **O que não cobre:** quem controla o banco pode reescrever a cadeia inteira, ou apagar os
+  últimos registros, e ela continua coerente por dentro. Só a comparação com uma ponta guardada
+  fora (backup levado para outro lugar, log) pega isso. A conferência periódica também acusa se a
+  cadeia encolher abaixo da maior ponta que a API já viu desde que subiu.
+
+---
+
 ## Cloudflare Tunnel (no host, fora do Docker)
 
 Em produção, com o Tunnel, defina `COOKIE_SECURE=true`. Ao ligar, o cookie muda de nome para
@@ -1232,6 +1255,7 @@ Precisam só do Docker ligado; sobem o que usam e não mexem na stack em execuç
 
 ```bash
 cd apps/api
+npm run test:unit                   # bibliotecas puras, sem banco nem Docker (menos de 1 s)
 npm run test:integration            # API contra Postgres, MinIO e OpenLDAP reais
 npm run test:integration -- ldap    # só os arquivos com "ldap" no nome
 npm run typecheck:tests             # tipos dos testes (o tsx que os roda não checa tipos)
@@ -1247,6 +1271,10 @@ node scripts/check-playwright-version.mjs   # pacote, imagem e testes na mesma v
 node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando do CI)
 ```
 
+- **Unitários da API** (`apps/api/tests/unit`, `node:test`): o que não precisa de banco nem de
+  MinIO, como CSV, entropia, normalização de indicadores, ZIP (gravador e os dois leitores),
+  TLSH, tipo de arquivo, TOTP, CAPTCHA, política de senha, limite de falhas do login e rede
+  confiável. Rodam sem Docker; o resto fica com os de integração.
 - **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
   de disco e os certificados são gerados na hora, em `tests/.tmp`. `--clean` remove os
   containers ao terminar.

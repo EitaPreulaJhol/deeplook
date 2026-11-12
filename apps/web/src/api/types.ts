@@ -675,6 +675,16 @@ export interface AuditEvent {
   createdAt: string;
 }
 
+/** Cadeia da auditoria conferida agora (GET /api/admin/audit/verify). */
+export interface AuditChainState {
+  ok: boolean;
+  events: number;
+  unchained: number;
+  head: { seq: number; hash: string } | null;
+  problem: { seq: number | null; reason: string } | null;
+  checkedAt: string;
+}
+
 /** Modelo de relatorio (GET /api/report-templates). */
 export interface ReportTemplate {
   id: string;

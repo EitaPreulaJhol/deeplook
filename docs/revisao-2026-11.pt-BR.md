@@ -61,15 +61,17 @@ aumentasse `CAPA_TIMEOUT_S` ou `GHIDRA_TIMEOUT_S` no `.env` via a API desistir a
 três de espera no `.env.example`, junto de `ALLOW_INSECURE_DEFAULTS` e `CLAMAV_IMAGE`, que também
 faltavam ali.
 
-### 2.5 nginx aceita `CF-Connecting-IP` de qualquer endereço privado — ❓
+### 2.5 nginx aceita `CF-Connecting-IP` de qualquer endereço privado — ✅
 
 Em `apps/web/nginx.conf`, o `set_real_ip_from` cobre todas as faixas privadas. Outro container da
 rede, ou um proxy reverso local que repasse o cabeçalho do cliente, permite forjar o IP, o que
 fura os limites de login por IP e suja a auditoria.
 
-**Não corrigido:** restringir exige saber de que endereço o `cloudflared` chega ao nginx nesta
-instalação; errar a faixa faria todo acesso aparecer com o IP do túnel. Opção sugerida: uma
-variável (`REAL_IP_FROM`) no compose, com o padrão atual, para o dono fechar na faixa certa.
+**Correção (fase 0.1):** o `cloudflared` roda no host e chega pela porta publicada; medido, o
+nginx o vê como o gateway da rede `deeplook`. O cabeçalho passou a valer só desse endereço
+(`REAL_IP_FROM`, padrão `172.31.250.1`) e do loopback. O `nginx.conf` virou um modelo que o
+entrypoint da imagem preenche e grava em `/tmp` (a raiz é somente leitura). **Teste:** no
+`test:images`, o cabeçalho forjado de outro container é ignorado e o caminho do túnel segue valendo.
 
 ### 2.6 Console aberto não era revalidado — ✅
 
@@ -106,13 +108,14 @@ consultada de novo: e-mails aleatórios, tentados uma vez, ficavam para sempre.
 | Token do `capture` comparado com `!==`; agora em tempo constante, como nos serviços em Python | ✅ |
 | `PROXMOX_VERIFY_TLS` vem `false` por padrão: mudar o padrão quebraria quem usa certificado autoassinado | ❓ |
 | Imagens base dos Dockerfiles por tag, não por digest (as do compose estão fixadas); o Dependabot cuidaria disso, com o remoto | ⬜ |
-| CSP com `connect-src ws: wss:` aberto para qualquer host; `'self'` basta nos navegadores atuais, mas pede teste do console no Safari | ⬜ |
-| `pe-ordinals.json` duplicado em `apps/api` e `apps/ghidra` sem checagem de divergência (hoje iguais) | ⬜ |
+| CSP com `connect-src ws: wss:` aberto para qualquer host: trocado por `'self'` (fase 0.2). O teste rápido com navegador abre o WebSocket do console pelo nginx e confere que a CSP não o barra. Só em Chromium: o Safari fica para conferência manual | ✅ |
+| `pe-ordinals.json` duplicado em `apps/api` e `apps/ghidra`: `scripts/check-pe-ordinals.mjs` reprova a divergência no CI (fase 0.3) | ✅ |
 
-### 2.10 `SESSION_SECRET` é a raiz de tudo — ⬜
+### 2.10 `SESSION_SECRET` é a raiz de tudo — ✅
 
 Ele assina os cookies e o CAPTCHA e cifra os segredos do 2FA: trocá-lo quebra o 2FA de todas as
-contas. Não é defeito, é desenho; a saída está na sugestão 3.1 (chave de dados separada).
+contas. Não era defeito, era desenho. **Resolvido na fase 1.1:** com `DATA_KEY` no `.env`, o 2FA
+depende só dela, e o `SESSION_SECRET` pode ser trocado.
 
 ## 3. Sugestões de adição (a validar)
 
@@ -170,7 +173,12 @@ afetados verdes, e com o status atualizado nesta anotação. A bateria inteira (
 `test:images`, `test:smoke`) roda no fim de cada fase. Tamanhos: **P** até meio dia, **M** 1–2
 dias, **G** vários dias.
 
-### Fase 0 — Fechar a revisão
+### Fase 0 — Fechar a revisão — ✅
+
+Feita em 12/11/2026 (commits `ed36f2d` e `498104a`). O segundo corrige o primeiro: ao separar os
+commits por trecho, o bloco do `REAL_IP_FROM` foi parar algumas linhas fora do lugar no
+`docker-compose.yml` e no `.env.example`. A pasta de trabalho, contra a qual os testes rodaram,
+estava certa; os commits `ed36f2d`, `fffa85d` e `b9dd294` não devem ser usados sozinhos.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|
@@ -178,7 +186,20 @@ dias, **G** vários dias.
 | 0.2 | CSP `connect-src 'self'` (2.9) | Trocar `ws: wss:` por `'self'` e validar o console do sandbox pelo nginx (modo simulado, `scripts/ws-console-check.mjs` e o teste rápido com navegador). Limite: aqui só há Chromium; o Safari fica para conferência manual. | P |
 | 0.3 | `pe-ordinals.json` (2.9) | Manter as duas cópias (cada Dockerfile só enxerga a própria pasta) e reprovar a divergência com um script de conferência no CI, no molde dos `scripts/check-*.mjs`. | P |
 
-### Fase 1 — Operação e segurança
+### Fase 1 — Operação e segurança — ✅
+
+Feita em 12/11/2026: 1.1 no commit `fffa85d`, 1.2 no `b9dd294` e 1.3 no seguinte. Diferenças
+para o planejado:
+
+- **1.1:** além do `v2`, o dado cifrado leva o id da chave, e existe `DATA_KEY_PREVIOUS` para
+  trocar o próprio `DATA_KEY`. Sem `DATA_KEY`, nada muda (modo antigo).
+- **1.2:** o restaurador roda na imagem da API (`scripts/restore.sh` chama
+  `docker compose run`), com `--check`, `--rehearsal` e a restauração de verdade. O script em si
+  só teve a sintaxe conferida: o caminho pelo compose não foi exercitado numa instalação no ar.
+  O ensaio roda na imagem de produção dentro do `test:images`.
+- **1.3:** além do planejado, o evento guarda o id de quem fez e do alvo fora da chave
+  estrangeira (entra no hash e sobrevive à conta apagada), a aba Auditoria mostra o estado da
+  cadeia, e a restauração confere a cadeia do banco restaurado contra a ponta do manifesto.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|

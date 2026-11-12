@@ -29,7 +29,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 
 import { env } from '../env';
-import { audit } from './audit';
+import { audit, auditHead } from './audit';
 import { log } from './log';
 import { advisoryLock, prisma } from './prisma';
 import { s3 } from './s3';
@@ -296,6 +296,9 @@ export async function runBackup(id: string, password: string | null = null): Pro
       if (!ready.ok) throw new Error(ready.error);
     }
     await setStep('Exportando o banco...', 2);
+    // Antes do dump: a ponta anotada tem de estar dentro dele (eventos gravados depois disto
+    // podem entrar no dump, e so alongam a cadeia alem da ponta).
+    const auditTip = await auditHead().catch(() => null);
     const dumpFile = join(dir, 'deeplook.dump');
     await dumpDatabase(dumpFile);
     const dumpSize = (await stat(dumpFile)).size;
@@ -353,6 +356,8 @@ export async function runBackup(id: string, password: string | null = null): Pro
       encrypted: Boolean(password),
       containsMalware: backup.includeSamples && (byPrefix.samples ?? 0) > 0,
       database: { file: 'db/deeplook.dump', format: 'pg_dump custom', size: dumpSize },
+      // A ponta da cadeia da auditoria no momento do backup: uma ancora de fora do banco.
+      audit: auditTip,
       counts: {
         entries,
         reports,

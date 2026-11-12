@@ -14,7 +14,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
-import type { AuditAction, AuditEvent } from '../api/types';
+import type { AuditAction, AuditChainState, AuditEvent } from '../api/types';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -120,6 +120,13 @@ export function AdminAuditTab() {
     placeholderData: keepPreviousData,
   });
 
+  // Cadeia de hash: cada evento leva o hash do anterior; a API confere a cadeia inteira.
+  const chain = useQuery({
+    queryKey: ['admin', 'audit', 'verify'],
+    queryFn: () => api.get<AuditChainState>('/admin/audit/verify'),
+    staleTime: 60_000,
+  });
+
   const clear = () => {
     setAction('');
     setDays('30');
@@ -188,6 +195,20 @@ export function AdminAuditTab() {
         </HpsmFilterItem>
       </HpsmFilterBar>
 
+      {chain.data && !chain.data.ok && (
+        <HpsmMessage kind="error">
+          A cadeia da auditoria está quebrada: {chain.data.problem?.reason ?? 'motivo desconhecido'}
+          . Os registros podem ter sido alterados ou apagados fora do sistema.
+        </HpsmMessage>
+      )}
+      {chain.data?.ok && chain.data.head && (
+        <p className="dl-audit__chain">
+          Cadeia íntegra: {chain.data.events} evento{chain.data.events === 1 ? '' : 's'}, ponta{' '}
+          <span className="dl-mono" title={chain.data.head.hash}>
+            #{chain.data.head.seq} {chain.data.head.hash.slice(0, 16)}…
+          </span>
+        </p>
+      )}
       {query.isLoading && <HpsmLoading text="Carregando a auditoria..." />}
       {query.isError && (
         <HpsmMessage kind="error">

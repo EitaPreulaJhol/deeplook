@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { AuditAction, Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
+import { checkAuditChain } from '../lib/audit-check';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
@@ -182,6 +183,12 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.send({ total, items });
   });
 
+  // Cadeia da auditoria (revisao de novembro, 1.3): confere agora e devolve a ponta.
+  app.get('/api/admin/audit/verify', async (req, reply) => {
+    if (!(await requireAdmin(req, reply))) return;
+    return reply.send(await checkAuditChain());
+  });
+
   app.get('/api/admin/audit/export.csv', async (req, reply) => {
     const user = await requireAdmin(req, reply);
     if (!user) return;
@@ -194,7 +201,7 @@ export async function adminRoutes(app: FastifyInstance) {
       include: auditInclude,
     });
     const csv = toCsv(
-      ['Data', 'Quem', 'Ação', 'Alvo', 'Detalhe', 'IP'],
+      ['Data', 'Quem', 'Ação', 'Alvo', 'Detalhe', 'IP', 'Sequência', 'Hash'],
       items.map((e) => [
         e.createdAt,
         e.actor ? `${e.actor.displayName} <${e.actor.email}>` : '(anônimo)',
@@ -202,6 +209,8 @@ export async function adminRoutes(app: FastifyInstance) {
         e.targetLabel ?? e.targetUser?.email ?? '',
         e.detail ?? '',
         e.ip ?? '',
+        e.seq ?? '',
+        e.hash ?? '',
       ]),
     );
     const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');

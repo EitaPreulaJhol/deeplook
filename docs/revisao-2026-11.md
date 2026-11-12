@@ -61,15 +61,18 @@ raised `CAPA_TIMEOUT_S` or `GHIDRA_TIMEOUT_S` in `.env` saw the API give up befo
 wait times are in `.env.example`, along with `ALLOW_INSECURE_DEFAULTS` and `CLAMAV_IMAGE`, which
 were also missing there.
 
-### 2.5 nginx accepts `CF-Connecting-IP` from any private address — ❓
+### 2.5 nginx accepts `CF-Connecting-IP` from any private address — ✅
 
 In `apps/web/nginx.conf`, `set_real_ip_from` covers every private range. Another container on the
 network, or a local reverse proxy that forwards the client's header, allows forging the IP, which
 defeats the per-IP login limits and pollutes the audit log.
 
-**Not fixed:** restricting it requires knowing from which address `cloudflared` reaches nginx in
-this installation; a wrong range would make every access show the tunnel's IP. Suggested option:
-a variable (`REAL_IP_FROM`) in compose, with today's default, so the owner can narrow it.
+**Fix (phase 0.1):** `cloudflared` runs on the host and arrives through the published port;
+measured, nginx sees it as the gateway of the `deeplook` network. The header is now trusted only
+from that address (`REAL_IP_FROM`, default `172.31.250.1`) and from loopback. `nginx.conf` became
+a template that the image's entrypoint fills in and writes to `/tmp` (the root is read-only).
+**Test:** in `test:images`, a forged header from another container is ignored and the tunnel
+path still works.
 
 ### 2.6 An open console was not revalidated — ✅
 
@@ -107,14 +110,14 @@ random e-mails, tried once, stayed forever.
 | `capture` token compared with `!==`; now constant-time, as in the Python services | ✅ |
 | `PROXMOX_VERIFY_TLS` defaults to `false`: changing the default would break self-signed setups | ❓ |
 | Dockerfile base images by tag, not digest (the compose ones are pinned); Dependabot would handle it, with the remote | ⬜ |
-| CSP with `connect-src ws: wss:` open to any host; `'self'` is enough in current browsers, but needs a console test on Safari | ⬜ |
-| `pe-ordinals.json` duplicated in `apps/api` and `apps/ghidra` with no drift check (identical today) | ⬜ |
+| CSP with `connect-src ws: wss:` open to any host: replaced by `'self'` (phase 0.2). The browser smoke test opens the console WebSocket through nginx and checks the CSP does not block it. Chromium only: Safari is left for a manual check | ✅ |
+| `pe-ordinals.json` duplicated in `apps/api` and `apps/ghidra`: `scripts/check-pe-ordinals.mjs` fails CI on drift (phase 0.3) | ✅ |
 
-### 2.10 `SESSION_SECRET` is the root of everything — ⬜
+### 2.10 `SESSION_SECRET` is the root of everything — ✅
 
 It signs the cookies and the CAPTCHA and encrypts the 2FA secrets: changing it breaks 2FA for
-every account. It is not a defect, it is design; the way out is suggestion 3.1 (a separate data
-key).
+every account. It was not a defect, it was design. **Solved in phase 1.1:** with `DATA_KEY` in `.env`,
+2FA depends only on it, and `SESSION_SECRET` can be changed.
 
 ## 3. Suggested additions (to be validated)
 
@@ -172,7 +175,12 @@ the affected tests green, and with its status updated in this note. The full sui
 `test:images`, `test:smoke`) runs at the end of each phase. Sizes: **S** up to half a day, **M**
 1–2 days, **L** several days.
 
-### Phase 0 — Close the review
+### Phase 0 — Close the review — ✅
+
+Done on 2026-11-12 (commits `ed36f2d` and `498104a`). The second fixes the first: when the commits
+were split by hunk, the `REAL_IP_FROM` block landed a few lines out of place in
+`docker-compose.yml` and `.env.example`. The working tree, which the tests ran against, was
+correct; commits `ed36f2d`, `fffa85d` and `b9dd294` should not be used on their own.
 
 | # | Item | How | Size |
 |---|---|---|---|
@@ -180,7 +188,20 @@ the affected tests green, and with its status updated in this note. The full sui
 | 0.2 | CSP `connect-src 'self'` (2.9) | Replace `ws: wss:` with `'self'` and validate the sandbox console through nginx (mock mode, `scripts/ws-console-check.mjs` and the browser smoke test). Limit: only Chromium is available here; Safari is left for a manual check. | S |
 | 0.3 | `pe-ordinals.json` (2.9) | Keep both copies (each Dockerfile only sees its own folder) and fail on drift with a check script in CI, in the mould of `scripts/check-*.mjs`. | S |
 
-### Phase 1 — Operations and security
+### Phase 1 — Operations and security — ✅
+
+Done on 2026-11-12: 1.1 in commit `fffa85d`, 1.2 in `b9dd294` and 1.3 in the next one.
+Differences from the plan:
+
+- **1.1:** besides `v2`, the encrypted value carries the key id, and `DATA_KEY_PREVIOUS` exists to
+  change `DATA_KEY` itself. Without `DATA_KEY`, nothing changes (legacy mode).
+- **1.2:** the restorer runs in the API image (`scripts/restore.sh` calls `docker compose run`),
+  with `--check`, `--rehearsal` and the real restore. The script itself was only syntax-checked:
+  the compose path was not exercised against a live installation. The rehearsal runs in the
+  production image inside `test:images`.
+- **1.3:** beyond the plan, the event keeps the id of the actor and of the target outside the
+  foreign key (it goes into the hash and survives a deleted account), the Audit tab shows the
+  chain state, and restore checks the restored database's chain against the head in the manifest.
 
 | # | Item | How | Size |
 |---|---|---|---|

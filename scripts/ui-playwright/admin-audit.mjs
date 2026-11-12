@@ -94,6 +94,15 @@ await page.click('.hpsm-filterbar button:has-text("Limpar")');
 await settle(900);
 expect('Limpar volta ao padrão', (await page.inputValue('#audit-q')) === '' && (await page.inputValue('#audit-days')) === '30' && (await foot()) === 'Exibindo registros 1 a 50 de 60', await foot());
 
+// 6. Cadeia de hash: integra mostra a ponta; quebrada vira erro com o motivo.
+expect('cadeia íntegra com a ponta', (await page.locator('.dl-audit__chain').innerText()).includes('Cadeia íntegra: 60 eventos, ponta #60'), await page.locator('.dl-audit__chain').innerText());
+state.auditChain = { ok: false, events: 3, unchained: 0, head: { seq: 3, hash: 'ff'.repeat(32) }, problem: { seq: 4, reason: 'o evento 4 foi alterado depois de gravado' }, checkedAt: new Date().toISOString() };
+await page.reload({ waitUntil: 'networkidle' });
+const alerts = (await page.locator('.hpsm-msg--error .hpsm-msg__text').allTextContents()).join(' ');
+expect('cadeia quebrada: erro com o motivo', alerts.includes('cadeia da auditoria está quebrada') && alerts.includes('o evento 4 foi alterado'), alerts);
+expect('cadeia quebrada: sem a linha de íntegra', (await page.locator('.dl-audit__chain').count()) === 0);
+await page.screenshot({ path: `${OUT}/admin-audit-cadeia-quebrada.png` });
+
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nauditoria: tudo ok');
 process.exit(failures ? 1 : 0);

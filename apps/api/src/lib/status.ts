@@ -8,6 +8,7 @@ import {
   PUBLIC_S3_SECRETS,
   sandboxEnabled,
 } from '../env';
+import { lastAuditCheck } from './audit-check';
 import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
 import { capaEnabled } from './capa';
@@ -44,6 +45,7 @@ export interface StatusCheck {
     | 'ldap'
     | 'yaraPacks'
     | 'integrity'
+    | 'audit'
     | 'backup'
     | 'config';
   name: string;
@@ -706,6 +708,34 @@ export function insecureDefaults(): string[] {
   ].filter((item): item is string => Boolean(item));
 }
 
+/** Cadeia da auditoria (lib/audit.ts): o resultado da ultima conferencia periodica. */
+export function auditCheck(): StatusCheck {
+  const name = 'Auditoria';
+  const state = lastAuditCheck();
+  if (!state) {
+    return { id: 'audit', name, level: 'ok', summary: 'cadeia ainda não conferida', details: [] };
+  }
+  const details = [
+    { label: 'Eventos na cadeia', value: String(state.events) },
+    {
+      label: 'Ponta',
+      value: state.head ? `#${state.head.seq} ${state.head.hash.slice(0, 16)}…` : '—',
+    },
+    { label: 'Última conferência', value: state.checkedAt.slice(0, 16).replace('T', ' ') },
+    ...(state.unchained ? [{ label: 'Histórico a encadear', value: String(state.unchained) }] : []),
+  ];
+  if (!state.ok) {
+    return {
+      id: 'audit',
+      name,
+      level: 'error',
+      summary: `cadeia quebrada: ${state.problem?.reason ?? 'motivo desconhecido'}`,
+      details,
+    };
+  }
+  return { id: 'audit', name, level: 'ok', summary: 'cadeia íntegra', details };
+}
+
 /** Chave de dados (lib/data-key.ts): o que falta para o 2FA nao depender do SESSION_SECRET. */
 export async function dataKeyNotes(): Promise<string[]> {
   if (!env.DATA_KEY) {
@@ -856,6 +886,7 @@ export async function systemStatus() {
     yaraPacksCheck(),
     integrityCheck(),
     backupCheck(),
+    auditCheck(),
     configCheck(),
   ]);
   const overall = checks

@@ -12,7 +12,8 @@ import {
 } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
-import { createPrismaClient } from './prisma';
+import { verifyAuditChain } from './audit';
+import { createPrismaClient, type Db } from './prisma';
 import { s3 } from './s3';
 import { ZipFileReader, ZipReadError } from './zip-file-reader';
 
@@ -48,6 +49,8 @@ type Manifest = {
   createdAt: string;
   includeSamples: boolean;
   database: { file: string; size: number };
+  /** A ponta da cadeia da auditoria no momento do backup (ausente nos backups antigos). */
+  audit?: { seq: number; hash: string } | null;
   counts: { entries: number; reports: number; users: number; cases: number; objects: number };
   files: { path: string; size: number; sha256: string }[];
 };
@@ -246,6 +249,16 @@ async function countsOf(database: string) {
   }
 }
 
+/** A cadeia da auditoria do banco restaurado, conferida contra a ponta anotada no manifesto. */
+async function auditOf(database: string, expect: { seq: number; hash: string }) {
+  const client = createPrismaClient(databaseUrl(database));
+  try {
+    return await verifyAuditChain({ db: client as unknown as Db, expect });
+  } finally {
+    await client.$disconnect();
+  }
+}
+
 /** Amostras na instalacao de destino (0 se o banco ainda nao tem as tabelas). */
 async function liveEntries(database: string): Promise<number> {
   const client = createPrismaClient(databaseUrl(database));
@@ -354,6 +367,15 @@ export async function runRestore(options: RestoreOptions): Promise<RestoreResult
           'As contagens do banco restaurado divergem do manifesto: ' +
             wrong.map(([k, c]) => `${k} ${c.restored} (backup: ${c.backup})`).join(', '),
         );
+      }
+      if (manifest.audit) {
+        const chain = await auditOf(database, manifest.audit);
+        if (!chain.ok) {
+          throw new RestoreError(
+            `A auditoria do banco restaurado não confere com a ponta do manifesto: ${chain.problem?.reason}.`,
+          );
+        }
+        log(`auditoria: cadeia íntegra até o evento ${manifest.audit.seq} do manifesto`);
       }
       if (rehearsal) {
         // No bucket do ensaio so ha o que veio do ZIP: quantidade e bytes tem de bater.

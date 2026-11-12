@@ -916,6 +916,15 @@ model AuditEvent {
   detail       String?
   ip           String?
   createdAt    DateTime    @default(now())
+  /// Encadeamento (lib/audit.ts): posicao na cadeia, hash do evento anterior e o proprio hash.
+  /// Vazios so no historico anterior ao encadeamento, ate a API encadea-lo.
+  seq          Int?        @unique
+  prevHash     String?
+  hash         String?
+  /// Ids como estavam na gravacao, sem chave estrangeira: entram no hash e nao mudam se a
+  /// conta for apagada (actorId e targetUserId viram nulos).
+  actorRef     String?
+  targetRef    String?
 
   @@index([createdAt])
   @@index([action, createdAt])
