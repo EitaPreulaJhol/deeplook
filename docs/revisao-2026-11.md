@@ -209,7 +209,17 @@ Differences from the plan:
 | 1.2 | Restore script | `scripts/restore.mjs`: takes the ZIP and the password, checks the manifest (SHA-256 of each file), restores the database with `pg_restore` and puts the objects back in the bucket; a rehearsal mode that restores into a separate database and bucket. Automated test: backup, restore and comparison of counts and hashes. It comes after 1.1 because the restored data depends on the same keys, and the backup README will say so. | M |
 | 1.3 | Hash-chained audit log | Sequence number, previous hash and own hash on each event, written under a lock so the order is unique; the hash covers only fields that do not change (a deleted actor becomes null today). A migration that chains the history, a periodic check with a warning in system status, and the chain head in the backup manifest. Limit to record: it makes editing and removing rows evident, not a full rewrite by whoever controls the database and the backups. | M |
 
-### Phase 2 — Quality
+### Phase 2 — Quality — in progress
+
+- **2.1 ✅** (commit `d8b708d`): 52 unit tests in `apps/api/tests/unit`, on `node:test`, in under a
+  second and without Docker; its own CI step.
+- **2.2 ✅**: fuzzer in `apps/api/tests/fuzz` (`npm run test:fuzz`), with seven targets, a short
+  round in CI and a regression corpus. **Found and fixed:** a 1.5 KB OLE file with a looping FAT
+  cost about 1 s of CPU and 100 MB per chain read in `doc-analysis.ts` (200 thousand iterations);
+  reading no longer repeats a sector nor exceeds the file size, and the case takes 1 ms. After the
+  fix, 280 thousand cases over two seeds with no finding. Limit: the fuzzer is not
+  coverage-guided; the ZIP target, for example, rejects almost every mutation early.
+- **2.3, 2.4 and 2.5:** pending.
 
 It comes before the analysis features because tests and fuzzing protect what phase 3 touches.
 

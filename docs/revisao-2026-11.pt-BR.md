@@ -207,7 +207,17 @@ para o planejado:
 | 1.2 | Script de restauração | `scripts/restore.mjs`: recebe o ZIP e a senha, confere o manifesto (SHA-256 de cada arquivo), restaura o banco com `pg_restore` e devolve os objetos ao bucket; modo de ensaio que restaura num banco e bucket à parte. Teste automático: backup, restauração e comparação de contagens e hashes. Vem depois do 1.1 porque o restaurado depende das mesmas chaves, e o LEIA-ME do backup passa a dizer isso. | M |
 | 1.3 | Auditoria com encadeamento de hash | Número de sequência, hash anterior e hash próprio em cada evento, gravados sob trava para a ordem ser única; o hash cobre só os campos que não mudam (o ator apagado vira nulo hoje). Migração que encadeia o histórico, conferência periódica com aviso no status do sistema e a ponta da cadeia no manifesto do backup. Limite a registrar: evidencia edição e remoção de linhas, não uma reescrita completa por quem controla o banco e os backups. | M |
 
-### Fase 2 — Qualidade
+### Fase 2 — Qualidade — em andamento
+
+- **2.1 ✅** (commit `d8b708d`): 52 testes unitários em `apps/api/tests/unit`, com `node:test`,
+  em menos de um segundo e sem Docker; passo próprio no CI.
+- **2.2 ✅**: fuzzer em `apps/api/tests/fuzz` (`npm run test:fuzz`), com sete alvos, rodada curta
+  no CI e corpus de regressão. **Achado e corrigido:** um arquivo OLE de 1,5 KB com a FAT em laço
+  custava cerca de 1 s de CPU e 100 MB por cadeia lida no `doc-analysis.ts` (200 mil voltas);
+  agora a leitura não repete setor nem passa do tamanho do arquivo, e o caso leva 1 ms. Depois
+  da correção, 280 mil casos em duas sementes sem achado. Limite: o fuzzer não é guiado por
+  cobertura; o alvo do ZIP, por exemplo, rejeita cedo quase todas as mutações.
+- **2.3, 2.4 e 2.5:** pendentes.
 
 Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem o que a fase 3 mexe.
 

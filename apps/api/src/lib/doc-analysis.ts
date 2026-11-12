@@ -329,8 +329,16 @@ class Cfb {
     const parts: Buffer[] = [];
     let s = start;
     let total = 0;
-    let guard = 0;
-    while (s !== ENDOFCHAIN && s !== FREESECT && total < size && guard++ < 200_000) {
+    // Uma cadeia de verdade nao repete setor nem tem mais setores do que o arquivo. Sem isto, uma
+    // FAT em laco (um setor que aponta para si mesmo) rodava 200 mil voltas e montava 100 MB a
+    // partir de um arquivo de 1,5 KB, a cada stream lido (achado do fuzzing, revisao 2.2).
+    const seen = new Set<number>();
+    const max = Math.ceil(this.buf.length / this.sectorSize);
+    while (s !== ENDOFCHAIN && s !== FREESECT && total < size && seen.size < max) {
+      // Para no laco e fica com o que ja leu: lancar aqui deixaria um laco plantado num canto do
+      // arquivo esconder as macros do resto.
+      if (seen.has(s)) break;
+      seen.add(s);
       parts.push(this.buf.subarray(this.offset(s), this.offset(s) + this.sectorSize));
       total += this.sectorSize;
       s = this.fat[s] ?? ENDOFCHAIN;
@@ -343,8 +351,11 @@ class Cfb {
     if (entry.size < 4096 && entry.type === 2) {
       const parts: Buffer[] = [];
       let s = entry.start;
-      let guard = 0;
-      while (s !== ENDOFCHAIN && s !== FREESECT && guard++ < 100_000) {
+      // Como em chain(): sem repetir setor, e so o que cabe no stream (menos de 4096 bytes).
+      const seen = new Set<number>();
+      while (s !== ENDOFCHAIN && s !== FREESECT && seen.size < 64) {
+        if (seen.has(s)) break;
+        seen.add(s);
         parts.push(this.miniStream.subarray(s * 64, s * 64 + 64));
         s = this.miniFat[s] ?? ENDOFCHAIN;
       }

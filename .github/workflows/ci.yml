@@ -106,6 +106,14 @@ jobs:
         if: matrix.app == 'api'
         run: npm run test:unit
 
+      # Fuzzing dos parsers (revisao de novembro, 2.2), rodada curta: 300 casos por alvo a partir
+      # das sementes montadas no proprio script (os executaveis de tests/.tmp so existem depois dos
+      # testes de integracao). Reprova em excecao inesperada, caso lento ou resultado gigante, e
+      # repassa o corpus de regressao. A rodada longa e manual: npm run test:fuzz -- --iterations N.
+      - name: Fuzzing dos parsers (rodada curta)
+        if: matrix.app == 'api'
+        run: npm run test:fuzz
+
       # Testes unitarios do frontend (itens 2.2 e 6.9), so no web; mesmo molde do passo
       # de prisma:generate, que roda so na API. Com cobertura: o piso do vitest.config.ts
       # reprova uma queda grande nos modulos que ja tem teste.

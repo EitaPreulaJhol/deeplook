@@ -1237,6 +1237,7 @@ They only need Docker running; they bring up what they use and do not touch the 
 ```bash
 cd apps/api
 npm run test:unit                   # pure libraries, no database or Docker (under 1 s)
+npm run test:fuzz                   # parser fuzzing, short round (-- --iterations 40000 for the long one)
 npm run test:integration            # API against real Postgres, MinIO and OpenLDAP
 npm run test:integration -- ldap    # only the files with "ldap" in the name
 npm run typecheck:tests             # test types (the tsx that runs them does not check types)
@@ -1256,6 +1257,15 @@ node scripts/trivy.mjs image deeplook-api   # CVE in an image (the same command 
   such as CSV, entropy, indicator normalization, ZIP (the writer and both readers), TLSH, file type,
   TOTP, CAPTCHA, password policy, the login failure limit and the trusted network. They run without
   Docker; the rest stays with the integration tests.
+- **Parser fuzzing** (`apps/api/tests/fuzz`): mutation from seeds over what reads hostile input: the
+  whole static analysis (PE, ELF, LNK, OLE, PDF, RTF, scripts, disk images), the ZIP reader, the e-mail
+  reader, evidence image cleaning, indicator import and TLSH. Each case runs in a separate thread and
+  fails on an unexpected exception, on taking more than 1.5 s (`FUZZ_SLOW_MS`) or on a huge result. The
+  generator is deterministic (`--seed`), whatever breaks is saved in `tests/fuzz/crashes/` with the
+  command to repeat it, and what has been fixed stays in `tests/fuzz/corpus/`, replayed on every round.
+  It also uses the executables and images the integration tests generate in `tests/.tmp`, if present.
+  It is not coverage-guided: it finds the shallow error in headers and tables, not the one that needs a
+  wholly valid file.
 - **Integration** (`apps/api/tests/integration`): each file runs on a new database. The disk images
   and the certificates are generated on the spot, in `tests/.tmp`. `--clean` removes the
   containers when finished.

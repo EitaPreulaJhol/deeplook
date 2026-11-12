@@ -1256,6 +1256,7 @@ Precisam só do Docker ligado; sobem o que usam e não mexem na stack em execuç
 ```bash
 cd apps/api
 npm run test:unit                   # bibliotecas puras, sem banco nem Docker (menos de 1 s)
+npm run test:fuzz                   # fuzzing dos parsers, rodada curta (-- --iterations 40000 para a longa)
 npm run test:integration            # API contra Postgres, MinIO e OpenLDAP reais
 npm run test:integration -- ldap    # só os arquivos com "ldap" no nome
 npm run typecheck:tests             # tipos dos testes (o tsx que os roda não checa tipos)
@@ -1275,6 +1276,16 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
   MinIO, como CSV, entropia, normalização de indicadores, ZIP (gravador e os dois leitores),
   TLSH, tipo de arquivo, TOTP, CAPTCHA, política de senha, limite de falhas do login e rede
   confiável. Rodam sem Docker; o resto fica com os de integração.
+- **Fuzzing dos parsers** (`apps/api/tests/fuzz`): mutação a partir de sementes sobre o que lê
+  entrada hostil: a análise estática inteira (PE, ELF, LNK, OLE, PDF, RTF, scripts, imagens de
+  disco), o leitor de ZIP, o de e-mail, a limpeza de imagens de evidência, a importação de
+  indicadores e o TLSH. Cada caso roda numa thread à parte e reprova por exceção inesperada, por
+  passar de 1,5 s (`FUZZ_SLOW_MS`) ou por resultado gigante. O gerador é determinístico
+  (`--seed`), o que quebrar é gravado em `tests/fuzz/crashes/` com o comando para repetir, e o
+  que já foi corrigido fica em `tests/fuzz/corpus/`, repassado a cada rodada. Usa também os
+  executáveis e imagens que os testes de integração geram em `tests/.tmp`, se existirem. Não é
+  guiado por cobertura: acha o erro raso em cabeçalhos e tabelas, não o que exige um arquivo
+  válido por inteiro.
 - **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
   de disco e os certificados são gerados na hora, em `tests/.tmp`. `--clean` remove os
   containers ao terminar.

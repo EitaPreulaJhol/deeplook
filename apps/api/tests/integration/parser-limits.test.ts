@@ -46,6 +46,19 @@ function ole(n = 3) {
   }
   return b;
 }
+/** OLE minimo cuja FAT e toda de zeros: o setor 0 aponta para si mesmo. */
+function oleFatLoop() {
+  const buf = Buffer.alloc(1536);
+  Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]).copy(buf);
+  buf.writeUInt16LE(0x3e, 24);
+  buf.writeUInt16LE(3, 26);
+  buf.writeUInt16LE(0xfffe, 28);
+  buf.writeUInt16LE(9, 30);
+  buf.writeUInt16LE(6, 32);
+  buf.writeUInt32LE(1, 44);
+  return buf;
+}
+
 /**
  * OLE com um projeto VBA cujo dir lista `records` modulos, todos apontando para o mesmo
  * stream de ~16 MB descompactado (poucos KB no arquivo).
@@ -386,6 +399,8 @@ async function main() {
     ['OLE com irmãos em ciclo (derrubava a API)', ole(3), 'x.doc', 1000],
     ['OLE com 2000 armazenamentos em ciclo', ole(2000), 'x.doc', 1000],
     ['VBA com 300 módulos no mesmo stream', vbaOle(300), 'x.doc', 3000],
+    // Achado do fuzzing (revisao de novembro, 2.2): levava ~1 s e montava 100 MB por cadeia.
+    ['OLE de 1,5 KB com a FAT em laço', oleFatLoop(), 'x.doc', 200],
     ['FAT com subpastas no mesmo cluster', fat(3), 'x.img', 1000],
     ['ISO com diretórios até o fim do arquivo', isoDirFlood(), 'x.iso', 3000],
     ['PDF com 1000 streams grandes', pdfStreams(), 'x.pdf', 3000],
