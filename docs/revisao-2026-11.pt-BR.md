@@ -336,11 +336,12 @@ tela, todos verdes.
 
 ## 6. Achados no caminho (dependem do dono)
 
-- **A suíte visual está sem as capturas de referência.** O commit `7f4bb5d` (10/11, "remove
-  obsolete UI screenshots") apagou os 14 PNGs de `scripts/ui-visual/__screenshots__`, que são as
-  baselines da comparação. Sem eles, `sh scripts/ui-visual/run.sh` falha nos 14 testes (a primeira
-  rodada grava as capturas e reprova), e o job *Suíte visual* do CI reprovaria. Não foram
-  recriados aqui porque a remoção foi uma escolha recente: se foi engano, basta
-  `cd apps/web && npm run build && cd ../.. && sh scripts/ui-visual/run.sh --update-snapshots` e
-  commitar os PNGs (a ficha da amostra já sai com a seção de pontuação de risco); se foi de
-  propósito, o job do CI e a pasta `scripts/ui-visual` podem sair juntos.
+- **Suíte visual: capturas de referência recriadas — ✅ (13/11).** O commit `7f4bb5d` (10/11) tinha
+  apagado os 14 PNGs de `scripts/ui-visual/__screenshots__`; a pedido do dono, foram regravados a
+  partir do build atual (telas em português, ficha já com a pontuação de risco) e conferidos em
+  duas rodadas seguidas de comparação, sem diferença.
+- **`.env` e Proxmox — ✅ (13/11).** O `.env` ganhou `DATA_KEY` (o 2FA guardado no modo antigo é
+  recifrado na subida) e `OLETOOLS_URL`/`OLETOOLS_TOKEN`, gerados na hora; a cópia anterior ficou
+  fora do repositório. No Proxmox (PVE 9.2), o `deeplook@pve` já tem `VM.GuestAgent.Unrestricted`
+  em `/vms`, e o template 1000 está com `agent: 1`. Falta só confirmar, com um ambiente aberto,
+  que o serviço do qemu-guest-agent roda dentro do Windows do template.

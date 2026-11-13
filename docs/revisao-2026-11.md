@@ -338,11 +338,12 @@ integration checks in 49 files, `test:images`, `test:smoke` and the 95 UI scenar
 
 ## 6. Findings along the way (depend on the owner)
 
-- **The visual suite has no reference screenshots.** Commit `7f4bb5d` (Nov 10, "remove obsolete UI
-  screenshots") deleted the 14 PNGs in `scripts/ui-visual/__screenshots__`, which are the
-  comparison baselines. Without them, `sh scripts/ui-visual/run.sh` fails all 14 tests (the first
-  run writes the screenshots and fails), and the CI *Suíte visual* job would fail. They were not
-  recreated here because the removal was a recent choice: if it was a mistake,
-  `cd apps/web && npm run build && cd ../.. && sh scripts/ui-visual/run.sh --update-snapshots` and
-  committing the PNGs is enough (the sample record already comes out with the risk score
-  section); if it was deliberate, the CI job and the `scripts/ui-visual` folder can go together.
+- **Visual suite: reference screenshots recreated — ✅ (Nov 13).** Commit `7f4bb5d` (Nov 10) had
+  deleted the 14 PNGs in `scripts/ui-visual/__screenshots__`; at the owner's request they were
+  recorded again from the current build (Portuguese screens, record with the risk score) and checked
+  in two consecutive comparison runs, with no difference.
+- **`.env` and Proxmox — ✅ (Nov 13).** The `.env` got `DATA_KEY` (2FA stored in the old mode is
+  re-encrypted at startup) and `OLETOOLS_URL`/`OLETOOLS_TOKEN`, generated on the spot; the previous
+  copy was kept outside the repository. On Proxmox (PVE 9.2), `deeplook@pve` already has
+  `VM.GuestAgent.Unrestricted` on `/vms`, and template 1000 has `agent: 1`. What is left is to confirm,
+  with an environment open, that the qemu-guest-agent service runs inside the template's Windows.
