@@ -46,6 +46,9 @@ RUN npm ci --omit=dev \
   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 COPY --from=build /app/dist ./dist
 COPY prisma.config.ts ./
+# O prisma.config.ts le os NOME_FILE (plano pos-revisao, 5.1) nas migracoes: o modulo vai junto
+# (so usa o node:fs). Sem ele, a API nao migra ao subir.
+COPY src/secret-files.ts ./src/secret-files.ts
 COPY prisma ./prisma
 # Pacotes de regras YARA (item 143).
 COPY rules ./rules
