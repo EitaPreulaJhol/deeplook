@@ -1407,6 +1407,26 @@ h6 {
   position: relative;
 }
 
+/* Lista de amostras em largura curta (plano pos-revisao, item 1.6): a tabela e o container, e as
+   colunas secundarias somem antes de o veredito sair do quadro. Vale na tela de 1024 px e com o
+   painel de detalhe aberto. O resto continua na ficha. Limites medidos com a lista de exemplo: a
+   tabela inteira precisa de ~1020 px; sem Relatorios e Data, de ~830 px. */
+.dl-entries .cds--data-table-content {
+  container-type: inline-size;
+}
+
+@container (max-width: 1020px) {
+  .dl-col--minor2 {
+    display: none;
+  }
+}
+
+@container (max-width: 860px) {
+  .dl-col--minor1 {
+    display: none;
+  }
+}
+
 .cds--data-table-container {
   padding-block-start: 0;
   background-color: var(--dl-surface);

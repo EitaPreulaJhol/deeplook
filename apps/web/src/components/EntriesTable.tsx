@@ -159,6 +159,17 @@ export function EntriesTable({
     }
   };
 
+  // Colunas secundarias somem quando a tabela fica estreita (tela de 1024 px, painel de detalhe;
+  // plano pos-revisao, item 1.6): o veredito, que importa na triagem, nao sai mais do quadro.
+  // Nivel 2 sai primeiro; o 1, so na largura menor (styles/hpsm.scss, .dl-entries).
+  const minor: Partial<Record<EntrySortKey, string>> = {
+    type: 'dl-col--minor1',
+    assignee: 'dl-col--minor1',
+    age: 'dl-col--minor1',
+    reports: 'dl-col--minor2',
+    createdAt: 'dl-col--minor2',
+  };
+
   const headers: { key: EntrySortKey; header: string }[] = [
     { key: 'title', header: t('colSample') },
     { key: 'type', header: t('colType') },
@@ -202,7 +213,7 @@ export function EntriesTable({
           onDone={setBulkResult}
         />
       )}
-      <TableContainer>
+      <TableContainer className="dl-entries">
         <Table size="xs" aria-label={detailPane ? t('tableAriaSelect') : t('tableAria')}>
           <TableHead>
             <TableRow>
@@ -227,6 +238,7 @@ export function EntriesTable({
                   <TableHeader
                     key={header.key}
                     scope="col"
+                    className={minor[header.key]}
                     aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <button
@@ -290,27 +302,29 @@ export function EntriesTable({
                     </span>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className={minor.type}>
                   <TypeTag type={entry.type} />
                 </TableCell>
                 {showOwner && <TableCell>{entry.owner.displayName}</TableCell>}
-                <TableCell>{entry.assignee?.displayName ?? '—'}</TableCell>
+                <TableCell className={minor.assignee}>
+                  {entry.assignee?.displayName ?? '—'}
+                </TableCell>
                 <TableCell>
                   <StatusTag status={entry.status} />
                 </TableCell>
                 <TableCell>
                   <PriorityTag priority={entry.priority} />
                 </TableCell>
-                <TableCell>
+                <TableCell className={minor.age}>
                   <AgeText entry={entry} sla={sla} />
                 </TableCell>
                 <TableCell>
                   <VerdictTag verdict={entry.verdict} />
                 </TableCell>
-                <TableCell>
+                <TableCell className={minor.reports}>
                   {entry._count ? entry._count.reports : (entry.reports?.length ?? 0)}
                 </TableCell>
-                <TableCell>{fmtDate(entry.createdAt)}</TableCell>
+                <TableCell className={minor.createdAt}>{fmtDate(entry.createdAt)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

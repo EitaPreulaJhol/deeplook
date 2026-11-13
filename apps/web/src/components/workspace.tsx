@@ -3,7 +3,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
-import { t as tr } from '../i18n/shell';
+import { useLocale } from '../i18n';
+import { messages, t as tr } from '../i18n/shell';
 import { revealTab } from './HpsmTabs';
 
 /**
@@ -19,8 +20,16 @@ interface WorkspaceTab {
   path: string;
   /** Ultima URL visitada nesta aba (pathname + search). */
   url: string;
-  title: string;
+  /**
+   * Titulo que a tela definiu (o nome da amostra, o codigo do caso). Sem ele, a aba mostra o
+   * titulo padrao da rota no idioma atual: guardado, ficaria no idioma em que a aba foi aberta
+   * (plano pos-revisao, item 1.5).
+   */
+  title?: string;
 }
+
+/** O titulo que a aba mostra. */
+const tabTitle = (tab: WorkspaceTab): string => tab.title ?? routeTitle(tab.path) ?? tab.path;
 
 interface WorkspaceContextValue {
   tabs: WorkspaceTab[];
@@ -38,35 +47,47 @@ const HOME_URL = '/';
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-/** Titulo padrao de cada rota (null = rota sem aba, ex.: redirecionamentos). */
-function routeTitle(pathname: string): string | null {
-  if (pathname === '/inicio') return tr('rtHome');
-  if (pathname === '/user') return tr('rtAccount');
-  if (pathname === '/user/api') return tr('rtApiDocs');
-  if (pathname === '/history') return tr('rtHistory');
-  if (pathname === '/me') return tr('rtMyUploads');
-  if (pathname === '/submit') return tr('rtSubmit');
-  if (pathname === '/admin') return tr('rtAdmin');
-  if (pathname.startsWith('/entries/')) return tr('rtSample');
-  if (pathname.startsWith('/iocs/')) return tr('rtIoc');
-  if (pathname === '/inbox') return tr('rtInbox');
-  if (pathname === '/painel') return tr('rtDashboard');
-  if (pathname === '/gerencial') return tr('rtMgmt');
-  if (pathname === '/atribuicao') return tr('rtAssignment');
-  if (pathname === '/avisos') return tr('rtBroadcasts');
-  if (pathname === '/revisoes') return tr('rtReviews');
-  if (pathname === '/yara') return tr('rtYara');
-  if (pathname === '/permitidos') return tr('rtAllowlist');
-  if (pathname === '/regras-triagem') return tr('rtTriage');
-  if (pathname === '/dominios-empresa') return tr('rtDomains');
-  if (pathname === '/casos') return tr('rtCases');
-  if (pathname.startsWith('/casos/')) return tr('rtCase');
-  if (pathname === '/busca') return tr('rtSearch');
-  if (pathname === '/kb') return tr('rtKb');
-  if (pathname === '/kb/novo') return tr('rtNewArticle');
-  if (pathname.startsWith('/kb/')) return tr('rtArticle');
-  if (pathname === '/comparar') return tr('rtCompare');
+/** Chave do titulo padrao de cada rota (null = rota sem aba, ex.: redirecionamentos). */
+function routeKey(pathname: string): keyof typeof messages | null {
+  if (pathname === '/inicio') return 'rtHome';
+  if (pathname === '/user') return 'rtAccount';
+  if (pathname === '/user/api') return 'rtApiDocs';
+  if (pathname === '/history') return 'rtHistory';
+  if (pathname === '/me') return 'rtMyUploads';
+  if (pathname === '/submit') return 'rtSubmit';
+  if (pathname === '/admin') return 'rtAdmin';
+  if (pathname.startsWith('/entries/')) return 'rtSample';
+  if (pathname.startsWith('/iocs/')) return 'rtIoc';
+  if (pathname === '/inbox') return 'rtInbox';
+  if (pathname === '/painel') return 'rtDashboard';
+  if (pathname === '/gerencial') return 'rtMgmt';
+  if (pathname === '/atribuicao') return 'rtAssignment';
+  if (pathname === '/avisos') return 'rtBroadcasts';
+  if (pathname === '/revisoes') return 'rtReviews';
+  if (pathname === '/yara') return 'rtYara';
+  if (pathname === '/permitidos') return 'rtAllowlist';
+  if (pathname === '/regras-triagem') return 'rtTriage';
+  if (pathname === '/dominios-empresa') return 'rtDomains';
+  if (pathname === '/casos') return 'rtCases';
+  if (pathname.startsWith('/casos/')) return 'rtCase';
+  if (pathname === '/busca') return 'rtSearch';
+  if (pathname === '/kb') return 'rtKb';
+  if (pathname === '/kb/novo') return 'rtNewArticle';
+  if (pathname.startsWith('/kb/')) return 'rtArticle';
+  if (pathname === '/comparar') return 'rtCompare';
   return null;
+}
+
+/** Titulo padrao da rota, no idioma atual. */
+function routeTitle(pathname: string): string | null {
+  const key = routeKey(pathname);
+  return key ? tr(key) : null;
+}
+
+/** O titulo guardado e so o padrao da rota (em qualquer idioma)? Lista gravada antes do item 1.5. */
+function isDefaultTitle(path: string, title: string): boolean {
+  const key = routeKey(path);
+  return key !== null && (messages[key] as readonly string[]).includes(title);
 }
 
 /** Copia das abas guardada entre logins (uma por usuario). */
@@ -78,14 +99,17 @@ function loadTabs(storage: Storage, key: string): WorkspaceTab[] {
   try {
     const raw = storage.getItem(key);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter(
-          (t): t is WorkspaceTab =>
-            typeof t?.path === 'string' &&
-            typeof t?.url === 'string' &&
-            typeof t?.title === 'string',
-        )
-      : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (t): t is WorkspaceTab =>
+          typeof t?.path === 'string' &&
+          typeof t?.url === 'string' &&
+          (t.title === undefined || typeof t.title === 'string'),
+      )
+      .map(({ path, url, title }) =>
+        title === undefined || isDefaultTitle(path, title) ? { path, url } : { path, url, title },
+      );
   } catch {
     return [];
   }
@@ -120,6 +144,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user, preferences } = useAuth();
   const userId = user?.id;
   const restore = preferences.restoreTabs;
+  const locale = useLocale();
 
   // Abas desta sessao (F5) ou, num login novo, as da sessao anterior.
   const [tabs, setTabs] = useState<WorkspaceTab[]>(() => {
@@ -145,11 +170,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       pendingClose.current = null;
       setTabs((current) => current.filter((t) => t.path !== closing));
     }
-    const base = routeTitle(pathname);
-    if (!base) return;
+    if (!routeKey(pathname)) return;
     // Titulo pedido pela tela antes de a aba existir (o efeito da pagina roda
-    // antes deste): usa ele no lugar do titulo padrao da rota.
-    const title = knownTitles.current.get(pathname) ?? base;
+    // antes deste); sem ele, a aba mostra o titulo padrao da rota.
+    const title = knownTitles.current.get(pathname);
     const url = pathname + search;
     // Navegacao que troca o registro da aba (ex.: Anterior/Proxima da amostra).
     const replaceTab = (state as { replaceTab?: string } | null)?.replaceTab;
@@ -162,7 +186,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
             .filter((t) => t.path !== replaceTab)
             .map((t) => (t.path === pathname ? { ...t, url } : t));
         }
-        return current.map((t) => (t.path === replaceTab ? { path: pathname, url, title } : t));
+        return current.map((t) =>
+          t.path === replaceTab ? { path: pathname, url, ...(title ? { title } : {}) } : t,
+        );
       }
       const existing = current.find((t) => t.path === pathname);
       if (existing) {
@@ -170,7 +196,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           ? current
           : current.map((t) => (t.path === pathname ? { ...t, url } : t));
       }
-      let next = [...current, { path: pathname, url, title }];
+      let next: WorkspaceTab[] = [...current, { path: pathname, url, ...(title ? { title } : {}) }];
       while (next.length > MAX_TABS) {
         const oldest = next.findIndex((t) => t.path !== pathname);
         next = next.filter((_, i) => i !== oldest);
@@ -183,9 +209,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   // Titulo da aba do navegador (item 131): a aba ativa, com o nome da amostra.
   useEffect(() => {
-    const title = tabs.find((t) => t.path === pathname)?.title ?? routeTitle(pathname);
+    const tab = tabs.find((t) => t.path === pathname);
+    const title = tab ? tabTitle(tab) : routeTitle(pathname);
     document.title = title ? `${title} · DeepLook` : 'DeepLook';
-  }, [tabs, pathname]);
+    // O idioma tambem muda o titulo padrao: a raiz redesenha tudo ao trocar (revisao 2.5).
+  }, [tabs, pathname, locale]);
   useEffect(
     () => () => {
       document.title = 'DeepLook';
@@ -293,15 +321,15 @@ export function WorkspaceTabs() {
               href={tab.url}
               className="hpsm-doctab__link"
               aria-current={active ? 'page' : undefined}
-              title={tab.title}
+              title={tabTitle(tab)}
               onClick={open(tab)}
             >
-              {tab.title}
+              {tabTitle(tab)}
             </a>
             <button
               type="button"
               className="hpsm-doctab__close"
-              aria-label={tr('closeTab', { title: tab.title })}
+              aria-label={tr('closeTab', { title: tabTitle(tab) })}
               title={tr('close')}
               onClick={() => close(tab.path)}
             >
