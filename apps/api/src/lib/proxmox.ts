@@ -136,25 +136,25 @@ function parseJson(buf: Buffer): unknown {
 function permissionHint(path: string): string {
   if (path.endsWith('/clone')) {
     return (
-      ' O clone precisa de VM.Clone no template (o VMID do path) e de VM.Allocate em /vms, ' +
+      'O clone precisa de VM.Clone no template (o VMID do path) e de VM.Allocate em /vms, ' +
       'porque o clone usa um VMID novo; os discos do template tambem exigem ' +
       'Datastore.AllocateSpace no storage de cada um.'
     );
   }
   if (path.endsWith('/upload')) {
-    return ' O upload precisa de Datastore.AllocateTemplate no storage da ISO (PROXMOX_ISO_STORAGE).';
+    return 'O upload precisa de Datastore.AllocateTemplate no storage da ISO (PROXMOX_ISO_STORAGE).';
   }
   if (path.endsWith('/config')) {
-    return ' Alterar a configuracao precisa de VM.Config.* (Options/Disk/CDROM) no VMID alvo.';
+    return 'Alterar a configuracao precisa de VM.Config.* (Options/Disk/CDROM) no VMID alvo.';
   }
   if (path.endsWith('/status/current')) {
-    return ' Ler o estado da VM precisa de VM.Audit no VMID alvo.';
+    return 'Ler o estado da VM precisa de VM.Audit no VMID alvo.';
   }
   if (path.includes('/status/')) {
-    return ' Ligar/desligar precisa de VM.PowerMgmt no VMID alvo.';
+    return 'Ligar/desligar precisa de VM.PowerMgmt no VMID alvo.';
   }
   if (path.includes('/tasks/')) {
-    return ' Ler a task exige que ela seja sua ou Sys.Audit no node.';
+    return 'Ler a task exige que ela seja sua ou Sys.Audit no node.';
   }
   return '';
 }
@@ -176,7 +176,10 @@ function errorMessage(
   const detail = pve || fallback.trim().slice(0, 200);
   const detailText = detail ? ` (${detail})` : '';
   const hint = status === 403 ? permissionHint(path) : '';
-  return `Proxmox respondeu HTTP ${status} em ${method} ${path}${detailText}.${hint}`;
+  const base = `Proxmox respondeu HTTP ${status} em ${method} ${path}${detailText}.`;
+  // A dica depois de um rotulo fixo: o detalhe do PVE costuma ter ponto (ex.: VM.Clone), e a
+  // traducao da mensagem (lib/error-language.ts) precisa achar onde a dica comeca.
+  return hint ? `${base} Permissões: ${hint}` : base;
 }
 
 function httpRequest(

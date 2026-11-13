@@ -3,8 +3,10 @@
  * portugues exatamente como a API o envia; `{0}`, `{1}`... marcam os trechos variaveis, na ordem
  * em que aparecem (um nome, um numero, a mensagem de outro erro).
  *
- * Mensagem nova ou alterada na API sem par aqui continua saindo em portugues: o teste
- * tests/unit/error-language.test.ts confere uma amostra; o resto e revisado ao traduzir.
+ * Mensagem nova ou alterada na API sem par aqui sairia em portugues: o teste
+ * tests/unit/messages-coverage.test.ts le o codigo e reprova a mensagem de erro sem par (e o par
+ * que o codigo nao usa mais). Texto que casa com o padrao mas nao vai numa resposta de erro entra
+ * na lista de excecoes do proprio teste, com o motivo.
  */
 export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['Rota nao encontrada.', 'Route not found.'],
@@ -605,5 +607,58 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   [
     'O arquivo do backup não está na pasta de backup (BACKUP_DIR): o disco pode estar desmontado, ou o arquivo foi movido ou apagado fora do DeepLook.',
     'The backup file is not in the backup folder (BACKUP_DIR): the disk may be unmounted, or the file was moved or deleted outside DeepLook.',
+  ],
+  // Plano pos-revisao, item 1.2: as que o teste de cobertura achou sem par.
+  ['O arquivo desta amostra não está no armazenamento.', "This sample's file is not in storage."],
+  ['use 12 caracteres ou mais', 'use 12 characters or more'],
+  ['Pacote não encontrado.', 'Pack not found.'],
+  [
+    'Já há uma verificação em andamento. Tente de novo em instantes.',
+    'A check is already running. Try again in a moment.',
+  ],
+  ['GitHub respondeu {0} ao listar os commits', 'GitHub answered {0} when listing the commits'],
+  ['GitHub respondeu {0} ao baixar o pacote', 'GitHub answered {0} when downloading the pack'],
+  ['o pacote passou do limite de tamanho', 'the pack went over the size limit'],
+  ['o pacote veio sem regras', 'the pack came without rules'],
+  // Proxmox: a rota do sandbox repassa a mensagem num 502.
+  [
+    'Falha ao autenticar no Proxmox (HTTP {0}). Confira PROXMOX_USER e PROXMOX_PASSWORD.',
+    'Failed to authenticate with Proxmox (HTTP {0}). Check PROXMOX_USER and PROXMOX_PASSWORD.',
+  ],
+  // Vale o primeiro padrao que casar: o da dica vem antes do da mensagem base, que termina em
+  // ponto e casaria tambem com a dica inteira dentro do ultimo trecho.
+  ['{0} Permissões: {1}', '{0} Permissions: {1}'],
+  ['Proxmox respondeu HTTP {0} em {1} {2}{3}.', 'Proxmox answered HTTP {0} on {1} {2}{3}.'],
+  [
+    'O clone precisa de VM.Clone no template (o VMID do path) e de VM.Allocate em /vms, porque o clone usa um VMID novo; os discos do template tambem exigem Datastore.AllocateSpace no storage de cada um.',
+    'Cloning needs VM.Clone on the template (the VMID in the path) and VM.Allocate on /vms, because the clone uses a new VMID; the template disks also require Datastore.AllocateSpace on the storage of each one.',
+  ],
+  [
+    'O upload precisa de Datastore.AllocateTemplate no storage da ISO (PROXMOX_ISO_STORAGE).',
+    'The upload needs Datastore.AllocateTemplate on the ISO storage (PROXMOX_ISO_STORAGE).',
+  ],
+  [
+    'Alterar a configuracao precisa de VM.Config.* (Options/Disk/CDROM) no VMID alvo.',
+    'Changing the configuration needs VM.Config.* (Options/Disk/CDROM) on the target VMID.',
+  ],
+  [
+    'Ler o estado da VM precisa de VM.Audit no VMID alvo.',
+    'Reading the VM state needs VM.Audit on the target VMID.',
+  ],
+  [
+    'Ligar/desligar precisa de VM.PowerMgmt no VMID alvo.',
+    'Starting/stopping needs VM.PowerMgmt on the target VMID.',
+  ],
+  [
+    'Ler a task exige que ela seja sua ou Sys.Audit no node.',
+    'Reading the task requires it to be yours or Sys.Audit on the node.',
+  ],
+  ['Timeout ao falar com o Proxmox.', 'Timeout talking to Proxmox.'],
+  ['Proxmox nao retornou a task do upload do ISO.', 'Proxmox did not return the ISO upload task.'],
+  ['Task do Proxmox terminou com erro: {0}', 'Proxmox task ended with an error: {0}'],
+  ['Timeout aguardando a task do Proxmox.', 'Timeout waiting for the Proxmox task.'],
+  [
+    'Proxmox nao retornou porta/ticket do console.',
+    'Proxmox did not return the console port/ticket.',
   ],
 ];

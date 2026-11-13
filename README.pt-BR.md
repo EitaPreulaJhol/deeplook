@@ -1232,6 +1232,8 @@ navegador em inglês. Datas e números seguem o idioma (`13/11/2026` ou `11/13/2
 - **Erros da API:** a interface manda `Accept-Language` com o idioma dela, e a API traduz `error` e
   `details` das respostas de erro (`apps/api/src/lib/messages-en.ts`, mais de 300 mensagens). Scripts
   que não mandam o cabeçalho continuam recebendo português; para inglês, `Accept-Language: en`.
+  O teste `tests/unit/messages-coverage.test.ts` lê o código da API e reprova mensagem de erro sem
+  tradução.
 - **Continua em português:** o que a API grava como dado e mostra como está (alertas da análise
   estática, achados de script, motivos da pontuação de risco, detalhes do histórico e do status do
   sistema), o CSV da auditoria, a especificação OpenAPI e o que as pessoas escrevem.

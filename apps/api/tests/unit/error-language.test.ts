@@ -89,3 +89,20 @@ test('gancho: traduz só erro em JSON de quem pediu inglês', async () => {
   assert.equal((await app.inject({ url: '/text', headers: en })).body, 'Amostra não encontrada.');
   await app.close();
 });
+
+test('mensagem do Proxmox: detalhe do PVE com ponto e a dica de permissão no fim', () => {
+  const pt =
+    'Proxmox respondeu HTTP 403 em POST /nodes/pve/qemu/9000/clone ' +
+    '(Permission check failed (/vms/9000, VM.Clone)). Permissões: ' +
+    'Ler a task exige que ela seja sua ou Sys.Audit no node.';
+  assert.equal(
+    translateMessage(pt),
+    'Proxmox answered HTTP 403 on POST /nodes/pve/qemu/9000/clone ' +
+      '(Permission check failed (/vms/9000, VM.Clone)). Permissions: ' +
+      'Reading the task requires it to be yours or Sys.Audit on the node.',
+  );
+  assert.equal(
+    translateMessage('Proxmox respondeu HTTP 500 em GET /version.'),
+    'Proxmox answered HTTP 500 on GET /version.',
+  );
+});

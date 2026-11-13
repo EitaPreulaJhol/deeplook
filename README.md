@@ -1219,6 +1219,8 @@ the language (`13/11/2026` or `11/13/2026`).
 - **API errors:** the interface sends `Accept-Language` with its language, and the API translates the
   `error` and `details` of error responses (`apps/api/src/lib/messages-en.ts`, over 300 messages).
   Scripts that do not send the header keep getting Portuguese; for English, `Accept-Language: en`.
+  The `tests/unit/messages-coverage.test.ts` test reads the API code and fails on an untranslated
+  error message.
 - **Still in Portuguese:** what the API stores as data and shows as is (static analysis alerts, script
   findings, risk score reasons, history and system status details), the audit CSV, the OpenAPI
   specification and what people write.
