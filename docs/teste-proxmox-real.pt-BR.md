@@ -1,6 +1,8 @@
 # 🧪 Plano de teste do sandbox contra o Proxmox real
 
-[English](teste-proxmox-real.md) · Item 5.5 do [plano pós-revisão](plano-2026-11.pt-BR.md)
+> 🇬🇧 [Read in English](teste-proxmox-real.md)
+
+Item 5.5 do [plano pós-revisão](plano-2026-11.pt-BR.md).
 
 O sandbox tem testes contra o Proxmox simulado (`PROXMOX_MOCK=true`), contra um RouterOS falso e
 contra pacotes TZSP gerados. Este plano cobre o que só a infraestrutura de verdade confirma, num
