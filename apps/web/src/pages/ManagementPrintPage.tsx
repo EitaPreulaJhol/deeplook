@@ -7,6 +7,7 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconPrint } from '../components/icons';
 import { ManagementReport, periodLabel } from '../components/ManagementReport';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
+import { intlLocale } from '../i18n';
 import { useManagement, useManagementPeriod } from './ManagementPage';
 
 /**
@@ -18,7 +19,7 @@ export function ManagementPrintPage() {
   const { user } = useAuth();
   const { from, to, qs } = useManagementPeriod();
   const query = useManagement(qs);
-  const printedAt = useRef(new Date().toLocaleString('pt-BR'));
+  const printedAt = useRef(new Date().toLocaleString(intlLocale()));
 
   useEffect(() => {
     document.title = `Relatório gerencial — ${periodLabel(from, to)}`;

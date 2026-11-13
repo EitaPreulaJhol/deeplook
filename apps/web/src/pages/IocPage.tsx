@@ -23,9 +23,10 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
+import { intlLocale } from '../i18n';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 /** Onde o indicador aparece naquela amostra. */

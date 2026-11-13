@@ -20,11 +20,12 @@ import { IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { TypeTag, VerdictTag } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 type QueueItem = Report & { entry: { id: string; title: string; type: 'FILE' | 'URL' } };
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 /**

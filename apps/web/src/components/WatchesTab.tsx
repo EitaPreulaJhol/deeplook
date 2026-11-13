@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { IocKind } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmSection } from './HpsmForm';
 import { IocImportDialog } from './IocImportDialog';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
@@ -101,7 +102,7 @@ export function WatchesTab() {
                         {w.value}
                       </Link>
                     </TableCell>
-                    <TableCell>{new Date(w.createdAt).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{new Date(w.createdAt).toLocaleDateString(intlLocale())}</TableCell>
                     <TableCell>
                       <button
                         type="button"

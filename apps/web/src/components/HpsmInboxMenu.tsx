@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { AppNotification } from '../api/types';
+import { intlLocale } from '../i18n';
 import { IconBell } from './icons';
 import {
   notificationHref,
@@ -16,7 +17,7 @@ import {
 } from './notifications';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'short', timeStyle: 'short' });
 }
 
 /** Quantas aparecem no painel do sininho (o resto fica na Caixa de entrada). */

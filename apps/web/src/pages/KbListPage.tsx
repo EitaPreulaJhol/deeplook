@@ -13,6 +13,7 @@ import { KB_CATEGORIES, kbCategoryLabel, kbHref } from '../components/kb';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 /**
  * Base de conhecimento (item 63): busca por titulo, resumo, tags e texto,
@@ -137,7 +138,7 @@ export function KbListPage() {
               <div className="dl-kb-card__meta">
                 {a.tags.length > 0 && <span>Tags: {a.tags.join(', ')}</span>}
                 <span>
-                  Atualizado em {new Date(a.updatedAt).toLocaleDateString('pt-BR')}
+                  Atualizado em {new Date(a.updatedAt).toLocaleDateString(intlLocale())}
                   {a.updatedBy ? ` por ${a.updatedBy.displayName}` : ''}
                 </span>
                 {(a.citations ?? 0) > 0 && (

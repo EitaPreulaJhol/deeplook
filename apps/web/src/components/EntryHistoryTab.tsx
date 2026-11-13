@@ -13,6 +13,8 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { EntryEvent, EntryStatus, Priority, Verdict } from '../api/types';
+import { intlLocale } from '../i18n';
+import { t } from '../i18n/entry';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconAdd } from './icons';
@@ -27,83 +29,93 @@ import { useUnsavedChanges } from './useUnsavedChanges';
 const COMMENT_MAX = 4000;
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
-const SANDBOX_CLOSE_REASONS: Record<string, string> = {
-  descartado: 'descartado',
-  expirado: 'expirou',
+const SANDBOX_CLOSE_KEYS: Record<string, 'closeDiscarded' | 'closeExpired'> = {
+  descartado: 'closeDiscarded',
+  expirado: 'closeExpired',
 };
 
-/** Descricao legivel de um evento do historico (tambem usada na ficha impressa). */
+/** Descricao legivel de um evento do historico (tambem usada na ficha impressa). Os detalhes
+ * gravados pela API (motivos, nomes de regra) ficam como vieram. */
 export function describeEvent(event: EntryEvent): string {
   const from = event.fromValue;
   const to = event.toValue;
+  const detail = event.detail;
+  const prio = (value?: string | null) => priorityLabel((value ?? 'P3') as Priority);
   switch (event.type) {
     case 'CREATED':
-      return 'Amostra enviada';
+      return t('evCreated');
     case 'STATUS_CHANGED':
-      return `Status: ${statusLabel(from as EntryStatus)} → ${statusLabel(to as EntryStatus)}`;
+      return t('evStatus', {
+        from: statusLabel(from as EntryStatus),
+        to: statusLabel(to as EntryStatus),
+      });
     case 'VERDICT_CHANGED':
-      return `Veredito: ${verdictLabel(from as Verdict)} → ${verdictLabel(to as Verdict)}${
-        event.detail === 'principal' ? ' (acompanhando a amostra principal)' : ''
-      }`;
+      return (
+        t('evVerdict', { from: verdictLabel(from as Verdict), to: verdictLabel(to as Verdict) }) +
+        (detail === 'principal' ? ` ${t('evFollowingPrincipal')}` : '')
+      );
     case 'REPORT_SUBMITTED':
-      return 'Relatório enviado para revisão';
+      return t('evReportSubmitted');
     case 'REPORT_APPROVED':
-      return 'Relatório aprovado na revisão';
+      return t('evReportApproved');
     case 'REPORT_RETURNED':
-      return `Relatório devolvido para ajustes${event.detail ? `: ${event.detail}` : ''}`;
+      return detail ? t('evReportReturnedNote', { note: detail }) : t('evReportReturned');
     case 'MARKED_DUPLICATE':
-      return `Marcada como duplicata de "${to ?? 'outra amostra'}"`;
+      return t('evMarkedDuplicate', { title: to ?? t('evOtherSample') });
     case 'UNMARKED_DUPLICATE':
-      return 'Deixou de ser duplicata';
+      return t('evUnmarkedDuplicate');
     case 'PRIORITY_CHANGED':
-      return `Prioridade: ${priorityLabel((from ?? 'P3') as Priority)} → ${priorityLabel((to ?? 'P3') as Priority)}${
-        event.detail === 'escalonamento'
-          ? ' (escalonamento por atraso)'
-          : event.detail === 'regra de triagem'
-            ? ' (regra de triagem)'
-            : ''
-      }`;
+      return (
+        t('evPriority', { from: prio(from), to: prio(to) }) +
+        (detail === 'escalonamento'
+          ? ` ${t('evEscalation')}`
+          : detail === 'regra de triagem'
+            ? ` ${t('evByTriageRule')}`
+            : '')
+      );
     case 'SLA_WARN':
-      return `Prazo em alerta: mais de ${event.detail ?? '?'} h no status atual (${priorityLabel((from ?? 'P3') as Priority)})`;
+      return t('evSlaWarn', { hours: detail ?? '?', priority: prio(from) });
     case 'SLA_LATE':
-      return `Atrasada: mais de ${event.detail ?? '?'} h no status atual (${priorityLabel((from ?? 'P3') as Priority)})`;
+      return t('evSlaLate', { hours: detail ?? '?', priority: prio(from) });
     case 'FILE_PURGED':
-      return `Arquivo expurgado${event.detail ? ` (${event.detail})` : ''}; ficha, relatórios e hash mantidos`;
+      return detail ? t('evFilePurgedDetail', { detail }) : t('evFilePurged');
     case 'TRASHED':
-      return 'Movida para a lixeira';
+      return t('evTrashed');
     case 'RESTORED':
-      return 'Restaurada da lixeira';
+      return t('evRestored');
     case 'TRIAGE_RULE':
-      return `Regra de triagem "${to ?? '—'}": ${event.detail ?? ''}`;
+      return t('evTriageRule', { rule: to ?? '—', detail: detail ?? '' });
     case 'RESOLUTION_SET':
-      return `${to ? `Resolução para quem enviou: "${to}"` : 'Resolução para quem enviou removida'}${
-        event.detail === 'principal' ? ' (da principal)' : ''
-      }`;
+      return (
+        (to ? t('evResolutionSet', { text: to }) : t('evResolutionRemoved')) +
+        (detail === 'principal' ? ` ${t('evFromPrincipal')}` : '')
+      );
     case 'PAGE_CAPTURED':
-      return `Página capturada no navegador isolado (HTTP ${to ?? '—'}${event.detail ? `, ${event.detail}` : ''})`;
+      return t('evPageCaptured', { status: to ?? '—', detail: detail ? `, ${detail}` : '' });
     case 'CASE_ADDED':
-      return `Incluída no caso ${event.detail ?? ''}`.trim();
+      return t('evCaseAdded', { code: detail ?? '' }).trim();
     case 'CASE_REMOVED':
-      return `Retirada do caso ${event.detail ?? ''}`.trim();
+      return t('evCaseRemoved', { code: detail ?? '' }).trim();
     case 'ASSIGNED':
-      return `Responsável: ${from ?? '—'} → ${to ?? '—'}${event.detail ? ` (${event.detail})` : ''}`;
+      return t('evAssigned', { from: from ?? '—', to: to ?? '—' }) + (detail ? ` (${detail})` : '');
     case 'REPORT_CREATED':
-      return `Relatório salvo como rascunho (veredito ${verdictLabel(to as Verdict)})`;
+      return t('evReportDraft', { verdict: verdictLabel(to as Verdict) });
     case 'REPORT_PUBLISHED':
-      return `Relatório publicado (veredito ${verdictLabel(to as Verdict)})`;
+      return t('evReportPublished', { verdict: verdictLabel(to as Verdict) });
     case 'SANDBOX_OPENED':
-      return 'Ambiente isolado aberto';
-    case 'SANDBOX_CLOSED':
-      return `Ambiente isolado encerrado${
-        event.detail ? ` (${SANDBOX_CLOSE_REASONS[event.detail] ?? event.detail})` : ''
-      }`;
+      return t('evSandboxOpened');
+    case 'SANDBOX_CLOSED': {
+      const key = detail ? SANDBOX_CLOSE_KEYS[detail] : undefined;
+      const reason = key ? t(key) : detail;
+      return t('evSandboxClosed') + (reason ? ` (${reason})` : '');
+    }
     case 'SANDBOX_FAILED':
-      return `Falha ao preparar o ambiente isolado${event.detail ? `: ${event.detail}` : ''}`;
+      return detail ? t('evSandboxFailedDetail', { detail }) : t('evSandboxFailed');
     case 'COMMENT':
-      return 'Atualização';
+      return t('evComment');
     default:
       return event.type;
   }
@@ -133,7 +145,7 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
   const check = useRequiredFields([
     {
       id: 'comment-text',
-      label: 'Atualização',
+      label: t('evComment'),
       ok: text.trim().length > 0,
       api: 'text',
       value: text,
@@ -150,7 +162,7 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
       setText('');
       setMentions([]);
       check.reset();
-      setResult({ ok: true, text: 'Atualização registrada no histórico.' });
+      setResult({ ok: true, text: t('updateRecorded') });
       await queryClient.invalidateQueries({ queryKey });
     } catch (err) {
       if (!check.fromApi(err)) setResult({ ok: false, text: (err as Error).message });
@@ -168,11 +180,11 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
 
   return (
     <>
-      <HpsmSection title="Nova atualização">
-        <HpsmToolbar label="Ações da atualização">
+      <HpsmSection title={t('newUpdate')}>
+        <HpsmToolbar label={t('updateActions')}>
           <HpsmToolbarButton
-            label={saving ? 'Salvando...' : 'Adicionar atualização'}
-            title="Adicionar ao histórico (Ctrl+S)"
+            label={saving ? 'Salvando...' : t('addUpdate')}
+            title={t('addUpdateHelp')}
             icon={IconAdd}
             disabled={saving}
             onClick={addComment}
@@ -186,21 +198,21 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
         {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
         <HpsmForm>
           <HpsmField
-            label="Atualização"
+            label={t('evComment')}
             htmlFor="comment-text"
             required
             wide
             top
             invalid={check.isInvalid('comment-text')}
-            help={`Texto livre, visível para todos que acessam a amostra; digite @ para mencionar alguém (${text.length}/${COMMENT_MAX}).`}
+            help={t('updateHelp', { n: text.length, max: COMMENT_MAX })}
           >
             <MentionTextArea
               id="comment-text"
-              labelText="Atualização"
+              labelText={t('evComment')}
               hideLabel
               rows={3}
               maxLength={COMMENT_MAX}
-              placeholder="Ex.: pedi mais informações ao remetente."
+              placeholder={t('updatePlaceholder')}
               value={text}
               onChange={setText}
               onMention={(m) =>
@@ -213,27 +225,25 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
         </HpsmForm>
       </HpsmSection>
 
-      {query.isLoading && <HpsmLoading text="Carregando histórico..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingHistory')} />}
       {query.isError && (
         <HpsmMessage kind="error">
-          Erro ao carregar o histórico: {(query.error as Error).message}
+          {t('historyError', { error: (query.error as Error).message })}
         </HpsmMessage>
       )}
-      {query.data && events.length === 0 && (
-        <HpsmMessage kind="info">Nenhum evento registrado para esta amostra.</HpsmMessage>
-      )}
+      {query.data && events.length === 0 && <HpsmMessage kind="info">{t('noEvents')}</HpsmMessage>}
       {events.length > 0 && (
         <>
           <div className="dl-history-filter">
             <Checkbox
               id="history-only-comments"
-              labelText={`Somente atualizações (${comments.length})`}
+              labelText={t('onlyUpdates', { n: comments.length })}
               checked={onlyComments}
               onChange={(_, { checked }) => setOnlyComments(checked)}
             />
           </div>
           {shown.length === 0 ? (
-            <p className="dl-history-empty">Nenhuma atualização registrada ainda.</p>
+            <p className="dl-history-empty">{t('noUpdates')}</p>
           ) : (
             <HistoryTable events={shown} />
           )}
@@ -246,12 +256,12 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
 function HistoryTable({ events }: { events: EntryEvent[] }) {
   return (
     <TableContainer>
-      <Table size="xs" aria-label="Histórico da amostra">
+      <Table size="xs" aria-label={t('historyAria')}>
         <TableHead>
           <TableRow>
-            <TableHeader scope="col">Data</TableHeader>
-            <TableHeader scope="col">Usuário</TableHeader>
-            <TableHeader scope="col">Evento</TableHeader>
+            <TableHeader scope="col">{t('colDate')}</TableHeader>
+            <TableHeader scope="col">{t('colUser')}</TableHeader>
+            <TableHeader scope="col">{t('colEvent')}</TableHeader>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -261,7 +271,7 @@ function HistoryTable({ events }: { events: EntryEvent[] }) {
               className={event.type === 'COMMENT' ? 'dl-history-comment' : undefined}
             >
               <TableCell>{fmtDate(event.createdAt)}</TableCell>
-              <TableCell>{event.actor?.displayName ?? 'Sistema'}</TableCell>
+              <TableCell>{event.actor?.displayName ?? t('system')}</TableCell>
               <TableCell>
                 {event.type === 'COMMENT' ? (
                   <>

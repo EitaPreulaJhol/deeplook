@@ -27,9 +27,10 @@ import { StatusText } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { YaraPacksSection } from '../components/YaraPacksSection';
 import { useRetroscans, YaraRetroscans } from '../components/YaraRetroscans';
+import { intlLocale } from '../i18n';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 const SAMPLE = `rule Exemplo_Dropper : dropper
@@ -218,7 +219,7 @@ export function YaraRulesPage() {
       await queryClient.invalidateQueries({ queryKey: ['yara-retroscans'] });
       setNotice({
         ok: true,
-        text: `Varredura retroativa de "${rule.name}" iniciada: ${res.retroscan.total.toLocaleString('pt-BR')} amostra(s).`,
+        text: `Varredura retroativa de "${rule.name}" iniciada: ${res.retroscan.total.toLocaleString(intlLocale())} amostra(s).`,
       });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });

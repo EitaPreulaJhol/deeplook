@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from 'react';
 
 import type { Priority, Verdict } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmSection } from './HpsmForm';
 import { PriorityTag, StatusText, VerdictTag } from './tags';
 
@@ -40,7 +41,7 @@ const VERDICTS: Verdict[] = ['MALICIOUS', 'SUSPICIOUS', 'CLEAN', 'UNKNOWN'];
 /** "3,5 h" ate dois dias; depois "2 d 4 h". */
 export function fmtHours(h: number | null): string {
   if (h === null) return '—';
-  if (h < 48) return `${h.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h`;
+  if (h < 48) return `${h.toLocaleString(intlLocale(), { maximumFractionDigits: 1 })} h`;
   const days = Math.floor(h / 24);
   const rest = Math.round(h - days * 24);
   return rest ? `${days} d ${rest} h` : `${days} d`;

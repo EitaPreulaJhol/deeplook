@@ -12,6 +12,8 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { statusLabel, verdictLabel } from '../components/tags';
 import { useEntryListState } from '../components/useEntryListState';
+import { intlLocale } from '../i18n';
+import { t } from '../i18n/entry';
 
 export function MyUploadsPage() {
   const { user, preferences } = useAuth();
@@ -22,12 +24,12 @@ export function MyUploadsPage() {
   const { q, draftQ, setDraftQ, sort, offset } = list;
   const { status, verdict, attack, age, submittedFrom, completedFrom } = list.filters;
   // Filtros de periodo (links do Painel) aparecem como etiquetas removiveis.
-  const dateLabel = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+  const dateLabel = (iso: string) => new Date(iso).toLocaleDateString(intlLocale());
   const chips = [
     ...(submittedFrom
       ? [
           {
-            label: `Enviadas desde ${dateLabel(submittedFrom)}`,
+            label: t('sentSince', { date: dateLabel(submittedFrom) }),
             onRemove: () => list.setFilter('submittedFrom', ''),
           },
         ]
@@ -35,7 +37,7 @@ export function MyUploadsPage() {
     ...(completedFrom
       ? [
           {
-            label: `Concluídas desde ${dateLabel(completedFrom)}`,
+            label: t('completedSince', { date: dateLabel(completedFrom) }),
             onRemove: () => list.setFilter('completedFrom', ''),
           },
         ]
@@ -63,8 +65,8 @@ export function MyUploadsPage() {
   exportParams.delete('limit');
   const exportHref = `/api/entries/export.csv?${exportParams.toString()}`;
 
-  const viewName = suggestViewName('Meus Uploads', [
-    'Meus Uploads',
+  const viewName = suggestViewName(t('myUploads'), [
+    t('myUploads'),
     status && statusLabel(status as EntryStatus),
     verdict && verdictLabel(verdict as Verdict),
     q && `"${q}"`,
@@ -94,10 +96,7 @@ export function MyUploadsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Meus Uploads"
-        subtitle="Acompanhe o controle das amostras que você enviou."
-      />
+      <PageHeader title={t('myUploads')} subtitle={t('myUploadsSubtitle')} />
 
       <HpsmFilterBar
         onClear={list.clear}
@@ -107,7 +106,7 @@ export function MyUploadsPage() {
           ...(age
             ? [
                 {
-                  label: age === 'late' ? 'Atrasadas' : 'Em alerta ou atrasadas',
+                  label: age === 'late' ? t('late') : t('warnOrLate'),
                   onRemove: () => list.setFilter('age', ''),
                 },
               ]
@@ -115,64 +114,66 @@ export function MyUploadsPage() {
           ...chips,
         ]}
       >
-        <HpsmFilterItem label="Buscar" htmlFor="q">
+        <HpsmFilterItem label={t('search')} htmlFor="q">
           <TextInput
             id="q"
-            labelText="Buscar"
+            labelText={t('search')}
             hideLabel
             size="sm"
-            placeholder="Título, hash, URL..."
+            placeholder={t('searchPlaceholderMine')}
             value={draftQ}
             onChange={(e) => setDraftQ(e.target.value)}
           />
         </HpsmFilterItem>
-        <HpsmFilterItem label="Status" htmlFor="status">
+        <HpsmFilterItem label={t('colStatus')} htmlFor="status">
           <Select
             id="status"
-            labelText="Status"
+            labelText={t('colStatus')}
             hideLabel
             size="sm"
             value={status}
             onChange={(e) => list.setFilter('status', e.target.value)}
           >
-            <SelectItem value="" text="Todos" />
-            <SelectItem value="PENDING" text="Pendente" />
-            <SelectItem value="IN_REVIEW" text="Em análise" />
-            <SelectItem value="COMPLETED" text="Concluído" />
+            <SelectItem value="" text={t('all')} />
+            <SelectItem value="PENDING" text={t('stPending')} />
+            <SelectItem value="IN_REVIEW" text={t('stInReview')} />
+            <SelectItem value="COMPLETED" text={t('stCompleted')} />
           </Select>
         </HpsmFilterItem>
-        <HpsmFilterItem label="Veredito" htmlFor="verdict">
+        <HpsmFilterItem label={t('colVerdict')} htmlFor="verdict">
           <Select
             id="verdict"
-            labelText="Veredito"
+            labelText={t('colVerdict')}
             hideLabel
             size="sm"
             value={verdict}
             onChange={(e) => list.setFilter('verdict', e.target.value)}
           >
-            <SelectItem value="" text="Todos" />
-            <SelectItem value="UNKNOWN" text="Desconhecido" />
-            <SelectItem value="CLEAN" text="Limpo" />
-            <SelectItem value="SUSPICIOUS" text="Suspeito" />
-            <SelectItem value="MALICIOUS" text="Malicioso" />
+            <SelectItem value="" text={t('all')} />
+            <SelectItem value="UNKNOWN" text={t('vUnknown')} />
+            <SelectItem value="CLEAN" text={t('vClean')} />
+            <SelectItem value="SUSPICIOUS" text={t('vSuspicious')} />
+            <SelectItem value="MALICIOUS" text={t('vMalicious')} />
           </Select>
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {query.isLoading && <HpsmLoading text="Carregando seus uploads..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingMine')} />}
       {query.isError && (
-        <HpsmMessage kind="error">Erro ao carregar: {(query.error as Error).message}</HpsmMessage>
+        <HpsmMessage kind="error">
+          {t('loadError', { error: (query.error as Error).message })}
+        </HpsmMessage>
       )}
       {/* Lista vazia: a grade continua visivel e o aviso vai para a barra de mensagens. */}
       {query.data && query.data.items.length === 0 && (
         <HpsmMessage kind="info">
           {q || Object.values(list.filters).some(Boolean) ? (
-            'Nenhuma amostra encontrada.'
+            t('noSamplesFound')
           ) : (
             <>
-              Você ainda não enviou nenhuma amostra.{' '}
+              {t('noUploadsYet')}{' '}
               <Link className="dl-link" to="/submit">
-                Enviar Amostra
+                {t('submitSample')}
               </Link>
             </>
           )}

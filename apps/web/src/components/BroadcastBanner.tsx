@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
+import { intlLocale } from '../i18n';
 
 export interface Broadcast {
   id: string;
@@ -26,7 +27,7 @@ export function useActiveBroadcasts() {
 
 /** "ate 30/10, 18:00". */
 function until(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', {
+  return new Date(iso).toLocaleString(intlLocale(), {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',

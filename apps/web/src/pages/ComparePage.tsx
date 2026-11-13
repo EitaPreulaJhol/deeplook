@@ -19,6 +19,7 @@ import { IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { PriorityTag, StatusTag, TypeTag, VerdictTag } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 interface CompareEntry {
   id: string;
@@ -206,7 +207,8 @@ export function ComparePage() {
     },
     {
       label: 'Compilado em',
-      render: (e) => (e.pe?.compiledAt ? new Date(e.pe.compiledAt).toLocaleString('pt-BR') : '—'),
+      render: (e) =>
+        e.pe?.compiledAt ? new Date(e.pe.compiledAt).toLocaleString(intlLocale()) : '—',
       key: (e) => e.pe?.compiledAt ?? '',
     },
     {
@@ -224,7 +226,7 @@ export function ComparePage() {
     { label: 'Enviada por', render: (e) => e.owner.displayName, key: (e) => e.owner.id },
     {
       label: 'Enviada em',
-      render: (e) => new Date(e.createdAt).toLocaleString('pt-BR'),
+      render: (e) => new Date(e.createdAt).toLocaleString(intlLocale()),
       key: () => '',
       always: true,
     },

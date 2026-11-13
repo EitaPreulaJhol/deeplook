@@ -4,13 +4,14 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { UnpackInfo } from '../api/types';
+import { intlLocale } from '../i18n';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 import { StatusText, VerdictTag } from './tags';
 
-const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 /** Tipos do Detect It Easy em destaque: o que esconde ou embrulha o codigo. */
 const DIE_RISKY = new Set(['packer', 'protector', 'cryptor', 'obfuscator', 'joiner']);
 

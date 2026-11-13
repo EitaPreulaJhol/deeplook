@@ -24,6 +24,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import type { StatusTone } from '../components/tags';
 import { StatusText, VerdictTag } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 const PERIODS = [7, 30, 90] as const;
 const VERDICTS: Verdict[] = ['MALICIOUS', 'SUSPICIOUS', 'CLEAN', 'UNKNOWN'];
@@ -94,7 +95,7 @@ export function DashboardPage() {
   const base = mine ? '/me' : '/history';
   const link = (qs: string) => `${base}?${qs}`;
   const since = d ? encodeURIComponent(d.since) : '';
-  const sinceLabel = d ? new Date(d.since).toLocaleDateString('pt-BR') : '';
+  const sinceLabel = d ? new Date(d.since).toLocaleDateString(intlLocale()) : '';
   const verdictTotal = d ? VERDICTS.reduce((sum, v) => sum + d.byVerdict[v], 0) : 0;
   const verdictMax = d ? Math.max(1, ...VERDICTS.map((v) => d.byVerdict[v])) : 1;
   const techniqueMax = Math.max(1, ...(d?.techniques ?? []).map((t) => t.count));

@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { EntryIoc, Report, ReportStatus, ReportTemplate, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/entry';
 import { AttackPicker, AttackTechniqueLinks } from './attack';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
@@ -22,7 +24,7 @@ import { StatusText, VerdictTag } from './tags';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 interface Props {
@@ -40,9 +42,24 @@ interface Props {
 }
 
 const STATUS_TEXT: Record<ReportStatus, { tone: 'gray' | 'orange' | 'green'; label: string }> = {
-  DRAFT: { tone: 'gray', label: 'Rascunho' },
-  IN_REVIEW: { tone: 'orange', label: 'Em revisão' },
-  PUBLISHED: { tone: 'green', label: 'Publicado' },
+  DRAFT: {
+    tone: 'gray',
+    get label() {
+      return tr('rsDraft');
+    },
+  },
+  IN_REVIEW: {
+    tone: 'orange',
+    get label() {
+      return tr('rsInReview');
+    },
+  },
+  PUBLISHED: {
+    tone: 'green',
+    get label() {
+      return tr('rsPublished');
+    },
+  },
 };
 
 /**
@@ -92,11 +109,11 @@ export function EntryReportsTab({
     let note: string | null = null;
     if (action === 'return') {
       note = await prompt({
-        title: 'Devolver relatório',
-        message: `O relatório de ${report.analyst.displayName} volta a rascunho com o seu comentário.`,
-        label: 'Comentário',
+        title: tr('returnReport'),
+        message: tr('returnReportMsg', { name: report.analyst.displayName }),
+        label: tr('comment'),
         maxLength: 2000,
-        confirmLabel: 'Devolver',
+        confirmLabel: tr('return'),
       });
       if (!note) return;
     }
@@ -105,10 +122,10 @@ export function EntryReportsTab({
       if (action === 'publish') await api.patch(`/reports/${report.id}`, { status: 'PUBLISHED' });
       else await api.post(`/reports/${report.id}/${action}`, note ? { note } : {});
       const done = {
-        submit: 'Relatório enviado para revisão.',
-        publish: 'Relatório publicado.',
-        approve: 'Relatório aprovado e publicado.',
-        return: 'Relatório devolvido ao autor.',
+        submit: tr('sentForReview'),
+        publish: tr('reportPublished'),
+        approve: tr('reportApproved'),
+        return: tr('reportReturned'),
       }[action];
       setActionMsg({ ok: true, text: done });
       onCreated();
@@ -138,10 +155,10 @@ export function EntryReportsTab({
     }
     if (summary.trim() || findings.trim() || iocs.trim()) {
       const ok = await confirm({
-        title: 'Aplicar modelo',
-        message: `Substituir o texto já digitado pelo modelo "${template.name}"?`,
-        confirmLabel: 'Substituir',
-        cancelLabel: 'Manter o texto',
+        title: tr('applyTemplate'),
+        message: tr('applyTemplateMsg', { name: template.name }),
+        confirmLabel: tr('replace'),
+        cancelLabel: tr('keepText'),
       });
       if (!ok) return;
     }
@@ -159,23 +176,23 @@ export function EntryReportsTab({
   const reportCheck = useRequiredFields([
     {
       id: 'report-summary',
-      label: 'Resumo',
+      label: tr('summary'),
       ok: summary.trim().length >= 3,
       api: 'summary',
       value: summary,
     },
-    { id: 'report-findings', label: 'Achados', ok: true, api: 'findings', value: findings },
+    { id: 'report-findings', label: tr('findings'), ok: true, api: 'findings', value: findings },
     { id: 'report-iocs', label: 'IOCs', ok: true, api: 'iocs', value: iocs },
     {
       id: 'report-attack',
-      label: 'Técnicas ATT&CK',
+      label: tr('attackTechniques'),
       ok: true,
       api: 'attackTechniques',
       value: attack.join(','),
     },
     {
       id: 'report-kb',
-      label: 'Artigos da base',
+      label: tr('kbArticles'),
       ok: true,
       api: 'kbArticleIds',
       value: kb.map((a) => a.id).join(','),
@@ -236,9 +253,7 @@ export function EntryReportsTab({
 
   return (
     <>
-      {reports.length === 0 && (
-        <HpsmMessage kind="info">Nenhum relatório publicado ainda.</HpsmMessage>
-      )}
+      {reports.length === 0 && <HpsmMessage kind="info">{tr('noReports')}</HpsmMessage>}
       {actionMsg && (
         <HpsmMessage key={actionMsg.text} kind={actionMsg.ok ? 'success' : 'error'}>
           {actionMsg.text}
@@ -260,7 +275,10 @@ export function EntryReportsTab({
           return (
             <HpsmSection
               key={r.id}
-              title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)} (editando)`}
+              title={tr('editingTitle', {
+                name: r.analyst.displayName,
+                date: fmtDate(r.createdAt),
+              })}
             >
               <ReportEditForm
                 report={r}
@@ -269,7 +287,7 @@ export function EntryReportsTab({
                   setEditingId(null);
                   setActionMsg({
                     ok: true,
-                    text: 'Relatório atualizado. A versão anterior ficou em Versões.',
+                    text: tr('reportUpdated'),
                   });
                   void queryClient.invalidateQueries({ queryKey: ['report', r.id, 'versions'] });
                   onCreated();
@@ -281,10 +299,10 @@ export function EntryReportsTab({
         return (
           <HpsmSection key={r.id} title={`${r.analyst.displayName} — ${fmtDate(r.createdAt)}`}>
             {canTriage && (r.status !== 'PUBLISHED' || canEditContent || revisions > 0) && (
-              <HpsmToolbar label="Ações do relatório">
+              <HpsmToolbar label={tr('reportActions')}>
                 {canEditContent && (
                   <HpsmToolbarButton
-                    label="Editar"
+                    label={tr('edit')}
                     disabled={busy || editingId !== null}
                     onClick={() => {
                       setActionMsg(null);
@@ -294,20 +312,20 @@ export function EntryReportsTab({
                 )}
                 {revisions > 0 && (
                   <HpsmToolbarButton
-                    label={`${versionsOpen.has(r.id) ? 'Ocultar versões' : 'Versões'} (${revisions + 1})`}
+                    label={`${versionsOpen.has(r.id) ? tr('hideVersions') : tr('versions')} (${revisions + 1})`}
                     onClick={() => toggleVersions(r.id)}
                   />
                 )}
                 {r.status === 'DRAFT' && canEdit && (
                   <>
                     <HpsmToolbarButton
-                      label="Enviar para revisão"
+                      label={tr('sendForReview')}
                       disabled={busy}
                       onClick={() => void reportAction(r, 'submit')}
                     />
                     {!reviewRequired && (
                       <HpsmToolbarButton
-                        label="Publicar"
+                        label={tr('publish')}
                         disabled={busy}
                         onClick={() => void reportAction(r, 'publish')}
                       />
@@ -317,37 +335,37 @@ export function EntryReportsTab({
                 {r.status === 'IN_REVIEW' && !mine && (
                   <>
                     <HpsmToolbarButton
-                      label="Aprovar e publicar"
+                      label={tr('approvePublish')}
                       disabled={busy}
                       onClick={() => void reportAction(r, 'approve')}
                     />
                     <HpsmToolbarButton
-                      label="Devolver…"
+                      label={tr('returnEllipsis')}
                       disabled={busy}
                       onClick={() => void reportAction(r, 'return')}
                     />
                   </>
                 )}
                 {r.status === 'IN_REVIEW' && mine && (
-                  <span className="hpsm-toolbar__info">
-                    Aguardando a revisão de outro analista.
-                  </span>
+                  <span className="hpsm-toolbar__info">{tr('awaitingReview')}</span>
                 )}
               </HpsmToolbar>
             )}
             {r.status === 'DRAFT' && r.reviewNote && (
               <div className="dl-review-note" role="note">
-                <strong>Devolvido por {r.reviewedBy?.displayName ?? 'um revisor'}</strong> em{' '}
-                {fmtDate(r.reviewedAt)}: {r.reviewNote}
+                <strong>
+                  {tr('returnedBy', { name: r.reviewedBy?.displayName ?? tr('aReviewer') })}
+                </strong>{' '}
+                {tr('returnedOn', { date: fmtDate(r.reviewedAt), note: r.reviewNote })}
               </div>
             )}
             <HpsmForm columns={2}>
-              <HpsmField label="Veredito">
+              <HpsmField label={tr('colVerdict')}>
                 <HpsmReadonly>
                   <VerdictTag verdict={r.verdict} />
                 </HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Situação">
+              <HpsmField label={tr('reportState')}>
                 <HpsmReadonly>
                   <StatusText tone={STATUS_TEXT[r.status].tone}>
                     {STATUS_TEXT[r.status].label}
@@ -355,16 +373,19 @@ export function EntryReportsTab({
                   {r.status === 'PUBLISHED' && r.reviewedBy && (
                     <span className="dl-review-by">
                       {' '}
-                      · revisado por {r.reviewedBy.displayName} em {fmtDate(r.reviewedAt)}
+                      {tr('reviewedBy', {
+                        name: r.reviewedBy.displayName,
+                        date: fmtDate(r.reviewedAt),
+                      })}
                     </span>
                   )}
                 </HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Resumo" wide top>
+              <HpsmField label={tr('summary')} wide top>
                 <HpsmReadonly multiline>{r.summary}</HpsmReadonly>
               </HpsmField>
               {r.findings && (
-                <HpsmField label="Achados" wide top>
+                <HpsmField label={tr('findings')} wide top>
                   <HpsmReadonly multiline>{r.findings}</HpsmReadonly>
                 </HpsmField>
               )}
@@ -383,7 +404,7 @@ export function EntryReportsTab({
                 </HpsmField>
               )}
               {(r.kbArticles?.length ?? 0) > 0 && (
-                <HpsmField label="Base de conhecimento" wide top>
+                <HpsmField label={tr('kb')} wide top>
                   <HpsmReadonly>
                     <KbLinks articles={r.kbArticles ?? []} />
                   </HpsmReadonly>
@@ -404,11 +425,8 @@ export function EntryReportsTab({
       })}
 
       {recognized.length > 0 && (
-        <HpsmSection title={`Indicadores reconhecidos (${recognized.length})`} className="dl-mt-lg">
-          <p className="dl-related-hint">
-            IOCs dos relatórios publicados e da própria amostra. Clique para ver em que outras
-            amostras o indicador aparece; para exportar, use Mais ▾ &gt; Exportar IOCs.
-          </p>
+        <HpsmSection title={tr('recognizedIocs', { n: recognized.length })} className="dl-mt-lg">
+          <p className="dl-related-hint">{tr('recognizedHelp')}</p>
           <ul className="dl-ioc-list">
             {recognized.map((ioc) => (
               <li key={`${ioc.kind}:${ioc.value}`}>
@@ -417,7 +435,7 @@ export function EntryReportsTab({
                   {ioc.value}
                 </Link>
                 <span className="dl-ioc-list__source">
-                  {ioc.source === 'REPORT' ? 'relatório' : 'amostra'}
+                  {ioc.source === 'REPORT' ? tr('srcReport') : tr('srcSample')}
                 </span>
               </li>
             ))}
@@ -426,11 +444,11 @@ export function EntryReportsTab({
       )}
 
       {canTriage && (
-        <HpsmSection title="Novo relatório de análise" className="dl-mt-lg">
-          <HpsmToolbar label="Ações do relatório">
+        <HpsmSection title={tr('newReport')} className="dl-mt-lg">
+          <HpsmToolbar label={tr('reportActions')}>
             <HpsmToolbarButton
-              label={saving ? 'Salvando...' : 'Salvar relatório'}
-              title="Salvar (Ctrl+S)"
+              label={saving ? 'Salvando...' : tr('saveReport')}
+              title={tr('saveHint')}
               icon={IconAdd}
               disabled={saving}
               onClick={createReport}
@@ -440,19 +458,15 @@ export function EntryReportsTab({
           {reportCheck.message && <HpsmMessage kind="error">{reportCheck.message}</HpsmMessage>}
           <HpsmForm>
             {templates.length > 0 && (
-              <HpsmField
-                label="Modelo"
-                htmlFor="report-template"
-                help="Preenche Resumo, Achados, IOCs e veredito; depois é só ajustar."
-              >
+              <HpsmField label={tr('template')} htmlFor="report-template" help={tr('templateHelp')}>
                 <Select
                   id="report-template"
-                  labelText="Modelo"
+                  labelText={tr('template')}
                   hideLabel
                   value={templateId}
                   onChange={(e) => void applyTemplate(e.target.value)}
                 >
-                  <SelectItem value="" text="— Sem modelo —" />
+                  <SelectItem value="" text={tr('noTemplate')} />
                   {templates.map((t) => (
                     <SelectItem key={t.id} value={t.id} text={t.name} />
                   ))}
@@ -460,7 +474,7 @@ export function EntryReportsTab({
               </HpsmField>
             )}
             <HpsmField
-              label="Resumo"
+              label={tr('summary')}
               htmlFor="report-summary"
               required
               top
@@ -468,7 +482,7 @@ export function EntryReportsTab({
             >
               <TextArea
                 id="report-summary"
-                labelText="Resumo"
+                labelText={tr('summary')}
                 hideLabel
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
@@ -476,14 +490,14 @@ export function EntryReportsTab({
               />
             </HpsmField>
             <HpsmField
-              label="Achados"
+              label={tr('findings')}
               htmlFor="report-findings"
               top
               invalid={reportCheck.isInvalid('report-findings')}
             >
               <TextArea
                 id="report-findings"
-                labelText="Achados"
+                labelText={tr('findings')}
                 hideLabel
                 value={findings}
                 onChange={(e) => setFindings(e.target.value)}
@@ -496,8 +510,7 @@ export function EntryReportsTab({
               top
               help={
                 <>
-                  Indicadores de comprometimento: domínios, IPs, hashes e e-mails (hxxp e [.] são
-                  aceitos). Entram na aba Relacionadas quando o relatório é publicado.
+                  {tr('iocsHelp')}
                   {suggestions.length > 0 && (
                     <>
                       {' '}
@@ -511,13 +524,14 @@ export function EntryReportsTab({
                             setIocs((iocs.trim() ? `${iocs.trim()}\n` : '') + extra.join('\n'));
                         }}
                       >
-                        Inserir IOCs sugeridos ({suggestions.length})
+                        {tr('insertIocs', { n: suggestions.length })}
                       </button>
                       {hiddenSuggestions > 0 && (
                         <span className="dl-hint-muted">
                           {' '}
-                          ({hiddenSuggestions} permitido{hiddenSuggestions > 1 ? 's' : ''} oculto
-                          {hiddenSuggestions > 1 ? 's' : ''})
+                          {hiddenSuggestions > 1
+                            ? tr('hiddenAllowedMany', { n: hiddenSuggestions })
+                            : tr('hiddenAllowedOne')}
                         </span>
                       )}
                     </>
@@ -536,14 +550,13 @@ export function EntryReportsTab({
               />
             </HpsmField>
             <HpsmField
-              label="Técnicas ATT&CK"
+              label={tr('attackTechniques')}
               htmlFor="report-attack"
               top
               invalid={reportCheck.isInvalid('report-attack')}
               help={
                 <>
-                  MITRE ATT&CK: busque pelo código ou pelo nome. Viram filtro nas listas e entram no
-                  Painel.
+                  {tr('attackHelp')}
                   {suggestedAttack.length > 0 && (
                     <>
                       {' '}
@@ -552,7 +565,7 @@ export function EntryReportsTab({
                         className="dl-link-button"
                         onClick={() => setAttack([...new Set([...attack, ...suggestedAttack])])}
                       >
-                        Inserir técnicas sugeridas pelo capa ({suggestedAttack.length})
+                        {tr('insertAttack', { n: suggestedAttack.length })}
                       </button>
                     </>
                   )}
@@ -562,47 +575,43 @@ export function EntryReportsTab({
               <AttackPicker id="report-attack" value={attack} onChange={setAttack} />
             </HpsmField>
             <HpsmField
-              label="Artigos da base"
+              label={tr('kbArticles')}
               htmlFor="report-kb"
               top
               invalid={reportCheck.isInvalid('report-kb')}
-              help="Artigos da base de conhecimento sobre a família ou o golpe; o artigo passa a listar este relatório."
+              help={tr('kbHelp')}
             >
               <KbPicker id="report-kb" value={kb} onChange={setKb} />
             </HpsmField>
-            <HpsmField label="Veredito" htmlFor="report-verdict">
+            <HpsmField label={tr('colVerdict')} htmlFor="report-verdict">
               <Select
                 id="report-verdict"
-                labelText="Veredito"
+                labelText={tr('colVerdict')}
                 hideLabel
                 value={verdict}
                 onChange={(e) => setVerdict(e.target.value as Verdict)}
               >
-                <SelectItem value="UNKNOWN" text="Desconhecido" />
-                <SelectItem value="CLEAN" text="Limpo" />
-                <SelectItem value="SUSPICIOUS" text="Suspeito" />
-                <SelectItem value="MALICIOUS" text="Malicioso" />
+                <SelectItem value="UNKNOWN" text={tr('vUnknown')} />
+                <SelectItem value="CLEAN" text={tr('vClean')} />
+                <SelectItem value="SUSPICIOUS" text={tr('vSuspicious')} />
+                <SelectItem value="MALICIOUS" text={tr('vMalicious')} />
               </Select>
             </HpsmField>
             <HpsmField
-              label="Ao salvar"
+              label={tr('onSave')}
               htmlFor="report-save-as"
-              help={
-                reviewRequired
-                  ? 'Este servidor exige revisão: outro analista aprova antes de publicar.'
-                  : 'Publicar define o status e o veredito da amostra.'
-              }
+              help={reviewRequired ? tr('reviewRequiredHelp') : tr('publishHelp')}
             >
               <Select
                 id="report-save-as"
-                labelText="Ao salvar"
+                labelText={tr('onSave')}
                 hideLabel
                 value={saveAs}
                 onChange={(e) => setSaveAs(e.target.value as ReportStatus)}
               >
-                {!reviewRequired && <SelectItem value="PUBLISHED" text="Publicar" />}
-                <SelectItem value="IN_REVIEW" text="Enviar para revisão" />
-                <SelectItem value="DRAFT" text="Salvar como rascunho" />
+                {!reviewRequired && <SelectItem value="PUBLISHED" text={tr('publish')} />}
+                <SelectItem value="IN_REVIEW" text={tr('sendForReview')} />
+                <SelectItem value="DRAFT" text={tr('saveDraft')} />
               </Select>
             </HpsmField>
           </HpsmForm>

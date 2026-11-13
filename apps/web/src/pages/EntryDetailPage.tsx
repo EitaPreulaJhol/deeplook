@@ -72,9 +72,11 @@ import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../comp
 import { UnpackSection } from '../components/UnpackSection';
 import { useWorkspaceTitle } from '../components/workspace';
 import { useYara, YaraSection } from '../components/YaraSection';
+import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/entry';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 export function EntryDetailPage() {
@@ -156,16 +158,16 @@ export function EntryDetailPage() {
     ]);
   const undoDuplicate = async () => {
     const ok = await confirm({
-      title: 'Desfazer duplicata',
-      message: 'A amostra volta ao status e ao veredito que tinha antes de ser marcada.',
-      confirmLabel: 'Desfazer',
-      cancelLabel: 'Cancelar',
+      title: tr('undoDuplicate'),
+      message: tr('undoDuplicateHelp'),
+      confirmLabel: tr('undo'),
+      cancelLabel: tr('cancel'),
     });
     if (!ok) return;
     try {
       await api.del(`/entries/${id}/duplicate`);
       await reloadAfterDuplicate();
-      setPinNotice({ ok: true, text: 'A amostra deixou de ser duplicata.' });
+      setPinNotice({ ok: true, text: tr('undoneDuplicate') });
     } catch (err) {
       setPinNotice({ ok: false, text: (err as Error).message });
     }
@@ -175,10 +177,10 @@ export function EntryDetailPage() {
   const isAdmin = user?.role === 'ADMIN';
   const moveToTrash = async (title: string) => {
     const ok = await confirm({
-      title: 'Mover para a lixeira',
-      message: `"${title}" vai sumir das listas, filas, buscas e favoritos. Dá para restaurar depois em Administração > Lixeira.`,
-      confirmLabel: 'Mover para a lixeira',
-      cancelLabel: 'Cancelar',
+      title: tr('moveToTrash'),
+      message: tr('moveToTrashConfirm', { title }),
+      confirmLabel: tr('moveToTrash'),
+      cancelLabel: tr('cancel'),
       danger: true,
     });
     if (!ok) return;
@@ -203,10 +205,10 @@ export function EntryDetailPage() {
     try {
       if (pinned) {
         await favs.remove(pinned.id);
-        setPinNotice({ ok: true, text: 'Amostra removida dos Favoritos.' });
+        setPinNotice({ ok: true, text: tr('unpinned') });
       } else {
         await favs.pinEntry(id);
-        setPinNotice({ ok: true, text: 'Amostra fixada nos Favoritos do navegador.' });
+        setPinNotice({ ok: true, text: tr('pinned') });
       }
     } catch (err) {
       setPinNotice({ ok: false, text: (err as Error).message });
@@ -276,9 +278,9 @@ export function EntryDetailPage() {
     setSearchParams(params, { replace: true });
   };
 
-  if (query.isLoading) return <HpsmLoading text="Carregando amostra..." />;
+  if (query.isLoading) return <HpsmLoading text={tr('loadingSample')} />;
   if (query.isError || !entry) {
-    return <HpsmMessage kind="error">Amostra não encontrada.</HpsmMessage>;
+    return <HpsmMessage kind="error">{tr('sampleNotFound')}</HpsmMessage>;
   }
 
   const reports = entry.reports ?? [];
@@ -303,49 +305,49 @@ export function EntryDetailPage() {
   ].sort();
 
   const tabs: HpsmTabItem[] = [
-    { id: 'detalhes', label: 'Detalhes' },
+    { id: 'detalhes', label: tr('tabDetails') },
     ...(canTriage
       ? [
           {
             id: 'analise',
-            label: 'Análise',
+            label: tr('tabAnalysis'),
             dot: sandboxActive,
-            dotLabel: 'ambiente isolado ativo',
+            dotLabel: tr('sandboxActive'),
           },
         ]
       : []),
-    { id: 'relatorios', label: `Relatórios (${reports.length})` },
+    { id: 'relatorios', label: tr('tabReports', { n: reports.length }) },
     {
       id: 'relacionadas',
-      label: relatedQuery.data ? `Relacionadas (${relatedQuery.data.total})` : 'Relacionadas',
+      label: relatedQuery.data
+        ? tr('tabRelated', { n: relatedQuery.data.total })
+        : tr('tabRelatedPlain'),
     },
     // Mapa de relacoes (item 91).
-    { id: 'mapa', label: 'Mapa' },
-    { id: 'historico', label: 'Histórico' },
+    { id: 'mapa', label: tr('tabMap') },
+    { id: 'historico', label: tr('tabHistory') },
   ];
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam && tabs.some((t) => t.id === tabParam) ? tabParam : 'detalhes';
 
   return (
     <>
-      <HpsmToolbar label="Ações da amostra">
-        <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
-        <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={reload} />
+      <HpsmToolbar label={tr('sampleActions')}>
+        <HpsmToolbarButton label={tr('back')} icon={IconArrowLeft} onClick={() => navigate(-1)} />
+        <HpsmToolbarButton label={tr('refresh')} icon={IconRefresh} onClick={reload} />
         <HpsmToolbarButton
-          label={pinned ? 'Desafixar' : 'Fixar'}
+          label={pinned ? tr('unpin') : tr('pin')}
           icon={IconStar}
-          title={
-            pinned ? 'Remover dos Favoritos do navegador' : 'Adicionar aos Favoritos do navegador'
-          }
+          title={pinned ? tr('removeFromFavorites') : tr('addToFavorites')}
           disabled={pinning || favs.loading}
           pressed={Boolean(pinned)}
           onClick={() => void togglePin()}
         />
         {canTriage && user && entry.assignee?.id !== user.id && (
           <HpsmToolbarButton
-            label="Assumir análise"
+            label={tr('takeOver')}
             icon={IconPage}
-            title="Tornar-me responsável por esta amostra"
+            title={tr('takeOverHelp')}
             onClick={() => quickUpdate({ assigneeId: user.id })}
           />
         )}
@@ -353,14 +355,14 @@ export function EntryDetailPage() {
           <>
             <HpsmToolbarDivider />
             <HpsmToolbarButton
-              label="◀ Anterior"
-              title="Registro anterior da lista"
+              label={tr('prevRecord')}
+              title={tr('prevRecordHelp')}
               disabled={position === 0}
               onClick={() => goToEntry(sequence[position - 1])}
             />
             <HpsmToolbarButton
-              label="Próxima ▶"
-              title="Próximo registro da lista"
+              label={tr('nextRecord')}
+              title={tr('nextRecordHelp')}
               disabled={position === sequence.length - 1}
               onClick={() => goToEntry(sequence[position + 1])}
             />
@@ -371,36 +373,32 @@ export function EntryDetailPage() {
           <>
             <HpsmToolbarDivider />
             <HpsmToolbarButton
-              label="Baixar amostra"
+              label={tr('downloadSample')}
               icon={IconDownload}
               href={`/api/entries/${entry.id}/download`}
               disabled={!entry.storageKey}
-              title={
-                entry.filePurgedAt
-                  ? 'O arquivo foi expurgado pela política de retenção.'
-                  : 'Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado.'
-              }
+              title={entry.filePurgedAt ? tr('filePurged') : tr('maliciousWarning')}
             />
           </>
         )}
         <HpsmToolbarDivider />
         <HpsmToolbarMenu
-          label="Mais"
+          label={tr('more')}
           items={[
             {
-              label: 'Copiar link do registro',
+              label: tr('copyLink'),
               icon: IconCopy,
               action: async () => {
                 const ok = await copyText(`${window.location.origin}/entries/${entry.id}`);
                 setPinNotice(
                   ok
-                    ? { ok: true, text: 'Link do registro copiado.' }
-                    : { ok: false, text: 'Não foi possível copiar o link.' },
+                    ? { ok: true, text: tr('linkCopied') }
+                    : { ok: false, text: tr('linkCopyFailed') },
                 );
               },
             },
             {
-              label: 'Abrir em nova janela',
+              label: tr('openNewWindow'),
               icon: IconScreen,
               action: () => window.open(`/entries/${entry.id}`, '_blank', 'noopener'),
             },
@@ -408,28 +406,28 @@ export function EntryDetailPage() {
               ? [
                   entry.duplicateOf
                     ? {
-                        label: 'Desfazer duplicata',
+                        label: tr('undoDuplicate'),
                         separated: true,
                         action: () => void undoDuplicate(),
                       }
                     : {
-                        label: 'Marcar como duplicata…',
+                        label: tr('markDuplicate'),
                         separated: true,
                         action: () => setDupOpen(true),
                       },
-                  { label: 'Comparar com…', action: () => setCompareOpen(true) },
-                  { label: 'Adicionar a caso…', action: () => setCaseOpen(true) },
-                  { label: 'Decodificar texto…', action: () => decode() },
+                  { label: tr('compareWith'), action: () => setCompareOpen(true) },
+                  { label: tr('addToCase'), action: () => setCaseOpen(true) },
+                  { label: tr('decodeText'), action: () => decode() },
                 ]
               : []),
             {
-              label: 'Imprimir ficha…',
+              label: tr('printRecord'),
               icon: IconPrint,
               separated: true,
               action: () => window.open(`/entries/${entry.id}/imprimir?auto=1`, '_blank'),
             },
             {
-              label: 'Exportar relatórios (Markdown)',
+              label: tr('exportReportsMd'),
               icon: IconDownload,
               disabled: !reports.some((r) => r.status === 'PUBLISHED'),
               action: () =>
@@ -446,7 +444,7 @@ export function EntryDetailPage() {
                 ['misp', 'MISP'],
               ] as const
             ).map(([format, name], i) => ({
-              label: `Exportar IOCs (${name})`,
+              label: tr('exportIocs', { name }),
               icon: IconDownload,
               separated: i === 0,
               action: () => downloadUrl(`/api/entries/${entry.id}/iocs/export?format=${format}`),
@@ -455,7 +453,7 @@ export function EntryDetailPage() {
             ...(isAdmin
               ? [
                   {
-                    label: 'Mover para a lixeira…',
+                    label: tr('moveToTrashEllipsis'),
                     icon: IconTrash,
                     separated: true,
                     action: () => void moveToTrash(entry.title),
@@ -466,7 +464,7 @@ export function EntryDetailPage() {
         />
         {position >= 0 && sequence.length > 1 && (
           <span className="hpsm-toolbar__info">
-            Registro {position + 1} de {sequence.length}
+            {tr('recordOf', { n: position + 1, total: sequence.length })}
           </span>
         )}
       </HpsmToolbar>
@@ -481,8 +479,8 @@ export function EntryDetailPage() {
             setPinNotice({
               ok: true,
               text: result.created
-                ? `Caso ${result.code} criado com esta amostra.`
-                : `Amostra incluída no caso ${result.code}.`,
+                ? tr('caseCreatedThis', { code: result.code })
+                : tr('addedToCase', { code: result.code }),
             });
           }}
         />
@@ -490,15 +488,15 @@ export function EntryDetailPage() {
       {compareOpen && (
         <EntryPickDialog
           entryId={entry.id}
-          title="Comparar com outra amostra"
-          message="Escolha a amostra para ver lado a lado: tipo, tamanho, entropia, hash, strings, IOCs, regras YARA e técnicas ATT&CK."
-          legend="Comparar com:"
-          otherLabel="ID ou link da outra amostra"
-          submitLabel="Comparar"
+          title={tr('compareTitle')}
+          message={tr('compareMessage')}
+          legend={tr('compareLegend')}
+          otherLabel={tr('compareOther')}
+          submitLabel={tr('compare')}
           busyLabel="Abrindo..."
-          emptyChoice="Escolha uma amostra ou informe o ID."
+          emptyChoice={tr('compareEmpty')}
           onPick={async (target) => {
-            if (target === entry.id) return 'Escolha uma amostra diferente desta.';
+            if (target === entry.id) return tr('compareDifferent');
             setCompareOpen(false);
             navigate(`/comparar?a=${entry.id}&b=${encodeURIComponent(target)}`);
             return null;
@@ -514,7 +512,7 @@ export function EntryDetailPage() {
             setDupOpen(false);
             if (!principal) return;
             void reloadAfterDuplicate();
-            setPinNotice({ ok: true, text: `Marcada como duplicata de "${principal.title}".` });
+            setPinNotice({ ok: true, text: tr('markedDuplicate', { title: principal.title }) });
           }}
         />
       )}
@@ -527,9 +525,7 @@ export function EntryDetailPage() {
 
       {entry.integrityFailedAt && (
         <HpsmMessage kind="error">
-          O arquivo guardado desta amostra não confere com o SHA-256 registrado no envio (detectado
-          em {fmtDate(entry.integrityFailedAt)}). O que se baixa pode estar corrompido ou ter sido
-          alterado: não confie nele e avise um administrador. Os detalhes estão na Auditoria.
+          {tr('integrityBanner', { date: fmtDate(entry.integrityFailedAt) })}
         </HpsmMessage>
       )}
 
@@ -541,14 +537,14 @@ export function EntryDetailPage() {
 
       {showCountdown && minutesLeft <= 5 && (
         <HpsmMessage kind="warning">
-          O ambiente isolado desta amostra expira em {minutesLeft} min.{' '}
+          {tr('sandboxExpires', { n: minutesLeft })}
           <button
             type="button"
             className="dl-link-button"
             disabled={extending}
             onClick={extendSandbox}
           >
-            {extending ? 'Estendendo...' : 'Estender prazo'}
+            {extending ? 'Estendendo...' : tr('extendTime')}
           </button>
         </HpsmMessage>
       )}
@@ -556,32 +552,33 @@ export function EntryDetailPage() {
       <PageHeader title={entry.title} />
       <div className="dl-summary dl-mb-lg">
         <span>
-          <span className="dl-summary__label">Tipo:</span> <TypeTag type={entry.type} />
+          <span className="dl-summary__label">{tr('sumType')}</span> <TypeTag type={entry.type} />
         </span>
         <span>
-          <span className="dl-summary__label">Responsável:</span>{' '}
+          <span className="dl-summary__label">{tr('sumAssignee')}</span>{' '}
           {entry.assignee?.displayName ?? '—'}
         </span>
         <span>
-          <span className="dl-summary__label">Status:</span> <StatusTag status={entry.status} />
+          <span className="dl-summary__label">{tr('sumStatus')}</span>{' '}
+          <StatusTag status={entry.status} />
         </span>
         {entry.status !== 'COMPLETED' && entry.statusChangedAt && (
           <span>
-            <span className="dl-summary__label">No status há:</span>{' '}
+            <span className="dl-summary__label">{tr('sumAge')}</span>{' '}
             <AgeText entry={entry} sla={query.data?.sla} />
           </span>
         )}
         <span>
-          <span className="dl-summary__label">Prioridade:</span>{' '}
+          <span className="dl-summary__label">{tr('sumPriority')}</span>{' '}
           <PriorityTag priority={entry.priority} />
         </span>
         <span>
-          <span className="dl-summary__label">Veredito:</span>{' '}
+          <span className="dl-summary__label">{tr('sumVerdict')}</span>{' '}
           <VerdictTag verdict={entry.verdict} />
         </span>
         {entry.duplicateOf && (
           <span>
-            <span className="dl-summary__label">Duplicata de:</span>{' '}
+            <span className="dl-summary__label">{tr('sumDuplicateOf')}</span>{' '}
             <Link className="dl-link" to={`/entries/${entry.duplicateOf.id}`}>
               {entry.duplicateOf.title}
             </Link>
@@ -589,13 +586,16 @@ export function EntryDetailPage() {
         )}
         {(entry._count?.duplicates ?? 0) > 0 && (
           <span>
-            <span className="dl-summary__label">Duplicatas:</span> {entry._count?.duplicates}
+            <span className="dl-summary__label">{tr('sumDuplicates')}</span>{' '}
+            {entry._count?.duplicates}
           </span>
         )}
         {antivirus?.enabled && antivirus.scan?.status === 'INFECTED' && (
           <span>
-            <span className="dl-summary__label">Antivírus:</span>{' '}
-            <StatusText tone="red">infectado ({antivirus.scan.signature})</StatusText>
+            <span className="dl-summary__label">{tr('sumAntivirus')}</span>{' '}
+            <StatusText tone="red">
+              {tr('infected', { signature: antivirus.scan.signature })}
+            </StatusText>
           </span>
         )}
         {yara?.scan?.status === 'MATCHED' && (
@@ -612,7 +612,7 @@ export function EntryDetailPage() {
         )}
         {(entryCases.data?.cases.length ?? 0) > 0 && (
           <span className="dl-summary__cases">
-            <span className="dl-summary__label">Casos:</span>{' '}
+            <span className="dl-summary__label">{tr('sumCases')}</span>{' '}
             {entryCases.data!.cases.map((c, i) => (
               <span key={c.id}>
                 {i > 0 && ', '}
@@ -628,8 +628,8 @@ export function EntryDetailPage() {
             <span className="dl-summary__label">
               {/* Item 84: filha de imagem de disco e "extraida"; de e-mail, "anexo". */}
               {/\.eml$/i.test(entry.parentEntry.originalFilename ?? '.eml')
-                ? 'Anexo de:'
-                : 'Extraído de:'}
+                ? tr('attachmentOf')
+                : tr('extractedFrom')}
             </span>{' '}
             <Link className="dl-link" to={`/entries/${entry.parentEntry.id}`}>
               {entry.parentEntry.title}
@@ -652,19 +652,21 @@ export function EntryDetailPage() {
         )}
         {reputation && (
           <span>
-            <span className="dl-summary__label">Reputação:</span>{' '}
+            <span className="dl-summary__label">{tr('sumReputation')}</span>{' '}
             <StatusText tone={reputation.tone}>{reputation.text}</StatusText>
           </span>
         )}
         {entry.filePurgedAt && (
           <span>
-            <span className="dl-summary__label">Arquivo:</span> expurgado em{' '}
-            {new Date(entry.filePurgedAt).toLocaleDateString('pt-BR')}
+            <span className="dl-summary__label">{tr('sumFile')}</span>{' '}
+            {tr('purgedOn', {
+              date: new Date(entry.filePurgedAt).toLocaleDateString(intlLocale()),
+            })}
           </span>
         )}
         {entry.tags.length > 0 && (
           <span>
-            <span className="dl-summary__label">Tags:</span>{' '}
+            <span className="dl-summary__label">{tr('sumTags')}</span>{' '}
             {entry.tags.map((t) => t.name).join(', ')}
           </span>
         )}
@@ -680,13 +682,15 @@ export function EntryDetailPage() {
         />
       )}
 
-      <HpsmTabs ariaLabel="Amostra" active={activeTab} onChange={changeTab} items={tabs} />
+      <HpsmTabs ariaLabel={tr('sampleAria')} active={activeTab} onChange={changeTab} items={tabs} />
 
       {activeTab === 'detalhes' && (
         <div className="hpsm-tabpanel">
           {(entry.duplicates?.length ?? 0) > 0 && (
             <HpsmSection
-              title={`Duplicatas (${entry._count?.duplicates ?? entry.duplicates?.length})`}
+              title={tr('duplicatesCount', {
+                n: entry._count?.duplicates ?? entry.duplicates?.length,
+              })}
             >
               <ul className="dl-dup-list">
                 {entry.duplicates?.map((d) => (
@@ -694,74 +698,75 @@ export function EntryDetailPage() {
                     <Link className="dl-link" to={`/entries/${d.id}`}>
                       {d.title}
                     </Link>{' '}
-                    <span className="dl-dup-list__date">enviada em {fmtDate(d.createdAt)}</span>
+                    <span className="dl-dup-list__date">
+                      {tr('submittedOn', { date: fmtDate(d.createdAt) })}
+                    </span>
                   </li>
                 ))}
               </ul>
             </HpsmSection>
           )}
-          <HpsmSection title="Envio">
+          <HpsmSection title={tr('submission')}>
             <HpsmForm columns={2}>
-              <HpsmField label="Enviado por">
+              <HpsmField label={tr('colOwner')}>
                 <HpsmReadonly>
                   {entry.owner.displayName}
                   {entry.owner.email && ` (${entry.owner.email})`}
                 </HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Tipo">
-                <HpsmReadonly>{entry.type === 'FILE' ? 'Arquivo' : 'Link'}</HpsmReadonly>
+              <HpsmField label={tr('colType')}>
+                <HpsmReadonly>
+                  {entry.type === 'FILE' ? tr('typeFile') : tr('typeUrl')}
+                </HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Enviado em">
+              <HpsmField label={tr('submittedAt')}>
                 <HpsmReadonly>{fmtDate(entry.createdAt)}</HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Atualizado em">
+              <HpsmField label={tr('updatedAt')}>
                 <HpsmReadonly>{fmtDate(entry.updatedAt)}</HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Descrição" wide top>
+              <HpsmField label={tr('description')} wide top>
                 <HpsmReadonly multiline>{entry.description || '—'}</HpsmReadonly>
               </HpsmField>
             </HpsmForm>
           </HpsmSection>
 
           {entry.type === 'FILE' ? (
-            <HpsmSection title="Arquivo" defaultOpen={canTriage}>
+            <HpsmSection title={tr('fileSection')} defaultOpen={canTriage}>
               <HpsmForm columns={2}>
-                <HpsmField label="Nome do arquivo">
+                <HpsmField label={tr('fileName')}>
                   <HpsmReadonly>{entry.originalFilename || '—'}</HpsmReadonly>
                 </HpsmField>
-                <HpsmField label="Tamanho">
+                <HpsmField label={tr('size')}>
                   <HpsmReadonly>{formatFileSize(entry.fileSize)}</HpsmReadonly>
                 </HpsmField>
-                <HpsmField label="Tipo MIME">
+                <HpsmField label={tr('mimeType')}>
                   <HpsmReadonly>{entry.mimeType || '—'}</HpsmReadonly>
                 </HpsmField>
                 {entry.sha256 && !entry.filePurgedAt && (
-                  <HpsmField label="Integridade">
+                  <HpsmField label={tr('integrity')}>
                     <HpsmReadonly>
                       {entry.integrityFailedAt
-                        ? `Divergente: detectado em ${fmtDate(entry.integrityFailedAt)}`
+                        ? tr('integrityFailed', { date: fmtDate(entry.integrityFailedAt) })
                         : entry.integrityCheckedAt
-                          ? `Conferido em ${fmtDate(entry.integrityCheckedAt)}`
-                          : 'Ainda não conferido'}
+                          ? tr('integrityChecked', { date: fmtDate(entry.integrityCheckedAt) })
+                          : tr('integrityPending')}
                     </HpsmReadonly>
                   </HpsmField>
                 )}
                 {entry.filePurgedAt && (
-                  <HpsmField label="Armazenamento" wide>
+                  <HpsmField label={tr('storage')} wide>
                     <HpsmReadonly>
-                      Arquivo expurgado em {fmtDate(entry.filePurgedAt)} pela política de retenção
                       {query.data?.retentionDays
-                        ? ` (${query.data.retentionDays} dias após a conclusão)`
-                        : ''}
-                      . A ficha, os relatórios, os IOCs e o hash continuam disponíveis.
+                        ? tr('purgedStorageDays', {
+                            date: fmtDate(entry.filePurgedAt),
+                            days: query.data.retentionDays,
+                          })
+                        : tr('purgedStorage', { date: fmtDate(entry.filePurgedAt) })}
                     </HpsmReadonly>
                   </HpsmField>
                 )}
-                <HpsmField
-                  label="SHA-256"
-                  wide
-                  help="Atenção: esta amostra pode ser maliciosa. Manuseie em ambiente isolado."
-                >
+                <HpsmField label="SHA-256" wide help={tr('maliciousWarning')}>
                   <HpsmReadonly
                     mono
                     copyable={entry.sha256 ? { value: entry.sha256, label: 'SHA-256' } : undefined}
@@ -769,11 +774,7 @@ export function EntryDetailPage() {
                     {entry.sha256 || '—'}
                   </HpsmReadonly>
                 </HpsmField>
-                <HpsmField
-                  label="TLSH"
-                  wide
-                  help="Hash parecido: arquivos com TLSH próximo aparecem na aba Relacionadas."
-                >
+                <HpsmField label="TLSH" wide help={tr('tlshHelp')}>
                   <HpsmReadonly
                     mono={Boolean(entry.tlsh)}
                     copyable={entry.tlsh ? { value: `T1${entry.tlsh}`, label: 'TLSH' } : undefined}
@@ -781,8 +782,8 @@ export function EntryDetailPage() {
                     {entry.tlsh
                       ? `T1${entry.tlsh}`
                       : entry.tlsh === ''
-                        ? 'Não calculável (arquivo pequeno, sem variedade ou acima de 32 MB)'
-                        : 'Calculando…'}
+                        ? tr('tlshNone')
+                        : tr('computing')}
                   </HpsmReadonly>
                 </HpsmField>
               </HpsmForm>
@@ -818,7 +819,7 @@ export function EntryDetailPage() {
             />
           )}
           {entry.type !== 'FILE' && (
-            <HpsmSection title="Link">
+            <HpsmSection title={tr('linkSection')}>
               <HpsmForm>
                 <HpsmField label="URL">
                   <HpsmReadonly
@@ -855,68 +856,71 @@ export function EntryDetailPage() {
       {canTriage && (
         <div className="hpsm-tabpanel" hidden={activeTab !== 'analise'}>
           {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
-          {saved && <HpsmMessage kind="success">Registro atualizado.</HpsmMessage>}
+          {saved && <HpsmMessage kind="success">{tr('recordUpdated')}</HpsmMessage>}
 
-          <HpsmSection title="Triagem">
+          <HpsmSection title={tr('triage')}>
             <HpsmForm columns={2}>
-              <HpsmField label="Status" htmlFor="triage-status">
+              <HpsmField label={tr('colStatus')} htmlFor="triage-status">
                 <Select
                   id="triage-status"
-                  labelText="Status"
+                  labelText={tr('colStatus')}
                   hideLabel
                   value={entry.status}
                   onChange={(e) => quickUpdate({ status: e.target.value })}
                 >
-                  <SelectItem value="PENDING" text="Pendente" />
-                  <SelectItem value="IN_REVIEW" text="Em análise" />
-                  <SelectItem value="COMPLETED" text="Concluído" />
+                  <SelectItem value="PENDING" text={tr('stPending')} />
+                  <SelectItem value="IN_REVIEW" text={tr('stInReview')} />
+                  <SelectItem value="COMPLETED" text={tr('stCompleted')} />
                 </Select>
               </HpsmField>
-              <HpsmField label="Veredito" htmlFor="triage-verdict">
+              <HpsmField label={tr('colVerdict')} htmlFor="triage-verdict">
                 <Select
                   id="triage-verdict"
-                  labelText="Veredito"
+                  labelText={tr('colVerdict')}
                   hideLabel
                   value={entry.verdict}
                   onChange={(e) => quickUpdate({ verdict: e.target.value })}
                 >
-                  <SelectItem value="UNKNOWN" text="Desconhecido" />
-                  <SelectItem value="CLEAN" text="Limpo" />
-                  <SelectItem value="SUSPICIOUS" text="Suspeito" />
-                  <SelectItem value="MALICIOUS" text="Malicioso" />
+                  <SelectItem value="UNKNOWN" text={tr('vUnknown')} />
+                  <SelectItem value="CLEAN" text={tr('vClean')} />
+                  <SelectItem value="SUSPICIOUS" text={tr('vSuspicious')} />
+                  <SelectItem value="MALICIOUS" text={tr('vMalicious')} />
                 </Select>
               </HpsmField>
               <HpsmField
-                label="Prioridade"
+                label={tr('colPriority')}
                 htmlFor="triage-priority"
                 help={
                   query.data?.sla?.byPriority
-                    ? `Prazo: alerta acima de ${query.data.sla.byPriority[entry.priority ?? 'P3'].warnHours} h e atraso acima de ${query.data.sla.byPriority[entry.priority ?? 'P3'].lateHours} h no status.`
+                    ? tr('slaHelp', {
+                        warn: query.data.sla.byPriority[entry.priority ?? 'P3'].warnHours,
+                        late: query.data.sla.byPriority[entry.priority ?? 'P3'].lateHours,
+                      })
                     : undefined
                 }
               >
                 <Select
                   id="triage-priority"
-                  labelText="Prioridade"
+                  labelText={tr('colPriority')}
                   hideLabel
                   value={entry.priority ?? 'P3'}
                   onChange={(e) => quickUpdate({ priority: e.target.value })}
                 >
-                  <SelectItem value="P1" text="P1 Crítica" />
-                  <SelectItem value="P2" text="P2 Alta" />
-                  <SelectItem value="P3" text="P3 Média" />
-                  <SelectItem value="P4" text="P4 Baixa" />
+                  <SelectItem value="P1" text={tr('p1')} />
+                  <SelectItem value="P2" text={tr('p2')} />
+                  <SelectItem value="P3" text={tr('p3')} />
+                  <SelectItem value="P4" text={tr('p4')} />
                 </Select>
               </HpsmField>
-              <HpsmField label="Responsável" htmlFor="triage-assignee">
+              <HpsmField label={tr('colAssignee')} htmlFor="triage-assignee">
                 <Select
                   id="triage-assignee"
-                  labelText="Responsável"
+                  labelText={tr('colAssignee')}
                   hideLabel
                   value={entry.assignee?.id ?? ''}
                   onChange={(e) => quickUpdate({ assigneeId: e.target.value || null })}
                 >
-                  <SelectItem value="" text="— Sem responsável —" />
+                  <SelectItem value="" text={tr('noAssigneeOption')} />
                   {(analystsQuery.data?.analysts ?? []).map((a) => (
                     <SelectItem key={a.id} value={a.id} text={a.displayName} />
                   ))}
@@ -936,10 +940,8 @@ export function EntryDetailPage() {
           )}
           {entry.type === 'FILE' &&
             (entry.filePurgedAt ? (
-              <HpsmSection title="Ambiente isolado">
-                <p className="dl-static-empty">
-                  Indisponível: o arquivo desta amostra foi expurgado pela política de retenção.
-                </p>
+              <HpsmSection title={tr('sandboxTitle')}>
+                <p className="dl-static-empty">{tr('sandboxPurged')}</p>
               </HpsmSection>
             ) : (
               <SandboxPanel entryId={entry.id} />

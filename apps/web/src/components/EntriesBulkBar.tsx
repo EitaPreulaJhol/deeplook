@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { EntryStatus, Priority, Verdict } from '../api/types';
+import { t as tr } from '../i18n/entry';
 import { AddToCaseDialog } from './AddToCaseDialog';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterItem } from './HpsmFilterBar';
@@ -50,35 +51,40 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
     const changes: string[] = [];
     if (status) {
       patch.status = status;
-      changes.push(`status → ${statusLabel(status as EntryStatus)}`);
+      changes.push(tr('bulkStatus', { status: statusLabel(status as EntryStatus) }));
     }
     if (verdict) {
       patch.verdict = verdict;
-      changes.push(`veredito → ${verdictLabel(verdict as Verdict)}`);
+      changes.push(tr('bulkVerdict', { verdict: verdictLabel(verdict as Verdict) }));
     }
     if (priority) {
       patch.priority = priority;
-      changes.push(`prioridade → ${priorityLabel(priority as Priority)}`);
+      changes.push(tr('bulkPriority', { priority: priorityLabel(priority as Priority) }));
     }
     if (assignee) {
       patch.assigneeId = assignee === NO_ASSIGNEE ? null : assignee;
-      const name = analysts.find((a) => a.id === assignee)?.displayName ?? 'sem responsável';
-      changes.push(`responsável → ${assignee === NO_ASSIGNEE ? 'sem responsável' : name}`);
+      const name = analysts.find((a) => a.id === assignee)?.displayName ?? tr('noAssignee');
+      changes.push(
+        tr('bulkAssignee', { name: assignee === NO_ASSIGNEE ? tr('noAssignee') : name }),
+      );
     }
     if (resolution.trim()) {
       patch.resolution = resolution.trim();
-      changes.push(`resolução → "${resolution.trim()}"`);
+      changes.push(tr('bulkResolution', { resolution: resolution.trim() }));
     }
     if (changes.length === 0) {
-      onDone({ kind: 'error', text: 'Escolha ao menos um campo para alterar.' });
+      onDone({ kind: 'error', text: tr('pickOneField') });
       return;
     }
 
-    const plural = ids.length === 1 ? 'amostra' : 'amostras';
+    const summary = changes.join('; ');
     const ok = await confirm({
-      title: 'Atualização em massa',
-      message: `Atualizar ${ids.length} ${plural}: ${changes.join('; ')}?`,
-      confirmLabel: 'Atualizar',
+      title: tr('bulkTitle'),
+      message:
+        ids.length === 1
+          ? tr('bulkConfirmOne', { changes: summary })
+          : tr('bulkConfirmMany', { n: ids.length, changes: summary }),
+      confirmLabel: tr('update'),
     });
     if (!ok) return;
 
@@ -94,7 +100,7 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
       ]);
       onDone({
         kind: 'success',
-        text: res.updated === 1 ? '1 amostra atualizada.' : `${res.updated} amostras atualizadas.`,
+        text: res.updated === 1 ? tr('updatedOne') : tr('updatedMany', { n: res.updated }),
       });
       setStatus('');
       setVerdict('');
@@ -110,83 +116,83 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
   };
 
   return (
-    <div className="hpsm-bulkbar" role="region" aria-label="Atualização em massa">
+    <div className="hpsm-bulkbar" role="region" aria-label={tr('bulkTitle')}>
       <strong className="hpsm-bulkbar__count">
         {ids.length} {ids.length === 1 ? 'selecionada' : 'selecionadas'}:
       </strong>
-      <HpsmFilterItem label="Status" htmlFor="bulk-status">
+      <HpsmFilterItem label={tr('colStatus')} htmlFor="bulk-status">
         <Select
           id="bulk-status"
-          labelText="Status"
+          labelText={tr('colStatus')}
           hideLabel
           size="sm"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
-          <SelectItem value="" text="(manter)" />
-          <SelectItem value="PENDING" text="Pendente" />
-          <SelectItem value="IN_REVIEW" text="Em análise" />
-          <SelectItem value="COMPLETED" text="Concluído" />
+          <SelectItem value="" text={tr('keep')} />
+          <SelectItem value="PENDING" text={tr('stPending')} />
+          <SelectItem value="IN_REVIEW" text={tr('stInReview')} />
+          <SelectItem value="COMPLETED" text={tr('stCompleted')} />
         </Select>
       </HpsmFilterItem>
-      <HpsmFilterItem label="Veredito" htmlFor="bulk-verdict">
+      <HpsmFilterItem label={tr('colVerdict')} htmlFor="bulk-verdict">
         <Select
           id="bulk-verdict"
-          labelText="Veredito"
+          labelText={tr('colVerdict')}
           hideLabel
           size="sm"
           value={verdict}
           onChange={(e) => setVerdict(e.target.value)}
         >
-          <SelectItem value="" text="(manter)" />
-          <SelectItem value="UNKNOWN" text="Desconhecido" />
-          <SelectItem value="CLEAN" text="Limpo" />
-          <SelectItem value="SUSPICIOUS" text="Suspeito" />
-          <SelectItem value="MALICIOUS" text="Malicioso" />
+          <SelectItem value="" text={tr('keep')} />
+          <SelectItem value="UNKNOWN" text={tr('vUnknown')} />
+          <SelectItem value="CLEAN" text={tr('vClean')} />
+          <SelectItem value="SUSPICIOUS" text={tr('vSuspicious')} />
+          <SelectItem value="MALICIOUS" text={tr('vMalicious')} />
         </Select>
       </HpsmFilterItem>
-      <HpsmFilterItem label="Prioridade" htmlFor="bulk-priority">
+      <HpsmFilterItem label={tr('colPriority')} htmlFor="bulk-priority">
         <Select
           id="bulk-priority"
-          labelText="Prioridade"
+          labelText={tr('colPriority')}
           hideLabel
           size="sm"
           value={priority}
           onChange={(e) => setPriority(e.target.value)}
         >
-          <SelectItem value="" text="(manter)" />
-          <SelectItem value="P1" text="P1 Crítica" />
-          <SelectItem value="P2" text="P2 Alta" />
-          <SelectItem value="P3" text="P3 Média" />
-          <SelectItem value="P4" text="P4 Baixa" />
+          <SelectItem value="" text={tr('keep')} />
+          <SelectItem value="P1" text={tr('p1')} />
+          <SelectItem value="P2" text={tr('p2')} />
+          <SelectItem value="P3" text={tr('p3')} />
+          <SelectItem value="P4" text={tr('p4')} />
         </Select>
       </HpsmFilterItem>
-      <HpsmFilterItem label="Responsável" htmlFor="bulk-assignee">
+      <HpsmFilterItem label={tr('colAssignee')} htmlFor="bulk-assignee">
         <Select
           id="bulk-assignee"
-          labelText="Responsável"
+          labelText={tr('colAssignee')}
           hideLabel
           size="sm"
           value={assignee}
           onChange={(e) => setAssignee(e.target.value)}
         >
-          <SelectItem value="" text="(manter)" />
-          <SelectItem value={NO_ASSIGNEE} text="— Sem responsável —" />
+          <SelectItem value="" text={tr('keep')} />
+          <SelectItem value={NO_ASSIGNEE} text={tr('noAssigneeOption')} />
           {analysts.map((a) => (
             <SelectItem key={a.id} value={a.id} text={a.displayName} />
           ))}
         </Select>
       </HpsmFilterItem>
-      <HpsmFilterItem label="Resolução" htmlFor="bulk-resolution">
+      <HpsmFilterItem label={tr('resolution')} htmlFor="bulk-resolution">
         <TextInput
           id="bulk-resolution"
-          labelText="Resolução para quem enviou"
+          labelText={tr('resolutionLabel')}
           hideLabel
           size="sm"
           list="bulk-resolution-templates"
           maxLength={RESOLUTION_MAX}
-          placeholder="(manter)"
-          title="Para quem enviou. Vazio mantém; para remover, use a ficha da amostra."
+          placeholder={tr('keep')}
+          title={tr('resolutionHelp')}
           value={resolution}
           onChange={(e) => setResolution(e.target.value)}
         />
@@ -197,11 +203,11 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
         </datalist>
       </HpsmFilterItem>
       <Button kind="primary" size="sm" disabled={busy} onClick={apply}>
-        {busy ? 'Aplicando...' : 'Aplicar'}
+        {busy ? 'Aplicando...' : tr('apply')}
       </Button>
       {/* Casos (item 55): incluir as marcadas num caso ativo ou num novo. */}
       <Button kind="tertiary" size="sm" disabled={busy} onClick={() => setCaseOpen(true)}>
-        Adicionar a caso…
+        {tr('addToCase')}
       </Button>
       {caseOpen && (
         <AddToCaseDialog
@@ -213,8 +219,8 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
             onDone({
               kind: 'success',
               text: result.created
-                ? `Caso ${result.code} criado com ${n === 1 ? '1 amostra' : `${n} amostras`}.`
-                : `${n === 1 ? '1 amostra incluída' : `${n} amostras incluídas`} no caso ${result.code}.`,
+                ? tr(n === 1 ? 'caseCreatedOne' : 'caseCreatedMany', { code: result.code, n })
+                : tr(n === 1 ? 'caseAddedOne' : 'caseAddedMany', { code: result.code, n }),
             });
             onClear();
           }}
@@ -228,11 +234,11 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
           disabled={busy}
           onClick={() => navigate(`/comparar?a=${ids[0]}&b=${ids[1]}`)}
         >
-          Comparar as 2
+          {tr('compareTwo')}
         </Button>
       )}
       <Button kind="ghost" size="sm" disabled={busy} onClick={onClear}>
-        Limpar seleção
+        {tr('clearSelection')}
       </Button>
     </div>
   );

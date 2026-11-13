@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { ApiToken, ApiTokenScope } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { intlLocale } from '../i18n';
 import { CopyButton } from './CopyButton';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
@@ -40,7 +41,7 @@ export const SCOPE_LABEL: Record<ApiTokenScope, string> = {
 };
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** Situacao de um token: ativo, vencido ou revogado. */

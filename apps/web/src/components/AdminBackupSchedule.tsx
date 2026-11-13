@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../api/client';
+import { intlLocale } from '../i18n';
 import {
   describeDraft,
   monthGrid,
@@ -54,7 +55,7 @@ const EMPTY: ScheduleDraft = {
 };
 
 const fmt = (d: Date) =>
-  d.toLocaleString('pt-BR', {
+  d.toLocaleString(intlLocale(), {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',

@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import type { Entry } from '../api/types';
+import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/entry';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconPage } from './icons';
@@ -9,7 +11,7 @@ import { HpsmLoading, HpsmMessage } from './messages';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /**
@@ -27,47 +29,45 @@ export function EntryPreviewPane({ entryId, onOpen }: { entryId: string; onOpen:
 
   return (
     <HpsmSection
-      title={entry ? `Resumo: ${entry.title}` : 'Resumo da amostra'}
+      title={entry ? `Resumo: ${entry.title}` : tr('previewTitle')}
       className="dl-preview"
     >
-      <HpsmToolbar label="Ações do resumo">
+      <HpsmToolbar label={tr('previewActions')}>
         <HpsmToolbarButton
-          label="Abrir amostra"
+          label={tr('openSample')}
           icon={IconPage}
-          title="Abrir a ficha completa (Enter ou duplo clique na linha)"
+          title={tr('openSampleHelp')}
           onClick={onOpen}
         />
       </HpsmToolbar>
-      {query.isLoading && <HpsmLoading text="Carregando resumo..." />}
-      {query.isError && (
-        <HpsmMessage kind="error">Erro ao carregar o resumo da amostra.</HpsmMessage>
-      )}
+      {query.isLoading && <HpsmLoading text={tr('loadingSummary')} />}
+      {query.isError && <HpsmMessage kind="error">{tr('summaryError')}</HpsmMessage>}
       {entry && (
         <HpsmForm columns={2}>
-          <HpsmField label="Tipo">
+          <HpsmField label={tr('colType')}>
             <HpsmReadonly>
               <TypeTag type={entry.type} />
             </HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Enviado por">
+          <HpsmField label={tr('colOwner')}>
             <HpsmReadonly>
               {entry.owner.displayName} · {fmtDate(entry.createdAt)}
             </HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Status">
+          <HpsmField label={tr('colStatus')}>
             <HpsmReadonly>
               <StatusTag status={entry.status} />
             </HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Veredito">
+          <HpsmField label={tr('colVerdict')}>
             <HpsmReadonly>
               <VerdictTag verdict={entry.verdict} />
             </HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Responsável">
+          <HpsmField label={tr('colAssignee')}>
             <HpsmReadonly>{entry.assignee?.displayName ?? '—'}</HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Tags">
+          <HpsmField label={tr('tags')}>
             <HpsmReadonly>{entry.tags.map((t) => t.name).join(', ') || '—'}</HpsmReadonly>
           </HpsmField>
           {entry.type === 'FILE' ? (
@@ -89,11 +89,11 @@ export function EntryPreviewPane({ entryId, onOpen }: { entryId: string; onOpen:
               </HpsmReadonly>
             </HpsmField>
           )}
-          <HpsmField label="Último relatório" wide top>
+          <HpsmField label={tr('lastReport')} wide top>
             <HpsmReadonly multiline>
               {lastReport
                 ? `${lastReport.analyst.displayName} · ${fmtDate(lastReport.createdAt)}\n${lastReport.summary}`
-                : 'Nenhum relatório publicado.'}
+                : tr('noReport')}
             </HpsmReadonly>
           </HpsmField>
         </HpsmForm>

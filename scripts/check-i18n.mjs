@@ -9,7 +9,12 @@
 //   node scripts/check-i18n.mjs            os 25 arquivos com mais texto e o total
 //   node scripts/check-i18n.mjs --all      todos os arquivos
 //   node scripts/check-i18n.mjs --max N    sai com erro se o total passar de N (para travar no CI)
+//
+// Antes da contagem, uma checagem que reprova (sai com erro): t() chamado no topo do modulo (o
+// texto congelaria no idioma da carga) ou dentro de useMemo/useCallback sem `locale` nas
+// dependencias (ficaria no idioma antigo ate outra dependencia mudar).
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +43,57 @@ const looksPortuguese = (text) => {
   if (/^[\w./:-]+$/.test(clean) && !ACCENT.test(clean)) return false; // classe, rota, id
   return ACCENT.test(clean) || (WORDS.test(clean) && /\s/.test(clean));
 };
+
+const ts = createRequire(join(ROOT, '..', 'package.json'))('typescript');
+
+/** Chamadas de t() (importado de src/i18n) fora da hora de desenhar. */
+function frozenCalls(path) {
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+  const names = new Set();
+  for (const stmt of source.statements) {
+    if (!ts.isImportDeclaration(stmt) || !/\/i18n(\/|'|$)/.test(stmt.moduleSpecifier.getText())) continue;
+    const bindings = stmt.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const el of bindings.elements) {
+      if ((el.propertyName ?? el.name).text === 't') names.add(el.name.text);
+    }
+  }
+  if (!names.size) return [];
+  const problems = [];
+  const line = (node) => source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+  const visit = (node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && names.has(node.expression.text)) {
+      let inside = null;
+      for (let up = node.parent; up; up = up.parent) {
+        if (ts.isFunctionLike(up)) {
+          inside ??= up;
+          const call = up.parent;
+          if (
+            call && ts.isCallExpression(call) && call.arguments[0] === up &&
+            /^(useMemo|useCallback)$/.test(call.expression.getText())
+          ) {
+            const deps = call.arguments[1];
+            if (!deps || !/\blocale\b/.test(deps.getText())) {
+              problems.push(`${relative(ROOT, path)}:${line(node)}: t() em ${call.expression.getText()} sem locale nas dependencias`);
+            }
+            break;
+          }
+        }
+      }
+      if (!inside) problems.push(`${relative(ROOT, path)}:${line(node)}: t() no topo do modulo`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return problems;
+}
+
+const frozen = files(ROOT).flatMap(frozenCalls);
+if (frozen.length) {
+  for (const problem of frozen) console.error(problem);
+  console.error(`\n${frozen.length} chamada(s) de t() que nao acompanham a troca de idioma.`);
+  process.exit(1);
+}
 
 const report = files(ROOT)
   .map((path) => {

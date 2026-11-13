@@ -9,6 +9,7 @@ import {
 } from '@carbon/react';
 
 import type { PeAlert, PeInfo } from '../api/types';
+import { intlLocale } from '../i18n';
 import { CopyButton } from './CopyButton';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly } from './HpsmForm';
@@ -21,8 +22,8 @@ import { StatusText } from './tags';
  * funcoes importadas. Analise antiga (sem estes campos) mostra so o que ja mostrava.
  */
 
-const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
-const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
+const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(intlLocale());
 
 const ALERT_TONE: Record<PeAlert['level'], StatusTone> = {
   high: 'red',

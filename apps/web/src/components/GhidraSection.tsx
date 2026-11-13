@@ -12,6 +12,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { GhidraFunction, GhidraInfo } from '../api/types';
+import { intlLocale } from '../i18n';
 import { CopyButton } from './CopyButton';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -19,7 +20,7 @@ import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
-const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 /** Maiores funcoes mostradas (o resumo traz ate 300). */
 const LARGEST_SHOWN = 20;
 

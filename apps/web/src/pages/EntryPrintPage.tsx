@@ -14,9 +14,10 @@ import { IconPrint } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { evidenceUrl } from '../components/ReportEvidence';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 /** Linha "rotulo: valor" da tabela de dados. */

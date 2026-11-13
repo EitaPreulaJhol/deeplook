@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import type { ScriptInfo, StaticInfo } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import { useDecoder } from './shortcuts';
@@ -114,7 +115,7 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
                 <div className="dl-doc-macros__row">
                   <span className="dl-mono">Camada {i + 1}</span>
                   <span className="dl-doc-macros__meta">
-                    {l.method} · {where(l.from)} · {l.text.length.toLocaleString('pt-BR')}{' '}
+                    {l.method} · {where(l.from)} · {l.text.length.toLocaleString(intlLocale())}{' '}
                     caractere(s)
                   </span>
                   <button

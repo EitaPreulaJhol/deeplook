@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { EntryStatus, Verdict } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmSection } from './HpsmForm';
 import type { StatusTone } from './tags';
 import { StatusTag, StatusText, VerdictTag } from './tags';
@@ -49,10 +50,10 @@ const STATUS: Record<RetroStatus, { label: string; tone: StatusTone }> = {
   FAILED: { label: 'Falhou', tone: 'red' },
 };
 
-const fmt = (n: number) => n.toLocaleString('pt-BR');
+const fmt = (n: number) => n.toLocaleString(intlLocale());
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** "1.240 de 3.000 (41%)" com a barrinha. */

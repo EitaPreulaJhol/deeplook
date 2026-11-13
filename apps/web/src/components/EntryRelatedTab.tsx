@@ -16,6 +16,8 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { RelatedEntry, RelatedReason } from '../api/types';
+import { intlLocale } from '../i18n';
+import { t } from '../i18n/entry';
 import { saveEntrySequence } from './entryNav';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { iocHref, iocKindOf, shortIoc } from './iocs';
@@ -23,36 +25,40 @@ import { HpsmLoading, HpsmMessage } from './messages';
 import { StatusTag, TypeTag, VerdictTag } from './tags';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** Texto da coluna Motivo (por que a amostra aparece aqui). */
 export function describeReason(reason: RelatedReason): string {
   switch (reason.kind) {
     case 'SAME_SHA256':
-      return 'Mesmo arquivo (SHA-256)';
+      return t('rSameFile');
     case 'SAME_HOST':
-      return `Mesmo domínio: ${reason.detail}`;
+      return t('rSameHost', { host: reason.detail });
     case 'SAME_BASE_DOMAIN':
-      return `Mesmo domínio-base: ${reason.detail}`;
+      return t('rSameBase', { domain: reason.detail });
     case 'SHARED_TAGS':
-      return `${reason.detail.length > 1 ? 'Tags' : 'Tag'} em comum: ${reason.detail.join(', ')}`;
+      return t(reason.detail.length > 1 ? 'rTagsMany' : 'rTagsOne', {
+        tags: reason.detail.join(', '),
+      });
     case 'SHARED_IOCS': {
       // Hashes longos e listas grandes: mostra 3 e o total (a lista toda fica na dica).
       const shown = reason.detail
         .slice(0, 3)
         .map((v) => (v.length > 24 ? `${v.slice(0, 12)}…` : v));
       const more = reason.detail.length > 3 ? ` (+${reason.detail.length - 3})` : '';
-      return `${reason.detail.length > 1 ? 'IOCs' : 'IOC'} em comum: ${shown.join(', ')}${more}`;
+      return (
+        t(reason.detail.length > 1 ? 'rIocsMany' : 'rIocsOne', { iocs: shown.join(', ') }) + more
+      );
     }
     case 'SIMILAR':
-      return `Arquivo parecido (TLSH): ${reason.detail}%`;
+      return t('rSimilar', { score: reason.detail });
     case 'SAME_IMPHASH':
-      return `Mesmas importações (imphash ${reason.detail.slice(0, 12)}…)`;
+      return t('rImphash', { hash: reason.detail.slice(0, 12) });
     case 'SAME_RICH':
-      return `Mesmo Rich header (${reason.detail.slice(0, 12)}…)`;
+      return t('rRich', { hash: reason.detail.slice(0, 12) });
     case 'SIMILAR_PAGE':
-      return `Página com a mesma aparência (captura): ${reason.detail}%`;
+      return t('rSimilarPage', { score: reason.detail });
   }
 }
 
@@ -68,7 +74,7 @@ function IocLinks({ values }: { values: string[] }) {
   const shown = values.slice(0, 3);
   return (
     <>
-      {values.length > 1 ? 'IOCs' : 'IOC'} em comum:{' '}
+      {t(values.length > 1 ? 'rIocsLabelMany' : 'rIocsLabelOne')}{' '}
       {shown.map((value, i) => (
         <span key={value}>
           {i > 0 && ', '}
@@ -112,10 +118,10 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
 
   const filter = (
     <HpsmFilterBar onClear={() => setSimilarity(DEFAULT_SIMILARITY)}>
-      <HpsmFilterItem label="Arquivos parecidos a partir de" htmlFor="related-similarity">
+      <HpsmFilterItem label={t('similarFrom')} htmlFor="related-similarity">
         <Select
           id="related-similarity"
-          labelText="Arquivos parecidos a partir de"
+          labelText={t('similarFrom')}
           hideLabel
           size="sm"
           value={String(similarity)}
@@ -125,7 +131,7 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
             <SelectItem
               key={value}
               value={String(value)}
-              text={`${value}%${value === DEFAULT_SIMILARITY ? ' (padrão)' : ''}`}
+              text={`${value}%${value === DEFAULT_SIMILARITY ? ` ${t('defaultOpt')}` : ''}`}
             />
           ))}
         </Select>
@@ -133,11 +139,11 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
     </HpsmFilterBar>
   );
 
-  if (query.isLoading) return <HpsmLoading text="Procurando amostras relacionadas..." />;
+  if (query.isLoading) return <HpsmLoading text={t('searchingRelated')} />;
   if (query.isError) {
     return (
       <HpsmMessage kind="error">
-        Erro ao carregar as relacionadas: {(query.error as Error).message}
+        {t('relatedError', { error: (query.error as Error).message })}
       </HpsmMessage>
     );
   }
@@ -147,9 +153,7 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
     return (
       <>
         {filter}
-        <HpsmMessage kind="info">
-          Nenhuma amostra relacionada (mesmo arquivo, arquivo parecido, domínio, tags ou IOCs).
-        </HpsmMessage>
+        <HpsmMessage kind="info">{t('noRelated')}</HpsmMessage>
       </>
     );
   }
@@ -181,23 +185,19 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
 
   return (
     <>
-      <p className="dl-related-hint">
-        Amostras ligadas a esta pelo mesmo arquivo (SHA-256), por um arquivo parecido (TLSH), pelo
-        mesmo domínio, por tags em comum ou por IOCs em comum nos relatórios publicados, das mais
-        relevantes para as menos.
-      </p>
+      <p className="dl-related-hint">{t('relatedHelp')}</p>
       {filter}
       <TableContainer>
-        <Table size="xs" aria-label="Amostras relacionadas (setas navegam, Enter abre)">
+        <Table size="xs" aria-label={t('relatedAria')}>
           <TableHead>
             <TableRow>
-              <TableHeader scope="col">Motivo</TableHeader>
-              <TableHeader scope="col">Amostra</TableHeader>
-              <TableHeader scope="col">Tipo</TableHeader>
-              <TableHeader scope="col">Enviado por</TableHeader>
-              <TableHeader scope="col">Status</TableHeader>
-              <TableHeader scope="col">Veredito</TableHeader>
-              <TableHeader scope="col">Data</TableHeader>
+              <TableHeader scope="col">{t('colReason')}</TableHeader>
+              <TableHeader scope="col">{t('colSample')}</TableHeader>
+              <TableHeader scope="col">{t('colType')}</TableHeader>
+              <TableHeader scope="col">{t('colOwner')}</TableHeader>
+              <TableHeader scope="col">{t('colStatus')}</TableHeader>
+              <TableHeader scope="col">{t('colVerdict')}</TableHeader>
+              <TableHeader scope="col">{t('colDate')}</TableHeader>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -252,8 +252,8 @@ export function EntryRelatedTab({ entryId }: { entryId: string }) {
       <div className="dl-table-foot">
         <span>
           {total > items.length
-            ? `Exibindo as ${items.length} mais relevantes de ${total}`
-            : `Exibindo ${items.length} ${items.length === 1 ? 'registro' : 'registros'}`}
+            ? t('showingTop', { n: items.length, total })
+            : t(items.length === 1 ? 'showingOne' : 'showingMany', { n: items.length })}
         </span>
       </div>
     </>

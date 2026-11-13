@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import type { ReportEvidence as Evidence } from '../api/types';
+import { intlLocale } from '../i18n';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField } from './HpsmForm';
@@ -79,7 +80,7 @@ function EvidenceViewer({
         <p className="dl-evidence-viewer__meta">
           Imagem {index + 1} de {items.length} · {item.width}×{item.height} ·{' '}
           {formatFileSize(item.size)} · {item.uploadedBy?.displayName ?? '—'},{' '}
-          {new Date(item.createdAt).toLocaleString('pt-BR')}
+          {new Date(item.createdAt).toLocaleString(intlLocale())}
         </p>
         <div className="hpsm-modal__actions">
           <button

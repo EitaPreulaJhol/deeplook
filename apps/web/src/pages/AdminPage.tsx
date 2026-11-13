@@ -36,6 +36,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
 import { RoleTag, StatusText } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 /** Inteiro entre min e max (campos numericos do formulario de chave). */
 function isIntBetween(value: string, min: number, max: number): boolean {
@@ -45,7 +46,7 @@ function isIntBetween(value: string, min: number, max: number): boolean {
 }
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 export function AdminPage() {

@@ -43,9 +43,10 @@ import { useSaveShortcut } from '../components/shortcuts';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { useWorkspaceTitle } from '../components/workspace';
+import { intlLocale } from '../i18n';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** Id da amostra a partir do que foi colado: o proprio id ou um link /entries/<id>. */

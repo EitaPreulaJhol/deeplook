@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import type { AuditAction, AuditChainState, AuditEvent } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -81,7 +82,7 @@ const PERIODS = [
 ];
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /**

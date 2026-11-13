@@ -28,6 +28,7 @@ import {
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 type Row = Broadcast & { active: boolean; _count: { dismissals: number } };
 
@@ -40,7 +41,7 @@ const DURATIONS = [
 ];
 
 function fmt(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /**

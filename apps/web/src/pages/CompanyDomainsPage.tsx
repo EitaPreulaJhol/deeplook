@@ -27,6 +27,7 @@ import { LOOKALIKE_SOURCE, lookalikeWhy } from '../components/LookalikeWarning';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { VerdictTag } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 interface CompanyDomain {
   id: string;
@@ -137,7 +138,7 @@ export function CompanyDomainsPage() {
                 <span className="dl-mono">{d.domain}</span>{' '}
                 <span className="dl-company-domains__by">
                   por {d.createdBy?.displayName ?? '—'} em{' '}
-                  {new Date(d.createdAt).toLocaleDateString('pt-BR')}
+                  {new Date(d.createdAt).toLocaleDateString(intlLocale())}
                 </span>
                 {isAdmin && (
                   <button

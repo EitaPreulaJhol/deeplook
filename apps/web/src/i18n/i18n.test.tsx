@@ -1,11 +1,22 @@
 // @vitest-environment jsdom
+/// <reference types="vite/client" />
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { verdictLabel } from '../components/tags';
-import { en } from './en';
-import { getLocale, intlLocale, setLocale, t, useLocale } from './index';
-import { ptBR } from './pt-BR';
+import {
+  COMMON,
+  define,
+  fmtDate,
+  fmtDateTime,
+  fmtNumber,
+  getLocale,
+  intlLocale,
+  type Pairs,
+  setLocale,
+  t,
+  useLocale,
+} from './index';
 
 afterEach(() => {
   cleanup();
@@ -61,13 +72,41 @@ describe('idioma da interface', () => {
     expect(container.textContent).toBe('Sign out');
   });
 
-  it('os dois dicionários têm as mesmas chaves, sem texto vazio', () => {
-    expect(Object.keys(en).sort()).toEqual(Object.keys(ptBR).sort());
-    for (const [key, text] of Object.entries(en)) expect(text.trim(), key).not.toBe('');
-    // Os mesmos {valores} nos dois idiomas.
-    for (const key of Object.keys(ptBR) as (keyof typeof ptBR)[]) {
-      const vars = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
-      expect(vars(en[key]), key).toBe(vars(ptBR[key]));
+  it('t() da área: as chaves dela e as comuns', () => {
+    const local = define({ title: ['Casos', 'Cases'] } as const);
+    expect(local('title')).toBe('Casos');
+    expect(local('cancel')).toBe('Cancelar');
+    expect(local('nada' as never)).toBe('nada');
+    setLocale('en');
+    expect(local('title')).toBe('Cases');
+    expect(local('cancel')).toBe('Cancel');
+  });
+
+  it('datas e números no idioma atual', () => {
+    expect(fmtDateTime(null)).toBe('—');
+    expect(fmtDate(undefined)).toBe('—');
+    expect(fmtNumber(1234567)).toBe('1.234.567');
+    expect(fmtDate('2026-11-13T12:00:00Z')).toBe('13/11/2026');
+    setLocale('en');
+    expect(fmtNumber(1234567)).toBe('1,234,567');
+    expect(fmtDate('2026-11-13T12:00:00Z')).toBe('11/13/2026');
+    expect(fmtDateTime('2026-11-13T12:00:00Z')).toContain('2026');
+  });
+
+  // Todos os dicionarios de area: os dois idiomas preenchidos e com os mesmos {valores}.
+  const modules = import.meta.glob<{ messages?: Pairs }>('./*.ts', { eager: true });
+  const areas: [string, Pairs][] = [
+    ['core', COMMON],
+    ...Object.entries(modules).flatMap(([file, mod]) =>
+      mod.messages ? [[file, mod.messages] as [string, Pairs]] : [],
+    ),
+  ];
+  it.each(areas)('dicionário %s: os dois idiomas, mesmos {valores}', (_file, pairs) => {
+    const vars = (text: string) => (text.match(/\{\w+\}/g) ?? []).sort().join();
+    for (const [key, [pt, en]] of Object.entries(pairs)) {
+      expect(pt.trim(), key).not.toBe('');
+      expect(en.trim(), key).not.toBe('');
+      expect(vars(en), key).toBe(vars(pt));
     }
   });
 });

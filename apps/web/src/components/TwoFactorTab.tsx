@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { intlLocale } from '../i18n';
 import { CopyButton } from './CopyButton';
 import { downloadText } from './entryExport';
 import { useConfirm } from './HpsmConfirm';
@@ -230,7 +231,7 @@ export function TwoFactorTab() {
               {info.enabled ? (
                 <StatusText tone="green">
                   Ativo desde{' '}
-                  {info.enabledAt ? new Date(info.enabledAt).toLocaleDateString('pt-BR') : '—'}
+                  {info.enabledAt ? new Date(info.enabledAt).toLocaleDateString(intlLocale()) : '—'}
                 </StatusText>
               ) : (
                 <StatusText tone="gray">Desativado</StatusText>

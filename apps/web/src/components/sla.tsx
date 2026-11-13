@@ -1,4 +1,5 @@
 import type { Entry, SlaConfig } from '../api/types';
+import { t } from '../i18n/entry';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
@@ -41,11 +42,7 @@ export function slaLevel(
 }
 
 const TONES: Record<SlaLevel, StatusTone> = { ok: 'none', warn: 'orange', late: 'red' };
-const LEVEL_TEXT: Record<SlaLevel, string> = {
-  ok: 'no prazo',
-  warn: 'em alerta',
-  late: 'atrasada',
-};
+const LEVEL_KEYS = { ok: 'slaOk', warn: 'slaWarn', late: 'slaLate' } as const;
 
 /**
  * Idade no status atual com o marcador do prazo (como os relogios de SLA do
@@ -64,12 +61,12 @@ export function AgeText({
   const age = formatAge(Date.now() - Date.parse(entry.statusChangedAt));
   const lim = sla ? limitsFor(entry, sla) : null;
   const limits = lim
-    ? ` (${entry.priority ?? 'P3'}: alerta acima de ${lim.warnHours} h, atraso acima de ${lim.lateHours} h)`
+    ? ` (${t('slaLimits', { priority: entry.priority ?? 'P3', warn: lim.warnHours, late: lim.lateHours })})`
     : '';
   return (
-    <span className="dl-age" title={`No status atual há ${age}: ${LEVEL_TEXT[level]}${limits}`}>
+    <span className="dl-age" title={t('slaAge', { age, level: t(LEVEL_KEYS[level]) }) + limits}>
       <StatusText tone={TONES[level]}>{age}</StatusText>
-      {level !== 'ok' && <span className="cds--visually-hidden"> ({LEVEL_TEXT[level]})</span>}
+      {level !== 'ok' && <span className="cds--visually-hidden"> ({t(LEVEL_KEYS[level])})</span>}
     </span>
   );
 }

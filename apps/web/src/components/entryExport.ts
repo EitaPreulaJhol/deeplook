@@ -1,9 +1,10 @@
 import type { Entry } from '../api/types';
+import { intlLocale } from '../i18n';
 import { formatFileSize } from './HpsmFileDrop';
 import { statusLabel, verdictLabel } from './tags';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 /** Celula de tabela Markdown: sem quebras de linha e com "|" escapado. */

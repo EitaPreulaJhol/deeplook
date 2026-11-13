@@ -26,9 +26,10 @@ import {
   useNotifications,
 } from '../components/notifications';
 import { PageHeader } from '../components/PageHeader';
+import { intlLocale } from '../i18n';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /**

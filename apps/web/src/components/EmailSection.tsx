@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
 
 import type { EmailInfo, EmailParty } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
 function fmtDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 function partyText(p: EmailParty | null): string {

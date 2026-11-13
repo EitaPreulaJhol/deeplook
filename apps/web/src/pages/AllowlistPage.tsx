@@ -26,6 +26,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
+import { intlLocale } from '../i18n';
 
 interface Allowed {
   id: string;
@@ -247,7 +248,7 @@ export function AllowlistPage() {
                   </TableCell>
                   <TableCell>{item.reason}</TableCell>
                   <TableCell>
-                    {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                    {new Date(item.createdAt).toLocaleDateString(intlLocale())}
                     {item.createdBy ? ` por ${item.createdBy.displayName}` : ''}
                   </TableCell>
                   <TableCell>

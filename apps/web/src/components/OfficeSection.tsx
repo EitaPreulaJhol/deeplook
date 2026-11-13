@@ -3,12 +3,13 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { OfficeInfo } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
-const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 const TONE: Record<string, StatusTone> = { high: 'red', medium: 'orange', info: 'gray' };
 
 /** Analise do oletools; atualiza a cada 5 s enquanto esta na fila ou rodando. */

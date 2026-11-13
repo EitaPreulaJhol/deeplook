@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ReportStatus, Verdict } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmField, HpsmForm } from './HpsmForm';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { verdictLabel } from './tags';
@@ -29,7 +30,7 @@ const STATUS_LABEL: Record<ReportStatus, string> = {
 };
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** "Versão 2 (atual) — Bruno Lima, 24/10/2026 10:00 · publicado". */

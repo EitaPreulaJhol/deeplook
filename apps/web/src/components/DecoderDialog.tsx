@@ -1,6 +1,7 @@
 import { Select, SelectItem, TextArea, TextInput } from '@carbon/react';
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { intlLocale } from '../i18n';
 import { CopyButton } from './CopyButton';
 import type { Step, StepId } from './decoder';
 import { DECODER_MAX, hexDump, resultText, runSteps, STEPS, suggestStep } from './decoder';
@@ -167,7 +168,7 @@ export function DecoderDialog({ initial, onClose }: { initial: string; onClose: 
                 ))}
               </span>
               <span className="dl-hint-muted">
-                {result.bytes.length.toLocaleString('pt-BR')} byte(s)
+                {result.bytes.length.toLocaleString(intlLocale())} byte(s)
                 {view === 'hex' && result.bytes.length > 4096 && ' · hex dos primeiros 4 KB'}
               </span>
               <CopyButton value={text} label="resultado" />

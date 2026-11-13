@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import { intlLocale } from '../i18n';
 import { AdminBackupSchedule } from './AdminBackupSchedule';
 import { useConfirm } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
@@ -52,7 +53,7 @@ const STATUS: Record<Backup['status'], { text: string; tone: 'blue' | 'green' | 
     EXPIRED: { text: 'Vencido', tone: 'gray' },
   };
 
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 
 /**
  * Backup em ZIP para baixar (item 81): gerar (um por vez, em segundo plano),

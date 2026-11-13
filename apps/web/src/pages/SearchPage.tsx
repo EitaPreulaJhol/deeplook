@@ -16,6 +16,7 @@ import { kbCategoryLabel, kbHref } from '../components/kb';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
+import { intlLocale } from '../i18n';
 
 type Group = 'entries' | 'reports' | 'comments' | 'kb' | 'cases';
 
@@ -273,7 +274,7 @@ export function SearchPage() {
                     {c.entryTitle}
                   </Link>
                   <span className="dl-search-list__meta">
-                    {c.author ?? 'Alguém'} · {new Date(c.createdAt).toLocaleString('pt-BR')}
+                    {c.author ?? 'Alguém'} · {new Date(c.createdAt).toLocaleString(intlLocale())}
                   </span>
                 </div>
                 <Snippet text={c.snippet} />

@@ -1,4 +1,5 @@
 import type { AttackData } from '../api/types';
+import { intlLocale } from '../i18n';
 import type { CaseDetail, CaseIoc } from './cases';
 import { CASE_STATUS, caseEventText, caseTechniques } from './cases';
 import { block, cell } from './entryExport';
@@ -6,7 +7,7 @@ import { IOC_KIND_LABELS } from './iocs';
 import { priorityLabel, statusLabel, verdictLabel } from './tags';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 /**

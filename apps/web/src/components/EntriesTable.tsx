@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type { Entry, SlaConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { t } from '../i18n/entry';
 import { EntriesBulkBar } from './EntriesBulkBar';
 import { saveEntrySequence } from './entryNav';
 import { EntryPreviewPane } from './EntryPreviewPane';
@@ -159,16 +160,16 @@ export function EntriesTable({
   };
 
   const headers: { key: EntrySortKey; header: string }[] = [
-    { key: 'title', header: 'Amostra' },
-    { key: 'type', header: 'Tipo' },
-    ...(showOwner ? [{ key: 'owner' as const, header: 'Enviado por' }] : []),
-    { key: 'assignee', header: 'Responsável' },
-    { key: 'status', header: 'Status' },
-    { key: 'priority', header: 'Prioridade' },
-    { key: 'age', header: 'Idade' },
-    { key: 'verdict', header: 'Veredito' },
-    { key: 'reports', header: 'Relatórios' },
-    { key: 'createdAt', header: 'Data' },
+    { key: 'title', header: t('colSample') },
+    { key: 'type', header: t('colType') },
+    ...(showOwner ? [{ key: 'owner' as const, header: t('colOwner') }] : []),
+    { key: 'assignee', header: t('colAssignee') },
+    { key: 'status', header: t('colStatus') },
+    { key: 'priority', header: t('colPriority') },
+    { key: 'age', header: t('colAge') },
+    { key: 'verdict', header: t('colVerdict') },
+    { key: 'reports', header: t('colReports') },
+    { key: 'createdAt', header: t('colDate') },
   ];
 
   // Clicar na coluna ativa inverte a ordem; outra coluna comeca em ascendente.
@@ -202,14 +203,7 @@ export function EntriesTable({
         />
       )}
       <TableContainer>
-        <Table
-          size="xs"
-          aria-label={
-            detailPane
-              ? 'Amostras (setas selecionam, Enter ou duplo clique abre)'
-              : 'Amostras (setas navegam, Enter abre)'
-          }
-        >
+        <Table size="xs" aria-label={detailPane ? t('tableAriaSelect') : t('tableAria')}>
           <TableHead>
             <TableRow>
               {selectable && (
@@ -217,8 +211,8 @@ export function EntriesTable({
                   <input
                     type="checkbox"
                     hidden={entries.length === 0}
-                    aria-label="Selecionar todas desta página"
-                    title="Selecionar todas desta página"
+                    aria-label={t('selectPage')}
+                    title={t('selectPage')}
                     checked={allChecked}
                     ref={(el) => {
                       if (el) el.indeterminate = someChecked;
@@ -273,7 +267,7 @@ export function EntriesTable({
                     <input
                       type="checkbox"
                       tabIndex={-1}
-                      aria-label={`Selecionar ${entry.title}`}
+                      aria-label={t('selectOne', { title: entry.title })}
                       checked={checkedIds.has(entry.id)}
                       onClick={(event) => event.stopPropagation()}
                       onDoubleClick={(event) => event.stopPropagation()}
@@ -286,12 +280,14 @@ export function EntriesTable({
                     {entry.title}
                   </span>
                   {(entry.duplicateOfId || entry.isDuplicate) && (
-                    <span className="dl-dup-tag" title="Duplicata de outra amostra">
-                      duplicata
+                    <span className="dl-dup-tag" title={t('duplicateTitle')}>
+                      {t('duplicateTag')}
                     </span>
                   )}
                   {showResolution && entry.resolution && (
-                    <span className="dl-resolution-line">O que fazer: {entry.resolution}</span>
+                    <span className="dl-resolution-line">
+                      {t('whatToDo', { resolution: entry.resolution })}
+                    </span>
                   )}
                 </TableCell>
                 <TableCell>
@@ -321,15 +317,13 @@ export function EntriesTable({
         </Table>
       </TableContainer>
       <div className="dl-table-foot">
-        <span>
-          Exibindo registros {first} a {last} de {total}
-        </span>
-        <div className="hpsm-pager" role="group" aria-label="Paginação">
+        <span>{t('showing', { first, last, total })}</span>
+        <div className="hpsm-pager" role="group" aria-label={t('pagination')}>
           <button
             type="button"
             className="hpsm-pager__btn"
-            title="Primeira página"
-            aria-label="Primeira página"
+            title={t('firstPage')}
+            aria-label={t('firstPage')}
             disabled={atStart}
             onClick={() => onPageChange(0)}
           >
@@ -338,28 +332,28 @@ export function EntriesTable({
           <button
             type="button"
             className="hpsm-pager__btn"
-            title="Página anterior"
-            aria-label="Página anterior"
+            title={t('prevPage')}
+            aria-label={t('prevPage')}
             disabled={atStart}
             onClick={() => onPageChange(Math.max(0, offset - pageSize))}
           >
-            ‹ Anterior
+            {t('prevShort')}
           </button>
           <button
             type="button"
             className="hpsm-pager__btn"
-            title="Próxima página"
-            aria-label="Próxima página"
+            title={t('nextPage')}
+            aria-label={t('nextPage')}
             disabled={atEnd}
             onClick={() => onPageChange(offset + pageSize)}
           >
-            Próxima ›
+            {t('nextShort')}
           </button>
           <button
             type="button"
             className="hpsm-pager__btn"
-            title="Última página"
-            aria-label="Última página"
+            title={t('lastPage')}
+            aria-label={t('lastPage')}
             disabled={atEnd}
             onClick={() => onPageChange(lastOffset)}
           >

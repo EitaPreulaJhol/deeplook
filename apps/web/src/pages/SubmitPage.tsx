@@ -34,6 +34,7 @@ import { useSaveShortcut } from '../components/shortcuts';
 import type { StatusTone } from '../components/tags';
 import { StatusText, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
+import { intlLocale } from '../i18n';
 
 /**
  * SHA-256 do arquivo calculado no navegador + amostra ja enviada com o mesmo
@@ -482,7 +483,7 @@ export function SubmitPage() {
           Você já enviou {quota.limit} amostras nas últimas 24 horas (limite para usuários comuns).
           A próxima libera às{' '}
           {quota.resetAt
-            ? new Date(quota.resetAt).toLocaleTimeString('pt-BR', {
+            ? new Date(quota.resetAt).toLocaleTimeString(intlLocale(), {
                 hour: '2-digit',
                 minute: '2-digit',
               })

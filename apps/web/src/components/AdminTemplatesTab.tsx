@@ -17,6 +17,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ReportTemplate, Verdict } from '../api/types';
+import { intlLocale } from '../i18n';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
@@ -27,7 +28,7 @@ import { VerdictTag } from './tags';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 const EMPTY = { name: '', summary: '', findings: '', iocs: '', verdict: 'UNKNOWN' as Verdict };

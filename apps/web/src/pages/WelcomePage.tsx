@@ -21,6 +21,7 @@ import { PageHeader } from '../components/PageHeader';
 import { SHORTCUT_GROUPS, ShortcutKeys } from '../components/shortcutList';
 import { VerdictTag } from '../components/tags';
 import { useTakeNext } from '../components/useTakeNext';
+import { intlLocale } from '../i18n';
 
 interface Updates {
   since: string | null;
@@ -88,7 +89,9 @@ export function WelcomePage() {
                       <TableCell>
                         <VerdictTag verdict={item.verdict} />
                       </TableCell>
-                      <TableCell>{new Date(item.completedAt).toLocaleString('pt-BR')}</TableCell>
+                      <TableCell>
+                        {new Date(item.completedAt).toLocaleString(intlLocale())}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

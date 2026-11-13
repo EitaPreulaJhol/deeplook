@@ -28,7 +28,7 @@ import { TwoFactorTab } from '../components/TwoFactorTab';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { WatchesTab } from '../components/WatchesTab';
 import { clearWorkspaceTabs } from '../components/workspace';
-import { isLocale, LOCALES, setLocale, t } from '../i18n';
+import { intlLocale, isLocale, LOCALES, setLocale, t } from '../i18n';
 
 const TABS = [
   { id: 'dados', label: 'Dados' },
@@ -79,7 +79,9 @@ export function UserPage() {
                 <HpsmReadonly>{roleLabel(user.role)}</HpsmReadonly>
               </HpsmField>
               <HpsmField label="Membro desde">
-                <HpsmReadonly>{new Date(user.createdAt).toLocaleDateString('pt-BR')}</HpsmReadonly>
+                <HpsmReadonly>
+                  {new Date(user.createdAt).toLocaleDateString(intlLocale())}
+                </HpsmReadonly>
               </HpsmField>
             </HpsmForm>
           </HpsmSection>
@@ -179,7 +181,7 @@ function PasswordTab() {
         <HpsmField label="Validade">
           <HpsmReadonly>
             {expiresAt
-              ? `Sua senha vale até ${new Date(expiresAt).toLocaleDateString('pt-BR')} (${daysLeft} dia${daysLeft === 1 ? '' : 's'}). Ao trocar, ganha mais ${MAX_AGE_TEXT}.`
+              ? `Sua senha vale até ${new Date(expiresAt).toLocaleDateString(intlLocale())} (${daysLeft} dia${daysLeft === 1 ? '' : 's'}). Ao trocar, ganha mais ${MAX_AGE_TEXT}.`
               : 'Sem validade (contas de administrador não expiram).'}
           </HpsmReadonly>
         </HpsmField>

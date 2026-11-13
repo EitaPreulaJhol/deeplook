@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import { intlLocale } from '../i18n';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconScreen } from './icons';
@@ -32,12 +33,12 @@ interface Capture {
 }
 
 function fmtDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 /** Data do certificado (dia), com aviso se ja venceu. */
 function certDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleDateString(intlLocale()) : '—';
 }
 
 /**

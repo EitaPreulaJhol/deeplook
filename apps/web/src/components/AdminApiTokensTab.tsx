@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ApiToken } from '../api/types';
+import { intlLocale } from '../i18n';
 import { lastUse, SCOPE_LABEL, tokenState } from './ApiTokensTab';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
@@ -25,7 +26,7 @@ type AdminToken = ApiToken & {
 };
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /**

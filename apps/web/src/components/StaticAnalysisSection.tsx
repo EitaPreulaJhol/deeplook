@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { StaticInfo } from '../api/types';
+import { intlLocale } from '../i18n';
 import { CopyButton } from './CopyButton';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -23,7 +24,7 @@ import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
 function fmtDate(iso?: string | null): string {
-  return iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+  return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
 const ENTROPY: Record<StaticInfo['entropyLevel'], { tone: StatusTone; text: string }> = {

@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { CapaInfo, CapaRule, FlossString } from '../api/types';
+import { intlLocale } from '../i18n';
 import { attackHref, AttackTechniqueLinks } from './attack';
 import { CopyButton } from './CopyButton';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -21,7 +22,7 @@ import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
-const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR') : '—');
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 
 /** Primeiro nivel do namespace das regras do capa, em portugues. */
 const NAMESPACES: Record<string, string> = {

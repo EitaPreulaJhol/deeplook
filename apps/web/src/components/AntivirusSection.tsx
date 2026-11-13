@@ -3,13 +3,14 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { AntivirusInfo, AntivirusScan } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** Situacao da varredura: escaneando, limpo, infectado (assinatura) ou falha. */

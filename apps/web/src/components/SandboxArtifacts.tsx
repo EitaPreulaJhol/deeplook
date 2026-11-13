@@ -2,9 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import type { SandboxArtifacts as Artifacts } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmMessage } from './messages';
 
-const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR');
+const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(intlLocale());
 /** Miniaturas mostradas (as mais recentes); o primeiro print fica sempre. */
 const SHOWN = 8;
 

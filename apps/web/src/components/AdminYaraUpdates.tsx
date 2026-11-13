@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import { intlLocale } from '../i18n';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
@@ -161,7 +162,7 @@ export function AdminYaraUpdates() {
           <div key={pack.id} className="dl-pack-update">
             <strong>{pack.name}</strong> · versão de {pack.commitDate}
             {pack.lastCheck
-              ? ` · verificado em ${new Date(pack.lastCheck).toLocaleString('pt-BR')}`
+              ? ` · verificado em ${new Date(pack.lastCheck).toLocaleString(intlLocale())}`
               : ' · ainda não verificado'}{' '}
             <button
               type="button"
@@ -184,8 +185,9 @@ export function AdminYaraUpdates() {
               <StatusText tone={STATUS[release.status].tone}>
                 {STATUS[release.status].label}
               </StatusText>{' '}
-              {nameOf(release.pack)} · {new Date(release.createdAt).toLocaleDateString('pt-BR')} ·
-              commit <span className="dl-mono">{release.commit.slice(0, 8)}</span> ·{' '}
+              {nameOf(release.pack)} ·{' '}
+              {new Date(release.createdAt).toLocaleDateString(intlLocale())} · commit{' '}
+              <span className="dl-mono">{release.commit.slice(0, 8)}</span> ·{' '}
               {changes(release.summary)}
               {release.status === 'HELD' && (
                 <>

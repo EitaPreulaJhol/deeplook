@@ -12,6 +12,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ReputationInfo, ReputationResult } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -27,7 +28,7 @@ const VERDICT_TONE: Record<string, StatusTone> = {
 const KIND_LABEL = { HASH: 'SHA-256', DOMAIN: 'Domínio', IP: 'IP' } as const;
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR');
+  return new Date(iso).toLocaleString(intlLocale());
 }
 
 /** Resultado de um servico: consultando, falha, nao encontrado ou o veredito dele. */

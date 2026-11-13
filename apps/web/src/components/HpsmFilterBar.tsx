@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { t } from '../i18n/entry';
 import { currentViewUrl, useFavorites } from './favorites';
 import { usePrompt } from './HpsmConfirm';
 import type { HpsmMessageKind } from './messages';
@@ -44,16 +45,16 @@ export function HpsmFilterBar({
 
   const saveView = async () => {
     const label = await prompt({
-      title: 'Salvar visão',
-      message: 'A busca, os filtros e a ordenação atuais vão para a pasta Favoritos do navegador.',
-      label: 'Nome',
+      title: t('saveView'),
+      message: t('saveViewHelp'),
+      label: t('name'),
       defaultValue: viewName,
-      confirmLabel: 'Salvar',
+      confirmLabel: t('save'),
     });
     if (!label) return;
     try {
       await addView(label, currentViewUrl(pathname, search));
-      setNotice({ kind: 'success', text: `Visão "${label}" salva nos Favoritos.` });
+      setNotice({ kind: 'success', text: t('viewSaved', { label }) });
     } catch (err) {
       setNotice({ kind: 'error', text: (err as Error).message });
     }
@@ -61,17 +62,16 @@ export function HpsmFilterBar({
 
   const shareView = async () => {
     const label = await prompt({
-      title: 'Compartilhar visão',
-      message:
-        'A busca, os filtros e a ordenação atuais vão para a pasta Visões da equipe, no navegador de todos os analistas.',
-      label: 'Nome',
+      title: t('shareView'),
+      message: t('shareViewHelp'),
+      label: t('name'),
       defaultValue: viewName,
-      confirmLabel: 'Compartilhar',
+      confirmLabel: t('share'),
     });
     if (!label) return;
     try {
       await team.share(label, currentViewUrl(pathname, search));
-      setNotice({ kind: 'success', text: `Visão "${label}" compartilhada com a equipe.` });
+      setNotice({ kind: 'success', text: t('viewShared', { label }) });
     } catch (err) {
       setNotice({ kind: 'error', text: (err as Error).message });
     }
@@ -91,8 +91,8 @@ export function HpsmFilterBar({
           <button
             type="button"
             className="hpsm-filterbar__chip-x"
-            aria-label={`Remover o filtro: ${chip.label}`}
-            title="Remover filtro"
+            aria-label={t('removeFilter', { label: chip.label })}
+            title={t('removeFilterTitle')}
             onClick={chip.onRemove}
           >
             ×
@@ -100,16 +100,16 @@ export function HpsmFilterBar({
         </span>
       ))}
       <Button kind="secondary" size="sm" onClick={onClear}>
-        Limpar
+        {t('clear')}
       </Button>
       {viewName !== undefined && (
         <Button
           kind="secondary"
           size="sm"
           onClick={() => void saveView()}
-          title="Guardar esta busca e filtros na pasta Favoritos do navegador"
+          title={t('saveViewTitle')}
         >
-          Salvar visão
+          {t('saveView')}
         </Button>
       )}
       {viewName !== undefined && canShare && (
@@ -117,19 +117,14 @@ export function HpsmFilterBar({
           kind="secondary"
           size="sm"
           onClick={() => void shareView()}
-          title="Mostrar esta busca e filtros na pasta Visões da equipe de todos os analistas"
+          title={t('shareViewTitle')}
         >
-          Compartilhar visão
+          {t('shareView')}
         </Button>
       )}
       {exportHref && (
-        <Button
-          kind="secondary"
-          size="sm"
-          href={exportHref}
-          title="Baixar a lista filtrada (todas as páginas) em CSV"
-        >
-          Exportar CSV
+        <Button kind="secondary" size="sm" href={exportHref} title={t('exportCsvTitle')}>
+          {t('exportCsv')}
         </Button>
       )}
     </div>

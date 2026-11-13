@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import type { StatusLevel, SystemStatus } from '../api/types';
+import { intlLocale } from '../i18n';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconRefresh } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -51,8 +52,8 @@ export function AdminStatusTab() {
         />
         {data && (
           <span className="hpsm-toolbar__info">
-            Verificado às {new Date(data.checkedAt).toLocaleTimeString('pt-BR')} · atualiza a cada
-            30 s
+            Verificado às {new Date(data.checkedAt).toLocaleTimeString(intlLocale())} · atualiza a
+            cada 30 s
           </span>
         )}
       </HpsmToolbar>
