@@ -18,20 +18,17 @@ import {
 } from '../lib/auth';
 import { toCsv } from '../lib/csv';
 import { extractDiskFile } from '../lib/disk-image';
-import { assignOnArrival, createFileEntry } from '../lib/entry-create';
+import { createFileEntry, createUrlEntry } from '../lib/entry-create';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { hashingStream, judge, recordIntegrity } from '../lib/integrity';
-import { normalizeUrl, urlKey } from '../lib/ioc-normalize';
-import { notifyWatchers, sampleIndicators } from '../lib/ioc-watch';
 import { rememberUrls } from '../lib/iocs';
 import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import { relationHashes } from '../lib/pe-analysis';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
-import { createWithinQuota, QuotaExceeded, quotaMessage, uploadQuota } from '../lib/quota';
+import { QuotaExceeded, quotaMessage, uploadQuota } from '../lib/quota';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
-import { checkReputationInBackground } from '../lib/reputation';
 import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
 import { slaConfig, slaWhere } from '../lib/sla';
 import type { StaticInfo } from '../lib/static-analysis';
@@ -163,14 +160,6 @@ const PatchSchema = z.object({
   /** Resolucao para quem enviou (item 87). */
   resolution: ResolutionField,
 });
-
-function domainOf(url: string): string | null {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
-  }
-}
 
 function parseTags(raw: string | undefined): string[] {
   return [
@@ -1194,39 +1183,17 @@ export async function entryRoutes(app: FastifyInstance) {
     const { url, title, description, tags: tagRaw } = parsed.data;
 
     const tags = await resolveTags(parseTags(tagRaw));
-    // Indicador de URL (item 165): o link normalizado, achado depois pela chave.
-    const normalized = normalizeUrl(url);
-    if (normalized) await rememberUrls(prisma, [{ kind: 'URL', value: normalized }]);
-
     let entry;
     try {
-      entry = await createWithinQuota(user.id, !isAnalyst(user), (db) =>
-        db.entry.create({
-          data: {
-            ownerId: user.id,
-            type: 'URL',
-            title,
-            description: description || null,
-            url,
-            urlDomain: domainOf(url),
-            urlKey: normalized ? urlKey(normalized) : null,
-            tags: { connect: tags },
-          },
-          include: {
-            owner: { select: { id: true, displayName: true, email: true } },
-            tags: true,
-          },
-        }),
+      entry = await createUrlEntry(
+        req,
+        { id: user.id, analyst: isAnalyst(user) },
+        { url, title, description, tags },
       );
     } catch (err) {
       if (!(err instanceof QuotaExceeded)) throw err;
       return quotaRefused(user, reply);
     }
-
-    await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
-    await assignOnArrival(entry.id, req);
-    checkReputationInBackground(entry.id, req.log);
-    await notifyWatchers(prisma, sampleIndicators(entry), entry.id, user.id, 'sample');
     return reply.code(201).send({ entry });
   });
 

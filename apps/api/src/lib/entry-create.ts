@@ -11,6 +11,7 @@ import { scanInBackground } from './clamav';
 import { sha256Hex } from './crypto';
 import { isEmailFile, parseEmail } from './eml';
 import { recordEvent } from './events';
+import { normalizeUrl, urlKey } from './ioc-normalize';
 import { notifyWatchers, sampleIndicators } from './ioc-watch';
 import { rememberUrls } from './iocs';
 import { scanLookalikesQuietly } from './lookalike';
@@ -248,4 +249,51 @@ async function readEmail(
       ...(title && { title: title.slice(0, 200) }),
     },
   });
+}
+
+/** Host do link, ou null se nao for uma URL. */
+export function domainOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Criacao de uma amostra de link: o caminho unico do envio pela tela ou pela API e da importacao
+ * de um pacote STIX num caso (revisao de novembro, 3.5). Lanca QuotaExceeded se a pessoa (usuario
+ * comum) passou do limite do dia; analistas nao tem limite.
+ */
+export async function createUrlEntry(
+  req: EntryContext,
+  user: { id: string; analyst: boolean },
+  input: { url: string; title: string; description?: string | null; tags?: { id: string }[] },
+) {
+  // Indicador de URL (item 165): o link normalizado, achado depois pela chave.
+  const normalized = normalizeUrl(input.url);
+  if (normalized) await rememberUrls(prisma, [{ kind: 'URL', value: normalized }]);
+  const entry = await createWithinQuota(user.id, !user.analyst, (db) =>
+    db.entry.create({
+      data: {
+        ownerId: user.id,
+        type: 'URL',
+        title: input.title,
+        description: input.description || null,
+        url: input.url,
+        urlDomain: domainOf(input.url),
+        urlKey: normalized ? urlKey(normalized) : null,
+        tags: { connect: input.tags ?? [] },
+      },
+      include: {
+        owner: { select: { id: true, displayName: true, email: true } },
+        tags: true,
+      },
+    }),
+  );
+  await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'CREATED' });
+  await assignOnArrival(entry.id, req);
+  checkReputationInBackground(entry.id, req.log);
+  await notifyWatchers(prisma, sampleIndicators(entry), entry.id, user.id, 'sample');
+  return entry;
 }

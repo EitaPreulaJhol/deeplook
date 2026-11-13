@@ -286,6 +286,9 @@ export function createState({ loggedIn = false } = {}) {
     /** IOCs por caso (GET /api/cases/:id/iocs) e formatos exportados. */
     caseIocs: {},
     caseExports: [],
+    /** Pacote STIX no caso: chamadas recebidas e a previa devolvida. */
+    caseStix: [],
+    caseStixPreview: null,
     /** Versoes anteriores por relatorio (item 75) e o ultimo PATCH de conteudo. */
     reportRevisions: {},
     lastReportPatch: null,
@@ -426,6 +429,15 @@ export async function setupMock(context, state) {
         const byEntry = p.match(/^\/api\/entries\/(\w+)\/cases$/);
         if (byEntry) {
           return json(route, 200, { cases: state.cases.filter((c) => c.entries.some((x) => x.entry.id === byEntry[1])).map((c) => ({ id: c.id, number: c.number, code: c.code, title: c.title, status: c.status })) });
+        }
+        // Pacote STIX no caso (revisao 3.5): o roteiro define a previa; a importacao so anota.
+        const stix = p.match(/^\/api\/cases\/(\w+)\/stix\/(preview|import)$/);
+        if (stix && req.method() === 'POST') {
+          const body = JSON.parse(req.postData() || '{}');
+          state.caseStix.push({ caseId: stix[1], step: stix[2], text: body.text });
+          if (!body.text?.trim().startsWith('{')) return json(route, 400, { error: 'JSON inválido: envie um pacote STIX 2.1.' });
+          if (stix[2] === 'preview') return json(route, 200, state.caseStixPreview);
+          return json(route, 200, { created: 1, linked: 1, added: 2, unknown: 1, skipped: 0, others: 1 });
         }
         if (p === '/api/cases/counts') {
           const active = state.cases.filter((c) => c.status !== 'CLOSED');

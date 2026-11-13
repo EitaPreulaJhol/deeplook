@@ -22,6 +22,7 @@ import { useAttack } from '../components/attack';
 import { caseMarkdown } from '../components/caseExport';
 import type { CaseDetail, CaseIoc } from '../components/cases';
 import { CASE_STATUS, caseEventText } from '../components/cases';
+import { CaseStixImportDialog } from '../components/CaseStixImportDialog';
 import { downloadText, downloadUrl } from '../components/entryExport';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
@@ -89,6 +90,7 @@ export function CasePage() {
   const [form, setForm] = useState({ title: '', description: '', status: 'OPEN', assigneeId: '' });
   const [loadedAt, setLoadedAt] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [importing, setImporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [addId, setAddId] = useState('');
   const [comment, setComment] = useState('');
@@ -257,6 +259,17 @@ export function CasePage() {
                   caseMarkdown(c, iocs, attack.data, names, user?.displayName ?? '—'),
                 ),
             },
+            {
+              label: 'Pacote do caso (STIX 2.1)',
+              icon: IconDownload,
+              action: () => downloadUrl(`/api/cases/${c.id}/iocs/export?format=stix-case`),
+            },
+            {
+              label: 'Importar pacote STIX…',
+              icon: IconAdd,
+              disabled: c.status === 'CLOSED',
+              action: () => setImporting(true),
+            },
             // IOCs de todas as amostras, gerados na API.
             ...(
               [
@@ -275,6 +288,17 @@ export function CasePage() {
         />
       </HpsmToolbar>
       <PageHeader title={`${c.code} · ${c.title}`} subtitle={c.description ?? undefined} />
+      {importing && (
+        <CaseStixImportDialog
+          caseId={c.id}
+          onClose={() => setImporting(false)}
+          onDone={(text) => {
+            setImporting(false);
+            setNotice({ ok: true, text });
+            void queryClient.invalidateQueries({ queryKey: ['case', id] });
+          }}
+        />
+      )}
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}

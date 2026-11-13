@@ -270,7 +270,15 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
   dele. Domínio com menos de 30 dias e primeiro certificado com menos de 14 viram *Suspeito* e
   entram na pontuação de risco. **Achado no caminho:** a reputação externa não tinha teste de
   integração; `reputation.test.ts` cobre agora o enriquecimento e o que sai do DeepLook.
-- **3.2, 3.5 e 3.7:** pendentes. **3.6** adiado pelo dono.
+- **3.5 ✅**: pacote STIX do caso. A exportação de IOCs do caso já existia; o novo formato
+  `stix-case` leva também as amostras (observáveis), as técnicas ATT&CK, os relatórios publicados
+  (notas) e um `report` do caso. A importação num caso (com prévia) cria amostras para os links e
+  traz as amostras que já existem pelo link ou pelo SHA-256. **Decisões que valem conferir:**
+  arquivo do pacote que nunca foi enviado fica de fora (o pacote não traz o arquivo); domínio, IP
+  e e-mail só são contados (seguir já existe em Importar indicadores); no máximo 50 links novos
+  por importação. A criação de amostra de link saiu da rota para `lib/entry-create.ts`, e o envio
+  pela tela e a importação usam o mesmo caminho.
+- **3.2 e 3.7:** pendentes. **3.6** adiado pelo dono.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|

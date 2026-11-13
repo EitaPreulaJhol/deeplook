@@ -659,6 +659,27 @@ Analistas agrupam amostras da mesma campanha em **casos** (`CASO-0001`), pela fi
 responsável, as amostras com os relatórios publicados delas e uma linha do tempo com
 comentários. Uma amostra pode estar em vários casos; um caso nunca fica vazio.
 
+### Pacote STIX do caso
+
+Para levar um caso inteiro a outro DeepLook, a um TIP ou a um parceiro, e para trazer o de lá:
+
+- **Exportar > Pacote do caso (STIX 2.1):** os indicadores (os mesmos da exportação de IOCs), as
+  amostras como observáveis (arquivo pelo SHA-256, link pela URL), as técnicas ATT&CK dos
+  relatórios publicados, cada relatório publicado como nota presa à amostra e um `report` do caso
+  apontando para tudo. Rascunhos e relatórios em revisão não saem.
+- **Exportar > Importar pacote STIX…:** escolha o arquivo e veja, antes de confirmar, o que
+  acontece com cada link e cada arquivo do pacote:
+  - **link** vira amostra nova do caso (até 50 por importação), ou entra a amostra que já existe
+    com o mesmo link; as novas passam pelo caminho normal de um envio (reputação, regras de
+    triagem, atribuição, avisos de quem segue o indicador);
+  - **arquivo** só entra se o mesmo SHA-256 já foi enviado ao DeepLook, porque o pacote não traz
+    o arquivo;
+  - domínios, IPs e e-mails do pacote só são contados: para segui-los, use **Importar
+    indicadores**.
+
+  O resumo do que entrou e do que ficou de fora vai para a linha do tempo do caso. Importar o
+  mesmo pacote de novo não duplica nada; caso encerrado não importa.
+
 ## E-mail suspeito (.eml)
 
 Envie o `.eml` de um phishing como arquivo comum. A ficha mostra a seção **E-mail**:

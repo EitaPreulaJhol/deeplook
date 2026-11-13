@@ -3,11 +3,16 @@ import { z } from 'zod';
 
 import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { CASE_IMPORT_MAX_URLS, casePackage, parseCaseBundle } from '../lib/case-stix';
+import { createUrlEntry } from '../lib/entry-create';
 import { recordEvent } from '../lib/events';
 import { caseIocsCsv, caseIocsMisp, caseIocsStix } from '../lib/ioc-export';
+import { ImportError } from '../lib/ioc-import';
+import { urlKey } from '../lib/ioc-normalize';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
+import { QuotaExceeded } from '../lib/quota';
 import { sendValidationError } from '../lib/validation';
 import { entriesIocs } from './iocs';
 
@@ -485,7 +490,8 @@ export async function caseRoutes(app: FastifyInstance) {
   });
 
   // Exportacao dos IOCs do caso: ?format=csv | stix | misp.
-  const ExportQuery = z.object({ format: z.enum(['csv', 'stix', 'misp']) });
+  // stix-case: o pacote do caso inteiro (revisao 3.5): amostras, ATT&CK e relatorios publicados.
+  const ExportQuery = z.object({ format: z.enum(['csv', 'stix', 'misp', 'stix-case']) });
   app.get('/api/cases/:id/iocs/export', async (req, reply) => {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
@@ -512,7 +518,223 @@ export async function caseRoutes(app: FastifyInstance) {
           .header('Content-Type', 'application/json; charset=utf-8')
           .header('Content-Disposition', `attachment; filename="${base}.misp.json"`)
           .send(JSON.stringify(caseIocsMisp(c, iocs), null, 2));
+      case 'stix-case': {
+        const { samples, reports } = await casePackageData(current.id);
+        return reply
+          .header('Content-Type', 'application/stix+json; charset=utf-8')
+          .header(
+            'Content-Disposition',
+            `attachment; filename="deeplook-${c.code.toLowerCase()}.stix.json"`,
+          )
+          .send(JSON.stringify(casePackage(c, iocs, samples, reports), null, 2));
+      }
     }
+  });
+
+  /** Amostras e relatorios publicados do caso, para o pacote STIX (revisao 3.5). */
+  const casePackageData = async (caseId: string) => {
+    const links = await prisma.caseEntry.findMany({
+      where: { caseId, entry: { deletedAt: null } },
+      orderBy: { addedAt: 'asc' },
+      select: {
+        entry: {
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            sha256: true,
+            url: true,
+            originalFilename: true,
+            verdict: true,
+            reports: {
+              where: { status: 'PUBLISHED' },
+              orderBy: { updatedAt: 'asc' },
+              select: {
+                id: true,
+                entryId: true,
+                verdict: true,
+                summary: true,
+                findings: true,
+                attackTechniques: true,
+                updatedAt: true,
+                analyst: { select: { displayName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    const samples = links.map(({ entry: { reports: _reports, ...sample } }) => sample);
+    const reports = links.flatMap(({ entry }) =>
+      entry.reports.map(({ analyst, ...r }) => ({ ...r, analyst: analyst?.displayName ?? null })),
+    );
+    return { samples, reports };
+  };
+
+  // ---- Importar um pacote STIX no caso (revisao 3.5) ----
+  const StixImportSchema = z.object({ text: z.string().min(1, 'escolha o arquivo do pacote') });
+
+  /** O que a importacao faria: links novos, links e arquivos que ja existem, o que nao entra. */
+  const importPlan = async (caseId: string, text: string) => {
+    const bundle = parseCaseBundle(text);
+    const inCase = new Set(
+      (await prisma.caseEntry.findMany({ where: { caseId }, select: { entryId: true } })).map(
+        (ce) => ce.entryId,
+      ),
+    );
+    const linkKeys = bundle.urls.map((url) => ({ url, key: urlKey(url) }));
+    const existingLinks = await prisma.entry.findMany({
+      where: { type: 'URL', urlKey: { in: linkKeys.map((l) => l.key) } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, title: true, urlKey: true },
+    });
+    const files = await prisma.entry.findMany({
+      where: { type: 'FILE', sha256: { in: bundle.sha256s } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, title: true, sha256: true },
+    });
+    const byKey = new Map<string, { id: string; title: string }>();
+    for (const e of existingLinks) if (e.urlKey && !byKey.has(e.urlKey)) byKey.set(e.urlKey, e);
+    const bySha = new Map<string, { id: string; title: string }>();
+    for (const e of files) if (e.sha256 && !bySha.has(e.sha256)) bySha.set(e.sha256, e);
+    let room = CASE_IMPORT_MAX_URLS;
+    const links = linkKeys.map(({ url, key }) => {
+      const found = byKey.get(key) ?? null;
+      const status = found
+        ? inCase.has(found.id)
+          ? ('in-case' as const)
+          : ('existing' as const)
+        : room-- > 0
+          ? ('new' as const)
+          : ('limit' as const);
+      return { url, status, entry: found };
+    });
+    const hashes = bundle.sha256s.map((sha256) => {
+      const found = bySha.get(sha256) ?? null;
+      const status = found
+        ? inCase.has(found.id)
+          ? ('in-case' as const)
+          : ('existing' as const)
+        : ('unknown' as const);
+      return { sha256, status, entry: found };
+    });
+    return { name: bundle.name, links, hashes, others: bundle.others, invalid: bundle.invalid };
+  };
+
+  const planOrError = async (caseId: string, text: string, reply: FastifyReply) => {
+    try {
+      return await importPlan(caseId, text);
+    } catch (err) {
+      if (err instanceof ImportError) {
+        reply.code(400).send({ error: err.message, details: { text: [err.message] } });
+        return null;
+      }
+      throw err;
+    }
+  };
+
+  app.post('/api/cases/:id/stix/preview', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const parsed = StixImportSchema.safeParse(req.body);
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
+    const current = await loadCase(req, reply);
+    if (!current) return;
+    const plan = await planOrError(current.id, parsed.data.text, reply);
+    if (!plan) return;
+    return reply.send({ ...plan, maxNewLinks: CASE_IMPORT_MAX_URLS });
+  });
+
+  app.post('/api/cases/:id/stix/import', async (req, reply) => {
+    const user = await requireAnalyst(req, reply);
+    if (!user) return;
+    const parsed = StixImportSchema.safeParse(req.body);
+    if (!parsed.success) return sendValidationError(reply, parsed.error);
+    const current = await loadCase(req, reply);
+    if (!current) return;
+    if (current.status === 'CLOSED') {
+      return reply.code(409).send({ error: 'Caso encerrado: reabra-o para importar.' });
+    }
+    // O plano e refeito aqui: o cliente pode mandar qualquer coisa.
+    const plan = await planOrError(current.id, parsed.data.text, reply);
+    if (!plan) return;
+    const code = caseCode(current.number);
+    const origin = plan.name ? `"${plan.name}"` : 'sem nome';
+    const created: string[] = [];
+    for (const link of plan.links.filter((l) => l.status === 'new')) {
+      let host = link.url;
+      try {
+        host = new URL(link.url).hostname;
+      } catch {
+        /* fica a URL inteira */
+      }
+      try {
+        const entry = await createUrlEntry(
+          req,
+          { id: user.id, analyst: true },
+          {
+            url: link.url,
+            title: `${host} (pacote STIX ${code})`.slice(0, 200),
+            description: `Importado do pacote STIX ${origin} no caso ${code}.`,
+          },
+        );
+        created.push(entry.id);
+      } catch (err) {
+        if (!(err instanceof QuotaExceeded)) throw err;
+      }
+    }
+    const linked = [
+      ...plan.links.filter((l) => l.status === 'existing').map((l) => l.entry!.id),
+      ...plan.hashes.filter((h) => h.status === 'existing').map((h) => h.entry!.id),
+    ];
+    const unknown = plan.hashes.filter((h) => h.status === 'unknown').map((h) => h.sha256);
+    const skipped = plan.links.filter((l) => l.status === 'limit').map((l) => l.url);
+    const summary = [
+      `Importou o pacote STIX ${origin}:`,
+      `${created.length} link(s) novo(s) como amostra`,
+      `${linked.length} amostra(s) que já existiam`,
+      ...(skipped.length
+        ? [`${skipped.length} link(s) acima do limite de ${CASE_IMPORT_MAX_URLS}`]
+        : []),
+      ...(unknown.length
+        ? [
+            `${unknown.length} arquivo(s) nunca enviado(s) ao DeepLook: ${unknown.slice(0, 5).join(', ')}${unknown.length > 5 ? ' …' : ''}`,
+          ]
+        : []),
+      ...(plan.others
+        ? [`${plan.others} outro(s) indicador(es) não importado(s) (domínio, IP, e-mail)`]
+        : []),
+    ].join('\n- ');
+    const added = await prisma.$transaction(async (tx) => {
+      const n = await addEntries(
+        tx,
+        current.id,
+        code,
+        [...new Set([...created, ...linked])],
+        user.id,
+      );
+      await tx.caseEvent.create({
+        data: { caseId: current.id, actorId: user.id, type: 'COMMENT', detail: summary },
+      });
+      await tx.case.update({ where: { id: current.id }, data: { updatedAt: new Date() } });
+      if (n)
+        await notifyAssignee(
+          tx,
+          current,
+          user.id,
+          'CASE_ENTRY_ADDED',
+          `${n} amostra(s) do pacote STIX`,
+        );
+      return n;
+    });
+    return reply.send({
+      created: created.length,
+      linked: linked.length,
+      added,
+      unknown: unknown.length,
+      skipped: skipped.length,
+      others: plan.others,
+    });
   });
 
   // Casos de uma amostra (ficha).

@@ -271,7 +271,15 @@ It comes before the analysis features because tests and fuzzing protect what pha
   old and a first certificate under 14 days old become *Suspicious* and count in the risk score.
   **Found along the way:** external reputation had no integration test; `reputation.test.ts` now
   covers the enrichment and what leaves DeepLook.
-- **3.2, 3.5 and 3.7:** pending. **3.6** deferred by the owner.
+- **3.5 ✅**: case STIX package. The case IOC export already existed; the new `stix-case` format
+  also carries the samples (observables), the ATT&CK techniques, the published reports (notes) and a
+  case `report`. Import into a case (with a preview) creates samples for the links and brings in the
+  samples that already exist by link or SHA-256. **Decisions worth checking:** a file in the package
+  that was never submitted is left out (the package does not carry the file); domains, IPs and
+  e-mails are only counted (following them already exists in Import indicators); at most 50 new
+  links per import. Link sample creation moved from the route to `lib/entry-create.ts`, and
+  submission from the screen and the import use the same path.
+- **3.2 and 3.7:** pending. **3.6** deferred by the owner.
 
 | # | Item | How | Size |
 |---|---|---|---|

@@ -652,6 +652,27 @@ Analysts group samples from the same campaign into **cases** (`CASO-0001`), from
 an owner, its samples with their published reports and a timeline with comments. A sample can be in
 several cases; a case is never left empty.
 
+### Case STIX package
+
+To take a whole case to another DeepLook, a TIP or a partner, and to bring theirs in:
+
+- **Exportar > Pacote do caso (STIX 2.1):** the indicators (the same as the IOC export), the samples as
+  observables (file by SHA-256, link by URL), the ATT&CK techniques of the published reports, each
+  published report as a note attached to its sample, and a case `report` pointing to everything. Drafts
+  and reports under review do not leave.
+- **Exportar > Importar pacote STIX…:** choose the file and see, before confirming, what happens to each
+  link and file in the package:
+  - a **link** becomes a new sample of the case (up to 50 per import), or the existing sample with the
+    same link joins; new ones go through the normal submission path (reputation, triage rules,
+    assignment, notices to whoever follows the indicator);
+  - a **file** only joins if the same SHA-256 was already submitted to DeepLook, because the package
+    does not carry the file;
+  - the package's domains, IPs and e-mails are only counted: to follow them, use **Importar
+    indicadores**.
+
+  The summary of what joined and what was left out goes to the case timeline. Importing the same
+  package again duplicates nothing; a closed case does not import.
+
 ## Suspicious email (.eml)
 
 Submit the `.eml` of a phishing email as a regular file. The card shows the **Email** section:

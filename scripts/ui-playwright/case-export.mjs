@@ -86,7 +86,7 @@ await page.screenshot({ path: `${OUT}/caso-indicadores.png`, fullPage: true });
 await exportMenu.click();
 await settle(200);
 const labels = (await page.locator('.hpsm-ctxmenu button').allInnerTexts()).map((t) => t.trim());
-expect('itens do menu', labels.join('|') === 'Caso completo (Markdown)|IOCs do caso (CSV)|IOCs do caso (STIX 2.1)|IOCs do caso (MISP)', labels.join('|'));
+expect('itens do menu', labels.join('|') === 'Caso completo (Markdown)|Pacote do caso (STIX 2.1)|Importar pacote STIX…|IOCs do caso (CSV)|IOCs do caso (STIX 2.1)|IOCs do caso (MISP)', labels.join('|'));
 const [md] = await Promise.all([page.waitForEvent('download'), item('Caso completo (Markdown)').click()]);
 expect('nome do Markdown', md.suggestedFilename() === 'deeplook-caso-0001.md', md.suggestedFilename());
 const text = readFileSync(await md.path(), 'utf8');
@@ -106,6 +106,11 @@ await exportMenu.click();
 await settle(200);
 await Promise.all([page.waitForEvent('download'), item('IOCs do caso (STIX 2.1)').click()]);
 expect('STIX vem da API', state.caseExports.at(-1) === 'stix', state.caseExports.join());
+
+await exportMenu.click();
+await settle(200);
+await Promise.all([page.waitForEvent('download'), item('Pacote do caso (STIX 2.1)').click()]);
+expect('pacote do caso vem da API', state.caseExports.at(-1) === 'stix-case', state.caseExports.join());
 
 // 3. Imprimir.
 const [print] = await Promise.all([context.waitForEvent('page'), page.click('.hpsm-toolbar__action:has-text("Imprimir")')]);
