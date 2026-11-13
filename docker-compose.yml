@@ -1,4 +1,4 @@
-﻿name: deeplook
+name: deeplook
 
 # Rotacao dos logs do Docker (item 6.6): sem isto o json-file cresce sem limite se o
 # daemon.json do host nao definir um, e o disco e o mesmo dos dados.

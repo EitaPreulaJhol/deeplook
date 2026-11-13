@@ -1,11 +1,12 @@
-﻿# deps / build
+# deps / build
 node_modules/
 dist/
 build/
 
-# env & secrets
+# env & secrets: .env e qualquer copia (.env.bak, .env.prod...), menos o modelo
 .env
-.env.local
+.env.*
+!.env.example
 
 # runtime data (volumes)
 data/

@@ -68,6 +68,12 @@ jobs:
         if: matrix.app == 'api'
         run: npm run prisma:generate
 
+      # Vale para o repositorio inteiro: roda uma vez so, no job da API.
+      - name: Arquivos sem BOM (UTF-8)
+        if: matrix.app == 'api'
+        working-directory: .
+        run: node scripts/check-bom.mjs
+
       - name: Formatacao (Prettier)
         run: npm run format:check
 

@@ -39,6 +39,9 @@ Each step says **what to do**, **how to check it** and, when one already exists,
   cd /srv && git clone git@github.com:<you>/deeplook.git && cd deeplook
   cp .env.example .env && chmod 600 .env
   ```
+  Edit `.env` as UTF-8 **without a BOM**: with a BOM, the shell's `. ./.env` misreads the first
+  line (old Windows Notepad saves with a BOM). Copies such as `.env.bak` stay out of Git (`.env.*`
+  in `.gitignore`), but keep them outside the project folder, with `chmod 600`.
 - [ ] **Generate the secrets** (one per line; never reuse them across variables):
   ```bash
   for v in POSTGRES_PASSWORD SESSION_SECRET DATA_KEY CAPTURE_TOKEN CAPA_TOKEN GHIDRA_TOKEN \

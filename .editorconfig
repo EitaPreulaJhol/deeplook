@@ -1,0 +1,10 @@
+# Codificacao dos arquivos (plano pos-revisao, item 1.1): UTF-8 sem BOM.
+# O BOM quebra o `. ./.env` do shell; scripts/check-bom.mjs confere no CI.
+root = true
+
+[*]
+charset = utf-8
+
+# O PowerShell 5.1 so le um script como UTF-8 se ele tiver BOM.
+[*.ps1]
+charset = utf-8-bom
