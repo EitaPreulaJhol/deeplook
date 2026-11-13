@@ -236,7 +236,16 @@ Differences from the plan:
   the coverage floor now counts all logic outside components (the `.ts` files in `api`, `auth`
   and `components`), not every module: screens (`.tsx`) stay with the Playwright scenarios.
   Measured: 87.3% of statements; floor at 84%.
-- **2.5:** pending (left for after phase 3).
+- **2.5 — stage 1 ✅, the rest in progress**: infrastructure without a new library
+  (`apps/web/src/i18n`: Portuguese dictionary as the source, English with the same keys checked by
+  TypeScript, `t()` and a subscriber that redraws the app on change), language saved in the account
+  preferences and, before sign-in, on the machine, and the frame translated: side menu, top bar, user
+  menu, sign-in, preferences and the status, verdict, priority, role and type labels. **Decision:**
+  without a choice, Portuguese, even with the browser in English (with most screens still in
+  Portuguese, mixing by default would be worse). **Left:** the other screens (about 1,565 texts in 118
+  files by `scripts/check-i18n.mjs`'s count, which misses short unaccented labels) and the API error
+  messages, which need a code per error so the text can live in the web. Suggested next stages, by
+  frequency of use: sample lists and record, submission, cases, administration.
 
 It comes before the analysis features because tests and fuzzing protect what phase 3 touches.
 

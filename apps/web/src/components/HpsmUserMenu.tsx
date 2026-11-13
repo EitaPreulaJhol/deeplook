@@ -2,6 +2,7 @@ import type { KeyboardEvent } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { t } from '../i18n';
 import type { IconComponent } from './icons';
 import { IconHelp, IconKey, IconLogout, IconPage, IconSettings } from './icons';
 import { useShortcutsHelp } from './shortcuts';
@@ -34,11 +35,15 @@ export function HpsmUserMenu({ name, onLogout }: HpsmUserMenuProps) {
   const menuId = useId();
 
   const items: MenuItem[] = [
-    { label: 'Minha conta', icon: IconPage, action: () => navigate('/user') },
-    { label: 'Alterar senha', icon: IconKey, action: () => navigate('/user?tab=senha') },
-    { label: 'Preferências', icon: IconSettings, action: () => navigate('/user?tab=preferencias') },
-    { label: 'Atalhos de teclado', icon: IconHelp, action: openHelp, separated: true },
-    { label: 'Sair', icon: IconLogout, action: onLogout, separated: true },
+    { label: t('user.account'), icon: IconPage, action: () => navigate('/user') },
+    { label: t('user.password'), icon: IconKey, action: () => navigate('/user?tab=senha') },
+    {
+      label: t('user.preferences'),
+      icon: IconSettings,
+      action: () => navigate('/user?tab=preferencias'),
+    },
+    { label: t('user.shortcuts'), icon: IconHelp, action: openHelp, separated: true },
+    { label: t('user.logout'), icon: IconLogout, action: onLogout, separated: true },
   ];
 
   const close = (restoreFocus: boolean) => {
@@ -123,7 +128,7 @@ export function HpsmUserMenu({ name, onLogout }: HpsmUserMenuProps) {
           id={menuId}
           className="hpsm-usermenu__panel"
           role="menu"
-          aria-label="Menu do usuário"
+          aria-label={t('user.menu')}
           onKeyDown={onMenuKeyDown}
         >
           {items.map((item, index) => (

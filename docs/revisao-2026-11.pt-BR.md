@@ -234,7 +234,17 @@ para o planejado:
   testes. **Diferença para o planejado:** o piso de cobertura passou a contar toda a lógica fora
   de componente (os `.ts` de `api`, `auth` e `components`), e não todos os módulos: as telas
   (`.tsx`) continuam com os cenários do Playwright. Medido: 87,3% das instruções; piso em 84%.
-- **2.5:** pendente (fica para depois da fase 3).
+- **2.5 — etapa 1 ✅, o resto em andamento**: infraestrutura sem biblioteca nova
+  (`apps/web/src/i18n`: dicionário português como fonte, inglês com as mesmas chaves conferidas
+  pelo TypeScript, `t()` e um assinante que redesenha a aplicação ao trocar), idioma salvo nas
+  preferências da conta e, antes do login, nesta máquina, e a moldura traduzida: menu lateral,
+  barra superior, menu do usuário, login, preferências e os rótulos de status, veredito,
+  prioridade, papel e tipo. **Decisão:** sem escolha, português, mesmo com o navegador em inglês
+  (com a maior parte das telas ainda em português, misturar por padrão seria pior). **Falta:** as
+  demais telas (cerca de 1.565 textos em 118 arquivos pela contagem do `scripts/check-i18n.mjs`,
+  que não pega rótulos curtos sem acento) e as mensagens de erro da API, que precisam de um código
+  por erro para o texto ficar no web. Próximas etapas sugeridas, pela frequência de uso: listas de
+  amostras e ficha, envio, casos, administração.
 
 Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem o que a fase 3 mexe.
 

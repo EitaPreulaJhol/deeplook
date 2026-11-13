@@ -28,6 +28,7 @@ import { TwoFactorTab } from '../components/TwoFactorTab';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { WatchesTab } from '../components/WatchesTab';
 import { clearWorkspaceTabs } from '../components/workspace';
+import { isLocale, LOCALES, setLocale, t } from '../i18n';
 
 const TABS = [
   { id: 'dados', label: 'Dados' },
@@ -271,7 +272,9 @@ function PreferencesTab() {
       // Pastas do Navegador e avisos nao sao desta tela: o rascunho pode estar velho.
       const { closedFolders: _menu, mutedNotifications: _muted, ...fields } = draft;
       await updatePreferences(fields);
-      setResult({ kind: 'success', text: 'Preferências salvas.' });
+      // O idioma muda na hora (a raiz assina): a mensagem ja sai no idioma escolhido.
+      setLocale(fields.language);
+      setResult({ kind: 'success', text: t('prefs.saved') });
     } catch (err) {
       setResult({ kind: 'error', text: (err as Error).message });
     } finally {
@@ -282,17 +285,17 @@ function PreferencesTab() {
   useSaveShortcut(save, !saving);
 
   return (
-    <HpsmSection title="Preferências de uso" className="dl-form-col">
-      <HpsmToolbar label="Ações das preferências">
+    <HpsmSection title={t('prefs.title')} className="dl-form-col">
+      <HpsmToolbar label={t('prefs.toolbar')}>
         <HpsmToolbarButton
-          label={saving ? 'Salvando...' : 'Salvar preferências'}
-          title="Salvar (Ctrl+S)"
+          label={saving ? t('prefs.saving') : t('prefs.save')}
+          title={t('prefs.saveHint')}
           icon={IconSettings}
           disabled={saving}
           onClick={save}
         />
         <HpsmToolbarButton
-          label="Restaurar padrão"
+          label={t('prefs.reset')}
           icon={IconRefresh}
           disabled={saving}
           onClick={() => setDraft(DEFAULT_PREFERENCES)}
@@ -301,31 +304,50 @@ function PreferencesTab() {
       {result && <HpsmMessage kind={result.kind}>{result.text}</HpsmMessage>}
       <HpsmForm>
         <HpsmField
-          label="Página inicial"
+          label={t('prefs.language')}
+          htmlFor="pref-language"
+          help={t('prefs.languageHelp')}
+        >
+          <Select
+            id="pref-language"
+            labelText={t('prefs.language')}
+            hideLabel
+            value={draft.language}
+            onChange={(e) => {
+              if (isLocale(e.target.value)) set('language', e.target.value);
+            }}
+          >
+            {LOCALES.map((l) => (
+              <SelectItem key={l.id} value={l.id} text={l.label} />
+            ))}
+          </Select>
+        </HpsmField>
+        <HpsmField
+          label={t('prefs.startPage')}
           htmlFor="pref-start"
-          help="Tela aberta ao entrar no sistema."
+          help={t('prefs.startPageHelp')}
         >
           <Select
             id="pref-start"
-            labelText="Página inicial"
+            labelText={t('prefs.startPage')}
             hideLabel
             value={draft.startPage}
             onChange={(e) => set('startPage', e.target.value as Preferences['startPage'])}
           >
-            <SelectItem value="welcome" text="Página Inicial (boas-vindas)" />
-            <SelectItem value="dashboard" text="Painel" />
-            <SelectItem value="history" text="Histórico Global" />
-            <SelectItem value="mine" text="Meus Uploads" />
+            <SelectItem value="welcome" text={t('prefs.startWelcome')} />
+            <SelectItem value="dashboard" text={t('nav.dashboard')} />
+            <SelectItem value="history" text={t('nav.history')} />
+            <SelectItem value="mine" text={t('nav.myUploads')} />
           </Select>
         </HpsmField>
         <HpsmField
-          label="Registros por página"
+          label={t('prefs.pageSize')}
           htmlFor="pref-pagesize"
-          help="Histórico Global e Meus Uploads."
+          help={t('prefs.pageSizeHelp')}
         >
           <Select
             id="pref-pagesize"
-            labelText="Registros por página"
+            labelText={t('prefs.pageSize')}
             hideLabel
             value={String(draft.pageSize)}
             onChange={(e) => set('pageSize', Number(e.target.value) as Preferences['pageSize'])}
@@ -335,18 +357,18 @@ function PreferencesTab() {
             <SelectItem value="100" text="100" />
           </Select>
         </HpsmField>
-        <HpsmField label="Abas abertas">
+        <HpsmField label={t('prefs.tabs')}>
           <Checkbox
             id="pref-restore"
-            labelText="Reabrir as abas da sessão anterior ao entrar"
+            labelText={t('prefs.restoreTabs')}
             checked={draft.restoreTabs}
             onChange={(_, { checked }) => set('restoreTabs', checked)}
           />
         </HpsmField>
-        <HpsmField label="Painel de detalhe">
+        <HpsmField label={t('prefs.detailPane')}>
           <Checkbox
             id="pref-detail-pane"
-            labelText="Mostrar o resumo da amostra abaixo das listas (clique seleciona, duplo clique abre)"
+            labelText={t('prefs.detailPaneLabel')}
             checked={draft.detailPane}
             onChange={(_, { checked }) => set('detailPane', checked)}
           />

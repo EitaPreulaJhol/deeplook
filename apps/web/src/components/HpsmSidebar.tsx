@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import type { EntryStatus, Favorite } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useOwnSamplesOnly } from '../auth/sampleAccess';
+import { t } from '../i18n';
 import { favoriteHref, useFavorites } from './favorites';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmContextMenu } from './HpsmContextMenu';
@@ -65,13 +66,44 @@ interface NavFolder {
 
 /* Itens soltos no topo da arvore, antes das pastas. */
 const ROOT_LEAVES: NavLeaf[] = [
-  { to: '/inicio', label: 'Página Inicial', icon: IconHome },
-  { to: '/painel', label: 'Painel', icon: IconChart },
-  { to: '/inbox', label: 'Caixa de entrada', icon: IconBell, count: 'unread' },
+  {
+    to: '/inicio',
+    get label() {
+      return t('nav.home');
+    },
+    icon: IconHome,
+  },
+  {
+    to: '/painel',
+    get label() {
+      return t('nav.dashboard');
+    },
+    icon: IconChart,
+  },
+  {
+    to: '/inbox',
+    get label() {
+      return t('nav.inbox');
+    },
+    icon: IconBell,
+    count: 'unread',
+  },
   // Artigos da equipe sobre malware, golpes e procedimentos (item 63).
-  { to: '/kb', label: 'Base de conhecimento', icon: IconHelp },
+  {
+    to: '/kb',
+    get label() {
+      return t('nav.kb');
+    },
+    icon: IconHelp,
+  },
   // Busca em amostras, relatorios, comentarios, base e casos (item 68).
-  { to: '/busca', label: 'Busca', icon: IconFilter },
+  {
+    to: '/busca',
+    get label() {
+      return t('nav.search');
+    },
+    icon: IconFilter,
+  },
 ];
 
 /* Arvore do "Navegador do Sistema": pastas com as telas da aplicacao. */
@@ -79,86 +111,269 @@ const TREE: NavFolder[] = [
   {
     // Filas de trabalho dos analistas (como as filas do HPSM), com contadores.
     id: 'filas',
-    label: 'Filas',
+    get label() {
+      return t('nav.queues');
+    },
     access: 'triage',
     children: [
-      { to: '/history?assignee=me', label: 'Atribuídas a mim', tone: 'orange', count: 'mine' },
-      { to: '/history?status=PENDING', label: 'Pendentes', tone: 'gray', count: 'PENDING' },
-      { to: '/history?status=IN_REVIEW', label: 'Em análise', tone: 'blue', count: 'IN_REVIEW' },
-      { to: '/history?status=COMPLETED', label: 'Concluídas', tone: 'green', count: 'COMPLETED' },
+      {
+        to: '/history?assignee=me',
+        get label() {
+          return t('nav.assignedToMe');
+        },
+        tone: 'orange',
+        count: 'mine',
+      },
+      {
+        to: '/history?status=PENDING',
+        get label() {
+          return t('nav.pending');
+        },
+        tone: 'gray',
+        count: 'PENDING',
+      },
+      {
+        to: '/history?status=IN_REVIEW',
+        get label() {
+          return t('nav.inReview');
+        },
+        tone: 'blue',
+        count: 'IN_REVIEW',
+      },
+      {
+        to: '/history?status=COMPLETED',
+        get label() {
+          return t('nav.completed');
+        },
+        tone: 'green',
+        count: 'COMPLETED',
+      },
       // Nao concluidas ha mais de SLA_LATE_HOURS no status atual.
-      { to: '/history?age=late', label: 'Atrasadas', tone: 'red', count: 'late' },
+      {
+        to: '/history?age=late',
+        get label() {
+          return t('nav.late');
+        },
+        tone: 'red',
+        count: 'late',
+      },
       // Relatorios de outros analistas aguardando aprovacao.
-      { to: '/revisoes', label: 'Relatórios para revisar', icon: IconPage, count: 'reviews' },
+      {
+        to: '/revisoes',
+        get label() {
+          return t('nav.reviews');
+        },
+        icon: IconPage,
+        count: 'reviews',
+      },
     ],
   },
   {
     // Casos (item 55): amostras da mesma campanha agrupadas.
     id: 'casos',
-    label: 'Casos',
+    get label() {
+      return t('nav.cases');
+    },
     access: 'triage',
     children: [
-      { to: '/casos?status=active', label: 'Casos ativos', icon: IconFolder, count: 'cases' },
+      {
+        to: '/casos?status=active',
+        get label() {
+          return t('nav.activeCases');
+        },
+        icon: IconFolder,
+        count: 'cases',
+      },
       {
         to: '/casos?status=active&assignee=me',
-        label: 'Meus casos',
+        get label() {
+          return t('nav.myCases');
+        },
         icon: IconFolder,
         count: 'mycases',
       },
-      { to: '/casos', label: 'Todos os casos', icon: IconPage },
+      {
+        to: '/casos',
+        get label() {
+          return t('nav.allCases');
+        },
+        icon: IconPage,
+      },
     ],
   },
   {
     // Ferramentas de deteccao mantidas pelos analistas.
     id: 'deteccao',
-    label: 'Detecção',
+    get label() {
+      return t('nav.detection');
+    },
     access: 'triage',
     children: [
-      { to: '/yara', label: 'Regras YARA', icon: IconFilter },
+      {
+        to: '/yara',
+        get label() {
+          return t('nav.yara');
+        },
+        icon: IconFilter,
+      },
       // Lista de permissoes (item 69).
-      { to: '/permitidos', label: 'Indicadores permitidos', icon: IconPage },
+      {
+        to: '/permitidos',
+        get label() {
+          return t('nav.allowlist');
+        },
+        icon: IconPage,
+      },
       // Tags e prioridade automaticas (item 86).
-      { to: '/regras-triagem', label: 'Regras de triagem', icon: IconFilter },
+      {
+        to: '/regras-triagem',
+        get label() {
+          return t('nav.triage');
+        },
+        icon: IconFilter,
+      },
       // Dominios parecidos com os da empresa (item 92).
-      { to: '/dominios-empresa', label: 'Domínios da empresa', icon: IconEye },
+      {
+        to: '/dominios-empresa',
+        get label() {
+          return t('nav.companyDomains');
+        },
+        icon: IconEye,
+      },
     ],
   },
   {
     // Resumo de um periodo para a gestao (item 77).
     id: 'gestao',
-    label: 'Gestão',
+    get label() {
+      return t('nav.management');
+    },
     access: 'triage',
     children: [
-      { to: '/gerencial', label: 'Relatório gerencial', icon: IconChart },
+      {
+        to: '/gerencial',
+        get label() {
+          return t('nav.managementReport');
+        },
+        icon: IconChart,
+      },
       // Grupos, regras e ausencias da atribuicao automatica (item 72).
-      { to: '/atribuicao', label: 'Atribuição automática', icon: IconSettings },
+      {
+        to: '/atribuicao',
+        get label() {
+          return t('nav.assignment');
+        },
+        icon: IconSettings,
+      },
       // Faixa de avisos para todos (item 88).
-      { to: '/avisos', label: 'Avisos gerais', icon: IconBell },
+      {
+        to: '/avisos',
+        get label() {
+          return t('nav.broadcasts');
+        },
+        icon: IconBell,
+      },
     ],
   },
   {
     id: 'amostras',
-    label: 'Amostras',
+    get label() {
+      return t('nav.samples');
+    },
     children: [
-      { to: '/history', label: 'Histórico Global', icon: IconHistory },
-      { to: '/me', label: 'Meus Uploads', icon: IconPage },
-      { to: '/submit', label: 'Enviar Amostra', icon: IconAdd },
+      {
+        to: '/history',
+        get label() {
+          return t('nav.history');
+        },
+        icon: IconHistory,
+      },
+      {
+        to: '/me',
+        get label() {
+          return t('nav.myUploads');
+        },
+        icon: IconPage,
+      },
+      {
+        to: '/submit',
+        get label() {
+          return t('nav.submit');
+        },
+        icon: IconAdd,
+      },
     ],
   },
   {
     id: 'admin',
-    label: 'Administração',
+    get label() {
+      return t('nav.admin');
+    },
     access: 'admin',
     children: [
-      { to: '/admin', label: 'Usuários', icon: IconPage },
-      { to: '/admin?tab=keys', label: 'Chaves de ativação', icon: IconKey },
-      { to: '/admin?tab=tokens', label: 'Tokens de API', icon: IconKey },
-      { to: '/admin?tab=templates', label: 'Modelos de relatório', icon: IconPage },
-      { to: '/admin?tab=status', label: 'Status do sistema', icon: IconScreen },
-      { to: '/admin?tab=audit', label: 'Auditoria', icon: IconHistory },
-      { to: '/admin?tab=trash', label: 'Lixeira', icon: IconTrash },
-      { to: '/admin?tab=backup', label: 'Backup', icon: IconDownload },
-      { to: '/admin?tab=settings', label: 'Configurações', icon: IconSettings },
+      {
+        to: '/admin',
+        get label() {
+          return t('nav.users');
+        },
+        icon: IconPage,
+      },
+      {
+        to: '/admin?tab=keys',
+        get label() {
+          return t('nav.keys');
+        },
+        icon: IconKey,
+      },
+      {
+        to: '/admin?tab=tokens',
+        get label() {
+          return t('nav.tokens');
+        },
+        icon: IconKey,
+      },
+      {
+        to: '/admin?tab=templates',
+        get label() {
+          return t('nav.templates');
+        },
+        icon: IconPage,
+      },
+      {
+        to: '/admin?tab=status',
+        get label() {
+          return t('nav.status');
+        },
+        icon: IconScreen,
+      },
+      {
+        to: '/admin?tab=audit',
+        get label() {
+          return t('nav.audit');
+        },
+        icon: IconHistory,
+      },
+      {
+        to: '/admin?tab=trash',
+        get label() {
+          return t('nav.trash');
+        },
+        icon: IconTrash,
+      },
+      {
+        to: '/admin?tab=backup',
+        get label() {
+          return t('nav.backup');
+        },
+        icon: IconDownload,
+      },
+      {
+        to: '/admin?tab=settings',
+        get label() {
+          return t('nav.settings');
+        },
+        icon: IconSettings,
+      },
     ],
   },
 ];
@@ -313,39 +528,39 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
 
   const renameFavorite = async (favorite: Favorite) => {
     const label = await prompt({
-      title: 'Renomear favorito',
-      label: 'Nome',
+      title: t('nav.renameFavorite'),
+      label: t('nav.name'),
       defaultValue: favorite.label,
-      confirmLabel: 'Renomear',
+      confirmLabel: t('nav.renameAction'),
     });
     if (label && label !== favorite.label) await runFav(() => favs.rename(favorite.id, label));
   };
 
   const removeFavorite = async (favorite: Favorite) => {
     const ok = await confirm({
-      title: 'Remover favorito',
-      message: `Remover "${favorite.label}" dos Favoritos?`,
+      title: t('nav.removeFavoriteTitle'),
+      message: t('nav.removeFavoriteConfirm', { name: favorite.label }),
     });
     if (ok) await runFav(() => favs.remove(favorite.id));
   };
 
   const renameTeamView = async (view: TeamView) => {
     const label = await prompt({
-      title: 'Renomear visão da equipe',
-      label: 'Nome',
+      title: t('nav.renameTeamView'),
+      label: t('nav.name'),
       defaultValue: view.label,
-      confirmLabel: 'Renomear',
+      confirmLabel: t('nav.renameAction'),
     });
     if (label && label !== view.label) await runFav(() => team.rename(view.id, label));
   };
 
   const removeTeamView = async (view: TeamView) => {
     const ok = await confirm({
-      title: 'Remover visão da equipe',
-      message: `Remover "${view.label}" das Visões da equipe? Ela some do navegador de todos os analistas.`,
+      title: t('nav.removeTeamViewTitle'),
+      message: t('nav.removeTeamViewConfirm', { name: view.label }),
       danger: true,
-      confirmLabel: 'Remover',
-      cancelLabel: 'Cancelar',
+      confirmLabel: t('nav.remove'),
+      cancelLabel: t('nav.cancel'),
     });
     if (ok) await runFav(() => team.remove(view.id));
   };
@@ -475,9 +690,9 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
   const classes = ['hpsm-sidebar', open && 'is-open'].filter(Boolean).join(' ');
 
   return (
-    <aside id="dl-sidebar" className={classes} aria-label="Navegação principal">
+    <aside id="dl-sidebar" className={classes} aria-label={t('nav.aria')}>
       <div className="hpsm-sidebar__head">
-        <span className="hpsm-sidebar__title">Navegação</span>
+        <span className="hpsm-sidebar__title">{t('nav.title')}</span>
       </div>
 
       <nav className="hpsm-tree">
@@ -488,7 +703,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           {/* Visoes salvas e amostras fixadas pelo usuario. */}
           {renderFolder(
             'favoritos',
-            'Favoritos',
+            t('nav.favorites'),
             favs.favorites.length === 0
               ? !favs.loading && (
                   <li className="hpsm-tree__empty">
@@ -501,8 +716,8 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
                     <button
                       type="button"
                       className="hpsm-tree__remove"
-                      aria-label={`Remover "${favorite.label}" dos Favoritos`}
-                      title="Remover dos Favoritos"
+                      aria-label={t('nav.removeFavoriteAria', { name: favorite.label })}
+                      title={t('nav.removeFromFavorites')}
                       onClick={() => void removeFavorite(favorite)}
                     >
                       ×
@@ -514,7 +729,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           {canTriage &&
             renderFolder(
               'equipe',
-              'Visões da equipe',
+              t('nav.teamViews'),
               team.views.length === 0
                 ? !team.loading && (
                     <li className="hpsm-tree__empty">
@@ -546,10 +761,10 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           label={`Visão da equipe ${teamMenu.view.label}`}
           onClose={() => setTeamMenu(null)}
           items={[
-            { label: 'Abrir', action: () => navigate(teamMenu.view.url) },
-            { label: 'Renomear… (F2)', action: () => void renameTeamView(teamMenu.view) },
+            { label: t('nav.open'), action: () => navigate(teamMenu.view.url) },
+            { label: t('nav.rename'), action: () => void renameTeamView(teamMenu.view) },
             {
-              label: 'Remover da equipe (Del)',
+              label: t('nav.removeTeamView'),
               icon: IconTrash,
               separated: true,
               action: () => void removeTeamView(teamMenu.view),
@@ -564,21 +779,21 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
           label={`Favorito ${menu.favorite.label}`}
           onClose={closeMenu}
           items={[
-            { label: 'Abrir', action: () => navigate(favoriteHref(menu.favorite)) },
-            { label: 'Renomear… (F2)', action: () => void renameFavorite(menu.favorite) },
+            { label: t('nav.open'), action: () => navigate(favoriteHref(menu.favorite)) },
+            { label: t('nav.rename'), action: () => void renameFavorite(menu.favorite) },
             {
-              label: 'Mover para cima',
+              label: t('nav.moveUp'),
               disabled: menuIndex <= 0,
               separated: true,
               action: () => void runFav(() => favs.move(menu.favorite.id, -1)),
             },
             {
-              label: 'Mover para baixo',
+              label: t('nav.moveDown'),
               disabled: menuIndex >= favs.favorites.length - 1,
               action: () => void runFav(() => favs.move(menu.favorite.id, 1)),
             },
             {
-              label: 'Remover dos Favoritos (Del)',
+              label: t('nav.removeFavorite'),
               icon: IconTrash,
               separated: true,
               action: () => void removeFavorite(menu.favorite),

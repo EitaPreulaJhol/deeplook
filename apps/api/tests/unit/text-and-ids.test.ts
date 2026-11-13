@@ -131,6 +131,18 @@ test('preferências: valor inválido cai no padrão sem descartar os outros', ()
   assert.ok(!('desconhecida' in mixed));
 });
 
+test('preferências: idioma da interface (revisão 2.5)', () => {
+  assert.equal(resolvePreferences({}).language, 'pt-BR');
+  assert.equal(resolvePreferences({ language: 'en' }).language, 'en');
+  assert.equal(
+    resolvePreferences({ language: 'fr' }).language,
+    'pt-BR',
+    'desconhecido cai no padrão',
+  );
+  assert.ok(PreferencesPatchSchema.safeParse({ language: 'en' }).success);
+  assert.ok(!PreferencesPatchSchema.safeParse({ language: 'fr' }).success);
+});
+
 test('preferências: a atualização parcial recusa chave desconhecida', () => {
   assert.ok(PreferencesPatchSchema.safeParse({ detailPane: true }).success);
   assert.ok(PreferencesPatchSchema.safeParse({}).success);

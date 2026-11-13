@@ -7,6 +7,7 @@ import { useOwnSamplesOnly } from './auth/sampleAccess';
 import { AppShell } from './components/AppShell';
 import { lazyPage } from './components/lazyPage';
 import { HpsmLoading } from './components/messages';
+import { setLocale, useLocale } from './i18n';
 import { ForcePasswordPage } from './pages/ForcePasswordPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -88,6 +89,14 @@ function ShellLayout() {
 
 export default function App() {
   const { user, loading } = useAuth();
+  // A raiz assina o idioma (revisao 2.5): ao trocar, a arvore inteira se redesenha, inclusive o
+  // que usa t() fora de componente (rotulos de status, veredito...).
+  useLocale();
+  // Logado, vale a preferencia da conta (a mesma em qualquer maquina).
+  const language = user?.preferences.language;
+  useEffect(() => {
+    if (language) setLocale(language);
+  }, [language]);
 
   if (loading) return <FullScreenLoader />;
 

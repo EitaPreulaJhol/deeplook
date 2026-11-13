@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { t } from '../i18n';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmInboxMenu } from './HpsmInboxMenu';
 import { HpsmQuickSearch } from './HpsmQuickSearch';
@@ -31,10 +32,10 @@ export function HpsmTopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
   const handleLogout = async () => {
     if (hasUnsavedChanges()) {
       const ok = await confirm({
-        title: 'Alterações não salvas',
-        message: 'Há alterações não salvas nesta tela. Deseja sair mesmo assim e descartá-las?',
-        confirmLabel: 'Sair',
-        cancelLabel: 'Continuar editando',
+        title: t('top.unsavedTitle'),
+        message: t('top.unsavedMessage'),
+        confirmLabel: t('user.logout'),
+        cancelLabel: t('top.keepEditing'),
         danger: true,
       });
       if (!ok) return;
@@ -51,7 +52,7 @@ export function HpsmTopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
       <button
         type="button"
         className="hpsm-topbar__iconbtn hpsm-menu-toggle"
-        aria-label={sidebarOpen ? 'Fechar navegação' : 'Abrir navegação'}
+        aria-label={sidebarOpen ? t('top.closeNav') : t('top.openNav')}
         aria-expanded={sidebarOpen}
         aria-controls="dl-sidebar"
         onClick={onToggleSidebar}

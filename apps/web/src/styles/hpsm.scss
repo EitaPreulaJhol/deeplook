@@ -3254,6 +3254,19 @@ li .dl-link {
   font-style: italic;
 }
 
+/* Seletor de idioma das paginas publicas (revisao 2.5), na barra azul. */
+.dl-lang select {
+  padding: 0.125rem 0.25rem;
+  border: 1px solid rgb(255 255 255 / 40%);
+  background: transparent;
+  color: inherit;
+  font-size: 0.8125rem;
+
+  option {
+    color: #161616;
+  }
+}
+
 /* Artefatos do sandbox (revisao 3.7): miniaturas dos prints em linha, com a hora. */
 .dl-sandbox-artifacts {
   margin-block-start: 1rem;

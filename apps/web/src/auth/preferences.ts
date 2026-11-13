@@ -6,6 +6,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pageSize: 50,
   restoreTabs: true,
   detailPane: false,
+  language: 'pt-BR',
   closedFolders: [],
   mutedNotifications: [],
 };

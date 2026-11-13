@@ -12,6 +12,8 @@ export const PreferencesSchema = z.object({
   restoreTabs: z.boolean(),
   /** Painel de detalhe abaixo das listas (clique seleciona, duplo clique abre). */
   detailPane: z.boolean(),
+  /** Idioma da interface (revisao de novembro, 2.5). */
+  language: z.enum(['pt-BR', 'en']),
   /** Pastas recolhidas no Navegador (item 141). */
   closedFolders: z.array(z.string().min(1).max(40)).max(30),
   /**
@@ -31,6 +33,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   pageSize: 50,
   restoreTabs: true,
   detailPane: false,
+  language: 'pt-BR',
   closedFolders: [],
   mutedNotifications: [],
 };

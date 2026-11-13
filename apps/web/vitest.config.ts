@@ -26,7 +26,8 @@ export default mergeConfig(
         // de logica sem teste nao aparecia na conta. As telas (.tsx, centenas de componentes)
         // continuam de fora: quem as cobre sao os cenarios do Playwright.
         include: [
-          'src/{api,auth}/*.ts',
+          'src/{api,auth,i18n}/*.ts',
+          'src/i18n/index.tsx',
           'src/components/*.ts',
           'src/components/{ErrorBoundary,sandboxStatus}.tsx',
         ],

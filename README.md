@@ -1204,6 +1204,19 @@ corresponding module — CI runs this step in the `check` job.
 
 ---
 
+## Interface language
+
+The interface is in **Portuguese** and is starting to get **English** (in progress). The language is chosen
+in **Minha Conta > Preferências > Idioma** (it applies to the account, on any machine) or, before signing
+in, in the selector on the blue bar of the public pages (kept on this machine). Without a choice it is
+Portuguese, even with the browser in English.
+
+- **Already translated:** the side menu, top bar, user menu, sign-in, preferences and the status,
+  verdict, priority, role and type labels that appear in every list.
+- **Still in Portuguese:** the other screens and the API error messages.
+- The texts live in `apps/web/src/i18n` (`pt-BR.ts` is the source; TypeScript rejects a key missing from
+  `en.ts`). `node scripts/check-i18n.mjs` lists, per file, the text still loose in the code.
+
 ## Interface (HP Service Manager 9 style)
 
 The interface imitates the **HP Service Manager 9 web client**, without modernizing it: light theme,

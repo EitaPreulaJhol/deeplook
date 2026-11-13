@@ -326,6 +326,8 @@ export interface Preferences {
   restoreTabs: boolean;
   /** Painel de detalhe abaixo das listas. */
   detailPane: boolean;
+  /** Idioma da interface (revisao de novembro, 2.5). */
+  language: 'pt-BR' | 'en';
   /** Pastas recolhidas no Navegador. */
   closedFolders: string[];
   /** Avisos silenciados na Caixa de entrada (item 164). */

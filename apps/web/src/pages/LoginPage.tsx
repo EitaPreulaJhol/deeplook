@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
 import { HpsmMessage } from '../components/messages';
+import { t } from '../i18n';
 
 export function LoginPage() {
   const { login, verifyTwoFactor } = useAuth();
@@ -38,7 +39,7 @@ export function LoginPage() {
       setCaptcha(await api.get<{ token: string; image: string }>('/auth/captcha'));
       setCaptchaAnswer('');
     } catch (err) {
-      setError((err as Error).message || 'Não foi possível trocar a imagem.');
+      setError((err as Error).message || t('login.captchaFailed'));
     }
   };
 
@@ -68,7 +69,7 @@ export function LoginPage() {
         setCaptcha(next);
         setCaptchaAnswer('');
       }
-      setError((err as Error).message || 'Falha ao entrar.');
+      setError((err as Error).message || t('login.failed'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export function LoginPage() {
       await verifyTwoFactor(challenge, code.trim());
       navigate('/');
     } catch (err) {
-      const message = (err as Error).message || 'Falha ao verificar o código.';
+      const message = (err as Error).message || t('login.tfaFailed');
       setError(message);
       if (message.startsWith('A verificação expirou')) setChallenge(null);
     } finally {
@@ -94,25 +95,22 @@ export function LoginPage() {
 
   const handleForgot = (event: React.MouseEvent) => {
     event.preventDefault();
-    setNotice('Peça a um administrador para redefinir a sua senha.');
+    setNotice(t('login.forgotNotice'));
   };
 
   if (challenge) {
     return (
-      <AuthLayout
-        title="Verificação em duas etapas"
-        subtitle="Digite o código de 6 dígitos do seu aplicativo autenticador."
-      >
+      <AuthLayout title={t('login.tfaTitle')} subtitle={t('login.tfaSubtitle')}>
         <form className="dl-auth__form" onSubmit={submitCode}>
           {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
           <AuthField
             id="tfa-login-code"
-            label="Código"
+            label={t('login.tfaCode')}
             value={code}
             onChange={setCode}
             placeholder="000000"
             autoComplete="one-time-code"
-            helperText="Sem o celular? Use um dos códigos de recuperação (ex.: k7tm-q2xa)."
+            helperText={t('login.tfaHelp')}
             required
           />
           <div className="dl-auth__actions">
@@ -126,14 +124,14 @@ export function LoginPage() {
                 setPassword('');
               }}
             >
-              Voltar
+              {t('login.back')}
             </a>
             <button
               type="submit"
               className="dl-btn dl-btn--primary dl-auth__submit"
               disabled={loading || code.trim().length < 6}
             >
-              {loading ? 'Verificando...' : 'Verificar'}
+              {loading ? t('login.verifying') : t('login.verify')}
             </button>
           </div>
         </form>
@@ -142,33 +140,32 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Entrar" altLink={{ to: '/register', label: 'Criar conta' }}>
+    <AuthLayout
+      title={t('login.title')}
+      altLink={{ to: '/register', label: t('login.createAccount') }}
+    >
       <form className="dl-auth__form" onSubmit={submit}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {notice && <HpsmMessage kind="info">{notice}</HpsmMessage>}
 
         <AuthField
           id="email"
-          label={ldap ? 'E-mail ou usuário da rede' : 'E-mail'}
+          label={ldap ? t('login.emailOrUser') : t('login.email')}
           type={ldap ? 'text' : 'email'}
           value={email}
           onChange={setEmail}
-          placeholder={ldap ? 'nome@exemplo.com ou usuário' : 'nome@exemplo.com'}
+          placeholder={ldap ? t('login.emailOrUserPlaceholder') : t('login.emailPlaceholder')}
           autoComplete={ldap ? 'username' : 'email'}
           required
         />
-        {ldap && (
-          <p className="dl-auth__hint">
-            Contas da rede (AD) entram com o usuário e a senha da rede.
-          </p>
-        )}
+        {ldap && <p className="dl-auth__hint">{t('login.ldapHint')}</p>}
         <AuthField
           id="password"
-          label="Senha"
+          label={t('login.password')}
           type="password"
           value={password}
           onChange={setPassword}
-          placeholder="Insira sua senha"
+          placeholder={t('login.passwordPlaceholder')}
           autoComplete="current-password"
           required
         />
@@ -178,24 +175,24 @@ export function LoginPage() {
             <img
               className="dl-auth__captcha-img"
               src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(captcha.image)}`}
-              alt="Imagem com um código de 5 caracteres"
+              alt={t('login.captchaAlt')}
               width={160}
               height={56}
             />
             <button type="button" className="dl-auth__link" onClick={newCaptcha}>
-              Outra imagem
+              {t('login.otherImage')}
             </button>
           </div>
         )}
         {captcha && (
           <AuthField
             id="captcha"
-            label="Código da imagem"
+            label={t('login.captcha')}
             value={captchaAnswer}
             onChange={setCaptchaAnswer}
-            placeholder="5 caracteres"
+            placeholder={t('login.captchaPlaceholder')}
             autoComplete="off"
-            helperText="Letras e números, sem diferenciar maiúsculas."
+            helperText={t('login.captchaHelp')}
             required
           />
         )}
@@ -203,14 +200,14 @@ export function LoginPage() {
         {/* "Esqueceu a senha?" a esquerda e o botao a direita, na coluna dos campos. */}
         <div className="dl-auth__actions">
           <a className="dl-auth__link" href="#" onClick={handleForgot}>
-            Esqueceu a senha?
+            {t('login.forgot')}
           </a>
           <button
             type="submit"
             className="dl-btn dl-btn--primary dl-auth__submit"
             disabled={loading}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? t('login.submitting') : t('login.submit')}
           </button>
         </div>
       </form>

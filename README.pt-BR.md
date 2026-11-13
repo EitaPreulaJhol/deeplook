@@ -1218,6 +1218,20 @@ correspondente — o CI roda esse passo no job `check`.
 
 ---
 
+## Idioma da interface
+
+A interface está em **português** e começa a ganhar o **inglês** (em andamento). O idioma é
+escolhido em **Minha Conta > Preferências > Idioma** (vale para a conta, em qualquer máquina) ou,
+antes de entrar, no seletor da barra azul das páginas públicas (fica guardado nesta máquina).
+Sem escolha, é português, mesmo com o navegador em inglês.
+
+- **Já traduzido:** menu lateral, barra superior, menu do usuário, login, preferências e os
+  rótulos de status, veredito, prioridade, papel e tipo, que aparecem em todas as listas.
+- **Ainda em português:** as demais telas e as mensagens de erro da API.
+- Os textos ficam em `apps/web/src/i18n` (`pt-BR.ts` é a fonte; o TypeScript reprova a chave que
+  faltar em `en.ts`). `node scripts/check-i18n.mjs` lista, por arquivo, o texto que ainda está solto
+  no código.
+
 ## Interface (estilo HP Service Manager 9)
 
 A interface imita o **web client do HP Service Manager 9**, sem modernizar: tema

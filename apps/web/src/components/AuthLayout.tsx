@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { getLocale, isLocale, LOCALES, setLocale, t } from '../i18n';
+
 interface AuthLayoutProps {
   title: string;
   subtitle?: string;
@@ -19,7 +21,30 @@ export function PublicMasthead() {
         <img src="/icons/magnifier.svg" alt="" className="dl-logo" />
         <span>DeepLook</span>
       </Link>
+      <span className="hpsm-topbar__spacer" />
+      <LanguageSelect />
     </header>
+  );
+}
+
+/** Idioma nas paginas publicas (antes do login): fica guardado nesta maquina. */
+export function LanguageSelect() {
+  return (
+    <label className="dl-lang">
+      <span className="cds--visually-hidden">{t('lang.label')}</span>
+      <select
+        value={getLocale()}
+        onChange={(event) => {
+          if (isLocale(event.target.value)) setLocale(event.target.value);
+        }}
+      >
+        {LOCALES.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -28,11 +53,11 @@ export function PublicLegal() {
   return (
     <footer className="dl-public__legal">
       <a href="#" onClick={(event) => event.preventDefault()}>
-        Termos de uso
+        {t('auth.terms')}
       </a>
       <span aria-hidden="true">|</span>
       <a href="#" onClick={(event) => event.preventDefault()}>
-        Privacidade e cookies
+        {t('auth.privacy')}
       </a>
       <span aria-hidden="true">|</span>
       <span>DeepLook © 2026</span>

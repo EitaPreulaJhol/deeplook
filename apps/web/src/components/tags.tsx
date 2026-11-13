@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { EntryStatus, EntryType, Priority, Role, Verdict } from '../api/types';
+import { type MessageKey, t } from '../i18n';
 
 /**
  * Cor do marcador ao lado do texto. `none` = texto puro (sem marcador).
@@ -24,18 +25,59 @@ export function StatusText({
   );
 }
 
-const VERDICT_MAP: Record<Verdict, { label: string; tone: StatusTone }> = {
-  UNKNOWN: { label: 'Desconhecido', tone: 'gray' },
-  CLEAN: { label: 'Limpo', tone: 'green' },
-  SUSPICIOUS: { label: 'Suspeito', tone: 'orange' },
-  MALICIOUS: { label: 'Malicioso', tone: 'red' },
+// Os rotulos vem do dicionario (src/i18n), no idioma atual; aqui so a cor.
+const VERDICT_MAP: Record<Verdict, { readonly label: string; tone: StatusTone }> = {
+  UNKNOWN: {
+    get label() {
+      return t('tag.verdict.UNKNOWN');
+    },
+    tone: 'gray',
+  },
+  CLEAN: {
+    get label() {
+      return t('tag.verdict.CLEAN');
+    },
+    tone: 'green',
+  },
+  SUSPICIOUS: {
+    get label() {
+      return t('tag.verdict.SUSPICIOUS');
+    },
+    tone: 'orange',
+  },
+  MALICIOUS: {
+    get label() {
+      return t('tag.verdict.MALICIOUS');
+    },
+    tone: 'red',
+  },
 };
 
-const PRIORITY_MAP: Record<Priority, { label: string; tone: StatusTone }> = {
-  P1: { label: 'P1 Crítica', tone: 'red' },
-  P2: { label: 'P2 Alta', tone: 'orange' },
-  P3: { label: 'P3 Média', tone: 'blue' },
-  P4: { label: 'P4 Baixa', tone: 'gray' },
+const PRIORITY_MAP: Record<Priority, { readonly label: string; tone: StatusTone }> = {
+  P1: {
+    get label() {
+      return t('tag.priority.P1');
+    },
+    tone: 'red',
+  },
+  P2: {
+    get label() {
+      return t('tag.priority.P2');
+    },
+    tone: 'orange',
+  },
+  P3: {
+    get label() {
+      return t('tag.priority.P3');
+    },
+    tone: 'blue',
+  },
+  P4: {
+    get label() {
+      return t('tag.priority.P4');
+    },
+    tone: 'gray',
+  },
 };
 
 export function priorityLabel(priority: Priority): string {
@@ -47,17 +89,32 @@ export function PriorityTag({ priority = 'P3' }: { priority?: Priority }) {
   return <StatusText tone={p.tone}>{p.label}</StatusText>;
 }
 
-const STATUS_MAP: Record<EntryStatus, { label: string; tone: StatusTone }> = {
-  PENDING: { label: 'Pendente', tone: 'gray' },
-  IN_REVIEW: { label: 'Em análise', tone: 'blue' },
-  COMPLETED: { label: 'Concluído', tone: 'green' },
+const STATUS_MAP: Record<EntryStatus, { readonly label: string; tone: StatusTone }> = {
+  PENDING: {
+    get label() {
+      return t('tag.status.PENDING');
+    },
+    tone: 'gray',
+  },
+  IN_REVIEW: {
+    get label() {
+      return t('tag.status.IN_REVIEW');
+    },
+    tone: 'blue',
+  },
+  COMPLETED: {
+    get label() {
+      return t('tag.status.COMPLETED');
+    },
+    tone: 'green',
+  },
 };
 
-const ROLE_LABELS: Record<Role, string> = {
-  USER: 'Usuário',
-  ANALYST: 'Analista',
-  ADMIN: 'Admin',
-};
+const ROLE_KEYS = {
+  USER: 'tag.role.USER',
+  ANALYST: 'tag.role.ANALYST',
+  ADMIN: 'tag.role.ADMIN',
+} as const satisfies Record<Role, MessageKey>;
 
 export function statusLabel(status: EntryStatus): string {
   return (STATUS_MAP[status] ?? STATUS_MAP.PENDING).label;
@@ -68,7 +125,7 @@ export function verdictLabel(verdict: Verdict): string {
 }
 
 export function roleLabel(role: Role): string {
-  return ROLE_LABELS[role] ?? ROLE_LABELS.USER;
+  return t(ROLE_KEYS[role] ?? ROLE_KEYS.USER);
 }
 
 export function VerdictTag({ verdict }: { verdict: Verdict }) {
@@ -82,7 +139,7 @@ export function StatusTag({ status }: { status: EntryStatus }) {
 }
 
 export function TypeTag({ type }: { type: EntryType }) {
-  return <StatusText>{type === 'FILE' ? 'Arquivo' : 'Link'}</StatusText>;
+  return <StatusText>{t(type === 'FILE' ? 'tag.type.FILE' : 'tag.type.URL')}</StatusText>;
 }
 
 export function RoleTag({ role }: { role: Role }) {
