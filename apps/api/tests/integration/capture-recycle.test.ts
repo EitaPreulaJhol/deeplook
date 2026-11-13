@@ -45,6 +45,10 @@ async function main() {
   process.env.CAPTURE_URL = `http://127.0.0.1:${port}`;
   process.env.CAPTURE_TOKEN = '0123456789abcdef01';
   const { requestCapture, runCapture } = await import('../../src/lib/page-capture');
+  // O MinIO de teste nasce vazio a cada rodada: rodando so este arquivo, ninguem criou o bucket
+  // antes, e guardar o print falhava com NoSuchBucket.
+  const { ensureBucket } = await import('../../src/lib/s3');
+  await ensureBucket(3, 500);
   const { prisma } = await import('../../src/lib/prisma');
   const { hashPassword } = await import('../../src/lib/crypto');
 

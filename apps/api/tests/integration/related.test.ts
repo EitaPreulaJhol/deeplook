@@ -99,6 +99,70 @@ async function main() {
   ok('mesmo host', k1(url2.id).includes('SAME_HOST'));
   ok('mesmo domínio-base', k1(url3.id).includes('SAME_BASE_DOMAIN'));
   ok('total e limite', typeof u1.total === 'number' && u1.limit === 50);
+  // Paginas com a mesma aparencia (revisao 3.4): hash perceptual do print da captura.
+  const H = 'a5'.repeat(32);
+  const flip = (hex: string, bits: number) => {
+    const bytes = Buffer.from(hex, 'hex');
+    for (let i = 0; i < bits; i++) bytes[i >> 3] ^= 1 << (i & 7);
+    return bytes.toString('hex');
+  };
+  const page = (title: string, domain: string) =>
+    mk(title, { type: 'URL', url: `http://${domain}/login`, urlDomain: domain });
+  const capture = (entryId: string, screenshotHash: string | null, status = 'DONE') =>
+    prisma.pageCapture.create({
+      data: { entryId, url: 'http://x', status: status as 'DONE', screenshotHash },
+    });
+  const kit = await page('kit', 'banco-a.example');
+  const twin = await page('gêmea', 'outro-host.example');
+  const near = await page('quase', 'terceiro.example');
+  const far = await page('diferente', 'quarto.example');
+  const failed = await page('captura que falhou', 'quinto.example');
+  const blank = await page('sem hash', 'sexto.example');
+  await capture(kit.id, flip(H, 200));
+  await capture(kit.id, H); // a mais recente e a que vale
+  await capture(twin.id, H);
+  await capture(near.id, flip(H, 20)); // 20 de 256 bits: 92%
+  await capture(near.id, flip(H, 100)); // outra captura, bem diferente: vale a mais parecida
+  await capture(far.id, flip(H, 60)); // 77%: abaixo do minimo
+  await capture(failed.id, H, 'FAILED');
+  await capture(blank.id, null);
+  const pages = (
+    await app.inject({
+      method: 'GET',
+      url: `/api/entries/${kit.id}/related`,
+      headers: { cookie: c },
+    })
+  ).json().items as { entry: { id: string }; reasons: { kind: string; detail: number }[] }[];
+  const pageMatch = (id: string) =>
+    pages.find((p) => p.entry.id === id)?.reasons.find((r) => r.kind === 'SIMILAR_PAGE')?.detail;
+  ok('página idêntica em outro domínio: 100%', pageMatch(twin.id) === 100, pages);
+  ok(
+    'página quase igual: vale a captura mais parecida',
+    pageMatch(near.id) === 92,
+    pageMatch(near.id),
+  );
+  ok('página diferente fica de fora', pageMatch(far.id) === undefined);
+  ok(
+    'captura que falhou e captura sem hash não ligam',
+    pageMatch(failed.id) === undefined && pageMatch(blank.id) === undefined,
+  );
+  ok(
+    'a mais parecida vem primeiro',
+    pages[0]?.entry.id === twin.id,
+    pages.map((p) => p.entry.id),
+  );
+  const none = (
+    await app.inject({
+      method: 'GET',
+      url: `/api/entries/${blank.id}/related`,
+      headers: { cookie: c },
+    })
+  ).json().items as { reasons: { kind: string }[] }[];
+  ok(
+    'amostra sem hash não ganha páginas parecidas',
+    !none.some((p) => p.reasons.some((r) => r.kind === 'SIMILAR_PAGE')),
+  );
+
   ok(
     '404',
     (await app.inject({ method: 'GET', url: '/api/entries/nada/related', headers: { cookie: c } }))

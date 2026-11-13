@@ -76,6 +76,8 @@ function reasonLabel(reason: RelatedReason): string | null {
       return 'mesmas importações';
     case 'SAME_RICH':
       return 'mesmo Rich header';
+    case 'SIMILAR_PAGE':
+      return `página parecida ${reason.detail}%`;
     case 'SHARED_TAGS':
       return null;
   }

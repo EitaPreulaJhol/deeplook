@@ -3,6 +3,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
 import { recordEvent } from './events';
+import { phashIsFlat, validPhash } from './phash';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 
@@ -93,6 +94,8 @@ interface ServiceResult {
   html?: string;
   htmlTruncated?: boolean;
   screenshot?: string;
+  /** Hash perceptual do topo do print (apps/capture); ausente nas versoes antigas do servico. */
+  screenshotHash?: string | null;
   blocked?: { host: string; reason: string }[];
 }
 
@@ -156,6 +159,7 @@ export async function runCapture(
       }),
     );
     const redirects = result.redirects ?? [];
+    const hash = validPhash(result.screenshotHash);
     await prisma.$transaction(async (tx) => {
       await tx.pageCapture.update({
         where: { id: captureId },
@@ -168,6 +172,8 @@ export async function runCapture(
           certificate: (result.certificate ?? undefined) as Prisma.InputJsonValue | undefined,
           blocked: (result.blocked ?? []) as unknown as Prisma.InputJsonValue,
           screenshotKey: `${base}.png`,
+          // Pagina sem estrutura (em branco) fica sem hash: ligaria todas as vazias entre si.
+          screenshotHash: hash && !phashIsFlat(hash) ? hash : null,
           htmlKey: `${base}.html.txt`,
           htmlTruncated: Boolean(result.htmlTruncated),
           finishedAt: new Date(),

@@ -51,6 +51,8 @@ export function describeReason(reason: RelatedReason): string {
       return `Mesmas importações (imphash ${reason.detail.slice(0, 12)}…)`;
     case 'SAME_RICH':
       return `Mesmo Rich header (${reason.detail.slice(0, 12)}…)`;
+    case 'SIMILAR_PAGE':
+      return `Página com a mesma aparência (captura): ${reason.detail}%`;
   }
 }
 

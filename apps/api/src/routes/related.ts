@@ -6,6 +6,7 @@ import { ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
 import { urlKey } from '../lib/ioc-normalize';
 import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
+import { phashDistance, phashSimilarity } from '../lib/phash';
 import { prisma } from '../lib/prisma';
 import { tlshDistance, tlshSimilarity } from '../lib/tlsh';
 
@@ -15,6 +16,9 @@ export const RELATED_LIMIT = 50;
 const CANDIDATES = 100;
 /** Hashes TLSH comparados por consulta (os mais recentes). */
 const SIMILAR_SCAN = 20_000;
+/** Capturas comparadas pelo hash perceptual (as mais recentes) e a similaridade minima. */
+const PAGE_SCAN = 5_000;
+export const PAGE_MIN_SIMILARITY = 90;
 
 export type RelatedReason =
   | { kind: 'SAME_SHA256' }
@@ -27,7 +31,9 @@ export type RelatedReason =
   /** Mesma tabela de importacoes (imphash, item 7.1). */
   | { kind: 'SAME_IMPHASH'; detail: string }
   /** Mesmo Rich header: mesmo ambiente de compilacao, ou cabecalho copiado (item 7.1). */
-  | { kind: 'SAME_RICH'; detail: string };
+  | { kind: 'SAME_RICH'; detail: string }
+  /** Pagina com a mesma aparencia (hash perceptual do print, revisao 3.4): similaridade em %. */
+  | { kind: 'SIMILAR_PAGE'; detail: number };
 
 /** Peso de cada motivo na ordenacao (arquivo identico pesa mais que uma tag). */
 function weight(reason: RelatedReason): number {
@@ -50,6 +56,10 @@ function weight(reason: RelatedReason): number {
       return 45;
     case 'SAME_RICH':
       return 30;
+    case 'SIMILAR_PAGE':
+      // Mesma aparencia em outro dominio e indicio forte de mesmo kit; no mesmo dominio, o
+      // motivo do dominio ja pesa por si.
+      return Math.round(reason.detail * 0.6);
   }
 }
 
@@ -306,6 +316,48 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
       for (const s of similar) {
         const item = known.get(s.id);
         if (item) add(item, { kind: 'SIMILAR', detail: s.similarity });
+      }
+    }
+  }
+
+  // Paginas com a mesma aparencia (revisao 3.4): o print mais recente desta amostra contra os
+  // das outras. Liga o mesmo kit de phishing em dominios diferentes.
+  const mine = await prisma.pageCapture.findFirst({
+    where: { entryId: entry.id, status: 'DONE', screenshotHash: { not: null } },
+    orderBy: { createdAt: 'desc' },
+    select: { screenshotHash: true },
+  });
+  if (mine?.screenshotHash) {
+    const captures = await prisma.pageCapture.findMany({
+      where: { entryId: { not: entry.id }, status: 'DONE', screenshotHash: { not: null } },
+      select: { entryId: true, screenshotHash: true },
+      orderBy: { createdAt: 'desc' },
+      take: PAGE_SCAN,
+    });
+    // Uma amostra pode ter varias capturas: vale a mais parecida.
+    const best = new Map<string, number>();
+    for (const c of captures) {
+      const distance = phashDistance(mine.screenshotHash, c.screenshotHash!);
+      if (distance === null) continue;
+      const similarity = phashSimilarity(distance);
+      if (similarity >= PAGE_MIN_SIMILARITY && similarity > (best.get(c.entryId) ?? 0)) {
+        best.set(c.entryId, similarity);
+      }
+    }
+    const ids = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, CANDIDATES);
+    if (ids.length) {
+      const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
+      const missing = ids.map(([eid]) => eid).filter((eid) => !known.has(eid));
+      if (missing.length) {
+        const extra = await prisma.entry.findMany({
+          where: { id: { in: missing } },
+          include: listInclude,
+        });
+        for (const item of extra) known.set(item.id, item);
+      }
+      for (const [eid, similarity] of ids) {
+        const item = known.get(eid);
+        if (item) add(item, { kind: 'SIMILAR_PAGE', detail: similarity });
       }
     }
   }

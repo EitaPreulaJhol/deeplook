@@ -255,7 +255,14 @@ It comes before the analysis features because tests and fuzzing protect what pha
   the record with the weight it had, and the weight table is in the README. Analysts only.
   **Decisions worth checking:** the suggestion is never "clean"; antivirus alone (60) suggests
   *Suspicious*, not *Malicious*; the weights are fixed in code, not configurable from the screen.
-- **3.2 to 3.7:** pending.
+- **3.4 ✅**: perceptual hash (256-bit dHash) of the top of the screenshot, computed in the
+  `capture` service with Chromium itself (the thumbnail is made in a new context, with no network
+  and without the captured page's JavaScript), stored on the capture and compared in the Related
+  tab (*Página com a mesma aparência*, from 90%) and in the relation map. An almost blank page gets
+  no hash. **Difference from the plan:** no new library, neither in the API nor in the capture.
+  **Found along the way:** `capture-recycle.test.ts` only passed because another test file created
+  the bucket first; run alone, it failed with `NoSuchBucket`. The test now creates the bucket.
+- **3.2, 3.3, 3.5 and 3.7:** pending. **3.6** deferred by the owner.
 
 | # | Item | How | Size |
 |---|---|---|---|

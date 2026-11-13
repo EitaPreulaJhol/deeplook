@@ -663,6 +663,8 @@ model PageCapture {
   /// [{ host, reason }] do que o proxy recusou (rede interna, esquemas).
   blocked       Json?
   screenshotKey String?
+  /// Hash perceptual do topo do print (lib/phash.ts); nulo nas antigas e nas paginas em branco.
+  screenshotHash String?
   htmlKey       String?
   htmlTruncated Boolean       @default(false)
   error         String?
@@ -670,6 +672,7 @@ model PageCapture {
   finishedAt    DateTime?
 
   @@index([entryId, createdAt])
+  @@index([screenshotHash])
 }
 
 /// Ate onde o escalonamento por prazo ja avisou (item 73).

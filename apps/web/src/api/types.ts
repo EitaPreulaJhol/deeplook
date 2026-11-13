@@ -812,7 +812,8 @@ export type RelatedReason =
   /** Mesma tabela de importacoes (imphash, item 7.1). */
   | { kind: 'SAME_IMPHASH'; detail: string }
   /** Mesmo Rich header (item 7.1). */
-  | { kind: 'SAME_RICH'; detail: string };
+  | { kind: 'SAME_RICH'; detail: string }
+  | { kind: 'SIMILAR_PAGE'; detail: number };
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {

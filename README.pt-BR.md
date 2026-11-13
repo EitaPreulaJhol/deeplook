@@ -387,6 +387,14 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 - **Atualizar uma instalação:** `docker compose down` antes do `up -d --build`, porque o Docker
   não transforma em interna uma rede que já existe.
 - **HTML:** só baixa como texto (`.html.txt`), nunca abre no navegador.
+- **Páginas com a mesma aparência:** a captura guarda um hash perceptual do topo da página (o que
+  a pessoa vê ao abrir, 1280×800), calculado no próprio serviço `capture` numa miniatura de
+  17×16 em tons de cinza. Na aba **Relacionadas**, amostras cujas páginas diferem em até 10% dos
+  bits aparecem como *Página com a mesma aparência (captura)*, mesmo em domínios, IPs e HTML
+  diferentes: é o que liga o mesmo kit de phishing hospedado em vários lugares. Vale a captura
+  mais recente da amostra contra todas as das outras; página quase em branco (erro, "site
+  suspenso") fica sem hash, para não ligar todas as vazias entre si. Capturas feitas antes desta
+  versão não têm o hash: capture de novo para entrar na comparação.
 - **Limites:** 20 s para abrir a página, print de até 6.000 px de altura, HTML de até 2 MB,
   uma captura por vez (por container).
 - **Desligar:** `CAPTURE_URL=` (vazio) no `.env`; o serviço `capture` pode sair do compose.

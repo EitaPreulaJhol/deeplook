@@ -385,6 +385,14 @@ certificate and what was blocked are stored.
 - **Updating an installation:** `docker compose down` before `up -d --build`, because Docker does not turn an
   existing network into an internal one.
 - **HTML:** only downloaded as text (`.html.txt`), never opened in the browser.
+- **Pages that look the same:** the capture stores a perceptual hash of the top of the page (what a
+  person sees on opening it, 1280×800), computed in the `capture` service itself on a 17×16 grayscale
+  thumbnail. In the **Related** tab, samples whose pages differ in up to 10% of the bits show as
+  *Página com a mesma aparência (captura)*, even on different domains, IPs and HTML: that is what links
+  the same phishing kit hosted in several places. The sample's most recent capture is compared with all
+  of the others; an almost blank page (error, "site suspended") gets no hash, so that empty pages are not
+  all linked to each other. Captures made before this version have no hash: capture again to join the
+  comparison.
 - **Limits:** 20 s to open the page, screenshot up to 6,000 px high, HTML up to 2 MB, one capture
   at a time (per container).
 - **Turn off:** `CAPTURE_URL=` (empty) in `.env`; the `capture` service can be removed from compose.

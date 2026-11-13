@@ -642,6 +642,9 @@ async function captureImage() {
     conf,
     `server { listen 80; server_name _;
   location = /r { return 302 http://pagina.test/final; }
+  location = /kit { default_type text/html; return 200 '<html><body style="margin:0;font-family:sans-serif"><div style="background:#0a3d91;height:160px"></div><div style="display:flex"><div style="width:400px;height:640px;background:#f2f2f2"></div><div style="padding:40px"><h1>Banco Exemplo</h1><div style="width:500px;height:60px;background:#cccccc;margin:20px 0"></div><div style="width:500px;height:60px;background:#cccccc;margin:20px 0"></div><div style="width:200px;height:50px;background:#e60000"></div></div></div></body></html>'; }
+  location = /kit2 { default_type text/html; return 200 '<html><body style="margin:0;font-family:sans-serif"><div style="background:#0b3e93;height:160px"></div><div style="display:flex"><div style="width:400px;height:640px;background:#f2f2f2"></div><div style="padding:40px"><h1>Banco Exemplo S.A. - acesse sua conta</h1><div style="width:500px;height:60px;background:#cccccc;margin:20px 0"></div><div style="width:500px;height:60px;background:#cccccc;margin:20px 0"></div><div style="width:200px;height:50px;background:#e60000"></div></div></div></body></html>'; }
+  location = /outra { default_type text/html; return 200 '<html><body style="margin:0"><div style="height:400px;background:linear-gradient(90deg,#000,#fff)"></div><div style="height:400px;background:linear-gradient(90deg,#fff,#000)"></div></body></html>'; }
   location = /lenta { default_type text/html; return 200 '<html><body><script>const t = Date.now() + 4000; while (Date.now() < t) {}</script>lenta</body></html>'; }
   location / { default_type text/html; return 200 '<html><head><title>Pagina de Teste</title></head><body><h1>Oi</h1><img src="http://169.254.169.254/x.png"></body></html>'; }
 }\n`,
@@ -809,6 +812,33 @@ async function captureImage() {
       'recurso interno da página bloqueado',
       page.blocked?.some((b) => b.host === '169.254.169.254'),
     );
+    // Hash perceptual do print (revisao de novembro, 3.4): o mesmo layout com outro texto e outra
+    // cor de cabecalho fica perto; outro layout fica longe; pagina quase em branco tambem tem hash.
+    const bits = (a, b) =>
+      [...Buffer.from(a, 'hex')].reduce(
+        (sum, byte, i) =>
+          sum + (byte ^ Buffer.from(b, 'hex')[i]).toString(2).replace(/0/g, '').length,
+        0,
+      );
+    const hashOf = async (path) => (await capture(`http://pagina.test${path}`)).body.screenshotHash;
+    const [kit, kit2, other] = [
+      await hashOf('/kit'),
+      await hashOf('/kit2'),
+      await hashOf('/outra'),
+    ];
+    ok(
+      'hash perceptual: 64 dígitos hexadecimais em toda captura',
+      [page.screenshotHash, kit, kit2, other].every((h) => /^[0-9a-f]{64}$/.test(h ?? '')),
+      { oi: page.screenshotHash, kit, kit2, other },
+    );
+    ok(
+      'hash perceptual: mesmo layout com outro texto fica perto (90% ou mais)',
+      kit && kit2 && bits(kit, kit2) <= 25,
+      { distance: kit && kit2 ? bits(kit, kit2) : null },
+    );
+    ok('hash perceptual: outro layout fica longe', kit && other && bits(kit, other) > 60, {
+      distance: kit && other ? bits(kit, other) : null,
+    });
     ok('rede interna recusada', (await capture('http://10.0.0.1/')).body.ok === false);
     ok('metadados recusados', (await capture('http://169.254.169.254/latest/')).body.ok === false);
 

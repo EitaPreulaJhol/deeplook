@@ -20,6 +20,7 @@ state.related.e2 = {
         { kind: 'SHARED_TAGS', detail: ['phishing'] },
         { kind: 'SAME_IMPHASH', detail: 'b1f24be7621e0e845cc9e28d113ca280' },
         { kind: 'SAME_RICH', detail: '2f3d7179f6890c4f2b6e9625cd202627' },
+        { kind: 'SIMILAR_PAGE', detail: 96 },
       ],
     },
     { entry: byId('e3'), score: 40, reasons: [{ kind: 'SAME_BASE_DOMAIN', detail: 'seguro-login.example' }] },
@@ -61,7 +62,7 @@ const firstReasons = await rows.nth(0).locator('.dl-related-reasons li').allText
 expect(
   'vários motivos na mesma linha',
   firstReasons.join('|') ===
-    'Mesmo domínio: banco-seguro-login.example|Tag em comum: phishing|Mesmas importações (imphash b1f24be7621e…)|Mesmo Rich header (2f3d7179f689…)',
+    'Mesmo domínio: banco-seguro-login.example|Tag em comum: phishing|Mesmas importações (imphash b1f24be7621e…)|Mesmo Rich header (2f3d7179f689…)|Página com a mesma aparência (captura): 96%',
   firstReasons.join('|'),
 );
 const second = await rows.nth(1).locator('.dl-related-reasons li').textContent();

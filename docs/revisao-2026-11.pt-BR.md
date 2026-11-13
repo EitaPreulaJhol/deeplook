@@ -253,7 +253,15 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
   aparece na ficha com o peso que teve, e a tabela de pesos está no README. Só analistas veem.
   **Decisões que valem conferir:** a sugestão nunca é "limpo"; antivírus sozinho (60) sugere
   *Suspeito*, não *Malicioso*; os pesos são fixos no código, não configuráveis pela tela.
-- **3.2 a 3.7:** pendentes.
+- **3.4 ✅**: hash perceptual (dHash de 256 bits) do topo do print, calculado no serviço
+  `capture` com o próprio Chromium (a miniatura é feita num contexto novo, sem rede e sem o
+  JavaScript da página capturada), guardado na captura e comparado na aba Relacionadas
+  (*Página com a mesma aparência*, a partir de 90%) e no mapa de relações. Página quase em branco
+  fica sem hash. **Diferença para o planejado:** nenhuma biblioteca nova, nem na API nem na
+  captura. **Achado no caminho:** `capture-recycle.test.ts` só passava porque outro arquivo de
+  teste criava o bucket antes; rodando sozinho, falhava com `NoSuchBucket`. O teste agora cria o
+  bucket.
+- **3.2, 3.3, 3.5 e 3.7:** pendentes. **3.6** adiado pelo dono.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|

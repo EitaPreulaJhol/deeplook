@@ -165,8 +165,15 @@ async function capture(url) {
       fullPage: true,
       timeout: 15_000,
     });
+    // Hash perceptual do topo da pagina (o que a pessoa ve ao abrir), para ligar paginas com a
+    // mesma aparencia em dominios diferentes. Falhou, a captura segue sem ele.
+    const top = await page
+      .screenshot({ type: 'png', clip: { x: 0, y: 0, width: 1280, height: 800 }, timeout: 15_000 })
+      .catch(() => null);
+    const screenshotHash = top ? await perceptualHash(top).catch(() => null) : null;
     return {
       ok: true,
+      screenshotHash,
       finalUrl: page.url(),
       title: (await page.title()).slice(0, 300),
       status: response?.status() ?? null,
@@ -188,6 +195,44 @@ async function capture(url) {
   } finally {
     await context.close().catch(() => undefined);
     await proxy.close().catch(() => undefined);
+  }
+}
+
+/**
+ * dHash de 256 bits do print: miniatura de 17x16 em tons de cinza, um bit por par de vizinhos na
+ * linha. A imagem e reduzida num canvas de uma pagina em branco, num contexto novo e sem rede: o
+ * JavaScript da pagina capturada nao roda ali e nao tem como mexer no resultado.
+ */
+async function perceptualHash(png) {
+  const b = await getBrowser();
+  const context = await b.newContext({ javaScriptEnabled: true, offline: true });
+  try {
+    const page = await context.newPage();
+    return await page.evaluate(async (base64) => {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = new OffscreenCanvas(17, 16);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bitmap, 0, 0, 17, 16);
+      const { data } = ctx.getImageData(0, 0, 17, 16);
+      const gray = (x, y) => {
+        const i = (y * 17 + x) * 4;
+        return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      };
+      let hex = '';
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x += 4) {
+          let nibble = 0;
+          for (let k = 0; k < 4; k++) nibble = (nibble << 1) | (gray(x + k, y) > gray(x + k + 1, y) ? 1 : 0);
+          hex += nibble.toString(16);
+        }
+      }
+      return hex;
+    }, png.toString('base64'));
+  } finally {
+    await context.close().catch(() => undefined);
   }
 }
 
