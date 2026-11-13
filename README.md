@@ -1085,6 +1085,36 @@ COOKIE_SECURE=true
 
 MinIO console (administration, loopback only): http://localhost:9001
 
+
+### Secrets from files (`NAME_FILE`)
+
+Each secret accepts `NAME_FILE` next to `NAME`: the value comes from the file (without the trailing
+newline) and does not show up in `docker inspect` or `docker compose config`. It applies to
+`DATABASE_URL`, `SESSION_SECRET`, `DATA_KEY`, `DATA_KEY_PREVIOUS`, `S3_ACCESS_KEY`,
+`S3_SECRET_KEY`, `ADMIN_PASSWORD`, `LDAP_BIND_PASSWORD`, `PROXMOX_PASSWORD`,
+`BACKUP_SCHEDULE_PASSWORD`, `RESTORE_PASSWORD`, the service tokens (`CAPTURE_TOKEN`, `CAPA_TOKEN`,
+`GHIDRA_TOKEN`, `UNPACK_TOKEN`, `OLETOOLS_TOKEN`) and the reputation keys. With both set, the file
+wins. Postgres and MinIO already accept `POSTGRES_PASSWORD_FILE` and `MINIO_ROOT_PASSWORD_FILE` on
+their own.
+
+The default compose doesn't change; use a `compose.override.yaml`, for example:
+
+```yaml
+services:
+  api:
+    environment:
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+    secrets: [session_secret]
+secrets:
+  session_secret:
+    file: ./secrets/session_secret
+```
+
+Without Swarm, Docker Compose mounts the host file with the same owner and mode, and ignores `uid`,
+`gid` and `mode`: the file must be readable by the container's user (the API runs as `node`, uid
+1000). A missing or empty file stops startup, with the secret's name in the log. The main
+protection is still `.env` with mode `600`.
+
 ---
 
 ## Project structure

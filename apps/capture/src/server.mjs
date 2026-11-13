@@ -4,6 +4,7 @@
 // redirecionamentos e certificado. Uma captura por vez; contexto novo a cada uma, e (item 6.17)
 // um container novo a cada uma: depois de responder, o processo sai e o Docker sobe outro.
 import { timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 
 import { chromium } from 'playwright';
@@ -11,7 +12,13 @@ import { chromium } from 'playwright';
 import { parseUpstream, startProxy } from './proxy.mjs';
 
 const PORT = Number(process.env.PORT || 3100);
-const TOKEN = process.env.CAPTURE_TOKEN || '';
+/** Segredo do ambiente ou, com NOME_FILE, do arquivo (Docker secrets; plano pos-revisao 5.1). */
+function secret(name) {
+  const path = process.env[`${name}_FILE`];
+  if (path) return readFileSync(path, 'utf8').replace(/\r?\n$/, '');
+  return process.env[name] || '';
+}
+const TOKEN = secret('CAPTURE_TOKEN');
 /** So para testes: nomes liberados mesmo em rede interna (vazio em producao). */
 const ALLOW_HOSTS = new Set(
   (process.env.CAPTURE_ALLOW_HOSTS || '')

@@ -2,6 +2,8 @@ import net from 'node:net';
 
 import { z } from 'zod';
 
+import { loadSecretFiles } from './secret-files';
+
 /** Faixa CIDR (ou um endereco so), IPv4 ou IPv6. */
 function isCidr(value: string): boolean {
   const [address, prefix, extra] = value.split('/');
@@ -263,6 +265,14 @@ const EnvSchema = z
       });
     }
   });
+
+// Segredos por arquivo (NOME_FILE, plano pos-revisao 5.1): lidos antes de validar.
+try {
+  loadSecretFiles();
+} catch (err) {
+  console.error(`[env] ${(err as Error).message}`);
+  process.exit(1);
+}
 
 const parsed = EnvSchema.safeParse(process.env);
 

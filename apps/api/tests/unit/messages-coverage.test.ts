@@ -29,6 +29,7 @@ const SRC = join(ROOT, 'src');
 const FILES_NOT_SENT: Record<string, string> = {
   'src/env.ts': 'validacao do .env na partida: a API nem sobe',
   'src/seed.ts': 'seed do admin, roda no entrypoint',
+  'src/secret-files.ts': 'segredos por arquivo, lidos na partida: a API nem sobe',
   'src/restore.ts': 'restauracao pela linha de comando (scripts/restore.sh)',
   'src/lib/restore.ts': 'restauracao pela linha de comando (scripts/restore.sh)',
   'src/lib/zip-file-reader.ts': 'leitor do ZIP do backup, so usado pela restauracao',

@@ -21,8 +21,18 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+
+def secret(name):
+    """Segredo do ambiente ou, com NOME_FILE, do arquivo (Docker secrets; plano pos-revisao 5.1)."""
+    path = os.environ.get(f"{name}_FILE")
+    if path:
+        with open(path, encoding="utf-8") as f:
+            return f.read().rstrip("\r\n")
+    return os.environ.get(name, "")
+
+
 PORT = int(os.environ.get("PORT", "3200"))
-TOKEN = os.environ.get("CAPA_TOKEN", "")
+TOKEN = secret("CAPA_TOKEN")
 RECYCLE = os.environ.get("CAPA_RECYCLE", "true") != "false"
 MAX_BYTES = int(os.environ.get("CAPA_MAX_MB", "32")) * 1024 * 1024
 CAPA_TIMEOUT = int(os.environ.get("CAPA_TIMEOUT_S", "600"))

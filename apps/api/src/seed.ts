@@ -3,6 +3,10 @@ import bcrypt from 'bcryptjs';
 import { Role } from './generated/prisma/client';
 import { createPrismaClient } from './lib/prisma';
 import { PUBLIC_ADMIN_PASSWORDS } from './lib/public-defaults';
+import { loadSecretFiles } from './secret-files';
+
+// Segredos por arquivo (ADMIN_PASSWORD_FILE, RESTORE_PASSWORD_FILE...; plano pos-revisao 5.1).
+loadSecretFiles();
 
 const prisma = createPrismaClient();
 

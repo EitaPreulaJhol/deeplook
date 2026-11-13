@@ -25,8 +25,18 @@ import time
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+
+def secret(name):
+    """Segredo do ambiente ou, com NOME_FILE, do arquivo (Docker secrets; plano pos-revisao 5.1)."""
+    path = os.environ.get(f"{name}_FILE")
+    if path:
+        with open(path, encoding="utf-8") as f:
+            return f.read().rstrip("\r\n")
+    return os.environ.get(name, "")
+
+
 PORT = int(os.environ.get("PORT", "3400"))
-TOKEN = os.environ.get("UNPACK_TOKEN", "")
+TOKEN = secret("UNPACK_TOKEN")
 RECYCLE = os.environ.get("UNPACK_RECYCLE", "true") != "false"
 MAX_BYTES = int(os.environ.get("UNPACK_MAX_MB", "64")) * 1024 * 1024
 TIMEOUT = int(os.environ.get("UNPACK_TIMEOUT_S", "180"))

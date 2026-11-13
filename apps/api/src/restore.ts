@@ -1,4 +1,8 @@
 import { RestoreError, type RestoreMode, runRestore } from './lib/restore';
+import { loadSecretFiles } from './secret-files';
+
+// Segredos por arquivo (ADMIN_PASSWORD_FILE, RESTORE_PASSWORD_FILE...; plano pos-revisao 5.1).
+loadSecretFiles();
 
 /**
  * Restauracao de um backup pela linha de comando (revisao de novembro, item 1.2). Roda na imagem

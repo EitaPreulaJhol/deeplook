@@ -1097,6 +1097,35 @@ COOKIE_SECURE=true
 
 Console do MinIO (administração, apenas no loopback): http://localhost:9001
 
+### Segredos por arquivo (`NOME_FILE`)
+
+Cada segredo aceita `NOME_FILE` ao lado de `NOME`: o valor sai do arquivo (sem a quebra de linha do
+fim) e não aparece no `docker inspect` nem no `docker compose config`. Vale para `DATABASE_URL`,
+`SESSION_SECRET`, `DATA_KEY`, `DATA_KEY_PREVIOUS`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
+`ADMIN_PASSWORD`, `LDAP_BIND_PASSWORD`, `PROXMOX_PASSWORD`, `BACKUP_SCHEDULE_PASSWORD`,
+`RESTORE_PASSWORD`, os tokens dos serviços (`CAPTURE_TOKEN`, `CAPA_TOKEN`, `GHIDRA_TOKEN`,
+`UNPACK_TOKEN`, `OLETOOLS_TOKEN`) e as chaves de reputação. Com os dois definidos, vale o arquivo. O
+Postgres e o MinIO já aceitam `POSTGRES_PASSWORD_FILE` e `MINIO_ROOT_PASSWORD_FILE` por conta
+própria.
+
+O compose padrão não muda; quem quiser usa um `compose.override.yaml`, por exemplo:
+
+```yaml
+services:
+  api:
+    environment:
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+    secrets: [session_secret]
+secrets:
+  session_secret:
+    file: ./secrets/session_secret
+```
+
+Sem o Swarm, o Docker Compose monta o arquivo do host com o mesmo dono e a mesma permissão, e
+ignora `uid`, `gid` e `mode`: o arquivo precisa ser legível pelo usuário do contêiner (a API roda
+como `node`, uid 1000). Arquivo que não existe ou vazio impede a subida, com o nome do segredo no
+log. A proteção principal continua sendo o `.env` com permissão `600`.
+
 ---
 
 ## Estrutura do projeto
