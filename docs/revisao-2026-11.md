@@ -248,7 +248,10 @@ It comes before the analysis features because tests and fuzzing protect what pha
 | 2.4 | Web coverage | Tests for the modules with logic that have none yet, and the coverage floor counting every module, not only the tested ones. | M |
 | 2.5 | English interface (i18n) | 33 pages and about 90 components with Portuguese text, plus the API error messages. In stages: infrastructure and language switch, then extraction screen by screen; API errors carry a code and the text lives in the front end. Being the largest item, it goes last (after phase 3). | L |
 
-### Phase 3 — Analysis — in progress
+### Phase 3 — Analysis — ✅ (except 3.6, deferred)
+
+End-of-phase battery, on the tree of commit `c76b3b9`: 79 unit tests, the short fuzz round, 1,668
+integration checks in 49 files, `test:images`, `test:smoke` and the 95 UI scenarios, all green.
 
 - **3.1 ✅**: explainable risk score. The score (0 to 100) is computed on request by the API from
   the same signals the triage rules already read, plus external reputation; each reason shows on

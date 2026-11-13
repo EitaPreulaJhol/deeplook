@@ -246,7 +246,11 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
 | 2.4 | Cobertura do web | Testes para os módulos com lógica ainda sem teste e o piso de cobertura passando a contar todos os módulos, não só os testados. | M |
 | 2.5 | Interface em inglês (i18n) | 33 páginas e cerca de 90 componentes com texto em português, mais as mensagens de erro da API. Em etapas: infraestrutura e seletor de idioma, depois extração tela a tela; os erros da API passam a levar código, e o texto fica no front. Por ser o maior item, fica por último (depois da fase 3). | G |
 
-### Fase 3 — Análise — em andamento
+### Fase 3 — Análise — ✅ (menos o 3.6, adiado)
+
+Bateria do fim da fase, com a árvore do commit `c76b3b9`: 79 testes unitários, fuzzing curto,
+1.668 checagens de integração em 49 arquivos, `test:images`, `test:smoke` e os 95 cenários de
+tela, todos verdes.
 
 - **3.1 ✅**: pontuação de risco explicável. A nota (0 a 100) é calculada na hora pela API a
   partir dos mesmos sinais que as regras de triagem já leem, mais a reputação externa; cada motivo
