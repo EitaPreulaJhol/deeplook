@@ -20,6 +20,7 @@ const CAPA = 'dl-capa';
 const GHIDRA = 'dl-ghidra';
 const UNPACK = 'dl-unpack';
 const OLETOOLS = 'dl-oletools';
+const SURICATA = 'dl-suricata';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -286,6 +287,20 @@ const startUnpack = () =>
     extra: ['UNPACK_MAX_FILES=10'],
   });
 
+// Suricata (plano pos-revisao, 5.4): sem baixar as regras ET Open (o teste usa a regra do DeepLook).
+const startSuricata = () =>
+  startService({
+    name: SURICATA,
+    dir: 'suricata',
+    port: 53800,
+    inner: 3800,
+    env: 'SURICATA_TOKEN',
+    memory: '2g',
+    pids: 128,
+    tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
+    extra: ['SURICATA_UPDATE_HOURS=0'],
+  });
+
 function runTest(file) {
   const db = `it_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   docker('exec', PG, 'psql', '-U', 'postgres', '-c', `create database ${db}`);
@@ -367,6 +382,7 @@ if (files.some((f) => f.includes('capa'))) await startCapa();
 if (files.some((f) => f.includes('ghidra'))) await startGhidra();
 if (files.some((f) => f.includes('unpack'))) await startUnpack();
 if (files.some((f) => f.includes('oletools'))) await startOletools();
+if (files.some((f) => f.includes('suricata'))) await startSuricata();
 
 let total = 0;
 const bad = [];
@@ -377,8 +393,8 @@ for (const file of files) {
   for (const line of failed) console.log(`      ${line}`);
   if (status !== 0 || failed.length) bad.push(file);
 }
-if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS);
-else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS);
+if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
+else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(
   bad.length
     ? `\n${bad.length} arquivo(s) com falha: ${bad.join(', ')}`

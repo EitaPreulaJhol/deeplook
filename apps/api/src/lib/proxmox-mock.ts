@@ -101,6 +101,12 @@ export const MOCK_SYSMON_EVENTS = [
   },
 ];
 
+/** MAC da placa de rede de uma VM simulada (BC:24:11 e o prefixo do Proxmox). */
+export function mockMac(vmid: number): string {
+  const hex = vmid.toString(16).toUpperCase().padStart(6, '0');
+  return `BC:24:11:${hex.slice(0, 2)}:${hex.slice(2, 4)}:${hex.slice(4, 6)}`;
+}
+
 export function pveMockReset(): void {
   agentRuns = 0;
   agentJobs.clear();
@@ -191,7 +197,8 @@ export async function pveMock(
         vmid: newId,
         name: String(body?.name ?? `vm-${newId}`),
         status: 'stopped',
-        config: {},
+        // Placa de rede com MAC (plano pos-revisao, 5.4: a captura filtra por ele).
+        config: { net0: `virtio=${mockMac(newId)},bridge=vmbr1,firewall=0` },
       });
       nextId = Math.max(nextId, newId) + 1;
       return schedule('qmclone', newId, CLONE_MS);

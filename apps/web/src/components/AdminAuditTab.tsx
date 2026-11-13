@@ -54,6 +54,7 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
     ENTRY_RESTORED: { label: t('act.ENTRY_RESTORED'), tone: 'green' },
     ENTRY_DELETED: { label: t('act.ENTRY_DELETED'), tone: 'red' },
     ENTRY_DOWNLOADED: { label: t('act.ENTRY_DOWNLOADED'), tone: 'orange' },
+    SANDBOX_PCAP_DOWNLOADED: { label: t('act.SANDBOX_PCAP_DOWNLOADED'), tone: 'orange' },
     ENTRY_INTEGRITY_FAILED: { label: t('act.ENTRY_INTEGRITY_FAILED'), tone: 'red' },
     ENTRY_INTEGRITY_RESTORED: { label: t('act.ENTRY_INTEGRITY_RESTORED'), tone: 'green' },
     YARA_RULE_CREATED: { label: t('act.YARA_RULE_CREATED'), tone: 'gray' },

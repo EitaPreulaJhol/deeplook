@@ -189,4 +189,29 @@ export const STATUS_EN: readonly (readonly [pt: string, en: string])[] = [
   // inteira primeiro; "todo dia {0}" casaria com ela toda.
   ['{0} às {1} ({2})', '{0} at {1} ({2})'],
   ['todo dia {0}', 'day {0} of every month'],
+  // ---- Captura de rede e Suricata (plano pos-revisao, item 5.4) ----
+  ['Captura de rede (MikroTik)', 'Network capture (MikroTik)'],
+  [
+    'desligada (MIKROTIK_URL, NETCAP_URL ou NETCAP_STREAM_TARGET vazio)',
+    'off (MIKROTIK_URL, NETCAP_URL or NETCAP_STREAM_TARGET empty)',
+  ],
+  ['Destino do TZSP', 'TZSP target'],
+  ['sniffer do MikroTik: {0}', 'MikroTik sniffer: {0}'],
+  ['Capturas em andamento', 'Captures in progress'],
+  ['Último pacote', 'Last packet'],
+  ['nenhum desde a subida do netcap', 'none since netcap started'],
+  [
+    'sniffer do MikroTik parado com captura em andamento',
+    'MikroTik sniffer stopped with a capture in progress',
+  ],
+  ['Suricata (tráfego do sandbox)', 'Suricata (sandbox traffic)'],
+  ['desligado (SURICATA_URL vazio)', 'off (SURICATA_URL empty)'],
+  ['Suricata {0}', 'Suricata {0}'],
+  ['Regras ET Open', 'ET Open rules'],
+  ['ainda não baixadas', 'not downloaded yet'],
+  [
+    'respondendo, sem as regras ET Open (só a regra de teste)',
+    'responding, without the ET Open rules (only the test rule)',
+  ],
+  ['respondendo; a atualização das regras falhou: {0}', 'responding; the rule update failed: {0}'],
 ];

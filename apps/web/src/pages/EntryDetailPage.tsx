@@ -110,6 +110,7 @@ export function EntryDetailPage() {
         consoleEnabled: boolean;
         session: SandboxSession | null;
         sysmonIndicators?: string[];
+        networkIndicators?: string[];
       }>(`/entries/${id}/sandbox`),
     enabled: canTriage,
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
@@ -301,6 +302,8 @@ export function EntryDetailPage() {
       ...qrUrls(qr),
       // Dominios e IPs que o Sysmon da VM viu (plano pos-revisao, item 5.3).
       ...(sandboxQuery.data?.sysmonIndicators ?? []),
+      // Dominios, hosts e IPs do trafego, pelo Suricata (plano pos-revisao, item 5.4).
+      ...(sandboxQuery.data?.networkIndicators ?? []),
       ...[entry.emailInfo?.from, ...(entry.emailInfo?.replyTo ?? [])]
         .map((p) => p?.address?.split('@')[1]?.toLowerCase())
         .filter((d): d is string => Boolean(d)),

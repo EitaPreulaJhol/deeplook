@@ -24,6 +24,7 @@ import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { startStatusAlerts } from './lib/status';
+import { startSuricataQueue } from './lib/suricata';
 import { backfillTlsh } from './lib/tlsh-backfill';
 import { startUnpackQueue } from './lib/unpack';
 import { installYaraPacks } from './lib/yara-packs';
@@ -130,6 +131,10 @@ async function main() {
   );
   // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).
   void startQrQueue(app.log).catch((err) => app.log.error({ err }, '[qr] fila não subiu'));
+  // Suricata sobre o pcap do sandbox (plano pos-revisao, 5.4).
+  void startSuricataQueue(app.log).catch((err) =>
+    app.log.error({ err }, '[suricata] fila não subiu'),
+  );
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

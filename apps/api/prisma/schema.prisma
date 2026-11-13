@@ -434,6 +434,8 @@ model SandboxSession {
   /// Por que a coleta de processos nao funciona (agente ausente, sem permissao); revisao 3.7.
   artifactsNote String?
   artifacts     SandboxArtifact[]
+  /// Captura de rede pelo MikroTik (plano pos-revisao, item 5.4).
+  capture       NetworkCapture?
 
   expiresAt DateTime
   startedAt DateTime?
@@ -977,6 +979,8 @@ enum AuditAction {
   ENTRY_DELETED
   /// Arquivo da amostra baixado (item 122).
   ENTRY_DOWNLOADED
+  /// pcap da captura de rede do sandbox baixado (plano pos-revisao, item 5.4).
+  SANDBOX_PCAP_DOWNLOADED
   /// Arquivo guardado nao confere com o SHA-256 da ficha (ou sumiu) e voltou a conferir (item 4.2).
   ENTRY_INTEGRITY_FAILED
   ENTRY_INTEGRITY_RESTORED
@@ -1516,4 +1520,51 @@ model Backup {
 enum AuthSource {
   LOCAL
   LDAP
+}
+
+/// Captura de rede do sandbox (plano pos-revisao, item 5.4): o sniffer do MikroTik CHR manda por
+/// TZSP os pacotes da VM ao servico netcap, que grava o pcap; ao encerrar, o pcap vai para o MinIO
+/// e o Suricata o le (ET Open).
+enum NetworkCaptureStatus {
+  CAPTURING
+  STORED
+  FAILED
+}
+
+enum IdsStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+model NetworkCapture {
+  id               String               @id @default(cuid())
+  sessionId        String               @unique
+  session          SandboxSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// MAC da VM (net0 do clone), o filtro do sniffer.
+  mac              String
+  status           NetworkCaptureStatus @default(CAPTURING)
+  error            String?
+  /// O pcap no bucket.
+  storageKey       String?
+  bytes            Int?
+  packets          Int?
+  /// Bateu no teto do netcap (NETCAP_MAX_MB): o fim ficou de fora.
+  truncated        Boolean              @default(false)
+  startedAt        DateTime             @default(now())
+  stoppedAt        DateTime?
+  /// Suricata: alertas, DNS, HTTP e TLS do pcap (lib/suricata.ts).
+  idsStatus        IdsStatus?
+  idsResult        Json?
+  idsError         String?
+  idsMs            Int?
+  idsAttempts      Int                  @default(0)
+  idsNextAttemptAt DateTime?
+  idsQueuedAt      DateTime?
+  idsStartedAt     DateTime?
+  idsFinishedAt    DateTime?
+
+  @@index([status])
+  @@index([idsStatus, idsNextAttemptAt])
 }

@@ -2,7 +2,8 @@
 // prints com a hora, os processos que surgiram desde a primeira listagem (com a linha de comando),
 // o aviso quando o agente da VM nao responde e os artefatos depois de o ambiente encerrar. Com o
 // Sysmon no template (plano pos-revisao, 5.3): a arvore de processos, as listas, o motivo quando
-// ele falta e os dominios e IPs nos IOCs sugeridos do relatorio.
+// ele falta e os dominios e IPs nos IOCs sugeridos do relatorio. Com a captura pelo MikroTik (5.4):
+// o pcap para baixar, o que o Suricata achou e o motivo quando a captura falha.
 import { chromium } from 'playwright';
 
 import { createState, ORIGIN, OUT, runningSandbox, setupMock, watchErrors } from './mock-api.mjs';
@@ -29,13 +30,43 @@ const sysmon = {
   files: [{ time: t(4), image: 'powershell.exe', path: 'C:\\Users\\Public\\stage2.dll' }],
   registry: [{ time: t(5), image: 'powershell.exe', action: 'SetValue', key: 'HKU\\S-1-5-21\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\upd', details: 'C:\\Users\\Public\\stage2.dll' }],
 };
+const network = {
+  status: 'STORED',
+  error: null,
+  mac: 'BC:24:11:00:23:8D',
+  packets: 1532,
+  bytes: 2_400_000,
+  truncated: false,
+  startedAt: t(0),
+  stoppedAt: t(11),
+  pcap: true,
+  ids: {
+    status: 'DONE',
+    error: null,
+    ms: 26000,
+    finishedAt: t(12),
+    result: {
+      alertsTotal: 3,
+      version: '7.0.10 RELEASE',
+      rules: { count: 53477, updatedAt: t(0) },
+      alerts: [
+        { sid: 2027865, signature: 'ET MALWARE Possible Cobalt Strike Beacon', severity: 1, proto: 'TCP', src: '10.10.0.2:49711', dst: '203.0.113.7:443', count: 2 },
+        { sid: 2013028, signature: 'ET POLICY curl User-Agent Outbound', severity: 3, proto: 'TCP', src: '10.10.0.2:49712', dst: '198.51.100.4:80', count: 1 },
+      ],
+      dns: [{ name: 'c2.evil.example', type: 'A', answers: ['203.0.113.7'], count: 4 }],
+      http: [{ host: 'evil.example', method: 'GET', url: '/stage2.bin', status: 200, dst: '198.51.100.4:80', count: 1 }],
+      tls: [{ sni: 'c2.evil.example', issuer: 'CN=Fake CA', dst: '203.0.113.7:443', count: 3 }],
+    },
+  },
+};
 state.sandboxes.e1 = runningSandbox('e1', 40);
 state.sandboxArtifacts = {
-  'sb-e1': { status: 'RUNNING', note: null, intervalS: 60, screenshots: shots, processes: { at: t(11), firstAt: t(0), lists: 12, current: [], appeared }, sysmon },
-  'sb-e4': { status: 'RUNNING', note: 'o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)', intervalS: 60, screenshots: shots.slice(0, 2), processes: null, sysmon: null },
+  'sb-e1': { status: 'RUNNING', note: null, intervalS: 60, screenshots: shots, processes: { at: t(11), firstAt: t(0), lists: 12, current: [], appeared }, sysmon, captureEnabled: true, network },
+  'sb-e4': { status: 'RUNNING', note: 'o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)', intervalS: 60, screenshots: shots.slice(0, 2), processes: null, sysmon: null, captureEnabled: true, network: { status: 'FAILED', error: 'sniffer do MikroTik: o RouterOS recusou o usuário ou a senha', mac: 'BC:24:11:00:23:8E', packets: null, bytes: null, truncated: false, startedAt: t(0), stoppedAt: t(0), pcap: false, ids: null } },
   'sb-e3': { status: 'RUNNING', note: null, intervalS: 60, screenshots: [], processes: { at: t(1), firstAt: t(0), lists: 2, current: [], appeared: [] }, sysmon: { at: t(1), available: false, reason: 'Sysmon não instalado no template (canal Microsoft-Windows-Sysmon/Operational ausente)' } },
 };
 state.sysmonIndicators = { e1: ['c2.evil.example', '203.0.113.7'] };
+state.networkIndicators = { e1: ['c2.evil.example', 'evil.example'] };
 await setupMock(context, state);
 const page = await context.newPage();
 watchErrors(page);
@@ -57,7 +88,7 @@ const links = await thumbs.locator('a').evaluateAll((as) => as.map((a) => a.getA
 expect('a primeira é o primeiro print, a última o mais recente', links[0].endsWith('/s0') && links[7].endsWith('/s11'), links.join(' '));
 expect('a imagem carrega', await thumbs.first().locator('img').evaluate((img) => img.complete && img.naturalWidth > 0));
 expect('aviso de quantos foram guardados', (await block.innerText()).includes('12 prints guardados'));
-const summary = await block.locator('.dl-sandbox-artifacts__summary:not(.dl-sysmon__summary)').innerText();
+const summary = await block.locator('.dl-sandbox-artifacts__summary:not(.dl-sysmon__summary):not(.dl-network__summary)').innerText();
 expect('resumo dos processos novos', summary.startsWith('2 processo(s) surgiram desde a primeira listagem'), summary);
 const rows = (await block.locator('table[aria-label="Processos que surgiram"] tbody tr').allInnerTexts()).map((r) => r.replace(/\s+/g, ' ').trim());
 expect('processo com o pai e a linha de comando', rows[1] === '4512 4410 powershell.exe powershell -enc SQBFAFgA', rows.join(' || '));
@@ -73,6 +104,18 @@ expect('conexão com destino e porta', (await tableText('Conexões de rede')).in
 expect('consulta DNS com a resposta', (await tableText('Consultas DNS')).includes('c2.evil.example → 203.0.113.7'));
 expect('arquivo criado', (await tableText('Arquivos criados')).includes('C:\\Users\\Public\\stage2.dll'));
 expect('chave de inicialização', (await tableText('Registro alterado')).includes('CurrentVersion\\Run\\upd = C:'));
+// 1e. Trafego de rede (5.4): o pcap e o Suricata.
+const net = block.locator('.dl-network');
+const netSummary = (await net.locator('.dl-network__summary').allInnerTexts()).join(' | ');
+expect('pcap: pacotes e tamanho', netSummary.includes('1532 pacote(s), 2,3 MB'), netSummary);
+expect('link de download do pcap', (await net.locator('a[download]').getAttribute('href')) === '/api/sandbox/sb-e1/pcap');
+expect('resumo do Suricata com as regras', netSummary.includes('Suricata: 3 alerta(s).') && netSummary.includes('Regras ET Open: 53477'), netSummary);
+const alertRows = (await net.locator('table[aria-label="Alertas do Suricata"] tbody tr').allInnerTexts()).map((r) => r.replace(/\s+/g, ' ').trim());
+expect('alerta de severidade alta primeiro, com o fluxo', alertRows[0]?.startsWith('alta ET MALWARE Possible Cobalt Strike Beacon TCP 10.10.0.2:49711 → 203.0.113.7:443 2'), alertRows.join(' || '));
+const netTable = async (label) => (await net.locator(`table[aria-label="${label}"] tbody`).innerText()).replace(/\s+/g, ' ');
+expect('DNS com a resposta', (await netTable('Consultas DNS no tráfego')).includes('c2.evil.example A 4 203.0.113.7'));
+expect('HTTP com host e caminho', (await netTable('Pedidos HTTP')).includes('evil.example/stage2.bin'));
+expect('TLS com o SNI e o emissor', (await netTable('Conexões TLS')).includes('CN=Fake CA c2.evil.example'));
 await block.scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${OUT}/sandbox-artefatos.png`, fullPage: true });
 
@@ -82,6 +125,7 @@ await page.locator('button:has-text("Inserir IOCs sugeridos")').click();
 await settle(200);
 const iocs = await page.inputValue('#report-iocs');
 expect('IOCs sugeridos com o que o Sysmon viu', iocs.includes('c2.evil.example') && iocs.includes('203.0.113.7'), iocs);
+expect('IOCs sugeridos com o host do tráfego (Suricata)', iocs.split('\n').includes('evil.example'), iocs);
 
 // 1d. Windows sem Sysmon no template: o motivo, e os processos de sempre.
 state.sandboxes.e3 = runningSandbox('e3', 40);
@@ -95,6 +139,7 @@ await page.goto(ORIGIN + '/entries/e4?tab=analise', { waitUntil: 'networkidle' }
 await block.waitFor();
 expect('motivo do agente', (await page.locator('.hpsm-msg--warning .hpsm-msg__text').allInnerTexts()).join(' ').includes('qemu-guest-agent não respondeu'));
 expect('prints mesmo sem o agente', (await block.locator('.dl-sandbox-artifacts__shots li').count()) === 2);
+expect('captura de rede com falha: o motivo', (await page.locator('.hpsm-msg--warning .hpsm-msg__text').allInnerTexts()).join(' ').includes('A captura de rede não funcionou: sniffer do MikroTik: o RouterOS recusou'));
 
 // 3. Encerrado: os artefatos ficam.
 state.sandboxes.e1 = { ...runningSandbox('e1', 40), status: 'STOPPED' };

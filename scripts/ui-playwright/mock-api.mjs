@@ -1203,6 +1203,7 @@ export async function setupMock(context, state) {
           consoleEnabled: true,
           session: state.sandboxes[m[1]] ?? null,
           sysmonIndicators: state.sysmonIndicators?.[m[1]] ?? [],
+          networkIndicators: state.networkIndicators?.[m[1]] ?? [],
         });
       }
       // Artefatos do sandbox (revisao 3.7): o roteiro define o que cada GET devolve (lista = sequencia).

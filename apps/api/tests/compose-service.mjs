@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 function composeConfig() {
-  const res = spawnSync('docker', ['compose', 'config', '--format', 'json'], {
+  // Todos os perfis: o netcap e o suricata (plano pos-revisao, 5.4) so sobem com o perfil netcap.
+  const res = spawnSync('docker', ['compose', '--profile', '*', 'config', '--format', 'json'], {
     cwd: ROOT,
     encoding: 'utf8',
   });

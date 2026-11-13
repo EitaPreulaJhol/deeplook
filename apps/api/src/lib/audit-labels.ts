@@ -33,6 +33,10 @@ export const AUDIT_LABELS: Record<AuditAction, readonly [pt: string, en: string]
   ENTRY_RESTORED: ['Amostra restaurada', 'Sample restored'],
   ENTRY_DELETED: ['Amostra excluída definitivamente', 'Sample permanently deleted'],
   ENTRY_DOWNLOADED: ['Amostra baixada', 'Sample downloaded'],
+  SANDBOX_PCAP_DOWNLOADED: [
+    'Captura de rede do ambiente baixada',
+    'Environment network capture downloaded',
+  ],
   ENTRY_INTEGRITY_FAILED: [
     'Arquivo divergente do SHA-256 da ficha',
     'File does not match the record SHA-256',

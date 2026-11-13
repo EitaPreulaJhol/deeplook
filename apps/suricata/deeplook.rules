@@ -1,0 +1,4 @@
+# Regra de teste do DeepLook (plano pos-revisao, item 5.4): numa VM do sandbox, `nslookup
+# deeplook-teste.invalid` precisa virar um alerta na ficha. Confere o caminho inteiro: sniffer do
+# MikroTik, netcap, pcap no MinIO e Suricata. O dominio .invalid nunca resolve (RFC 2606).
+alert dns any any -> any any (msg:"DEEPLOOK teste da captura de rede (consulta a deeplook-teste.invalid)"; dns.query; content:"deeplook-teste.invalid"; nocase; classtype:misc-activity; sid:9900001; rev:1;)

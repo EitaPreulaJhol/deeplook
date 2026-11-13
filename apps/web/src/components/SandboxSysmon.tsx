@@ -44,7 +44,15 @@ function ProcessTree({ processes }: { processes: SysmonProcess[] }) {
   );
 }
 
-function Table({ label, head, rows }: { label: string; head: string[]; rows: ReactNode[][] }) {
+export function ArtifactTable({
+  label,
+  head,
+  rows,
+}: {
+  label: string;
+  head: string[];
+  rows: ReactNode[][];
+}) {
   if (!rows.length) return null;
   return (
     <>
@@ -103,7 +111,7 @@ export function SandboxSysmon({ sysmon }: { sysmon: Sysmon }) {
           <ProcessTree processes={sysmon.processes} />
         </>
       )}
-      <Table
+      <ArtifactTable
         label={t('sysmonNetwork')}
         head={[time, process, t('sysmonProtocol'), t('sysmonDestination')]}
         rows={sysmon.network.map((c) => [
@@ -113,7 +121,7 @@ export function SandboxSysmon({ sysmon }: { sysmon: Sysmon }) {
           `${c.dstHost ?? c.dstIp ?? '?'}${c.dstPort !== null ? `:${c.dstPort}` : ''}`,
         ])}
       />
-      <Table
+      <ArtifactTable
         label={t('sysmonDns')}
         head={[time, process, t('sysmonQuery')]}
         rows={sysmon.dns.map((q) => [
@@ -122,12 +130,12 @@ export function SandboxSysmon({ sysmon }: { sysmon: Sysmon }) {
           q.results ? `${q.query} → ${q.results.replace(/;$/, '')}` : q.query,
         ])}
       />
-      <Table
+      <ArtifactTable
         label={t('sysmonFiles')}
         head={[time, process, t('sysmonPath')]}
         rows={sysmon.files.map((f) => [fmtTime(f.time), base(f.image), f.path])}
       />
-      <Table
+      <ArtifactTable
         label={t('sysmonRegistry')}
         head={[time, process, t('sysmonAction'), t('sysmonKey')]}
         rows={sysmon.registry.map((r) => [

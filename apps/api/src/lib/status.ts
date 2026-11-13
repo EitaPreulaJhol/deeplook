@@ -19,6 +19,8 @@ import { createTranslator, type Lang } from './error-language';
 import { ghidraEnabled } from './ghidra';
 import { ldapConfig, ldapProbe } from './ldap';
 import { MESSAGES_EN } from './messages-en';
+import { snifferState } from './mikrotik';
+import { networkCaptureEnabled } from './network-capture';
 import { oletoolsEnabled } from './oletools';
 import { captureEnabled } from './page-capture';
 import { prisma } from './prisma';
@@ -28,6 +30,7 @@ import { s3 } from './s3';
 import { countActive } from './sandbox';
 import { slaWhere } from './sla';
 import { STATUS_EN } from './status-en';
+import { suricataEnabled } from './suricata';
 import { unpackEnabled } from './unpack';
 import { yaraUpdateStatus } from './yara-update';
 
@@ -49,6 +52,8 @@ export interface StatusCheck {
     | 'unpack'
     | 'ldap'
     | 'yaraPacks'
+    | 'netcap'
+    | 'suricata'
     | 'integrity'
     | 'audit'
     | 'oletools'
@@ -639,6 +644,144 @@ async function oletoolsCheck(): Promise<StatusCheck> {
   };
 }
 
+/**
+ * Captura de rede do sandbox (plano pos-revisao, item 5.4): o servico netcap, o sniffer do
+ * MikroTik (pela API REST) e as capturas em andamento.
+ */
+async function networkCaptureCheck(): Promise<StatusCheck> {
+  const name = 'Captura de rede (MikroTik)';
+  if (!networkCaptureEnabled()) {
+    return {
+      id: 'netcap',
+      name,
+      level: 'off',
+      summary: 'desligada (MIKROTIK_URL, NETCAP_URL ou NETCAP_STREAM_TARGET vazio)',
+      details: [],
+    };
+  }
+  const details = [
+    { label: 'Endereço', value: env.NETCAP_URL },
+    { label: 'Destino do TZSP', value: env.NETCAP_STREAM_TARGET },
+  ];
+  const probe = await timed(async () => {
+    const res = await fetch(`${env.NETCAP_URL.replace(/\/$/, '')}/health`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+    return (await res.json()) as { lastPacketAt?: string | null; rejected?: number };
+  });
+  if (probe.error) {
+    return {
+      id: 'netcap',
+      name,
+      level: 'error',
+      summary: probe.error,
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  const router = await timed(() => snifferState());
+  if (router.error) {
+    return {
+      id: 'netcap',
+      name,
+      level: 'error',
+      summary: `sniffer do MikroTik: ${router.error}`,
+      latencyMs: router.ms,
+      details,
+    };
+  }
+  const capturing = await prisma.networkCapture.count({ where: { status: 'CAPTURING' } });
+  details.push({ label: 'RouterOS', value: router.value?.version ?? '?' });
+  details.push({ label: 'Capturas em andamento', value: String(capturing) });
+  details.push({
+    label: 'Último pacote',
+    value: probe.value?.lastPacketAt ?? 'nenhum desde a subida do netcap',
+  });
+  // Com captura em andamento, o sniffer precisa estar ligado.
+  const stopped = capturing > 0 && !router.value?.running;
+  return {
+    id: 'netcap',
+    name,
+    level: stopped ? 'warn' : probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: stopped ? 'sniffer do MikroTik parado com captura em andamento' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
+/** Suricata (plano pos-revisao, item 5.4): servico, regras ET Open e analises em 24 h. */
+async function suricataCheck(): Promise<StatusCheck> {
+  const name = 'Suricata (tráfego do sandbox)';
+  if (!suricataEnabled()) {
+    return {
+      id: 'suricata',
+      name,
+      level: 'off',
+      summary: 'desligado (SURICATA_URL vazio)',
+      details: [],
+    };
+  }
+  const details = [{ label: 'Endereço', value: env.SURICATA_URL }];
+  const health = () =>
+    timed(async () => {
+      const res = await fetch(`${env.SURICATA_URL.replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+      return (await res.json()) as {
+        state?: string;
+        suricata?: string;
+        rules?: { count?: number; updatedAt?: string | null; lastError?: string | null };
+      };
+    });
+  let probe = await health();
+  if (probe.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    probe = await health();
+  }
+  if (probe.error) {
+    return {
+      id: 'suricata',
+      name,
+      level: 'error',
+      summary: probe.error,
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  const rules = probe.value?.rules;
+  details.push({ label: 'Versão', value: `Suricata ${probe.value?.suricata ?? '?'}` });
+  details.push({
+    label: 'Regras ET Open',
+    value: rules?.count ? `${rules.count} · ${rules.updatedAt ?? '?'}` : 'ainda não baixadas',
+  });
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [queued, done, failed] = await Promise.all([
+    prisma.networkCapture.count({ where: { idsStatus: { in: ['PENDING', 'RUNNING'] } } }),
+    prisma.networkCapture.count({ where: { idsFinishedAt: { gt: since }, idsStatus: 'DONE' } }),
+    prisma.networkCapture.count({ where: { idsFinishedAt: { gt: since }, idsStatus: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Na fila', value: String(queued) });
+  details.push({ label: 'Análises em 24 h', value: `${done} · ${failed} falha(s)` });
+  // Sem regras (ou com a atualizacao falhando) o Suricata so ve a regra de teste.
+  const noRules = !rules?.count || Boolean(rules.lastError);
+  return {
+    id: 'suricata',
+    name,
+    level: noRules ? 'warn' : probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: !rules?.count
+      ? 'respondendo, sem as regras ET Open (só a regra de teste)'
+      : rules.lastError
+        ? `respondendo; a atualização das regras falhou: ${rules.lastError}`
+        : probe.value?.state === 'analisando'
+          ? 'respondendo (analisando)'
+          : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Analise com o Ghidra (item 7.3): servico ghidra, fila e analises em 24 h. */
 async function ghidraCheck(): Promise<StatusCheck> {
   const name = 'Análise com o Ghidra';
@@ -944,6 +1087,8 @@ export async function systemStatus() {
     ghidraCheck(),
     unpackCheck(),
     oletoolsCheck(),
+    networkCaptureCheck(),
+    suricataCheck(),
     reputationCheck(),
     ldapCheck(),
     yaraPacksCheck(),

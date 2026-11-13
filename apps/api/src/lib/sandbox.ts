@@ -13,6 +13,7 @@ import { env } from '../env';
 import type { Entry, Prisma, SandboxSession } from '../generated/prisma/client';
 import { recordEvent } from './events';
 import { log, reason } from './log';
+import { reconcileCaptures, startCapture, stopCapture } from './network-capture';
 import { prisma } from './prisma';
 import { ProxmoxError, pve, pveNode, pveUploadIso, waitTask } from './proxmox';
 import { s3 } from './s3';
@@ -77,6 +78,8 @@ async function failSession(sessionId: string, message: string): Promise<void> {
       select: { entryId: true },
     })
     .catch(() => null);
+  // A captura, se chegou a comecar, sai do sniffer (plano pos-revisao, 5.4).
+  await stopCapture(sessionId);
   // Falha no provisionamento entra no historico da amostra (autor: sistema).
   if (failed) {
     await recordEvent(prisma, {
@@ -368,6 +371,10 @@ export async function provision(sessionId: string): Promise<void> {
       },
     });
 
+    // 4b. Captura de rede (plano pos-revisao, 5.4): antes de ligar, para pegar o trafego desde o
+    // boot. Nunca derruba o ambiente; sem o MikroTik configurado, nao faz nada.
+    await startCapture(sessionId, pveNode(), nextId);
+
     // 5. Liga a VM.
     await setPhase(sessionId, 'iniciando');
     const startUpid = await pve<string>(`/nodes/${pveNode()}/qemu/${nextId}/status/start`, {
@@ -483,6 +490,9 @@ export async function dispose(
 
   // 4. Apaga o ISO da amostra.
   if (session.isoVolume) await deleteIso(session.isoVolume);
+
+  // 5. Captura de rede (plano pos-revisao, 5.4): com a VM desligada, o pcap esta completo.
+  await stopCapture(sessionId);
 
   await prisma.sandboxSession.update({
     where: { id: sessionId },
@@ -653,6 +663,8 @@ export async function initSandbox(log: {
         `[sandbox] limpeza inicial: ${orphans.vms} VM(s) e ${orphans.isos} ISO(s) removidos.`,
       );
     }
+    // Captura de rede (plano pos-revisao, 5.4): sniffer e netcap conferidos com o banco.
+    await reconcileCaptures();
     startSandboxReaper();
     // Artefatos (revisao 3.7): print e processos dos ambientes em execucao.
     startArtifactCollector();

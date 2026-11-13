@@ -36,10 +36,16 @@ const FILES = [
   'qr',
   'sandbox-artifacts',
   'sysmon',
+  'network-capture',
+  'suricata',
+  'mikrotik',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
 const SAME = new Set([
+  // Cabecalhos HTTP (plano pos-revisao, 5.4).
+  'Bearer {0}',
+  'Basic {0}',
   'HTTP {0}',
   '{0} (commit {1})',
   // Extensao .com (o detector a toma pela preposicao).
@@ -110,6 +116,10 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
   const fromService = new Set([
     'imagem acima de {0} pixels',
     'não foi possível ler o arquivo: {0}',
+    // Do Suricata (apps/suricata/server.py; plano pos-revisao, 5.4).
+    'o Suricata falhou: {0}',
+    'o arquivo não é um pcap',
+    'suricata-update falhou: {0}',
   ]);
   assert.deepEqual(
     DATA_EN.map(([pt]) => pt).filter((pt) => !used.has(pt) && !fromService.has(pt)),

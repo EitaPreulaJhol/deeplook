@@ -678,4 +678,12 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Only images (PNG, JPEG, GIF), PDFs up to {0} MB and captured links.',
   ],
   ['A leitura de QR code já está na fila.', 'QR code reading is already queued.'],
+  // ---- Captura de rede do sandbox (plano pos-revisao, item 5.4) ----
+  ['Captura de rede não encontrada.', 'Network capture not found.'],
+  ['MIKROTIK_URL inválido', 'Invalid MIKROTIK_URL'],
+  ['o RouterOS recusou o usuário ou a senha', 'RouterOS refused the user or the password'],
+  ['o RouterOS não respondeu a tempo', 'RouterOS did not answer in time'],
+  ['sem conexão com o RouterOS: {0}', 'no connection to RouterOS: {0}'],
+  ['o RouterOS não aceitou o pedido ({0}): {1}', 'RouterOS did not accept the request ({0}): {1}'],
+  ['o serviço netcap não respondeu ({0})', 'the netcap service did not answer ({0})'],
 ];

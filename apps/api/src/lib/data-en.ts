@@ -435,6 +435,16 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['resposta do Sysmon em formato inesperado', 'Sysmon answer in an unexpected format'],
 
+  // ---- Captura de rede e Suricata (network-capture.ts, suricata.ts; plano pos-revisao 5.4) ----
+  ['o netcap respondeu {0}{1}', 'netcap answered {0}{1}'],
+  ['a VM não tem placa de rede com MAC (net0)', 'the VM has no network card with a MAC (net0)'],
+  ['sniffer do MikroTik: {0}', 'MikroTik sniffer: {0}'],
+  ['arquivo acima de {0} MB', 'file over {0} MB'],
+  // Do servico (apps/suricata/server.py).
+  ['o Suricata falhou: {0}', 'Suricata failed: {0}'],
+  ['o arquivo não é um pcap', 'the file is not a pcap'],
+  ['suricata-update falhou: {0}', 'suricata-update failed: {0}'],
+
   // Por ultimo: casaria com "empacotado com {0} (Detect It Easy): ..." (unpack) se viesse antes.
   ['empacotado com {0}', 'packed with {0}'],
 ];

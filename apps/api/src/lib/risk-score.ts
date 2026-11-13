@@ -49,7 +49,12 @@ export type RiskInputs = {
   pending: string[];
   /** Enderecos de QR codes lidos na amostra (plano pos-revisao, item 2.2). */
   qrUrls?: string[];
+  /** Alertas do Suricata no trafego do sandbox (plano pos-revisao, item 5.4). */
+  idsAlerts?: { signature: string; severity: number | null }[];
 };
+
+/** A regra de teste do DeepLook (apps/suricata/deeplook.rules): confere a captura, nao e risco. */
+export const IDS_TEST_SID = 9900001;
 
 /** A partir destas notas a sugestao muda. */
 export const RISK_MALICIOUS = 70;
@@ -184,6 +189,21 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   }
 
+  // Alerta do Suricata no trafego da VM (plano pos-revisao, item 5.4): pela severidade mais alta
+  // (1 = alta). E o comportamento da amostra rodando, nao so o arquivo.
+  const ids = input.idsAlerts ?? [];
+  if (ids.length) {
+    const worst = Math.min(...ids.map((a) => a.severity ?? 3));
+    const names = [...new Set(ids.map((a) => a.signature))];
+    add(
+      'Suricata',
+      en
+        ? `${ids.length} alert(s) in the sandbox traffic: ${list(names, lang, 2)}`
+        : `${ids.length} alerta(s) no tráfego do sandbox: ${list(names, lang, 2)}`,
+      worst <= 1 ? 40 : worst === 2 ? 25 : 10,
+    );
+  }
+
   if (facts.lookalikes.length) {
     add(
       tr('Domínio parecido', 'Lookalike domain'),
@@ -287,6 +307,18 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
   const qrUrls = ((qr?.codes ?? []) as { url?: string | null }[])
     .map((c) => c.url)
     .filter((u): u is string => Boolean(u));
+  // Alertas do Suricata nas capturas de rede da amostra (plano pos-revisao, item 5.4).
+  const captures = await prisma.networkCapture.findMany({
+    where: { idsStatus: 'DONE', session: { entryId } },
+    select: { idsResult: true },
+  });
+  const idsAlerts = captures
+    .flatMap(
+      (c) =>
+        (c.idsResult as { alerts?: { sid: number; signature: string; severity: number | null }[] })
+          ?.alerts ?? [],
+    )
+    .filter((a) => a.sid !== IDS_TEST_SID);
   const reputation = await prisma.reputationResult.findMany({
     where: { entryId },
     select: { service: true, verdict: true, summary: true, status: true },
@@ -325,6 +357,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       documentRisk: st.document?.risk ?? null,
       pending,
       qrUrls,
+      idsAlerts,
     },
     lang,
   );

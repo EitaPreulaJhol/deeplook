@@ -6,11 +6,13 @@ import WebSocket from 'ws';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import type { Prisma } from '../generated/prisma/client';
+import { audit } from '../lib/audit';
 import { isAnalyst, loadUser, requireUser } from '../lib/auth';
 import { localizeText } from '../lib/data-language';
 import { requestLang } from '../lib/error-language';
 import { recordEvent } from '../lib/events';
 import { attachMockVnc } from '../lib/mock-vnc';
+import { networkCaptureEnabled } from '../lib/network-capture';
 import { prisma } from '../lib/prisma';
 import {
   createVncProxy,
@@ -36,6 +38,7 @@ import {
   sandboxReady,
 } from '../lib/sandbox';
 import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
+import { suricataIndicators, type SuricataResult } from '../lib/suricata';
 import { sysmonIndicators, type SysmonSummary } from '../lib/sysmon';
 
 const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
@@ -198,12 +201,25 @@ export async function sandboxRoutes(app: FastifyInstance) {
           select: { sysmon: true },
         })
       : [];
+    // O que o Suricata viu no trafego (plano pos-revisao, item 5.4): DNS, HTTP, TLS e os IPs dos
+    // alertas.
+    const traffic = isAnalyst(user)
+      ? await prisma.networkCapture.findMany({
+          where: { idsStatus: 'DONE', session: { entryId: id } },
+          select: { idsResult: true },
+        })
+      : [];
     return reply.send({
       enabled: sandboxEnabled,
       consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
       session: session ?? null,
       sysmonIndicators: [
         ...new Set(sysmon.flatMap((a) => sysmonIndicators(a.sysmon as unknown as SysmonSummary))),
+      ],
+      networkIndicators: [
+        ...new Set(
+          traffic.flatMap((c) => suricataIndicators(c.idsResult as unknown as SuricataResult)),
+        ),
       ],
     });
   });
@@ -373,14 +389,17 @@ export async function sandboxRoutes(app: FastifyInstance) {
       where: { id },
       select: { id: true, status: true, artifactsNote: true, startedAt: true, stoppedAt: true },
     });
-    if (!session) reply.code(404).send({ error: 'Ambiente não encontrado.' });
-    return session;
+    if (!session) {
+      reply.code(404).send({ error: 'Ambiente não encontrado.' });
+      return null;
+    }
+    return { ...session, viewer: user };
   };
 
   app.get('/api/sandbox/:id/artifacts', async (req, reply) => {
     const session = await artifactSession(req, reply);
     if (!session) return;
-    const [shots, lists, sysmon] = await Promise.all([
+    const [shots, lists, sysmon, capture] = await Promise.all([
       prisma.sandboxArtifact.findMany({
         where: { sessionId: session.id, kind: 'SCREENSHOT' },
         orderBy: { createdAt: 'asc' },
@@ -397,6 +416,8 @@ export async function sandboxRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true, sysmon: true },
       }),
+      // Captura de rede e Suricata (plano pos-revisao, item 5.4).
+      prisma.networkCapture.findUnique({ where: { sessionId: session.id } }),
     ]);
     const first = lists[0];
     const last = lists.at(-1);
@@ -427,7 +448,63 @@ export async function sandboxRoutes(app: FastifyInstance) {
                 : { available: false, reason: localizeText(stored.reason, lang) }),
             }
           : null,
+      captureEnabled: networkCaptureEnabled(),
+      network: capture
+        ? {
+            status: capture.status,
+            error: localizeText(capture.error, lang),
+            mac: capture.mac || null,
+            packets: capture.packets,
+            bytes: capture.bytes,
+            truncated: capture.truncated,
+            startedAt: capture.startedAt,
+            stoppedAt: capture.stoppedAt,
+            pcap: Boolean(capture.storageKey),
+            ids: capture.idsStatus
+              ? {
+                  status: capture.idsStatus,
+                  error: localizeText(capture.idsError, lang),
+                  ms: capture.idsMs,
+                  finishedAt: capture.idsFinishedAt,
+                  result: capture.idsStatus === 'DONE' ? capture.idsResult : null,
+                }
+              : null,
+          }
+        : null,
     });
+  });
+
+  // pcap da captura de rede (plano pos-revisao, 5.4): trafego de malware, so para analistas, como
+  // anexo (nunca aberto no navegador) e com registro na auditoria.
+  app.get('/api/sandbox/:id/pcap', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const capture = await prisma.networkCapture.findUnique({
+      where: { sessionId: session.id },
+      select: { storageKey: true, bytes: true, session: { select: { entry: true } } },
+    });
+    if (!capture?.storageKey) {
+      return reply.code(404).send({ error: 'Captura de rede não encontrada.' });
+    }
+    const obj = await s3
+      .send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: capture.storageKey }))
+      .catch(() => null);
+    if (!obj) return reply.code(404).send({ error: 'Captura de rede não encontrada.' });
+    const user = session.viewer;
+    const entry = capture.session.entry;
+    await audit(prisma, req, {
+      action: 'SANDBOX_PCAP_DOWNLOADED',
+      actorId: user.id,
+      targetUserId: entry.ownerId,
+      targetLabel: entry.title,
+      detail: `ambiente ${session.id} · ${capture.bytes ?? 0} bytes`,
+    });
+    return reply
+      .header('Content-Type', 'application/vnd.tcpdump.pcap')
+      .header('Content-Disposition', `attachment; filename="captura-${session.id}.pcap"`)
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Cache-Control', 'private, no-store')
+      .send(obj.Body as Readable);
   });
 
   app.get('/api/sandbox/:id/artifacts/:artifactId', async (req, reply) => {

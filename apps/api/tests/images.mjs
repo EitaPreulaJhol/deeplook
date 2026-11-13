@@ -1317,16 +1317,197 @@ async function unpackImage() {
   }
 }
 
+/** Quadros de teste (DNS da regra do DeepLook e uma conversa HTTP) num pcap, como o netcap grava. */
+async function testPcap() {
+  const { pcapHeader, pcapRecord } = await import('../../netcap/src/tzsp.mjs');
+  const { dnsQueryFrame, httpFrames } = await import('../../netcap/tests/packets.mjs');
+  const net = { vmMac: 'BC:24:11:00:00:01', gwMac: '4C:5E:0C:00:00:01', vmIp: '10.10.0.2' };
+  const frames = [
+    dnsQueryFrame({ ...net, dnsIp: '10.10.0.1', name: 'deeplook-teste.invalid' }),
+    ...httpFrames({ ...net, serverIp: '203.0.113.7', host: 'evil.example', path: '/x.bin' }),
+  ];
+  let t = Date.now();
+  return {
+    frames,
+    pcap: Buffer.concat([pcapHeader(), ...frames.map((f) => pcapRecord(f, (t += 5)))]),
+  };
+}
+
+/** Captura de rede (plano pos-revisao, 5.4): netcap com o endurecimento do compose. */
+async function netcapImage() {
+  docker('build', '-q', '-t', 'dl-test-netcap', join(APPS, 'netcap'));
+  ok('imagem do netcap compila', true);
+  quiet('rm', '-f', 'dl-test-netcap');
+  const TOKEN = '0123456789abcdef01';
+  try {
+    const service = composeService('netcap');
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-netcap',
+      '-e',
+      `NETCAP_TOKEN=${TOKEN}`,
+      ...runArgs(service),
+      '-p',
+      '127.0.0.1:53710:3700',
+      '-p',
+      '127.0.0.1:54710:37008/udp',
+      'dl-test-netcap',
+    );
+    const base = 'http://localhost:53710';
+    const health = await until(() => fetch(`${base}/health`).then((r) => (r.ok ? r.json() : null)));
+    ok('netcap sobe com a configuração do compose', health?.state === 'livre', health);
+    const inNetcap = (...args) => quiet('exec', 'dl-test-netcap', ...args);
+    ok('netcap sem root', inNetcap('id', '-u').stdout?.trim() === '1000');
+    ok(
+      'netcap: raiz somente leitura; /data gravável e sem execução',
+      inNetcap('touch', '/app/x').status !== 0 &&
+        inNetcap('sh', '-c', 'cp /bin/true /data/t && /data/t').status !== 0 &&
+        inNetcap('sh', '-c', 'echo ok > /data/ok').status === 0,
+    );
+    const capEff = inNetcap(
+      'sh',
+      '-c',
+      "grep CapEff /proc/1/status | awk '{print $2}'",
+    ).stdout?.trim();
+    ok('netcap sem capacidades', capEff === '0000000000000000', capEff);
+    ok('netcap sem npm na imagem', inNetcap('sh', '-c', 'command -v npm').status !== 0);
+    const auth = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' };
+    const open = await fetch(`${base}/sessions`, {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ id: 's1', mac: 'BC:24:11:00:00:01' }),
+    });
+    const { tzspDatagram } = await import('../../netcap/src/tzsp.mjs');
+    const { frames } = await testPcap();
+    const { createSocket } = await import('node:dgram');
+    const sock = createSocket('udp4');
+    for (const f of frames) {
+      await new Promise((r) => sock.send(tzspDatagram(f), 54710, '127.0.0.1', () => r()));
+    }
+    sock.close();
+    const got = await until(async () => {
+      const s = await fetch(`${base}/sessions/s1`, { headers: auth }).then((r) => r.json());
+      return s.packets === frames.length ? s : null;
+    });
+    ok(
+      'netcap recebe o TZSP pela porta UDP publicada e grava o pcap',
+      open.status === 201 && got?.packets === frames.length,
+      got,
+    );
+  } finally {
+    quiet('rm', '-f', 'dl-test-netcap');
+    quiet('rmi', 'dl-test-netcap');
+  }
+}
+
+/** Suricata (plano pos-revisao, 5.4): sem baixar regras (sem egress aqui), so a regra de teste. */
+async function suricataImage() {
+  docker('build', '-q', '-t', 'dl-test-suricata', join(APPS, 'suricata'));
+  ok('imagem do Suricata compila', true);
+  quiet('rm', '-f', 'dl-test-suricata');
+  const TOKEN = '0123456789abcdef01';
+  try {
+    const service = composeService('suricata');
+    const env = Object.entries(service.environment ?? {})
+      .filter(
+        ([k]) =>
+          !['SURICATA_TOKEN', 'HTTPS_PROXY', 'HTTP_PROXY', 'SURICATA_UPDATE_HOURS'].includes(k),
+      )
+      .flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+    docker(
+      'run',
+      '-d',
+      '--name',
+      'dl-test-suricata',
+      '-e',
+      `SURICATA_TOKEN=${TOKEN}`,
+      '-e',
+      'SURICATA_UPDATE_HOURS=0',
+      ...env,
+      ...runArgs(service, { restart: true }),
+      '-p',
+      '127.0.0.1:53810:3800',
+      'dl-test-suricata',
+    );
+    const base = 'http://localhost:53810';
+    const health = await until(() => fetch(`${base}/health`).then((r) => (r.ok ? r.json() : null)));
+    ok(
+      'Suricata sobe com a configuração do compose (7.0)',
+      health?.state === 'livre' && String(health.suricata).startsWith('7.0'),
+      health,
+    );
+    const inSuricata = (...args) => quiet('exec', 'dl-test-suricata', ...args);
+    ok('Suricata sem root', inSuricata('id', '-u').stdout?.trim() === '10007');
+    ok(
+      'Suricata: raiz somente leitura; regras no volume; /tmp sem execução',
+      inSuricata('touch', '/app/x').status !== 0 &&
+        inSuricata('touch', '/var/lib/suricata/rules/x').status === 0 &&
+        inSuricata('sh', '-c', 'cp /bin/true /tmp/t && /tmp/t').status !== 0,
+    );
+    const capEff = inSuricata(
+      'sh',
+      '-c',
+      "grep CapEff /proc/1/status | awk '{print $2}'",
+    ).stdout?.trim();
+    ok('Suricata sem capacidades', capEff === '0000000000000000', capEff);
+    const post = (body, token = TOKEN) =>
+      fetch(`${base}/analyze`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' },
+        body,
+      });
+    ok('Suricata: token errado recusado', (await post(Buffer.from('x'), 'errado')).status === 401);
+    const before = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-suricata').trim());
+    const { pcap } = await testPcap();
+    const result = await (await post(pcap)).json();
+    ok(
+      'Suricata lê o pcap: o alerta da regra de teste, o DNS e o HTTP',
+      result.ok === true &&
+        result.alerts.some((a) => a.sid === 9900001) &&
+        result.dns.some((d) => d.name === 'deeplook-teste.invalid') &&
+        result.http.some((h) => h.host === 'evil.example' && h.url === '/x.bin'),
+      result,
+    );
+    const swapped = await until(async () => {
+      const count = Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-test-suricata').trim());
+      if (count <= before) return null;
+      const h = await fetch(`${base}/health`).then((r) => r.json());
+      return h.state === 'livre';
+    });
+    ok('Suricata: container novo depois do trabalho, livre de novo', Boolean(swapped));
+    const notPcap = await (await post(Buffer.from('MZ isto nao e um pcap'))).json();
+    ok(
+      'Suricata: arquivo que não é pcap recusado',
+      notPcap.ok === false && /pcap/.test(notPcap.error),
+      notPcap,
+    );
+  } finally {
+    quiet('rm', '-f', 'dl-test-suricata');
+    quiet('rmi', 'dl-test-suricata');
+  }
+}
+
 const composeCheck = spawnSync('docker', ['compose', 'config', '-q'], {
   cwd: join(APPS, '..'),
   encoding: 'utf8',
 });
 ok('compose válido', composeCheck.status === 0, composeCheck.stderr);
-await webImage();
-await apiImage();
-await captureImage();
-await capaImage();
-await ghidraImage();
-await unpackImage();
+// `node tests/images.mjs netcap suricata` roda so essas imagens; sem nomes, todas.
+const only = process.argv.slice(2);
+const images = {
+  web: webImage,
+  api: apiImage,
+  capture: captureImage,
+  capa: capaImage,
+  ghidra: ghidraImage,
+  unpack: unpackImage,
+  netcap: netcapImage,
+  suricata: suricataImage,
+};
+for (const [name, run] of Object.entries(images)) {
+  if (!only.length || only.includes(name)) await run();
+}
 console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');
 process.exit(fails ? 1 : 0);

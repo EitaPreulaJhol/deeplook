@@ -1046,6 +1046,9 @@ COOKIE_SECURE=true
 | `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | how many files (from 1 to 100, the maximum the API accepts in one response; beyond that the service adjusts and warns in the log) and how many combined MB come out of a sample | `50` / `256` |
 | `UNPACK_MEM_LIMIT` / `UNPACK_RECYCLE` | container memory; a new container for each job | `2g` / `true` |
 | `OLETOOLS_URL` | document analysis service (oletools); empty turns it off | `http://oletools:3500` |
+| `MIKROTIK_URL` / `MIKROTIK_USER` / `MIKROTIK_PASSWORD` | RouterOS 7 REST API of the CHR, for the sandbox network capture sniffer; empty turns the capture off | — |
+| `NETCAP_URL` / `NETCAP_TOKEN` / `NETCAP_STREAM_TARGET` | netcap service (`netcap` compose profile) and this host's `IP:port` as the CHR sees it | — |
+| `SURICATA_URL` / `SURICATA_TOKEN` | Suricata over the pcap (ET Open); empty: only the pcap | — |
 | `OLETOOLS_TOKEN` | token shared between the API and the `oletools` service (16+ characters) | — |
 | `OLETOOLS_MAX_MB` | larger documents do not go to oletools | `32` |
 | `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | ceiling of one analysis and container memory | `120` / `1g` |
@@ -1092,9 +1095,9 @@ MinIO console (administration, loopback only): http://localhost:9001
 Each secret accepts `NAME_FILE` next to `NAME`: the value comes from the file (without the trailing
 newline) and does not show up in `docker inspect` or `docker compose config`. It applies to
 `DATABASE_URL`, `SESSION_SECRET`, `DATA_KEY`, `DATA_KEY_PREVIOUS`, `S3_ACCESS_KEY`,
-`S3_SECRET_KEY`, `ADMIN_PASSWORD`, `LDAP_BIND_PASSWORD`, `PROXMOX_PASSWORD`,
+`S3_SECRET_KEY`, `ADMIN_PASSWORD`, `LDAP_BIND_PASSWORD`, `PROXMOX_PASSWORD`, `MIKROTIK_PASSWORD`,
 `BACKUP_SCHEDULE_PASSWORD`, `RESTORE_PASSWORD`, the service tokens (`CAPTURE_TOKEN`, `CAPA_TOKEN`,
-`GHIDRA_TOKEN`, `UNPACK_TOKEN`, `OLETOOLS_TOKEN`) and the reputation keys. With both set, the file
+`GHIDRA_TOKEN`, `UNPACK_TOKEN`, `OLETOOLS_TOKEN`, `NETCAP_TOKEN`, `SURICATA_TOKEN`) and the reputation keys. With both set, the file
 wins. Postgres and MinIO already accept `POSTGRES_PASSWORD_FILE` and `MINIO_ROOT_PASSWORD_FILE` on
 their own.
 
@@ -1449,8 +1452,16 @@ command line (the sample running, the PowerShell it opened).
   2000): processes (1), connections (3), files created (11), registry (12 to 14) and DNS (22). The screen
   shows the **process tree** and the lists; domains and public IPs go into the report's suggested IOCs.
   Without Sysmon, or on a Linux guest, nothing changes, and the reason shows on screen.
-- **Network traffic (pcap):** not yet. The VM goes out through the isolated network behind the Mikrotik
-  CHR, and the capture should come from there.
+- **Network traffic (optional):** with the VM traffic going through a MikroTik CHR, its sniffer sends
+  each VM's packets (filtered by MAC) to the `netcap` service, which records one pcap per environment.
+  On closing, the pcap goes to MinIO and **Suricata** reads it with the **ET Open** rules (downloaded
+  through the controlled way out, once a day). The "Network traffic" section shows the alerts, DNS
+  queries, HTTP requests, TLS connections and the pcap download (recorded in the audit log); domains
+  and IPs go into the suggested IOCs, and an alert adds to the risk score. Turn it on with
+  `COMPOSE_PROFILES=netcap` and the `MIKROTIK_*`, `NETCAP_*` and `SURICATA_*` variables
+  ([Proxmox guide, section 9](docs/proxmox.md#9-network-capture-through-the-mikrotik-chr-optional)).
+  Without them, the sandbox stays the same. The pcap holds the sample traffic, including what it
+  downloaded: the backup with the files takes it along.
 
 ### Limits, TTL and cleanup
 

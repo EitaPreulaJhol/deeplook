@@ -5,6 +5,7 @@ import type { SandboxArtifacts as Artifacts } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/sandbox';
 import { HpsmMessage } from './messages';
+import { SandboxNetwork } from './SandboxNetwork';
 import { SandboxSysmon } from './SandboxSysmon';
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(intlLocale());
@@ -20,15 +21,19 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
   const query = useQuery({
     queryKey: ['sandbox', 'artifacts', sessionId],
     queryFn: () => api.get<Artifacts>(`/sandbox/${sessionId}/artifacts`),
-    refetchInterval: (q) =>
-      running && q.state.data?.intervalS ? q.state.data.intervalS * 1000 : false,
+    refetchInterval: (q) => {
+      // O Suricata analisa depois que o ambiente encerra (plano pos-revisao, 5.4).
+      const ids = q.state.data?.network?.ids?.status;
+      if (ids === 'PENDING' || ids === 'RUNNING') return 5000;
+      return running && q.state.data?.intervalS ? q.state.data.intervalS * 1000 : false;
+    },
   });
   const data = query.data;
   if (!data) return null;
   const shots = data.screenshots;
   const shown = shots.length > SHOWN ? [shots[0], ...shots.slice(-(SHOWN - 1))] : shots;
   const appeared = data.processes?.appeared ?? [];
-  if (!shots.length && !data.processes && !data.note && !data.sysmon) {
+  if (!shots.length && !data.processes && !data.note && !data.sysmon && !data.network) {
     return running && data.intervalS ? (
       <p className="dl-hint-muted">{t('firstCollect', { n: data.intervalS })}</p>
     ) : null;
@@ -101,6 +106,7 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
         </>
       )}
       {data.sysmon && <SandboxSysmon sysmon={data.sysmon} />}
+      {data.network && <SandboxNetwork sessionId={sessionId} network={data.network} />}
     </div>
   );
 }

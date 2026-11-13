@@ -1,0 +1,12 @@
+{
+  "name": "deeplook-netcap",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Recebe o TZSP do sniffer do MikroTik e grava um pcap por ambiente do sandbox (plano pos-revisao, item 5.4).",
+  "type": "module",
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test tests/"
+  }
+}

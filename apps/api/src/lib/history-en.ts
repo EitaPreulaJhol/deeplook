@@ -121,4 +121,6 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['Pacote de regras YARA {0}', 'YARA rule pack {0}'],
   ['Atualização automática dos pacotes YARA', 'Automatic update of the YARA packs'],
   ['{0} indicador(es)', '{0} indicator(s)'],
+  // Download do pcap do sandbox (plano pos-revisao, item 5.4).
+  ['ambiente {0} · {1} bytes', 'environment {0} · {1} bytes'],
 ];

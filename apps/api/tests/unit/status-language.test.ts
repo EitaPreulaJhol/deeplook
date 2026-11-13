@@ -21,6 +21,7 @@ const ROOT = join(__dirname, '..', '..');
 
 /** Iguais nos dois idiomas (nomes proprios, siglas e valores tecnicos). */
 const SAME = new Set([
+  'RouterOS',
   'API',
   'Node.js',
   'Bucket',

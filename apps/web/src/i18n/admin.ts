@@ -174,6 +174,10 @@ export const messages = {
   'act.ENTRY_RESTORED': ['Amostra restaurada', 'Sample restored'],
   'act.ENTRY_DELETED': ['Amostra excluída definitivamente', 'Sample permanently deleted'],
   'act.ENTRY_DOWNLOADED': ['Amostra baixada', 'Sample downloaded'],
+  'act.SANDBOX_PCAP_DOWNLOADED': [
+    'Captura de rede do ambiente baixada',
+    'Environment network capture downloaded',
+  ],
   'act.ENTRY_INTEGRITY_FAILED': [
     'Arquivo divergente do SHA-256 da ficha',
     'File does not match the record SHA-256',

@@ -87,6 +87,8 @@ updates:
       - /apps/ghidra
       - /apps/unpack
       - /apps/oletools
+      - /apps/netcap
+      - /apps/suricata
     schedule:
       interval: weekly
       day: monday

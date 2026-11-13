@@ -240,6 +240,32 @@ const EnvSchema = z
     SANDBOX_ARTIFACT_INTERVAL_S: z.coerce.number().int().min(0).max(3600).default(60),
     /** Prints guardados por ambiente (o primeiro e os mais recentes ficam). */
     SANDBOX_ARTIFACT_MAX_SHOTS: z.coerce.number().int().min(1).max(500).default(60),
+    /**
+     * Captura de rede do sandbox (plano pos-revisao, item 5.4): o sniffer do MikroTik CHR, pela API
+     * REST do RouterOS 7, manda por TZSP os pacotes de cada VM ao servico netcap. Sem MIKROTIK_URL
+     * ou sem NETCAP_URL, desligada (o sandbox segue igual).
+     */
+    MIKROTIK_URL: z.string().default(''),
+    MIKROTIK_USER: z.string().default(''),
+    MIKROTIK_PASSWORD: z.string().default(''),
+    MIKROTIK_VERIFY_TLS: z.enum(['true', 'false']).default('false'),
+    /** Interface onde o sniffer escuta (vazio: todas). */
+    MIKROTIK_SNIFFER_INTERFACE: z.string().default(''),
+    NETCAP_URL: z.string().default(''),
+    NETCAP_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    /** Para onde o CHR manda o TZSP (IP:porta do host do DeepLook, como o CHR o alcanca). */
+    NETCAP_STREAM_TARGET: z.string().default(''),
+    /** Suricata sobre o pcap (ET Open). Vazio: fica so o pcap. */
+    SURICATA_URL: z.string().default(''),
+    SURICATA_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    SURICATA_MAX_MB: z.coerce.number().int().min(1).max(1024).default(256),
+    SURICATA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(660),
   })
   .superRefine((value, ctx) => {
     // Sem sandbox ligado (ou em modo mock) nao exigimos nada do Proxmox.
@@ -325,6 +351,8 @@ const refused = [
   env.GHIDRA_URL && KNOWN_SECRETS.has(env.GHIDRA_TOKEN) && 'GHIDRA_TOKEN',
   env.UNPACK_URL && KNOWN_SECRETS.has(env.UNPACK_TOKEN) && 'UNPACK_TOKEN',
   env.OLETOOLS_URL && KNOWN_SECRETS.has(env.OLETOOLS_TOKEN) && 'OLETOOLS_TOKEN',
+  env.NETCAP_URL && KNOWN_SECRETS.has(env.NETCAP_TOKEN) && 'NETCAP_TOKEN',
+  env.SURICATA_URL && KNOWN_SECRETS.has(env.SURICATA_TOKEN) && 'SURICATA_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',
   PUBLIC_S3_SECRETS.includes(env.S3_SECRET_KEY) && 'S3_SECRET_KEY',
   // Igual ao SESSION_SECRET nao separa nada: quem tem um tem o outro.

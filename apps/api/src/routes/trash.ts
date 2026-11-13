@@ -6,6 +6,7 @@ import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { recordEvent } from '../lib/events';
 import { deleteGhidraProject } from '../lib/ghidra';
+import { captureKeysOf } from '../lib/network-capture';
 import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
 import { activeSessionForEntry } from '../lib/sandbox';
@@ -143,8 +144,9 @@ export async function trashRoutes(app: FastifyInstance) {
       await deleteGhidraProject(id);
       await deleteEvidenceObjects([
         ...evidence.map((e) => e.storageKey),
-        // Prints do sandbox (revisao 3.7).
+        // Prints do sandbox (revisao 3.7) e o pcap da captura de rede (plano pos-revisao, 5.4).
         ...(await artifactKeysOf(id)),
+        ...(await captureKeysOf(id)),
         ...captures
           .flatMap((c) => [c.screenshotKey, c.htmlKey])
           .filter((k): k is string => Boolean(k)),

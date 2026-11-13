@@ -647,6 +647,7 @@ export type AuditAction =
   | 'ENTRY_RESTORED'
   | 'ENTRY_DELETED'
   | 'ENTRY_DOWNLOADED'
+  | 'SANDBOX_PCAP_DOWNLOADED'
   | 'ENTRY_INTEGRITY_FAILED'
   | 'ENTRY_INTEGRITY_RESTORED'
   | 'YARA_RULE_CREATED'
@@ -692,6 +693,55 @@ export interface SandboxArtifacts {
   } | null;
   /** O que o Sysmon do template registrou (plano pos-revisao, 5.3); null antes da 1a leitura. */
   sysmon: SandboxSysmon | null;
+  /** Captura de rede pelo MikroTik ligada (plano pos-revisao, 5.4). */
+  captureEnabled?: boolean;
+  network?: SandboxNetwork | null;
+}
+
+/** Captura de rede e Suricata de um ambiente (plano pos-revisao, 5.4). */
+export interface SandboxNetwork {
+  status: 'CAPTURING' | 'STORED' | 'FAILED';
+  error: string | null;
+  mac: string | null;
+  packets: number | null;
+  bytes: number | null;
+  truncated: boolean;
+  startedAt: string;
+  stoppedAt: string | null;
+  pcap: boolean;
+  ids: {
+    status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    error: string | null;
+    ms: number | null;
+    finishedAt: string | null;
+    result: SuricataResult | null;
+  } | null;
+}
+
+export interface SuricataResult {
+  alertsTotal: number;
+  version: string | null;
+  rules: { count: number; updatedAt: string | null } | null;
+  alerts: {
+    sid: number;
+    signature: string;
+    category?: string | null;
+    severity?: number | null;
+    proto?: string | null;
+    src?: string | null;
+    dst?: string | null;
+    count: number;
+  }[];
+  dns: { name: string; type?: string | null; answers: string[]; count: number }[];
+  http: {
+    host?: string | null;
+    method?: string | null;
+    url?: string | null;
+    status?: number | null;
+    dst?: string | null;
+    count: number;
+  }[];
+  tls: { sni?: string | null; issuer?: string | null; dst?: string | null; count: number }[];
 }
 
 export interface SysmonProcess {

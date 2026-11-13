@@ -213,6 +213,19 @@ services:
       # Artefatos do ambiente: print e processos a cada N segundos (0 desliga).
       SANDBOX_ARTIFACT_INTERVAL_S: ${SANDBOX_ARTIFACT_INTERVAL_S:-60}
       SANDBOX_ARTIFACT_MAX_SHOTS: ${SANDBOX_ARTIFACT_MAX_SHOTS:-60}
+      # Captura de rede pelo MikroTik (plano pos-revisao, 5.4): os servicos netcap e suricata so
+      # sobem com COMPOSE_PROFILES=netcap; sem MIKROTIK_URL e NETCAP_URL, a captura fica desligada.
+      MIKROTIK_URL: ${MIKROTIK_URL:-}
+      MIKROTIK_USER: ${MIKROTIK_USER:-}
+      MIKROTIK_PASSWORD: ${MIKROTIK_PASSWORD:-}
+      MIKROTIK_VERIFY_TLS: ${MIKROTIK_VERIFY_TLS:-false}
+      MIKROTIK_SNIFFER_INTERFACE: ${MIKROTIK_SNIFFER_INTERFACE:-}
+      NETCAP_URL: ${NETCAP_URL:-}
+      NETCAP_TOKEN: ${NETCAP_TOKEN:-}
+      NETCAP_STREAM_TARGET: ${NETCAP_STREAM_TARGET:-}
+      SURICATA_URL: ${SURICATA_URL:-}
+      SURICATA_TOKEN: ${SURICATA_TOKEN:-}
+      SURICATA_MAX_MB: ${SURICATA_MAX_MB:-256}
     # Sem BACKUP_DIR a pasta montada nao e usada (a API nem a recebe acima).
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/backups
@@ -413,6 +426,67 @@ services:
     networks:
       - analysis
 
+  # Captura de rede do sandbox (plano pos-revisao, 5.4): recebe por UDP o TZSP do sniffer do
+  # MikroTik CHR e grava um pcap por ambiente num tmpfs. So le o cabecalho TZSP e os MACs; quem
+  # interpreta o trafego e o Suricata. A porta UDP e publicada no host para o CHR alcanca-la:
+  # libere no firewall so do IP do CHR (e, de preferencia, NETCAP_TZSP_SOURCES com o mesmo IP).
+  netcap:
+    build:
+      context: ./apps/netcap
+    profiles: [netcap]
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      NETCAP_TOKEN: ${NETCAP_TOKEN:-}
+      NETCAP_MAX_MB: ${NETCAP_MAX_MB:-200}
+      NETCAP_TZSP_SOURCES: ${NETCAP_TZSP_SOURCES:-}
+    ports:
+      - ${NETCAP_TZSP_BIND:-0.0.0.0}:${NETCAP_TZSP_PORT:-37008}:37008/udp
+    read_only: true
+    tmpfs:
+      - /data:size=${NETCAP_TMPFS:-1g},noexec,nosuid,nodev,uid=1000
+    mem_limit: 256m
+    pids_limit: 32
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+      - netcap-in
+
+  # Suricata sobre o pcap (plano pos-revisao, 5.4): `suricata -r` com as regras ET Open, um
+  # container por analise. As regras ficam no volume e sao baixadas pelo egress (a saida
+  # controlada); a analise em si nao usa rede.
+  suricata:
+    build:
+      context: ./apps/suricata
+    profiles: [netcap]
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      SURICATA_TOKEN: ${SURICATA_TOKEN:-}
+      SURICATA_MAX_MB: ${SURICATA_MAX_MB:-256}
+      SURICATA_TIMEOUT_S: ${SURICATA_TIMEOUT_S:-600}
+      SURICATA_UPDATE_HOURS: ${SURICATA_UPDATE_HOURS:-24}
+      SURICATA_RECYCLE: ${SURICATA_RECYCLE:-true}
+      HTTPS_PROXY: http://egress:3128
+      HTTP_PROXY: http://egress:3128
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,noexec,nosuid,nodev
+    volumes:
+      - suricata-rules:/var/lib/suricata
+    mem_limit: ${SURICATA_MEM_LIMIT:-2g}
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+      - suricata-egress
+
   # Proxy de saida da captura (item 6.19): o unico caminho do navegador ate a internet. Resolve
   # o nome uma vez, recusa rede interna, loopback e metadados e conecta no IP conferido. So Node,
   # sem navegador; nao roda codigo de pagina. Na rede interna da captura e numa rede com saida.
@@ -442,6 +516,8 @@ services:
     networks:
       - capture
       - capture-egress
+      # So o suricata, para baixar as regras ET Open (plano pos-revisao, 5.4).
+      - suricata-egress
 
   web:
     build:
@@ -483,6 +559,8 @@ services:
 volumes:
   # O /tmp da API (revisao, item 4): em disco, e limpo das sobras de backup e ISO a cada subida.
   api-tmp:
+  # Regras do Suricata (ET Open): sobrevivem a troca de container a cada analise.
+  suricata-rules:
 
 networks:
   deeplook:
@@ -515,3 +593,13 @@ networks:
     ipam:
       config:
         - subnet: ${CAPTURE_EGRESS_SUBNET:-172.31.252.0/24}
+  # O suricata e o egress (plano pos-revisao, 5.4): interna, so para as regras saírem pelo proxy.
+  suricata-egress:
+    driver: bridge
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: "true"
+  # Entrada do TZSP do MikroTik no netcap: precisa ser uma bridge comum para a porta UDP ser
+  # publicada no host.
+  netcap-in:
+    driver: bridge

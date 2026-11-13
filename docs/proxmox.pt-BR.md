@@ -306,3 +306,94 @@ Sempre comece pelo diagnóstico: **`GET /api/sandbox/health`** (admin).
 - No boot a API marca provisionamentos interrompidos como falha, remove VMs com a
   etiqueta `SANDBOX_TAG` sem sessão ativa e ISOs `deeplook-*` órfãos.
 - `GET /api/sandbox/health` (admin) mostra o diagnóstico completo.
+
+## 9. Captura de rede pelo MikroTik CHR (opcional)
+
+Com o tráfego das VMs passando por um MikroTik CHR (RouterOS 7), o DeepLook grava um **pcap por
+ambiente** e o passa ao **Suricata** com as regras **ET Open**. O resultado aparece na seção do
+ambiente: alertas, consultas DNS, pedidos HTTP, conexões TLS e o download do pcap. Os domínios e os
+IPs entram nos IOCs sugeridos, e um alerta soma na pontuação de risco. Sem esta configuração, o
+sandbox segue igual.
+
+```
+VM de análise ──(bridge isolada)── CHR ──► internet controlada
+                                    │ sniffer (TZSP, UDP 37008)
+                                    ▼
+                    host do DeepLook: netcap ──pcap──► MinIO ──► suricata
+```
+
+Como funciona: ao abrir um ambiente, antes de ligar a VM, a API lê o MAC dela (`net0` do clone),
+abre uma sessão no serviço `netcap` e põe o MAC no `filter-mac-address` do `/tool/sniffer` do CHR,
+pela API REST, com o envio por TZSP para o `netcap`. Ao encerrar, tira o MAC, busca o pcap, guarda no
+MinIO (entra no backup e sai com a amostra na lixeira) e o manda ao Suricata. O sniffer é um só no
+roteador: cada mudança o para, reconfigura e liga de novo com a lista de todos os ambientes
+capturando, o que dá uma pausa de alguns milissegundos na captura dos outros.
+
+### 9.1 No RouterOS
+
+1. Ligue a API REST (serviço `www-ssl`, com certificado) só para o IP do DeepLook:
+   ```
+   /certificate add name=rest common-name=chr.lab days-valid=3650 key-usage=tls-server
+   /certificate sign rest
+   /ip service set www-ssl disabled=no certificate=rest address=<IP do DeepLook>/32
+   ```
+2. Um grupo e um usuário só para o DeepLook. O REST exige `read` e `write` (que valem para toda a
+   configuração), então restrinja o usuário ao IP do DeepLook:
+   ```
+   /user group add name=deeplook policy=read,write,rest-api,sniff,!local,!telnet,!ssh,!ftp,!reboot,!policy,!test,!winbox,!password,!web,!sensitive,!api,!romon
+   /user add name=deeplook group=deeplook address=<IP do DeepLook>/32 password=<senha forte>
+   ```
+3. Se as VMs saem por uma interface só, diga qual em `MIKROTIK_SNIFFER_INTERFACE` (ex.: `ether2`);
+   vazio, o sniffer escuta todas.
+
+O DeepLook mexe só no `/tool/sniffer`. Não deixe outra captura configurada nele: a lista de MACs é
+substituída a cada ambiente.
+
+### 9.2 No host do DeepLook
+
+1. No `.env`:
+   ```
+   COMPOSE_PROFILES=netcap
+   MIKROTIK_URL=https://<IP do CHR>
+   MIKROTIK_USER=deeplook
+   MIKROTIK_PASSWORD=<senha>
+   NETCAP_URL=http://netcap:3700
+   NETCAP_TOKEN=<openssl rand -hex 24>
+   NETCAP_STREAM_TARGET=<IP deste host, como o CHR o vê>:37008
+   NETCAP_TZSP_SOURCES=<IP do CHR>
+   SURICATA_URL=http://suricata:3800
+   SURICATA_TOKEN=<openssl rand -hex 24>
+   ```
+   A senha e os tokens aceitam `NOME_FILE` (Docker secrets).
+2. **Firewall:** o TZSP é UDP sem autenticação. A porta publicada pelo Docker não passa pelo `ufw`
+   do host, então limite de três jeitos:
+   - `NETCAP_TZSP_BIND=<IP da interface voltada ao CHR>` publica a porta só nessa interface;
+   - `NETCAP_TZSP_SOURCES` faz o netcap descartar o que não vier do CHR;
+   - uma regra na cadeia `DOCKER-USER`:
+     ```
+     iptables -I DOCKER-USER -p udp --dport 37008 ! -s <IP do CHR> -j DROP
+     ```
+3. `docker compose up -d --build`. Na primeira subida, o `suricata` baixa as regras ET Open pelo
+   `egress` (a saída controlada); depois, uma vez por dia. Até lá, ele roda só com a regra de teste
+   do DeepLook e ainda tira DNS, HTTP e TLS do tráfego.
+
+### 9.3 Validando
+
+1. **Administração > Status do sistema:** "Captura de rede (MikroTik)" mostra a versão do RouterOS,
+   e "Suricata" mostra quantas regras ET Open foram baixadas.
+2. Abra um ambiente. Na VM, rode `nslookup deeplook-teste.invalid` (o domínio nunca resolve).
+3. Encerre o ambiente. Na seção "Tráfego de rede" aparecem o pcap e o alerta **"DEEPLOOK teste da
+   captura de rede"**. Ele confere o caminho inteiro (sniffer, netcap, MinIO e Suricata) e não soma
+   no risco.
+
+Problemas comuns:
+
+| Sintoma | Causa provável |
+|---|---|
+| "o RouterOS recusou o usuário ou a senha" | usuário, senha ou `address` do usuário no RouterOS |
+| "sem conexão com o RouterOS" | `www-ssl` desligado, `address` do serviço, ou certificado com `MIKROTIK_VERIFY_TLS=true` |
+| pcap com 0 pacotes | o CHR não alcança `NETCAP_STREAM_TARGET`, firewall, ou `NETCAP_TZSP_SOURCES` com outro IP (o status mostra o último pacote recebido) |
+| Suricata "sem as regras ET Open" | o `egress` sem saída para `rules.emergingthreats.net` |
+
+Limites: `NETCAP_MAX_MB` por ambiente (padrão 200 MB; passou, o fim fica de fora e a tela avisa),
+`SURICATA_MAX_MB` (256 MB) e `SURICATA_TIMEOUT_S` (600 s).
