@@ -80,6 +80,21 @@ server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}
 1. Create a VM (Windows/Linux) with `qemu-guest-agent`, an **isolated network** (bridge with no
    route to the LAN) and **no corporate credentials**.
 2. Install the analysis tools you use.
+   - **Sysmon (optional, Windows):** with it, the environment artifacts include the process tree,
+     the connections, the files created, the registry changes and the DNS queries. Download Sysmon
+     from Microsoft (Sysinternals) and a ready-made configuration: we recommend
+     [sysmon-modular](https://github.com/olafhartong/sysmon-modular) (`sysmonconfig.xml`), by Olaf
+     Hartong; the [SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config) one also works.
+     In an administrator PowerShell:
+     ```powershell
+     .\Sysmon64.exe -accepteula -i sysmonconfig.xml
+     # the channel must exist (DeepLook reads events 1, 3, 11, 12, 13, 14 and 22)
+     Get-WinEvent -ListLog Microsoft-Windows-Sysmon/Operational
+     ```
+     The configuration must log event 22 (DNS) and 3 (network): both of the ones above do. Increase
+     the log size if the sample is noisy
+     (`wevtutil sl Microsoft-Windows-Sysmon/Operational /ms:67108864`). DeepLook installs nothing in
+     the VM: without Sysmon, the screenshots and the process list remain.
 3. **Create a snapshot** (the linked clone uses this state as its base; without a snapshot DeepLook
    automatically falls back to a full copy, which is slower).
 4. Convert it to a template: `qm template <vmid>`. Note the `<vmid>`.

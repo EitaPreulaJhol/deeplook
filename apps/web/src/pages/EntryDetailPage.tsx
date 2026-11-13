@@ -105,9 +105,12 @@ export function EntryDetailPage() {
   const sandboxQuery = useQuery({
     queryKey: ['sandbox', 'entry', id],
     queryFn: () =>
-      api.get<{ enabled: boolean; consoleEnabled: boolean; session: SandboxSession | null }>(
-        `/entries/${id}/sandbox`,
-      ),
+      api.get<{
+        enabled: boolean;
+        consoleEnabled: boolean;
+        session: SandboxSession | null;
+        sysmonIndicators?: string[];
+      }>(`/entries/${id}/sandbox`),
     enabled: canTriage,
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
     refetchOnWindowFocus: true,
@@ -296,6 +299,8 @@ export function EntryDetailPage() {
       ...(entry.emailInfo?.links ?? []),
       // Enderecos de QR codes (plano pos-revisao, item 2.2).
       ...qrUrls(qr),
+      // Dominios e IPs que o Sysmon da VM viu (plano pos-revisao, item 5.3).
+      ...(sandboxQuery.data?.sysmonIndicators ?? []),
       ...[entry.emailInfo?.from, ...(entry.emailInfo?.replyTo ?? [])]
         .map((p) => p?.address?.split('@')[1]?.toLowerCase())
         .filter((d): d is string => Boolean(d)),

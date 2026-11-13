@@ -1,0 +1,81 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { MOCK_SYSMON_EVENTS } from '../../src/lib/proxmox-mock';
+import { parseSysmon, sysmonCommand, sysmonIndicators } from '../../src/lib/sysmon';
+
+// Sysmon no template (plano pos-revisao, item 5.3): comando do agente e leitura dos eventos.
+
+test('comando: PowerShell em Base64 (UTF-16LE), lendo o canal desde o início da sessão', () => {
+  const command = sysmonCommand(new Date('2026-11-13T12:00:00.000Z'));
+  assert.deepEqual(command.slice(0, 4), [
+    'powershell.exe',
+    '-NoProfile',
+    '-NonInteractive',
+    '-EncodedCommand',
+  ]);
+  const script = Buffer.from(command[4], 'base64').toString('utf16le');
+  assert.ok(script.includes('Microsoft-Windows-Sysmon/Operational'));
+  assert.ok(script.includes("'2026-11-13T12:00:00.000Z'"));
+  assert.ok(script.includes('Id = 1,3,11,12,13,14,22'));
+  assert.ok(script.includes('-MaxEvents 2000 -Oldest'));
+});
+
+test('eventos de exemplo: processos, rede, arquivos, registro e DNS', () => {
+  const s = parseSysmon(JSON.stringify(MOCK_SYSMON_EVENTS));
+  assert.equal(s.available, true);
+  if (!s.available) return;
+  assert.equal(s.events, 6);
+  assert.deepEqual(
+    s.processes.map((p) => [p.pid, p.ppid, p.image]),
+    [
+      [4410, 3020, 'D:\\fatura.exe'],
+      [4512, 4410, 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'],
+    ],
+  );
+  assert.equal(s.processes[0].hashes, 'SHA256=AB12');
+  assert.deepEqual(s.network[0], {
+    time: '2026-11-13T12:00:04.0000000Z',
+    image: 'powershell.exe',
+    protocol: 'tcp',
+    dstIp: '203.0.113.7',
+    dstPort: 443,
+    dstHost: null,
+  });
+  assert.equal(s.files[0].path, 'C:\\Users\\Public\\stage2.dll');
+  assert.equal(s.registry[0].action, 'SetValue');
+  assert.equal(s.dns[0].query, 'c2.evil.example');
+  assert.deepEqual(sysmonIndicators(s), ['c2.evil.example', '203.0.113.7']);
+});
+
+test('um evento só (o ConvertTo-Json o devolve sem lista) e nenhum evento', () => {
+  const one = parseSysmon(JSON.stringify(MOCK_SYSMON_EVENTS[2]));
+  assert.ok(one.available && one.dns.length === 1);
+  const none = parseSysmon('');
+  assert.ok(none.available && none.events === 0);
+  const empty = parseSysmon('[]\r\n');
+  assert.ok(empty.available && empty.events === 0);
+  // BOM e um aviso antes do JSON (linha propria) nao atrapalham.
+  const noisy = parseSysmon(`\uFEFFAVISO: algo\r\n${JSON.stringify(MOCK_SYSMON_EVENTS)}`);
+  assert.ok(noisy.available && noisy.events === 6);
+});
+
+test('sem Sysmon e saída que não é JSON: indisponível, com o motivo', () => {
+  const missing = parseSysmon('DEEPLOOK_SEM_SYSMON\r\n');
+  assert.ok(!missing.available && missing.reason.includes('Sysmon não instalado'));
+  const broken = parseSysmon('Get-WinEvent : erro');
+  assert.ok(!broken.available && broken.reason.includes('formato inesperado'));
+  assert.deepEqual(sysmonIndicators(missing), []);
+});
+
+test('IP privado e loopback não viram indicador', () => {
+  const s = parseSysmon(
+    JSON.stringify([
+      { id: 3, data: { Image: 'a', DestinationIp: '10.0.0.5' } },
+      { id: 3, data: { Image: 'a', DestinationIp: '127.0.0.1' } },
+      { id: 3, data: { Image: 'a', DestinationIp: '192.168.1.1' } },
+      { id: 3, data: { Image: 'a', DestinationIp: '8.8.8.8' } },
+    ]),
+  );
+  assert.deepEqual(sysmonIndicators(s), ['8.8.8.8']);
+});

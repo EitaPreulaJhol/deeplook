@@ -416,6 +416,25 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['imagem acima de {0} pixels', 'image over {0} pixels'],
   ['não foi possível ler o arquivo: {0}', 'could not read the file: {0}'],
 
+  // ---- Artefatos do ambiente (sandbox-artifacts.ts, sysmon.ts): por que o agente nao trouxe nada ----
+  [
+    'sem permissão para usar o agente da VM no Proxmox (VM.GuestAgent.Unrestricted no PVE 9, VM.Monitor no 8)',
+    'no permission to use the VM agent on Proxmox (VM.GuestAgent.Unrestricted on PVE 9, VM.Monitor on 8)',
+  ],
+  [
+    'o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)',
+    'the qemu-guest-agent did not answer in the VM (installed and running in the template?)',
+  ],
+  ['o agente da VM falhou: {0}', 'the VM agent failed: {0}'],
+  ['{0} não terminou a tempo', '{0} did not finish in time'],
+  ['a listagem de processos', 'the process listing'],
+  ['a leitura do Sysmon', 'the Sysmon read'],
+  [
+    'Sysmon não instalado no template (canal Microsoft-Windows-Sysmon/Operational ausente)',
+    'Sysmon not installed in the template (Microsoft-Windows-Sysmon/Operational channel missing)',
+  ],
+  ['resposta do Sysmon em formato inesperado', 'Sysmon answer in an unexpected format'],
+
   // Por ultimo: casaria com "empacotado com {0} (Detect It Easy): ..." (unpack) se viesse antes.
   ['empacotado com {0}', 'packed with {0}'],
 ];

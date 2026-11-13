@@ -1202,6 +1202,7 @@ export async function setupMock(context, state) {
           enabled: true,
           consoleEnabled: true,
           session: state.sandboxes[m[1]] ?? null,
+          sysmonIndicators: state.sysmonIndicators?.[m[1]] ?? [],
         });
       }
       // Artefatos do sandbox (revisao 3.7): o roteiro define o que cada GET devolve (lista = sequencia).
@@ -1209,7 +1210,7 @@ export async function setupMock(context, state) {
       if (m) {
         const r = state.sandboxArtifacts?.[m[1]];
         const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
-        return json(route, 200, value ?? { status: 'RUNNING', note: null, intervalS: 60, screenshots: [], processes: null });
+        return json(route, 200, value ?? { status: 'RUNNING', note: null, intervalS: 60, screenshots: [], processes: null, sysmon: null });
       }
       m = p.match(/^\/api\/sandbox\/([\w-]+)\/artifacts\/(\w+)$/);
       if (m) return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from(EVIDENCE_PNG, 'base64') });

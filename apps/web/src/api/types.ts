@@ -690,7 +690,47 @@ export interface SandboxArtifacts {
     current: SandboxProcess[];
     appeared: SandboxProcess[];
   } | null;
+  /** O que o Sysmon do template registrou (plano pos-revisao, 5.3); null antes da 1a leitura. */
+  sysmon: SandboxSysmon | null;
 }
+
+export interface SysmonProcess {
+  time: string;
+  pid: number | null;
+  ppid: number | null;
+  image: string;
+  cmd: string | null;
+  parentImage: string | null;
+  user: string | null;
+  hashes: string | null;
+}
+
+export type SandboxSysmon =
+  | {
+      at: string;
+      available: true;
+      events: number;
+      truncated: boolean;
+      processes: SysmonProcess[];
+      network: {
+        time: string;
+        image: string;
+        protocol: string | null;
+        dstIp: string | null;
+        dstPort: number | null;
+        dstHost: string | null;
+      }[];
+      files: { time: string; image: string; path: string }[];
+      registry: {
+        time: string;
+        image: string;
+        action: string | null;
+        key: string;
+        details: string | null;
+      }[];
+      dns: { time: string; image: string; query: string; results: string | null }[];
+    }
+  | { at: string; available: false; reason: string };
 
 export interface SandboxProcess {
   pid: number;

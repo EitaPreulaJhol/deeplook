@@ -1443,6 +1443,12 @@ command line (the sample running, the PowerShell it opened).
   reports, and malware can hide processes. It needs permission to use the agent in PVE
   (`VM.GuestAgent.Unrestricted` on PVE 9, `VM.Monitor` on 8; the `PVEVMAdmin` role on `/vms` covers it).
   Without the agent or the permission, only the screenshots remain, and the reason shows on screen.
+- **Sysmon (optional):** on a Windows template with Sysmon installed (step in the
+  [Proxmox guide](docs/proxmox.md#21-analysis-vm-template)), each collection reads through the same agent
+  the events of the `Microsoft-Windows-Sysmon/Operational` channel since the environment started (up to
+  2000): processes (1), connections (3), files created (11), registry (12 to 14) and DNS (22). The screen
+  shows the **process tree** and the lists; domains and public IPs go into the report's suggested IOCs.
+  Without Sysmon, or on a Linux guest, nothing changes, and the reason shows on screen.
 - **Network traffic (pcap):** not yet. The VM goes out through the isolated network behind the Mikrotik
   CHR, and the capture should come from there.
 

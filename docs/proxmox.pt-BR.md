@@ -85,6 +85,21 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
 1. Crie uma VM (Windows/Linux) com `qemu-guest-agent`, **rede isolada** (bridge
    sem rota para a LAN) e **sem credenciais corporativas**.
 2. Instale as ferramentas de análise que você usa.
+   - **Sysmon (opcional, Windows):** com ele, os artefatos do ambiente trazem a árvore de
+     processos, as conexões, os arquivos criados, o registro alterado e as consultas DNS. Baixe o
+     Sysmon da Microsoft (Sysinternals) e uma configuração pronta: recomendamos a
+     [sysmon-modular](https://github.com/olafhartong/sysmon-modular) (`sysmonconfig.xml`), de Olaf
+     Hartong; a da [SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config) também serve.
+     Num PowerShell como administrador:
+     ```powershell
+     .\Sysmon64.exe -accepteula -i sysmonconfig.xml
+     # o canal precisa existir (o DeepLook le os eventos 1, 3, 11, 12, 13, 14 e 22)
+     Get-WinEvent -ListLog Microsoft-Windows-Sysmon/Operational
+     ```
+     A configuração precisa registrar o evento 22 (DNS) e o 3 (rede): as duas citadas registram.
+     Aumente o tamanho do log se a amostra for barulhenta
+     (`wevtutil sl Microsoft-Windows-Sysmon/Operational /ms:67108864`). O DeepLook não instala nada
+     na VM: sem o Sysmon, ficam os prints e a lista de processos.
 3. **Crie um snapshot** (o linked clone usa esse estado como base; sem snapshot o
    DeepLook cai automaticamente para uma cópia cheia, mais lenta).
 4. Converta em template: `qm template <vmid>`. Anote o `<vmid>`.

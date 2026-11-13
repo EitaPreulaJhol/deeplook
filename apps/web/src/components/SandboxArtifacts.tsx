@@ -5,6 +5,7 @@ import type { SandboxArtifacts as Artifacts } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/sandbox';
 import { HpsmMessage } from './messages';
+import { SandboxSysmon } from './SandboxSysmon';
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(intlLocale());
 /** Miniaturas mostradas (as mais recentes); o primeiro print fica sempre. */
@@ -27,7 +28,7 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
   const shots = data.screenshots;
   const shown = shots.length > SHOWN ? [shots[0], ...shots.slice(-(SHOWN - 1))] : shots;
   const appeared = data.processes?.appeared ?? [];
-  if (!shots.length && !data.processes && !data.note) {
+  if (!shots.length && !data.processes && !data.note && !data.sysmon) {
     return running && data.intervalS ? (
       <p className="dl-hint-muted">{t('firstCollect', { n: data.intervalS })}</p>
     ) : null;
@@ -99,6 +100,7 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
           <p className="dl-hint-muted">{t('agentNote')}</p>
         </>
       )}
+      {data.sysmon && <SandboxSysmon sysmon={data.sysmon} />}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import WebSocket from 'ws';
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, loadUser, requireUser } from '../lib/auth';
+import { localizeText } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { recordEvent } from '../lib/events';
 import { attachMockVnc } from '../lib/mock-vnc';
 import { prisma } from '../lib/prisma';
@@ -34,6 +36,7 @@ import {
   sandboxReady,
 } from '../lib/sandbox';
 import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
+import { sysmonIndicators, type SysmonSummary } from '../lib/sysmon';
 
 const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
 
@@ -187,10 +190,21 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     // No, VM, IP e analista sao para quem opera: o painel so existe para analistas.
     const session = isAnalyst(user) ? await activeSessionForEntry(id) : null;
+    // Sysmon (plano pos-revisao, item 5.3): dominios e IPs que a VM procurou ou contatou, em
+    // qualquer ambiente da amostra, vao para os IOCs sugeridos do relatorio.
+    const sysmon = isAnalyst(user)
+      ? await prisma.sandboxArtifact.findMany({
+          where: { kind: 'SYSMON', session: { entryId: id } },
+          select: { sysmon: true },
+        })
+      : [];
     return reply.send({
       enabled: sandboxEnabled,
       consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
       session: session ?? null,
+      sysmonIndicators: [
+        ...new Set(sysmon.flatMap((a) => sysmonIndicators(a.sysmon as unknown as SysmonSummary))),
+      ],
     });
   });
 
@@ -366,7 +380,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
   app.get('/api/sandbox/:id/artifacts', async (req, reply) => {
     const session = await artifactSession(req, reply);
     if (!session) return;
-    const [shots, lists] = await Promise.all([
+    const [shots, lists, sysmon] = await Promise.all([
       prisma.sandboxArtifact.findMany({
         where: { sessionId: session.id, kind: 'SCREENSHOT' },
         orderBy: { createdAt: 'asc' },
@@ -377,13 +391,21 @@ export async function sandboxRoutes(app: FastifyInstance) {
         orderBy: { createdAt: 'asc' },
         select: { createdAt: true, processes: true },
       }),
+      // Sysmon (plano pos-revisao, item 5.3): so a leitura mais recente.
+      prisma.sandboxArtifact.findFirst({
+        where: { sessionId: session.id, kind: 'SYSMON' },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, sysmon: true },
+      }),
     ]);
     const first = lists[0];
     const last = lists.at(-1);
     const processes = (last?.processes ?? []) as GuestProcess[];
+    const lang = requestLang(req);
+    const stored = sysmon?.sysmon as unknown as SysmonSummary | undefined;
     return reply.send({
       status: session.status,
-      note: session.artifactsNote,
+      note: localizeText(session.artifactsNote, lang),
       intervalS: env.SANDBOX_ARTIFACT_INTERVAL_S,
       screenshots: shots,
       processes: last
@@ -396,6 +418,15 @@ export async function sandboxRoutes(app: FastifyInstance) {
             appeared: newProcesses((first!.processes ?? []) as GuestProcess[], processes),
           }
         : null,
+      sysmon:
+        sysmon && stored
+          ? {
+              at: sysmon.createdAt,
+              ...(stored.available
+                ? stored
+                : { available: false, reason: localizeText(stored.reason, lang) }),
+            }
+          : null,
     });
   });
 

@@ -15,6 +15,7 @@ import {
   pveVerifyTls,
 } from './proxmox';
 import { s3 } from './s3';
+import { parseSysmon, sysmonCommand, type SysmonSummary } from './sysmon';
 import { vncSnapshot } from './vnc-snapshot';
 
 /**
@@ -32,8 +33,8 @@ import { vncSnapshot } from './vnc-snapshot';
  *    (VM.GuestAgent.Unrestricted no PVE 9, VM.Monitor no 8), fica so o print, e o motivo aparece
  *    na tela.
  *
- * O pcap fica para depois (decisao do dono): a VM sai pela rede isolada atras do Mikrotik CHR, e
- * a captura de trafego deve sair dele.
+ *  - Sysmon (plano pos-revisao, item 5.3): num guest Windows com o Sysmon no template, os eventos
+ *    desde o inicio da sessao (lib/sysmon.ts), lidos pelo mesmo agente.
  */
 
 export type GuestProcess = { pid: number; ppid: number | null; name: string; cmd: string | null };
@@ -140,27 +141,53 @@ function agentProblem(err: unknown): string {
   return `o agente da VM falhou: ${text.slice(0, 160)}`;
 }
 
-/** Lista os processos do guest pelo agente. Lanca se o agente nao responder. */
-export async function guestProcesses(node: string, vmid: number): Promise<GuestProcess[]> {
-  const base = `/nodes/${node}/qemu/${vmid}/agent`;
-  const os = await pve<{ result?: { id?: string } }>(`${base}/get-osinfo`);
-  const windows = (os.result?.id ?? '').toLowerCase().includes('windows');
-  const started = await pve<{ pid: number }>(`${base}/exec`, {
-    method: 'POST',
-    body: { command: windows ? WINDOWS_COMMAND : LINUX_COMMAND },
-  });
+const agentBase = (node: string, vmid: number) => `/nodes/${node}/qemu/${vmid}/agent`;
+
+/** O guest e Windows? (pelo agente; lanca se ele nao responder). */
+export async function guestIsWindows(node: string, vmid: number): Promise<boolean> {
+  const os = await pve<{ result?: { id?: string } }>(`${agentBase(node, vmid)}/get-osinfo`);
+  return (os.result?.id ?? '').toLowerCase().includes('windows');
+}
+
+/** Roda um comando no guest pelo agente e devolve a saida padrao. */
+async function guestRun(
+  node: string,
+  vmid: number,
+  command: string[],
+  what: string,
+): Promise<string> {
+  const base = agentBase(node, vmid);
+  const started = await pve<{ pid: number }>(`${base}/exec`, { method: 'POST', body: { command } });
   const deadline = Date.now() + EXEC_WAIT_MS;
   for (;;) {
     const status = await pve<{ exited?: number | boolean; 'out-data'?: string; exitcode?: number }>(
       `${base}/exec-status?pid=${started.pid}`,
     );
-    if (status.exited) {
-      const out = status['out-data'] ?? '';
-      return windows ? parseWindowsProcesses(out) : parseLinuxProcesses(out);
-    }
-    if (Date.now() > deadline) throw new Error('a listagem de processos não terminou a tempo');
+    if (status.exited) return status['out-data'] ?? '';
+    if (Date.now() > deadline) throw new Error(`${what} não terminou a tempo`);
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
+}
+
+/** Lista os processos do guest pelo agente. Lanca se o agente nao responder. */
+export async function guestProcesses(
+  node: string,
+  vmid: number,
+  windows?: boolean,
+): Promise<GuestProcess[]> {
+  const isWindows = windows ?? (await guestIsWindows(node, vmid));
+  const out = await guestRun(
+    node,
+    vmid,
+    isWindows ? WINDOWS_COMMAND : LINUX_COMMAND,
+    'a listagem de processos',
+  );
+  return isWindows ? parseWindowsProcesses(out) : parseLinuxProcesses(out);
+}
+
+/** O Sysmon do guest Windows desde `since` (plano pos-revisao, item 5.3). */
+export async function guestSysmon(node: string, vmid: number, since: Date): Promise<SysmonSummary> {
+  return parseSysmon(await guestRun(node, vmid, sysmonCommand(since), 'a leitura do Sysmon'));
 }
 
 /** O endpoint de screenshot do PVE existe? (o PVE 9 o tirou: responde 501). Lembrado no processo. */
@@ -209,11 +236,19 @@ async function pruneShots(sessionId: string): Promise<void> {
 /** Uma coleta: print e processos. Nunca lanca; o motivo de falha do agente fica na sessao. */
 export async function collectArtifacts(
   sessionId: string,
-): Promise<{ shot: boolean; processes: boolean }> {
-  const result = { shot: false, processes: false };
+): Promise<{ shot: boolean; processes: boolean; sysmon: boolean }> {
+  const result = { shot: false, processes: false, sysmon: false };
   const session = await prisma.sandboxSession.findUnique({
     where: { id: sessionId },
-    select: { id: true, node: true, vmid: true, entryId: true, artifactsNote: true },
+    select: {
+      id: true,
+      node: true,
+      vmid: true,
+      entryId: true,
+      artifactsNote: true,
+      startedAt: true,
+      createdAt: true,
+    },
   });
   if (!session?.vmid) return result;
   const { node, vmid } = session;
@@ -241,8 +276,10 @@ export async function collectArtifacts(
   }
 
   let note: string | null = null;
+  let windows = false;
   try {
-    const processes = await guestProcesses(node, vmid);
+    windows = await guestIsWindows(node, vmid);
+    const processes = await guestProcesses(node, vmid, windows);
     await prisma.sandboxArtifact.create({
       data: {
         sessionId,
@@ -253,6 +290,24 @@ export async function collectArtifacts(
     result.processes = true;
   } catch (err) {
     note = agentProblem(err);
+  }
+
+  // Sysmon (plano pos-revisao, item 5.3): so no Windows, e so com o agente respondendo. Os eventos
+  // sao desde o inicio da sessao, entao fica so a leitura mais recente.
+  if (result.processes && windows) {
+    let sysmon: SysmonSummary;
+    try {
+      sysmon = await guestSysmon(node, vmid, session.startedAt ?? session.createdAt);
+    } catch (err) {
+      sysmon = { available: false, reason: agentProblem(err) };
+    }
+    await prisma.$transaction([
+      prisma.sandboxArtifact.deleteMany({ where: { sessionId, kind: 'SYSMON' } }),
+      prisma.sandboxArtifact.create({
+        data: { sessionId, kind: 'SYSMON', sysmon: sysmon as unknown as Prisma.InputJsonValue },
+      }),
+    ]);
+    result.sysmon = sysmon.available;
   }
   if (note !== session.artifactsNote) {
     await prisma.sandboxSession.update({ where: { id: sessionId }, data: { artifactsNote: note } });

@@ -35,9 +35,76 @@ const STOP_MS = 600;
 
 /** Quantas listagens de processos o agente simulado ja fez. */
 let agentRuns = 0;
+/** O que cada execucao do agente pediu (pid -> tipo), para o exec-status responder certo. */
+const agentJobs = new Map<number, 'processes' | 'sysmon'>();
+let agentPid = 1000;
+
+/**
+ * Eventos de exemplo do Sysmon (plano pos-revisao, item 5.3): a amostra abre um PowerShell, que
+ * consulta um dominio, conecta nele, grava um arquivo e cria uma chave de inicializacao.
+ */
+export const MOCK_SYSMON_EVENTS = [
+  {
+    id: 1,
+    time: '2026-11-13T12:00:01.0000000Z',
+    data: {
+      ProcessId: '4410',
+      ParentProcessId: '3020',
+      Image: 'D:\\fatura.exe',
+      CommandLine: '"D:\\fatura.exe" /silent',
+      ParentImage: 'C:\\Windows\\explorer.exe',
+      User: 'SANDBOX\\analista',
+      Hashes: 'SHA256=AB12',
+    },
+  },
+  {
+    id: 1,
+    time: '2026-11-13T12:00:02.0000000Z',
+    data: {
+      ProcessId: '4512',
+      ParentProcessId: '4410',
+      Image: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+      CommandLine: 'powershell -enc SQBFAFgA',
+      ParentImage: 'D:\\fatura.exe',
+    },
+  },
+  {
+    id: 22,
+    time: '2026-11-13T12:00:03.0000000Z',
+    data: { Image: 'powershell.exe', QueryName: 'c2.evil.example', QueryResults: '203.0.113.7;' },
+  },
+  {
+    id: 3,
+    time: '2026-11-13T12:00:04.0000000Z',
+    data: {
+      Image: 'powershell.exe',
+      Protocol: 'tcp',
+      DestinationIp: '203.0.113.7',
+      DestinationPort: '443',
+      DestinationHostname: '-',
+    },
+  },
+  {
+    id: 11,
+    time: '2026-11-13T12:00:05.0000000Z',
+    data: { Image: 'powershell.exe', TargetFilename: 'C:\\Users\\Public\\stage2.dll' },
+  },
+  {
+    id: 13,
+    time: '2026-11-13T12:00:06.0000000Z',
+    data: {
+      Image: 'powershell.exe',
+      EventType: 'SetValue',
+      TargetObject: 'HKU\\S-1-5-21\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\upd',
+      Details: 'C:\\Users\\Public\\stage2.dll',
+    },
+  },
+];
 
 export function pveMockReset(): void {
   agentRuns = 0;
+  agentJobs.clear();
+  agentPid = 1000;
   vms.clear();
   tasks.clear();
   isos.clear();
@@ -196,8 +263,18 @@ export async function pveMock(
       return { result: { id: 'mswindows', name: 'Microsoft Windows 10' } };
     }
     if (rest === '/agent/exec' && method === 'POST') {
-      agentRuns += 1;
-      return { pid: 1000 + agentRuns };
+      const command = (body?.command ?? []) as string[];
+      const kind = command.includes('-EncodedCommand') ? 'sysmon' : 'processes';
+      if (kind === 'processes') agentRuns += 1;
+      agentPid += 1;
+      agentJobs.set(agentPid, kind);
+      return { pid: agentPid };
+    }
+    // VM 9998: Windows sem o Sysmon no template (plano pos-revisao, item 5.3).
+    const execPid = Number(/pid=(\d+)/.exec(path)?.[1] ?? 0);
+    if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'sysmon') {
+      const out = vmid === 9998 ? 'DEEPLOOK_SEM_SYSMON' : JSON.stringify(MOCK_SYSMON_EVENTS);
+      return { exited: 1, exitcode: 0, 'out-data': out };
     }
     if (rest.startsWith('/agent/exec-status')) {
       const lines = [

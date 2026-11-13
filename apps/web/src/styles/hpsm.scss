@@ -3334,6 +3334,47 @@ li .dl-link {
   font-size: 0.8125rem;
 }
 
+/* Sysmon da VM (plano pos-revisao, 5.3): arvore de processos indentada e as listas. */
+.dl-sysmon {
+  margin-block-start: 1rem;
+}
+
+.dl-sysmon__title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.dl-sysmon__tree,
+.dl-sysmon__tree ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  font-size: 0.8125rem;
+}
+
+.dl-sysmon__tree {
+  padding-inline-start: 0;
+  list-style: none;
+
+  ul {
+    border-inline-start: 1px solid var(--dl-table-border);
+    list-style: none;
+  }
+
+  li {
+    padding-block: 0.125rem;
+  }
+}
+
+.dl-sysmon__cmd {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.dl-sysmon__table td {
+  overflow-wrap: anywhere;
+}
+
 /* Documento (oletools): alertas, listas e o codigo das macros, recolhido. */
 .dl-office__alerts,
 .dl-office__list {

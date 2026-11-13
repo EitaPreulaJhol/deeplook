@@ -80,7 +80,8 @@ async function main() {
   // ---- 1. Duas coletas: o que surgiu entre elas.
   ok(
     'coleta: print e processos',
-    JSON.stringify(await collectArtifacts(session.id)) === '{"shot":true,"processes":true}',
+    JSON.stringify(await collectArtifacts(session.id)) ===
+      '{"shot":true,"processes":true,"sysmon":true}',
   );
   ok('rodada dos ambientes em execução', (await collectRunning()) === 1);
   const res = await get(`/api/sandbox/${session.id}/artifacts`, cAna);
@@ -100,6 +101,72 @@ async function main() {
     'lista atual completa',
     a.processes.current.length === 5 && a.note === null,
     a.processes.current.length,
+  );
+
+  // ---- 1b. Sysmon (plano pos-revisao, item 5.3): so a leitura mais recente, com as listas.
+  ok(
+    'Sysmon: uma leitura guardada (a mais recente)',
+    (await prisma.sandboxArtifact.count({ where: { sessionId: session.id, kind: 'SYSMON' } })) ===
+      1,
+  );
+  const sm = a.sysmon;
+  ok(
+    'Sysmon: processos, rede, arquivos, registro e DNS',
+    sm?.available === true &&
+      sm.processes.length === 2 &&
+      sm.processes[1].ppid === 4410 &&
+      sm.network[0].dstIp === '203.0.113.7' &&
+      sm.files[0].path === 'C:\\Users\\Public\\stage2.dll' &&
+      sm.registry.length === 1 &&
+      sm.dns[0].query === 'c2.evil.example',
+    sm,
+  );
+  const indicators = (await get(`/api/entries/${entry.id}/sandbox`, cAna)).json().sysmonIndicators;
+  ok(
+    'Sysmon: domínio e IP vão para os IOCs sugeridos da amostra',
+    JSON.stringify(indicators) === '["c2.evil.example","203.0.113.7"]',
+    indicators,
+  );
+  ok(
+    'usuário comum não recebe os indicadores',
+    JSON.stringify(
+      (await get(`/api/entries/${entry.id}/sandbox`, cUser)).json().sysmonIndicators,
+    ) === '[]',
+  );
+  // Windows sem o Sysmon no template (VM 9998): o motivo, e os processos de sempre.
+  await pve('/nodes/pve/qemu/100/clone', { method: 'POST', body: { newid: 9998, name: 'x' } });
+  const bare = await prisma.sandboxSession.create({
+    data: {
+      entryId: entry.id,
+      analystId: ana.id,
+      node: 'pve',
+      vmid: 9998,
+      name: 'x',
+      status: 'RUNNING',
+      expiresAt: new Date(Date.now() + 3600_000),
+    },
+  });
+  const b = await collectArtifacts(bare.id);
+  const ba = (await get(`/api/sandbox/${bare.id}/artifacts`, cAna)).json();
+  ok(
+    'sem Sysmon: processos sim, Sysmon indisponível com o motivo',
+    b.processes &&
+      !b.sysmon &&
+      ba.sysmon?.available === false &&
+      String(ba.sysmon.reason).includes('Sysmon não instalado'),
+    ba.sysmon,
+  );
+  const baEn = (
+    await app.inject({
+      method: 'GET',
+      url: `/api/sandbox/${bare.id}/artifacts`,
+      headers: { cookie: cAna, 'accept-language': 'en' },
+    })
+  ).json();
+  ok(
+    'em inglês: o motivo traduzido',
+    String(baEn.sysmon?.reason).startsWith('Sysmon not installed'),
+    baEn.sysmon,
   );
 
   // ---- 2. O print, por quem pode ver.
@@ -163,7 +230,11 @@ async function main() {
   const qa = (await get(`/api/sandbox/${quiet.id}/artifacts`, cAna)).json();
   ok(
     'sem agente: print sim, processos não, e o motivo na tela',
-    q.shot && !q.processes && qa.processes === null && String(qa.note).includes('qemu-guest-agent'),
+    q.shot &&
+      !q.processes &&
+      qa.processes === null &&
+      qa.sysmon === null &&
+      String(qa.note).includes('qemu-guest-agent'),
     { q, note: qa.note },
   );
 
@@ -186,7 +257,7 @@ async function main() {
   const keys = await artifactKeysOf(entry.id);
   ok(
     'chaves dos prints da amostra (os dois ambientes)',
-    keys.length === 4 && keys.every((k: string) => k.startsWith(`sandbox/${entry.id}/`)),
+    keys.length === 5 && keys.every((k: string) => k.startsWith(`sandbox/${entry.id}/`)),
     keys,
   );
 

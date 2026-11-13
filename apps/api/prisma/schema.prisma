@@ -449,6 +449,8 @@ model SandboxSession {
 enum SandboxArtifactKind {
   SCREENSHOT
   PROCESSES
+  /// O que o Sysmon do template registrou (plano pos-revisao, item 5.3): so o mais recente.
+  SYSMON
 }
 
 /// Artefatos do sandbox (revisao de novembro, 3.7), colhidos enquanto o ambiente roda: o print da
@@ -462,6 +464,8 @@ model SandboxArtifact {
   storageKey String?
   /// Processos (PROCESSES): [{ pid, ppid, name, cmd }].
   processes  Json?
+  /// Sysmon (SYSMON): processos, rede, arquivos, registro e DNS desde o inicio (lib/sysmon.ts).
+  sysmon     Json?
   createdAt  DateTime            @default(now())
 
   @@index([sessionId, createdAt])

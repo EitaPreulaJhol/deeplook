@@ -34,6 +34,8 @@ const FILES = [
   'yara-update',
   'ioc-import',
   'qr',
+  'sandbox-artifacts',
+  'sysmon',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */

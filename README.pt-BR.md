@@ -1460,6 +1460,12 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
   agente no PVE (`VM.GuestAgent.Unrestricted` no PVE 9, `VM.Monitor` no 8; o papel `PVEVMAdmin`
   em `/vms` cobre). Sem o agente ou sem a permissão, ficam só os prints, e o motivo aparece na
   tela.
+- **Sysmon (opcional):** num template Windows com o Sysmon instalado (passo no
+  [guia do Proxmox](docs/proxmox.pt-BR.md#21-template-da-vm-de-análise)), cada coleta lê pelo mesmo
+  agente os eventos do canal `Microsoft-Windows-Sysmon/Operational` desde o início do ambiente (até
+  2000): processos (1), conexões (3), arquivos criados (11), registro (12 a 14) e DNS (22). A tela
+  mostra a **árvore de processos** e as listas; os domínios e os IPs públicos entram nos IOCs
+  sugeridos do relatório. Sem o Sysmon, ou num guest Linux, nada muda, e o motivo aparece na tela.
 - **Tráfego de rede (pcap):** ainda não. A VM sai pela rede isolada atrás do Mikrotik CHR, e a
   captura deve sair dele.
 
