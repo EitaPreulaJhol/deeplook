@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import { api } from '../api/client';
 import type { CurrentUser, Preferences } from '../api/types';
+import { t } from '../i18n/shell';
 import { DEFAULT_PREFERENCES } from './preferences';
 
 export interface RegisterInput {
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           : {
               to: '/user?tab=2fa',
               state: {
-                notice: `Você entrou com um código de recuperação. Restam ${data.recoveryRemaining}. Gere novos códigos ou reconfigure o 2FA se perdeu o celular.`,
+                notice: t('recoveryUsed', { n: data.recoveryRemaining }),
               },
             };
       queryClient.setQueryData(['me'], data.user);

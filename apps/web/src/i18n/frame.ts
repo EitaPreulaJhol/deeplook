@@ -1,7 +1,7 @@
 import { define, type Pairs } from './core';
 
-/** Moldura da aplicacao: menu lateral, barra superior, menu do usuario, login, preferencias e os
- * rotulos de status, veredito, prioridade, papel e tipo. */
+/** Moldura da aplicacao: menu lateral, barra superior, menu do usuario, login, preferencias, a
+ * faixa de avisos e os rotulos de status, veredito, prioridade, papel e tipo. */
 export const messages = {
   'nav.title': ['Navegação', 'Navigation'],
   'nav.aria': ['Navegação principal', 'Main navigation'],
@@ -175,8 +175,8 @@ export const messages = {
   ],
   'prefs.language': ['Idioma', 'Language'],
   'prefs.languageHelp': [
-    'Menu, barra superior, login e rótulos de status. As demais telas ainda estão em português.',
-    'Menu, top bar, sign-in and status labels. The other screens are still in Portuguese.',
+    'Vale para todas as telas e para as mensagens de erro do servidor. O que foi gravado (relatórios, alertas da análise) fica como está.',
+    'Applies to every screen and to the server error messages. What was stored (reports, analysis alerts) stays as it is.',
   ],
 
   'lang.label': ['Idioma', 'Language'],
@@ -187,6 +187,23 @@ export const messages = {
   'banner.notice': ['Aviso:', 'Notice:'],
   'banner.team': ['Equipe', 'Team'],
   'banner.until': ['até {date}', 'until {date}'],
+  'nav.favHint': [
+    '{label} (clique direito: renomear, mover, remover)',
+    '{label} (right click: rename, move, remove)',
+  ],
+  'nav.favEmpty': [
+    'Vazio. Use “Salvar visão” nas listas ou “Fixar” numa amostra.',
+    'Empty. Use “Save view” in the lists or “Pin” on a sample.',
+  ],
+  'nav.teamEmpty': [
+    'Nenhuma. Use “Compartilhar visão” no Histórico Global.',
+    'None. Use “Share view” in Global history.',
+  ],
+  'nav.teamViewAria': ['Visão da equipe {label}', 'Team view {label}'],
+  'nav.favoriteAria': ['Favorito {label}', 'Favorite {label}'],
+  'nav.sharedBy': ['{label} — compartilhada por {name}', '{label} — shared by {name}'],
+  'nav.someone': ['alguém', 'someone'],
+  'nav.rightClickTeam': ['(clique direito: renomear, remover)', '(right click: rename, remove)'],
 } as const satisfies Pairs;
 
 export type MessageKey = keyof typeof messages;

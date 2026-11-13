@@ -754,6 +754,10 @@ export const messages = {
   mdPublished: ['## Relatórios publicados ({n})', '## Published reports ({n})'],
   mdReportVerdict: ['Veredito: **{verdict}**', 'Verdict: **{verdict}**'],
   mdType: ['Tipo', 'Type'],
+  applying: ['Aplicando...', 'Applying...'],
+  opening: ['Abrindo...', 'Opening...'],
+  extending: ['Estendendo...', 'Extending...'],
+  taking: ['Pegando...', 'Taking...'],
 } as const satisfies Pairs;
 
 export const t = define(messages);

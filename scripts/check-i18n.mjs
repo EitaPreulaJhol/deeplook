@@ -11,8 +11,9 @@
 //   node scripts/check-i18n.mjs --max N    sai com erro se o total passar de N (para travar no CI)
 //
 // Antes da contagem, uma checagem que reprova (sai com erro): t() chamado no topo do modulo (o
-// texto congelaria no idioma da carga) ou dentro de useMemo/useCallback sem `locale` nas
-// dependencias (ficaria no idioma antigo ate outra dependencia mudar).
+// texto congelaria no idioma da carga) ou dentro de useMemo sem `locale` nas dependencias (o
+// resultado ficaria no idioma antigo ate outra dependencia mudar). useCallback nao entra: a funcao
+// chama t() quando roda, ja no idioma do momento.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
@@ -70,7 +71,7 @@ function frozenCalls(path) {
           const call = up.parent;
           if (
             call && ts.isCallExpression(call) && call.arguments[0] === up &&
-            /^(useMemo|useCallback)$/.test(call.expression.getText())
+            /^(React\.)?useMemo$/.test(call.expression.getText())
           ) {
             const deps = call.arguments[1];
             if (!deps || !/\blocale\b/.test(deps.getText())) {

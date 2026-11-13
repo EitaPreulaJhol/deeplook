@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react';
 import { Fragment, useEffect, useId, useRef } from 'react';
 
+import { t } from '../i18n/shell';
 import { SHORTCUT_GROUPS, ShortcutKeys } from './shortcutList';
 
 /**
@@ -40,7 +41,7 @@ export function HpsmShortcutsHelp({ onClose }: { onClose: () => void }) {
         onKeyDown={onKeyDown}
       >
         <h2 id={titleId} className="hpsm-modal__head">
-          Atalhos de teclado
+          {t('shortcutsTitle')}
         </h2>
         <div className="dl-shortcuts">
           <table className="dl-shortcuts__table">
@@ -67,7 +68,7 @@ export function HpsmShortcutsHelp({ onClose }: { onClose: () => void }) {
         </div>
         <div className="hpsm-modal__actions">
           <button ref={closeRef} type="button" className="dl-btn dl-btn--primary" onClick={onClose}>
-            Fechar
+            {t('close')}
           </button>
         </div>
       </div>

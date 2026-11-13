@@ -119,7 +119,7 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
   const button =
     canTriage && info.enabled && info.eligible && !busy ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
-        {asking ? 'Pedindo...' : a ? t('analyzeAgain') : t('analyzeGhidra')}
+        {asking ? t('requesting') : a ? t('analyzeAgain') : t('analyzeGhidra')}
       </button>
     ) : null;
 

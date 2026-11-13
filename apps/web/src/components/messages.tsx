@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { t } from '../i18n/shell';
+
 /**
  * Barra de mensagens unica da area de trabalho (estilo HP Service Manager):
  * avisos e erros de qualquer pagina aparecem empilhados no topo do conteudo,
@@ -61,8 +63,8 @@ export function HpsmMessage({ kind, children }: HpsmMessageProps) {
       <button
         type="button"
         className="hpsm-msg__close"
-        aria-label="Dispensar mensagem"
-        title="Dispensar"
+        aria-label={t('dismissMessage')}
+        title={t('dismiss')}
         onClick={() => setDismissed(true)}
       >
         ×

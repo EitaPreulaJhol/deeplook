@@ -236,16 +236,18 @@ Differences from the plan:
   the coverage floor now counts all logic outside components (the `.ts` files in `api`, `auth`
   and `components`), not every module: screens (`.tsx`) stay with the Playwright scenarios.
   Measured: 87.3% of statements; floor at 84%.
-- **2.5 — stage 1 ✅, the rest in progress**: infrastructure without a new library
-  (`apps/web/src/i18n`: Portuguese dictionary as the source, English with the same keys checked by
-  TypeScript, `t()` and a subscriber that redraws the app on change), language saved in the account
-  preferences and, before sign-in, on the machine, and the frame translated: side menu, top bar, user
-  menu, sign-in, preferences and the status, verdict, priority, role and type labels. **Decision:**
-  without a choice, Portuguese, even with the browser in English (with most screens still in
-  Portuguese, mixing by default would be worse). **Left:** the other screens (about 1,565 texts in 118
-  files by `scripts/check-i18n.mjs`'s count, which misses short unaccented labels) and the API error
-  messages, which need a code per error so the text can live in the web. Suggested next stages, by
-  frequency of use: sample lists and record, submission, cases, administration.
+- **2.5 ✅ (interface)**: infrastructure without a new library (`apps/web/src/i18n`: one dictionary
+  per area, with Portuguese and English side by side, each with its own `t()`; `localized()` for
+  module-level tables; dates and numbers through `Intl` in the chosen language), language saved in
+  the account preferences and, before sign-in, on the machine, and every screen translated, in 8
+  stages (frame, lists and record, analysis, submission and cases, detection, management,
+  administration, account and the rest). API errors come in English for whoever sends
+  `Accept-Language: en` (the interface sends its own language): a hook translates `error` and
+  `details` through a dictionary of over 300 messages, without touching the routes. **Decisions:**
+  without a choice, Portuguese, even with the browser in English; each screen's Portuguese text did
+  not change, so the UI scenarios still hold. **Still in Portuguese:** what the API stores as data
+  (analysis alerts, findings, risk reasons, history and status details), the audit CSV and the
+  OpenAPI specification.
 
 It comes before the analysis features because tests and fuzzing protect what phase 3 touches.
 

@@ -8,6 +8,7 @@ import { AppShell } from './components/AppShell';
 import { lazyPage } from './components/lazyPage';
 import { HpsmLoading } from './components/messages';
 import { setLocale, useLocale } from './i18n';
+import { t } from './i18n/shell';
 import { ForcePasswordPage } from './pages/ForcePasswordPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -59,7 +60,7 @@ function FullScreenLoader() {
   return (
     <div className="dl-public">
       <div className="dl-public__main">
-        <HpsmLoading text="Carregando DeepLook..." />
+        <HpsmLoading text={t('loadingDeepLook')} />
       </div>
     </div>
   );

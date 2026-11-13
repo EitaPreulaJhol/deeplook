@@ -1,6 +1,8 @@
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 
+import { t } from '../i18n/shell';
+
 export interface ConfirmOptions {
   /** Titulo do cabecalho da caixa. */
   title: string;
@@ -98,8 +100,8 @@ export function usePrompt(): PromptFn {
 function ConfirmDialog({
   title,
   message,
-  confirmLabel = 'Sim',
-  cancelLabel = 'Não',
+  confirmLabel = t('yes'),
+  cancelLabel = t('no'),
   danger,
   onClose,
 }: ConfirmOptions & { onClose: (value: boolean) => void }) {
@@ -249,7 +251,7 @@ function PromptDialog({
               {confirmLabel}
             </button>
             <button type="button" className="dl-btn" onClick={() => onClose(null)}>
-              Cancelar
+              {t('cancel')}
             </button>
           </div>
         </form>

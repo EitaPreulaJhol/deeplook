@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { t } from '../i18n/shell';
 import { IconCopy } from './icons';
 
 /** Copia o texto; sem a Clipboard API (HTTP sem TLS), usa o metodo antigo. */
@@ -50,13 +51,13 @@ export function CopyButton({ value, label }: CopyButtonProps) {
     <button
       type="button"
       className={`hpsm-copy${state !== 'idle' ? ` is-${state}` : ''}`}
-      title={`Copiar ${label}`}
-      aria-label={`Copiar ${label}`}
+      title={t('copyLabel', { label })}
+      aria-label={t('copyLabel', { label })}
       onClick={async () => setState((await copyText(value)) ? 'copied' : 'failed')}
     >
       <IconCopy size={16} />
       <span className="hpsm-copy__status" aria-live="polite">
-        {state === 'copied' ? 'Copiado' : state === 'failed' ? 'Não foi possível copiar' : ''}
+        {state === 'copied' ? t('copied') : state === 'failed' ? t('copyFailed') : ''}
       </span>
     </button>
   );

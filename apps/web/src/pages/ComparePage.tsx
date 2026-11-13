@@ -19,7 +19,8 @@ import { IconRefresh } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { PriorityTag, StatusTag, TypeTag, VerdictTag } from '../components/tags';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/misc';
 
 interface CompareEntry {
   id: string;
@@ -81,20 +82,20 @@ interface CompareResult {
 }
 
 /** Listas na ordem da tela (as vazias dos dois lados nao aparecem). */
-const LISTS: { key: ListKey; title: string }[] = [
+const LISTS: { key: ListKey; title: string }[] = localized(() => [
   { key: 'iocs', title: 'IOCs' },
-  { key: 'yara', title: 'Regras YARA' },
-  { key: 'attack', title: 'Técnicas ATT&CK' },
-  { key: 'urls', title: 'URLs nas strings' },
-  { key: 'ips', title: 'IPs nas strings' },
-  { key: 'emails', title: 'E-mails nas strings' },
-  { key: 'paths', title: 'Caminhos' },
-  { key: 'registry', title: 'Chaves de registro' },
-  { key: 'suspicious', title: 'Strings suspeitas' },
-  { key: 'imports', title: 'DLLs importadas' },
-  { key: 'suspiciousImports', title: 'Funções importadas suspeitas' },
-  { key: 'sections', title: 'Seções do PE' },
-];
+  { key: 'yara', title: t('lYara') },
+  { key: 'attack', title: t('lAttack') },
+  { key: 'urls', title: t('lUrls') },
+  { key: 'ips', title: t('lIps') },
+  { key: 'emails', title: t('lEmails') },
+  { key: 'paths', title: t('lPaths') },
+  { key: 'registry', title: t('lRegistry') },
+  { key: 'suspicious', title: t('lSuspicious') },
+  { key: 'imports', title: t('lImports') },
+  { key: 'suspiciousImports', title: t('lSuspImports') },
+  { key: 'sections', title: t('lSections') },
+]);
 
 const ENTROPY_LABEL = { low: 'baixa', normal: 'normal', high: 'alta' } as const;
 
@@ -147,7 +148,7 @@ export function ComparePage() {
     always?: boolean;
   }[] = [
     {
-      label: 'Amostra',
+      label: t('sample'),
       render: (e) => (
         <Link className="dl-link" to={`/entries/${e.id}`}>
           {e.title}
@@ -156,21 +157,25 @@ export function ComparePage() {
       key: () => '',
       always: true,
     },
-    { label: 'Tipo', render: (e) => <TypeTag type={e.type} />, key: (e) => e.type },
-    { label: 'Tipo real', render: (e) => e.detectedType ?? '—', key: (e) => e.detectedType ?? '' },
+    { label: t('type'), render: (e) => <TypeTag type={e.type} />, key: (e) => e.type },
     {
-      label: 'Arquivo',
+      label: t('realType'),
+      render: (e) => e.detectedType ?? '—',
+      key: (e) => e.detectedType ?? '',
+    },
+    {
+      label: t('file'),
       render: (e) => e.originalFilename ?? '—',
       key: (e) => e.originalFilename ?? '',
     },
-    { label: 'Tamanho', render: (e) => fmtSize(e.fileSize), key: (e) => String(e.fileSize ?? '') },
+    { label: t('size'), render: (e) => fmtSize(e.fileSize), key: (e) => String(e.fileSize ?? '') },
     {
       label: 'SHA-256',
       render: (e) => <span className="dl-mono">{e.sha256 ?? '—'}</span>,
       key: (e) => e.sha256 ?? '',
     },
     {
-      label: 'Entropia',
+      label: t('entropy'),
       render: (e) =>
         e.entropy === null
           ? '—'
@@ -201,12 +206,12 @@ export function ComparePage() {
       key: (e) => e.pe?.richHash ?? '',
     },
     {
-      label: 'Assinado por',
+      label: t('signedBy'),
       render: (e) => e.pe?.signer ?? '—',
       key: (e) => e.pe?.signer ?? '',
     },
     {
-      label: 'Compilado em',
+      label: t('compiledAt'),
       render: (e) =>
         e.pe?.compiledAt ? new Date(e.pe.compiledAt).toLocaleString(intlLocale()) : '—',
       key: (e) => e.pe?.compiledAt ?? '',
@@ -216,16 +221,20 @@ export function ComparePage() {
       render: (e) => <span className="dl-mono">{e.url ?? '—'}</span>,
       key: (e) => e.url ?? '',
     },
-    { label: 'Veredito', render: (e) => <VerdictTag verdict={e.verdict} />, key: (e) => e.verdict },
-    { label: 'Status', render: (e) => <StatusTag status={e.status} />, key: (e) => e.status },
     {
-      label: 'Prioridade',
+      label: t('verdict'),
+      render: (e) => <VerdictTag verdict={e.verdict} />,
+      key: (e) => e.verdict,
+    },
+    { label: t('status'), render: (e) => <StatusTag status={e.status} />, key: (e) => e.status },
+    {
+      label: t('priority'),
       render: (e) => <PriorityTag priority={e.priority} />,
       key: (e) => e.priority,
     },
-    { label: 'Enviada por', render: (e) => e.owner.displayName, key: (e) => e.owner.id },
+    { label: t('submittedBy'), render: (e) => e.owner.displayName, key: (e) => e.owner.id },
     {
-      label: 'Enviada em',
+      label: t('submittedOn'),
       render: (e) => new Date(e.createdAt).toLocaleString(intlLocale()),
       key: () => '',
       always: true,
@@ -242,38 +251,25 @@ export function ComparePage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações da comparação">
-        <HpsmToolbarButton
-          label="Trocar os lados"
-          icon={IconRefresh}
-          disabled={!d}
-          onClick={swap}
-        />
+      <HpsmToolbar label={t('compareActions')}>
+        <HpsmToolbarButton label={t('swapSides')} icon={IconRefresh} disabled={!d} onClick={swap} />
       </HpsmToolbar>
       <PageHeader
-        title="Comparar amostras"
-        subtitle={d ? `A: ${d.a.title} × B: ${d.b.title}` : 'Duas amostras lado a lado.'}
+        title={t('compareTitle')}
+        subtitle={d ? `A: ${d.a.title} × B: ${d.b.title}` : t('twoSides')}
       />
-      {(!a || !b) && (
-        <HpsmMessage kind="info">
-          Escolha as amostras pelo "Comparar com…" da ficha (menu Mais) ou marque duas na lista.
-        </HpsmMessage>
-      )}
-      {query.isLoading && <HpsmLoading text="Comparando..." />}
+      {(!a || !b) && <HpsmMessage kind="info">{t('compareHint')}</HpsmMessage>}
+      {query.isLoading && <HpsmLoading text={t('comparing')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
-      {d?.sameContent && (
-        <HpsmMessage kind="info">
-          As duas têm o mesmo conteúdo (SHA-256 igual): uma pode ser duplicata da outra.
-        </HpsmMessage>
-      )}
+      {d?.sameContent && <HpsmMessage kind="info">{t('sameContent')}</HpsmMessage>}
       {d && (
         <>
-          <HpsmSection title="Lado a lado">
+          <HpsmSection title={t('sideBySide')}>
             <TableContainer>
-              <Table size="xs" aria-label="Campos lado a lado" className="dl-compare">
+              <Table size="xs" aria-label={t('fieldsAria')} className="dl-compare">
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Campo</TableHeader>
+                    <TableHeader scope="col">{t('field')}</TableHeader>
                     <TableHeader scope="col">A</TableHeader>
                     <TableHeader scope="col">B</TableHeader>
                   </TableRow>
@@ -285,7 +281,7 @@ export function ComparePage() {
                       <TableRow key={r.label} className={differs ? 'is-diff' : undefined}>
                         <TableCell>
                           {r.label}
-                          {differs && <span className="dl-compare__differs"> (difere)</span>}
+                          {differs && <span className="dl-compare__differs"> {t('differs')}</span>}
                         </TableCell>
                         <TableCell>{r.render(d.a)}</TableCell>
                         <TableCell>{r.render(d.b)}</TableCell>
@@ -297,12 +293,7 @@ export function ComparePage() {
             </TableContainer>
           </HpsmSection>
 
-          {lists.length === 0 && (
-            <HpsmMessage kind="info">
-              Nenhuma das duas tem strings, IOCs, imports, regras YARA ou técnicas ATT&CK para
-              comparar.
-            </HpsmMessage>
-          )}
+          {lists.length === 0 && <HpsmMessage kind="info">{t('nothingToCompare')}</HpsmMessage>}
           {lists.map(({ key, title }) => {
             const l = d.lists[key];
             const column = (label: string, items: string[], tone: string) => (
@@ -329,13 +320,13 @@ export function ComparePage() {
             return (
               <HpsmSection
                 key={key}
-                title={`${title}: ${l.common.length} em comum`}
+                title={t('inCommon', { title, n: l.common.length })}
                 className="dl-mt-lg"
               >
                 <div className="dl-compare-list" data-list={key}>
-                  {column('Só em A', l.onlyA, 'a')}
-                  {column('Em comum', l.common, 'common')}
-                  {column('Só em B', l.onlyB, 'b')}
+                  {column(t('onlyA'), l.onlyA, 'a')}
+                  {column(t('common'), l.common, 'common')}
+                  {column(t('onlyB'), l.onlyB, 'b')}
                 </div>
               </HpsmSection>
             );

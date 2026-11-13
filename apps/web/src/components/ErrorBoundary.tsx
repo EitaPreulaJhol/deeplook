@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
+import { t } from '../i18n/shell';
+
 /**
  * Rede de segurança do render (item 1.1 do plano de melhorias).
  *
@@ -65,20 +67,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <span className="dl-errbox__icon" aria-hidden="true">
               ×
             </span>
-            <span>Esta tela não pôde ser exibida</span>
+            <span>{t('errTitle')}</span>
           </div>
 
-          <p className="dl-errbox__text">
-            Houve uma falha ao desenhar o conteúdo. Nada do que estava gravado se perdeu
-            {page ? ', e as outras abas continuam abertas.' : '.'}
-          </p>
+          <p className="dl-errbox__text">{t(page ? 'errBodyPage' : 'errBody')}</p>
 
-          <p className="dl-errbox__reason">{error.message || 'Erro desconhecido.'}</p>
+          <p className="dl-errbox__reason">{error.message || t('unknownError')}</p>
 
           <div className="dl-errbox__actions">
             {page && (
               <button type="button" className="cds--btn cds--btn--secondary" onClick={this.reset}>
-                Tentar de novo
+                {t('tryAgain')}
               </button>
             )}
             <button
@@ -86,7 +85,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               className="cds--btn cds--btn--secondary"
               onClick={() => window.location.reload()}
             >
-              Recarregar a página
+              {t('reload')}
             </button>
             <button
               type="button"
@@ -95,13 +94,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 window.location.href = '/';
               }}
             >
-              Voltar ao início
+              {t('backHome')}
             </button>
           </div>
 
           {detail && (
             <details className="dl-errbox__details">
-              <summary>Detalhes técnicos</summary>
+              <summary>{t('techDetails')}</summary>
               <pre>{detail}</pre>
             </details>
           )}

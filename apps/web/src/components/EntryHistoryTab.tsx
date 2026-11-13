@@ -183,7 +183,7 @@ export function EntryHistoryTab({ entryId }: { entryId: string }) {
       <HpsmSection title={t('newUpdate')}>
         <HpsmToolbar label={t('updateActions')}>
           <HpsmToolbarButton
-            label={saving ? 'Salvando...' : t('addUpdate')}
+            label={saving ? t('saving') : t('addUpdate')}
             title={t('addUpdateHelp')}
             icon={IconAdd}
             disabled={saving}

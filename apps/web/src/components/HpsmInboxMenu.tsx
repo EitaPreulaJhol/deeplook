@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type { AppNotification } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/shell';
 import { IconBell } from './icons';
 import {
   notificationHref,
@@ -88,8 +89,8 @@ export function HpsmInboxMenu() {
   };
 
   const label = unread
-    ? `Caixa de entrada: ${unread} não lida${unread > 1 ? 's' : ''}`
-    : 'Caixa de entrada';
+    ? t(unread > 1 ? 'inboxUnreadMany' : 'inboxUnreadOne', { n: unread })
+    : t('inbox');
 
   return (
     <div className="hpsm-usermenu hpsm-inbox" ref={rootRef}>
@@ -123,11 +124,11 @@ export function HpsmInboxMenu() {
           id={panelId}
           className="hpsm-usermenu__panel hpsm-inbox__panel"
           role="menu"
-          aria-label="Caixa de entrada"
+          aria-label={t('inbox')}
           onKeyDown={onMenuKeyDown}
         >
           <div className="hpsm-inbox__head" role="none">
-            <span>Caixa de entrada</span>
+            <span>{t('inbox')}</span>
             {unread > 0 && (
               <button
                 type="button"
@@ -135,13 +136,13 @@ export function HpsmInboxMenu() {
                 className="dl-link-button"
                 onClick={() => void markRead()}
               >
-                Marcar todas como lidas
+                {t('markAllRead')}
               </button>
             )}
           </div>
-          {list.isLoading && <div className="hpsm-inbox__empty">Carregando...</div>}
+          {list.isLoading && <div className="hpsm-inbox__empty">{t('loadingDots')}</div>}
           {list.data && items.length === 0 && (
-            <div className="hpsm-inbox__empty">Nenhuma notificação.</div>
+            <div className="hpsm-inbox__empty">{t('noNotifications')}</div>
           )}
           {items.map((n) => (
             <button
@@ -160,12 +161,12 @@ export function HpsmInboxMenu() {
                 )}
                 {notificationResolution(n) && (
                   <span className="hpsm-inbox__detail dl-resolution-line">
-                    O que fazer: {notificationResolution(n)}
+                    {t('whatToDo', { text: notificationResolution(n) })}
                   </span>
                 )}
               </span>
               <span className="hpsm-inbox__date">{fmtDate(n.createdAt)}</span>
-              {!n.readAt && <span className="cds--visually-hidden"> (não lida)</span>}
+              {!n.readAt && <span className="cds--visually-hidden"> {t('unreadParen')}</span>}
             </button>
           ))}
           <div className="hpsm-usermenu__sep" role="separator" />
@@ -178,7 +179,7 @@ export function HpsmInboxMenu() {
               navigate('/inbox');
             }}
           >
-            Ver todas na Caixa de entrada
+            {t('seeAllInbox')}
           </button>
         </div>
       )}

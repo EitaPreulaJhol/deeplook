@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { NotificationType } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { t as tr } from '../i18n/account';
 import { HpsmField, HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconSettings } from './icons';
@@ -49,7 +50,7 @@ export function NotificationsTab() {
     setSaving(true);
     try {
       await updatePreferences({ mutedNotifications: [...muted] });
-      setResult({ kind: 'success', text: 'Notificações salvas.' });
+      setResult({ kind: 'success', text: tr('notifSaved') });
     } catch (err) {
       setResult({ kind: 'error', text: (err as Error).message });
     } finally {
@@ -60,35 +61,28 @@ export function NotificationsTab() {
   useSaveShortcut(save, !saving);
 
   return (
-    <HpsmSection title="Avisos na Caixa de entrada" className="dl-form-col">
-      <HpsmToolbar label="Ações das notificações">
+    <HpsmSection title={tr('inboxNotices')} className="dl-form-col">
+      <HpsmToolbar label={tr('notifActions')}>
         <HpsmToolbarButton
-          label={saving ? 'Salvando...' : 'Salvar notificações'}
-          title="Salvar (Ctrl+S)"
+          label={saving ? tr('saving') : tr('saveNotifs')}
+          title={tr('saveHint')}
           icon={IconSettings}
           disabled={saving || !query.data}
           onClick={save}
         />
       </HpsmToolbar>
       {result && <HpsmMessage kind={result.kind}>{result.text}</HpsmMessage>}
-      <p className="dl-static-empty">
-        Desmarque o que não quer receber. Vale para os próximos avisos: os que já chegaram ficam na
-        Caixa de entrada, e o histórico das amostras não muda.
-      </p>
-      {query.isPending && <HpsmLoading text="Carregando os tipos de aviso..." />}
+      <p className="dl-static-empty">{tr('notifHint')}</p>
+      {query.isPending && <HpsmLoading text={tr('loadingTypes')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && (
         <HpsmForm>
-          <HpsmField
-            label="Receber"
-            top
-            help="Os marcados como “sempre chega” pedem uma ação sua e não podem ser desligados."
-          >
+          <HpsmField label={tr('receive')} top help={tr('receiveHelp')}>
             {query.data.types.map(({ type, locked }) => (
               <Checkbox
                 key={type}
                 id={`notif-${type}`}
-                labelText={`${NOTIFICATION_TYPE_LABELS[type]}${locked ? ' (sempre chega)' : ''}`}
+                labelText={`${NOTIFICATION_TYPE_LABELS[type]}${locked ? ` ${tr('alwaysArrives')}` : ''}`}
                 checked={locked || !muted.has(type)}
                 disabled={locked}
                 onChange={(_, { checked }) => toggle(type, checked)}

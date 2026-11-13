@@ -12,6 +12,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/account';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmSection } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
@@ -68,42 +69,42 @@ export function SessionsTab() {
 
   const revoke = async (s: SessionRow) => {
     const ok = await confirm({
-      title: 'Encerrar sessão',
-      message: `Encerrar a sessão em ${s.device}${s.ip ? ` (${s.ip})` : ''}? Quem estiver usando terá de entrar de novo.`,
-      confirmLabel: 'Encerrar',
-      cancelLabel: 'Cancelar',
+      title: t('endSession'),
+      message: t('endSessionConfirm', { device: s.device, ip: s.ip ? ` (${s.ip})` : '' }),
+      confirmLabel: t('end'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/me/sessions/${s.handle}`);
-      return `Sessão em ${s.device} encerrada.`;
+      return t('sessionEnded', { device: s.device });
     });
   };
 
   const revokeOthers = async () => {
     const ok = await confirm({
-      title: 'Encerrar as outras sessões',
-      message: `Encerrar ${others} sessão(ões) em outros navegadores? Esta continua aberta.`,
-      confirmLabel: 'Encerrar',
-      cancelLabel: 'Cancelar',
+      title: t('endOthers'),
+      message: t('endOthersConfirm', { n: others }),
+      confirmLabel: t('end'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       const res = await api.post<{ revoked: number }>('/me/sessions/revoke-others', {});
-      return `${res.revoked} sessão(ões) encerrada(s).`;
+      return t('sessionsEnded', { n: res.revoked });
     });
   };
 
   return (
     <>
-      <HpsmToolbar label="Ações das sessões">
+      <HpsmToolbar label={t('sessionActions')}>
         <HpsmToolbarButton
-          label="Encerrar as outras sessões"
+          label={t('endOthers')}
           icon={IconLogout}
           disabled={busy || others === 0}
-          title={others === 0 ? 'Não há outras sessões abertas' : undefined}
+          title={others === 0 ? t('noOthers') : undefined}
           onClick={() => void revokeOthers()}
         />
       </HpsmToolbar>
@@ -112,22 +113,20 @@ export function SessionsTab() {
           {notice.text}
         </HpsmMessage>
       )}
-      {query.isLoading && <HpsmLoading text="Carregando sessões..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingSessions')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
-      <HpsmSection title={`Sessões abertas (${sessions.length})`}>
-        <p className="dl-static-empty">
-          Onde sua conta está logada agora. Se não reconhecer alguma, encerre-a e troque a senha.
-        </p>
+      <HpsmSection title={t('openSessionsN', { n: sessions.length })}>
+        <p className="dl-static-empty">{t('sessionsHint')}</p>
         {sessions.length > 0 && (
           <TableContainer>
-            <Table size="xs" aria-label="Sessões abertas">
+            <Table size="xs" aria-label={t('openSessions')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Navegador</TableHeader>
+                  <TableHeader scope="col">{t('browser')}</TableHeader>
                   <TableHeader scope="col">IP</TableHeader>
-                  <TableHeader scope="col">Entrou em</TableHeader>
-                  <TableHeader scope="col">Último acesso</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{t('signedInAt')}</TableHeader>
+                  <TableHeader scope="col">{t('lastAccess')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -138,7 +137,7 @@ export function SessionsTab() {
                       {s.current && (
                         <>
                           {' '}
-                          <StatusText tone="green">esta sessão</StatusText>
+                          <StatusText tone="green">{t('thisSession')}</StatusText>
                         </>
                       )}
                     </TableCell>
@@ -157,7 +156,7 @@ export function SessionsTab() {
                           disabled={busy}
                           onClick={() => void revoke(s)}
                         >
-                          Encerrar…
+                          {t('endEllipsis')}
                         </button>
                       )}
                     </TableCell>

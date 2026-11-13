@@ -15,6 +15,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { evidenceUrl } from '../components/ReportEvidence';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/misc';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
@@ -56,7 +57,7 @@ export function EntryPrintPage() {
   const ready = Boolean(entry && events);
 
   useEffect(() => {
-    if (entry) document.title = `Ficha — ${entry.title}`;
+    if (entry) document.title = tr('printEntryTitle', { title: entry.title });
   }, [entry]);
 
   // Impressao automatica (uma vez) quando tudo carregou.
@@ -70,57 +71,59 @@ export function EntryPrintPage() {
 
   let body: ReactNode;
   if (entryQuery.isLoading || eventsQuery.isLoading) {
-    body = <HpsmLoading text="Preparando a ficha..." />;
+    body = <HpsmLoading text={tr('preparingRecord')} />;
   } else if (!entry || !events) {
-    body = <HpsmMessage kind="error">Amostra não encontrada.</HpsmMessage>;
+    body = <HpsmMessage kind="error">{tr('sampleNotFound')}</HpsmMessage>;
   } else {
     const published = (entry.reports ?? []).filter((r) => r.status === 'PUBLISHED');
     body = (
       <>
         <section className="dl-print__section">
-          <h2>Dados da amostra</h2>
+          <h2>{tr('sampleData')}</h2>
           <table className="dl-print__kv">
             <tbody>
               <Row label="ID">{entry.id}</Row>
-              <Row label="Tipo">
+              <Row label={tr('type')}>
                 <TypeTag type={entry.type} />
               </Row>
-              <Row label="Status">
+              <Row label={tr('status')}>
                 <StatusTag status={entry.status} />
               </Row>
-              <Row label="Veredito">
+              <Row label={tr('verdict')}>
                 <VerdictTag verdict={entry.verdict} />
               </Row>
-              <Row label="Responsável">{entry.assignee?.displayName ?? '—'}</Row>
-              <Row label="Enviado por">
+              <Row label={tr('assignee')}>{entry.assignee?.displayName ?? '—'}</Row>
+              <Row label={tr('submittedByM')}>
                 {entry.owner.displayName}
                 {entry.owner.email && ` (${entry.owner.email})`}
               </Row>
-              <Row label="Enviado em">{fmtDate(entry.createdAt)}</Row>
-              <Row label="No status desde">{fmtDate(entry.statusChangedAt)}</Row>
+              <Row label={tr('submittedOnM')}>{fmtDate(entry.createdAt)}</Row>
+              <Row label={tr('inStatusSince')}>{fmtDate(entry.statusChangedAt)}</Row>
               {entry.duplicateOf && (
-                <Row label="Duplicata de">
+                <Row label={tr('duplicateOf')}>
                   {entry.duplicateOf.title} ({entry.duplicateOf.id})
                 </Row>
               )}
               {(entry._count?.duplicates ?? 0) > 0 && (
-                <Row label="Duplicatas">{entry._count?.duplicates}</Row>
+                <Row label={tr('duplicates')}>{entry._count?.duplicates}</Row>
               )}
               {entry.type === 'FILE' ? (
                 <>
-                  <Row label="Arquivo">
+                  <Row label={tr('file')}>
                     {entry.originalFilename ?? '—'} ({formatFileSize(entry.fileSize)})
                   </Row>
-                  <Row label="Tipo MIME">{entry.mimeType ?? '—'}</Row>
+                  <Row label={tr('mimeType')}>{entry.mimeType ?? '—'}</Row>
                   {entry.staticInfo?.detectedType && (
-                    <Row label="Tipo real">
+                    <Row label={tr('realType')}>
                       {entry.staticInfo.detectedType.label}
                       {entry.staticInfo.extensionMismatch?.dangerous &&
-                        ` (executável disfarçado de .${entry.staticInfo.extensionMismatch.declared})`}
+                        ` ${tr('disguisedAs', { ext: entry.staticInfo.extensionMismatch.declared })}`}
                     </Row>
                   )}
                   {entry.staticInfo && (
-                    <Row label="Entropia">{entry.staticInfo.entropy.toFixed(2)} de 8</Row>
+                    <Row label={tr('entropy')}>
+                      {tr('entropyOf8', { value: entry.staticInfo.entropy.toFixed(2) })}
+                    </Row>
                   )}
                   <Row label="SHA-256">
                     <span className="dl-print__mono">{entry.sha256 ?? '—'}</span>
@@ -131,27 +134,30 @@ export function EntryPrintPage() {
                   <span className="dl-print__mono">{entry.url}</span>
                 </Row>
               )}
-              <Row label="Tags">{entry.tags.map((t) => t.name).join(', ') || '—'}</Row>
+              <Row label={tr('tags')}>{entry.tags.map((t) => t.name).join(', ') || '—'}</Row>
             </tbody>
           </table>
-          <h3>Descrição</h3>
+          <h3>{tr('description')}</h3>
           <p className="dl-print__text">{entry.description || '—'}</p>
         </section>
 
         <section className="dl-print__section">
-          <h2>Relatórios publicados ({published.length})</h2>
-          {published.length === 0 && <p>Nenhum relatório publicado.</p>}
+          <h2>{tr('publishedReportsN', { n: published.length })}</h2>
+          {published.length === 0 && <p>{tr('noPublished')}</p>}
           {published.map((report) => (
             <article key={report.id} className="dl-print__report">
               <h3>
-                {report.analyst.displayName} — {fmtDate(report.createdAt)} — Veredito:{' '}
+                {tr('reportHeader', {
+                  name: report.analyst.displayName,
+                  date: fmtDate(report.createdAt),
+                })}{' '}
                 <VerdictTag verdict={report.verdict} />
               </h3>
-              <h4>Resumo</h4>
+              <h4>{tr('summary')}</h4>
               <p className="dl-print__text">{report.summary}</p>
               {report.findings && (
                 <>
-                  <h4>Achados</h4>
+                  <h4>{tr('findings')}</h4>
                   <p className="dl-print__text">{report.findings}</p>
                 </>
               )}
@@ -163,12 +169,15 @@ export function EntryPrintPage() {
               )}
               {(report.evidence?.length ?? 0) > 0 && (
                 <>
-                  <h4>Evidências ({report.evidence?.length})</h4>
+                  <h4>{tr('evidenceN', { n: report.evidence?.length })}</h4>
                   <div className="dl-print__evidence">
                     {(report.evidence ?? []).map((e, i) => (
                       <figure key={e.id}>
-                        <img src={evidenceUrl(e.id)} alt={e.caption || `Evidência ${i + 1}`} />
-                        <figcaption>{e.caption || `Evidência ${i + 1}`}</figcaption>
+                        <img
+                          src={evidenceUrl(e.id)}
+                          alt={e.caption || tr('evidenceItem', { n: i + 1 })}
+                        />
+                        <figcaption>{e.caption || tr('evidenceItem', { n: i + 1 })}</figcaption>
                       </figure>
                     ))}
                   </div>
@@ -179,20 +188,20 @@ export function EntryPrintPage() {
         </section>
 
         <section className="dl-print__section">
-          <h2>Histórico ({events.length})</h2>
+          <h2>{tr('historyN', { n: events.length })}</h2>
           <table className="dl-print__grid">
             <thead>
               <tr>
-                <th scope="col">Data</th>
-                <th scope="col">Usuário</th>
-                <th scope="col">Evento</th>
+                <th scope="col">{tr('date')}</th>
+                <th scope="col">{tr('user')}</th>
+                <th scope="col">{tr('event')}</th>
               </tr>
             </thead>
             <tbody>
               {events.map((event) => (
                 <tr key={event.id}>
                   <td>{fmtDate(event.createdAt)}</td>
-                  <td>{event.actor?.displayName ?? 'Sistema'}</td>
+                  <td>{event.actor?.displayName ?? tr('system')}</td>
                   <td>
                     {describeEvent(event)}
                     {event.type === 'COMMENT' && (
@@ -212,36 +221,33 @@ export function EntryPrintPage() {
     <Theme theme="g10">
       <div className="dl-print">
         <div className="dl-print__toolbar">
-          <HpsmToolbar label="Ações da ficha">
+          <HpsmToolbar label={tr('recordActions')}>
             <HpsmToolbarButton
-              label="Imprimir"
+              label={tr('print')}
               icon={IconPrint}
               disabled={!ready}
               onClick={() => window.print()}
             />
-            <HpsmToolbarButton label="Fechar" onClick={() => window.close()} />
+            <HpsmToolbarButton label={tr('close')} onClick={() => window.close()} />
           </HpsmToolbar>
         </div>
 
         <header className="dl-print__head">
           <img src="/icons/magnifier.svg" alt="" className="dl-print__logo" />
           <div>
-            <div className="dl-print__brand">DeepLook — Ficha da amostra</div>
-            <h1 className="dl-print__title">{entry?.title ?? 'Amostra'}</h1>
+            <div className="dl-print__brand">{tr('brandRecord')}</div>
+            <h1 className="dl-print__title">{entry?.title ?? tr('sample')}</h1>
           </div>
           <div className="dl-print__meta">
-            Impresso por {user?.displayName ?? '—'}
+            {tr('printedBy', { name: user?.displayName ?? '—' })}
             <br />
-            em {fmtDate(printedAt.current)}
+            {tr('printedOn', { date: fmtDate(printedAt.current) })}
           </div>
         </header>
 
         {body}
 
-        <footer className="dl-print__foot">
-          Atenção: esta amostra pode ser maliciosa. Manuseie arquivos e links apenas em ambiente
-          isolado.
-        </footer>
+        <footer className="dl-print__foot">{tr('printWarning')}</footer>
       </div>
     </Theme>
   );

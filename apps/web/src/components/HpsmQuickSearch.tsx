@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { Entry, IocKind } from '../api/types';
+import { t } from '../i18n/shell';
 import { iocHref, looksLikeIoc } from './iocs';
 import { kbHref } from './kb';
 
@@ -70,13 +71,13 @@ export function HpsmQuickSearch() {
   return (
     <form className="hpsm-quicksearch" role="search" onSubmit={go}>
       <label htmlFor="dl-quick-search" className="hpsm-quicksearch__label">
-        Ir para:
+        {t('goTo')}
       </label>
       <input
         id="dl-quick-search"
         className="hpsm-quicksearch__input"
         type="search"
-        placeholder="ID, SHA-256, IOC ou texto (Ctrl+K)"
+        placeholder={t('quickSearchPlaceholder')}
         autoComplete="off"
         value={value}
         disabled={busy}

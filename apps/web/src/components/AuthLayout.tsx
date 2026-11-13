@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getLocale, isLocale, LOCALES, setLocale, t } from '../i18n';
+import { t as tr } from '../i18n/shell';
 
 interface AuthLayoutProps {
   title: string;
@@ -88,7 +89,7 @@ export function AuthLayout({ title, subtitle, altLink, hideBack, children }: Aut
         <nav className="dl-public__nav">
           {!hideBack && (
             <Link className="dl-public__link" to="/home">
-              ← Voltar para o início
+              {tr('backToStart')}
             </Link>
           )}
           {altLink && (

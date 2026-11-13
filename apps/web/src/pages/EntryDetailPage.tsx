@@ -493,7 +493,7 @@ export function EntryDetailPage() {
           legend={tr('compareLegend')}
           otherLabel={tr('compareOther')}
           submitLabel={tr('compare')}
-          busyLabel="Abrindo..."
+          busyLabel={tr('opening')}
           emptyChoice={tr('compareEmpty')}
           onPick={async (target) => {
             if (target === entry.id) return tr('compareDifferent');
@@ -544,7 +544,7 @@ export function EntryDetailPage() {
             disabled={extending}
             onClick={extendSandbox}
           >
-            {extending ? 'Estendendo...' : tr('extendTime')}
+            {extending ? tr('extending') : tr('extendTime')}
           </button>
         </HpsmMessage>
       )}

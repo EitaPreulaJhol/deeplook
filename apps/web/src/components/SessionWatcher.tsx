@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { t } from '../i18n/shell';
 import { clearWorkspaceTabs } from './workspace';
 
 /** Aviso aparece este tempo antes de a sessao expirar. */
@@ -140,7 +141,7 @@ export function SessionWatcher() {
       expiredRef.current = false;
       navigate('/login', {
         replace: true,
-        state: { notice: 'Sua sessão expirou por inatividade. Entre novamente.' },
+        state: { notice: t('sessionExpired') },
       });
     }
   }, [loggedIn, navigate]);
@@ -157,16 +158,16 @@ export function SessionWatcher() {
         aria-describedby="dl-session-message"
       >
         <h2 id="dl-session-title" className="hpsm-modal__head">
-          Sessão expirando
+          {t('sessionExpiring')}
         </h2>
         <div className="hpsm-modal__body">
           <span className="hpsm-modal__icon" aria-hidden="true">
             !
           </span>
           <div id="dl-session-message" className="hpsm-modal__message">
-            Sua sessão vai expirar por inatividade em{' '}
-            <strong className="dl-session-countdown">{mmss(expiresAt - now)}</strong>. Deseja
-            continuar conectado?
+            {t('expiring1')}{' '}
+            <strong className="dl-session-countdown">{mmss(expiresAt - now)}</strong>
+            {t('expiring2')}
           </div>
         </div>
         <div className="hpsm-modal__actions">
@@ -176,7 +177,7 @@ export function SessionWatcher() {
             className="dl-btn dl-btn--primary"
             onClick={() => void touch()}
           >
-            Continuar conectado
+            {t('staySignedIn')}
           </button>
           <button
             type="button"
@@ -188,7 +189,7 @@ export function SessionWatcher() {
               navigate('/login');
             }}
           >
-            Sair
+            {t('signOut')}
           </button>
         </div>
       </div>

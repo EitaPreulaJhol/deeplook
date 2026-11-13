@@ -447,7 +447,7 @@ export function EntryReportsTab({
         <HpsmSection title={tr('newReport')} className="dl-mt-lg">
           <HpsmToolbar label={tr('reportActions')}>
             <HpsmToolbarButton
-              label={saving ? 'Salvando...' : tr('saveReport')}
+              label={saving ? tr('saving') : tr('saveReport')}
               title={tr('saveHint')}
               icon={IconAdd}
               disabled={saving}

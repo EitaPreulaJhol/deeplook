@@ -1,3 +1,5 @@
+import { getLocale } from '../i18n';
+import { t } from '../i18n/shell';
 const BASE = '/api';
 
 export class ApiError extends Error {
@@ -11,8 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-const NETWORK_ERROR =
-  'Não foi possível falar com o servidor. Confira a sua conexão e tente de novo.';
+const NETWORK_ERROR = () => t('networkError');
 
 /** Corpo da resposta: dados, ou ApiError com a mensagem para a pessoa. */
 function parseResponse<T>(status: number, ok: boolean, text: string): T {
@@ -23,14 +24,14 @@ function parseResponse<T>(status: number, ok: boolean, text: string): T {
     // Pagina HTML do proxy (ex.: 502 com a API ainda subindo) ou resposta truncada.
     const message =
       status === 502 || status === 503 || status === 504
-        ? `A API não respondeu (erro ${status}). Se o DeepLook acabou de ser iniciado, aguarde alguns segundos e tente de novo.`
-        : `Resposta inesperada do servidor (erro ${status}).`;
+        ? t('apiDown', { status })
+        : t('unexpected', { status });
     throw new ApiError(message, status, null);
   }
 
   if (!ok) {
     const error = (data as { error?: unknown } | null)?.error;
-    const message = (typeof error === 'string' && error) || `Erro ${status}`;
+    const message = (typeof error === 'string' && error) || t('errorStatus', { status });
     throw new ApiError(message, status, data);
   }
 
@@ -46,11 +47,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...rest,
     headers: {
       ...(rest.body && !isForm ? { 'Content-Type': 'application/json' } : {}),
+      // Idioma das mensagens de erro da API (revisao 2.5): o da interface, nao o do navegador.
+      'Accept-Language': getLocale(),
       ...(headers || {}),
     },
   }).catch((err: unknown) => {
     if ((err as Error).name === 'AbortError') throw err;
-    throw new ApiError(NETWORK_ERROR, 0, null);
+    throw new ApiError(NETWORK_ERROR(), 0, null);
   });
 
   if (res.status === 204) return undefined as T;
@@ -67,10 +70,11 @@ function upload<T>(
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${BASE}${path}`);
+    xhr.setRequestHeader('Accept-Language', getLocale());
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(Math.floor((event.loaded / event.total) * 100));
     };
-    xhr.onerror = () => reject(new ApiError(NETWORK_ERROR, 0, null));
+    xhr.onerror = () => reject(new ApiError(NETWORK_ERROR(), 0, null));
     xhr.onload = () => {
       try {
         const ok = xhr.status >= 200 && xhr.status < 300;

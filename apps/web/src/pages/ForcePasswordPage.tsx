@@ -8,6 +8,7 @@ import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
 import { HpsmMessage } from '../components/messages';
 import { clearWorkspaceTabs } from '../components/workspace';
+import { t } from '../i18n/shell';
 
 /**
  * Troca obrigatoria (senha redefinida por um admin): ate definir uma senha
@@ -39,10 +40,10 @@ export function ForcePasswordPage() {
     if (bad.size) {
       setError(
         bad.has('force-new') && problem
-          ? `Nova senha: ${problem}.`
+          ? t('newPwdProblem', { problem })
           : bad.has('force-confirm')
-            ? 'A confirmação precisa ser igual à nova senha.'
-            : 'Informe a senha atual ou temporária.',
+            ? t('confirmMismatch')
+            : t('enterCurrent'),
       );
       document.getElementById([...bad][0])?.focus();
       return;
@@ -68,11 +69,11 @@ export function ForcePasswordPage() {
   return (
     <AuthLayout
       hideBack
-      title="Definir nova senha"
+      title={t('setNewPassword')}
       subtitle={
         expired
-          ? `${user?.displayName ?? ''}, sua senha expirou (validade de 90 dias). Defina uma senha nova para continuar.`
-          : `${user?.displayName ?? ''}, é preciso trocar a senha (primeiro acesso ou senha redefinida por um administrador). Defina uma senha nova para continuar.`
+          ? t('pwdExpiredMsg', { name: user?.displayName ?? '' })
+          : t('pwdMustChange', { name: user?.displayName ?? '' })
       }
     >
       <form className="dl-auth__form" onSubmit={submit}>
@@ -80,7 +81,7 @@ export function ForcePasswordPage() {
         {askCurrent && (
           <AuthField
             id="force-current"
-            label="Senha atual ou temporária"
+            label={t('currentOrTemp')}
             type="password"
             value={current}
             onChange={setCurrent}
@@ -91,18 +92,18 @@ export function ForcePasswordPage() {
         )}
         <AuthField
           id="force-new"
-          label="Nova senha"
+          label={t('newPassword')}
           type="password"
           value={next}
           onChange={setNext}
           autoComplete="new-password"
-          helperText={`${PASSWORD_HELP} Diferente da atual.`}
+          helperText={`${PASSWORD_HELP()} ${t('differentFromCurrent')}`}
           invalid={invalid.has('force-new')}
           required
         />
         <AuthField
           id="force-confirm"
-          label="Confirmar senha"
+          label={t('confirmPassword')}
           type="password"
           value={confirm}
           onChange={setConfirm}
@@ -119,14 +120,14 @@ export function ForcePasswordPage() {
               void leave();
             }}
           >
-            Sair
+            {t('signOut')}
           </a>
           <button
             type="submit"
             className="dl-btn dl-btn--primary dl-auth__submit"
             disabled={saving}
           >
-            {saving ? 'Salvando...' : 'Salvar e entrar'}
+            {saving ? t('saving') : t('saveAndEnter')}
           </button>
         </div>
       </form>

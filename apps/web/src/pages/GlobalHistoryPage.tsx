@@ -122,7 +122,7 @@ export function GlobalHistoryPage() {
       {canTriage && (
         <HpsmToolbar label={t('queueActions')}>
           <HpsmToolbarButton
-            label={next.taking ? 'Pegando...' : t('takeNext')}
+            label={next.taking ? t('taking') : t('takeNext')}
             icon={IconPage}
             title={t('takeNextHelp')}
             disabled={next.taking}

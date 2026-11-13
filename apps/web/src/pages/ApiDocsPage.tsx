@@ -7,6 +7,7 @@ import { CopyButton } from '../components/CopyButton';
 import { HpsmSection } from '../components/HpsmForm';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { t } from '../i18n/misc';
 
 type Schema = {
   type?: string | string[];
@@ -43,13 +44,13 @@ interface OpenApi {
 function typeText(s: Schema | undefined): string {
   if (!s) return '—';
   if (s.enum) return s.enum.join(' | ');
-  if (s.anyOf) return s.anyOf.map(typeText).join(' ou ');
-  const type = Array.isArray(s.type) ? s.type.join(' | ') : (s.type ?? 'valor');
+  if (s.anyOf) return s.anyOf.map(typeText).join(` ${t('or')} `);
+  const type = Array.isArray(s.type) ? s.type.join(' | ') : (s.type ?? t('valueLower'));
   const extra = [
-    s.format === 'binary' ? 'arquivo' : s.format,
-    s.maxLength !== undefined && `até ${s.maxLength}`,
-    s.maximum !== undefined && `máx. ${s.maximum}`,
-    s.default !== undefined && `padrão ${String(s.default)}`,
+    s.format === 'binary' ? t('fileLower') : s.format,
+    s.maxLength !== undefined && t('upTo', { n: s.maxLength }),
+    s.maximum !== undefined && t('maxN', { n: s.maximum }),
+    s.default !== undefined && t('defaultN', { v: String(s.default) }),
   ].filter(Boolean);
   return extra.length ? `${type} (${extra.join(', ')})` : type;
 }
@@ -65,10 +66,10 @@ function Fields({
     <table className="dl-apidoc__fields">
       <thead>
         <tr>
-          <th scope="col">Campo</th>
-          <th scope="col">Onde</th>
-          <th scope="col">Tipo</th>
-          <th scope="col">Descrição</th>
+          <th scope="col">{t('field')}</th>
+          <th scope="col">{t('where')}</th>
+          <th scope="col">{t('type')}</th>
+          <th scope="col">{t('description')}</th>
         </tr>
       </thead>
       <tbody>
@@ -76,7 +77,7 @@ function Fields({
           <tr key={`${r.where}:${r.name}`}>
             <td className="dl-mono">
               {r.name}
-              {r.required && <span title="obrigatório"> *</span>}
+              {r.required && <span title={t('required')}> *</span>}
             </td>
             <td>{r.where}</td>
             <td className="dl-mono">{typeText(r.schema)}</td>
@@ -93,7 +94,7 @@ function Example({ title, code }: { title: string; code: string }) {
     <div className="dl-apidoc__example">
       <div className="dl-apidoc__example-head">
         <strong>{title}</strong>
-        <CopyButton value={code} label={`o exemplo "${title}"`} />
+        <CopyButton value={code} label={t('theExample', { title })} />
       </div>
       <pre className="dl-mono">{code}</pre>
     </div>
@@ -115,70 +116,62 @@ export function ApiDocsPage() {
   const auth = '-H "Authorization: Bearer $DEEPLOOK_TOKEN"';
   const examples = [
     {
-      title: 'Enviar um arquivo',
+      title: t('exSendFile'),
       code: `curl ${auth} \\\n  -F file=@fatura.pdf -F "title=Fatura recebida por e-mail" -F "tags=financeiro" \\\n  "${origin}/api/entries/file"`,
     },
     {
-      title: 'Enviar um link',
+      title: t('exSendLink'),
       code: `curl ${auth} -H "Content-Type: application/json" \\\n  -d '{"url":"https://exemplo.top/login","title":"Link do SMS"}' \\\n  "${origin}/api/entries/url"`,
     },
     {
-      title: 'Consultar o resultado (status, veredito e o que fazer)',
+      title: t('exQuery'),
       code: `curl ${auth} "${origin}/api/entries/<id>"`,
     },
     {
-      title: 'Baixar os indicadores (csv, stix ou misp)',
+      title: t('exIocs'),
       code: `curl ${auth} -o iocs.csv "${origin}/api/entries/<id>/iocs/export?format=csv"`,
     },
   ];
 
   return (
     <>
-      <PageHeader
-        title="Documentação da API"
-        subtitle="Envio e consulta de amostras por script, com um token de API. Só as rotas abaixo aceitam token; as demais respondem 403."
-      />
-      {!user?.apiAccess && (
-        <HpsmMessage kind="info">
-          O acesso por API da sua conta não está liberado. Peça a um administrador.
-        </HpsmMessage>
-      )}
-      <HpsmSection title="Como usar">
+      <PageHeader title={t('apiDocsTitle')} subtitle={t('apiDocsSubtitle')} />
+      {!user?.apiAccess && <HpsmMessage kind="info">{t('noApiAccess')}</HpsmMessage>}
+      <HpsmSection title={t('howToUse')}>
         <ol className="dl-apidoc__steps">
           <li>
-            Crie um token em{' '}
+            {t('createTokenIn')}{' '}
             <Link className="dl-link" to="/user?tab=tokens">
-              Minha Conta &gt; Tokens de API
+              {t('tokensLink')}
             </Link>{' '}
-            (ele aparece uma única vez).
+            {t('shownOnce')}
           </li>
           <li>
-            Envie <span className="dl-mono">Authorization: Bearer &lt;token&gt;</span> em cada
-            chamada; nos exemplos, o token está na variável{' '}
-            <span className="dl-mono">DEEPLOOK_TOKEN</span>.
+            {t('send')} <span className="dl-mono">Authorization: Bearer &lt;token&gt;</span>{' '}
+            {t('inEachCall')} <span className="dl-mono">DEEPLOOK_TOKEN</span>.
           </li>
           <li>
-            Erros vêm como{' '}
-            <span className="dl-mono">{'{ "error": "...", "details": { campo: [...] } }'}</span>;
-            envios têm limite por dia (429).
+            {t('errorsAs')}{' '}
+            <span className="dl-mono">{'{ "error": "...", "details": { campo: [...] } }'}</span>
+            {t('dailyLimit')}
           </li>
         </ol>
         <p>
           <a className="dl-link" href="/api/openapi.json" download="deeplook-openapi.json">
-            Baixar a especificação (OpenAPI 3.1)
+            {t('downloadSpec')}
           </a>{' '}
-          para gerar clientes ou importar no seu programa de API.
+          {t('specHint')}
         </p>
       </HpsmSection>
 
-      <HpsmSection title="Exemplos" className="dl-mt-lg">
+      <HpsmSection title={t('examples')} className="dl-mt-lg">
         {examples.map((e) => (
           <Example key={e.title} {...e} />
         ))}
       </HpsmSection>
 
-      <HpsmSection title="Rotas" className="dl-mt-lg">
-        {query.isLoading && <HpsmLoading text="Carregando a especificação..." />}
+      <HpsmSection title={t('routes')} className="dl-mt-lg">
+        {query.isLoading && <HpsmLoading text={t('loadingSpec')} />}
         {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
         {query.data &&
           Object.entries(query.data.paths).flatMap(([path, ops]) =>
@@ -194,7 +187,7 @@ export function ApiDocsPage() {
                 })),
                 ...Object.entries(body?.[1].schema.properties ?? {}).map(([name, s]) => ({
                   name,
-                  where: body![0] === 'multipart/form-data' ? 'formulário' : 'JSON',
+                  where: body![0] === 'multipart/form-data' ? t('form') : 'JSON',
                   required: body![1].schema.required?.includes(name) ?? false,
                   schema: s,
                 })),
@@ -214,7 +207,7 @@ export function ApiDocsPage() {
                   {op.description && <p>{op.description}</p>}
                   <Fields rows={rows} />
                   <p className="dl-apidoc__responses">
-                    Respostas:{' '}
+                    {t('responses')}{' '}
                     {Object.entries(op.responses)
                       .map(([code, r]) => `${code} ${r.description}`)
                       .join(' · ')}

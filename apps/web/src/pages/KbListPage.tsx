@@ -14,6 +14,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/kb';
 
 /**
  * Base de conhecimento (item 63): busca por titulo, resumo, tags e texto,
@@ -71,45 +72,42 @@ export function KbListPage() {
   return (
     <>
       {canWrite && (
-        <HpsmToolbar label="Ações da base de conhecimento">
+        <HpsmToolbar label={t('kbActions')}>
           <HpsmToolbarButton
-            label="Novo artigo"
+            label={t('newArticle')}
             icon={IconAdd}
             onClick={() => navigate('/kb/novo')}
           />
         </HpsmToolbar>
       )}
-      <PageHeader
-        title="Base de conhecimento"
-        subtitle="Famílias de malware, golpes, técnicas e procedimentos da equipe."
-      />
+      <PageHeader title={t('kb')} subtitle={t('kbSubtitle')} />
       <HpsmFilterBar
         onClear={() => {
           setDraft('');
           setParams({}, { replace: true });
         }}
       >
-        <HpsmFilterItem label="Buscar" htmlFor="kb-q">
+        <HpsmFilterItem label={t('search')} htmlFor="kb-q">
           <TextInput
             id="kb-q"
-            labelText="Buscar"
+            labelText={t('search')}
             hideLabel
             size="sm"
-            placeholder="Título, resumo, tag ou texto..."
+            placeholder={t('kbSearchPlaceholder')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
         </HpsmFilterItem>
-        <HpsmFilterItem label="Categoria" htmlFor="kb-category">
+        <HpsmFilterItem label={t('category')} htmlFor="kb-category">
           <Select
             id="kb-category"
-            labelText="Categoria"
+            labelText={t('category')}
             hideLabel
             size="sm"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            <SelectItem value="" text="Todas" />
+            <SelectItem value="" text={t('allF')} />
             {KB_CATEGORIES.map((c) => (
               <SelectItem key={c.id} value={c.id} text={c.label} />
             ))}
@@ -117,15 +115,13 @@ export function KbListPage() {
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {query.isLoading && <HpsmLoading text="Carregando artigos..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingArticles')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && items.length === 0 && (
-        <HpsmMessage kind="info">
-          {q || category ? 'Nenhum artigo encontrado.' : 'A base de conhecimento ainda está vazia.'}
-        </HpsmMessage>
+        <HpsmMessage kind="info">{q || category ? t('noArticlesFound') : t('kbEmpty')}</HpsmMessage>
       )}
       {items.length > 0 && (
-        <ul className="dl-kb-list" aria-label="Artigos">
+        <ul className="dl-kb-list" aria-label={t('articlesAria')}>
           {items.map((a) => (
             <li key={a.id} className="dl-kb-card">
               <div className="dl-kb-card__head">
@@ -136,15 +132,13 @@ export function KbListPage() {
               </div>
               <p className="dl-kb-card__summary">{a.summary}</p>
               <div className="dl-kb-card__meta">
-                {a.tags.length > 0 && <span>Tags: {a.tags.join(', ')}</span>}
+                {a.tags.length > 0 && <span>{t('tagsList', { tags: a.tags.join(', ') })}</span>}
                 <span>
-                  Atualizado em {new Date(a.updatedAt).toLocaleDateString(intlLocale())}
-                  {a.updatedBy ? ` por ${a.updatedBy.displayName}` : ''}
+                  {t('updatedOn', { date: new Date(a.updatedAt).toLocaleDateString(intlLocale()) })}
+                  {a.updatedBy ? ` ${t('byName', { name: a.updatedBy.displayName })}` : ''}
                 </span>
                 {(a.citations ?? 0) > 0 && (
-                  <span>
-                    Citado em {a.citations} relatório{a.citations === 1 ? '' : 's'}
-                  </span>
+                  <span>{t(a.citations === 1 ? 'citedOne' : 'citedMany', { n: a.citations })}</span>
                 )}
               </div>
             </li>

@@ -28,24 +28,25 @@ import { TwoFactorTab } from '../components/TwoFactorTab';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { WatchesTab } from '../components/WatchesTab';
 import { clearWorkspaceTabs } from '../components/workspace';
-import { intlLocale, isLocale, LOCALES, setLocale, t } from '../i18n';
+import { intlLocale, isLocale, LOCALES, localized, setLocale, t } from '../i18n';
+import { t as tr } from '../i18n/account';
 
-const TABS = [
-  { id: 'dados', label: 'Dados' },
-  { id: 'senha', label: 'Senha' },
-  { id: 'preferencias', label: 'Preferências' },
-  { id: 'notificacoes', label: 'Notificações' },
+const TABS = localized(() => [
+  { id: 'dados', label: tr('tabData') },
+  { id: 'senha', label: tr('tabPassword') },
+  { id: 'preferencias', label: tr('tabPrefs') },
+  { id: 'notificacoes', label: tr('tabNotifications') },
   { id: '2fa', label: '2FA' },
-  { id: 'sessoes', label: 'Sessões' },
-  { id: 'indicadores', label: 'Indicadores' },
-];
+  { id: 'sessoes', label: tr('tabSessions') },
+  { id: 'indicadores', label: tr('tabIndicators') },
+]);
 
 /** Minha Conta: dados (somente leitura), troca de senha e preferencias de uso. */
 export function UserPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   // "Tokens de API" so aparece com o acesso liberado por um admin.
-  const tabs = user?.apiAccess ? [...TABS, { id: 'tokens', label: 'Tokens de API' }] : TABS;
+  const tabs = user?.apiAccess ? [...TABS, { id: 'tokens', label: tr('tabTokens') }] : TABS;
   const tabParam = searchParams.get('tab');
   const tab = tabs.some((t) => t.id === tabParam) ? (tabParam as string) : 'dados';
 
@@ -61,24 +62,24 @@ export function UserPage() {
 
   return (
     <>
-      <PageHeader title="Minha Conta" subtitle="Seus dados de acesso e preferências de uso." />
+      <PageHeader title={tr('accountTitle')} subtitle={tr('accountSubtitle')} />
 
-      <HpsmTabs ariaLabel="Minha conta" active={tab} onChange={changeTab} items={tabs} />
+      <HpsmTabs ariaLabel={tr('accountAria')} active={tab} onChange={changeTab} items={tabs} />
 
       <div className="hpsm-tabpanel">
         {tab === 'dados' && (
-          <HpsmSection title="Dados do usuário">
+          <HpsmSection title={tr('userData')}>
             <HpsmForm columns={2}>
-              <HpsmField label="Nome">
+              <HpsmField label={tr('name')}>
                 <HpsmReadonly>{user.displayName}</HpsmReadonly>
               </HpsmField>
               <HpsmField label="E-mail">
                 <HpsmReadonly>{user.email}</HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Papel">
+              <HpsmField label={tr('role')}>
                 <HpsmReadonly>{roleLabel(user.role)}</HpsmReadonly>
               </HpsmField>
-              <HpsmField label="Membro desde">
+              <HpsmField label={tr('memberSince')}>
                 <HpsmReadonly>
                   {new Date(user.createdAt).toLocaleDateString(intlLocale())}
                 </HpsmReadonly>
@@ -87,14 +88,7 @@ export function UserPage() {
           </HpsmSection>
         )}
         {tab === 'senha' &&
-          (user?.ldap ? (
-            <HpsmMessage kind="info">
-              Sua conta é da rede (AD): a senha e a validade dela são as do AD. Para trocá-la, use o
-              processo da empresa. O 2FA do DeepLook continua valendo.
-            </HpsmMessage>
-          ) : (
-            <PasswordTab />
-          ))}
+          (user?.ldap ? <HpsmMessage kind="info">{tr('adAccount')}</HpsmMessage> : <PasswordTab />)}
         {tab === 'preferencias' && <PreferencesTab />}
         {tab === 'notificacoes' && <NotificationsTab />}
         {tab === '2fa' && <TwoFactorTab />}
@@ -107,7 +101,7 @@ export function UserPage() {
 }
 
 /** Texto da validade da politica (a API decide; aqui so a mensagem). */
-const MAX_AGE_TEXT = '90 dias';
+const MAX_AGE_TEXT = () => tr('maxAge90');
 
 function PasswordTab() {
   const { changePassword, user } = useAuth();
@@ -124,21 +118,21 @@ function PasswordTab() {
   const passwordCheck = useRequiredFields([
     {
       id: 'pwd-current',
-      label: 'Senha atual',
+      label: tr('currentPassword'),
       ok: current.length > 0,
       api: 'currentPassword',
       value: current,
     },
     {
       id: 'pwd-new',
-      label: 'Nova senha (8+ caracteres, com número e caractere especial)',
+      label: tr('newPasswordRule'),
       ok: passwordProblem(next) === null,
       api: 'newPassword',
       value: next,
     },
     {
       id: 'pwd-confirm',
-      label: 'Confirmar senha (igual à nova)',
+      label: tr('confirmPasswordRule'),
       ok: confirm.length > 0 && confirm === next,
     },
   ]);
@@ -154,7 +148,7 @@ function PasswordTab() {
       clearWorkspaceTabs();
       navigate('/login', {
         replace: true,
-        state: { notice: 'Senha alterada. Entre novamente com a nova senha.' },
+        state: { notice: tr('passwordChanged') },
       });
     } catch (err) {
       if (!passwordCheck.fromApi(err)) setError((err as Error).message);
@@ -165,11 +159,11 @@ function PasswordTab() {
   useSaveShortcut(save, !saving);
 
   return (
-    <HpsmSection title="Alterar senha" className="dl-form-col">
-      <HpsmToolbar label="Ações da senha">
+    <HpsmSection title={tr('changePassword')} className="dl-form-col">
+      <HpsmToolbar label={tr('passwordActions')}>
         <HpsmToolbarButton
-          label={saving ? 'Salvando...' : 'Salvar senha'}
-          title="Salvar (Ctrl+S)"
+          label={saving ? tr('saving') : tr('savePassword')}
+          title={tr('saveHint')}
           icon={IconKey}
           disabled={saving}
           onClick={save}
@@ -178,22 +172,26 @@ function PasswordTab() {
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {passwordCheck.message && <HpsmMessage kind="error">{passwordCheck.message}</HpsmMessage>}
       <HpsmForm>
-        <HpsmField label="Validade">
+        <HpsmField label={tr('validity')}>
           <HpsmReadonly>
             {expiresAt
-              ? `Sua senha vale até ${new Date(expiresAt).toLocaleDateString(intlLocale())} (${daysLeft} dia${daysLeft === 1 ? '' : 's'}). Ao trocar, ganha mais ${MAX_AGE_TEXT}.`
-              : 'Sem validade (contas de administrador não expiram).'}
+              ? tr(daysLeft === 1 ? 'pwdValidOne' : 'pwdValidMany', {
+                  date: new Date(expiresAt).toLocaleDateString(intlLocale()),
+                  n: daysLeft,
+                  max: MAX_AGE_TEXT(),
+                })
+              : tr('noExpiry')}
           </HpsmReadonly>
         </HpsmField>
         <HpsmField
-          label="Senha atual"
+          label={tr('currentPassword')}
           htmlFor="pwd-current"
           required
           invalid={passwordCheck.isInvalid('pwd-current')}
         >
           <PasswordInput
             id="pwd-current"
-            labelText="Senha atual"
+            labelText={tr('currentPassword')}
             hideLabel
             autoComplete="current-password"
             value={current}
@@ -201,15 +199,15 @@ function PasswordTab() {
           />
         </HpsmField>
         <HpsmField
-          label="Nova senha"
+          label={tr('newPassword')}
           htmlFor="pwd-new"
           required
-          help={PASSWORD_HELP}
+          help={PASSWORD_HELP()}
           invalid={passwordCheck.isInvalid('pwd-new')}
         >
           <PasswordInput
             id="pwd-new"
-            labelText="Nova senha"
+            labelText={tr('newPassword')}
             hideLabel
             autoComplete="new-password"
             value={next}
@@ -217,16 +215,16 @@ function PasswordTab() {
           />
         </HpsmField>
         <HpsmField
-          label="Confirmar senha"
+          label={tr('confirmPassword')}
           htmlFor="pwd-confirm"
           required
-          help="Ao salvar, todas as sessões são encerradas e você entra novamente."
+          help={tr('confirmHelp')}
 
           invalid={passwordCheck.isInvalid('pwd-confirm')}
         >
           <PasswordInput
             id="pwd-confirm"
-            labelText="Confirmar senha"
+            labelText={tr('confirmPassword')}
             hideLabel
             autoComplete="new-password"
             value={confirm}
@@ -240,7 +238,7 @@ function PasswordTab() {
             disabled={saving}
             onClick={() => void save()}
           >
-            {saving ? 'Salvando...' : 'Salvar'}
+            {saving ? tr('saving') : tr('save')}
           </button>
         </HpsmFormActions>
       </HpsmForm>

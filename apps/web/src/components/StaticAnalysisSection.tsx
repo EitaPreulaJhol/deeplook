@@ -102,7 +102,7 @@ export function StaticAnalysisSection({
           {purged ? t('staticPurged') : t('staticBefore')}{' '}
           {canTriage && !purged && (
             <button type="button" className="dl-link-button" disabled={running} onClick={analyze}>
-              {running ? 'Analisando...' : t('analyzeNow')}
+              {running ? t('analyzing') : t('analyzeNow')}
             </button>
           )}
         </p>
@@ -164,7 +164,7 @@ export function StaticAnalysisSection({
                   disabled={running}
                   onClick={analyze}
                 >
-                  {running ? 'Analisando...' : t('analyzeAgain')}
+                  {running ? t('analyzing') : t('analyzeAgain')}
                 </button>
               )}
             </p>

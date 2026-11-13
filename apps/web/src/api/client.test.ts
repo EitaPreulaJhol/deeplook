@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { setLocale } from '../i18n';
 import { api, ApiError, apiFieldErrors } from './client';
 
 const NETWORK_ERROR =
@@ -32,6 +33,28 @@ async function failure(call: Promise<unknown>): Promise<ApiError> {
   }
   throw new Error('a chamada deveria ter falhado');
 }
+
+describe('api: idioma', () => {
+  afterEach(() => setLocale('pt-BR'));
+
+  it('manda o idioma da interface no Accept-Language (erros da API no mesmo idioma)', async () => {
+    reply(JSON.stringify({ ok: true }));
+    await api.get('/me');
+    expect((firstCall()[1].headers as Record<string, string>)['Accept-Language']).toBe('pt-BR');
+    setLocale('en');
+    reply(JSON.stringify({ ok: true }));
+    await api.get('/me');
+    const second = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect((second[1].headers as Record<string, string>)['Accept-Language']).toBe('en');
+  });
+
+  it('a falha de rede sai no idioma da interface', async () => {
+    setLocale('en');
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+    const err = await failure(api.get('/me'));
+    expect(err.message).toBe('Could not reach the server. Check your connection and try again.');
+  });
+});
 
 describe('api: resposta', () => {
   it('devolve o JSON e chama /api com os cookies da sessão', async () => {
@@ -118,7 +141,7 @@ describe('api: o que vai na requisição', () => {
     const [, init] = firstCall();
     expect(init.method).toBeUndefined();
     expect(init.body).toBeUndefined();
-    expect(init.headers).toEqual({});
+    expect(init.headers).toEqual({ 'Accept-Language': 'pt-BR' });
   });
 
   it('post manda JSON, com {} quando não há corpo', async () => {
@@ -143,7 +166,7 @@ describe('api: o que vai na requisição', () => {
     await api.post('/envio', form);
     const [, init] = firstCall();
     expect(init.body).toBe(form);
-    expect(init.headers).toEqual({});
+    expect(init.headers).toEqual({ 'Accept-Language': 'pt-BR' });
   });
 
   it('patch, put e del usam o método certo', async () => {
@@ -187,8 +210,12 @@ describe('api.upload (XMLHttpRequest)', () => {
     method = '';
     url = '';
     body: unknown;
+    headers: Record<string, string> = {};
     constructor() {
       FakeXhr.last = this;
+    }
+    setRequestHeader(name: string, value: string) {
+      this.headers[name] = value;
     }
     open(method: string, url: string) {
       this.method = method;

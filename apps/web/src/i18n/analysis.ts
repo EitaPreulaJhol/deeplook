@@ -766,6 +766,7 @@ export const messages = {
   attackCode: ['Técnica MITRE ATT&CK (código)', 'MITRE ATT&CK technique (code)'],
   hiddenIocsMap: ['+{n} indicador(es)', '+{n} indicator(s)'],
   stepSuggestion: ['Sugestão: {step}', 'Suggestion: {step}'],
+  analyzing: ['Analisando...', 'Analyzing...'],
 } as const satisfies Pairs;
 
 export const t = define(messages);

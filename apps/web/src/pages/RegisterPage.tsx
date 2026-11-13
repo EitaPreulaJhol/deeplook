@@ -7,6 +7,7 @@ import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
 import { useRequiredFields } from '../components/HpsmForm';
 import { HpsmMessage } from '../components/messages';
+import { t } from '../i18n/shell';
 
 /** Formata a chave como DL-XXXX-XXXX-XXXX. */
 function formatActivationKey(raw: string): string {
@@ -32,20 +33,20 @@ export function RegisterPage() {
 
   // Validacao HPSM: senha confirmada aqui; o resto vem dos `details` da API.
   const check = useRequiredFields([
-    { id: 'displayName', label: 'Nome', ok: true, value: displayName },
+    { id: 'displayName', label: t('name'), ok: true, value: displayName },
     { id: 'email', label: 'E-mail', ok: true, value: email },
     {
       id: 'password',
-      label: 'Senha (8+ caracteres, com número e caractere especial)',
+      label: t('passwordRule'),
       ok: passwordProblem(password) === null,
       value: password,
     },
     {
       id: 'confirmPassword',
-      label: 'Confirme a senha (igual à senha)',
+      label: t('confirmRule'),
       ok: confirmPassword === password,
     },
-    { id: 'activationKey', label: 'Chave de ativação', ok: true, value: activationKey },
+    { id: 'activationKey', label: t('activationKey'), ok: true, value: activationKey },
   ]);
 
   const submit = async (event: React.FormEvent) => {
@@ -63,14 +64,14 @@ export function RegisterPage() {
       });
       navigate('/');
     } catch (err) {
-      if (!check.fromApi(err)) setError((err as Error).message || 'Falha no cadastro.');
+      if (!check.fromApi(err)) setError((err as Error).message || t('registerFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthLayout title="Cadastro" altLink={{ to: '/login', label: 'Entrar' }}>
+    <AuthLayout title={t('register')} altLink={{ to: '/login', label: t('signIn') }}>
       <form className="dl-auth__form" onSubmit={submit}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
@@ -78,7 +79,7 @@ export function RegisterPage() {
         <AuthField
           id="displayName"
           invalid={check.isInvalid('displayName')}
-          label="Nome"
+          label={t('name')}
           value={displayName}
           onChange={setDisplayName}
           autoComplete="name"
@@ -97,18 +98,18 @@ export function RegisterPage() {
         <AuthField
           id="password"
           invalid={check.isInvalid('password')}
-          label="Senha"
+          label={t('password')}
           type="password"
           value={password}
           onChange={setPassword}
           autoComplete="new-password"
-          helperText={PASSWORD_HELP}
+          helperText={PASSWORD_HELP()}
           required
         />
         <AuthField
           id="confirmPassword"
           invalid={check.isInvalid('confirmPassword')}
-          label="Confirme a senha"
+          label={t('confirmPwd')}
           type="password"
           value={confirmPassword}
           onChange={setConfirmPassword}
@@ -118,7 +119,7 @@ export function RegisterPage() {
         <AuthField
           id="activationKey"
           invalid={check.isInvalid('activationKey')}
-          label="Chave de ativação"
+          label={t('activationKey')}
           value={activationKey}
           onChange={(value) => setActivationKey(formatActivationKey(value))}
           placeholder="DL-XXXX-XXXX-XXXX"
@@ -131,7 +132,7 @@ export function RegisterPage() {
             className="dl-btn dl-btn--primary dl-auth__submit"
             disabled={loading}
           >
-            {loading ? 'Cadastrando...' : 'Criar conta'}
+            {loading ? t('registering') : t('createAccount')}
           </button>
         </div>
       </form>

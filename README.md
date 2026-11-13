@@ -1206,16 +1206,25 @@ corresponding module — CI runs this step in the `check` job.
 
 ## Interface language
 
-The interface is in **Portuguese** and is starting to get **English** (in progress). The language is chosen
-in **Minha Conta > Preferências > Idioma** (it applies to the account, on any machine) or, before signing
-in, in the selector on the blue bar of the public pages (kept on this machine). Without a choice it is
-Portuguese, even with the browser in English.
+The interface exists in **Portuguese** and **English**. The language is chosen in **Minha Conta >
+Preferências > Idioma** (My account > Preferences > Language; it applies to the account, on any
+machine) or, before signing in, in the selector on the blue bar of the public pages (kept on this
+machine). Without a choice it is Portuguese, even with the browser in English. Dates and numbers follow
+the language (`13/11/2026` or `11/13/2026`).
 
-- **Already translated:** the side menu, top bar, user menu, sign-in, preferences and the status,
-  verdict, priority, role and type labels that appear in every list.
-- **Still in Portuguese:** the other screens and the API error messages.
-- The texts live in `apps/web/src/i18n` (`pt-BR.ts` is the source; TypeScript rejects a key missing from
-  `en.ts`). `node scripts/check-i18n.mjs` lists, per file, the text still loose in the code.
+- **Screens:** all of them go through the dictionaries in `apps/web/src/i18n`, one file per area
+  (`entry`, `analysis`, `cases`, `admin`...) with Portuguese and English side by side on each line;
+  TypeScript only accepts the area's keys, and the test rejects empty text or `{values}` that differ
+  between the languages.
+- **API errors:** the interface sends `Accept-Language` with its language, and the API translates the
+  `error` and `details` of error responses (`apps/api/src/lib/messages-en.ts`, over 300 messages).
+  Scripts that do not send the header keep getting Portuguese; for English, `Accept-Language: en`.
+- **Still in Portuguese:** what the API stores as data and shows as is (static analysis alerts, script
+  findings, risk score reasons, history and system status details), the audit CSV, the OpenAPI
+  specification and what people write.
+- `node scripts/check-i18n.mjs` counts the Portuguese text still loose in the code and rejects `t()` at
+  module top level or inside `useMemo` without `locale` in the dependencies (the text would not follow
+  a language change). Label tables at module top level use `localized()`.
 
 ## Interface (HP Service Manager 9 style)
 

@@ -6,6 +6,7 @@ import { useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/account';
 import { CopyButton } from './CopyButton';
 import { downloadText } from './entryExport';
 import { useConfirm } from './HpsmConfirm';
@@ -39,12 +40,9 @@ const grouped = (secret: string) => secret.replace(/(.{4})/g, '$1 ').trim();
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
   const text = codes.join('\n');
   return (
-    <HpsmSection title="Códigos de recuperação">
-      <HpsmMessage kind="warning">
-        Guarde estes códigos num lugar seguro. Cada um entra uma única vez, no lugar do código do
-        aplicativo (ex.: se você perder o celular). Eles não serão mostrados de novo.
-      </HpsmMessage>
-      <ul className="dl-2fa__codes" aria-label="Códigos de recuperação">
+    <HpsmSection title={t('recoveryCodes')}>
+      <HpsmMessage kind="warning">{t('recoveryHint')}</HpsmMessage>
+      <ul className="dl-2fa__codes" aria-label={t('recoveryCodes')}>
         {codes.map((c) => (
           <li key={c} className="dl-mono">
             {c}
@@ -53,7 +51,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
       </ul>
       <div className="hpsm-form__buttons">
         <span className="dl-2fa__copy">
-          <CopyButton value={text} label="códigos de recuperação" /> Copiar
+          <CopyButton value={text} label={t('recoveryCodesLower')} /> {t('copy')}
         </span>
         <button
           type="button"
@@ -62,10 +60,10 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
             downloadText('deeplook-codigos-de-recuperacao.txt', `${text}\n`, 'text/plain')
           }
         >
-          Baixar (.txt)
+          {t('downloadTxt')}
         </button>
         <button type="button" className="dl-btn dl-btn--primary" onClick={onDone}>
-          Guardei os códigos
+          {t('savedCodes')}
         </button>
       </div>
     </HpsmSection>
@@ -101,7 +99,7 @@ export function TwoFactorTab() {
   const enableCheck = useRequiredFields([
     {
       id: 'tfa-code',
-      label: 'Código do aplicativo',
+      label: t('appCode'),
       ok: /^\d{6}$/.test(code.trim()),
       api: 'code',
       value: code,
@@ -110,14 +108,14 @@ export function TwoFactorTab() {
   const sensitiveCheck = useRequiredFields([
     {
       id: 'tfa-password',
-      label: 'Senha atual',
+      label: t('currentPassword'),
       ok: password.length > 0,
       api: 'password',
       value: password,
     },
     {
       id: 'tfa-confirm-code',
-      label: 'Código',
+      label: t('code'),
       ok: code.trim().length >= 6,
       api: 'code',
       value: code,
@@ -158,7 +156,7 @@ export function TwoFactorTab() {
         setCodes(res.recoveryCodes);
         setNotice({
           ok: true,
-          text: '2FA ativado. A partir do próximo login, o código será pedido.',
+          text: t('tfaEnabled'),
         });
         await reload();
       } catch (err) {
@@ -178,7 +176,7 @@ export function TwoFactorTab() {
         setCode('');
         sensitiveCheck.reset();
         setCodes(res.recoveryCodes);
-        setNotice({ ok: true, text: 'Novos códigos gerados; os anteriores deixaram de valer.' });
+        setNotice({ ok: true, text: t('newCodes') });
         await reload();
       } catch (err) {
         if (!sensitiveCheck.fromApi(err)) setNotice({ ok: false, text: (err as Error).message });
@@ -188,10 +186,10 @@ export function TwoFactorTab() {
   const disable = async () => {
     if (!sensitiveCheck.check()) return;
     const ok = await confirm({
-      title: 'Desativar 2FA',
-      message: 'O login volta a pedir só a senha, e os códigos de recuperação deixam de valer.',
-      confirmLabel: 'Desativar',
-      cancelLabel: 'Cancelar',
+      title: t('disableTfa'),
+      message: t('disableTfaHelp'),
+      confirmLabel: t('disable'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
@@ -201,7 +199,7 @@ export function TwoFactorTab() {
         setPassword('');
         setCode('');
         sensitiveCheck.reset();
-        setNotice({ ok: true, text: '2FA desativado.' });
+        setNotice({ ok: true, text: t('tfaDisabled') });
         await reload();
       } catch (err) {
         if (!sensitiveCheck.fromApi(err)) setNotice({ ok: false, text: (err as Error).message });
@@ -224,35 +222,34 @@ export function TwoFactorTab() {
       {message && <HpsmMessage kind="error">{message}</HpsmMessage>}
       {codes && <RecoveryCodes codes={codes} onDone={() => setCodes(null)} />}
 
-      <HpsmSection title="Autenticação em dois fatores (2FA)" className="dl-form-col">
+      <HpsmSection title={t('tfaTitle')} className="dl-form-col">
         <HpsmForm>
-          <HpsmField label="Situação">
+          <HpsmField label={t('situation')}>
             <HpsmReadonly>
               {info.enabled ? (
                 <StatusText tone="green">
-                  Ativo desde{' '}
-                  {info.enabledAt ? new Date(info.enabledAt).toLocaleDateString(intlLocale()) : '—'}
+                  {t('activeSince', {
+                    date: info.enabledAt
+                      ? new Date(info.enabledAt).toLocaleDateString(intlLocale())
+                      : '—',
+                  })}
                 </StatusText>
               ) : (
-                <StatusText tone="gray">Desativado</StatusText>
+                <StatusText tone="gray">{t('disabledState')}</StatusText>
               )}
             </HpsmReadonly>
           </HpsmField>
           {info.enabled && (
-            <HpsmField label="Recuperação">
+            <HpsmField label={t('recovery')}>
               <HpsmReadonly>
                 <StatusText tone={info.recoveryRemaining <= 3 ? 'orange' : 'none'}>
-                  {info.recoveryRemaining} código(s) de recuperação restante(s)
+                  {t('recoveryLeft', { n: info.recoveryRemaining })}
                 </StatusText>
               </HpsmReadonly>
             </HpsmField>
           )}
-          <HpsmField label="Como funciona">
-            <HpsmReadonly multiline>
-              Opcional. Com o 2FA ativo, o login pede, além da senha, o código de 6 dígitos de um
-              aplicativo autenticador (Google Authenticator, Microsoft Authenticator, Aegis,
-              1Password...). Os scripts com token de API não são afetados.
-            </HpsmReadonly>
+          <HpsmField label={t('howItWorks')}>
+            <HpsmReadonly multiline>{t('tfaHow')}</HpsmReadonly>
           </HpsmField>
           {!info.enabled && !setup && (
             <HpsmFormActions>
@@ -262,7 +259,7 @@ export function TwoFactorTab() {
                 disabled={busy}
                 onClick={() => void startSetup()}
               >
-                Ativar 2FA
+                {t('enableTfa')}
               </button>
             </HpsmFormActions>
           )}
@@ -270,34 +267,31 @@ export function TwoFactorTab() {
       </HpsmSection>
 
       {setup && (
-        <HpsmSection title="Ativar 2FA" className="dl-form-col">
+        <HpsmSection title={t('enableTfa')} className="dl-form-col">
           <HpsmForm>
-            <HpsmField label="1. Escaneie" top>
+            <HpsmField label={t('scan')} top>
               <img
                 className="dl-2fa__qr"
                 src={`data:image/svg+xml;utf8,${encodeURIComponent(setup.qrSvg)}`}
-                alt="QR code para o aplicativo autenticador"
+                alt={t('qrAlt')}
                 width={180}
                 height={180}
               />
             </HpsmField>
-            <HpsmField
-              label="ou digite a chave"
-              help="Tipo: baseado em tempo (TOTP), 6 dígitos, 30 s."
-            >
-              <HpsmReadonly mono copyable={{ value: setup.secret, label: 'chave do 2FA' }}>
+            <HpsmField label={t('orTypeKey')} help={t('keyHelp')}>
+              <HpsmReadonly mono copyable={{ value: setup.secret, label: t('tfaKey') }}>
                 {grouped(setup.secret)}
               </HpsmReadonly>
             </HpsmField>
             <HpsmField
-              label="2. Código do aplicativo"
+              label={t('appCodeStep')}
               htmlFor="tfa-code"
               required
               invalid={enableCheck.isInvalid('tfa-code')}
             >
               <TextInput
                 id="tfa-code"
-                labelText="Código do aplicativo"
+                labelText={t('appCode')}
                 hideLabel
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -316,7 +310,7 @@ export function TwoFactorTab() {
                 disabled={busy}
                 onClick={() => void enable()}
               >
-                Confirmar e ativar
+                {t('confirmEnable')}
               </button>
               <button
                 type="button"
@@ -324,7 +318,7 @@ export function TwoFactorTab() {
                 disabled={busy}
                 onClick={() => setSetup(null)}
               >
-                Cancelar
+                {t('cancel')}
               </button>
             </HpsmFormActions>
           </HpsmForm>
@@ -332,17 +326,17 @@ export function TwoFactorTab() {
       )}
 
       {info.enabled && (
-        <HpsmSection title="Gerar novos códigos ou desativar" className="dl-form-col">
+        <HpsmSection title={t('regenOrDisable')} className="dl-form-col">
           <HpsmForm>
             <HpsmField
-              label="Senha atual"
+              label={t('currentPassword')}
               htmlFor="tfa-password"
               required
               invalid={sensitiveCheck.isInvalid('tfa-password')}
             >
               <PasswordInput
                 id="tfa-password"
-                labelText="Senha atual"
+                labelText={t('currentPassword')}
                 hideLabel
                 autoComplete="current-password"
                 value={password}
@@ -350,15 +344,15 @@ export function TwoFactorTab() {
               />
             </HpsmField>
             <HpsmField
-              label="Código"
+              label={t('code')}
               htmlFor="tfa-confirm-code"
               required
-              help="Do aplicativo ou um código de recuperação."
+              help={t('codeHelp')}
               invalid={sensitiveCheck.isInvalid('tfa-confirm-code')}
             >
               <TextInput
                 id="tfa-confirm-code"
-                labelText="Código"
+                labelText={t('code')}
                 hideLabel
                 autoComplete="one-time-code"
                 maxLength={20}
@@ -373,7 +367,7 @@ export function TwoFactorTab() {
                 disabled={busy}
                 onClick={() => void regenerate()}
               >
-                Gerar novos códigos
+                {t('generateCodes')}
               </button>
               <button
                 type="button"
@@ -381,7 +375,7 @@ export function TwoFactorTab() {
                 disabled={busy}
                 onClick={() => void disable()}
               >
-                Desativar 2FA…
+                {t('disableTfaEllipsis')}
               </button>
             </HpsmFormActions>
           </HpsmForm>

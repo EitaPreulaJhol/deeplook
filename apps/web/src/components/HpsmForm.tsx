@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 
 import { apiFieldErrors } from '../api/client';
+import { t } from '../i18n/shell';
 import { CopyButton } from './CopyButton';
 
 interface HpsmSectionProps {
@@ -207,11 +208,13 @@ export function useRequiredFields(fields: RequiredField[]) {
       (shown && missing.some((f) => f.id === id)) || serverActive.some((f) => f.id === id),
     message:
       shown && missing.length > 0
-        ? `Preencha ou corrija os campos destacados: ${missing.map((f) => f.label).join(', ')}.`
+        ? t('fillFields', { fields: missing.map((f) => f.label).join(', ') })
         : serverActive.length > 0
-          ? `Corrija os campos destacados: ${serverActive
-              .map((f) => `${shortLabel(f.label)} (${server[f.id].message})`)
-              .join(', ')}.`
+          ? t('fixFields', {
+              fields: serverActive
+                .map((f) => `${shortLabel(f.label)} (${server[f.id].message})`)
+                .join(', '),
+            })
           : null,
     reset: () => {
       setShown(false);

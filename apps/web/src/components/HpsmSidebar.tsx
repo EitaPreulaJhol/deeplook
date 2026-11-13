@@ -8,6 +8,7 @@ import type { EntryStatus, Favorite } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useOwnSamplesOnly } from '../auth/sampleAccess';
 import { t } from '../i18n';
+import { t as tr } from '../i18n/frame';
 import { favoriteHref, useFavorites } from './favorites';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmContextMenu } from './HpsmContextMenu';
@@ -591,9 +592,11 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
 
   // Visao da equipe: quem compartilhou no title; menu so para quem pode alterar.
   const teamViewProps = (view: TeamView) => ({
-    title: `${view.label} — compartilhada por ${view.createdBy?.displayName ?? 'alguém'}${
-      view.canEdit ? ' (clique direito: renomear, remover)' : ''
-    }`,
+    title:
+      tr('nav.sharedBy', {
+        label: view.label,
+        name: view.createdBy?.displayName ?? tr('nav.someone'),
+      }) + (view.canEdit ? ` ${tr('nav.rightClickTeam')}` : ''),
     ...(view.canEdit && {
       'aria-keyshortcuts': 'Shift+F10 F2 Delete',
       onContextMenu: (event: MouseEvent) => {
@@ -636,7 +639,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
             if (el) favRefs.current.set(favorite.id, el);
             else favRefs.current.delete(favorite.id);
           },
-          title: `${leaf.label} (clique direito: renomear, mover, remover)`,
+          title: tr('nav.favHint', { label: leaf.label }),
           'aria-keyshortcuts': 'Shift+F10 F2 Delete',
           onContextMenu: (event: MouseEvent) => {
             event.preventDefault();
@@ -705,11 +708,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
             'favoritos',
             t('nav.favorites'),
             favs.favorites.length === 0
-              ? !favs.loading && (
-                  <li className="hpsm-tree__empty">
-                    Vazio. Use “Salvar visão” nas listas ou “Fixar” numa amostra.
-                  </li>
-                )
+              ? !favs.loading && <li className="hpsm-tree__empty">{tr('nav.favEmpty')}</li>
               : favs.favorites.map((favorite, index) => (
                   <li key={favorite.id} className="hpsm-tree__fav">
                     {renderLeaf(favoriteLeaves[index], false, favorite)}
@@ -731,11 +730,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
               'equipe',
               t('nav.teamViews'),
               team.views.length === 0
-                ? !team.loading && (
-                    <li className="hpsm-tree__empty">
-                      Nenhuma. Use “Compartilhar visão” no Histórico Global.
-                    </li>
-                  )
+                ? !team.loading && <li className="hpsm-tree__empty">{tr('nav.teamEmpty')}</li>
                 : team.views.map((view, index) => (
                     <li key={view.id}>
                       {renderLeaf(teamLeaves[index], false, undefined, teamViewProps(view))}
@@ -758,7 +753,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
         <HpsmContextMenu
           x={teamMenu.x}
           y={teamMenu.y}
-          label={`Visão da equipe ${teamMenu.view.label}`}
+          label={tr('nav.teamViewAria', { label: teamMenu.view.label })}
           onClose={() => setTeamMenu(null)}
           items={[
             { label: t('nav.open'), action: () => navigate(teamMenu.view.url) },
@@ -776,7 +771,7 @@ export function HpsmSidebar({ open, onNavigate }: SidebarProps) {
         <HpsmContextMenu
           x={menu.x}
           y={menu.y}
-          label={`Favorito ${menu.favorite.label}`}
+          label={tr('nav.favoriteAria', { label: menu.favorite.label })}
           onClose={closeMenu}
           items={[
             { label: t('nav.open'), action: () => navigate(favoriteHref(menu.favorite)) },

@@ -64,6 +64,48 @@ const statuses = await page.locator('.hpsm-status').allInnerTexts();
 expect('rótulos de status e veredito nas listas', statuses.some((s) => ['Pending', 'In review', 'Completed'].includes(s.trim())) && statuses.some((s) => ['Malicious', 'Suspicious', 'Clean', 'Unknown'].includes(s.trim())), statuses.slice(0, 6).join(' | '));
 await page.screenshot({ path: `${OUT}/historico-en.png` });
 
+// Dados que vem do mock como estao (erro do GitHub gravado pela API) e o nome do idioma.
+const DATA = ['GitHub respondeu', 'Português (Brasil)'];
+// 4b. Varredura em ingles: cabecalhos, campos, botoes, abas e textos de ajuda das telas. Dados do
+// mock (titulos de amostras, nomes, comentarios) sao portugues de proposito e ficam de fora: so
+// os elementos de interface sao lidos, e o que vem dos dados e reconhecido pela lista DATA.
+const ROUTES = [
+  '/inicio', '/history', '/me', '/submit', '/entries/e1', '/entries/e1?tab=analise',
+  '/entries/e1?tab=relatorios', '/entries/e1?tab=relacionadas', '/entries/e1?tab=historico', '/inbox',
+  '/casos', '/casos/cs1', '/busca?q=fatura', '/kb', '/kb/kb1', '/painel', '/revisoes', '/permitidos',
+  '/atribuicao', '/gerencial', '/avisos', '/dominios-empresa', '/regras-triagem', '/yara', '/admin',
+  '/admin?tab=keys', '/admin?tab=audit', '/admin?tab=backup', '/admin?tab=settings', '/admin?tab=status',
+  '/admin?tab=trash', '/admin?tab=templates', '/admin?tab=tokens', '/user', '/user?tab=senha',
+  '/user?tab=preferencias', '/user?tab=notificacoes', '/user?tab=2fa', '/user?tab=sessoes',
+  '/user?tab=indicadores',
+];
+// Palavras que so existem em portugues ("do", "no" e ".com" tambem aparecem em ingles).
+const PT = /[ãõçáéíóúâêô]|\b(de|da|das|dos|para|sem|uma|nas|nos|ou|em|ao|pelo|pela)\b/i;
+const leaks = new Set();
+for (const route of ROUTES) {
+  await page.goto(ORIGIN + route, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(200);
+  const texts = await page.evaluate(() => {
+    const sel = [
+      'th', 'label', 'button', 'h1', 'h2', 'h3', 'h4', 'legend', '[role=tab]',
+      '.hpsm-field__label', '.hpsm-field__help', '.hpsm-section__title', '.dl-page-subtitle',
+      '.hpsm-toolbar__action', '.cds--form__helper-text', 'option',
+    ].map((s) => `main ${s}`).join(',');
+    const out = [];
+    for (const el of document.querySelectorAll(sel)) {
+      // Celulas e links com dados da amostra (titulo, nome) nao entram.
+      if (el.closest('td a, .dl-mono, [data-user-content]')) continue;
+      const t = (el.innerText || '').trim();
+      if (t && t.length < 300) out.push(t);
+    }
+    for (const el of document.querySelectorAll('main [placeholder]')) out.push(el.getAttribute('placeholder'));
+    return out;
+  });
+  for (const t of texts) if (PT.test(t) && !DATA.some((d) => t.includes(d))) leaks.add(`${route}: ${t.replace(/\s+/g, ' ').slice(0, 120)}`);
+}
+console.log([...leaks].join('\n'));
+expect('telas em inglês, sem rótulo de interface em português', leaks.size === 0, `${leaks.size} texto(s)`);
+
 // 5. De volta ao portugues.
 await page.goto(ORIGIN + '/user?tab=preferencias', { waitUntil: 'networkidle' });
 await page.selectOption('#pref-language', 'pt-BR');

@@ -13,6 +13,7 @@ import { startCapaQueue } from './lib/capa';
 import { installCrossSiteGuard } from './lib/cross-site';
 import { startDataKeyRekey } from './lib/data-key-rekey';
 import { unpackChildCreator } from './lib/entry-create';
+import { registerErrorLanguage } from './lib/error-language';
 import { startGhidraQueue } from './lib/ghidra';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
@@ -121,6 +122,9 @@ async function main() {
   });
 
   // Liveness (/api/health) e readiness (/api/health/ready), item 1.2.
+  // Erros em ingles para quem pede (Accept-Language: en), antes das rotas (revisao 2.5).
+  registerErrorLanguage(app);
+
   await app.register(healthRoutes);
 
   await app.register(authRoutes);

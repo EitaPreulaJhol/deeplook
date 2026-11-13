@@ -16,7 +16,8 @@ import { kbCategoryLabel, kbHref } from '../components/kb';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/misc';
 
 type Group = 'entries' | 'reports' | 'comments' | 'kb' | 'cases';
 
@@ -67,13 +68,13 @@ interface SearchResult {
   }>;
 }
 
-const TITLES: Record<Group, string> = {
-  entries: 'Amostras',
-  reports: 'Relatórios',
-  comments: 'Comentários',
-  kb: 'Base de conhecimento',
-  cases: 'Casos',
-};
+const TITLES: Record<Group, string> = localized(() => ({
+  entries: t('gSamples'),
+  reports: t('gReports'),
+  comments: t('gComments'),
+  kb: t('gKb'),
+  cases: t('gCases'),
+}));
 
 /** Trecho com o termo destacado (marcadores ⟦ ⟧ da API, sem HTML). */
 export function Snippet({ text }: { text: string }) {
@@ -151,43 +152,40 @@ export function SearchPage() {
   const more = (g: Group, n: number, listed: number) =>
     type === 'all' && n > listed ? (
       <button type="button" className="dl-link-button" onClick={() => setParam('type', g)}>
-        Ver todos os {n} em {TITLES[g]}
+        {t('seeAll', { n, group: TITLES[g] })}
       </button>
     ) : null;
 
   return (
     <>
-      <PageHeader
-        title="Busca"
-        subtitle="Procura em amostras, relatórios, comentários, base de conhecimento e casos (sem diferenciar acentos)."
-      />
+      <PageHeader title={t('searchTitle')} subtitle={t('searchSubtitle')} />
       <HpsmFilterBar
         onClear={() => {
           setDraft('');
           setParams({}, { replace: true });
         }}
       >
-        <HpsmFilterItem label="Buscar" htmlFor="search-q">
+        <HpsmFilterItem label={t('search')} htmlFor="search-q">
           <TextInput
             id="search-q"
-            labelText="Buscar"
+            labelText={t('search')}
             hideLabel
             size="sm"
-            placeholder='Ex.: boleto "nota fiscal" -teste'
+            placeholder={t('searchPlaceholder')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
         </HpsmFilterItem>
-        <HpsmFilterItem label="Em" htmlFor="search-type">
+        <HpsmFilterItem label={t('in')} htmlFor="search-type">
           <Select
             id="search-type"
-            labelText="Em"
+            labelText={t('in')}
             hideLabel
             size="sm"
             value={type}
             onChange={(e) => setParam('type', e.target.value)}
           >
-            <SelectItem value="all" text="Tudo" />
+            <SelectItem value="all" text={t('everything')} />
             {order
               .filter((g) => g !== 'cases' || canTriage)
               .map((g) => (
@@ -195,36 +193,32 @@ export function SearchPage() {
               ))}
           </Select>
         </HpsmFilterItem>
-        <HpsmFilterItem label="Período" htmlFor="search-days">
+        <HpsmFilterItem label={t('period')} htmlFor="search-days">
           <Select
             id="search-days"
-            labelText="Período"
+            labelText={t('period')}
             hideLabel
             size="sm"
             value={days}
             onChange={(e) => setParam('days', e.target.value)}
           >
-            <SelectItem value="" text="Qualquer data" />
-            <SelectItem value="7" text="Últimos 7 dias" />
-            <SelectItem value="30" text="Últimos 30 dias" />
-            <SelectItem value="365" text="Último ano" />
+            <SelectItem value="" text={t('anyDate')} />
+            <SelectItem value="7" text={t('last7')} />
+            <SelectItem value="30" text={t('last30')} />
+            <SelectItem value="365" text={t('lastYear')} />
           </Select>
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {q.trim().length < 2 && (
-        <HpsmMessage kind="info">
-          Digite ao menos 2 caracteres. Use aspas para frase exata e - para excluir uma palavra.
-        </HpsmMessage>
-      )}
-      {query.isLoading && <HpsmLoading text="Buscando..." />}
+      {q.trim().length < 2 && <HpsmMessage kind="info">{t('searchHint')}</HpsmMessage>}
+      {query.isLoading && <HpsmLoading text={t('searching')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && total === 0 && (
-        <HpsmMessage kind="info">Nada encontrado para "{q}".</HpsmMessage>
+        <HpsmMessage kind="info">{t('nothingFound', { q })}</HpsmMessage>
       )}
 
       {groups.entries && groups.entries.total > 0 && (
-        <HpsmSection title={`Amostras (${groups.entries.total})`} className="dl-mt-lg">
+        <HpsmSection title={t('samplesN', { n: groups.entries.total })} className="dl-mt-lg">
           <ul className="dl-search-list">
             {groups.entries.items.map((e) => (
               <li key={e.id}>
@@ -243,7 +237,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.reports && groups.reports.total > 0 && (
-        <HpsmSection title={`Relatórios (${groups.reports.total})`} className="dl-mt-lg">
+        <HpsmSection title={t('reportsN', { n: groups.reports.total })} className="dl-mt-lg">
           <ul className="dl-search-list">
             {groups.reports.items.map((r) => (
               <li key={r.id}>
@@ -253,8 +247,8 @@ export function SearchPage() {
                   </Link>
                   <VerdictTag verdict={r.verdict} />
                   <span className="dl-search-list__meta">
-                    relatório de {r.analyst}
-                    {r.status !== 'PUBLISHED' ? ' (não publicado)' : ''}
+                    {t('reportOf', { analyst: r.analyst })}
+                    {r.status !== 'PUBLISHED' ? ` ${t('notPublished')}` : ''}
                   </span>
                 </div>
                 <Snippet text={r.snippet} />
@@ -265,7 +259,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.comments && groups.comments.total > 0 && (
-        <HpsmSection title={`Comentários (${groups.comments.total})`} className="dl-mt-lg">
+        <HpsmSection title={t('commentsN', { n: groups.comments.total })} className="dl-mt-lg">
           <ul className="dl-search-list">
             {groups.comments.items.map((c) => (
               <li key={c.id}>
@@ -274,7 +268,8 @@ export function SearchPage() {
                     {c.entryTitle}
                   </Link>
                   <span className="dl-search-list__meta">
-                    {c.author ?? 'Alguém'} · {new Date(c.createdAt).toLocaleString(intlLocale())}
+                    {c.author ?? t('someone')} ·{' '}
+                    {new Date(c.createdAt).toLocaleString(intlLocale())}
                   </span>
                 </div>
                 <Snippet text={c.snippet} />
@@ -285,7 +280,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.kb && groups.kb.total > 0 && (
-        <HpsmSection title={`Base de conhecimento (${groups.kb.total})`} className="dl-mt-lg">
+        <HpsmSection title={t('kbN', { n: groups.kb.total })} className="dl-mt-lg">
           <ul className="dl-search-list">
             {groups.kb.items.map((k) => (
               <li key={k.id}>
@@ -303,7 +298,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.cases && groups.cases.total > 0 && (
-        <HpsmSection title={`Casos (${groups.cases.total})`} className="dl-mt-lg">
+        <HpsmSection title={t('casesN', { n: groups.cases.total })} className="dl-mt-lg">
           <ul className="dl-search-list">
             {groups.cases.items.map((c) => (
               <li key={c.id}>

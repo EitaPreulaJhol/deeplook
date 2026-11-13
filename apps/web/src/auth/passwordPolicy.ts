@@ -4,19 +4,19 @@
  * nao e letra, inclusive acentuada, numero nem espaco), e no maximo 72 bytes (o
  * bcrypt ignora o resto).
  */
-export const PASSWORD_HELP =
-  'Mínimo de 8 caracteres, com ao menos um número e um caractere especial.';
+import { t } from '../i18n/shell';
+export const PASSWORD_HELP = () => t('pwdHelp');
 
 const SPECIAL = /[^\p{L}\p{N}\s]/u;
 
 /** Primeiro problema da senha, ou null se ela segue a regra. */
 export function passwordProblem(password: string): string | null {
-  if (password.length < 8) return 'mínimo de 8 caracteres';
+  if (password.length < 8) return t('pwdMin8');
   if (new TextEncoder().encode(password).length > 72) {
-    return 'no máximo 72 bytes (acentos contam 2)';
+    return t('pwdMax72');
   }
-  if (!/\d/.test(password)) return 'inclua ao menos um número';
-  if (!SPECIAL.test(password)) return 'inclua ao menos um caractere especial';
+  if (!/\d/.test(password)) return t('pwdNeedDigit');
+  if (!SPECIAL.test(password)) return t('pwdNeedSpecial');
   return null;
 }
 

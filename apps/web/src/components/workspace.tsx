@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { t as tr } from '../i18n/shell';
 import { revealTab } from './HpsmTabs';
 
 /**
@@ -39,32 +40,32 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 /** Titulo padrao de cada rota (null = rota sem aba, ex.: redirecionamentos). */
 function routeTitle(pathname: string): string | null {
-  if (pathname === '/inicio') return 'Página Inicial';
-  if (pathname === '/user') return 'Minha Conta';
-  if (pathname === '/user/api') return 'Documentação da API';
-  if (pathname === '/history') return 'Histórico Global';
-  if (pathname === '/me') return 'Meus Uploads';
-  if (pathname === '/submit') return 'Enviar Amostra';
-  if (pathname === '/admin') return 'Administração';
-  if (pathname.startsWith('/entries/')) return 'Amostra';
-  if (pathname.startsWith('/iocs/')) return 'Indicador';
-  if (pathname === '/inbox') return 'Caixa de entrada';
-  if (pathname === '/painel') return 'Painel';
-  if (pathname === '/gerencial') return 'Relatório gerencial';
-  if (pathname === '/atribuicao') return 'Atribuição automática';
-  if (pathname === '/avisos') return 'Avisos gerais';
-  if (pathname === '/revisoes') return 'Relatórios para revisar';
-  if (pathname === '/yara') return 'Regras YARA';
-  if (pathname === '/permitidos') return 'Indicadores permitidos';
-  if (pathname === '/regras-triagem') return 'Regras de triagem';
-  if (pathname === '/dominios-empresa') return 'Domínios da empresa';
-  if (pathname === '/casos') return 'Casos';
-  if (pathname.startsWith('/casos/')) return 'Caso';
-  if (pathname === '/busca') return 'Busca';
-  if (pathname === '/kb') return 'Base de conhecimento';
-  if (pathname === '/kb/novo') return 'Novo artigo';
-  if (pathname.startsWith('/kb/')) return 'Artigo';
-  if (pathname === '/comparar') return 'Comparar amostras';
+  if (pathname === '/inicio') return tr('rtHome');
+  if (pathname === '/user') return tr('rtAccount');
+  if (pathname === '/user/api') return tr('rtApiDocs');
+  if (pathname === '/history') return tr('rtHistory');
+  if (pathname === '/me') return tr('rtMyUploads');
+  if (pathname === '/submit') return tr('rtSubmit');
+  if (pathname === '/admin') return tr('rtAdmin');
+  if (pathname.startsWith('/entries/')) return tr('rtSample');
+  if (pathname.startsWith('/iocs/')) return tr('rtIoc');
+  if (pathname === '/inbox') return tr('rtInbox');
+  if (pathname === '/painel') return tr('rtDashboard');
+  if (pathname === '/gerencial') return tr('rtMgmt');
+  if (pathname === '/atribuicao') return tr('rtAssignment');
+  if (pathname === '/avisos') return tr('rtBroadcasts');
+  if (pathname === '/revisoes') return tr('rtReviews');
+  if (pathname === '/yara') return tr('rtYara');
+  if (pathname === '/permitidos') return tr('rtAllowlist');
+  if (pathname === '/regras-triagem') return tr('rtTriage');
+  if (pathname === '/dominios-empresa') return tr('rtDomains');
+  if (pathname === '/casos') return tr('rtCases');
+  if (pathname.startsWith('/casos/')) return tr('rtCase');
+  if (pathname === '/busca') return tr('rtSearch');
+  if (pathname === '/kb') return tr('rtKb');
+  if (pathname === '/kb/novo') return tr('rtNewArticle');
+  if (pathname.startsWith('/kb/')) return tr('rtArticle');
+  if (pathname === '/comparar') return tr('rtCompare');
   return null;
 }
 
@@ -273,7 +274,7 @@ export function WorkspaceTabs() {
   };
 
   return (
-    <nav ref={bar} className="hpsm-doctabs" aria-label="Registros abertos">
+    <nav ref={bar} className="hpsm-doctabs" aria-label={tr('openRecords')}>
       {tabs.map((tab) => {
         const active = tab.path === pathname;
         return (
@@ -300,8 +301,8 @@ export function WorkspaceTabs() {
             <button
               type="button"
               className="hpsm-doctab__close"
-              aria-label={`Fechar ${tab.title}`}
-              title="Fechar"
+              aria-label={tr('closeTab', { title: tab.title })}
+              title={tr('close')}
               onClick={() => close(tab.path)}
             >
               ×

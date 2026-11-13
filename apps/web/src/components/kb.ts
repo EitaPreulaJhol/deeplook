@@ -1,14 +1,16 @@
 import type { Verdict } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/kb';
 
 /** Base de conhecimento (item 63). */
 export type KbCategory = 'MALWARE_FAMILY' | 'SCAM' | 'TECHNIQUE' | 'PROCEDURE';
 
-export const KB_CATEGORIES: { id: KbCategory; label: string }[] = [
-  { id: 'MALWARE_FAMILY', label: 'Família de malware' },
-  { id: 'SCAM', label: 'Golpe' },
-  { id: 'TECHNIQUE', label: 'Técnica' },
-  { id: 'PROCEDURE', label: 'Procedimento' },
-];
+export const KB_CATEGORIES: { id: KbCategory; label: string }[] = localized(() => [
+  { id: 'MALWARE_FAMILY', label: t('catMalware') },
+  { id: 'SCAM', label: t('catScam') },
+  { id: 'TECHNIQUE', label: t('catTechnique') },
+  { id: 'PROCEDURE', label: t('catProcedure') },
+]);
 
 export const kbCategoryLabel = (id: KbCategory) =>
   KB_CATEGORIES.find((c) => c.id === id)?.label ?? id;

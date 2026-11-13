@@ -83,7 +83,7 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
   const button =
     canTriage && info.enabled && !busy && !extracted ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
-        {asking ? 'Pedindo...' : job ? t('analyzeAgain') : t('identifyUnpack')}
+        {asking ? t('requesting') : job ? t('analyzeAgain') : t('identifyUnpack')}
       </button>
     ) : null;
 

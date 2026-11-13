@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { t } from '../i18n/shell';
 import { IconEye, IconEyeOff } from './icons';
 
 type FieldType = 'text' | 'email' | 'password';
@@ -67,7 +68,7 @@ export function AuthField({
             <button
               type="button"
               className="dl-field__toggle"
-              aria-label={revealed ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-label={revealed ? t('hidePassword') : t('showPassword')}
               aria-pressed={revealed}
               onClick={() => setRevealed((previous) => !previous)}
             >

@@ -15,8 +15,9 @@ import { useSyncExternalStore } from 'react';
  * de login); sem escolha, portugues. O navegador em ingles NAO muda o idioma sozinho.
  *
  * Ao trocar, a raiz (App) se redesenha inteira (useLocale). Por isso t() so pode ser chamado na
- * hora de desenhar: nunca no topo do modulo (o texto congelaria no idioma da carga) e, dentro de
- * useMemo/useCallback, com o idioma nas dependencias. O scripts/check-i18n.mjs reprova os dois.
+ * hora de desenhar (ou de agir): nunca no topo do modulo (o texto congelaria no idioma da carga) e,
+ * dentro de useMemo, com o idioma nas dependencias. O scripts/check-i18n.mjs reprova os dois; tabelas
+ * do topo do modulo usam localized().
  */
 export type Locale = 'pt-BR' | 'en';
 export type Pairs = Readonly<Record<string, readonly [pt: string, en: string]>>;

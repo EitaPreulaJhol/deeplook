@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
+import { t as tr } from '../i18n/kb';
 import type { KbArticleSummary } from './kb';
 import { kbCategoryLabel, kbHref } from './kb';
 
@@ -86,7 +87,7 @@ export function KbPicker({
           aria-autocomplete="list"
           aria-activedescendant={showList ? `${listId}-${active}` : undefined}
           autoComplete="off"
-          placeholder="Busque pelo título, resumo ou tag"
+          placeholder={tr('kbPickerPlaceholder')}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -120,14 +121,14 @@ export function KbPicker({
         )}
       </div>
       {value.length > 0 && (
-        <ul className="dl-attack-picker__chips" aria-label="Artigos escolhidos">
+        <ul className="dl-attack-picker__chips" aria-label={tr('chosenArticles')}>
           {value.map((v) => (
             <li key={v.id}>
               <span>{v.title}</span>
               <button
                 type="button"
                 className="dl-attack-picker__remove"
-                aria-label={`Remover ${v.title}`}
+                aria-label={tr('removeTitle', { title: v.title })}
                 onClick={() => onChange(value.filter((x) => x.id !== v.id))}
               >
                 ×

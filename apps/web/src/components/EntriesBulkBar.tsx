@@ -203,7 +203,7 @@ export function EntriesBulkBar({ ids, onClear, onDone }: EntriesBulkBarProps) {
         </datalist>
       </HpsmFilterItem>
       <Button kind="primary" size="sm" disabled={busy} onClick={apply}>
-        {busy ? 'Aplicando...' : tr('apply')}
+        {busy ? tr('applying') : tr('apply')}
       </Button>
       {/* Casos (item 55): incluir as marcadas num caso ativo ou num novo. */}
       <Button kind="tertiary" size="sm" disabled={busy} onClick={() => setCaseOpen(true)}>

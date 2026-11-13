@@ -34,10 +34,11 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
 }
 
-const SAMPLE = `rule Exemplo_Dropper : dropper
+// Funcao: o exemplo acompanha o idioma (nome e descricao da regra).
+const SAMPLE = () => `rule ${t('sampleRuleName')} : dropper
 {
   meta:
-    description = "Executável com a string do dropper"
+    description = "${t('sampleRuleDesc')}"
   strings:
     $s1 = "dropper.exe" nocase
     $s2 = { 6A 40 68 00 30 00 00 }
@@ -326,7 +327,7 @@ export function YaraRulesPage() {
               hideLabel
               rows={14}
               spellCheck={false}
-              placeholder={SAMPLE}
+              placeholder={SAMPLE()}
               value={form.source}
               onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
             />

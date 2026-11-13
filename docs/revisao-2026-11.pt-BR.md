@@ -234,17 +234,17 @@ para o planejado:
   testes. **Diferença para o planejado:** o piso de cobertura passou a contar toda a lógica fora
   de componente (os `.ts` de `api`, `auth` e `components`), e não todos os módulos: as telas
   (`.tsx`) continuam com os cenários do Playwright. Medido: 87,3% das instruções; piso em 84%.
-- **2.5 — etapa 1 ✅, o resto em andamento**: infraestrutura sem biblioteca nova
-  (`apps/web/src/i18n`: dicionário português como fonte, inglês com as mesmas chaves conferidas
-  pelo TypeScript, `t()` e um assinante que redesenha a aplicação ao trocar), idioma salvo nas
-  preferências da conta e, antes do login, nesta máquina, e a moldura traduzida: menu lateral,
-  barra superior, menu do usuário, login, preferências e os rótulos de status, veredito,
-  prioridade, papel e tipo. **Decisão:** sem escolha, português, mesmo com o navegador em inglês
-  (com a maior parte das telas ainda em português, misturar por padrão seria pior). **Falta:** as
-  demais telas (cerca de 1.565 textos em 118 arquivos pela contagem do `scripts/check-i18n.mjs`,
-  que não pega rótulos curtos sem acento) e as mensagens de erro da API, que precisam de um código
-  por erro para o texto ficar no web. Próximas etapas sugeridas, pela frequência de uso: listas de
-  amostras e ficha, envio, casos, administração.
+- **2.5 ✅ (interface)**: infraestrutura sem biblioteca nova (`apps/web/src/i18n`: um dicionário
+  por área, com português e inglês lado a lado, cada um com o seu `t()`; `localized()` para as
+  tabelas do topo do módulo; datas e números pelo `Intl` no idioma escolhido), idioma salvo nas
+  preferências da conta e, antes do login, nesta máquina, e todas as telas traduzidas, em 8
+  etapas (moldura, listas e ficha, análise, envio e casos, detecção, gestão, administração, conta e
+  o restante). Os erros da API saem em inglês para quem manda `Accept-Language: en` (a interface
+  manda o idioma dela): um gancho traduz `error` e `details` por um dicionário de mais de 300
+  mensagens, sem mexer nas rotas. **Decisões:** sem escolha, português, mesmo com o navegador em
+  inglês; o texto em português de cada tela não mudou, e os cenários de tela continuam valendo.
+  **Continua em português:** o que a API grava como dado (alertas da análise, achados, motivos do
+  risco, detalhes do histórico e do status), o CSV da auditoria e a especificação OpenAPI.
 
 Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem o que a fase 3 mexe.
 

@@ -4,6 +4,7 @@ import type { ComponentProps, KeyboardEvent, ReactNode, SyntheticEvent } from 'r
 import { useId, useRef, useState } from 'react';
 
 import { api } from '../api/client';
+import { t } from '../i18n/shell';
 
 export interface Mention {
   id: string;
@@ -104,7 +105,7 @@ export function MentionTextArea({
   let list: ReactNode = null;
   if (listOpen) {
     list = (
-      <ul id={listId} className="dl-mention-list" role="listbox" aria-label="Mencionar">
+      <ul id={listId} className="dl-mention-list" role="listbox" aria-label={t('mention')}>
         {options.map((user, i) => (
           <li
             key={user.id}

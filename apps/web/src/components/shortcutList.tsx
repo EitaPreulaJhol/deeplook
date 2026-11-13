@@ -1,5 +1,8 @@
 import { Fragment } from 'react';
 
+import { localized } from '../i18n';
+import { t } from '../i18n/shell';
+
 export interface Shortcut {
   /** Alternativas; cada uma e uma combinacao de teclas (ex.: [['Ctrl', 'K']]). */
   keys: string[][];
@@ -12,38 +15,38 @@ export interface Shortcut {
  * Lista unica dos atalhos de teclado: alimenta a caixa "Atalhos de teclado"
  * (? ou F1) e as Dicas da Pagina Inicial. Ao criar um atalho, registre-o aqui.
  */
-export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
+export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = localized(() => [
   {
-    title: 'Geral',
+    title: t('scGeneral'),
     items: [
-      { keys: [['Ctrl', 'K']], label: 'Ir para uma amostra (ID, SHA-256 ou texto)', tip: true },
-      { keys: [['Alt', 'N']], label: 'Enviar amostra', tip: true },
-      { keys: [['Alt', 'W']], label: 'Fechar a aba atual', tip: true },
+      { keys: [['Ctrl', 'K']], label: t('scGoTo'), tip: true },
+      { keys: [['Alt', 'N']], label: t('scSubmit'), tip: true },
+      { keys: [['Alt', 'W']], label: t('scCloseTab'), tip: true },
       {
         keys: [['Ctrl', 'Shift', 'D']],
-        label: 'Decodificar o texto selecionado (Base64, hex, XOR…)',
+        label: t('scDecode'),
         tip: true,
       },
-      { keys: [['?'], ['F1']], label: 'Mostrar esta lista de atalhos' },
+      { keys: [['?'], ['F1']], label: t('scHelp') },
     ],
   },
   {
-    title: 'Listas',
+    title: t('scLists'),
     items: [
-      { keys: [['/']], label: 'Buscar na lista', tip: true },
-      { keys: [['↑'], ['↓'], ['Home'], ['End']], label: 'Mover entre as linhas' },
-      { keys: [['Enter']], label: 'Abrir a amostra da linha', tip: true },
-      { keys: [['Espaço']], label: 'Marcar/desmarcar a linha (listas com seleção)' },
+      { keys: [['/']], label: t('scSearchList'), tip: true },
+      { keys: [['↑'], ['↓'], ['Home'], ['End']], label: t('scMove') },
+      { keys: [['Enter']], label: t('scOpen'), tip: true },
+      { keys: [[t('keySpace')]], label: t('scToggle') },
     ],
   },
   {
-    title: 'Formulários e caixas',
+    title: t('scForms'),
     items: [
-      { keys: [['Ctrl', 'S']], label: 'Salvar o formulário aberto', tip: true },
-      { keys: [['Esc']], label: 'Fechar caixa ou menu (equivale a "Não")' },
+      { keys: [['Ctrl', 'S']], label: t('scSave'), tip: true },
+      { keys: [['Esc']], label: t('scEsc') },
     ],
   },
-];
+]);
 
 /** Teclas no estilo HPSM: <kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>F1</kbd>. */
 export function ShortcutKeys({ keys }: { keys: string[][] }) {

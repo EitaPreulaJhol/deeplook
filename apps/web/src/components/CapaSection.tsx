@@ -191,7 +191,7 @@ export function CapaSection({
   const button =
     canTriage && info.enabled && info.eligible && !purged && !busy ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
-        {asking ? 'Pedindo...' : a ? t('analyzeAgain') : t('analyzeFunctions')}
+        {asking ? t('requesting') : a ? t('analyzeAgain') : t('analyzeFunctions')}
       </button>
     ) : null;
 

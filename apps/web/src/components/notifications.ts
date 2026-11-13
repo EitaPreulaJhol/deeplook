@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 
 import { api } from '../api/client';
 import type { AppNotification, NotificationType, Verdict } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/shell';
 import { verdictLabel } from './tags';
 
 const COUNT_KEY = ['notifications', 'count'];
@@ -45,63 +47,64 @@ export function useMarkRead() {
 }
 
 /** Nome de cada tipo de aviso em Minha Conta > Notificações (item 164). */
-export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
-  ASSIGNED: 'Amostra atribuída a você',
-  COMPLETED: 'Amostra sua concluída',
-  MENTION: 'Menção numa atualização de amostra',
-  COMMENT: 'Atualização numa amostra sua ou sob sua responsabilidade',
-  REPORT_APPROVED: 'Relatório seu aprovado',
-  REPORT_RETURNED: 'Relatório seu devolvido para ajustes',
-  IOC_SEEN: 'Indicador que você segue apareceu',
-  SLA_WARN: 'Prazo em alerta',
-  SLA_LATE: 'Amostra atrasada',
-  RESOLUTION: 'O que fazer com a sua amostra',
-  CASE_MENTION: 'Menção num comentário de caso',
-  CASE_COMMENT: 'Comentário num caso sob sua responsabilidade',
-  CASE_ENTRY_ADDED: 'Amostras incluídas no seu caso',
-  CASE_ENTRY_REMOVED: 'Amostras retiradas do seu caso',
-  CASE_ASSIGNED: 'Caso atribuído a você',
-  YARA_PACK_UPDATE: 'Atualização dos pacotes de regras YARA',
-};
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = localized(() => ({
+  ASSIGNED: t('ntlAssigned'),
+  COMPLETED: t('ntlCompleted'),
+  MENTION: t('ntlMention'),
+  COMMENT: t('ntlComment'),
+  REPORT_APPROVED: t('ntlApproved'),
+  REPORT_RETURNED: t('ntlReturned'),
+  IOC_SEEN: t('ntlIocSeen'),
+  SLA_WARN: t('ntlSlaWarn'),
+  SLA_LATE: t('ntlSlaLate'),
+  RESOLUTION: t('ntlResolution'),
+  CASE_MENTION: t('ntlCaseMention'),
+  CASE_COMMENT: t('ntlCaseComment'),
+  CASE_ENTRY_ADDED: t('ntlCaseAdded'),
+  CASE_ENTRY_REMOVED: t('ntlCaseRemoved'),
+  CASE_ASSIGNED: t('ntlCaseAssigned'),
+  YARA_PACK_UPDATE: t('ntlPacks'),
+}));
 
 /** Frase da notificacao ("Bruno Lima atribuiu a amostra a você"). */
 export function notificationText(n: AppNotification): string {
-  const who = n.actor?.displayName ?? 'O sistema';
+  const who = n.actor?.displayName ?? t('ntSystem');
   switch (n.type) {
     case 'ASSIGNED':
-      return `${who} atribuiu a amostra a você`;
+      return t('ntAssigned', { who });
     case 'COMPLETED':
-      return `${who} concluiu a sua amostra${
-        n.detail ? ` (veredito: ${verdictLabel(n.detail as Verdict)})` : ''
-      }`;
+      return (
+        t('ntCompleted', { who }) +
+        (n.detail ? ` ${t('ntVerdictParen', { verdict: verdictLabel(n.detail as Verdict) })}` : '')
+      );
     case 'MENTION':
-      return `${who} mencionou você numa atualização`;
+      return t('ntMention', { who });
     case 'COMMENT':
-      return `${who} escreveu uma atualização`;
+      return t('ntComment', { who });
     case 'REPORT_APPROVED':
-      return `${who} aprovou o seu relatório (publicado)`;
+      return t('ntApproved', { who });
     case 'REPORT_RETURNED':
-      return `${who} devolveu o seu relatório para ajustes`;
+      return t('ntReturned', { who });
     case 'YARA_PACK_UPDATE':
-      return `Pacotes de regras: ${n.detail ?? 'atualização'}`;
+      return t('ntPacks', { detail: n.detail ?? t('ntUpdate') });
     case 'IOC_SEEN':
-      return `Indicador que você segue: ${n.detail ?? 'apareceu numa amostra'}`;
+      return t('ntIocSeen', { detail: n.detail ?? t('ntAppeared') });
     case 'SLA_WARN':
-      return `Prazo em alerta: mais de ${n.detail ?? '?'} h no mesmo status`;
+      return t('ntSlaWarn', { h: n.detail ?? '?' });
     case 'SLA_LATE':
-      return `Amostra atrasada: mais de ${n.detail ?? '?'} h no mesmo status`;
+      return t('ntSlaLate', { h: n.detail ?? '?' });
     case 'RESOLUTION':
-      return `${who} escreveu o que fazer com a sua amostra`;
+      return t('ntResolution', { who });
     case 'CASE_MENTION':
-      return `${who} mencionou você num comentário do caso`;
+      return t('ntCaseMention', { who });
     case 'CASE_COMMENT':
-      return `${who} comentou no caso sob sua responsabilidade`;
+      return t('ntCaseComment', { who });
     case 'CASE_ENTRY_ADDED':
-      return `${who} incluiu ${n.detail ?? 'amostras'} no seu caso`;
+      return t('ntCaseAdded', { who, what: n.detail ?? t('ntSamples') });
     case 'CASE_ENTRY_REMOVED':
-      return `${who} retirou "${n.detail ?? 'uma amostra'}" do seu caso`;
+      return t('ntCaseRemoved', { who, what: n.detail ?? t('ntASample') });
     case 'CASE_ASSIGNED':
-      return `${who} atribuiu o caso a você`;
+      return t('ntCaseAssigned', { who });
   }
 }
 
@@ -130,7 +133,7 @@ export function notificationQuote(n: AppNotification): string | null {
 /** Do que se trata: o titulo da amostra ou "CASO-0001 · titulo" (item 89). */
 export function notificationTarget(n: AppNotification): string {
   if (n.case) return `${n.case.code} · ${n.case.title}`;
-  if (n.type === 'YARA_PACK_UPDATE') return 'Pacotes de regras YARA';
+  if (n.type === 'YARA_PACK_UPDATE') return t('ntPacksTarget');
   return n.entry?.title ?? '—';
 }
 

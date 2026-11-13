@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Suspense, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
+import { t } from '../i18n/shell';
 import { BroadcastBanner } from './BroadcastBanner';
 import { ErrorBoundary } from './ErrorBoundary';
 import { HpsmSidebar } from './HpsmSidebar';
@@ -47,7 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 document.getElementById('dl-conteudo')?.focus();
               }}
             >
-              Pular para o conteúdo
+              {t('skipToContent')}
             </a>
             <HpsmTopBar
               sidebarOpen={sidebarOpen}
@@ -75,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {/* So o miolo cai (item 1.1): topo, navegador e abas ficam. */}
                     <ErrorBoundary key={pathname} variant="page">
                       {/* Paginas sob demanda (item 6.10): so o miolo espera o pacote. */}
-                      <Suspense fallback={<HpsmLoading text="Carregando..." />}>
+                      <Suspense fallback={<HpsmLoading text={t('loadingDots')} />}>
                         {children}
                       </Suspense>
                     </ErrorBoundary>

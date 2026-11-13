@@ -37,6 +37,7 @@ import { StatusText, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { useWorkspaceTitle } from '../components/workspace';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/kb';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -50,8 +51,7 @@ const EMPTY = {
   body: '',
 };
 
-const BODY_HELP =
-  'Markdown: # título, **negrito**, *itálico*, `código`, listas com - ou 1., > citação, ``` bloco de código, [texto](https://...). URL solta não vira link.';
+const BODY_HELP = () => tr('bodyHelp');
 
 /**
  * Artigo da base de conhecimento (item 63): leitura (/kb/:id), novo (/kb/novo)
@@ -72,7 +72,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
   const article = query.data?.article;
   useWorkspaceTitle(
     mode === 'edit' && article
-      ? `Editar · ${article.title}`
+      ? tr('editTitle', { title: article.title })
       : mode === 'view'
         ? article?.title
         : undefined,
@@ -115,22 +115,22 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
   const check = useRequiredFields([
     {
       id: 'kb-title',
-      label: 'Título (3 a 120 caracteres)',
+      label: tr('titleRange'),
       ok: form.title.trim().length >= 3,
       api: 'title',
       value: form.title,
     },
     {
       id: 'kb-summary',
-      label: 'Resumo (mínimo de 10 caracteres)',
+      label: tr('summaryMin'),
       ok: form.summary.trim().length >= 10,
       api: 'summary',
       value: form.summary,
     },
-    { id: 'kb-tags', label: 'Tags', ok: true, api: 'tags', value: form.tags },
+    { id: 'kb-tags', label: tr('tags'), ok: true, api: 'tags', value: form.tags },
     {
       id: 'kb-body',
-      label: 'Texto',
+      label: tr('text'),
       ok: form.body.trim().length > 0,
       api: 'body',
       value: form.body,
@@ -170,10 +170,10 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
   const remove = async () => {
     if (!article) return;
     const ok = await confirm({
-      title: 'Excluir artigo',
-      message: `Excluir "${article.title}"? Os relatórios que o citam perdem o link.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: tr('deleteArticle'),
+      message: tr('deleteArticleConfirm', { title: article.title }),
+      confirmLabel: tr('delete'),
+      cancelLabel: tr('cancel'),
       danger: true,
     });
     if (!ok) return;
@@ -188,63 +188,62 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
     }
   };
 
-  if (mode !== 'new' && query.isLoading) return <HpsmLoading text="Carregando artigo..." />;
+  if (mode !== 'new' && query.isLoading) return <HpsmLoading text={tr('loadingArticle')} />;
   if (mode !== 'new' && (query.isError || !article)) {
     return (
       <HpsmMessage kind="error">
-        {(query.error as Error | null)?.message ?? 'Artigo não encontrado.'}
+        {(query.error as Error | null)?.message ?? tr('articleNotFound')}
       </HpsmMessage>
     );
   }
 
   if (editing) {
-    if (!canWrite)
-      return (
-        <HpsmMessage kind="error">Somente analistas escrevem na base de conhecimento.</HpsmMessage>
-      );
+    if (!canWrite) return <HpsmMessage kind="error">{tr('analystsOnly')}</HpsmMessage>;
     return (
       <>
-        <HpsmToolbar label="Ações do artigo">
+        <HpsmToolbar label={tr('articleActions')}>
           <HpsmToolbarButton
-            label={saving ? 'Salvando...' : 'Salvar artigo'}
-            title="Salvar (Ctrl+S)"
+            label={saving ? tr('saving') : tr('saveArticle')}
+            title={tr('saveHint')}
             icon={IconAdd}
             disabled={saving}
             onClick={() => void save()}
           />
           <HpsmToolbarButton
-            label="Cancelar"
+            label={tr('cancel')}
             icon={IconArrowLeft}
             onClick={() => navigate(mode === 'edit' ? kbHref(id) : '/kb')}
           />
         </HpsmToolbar>
         <PageHeader
-          title={mode === 'edit' ? `Editar: ${article?.title ?? ''}` : 'Novo artigo'}
-          subtitle="Base de conhecimento"
+          title={
+            mode === 'edit' ? tr('editColon', { title: article?.title ?? '' }) : tr('newArticle')
+          }
+          subtitle={tr('kb')}
         />
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
-        <HpsmSection title="Artigo">
+        <HpsmSection title={tr('article')}>
           <HpsmForm columns={2}>
             <HpsmField
-              label="Título"
+              label={tr('title')}
               htmlFor="kb-title"
               required
               invalid={check.isInvalid('kb-title')}
             >
               <TextInput
                 id="kb-title"
-                labelText="Título"
+                labelText={tr('title')}
                 hideLabel
-                placeholder="Ex.: Grandoreiro"
+                placeholder={tr('titlePlaceholder')}
                 value={form.title}
                 onChange={(e) => set('title')(e.target.value)}
               />
             </HpsmField>
-            <HpsmField label="Categoria" htmlFor="kb-category">
+            <HpsmField label={tr('category')} htmlFor="kb-category">
               <Select
                 id="kb-category"
-                labelText="Categoria"
+                labelText={tr('category')}
                 hideLabel
                 value={form.category}
                 onChange={(e) => set('category')(e.target.value)}
@@ -255,7 +254,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
               </Select>
             </HpsmField>
             <HpsmField
-              label="Resumo"
+              label={tr('summary')}
               htmlFor="kb-summary"
               required
               wide
@@ -264,7 +263,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
             >
               <TextArea
                 id="kb-summary"
-                labelText="Resumo"
+                labelText={tr('summary')}
                 hideLabel
                 rows={2}
                 value={form.summary}
@@ -272,15 +271,15 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
               />
             </HpsmField>
             <HpsmField
-              label="Tags"
+              label={tr('tags')}
               htmlFor="kb-tags"
               wide
               invalid={check.isInvalid('kb-tags')}
-              help="Separadas por vírgula (até 10)."
+              help={tr('tagsHelp')}
             >
               <TextInput
                 id="kb-tags"
-                labelText="Tags"
+                labelText={tr('tags')}
                 hideLabel
                 placeholder="banker, brasil, phishing"
                 value={form.tags}
@@ -290,29 +289,29 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
           </HpsmForm>
           <div className="dl-kb-editor">
             <HpsmField
-              label="Texto"
+              label={tr('text')}
               htmlFor="kb-body"
               required
               top
               invalid={check.isInvalid('kb-body')}
-              help={BODY_HELP}
+              help={BODY_HELP()}
             >
               <TextArea
                 id="kb-body"
                 className="dl-code-input"
-                labelText="Texto"
+                labelText={tr('text')}
                 hideLabel
                 rows={22}
                 value={form.body}
                 onChange={(e) => set('body')(e.target.value)}
               />
             </HpsmField>
-            <div className="dl-kb-preview" aria-label="Pré-visualização">
-              <div className="dl-kb-preview__label">Pré-visualização</div>
+            <div className="dl-kb-preview" aria-label={tr('preview')}>
+              <div className="dl-kb-preview__label">{tr('preview')}</div>
               {form.body.trim() ? (
                 <Markdown source={form.body} />
               ) : (
-                <p className="dl-static-empty">O texto aparece aqui enquanto você escreve.</p>
+                <p className="dl-static-empty">{tr('previewHint')}</p>
               )}
             </div>
           </div>
@@ -324,56 +323,64 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
   const a = article!;
   return (
     <>
-      <HpsmToolbar label="Ações do artigo">
+      <HpsmToolbar label={tr('articleActions')}>
         <HpsmToolbarButton
-          label="Voltar à base"
+          label={tr('backToKb')}
           icon={IconArrowLeft}
           onClick={() => navigate('/kb')}
         />
         {canWrite && (
-          <HpsmToolbarButton label="Editar" onClick={() => navigate(`${kbHref(a.id)}/editar`)} />
+          <HpsmToolbarButton
+            label={tr('edit')}
+            onClick={() => navigate(`${kbHref(a.id)}/editar`)}
+          />
         )}
         {a.canDelete && (
-          <HpsmToolbarButton label="Excluir…" icon={IconTrash} onClick={() => void remove()} />
+          <HpsmToolbarButton
+            label={tr('deleteEllipsis')}
+            icon={IconTrash}
+            onClick={() => void remove()}
+          />
         )}
       </HpsmToolbar>
       <PageHeader title={a.title} subtitle={a.summary} />
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <div className="dl-summary dl-mb-lg">
         <span>
-          <span className="dl-summary__label">Categoria:</span>{' '}
+          <span className="dl-summary__label">{tr('sumCategory')}</span>{' '}
           <StatusText tone="blue">{kbCategoryLabel(a.category)}</StatusText>
         </span>
         {a.tags.length > 0 && (
           <span>
-            <span className="dl-summary__label">Tags:</span> {a.tags.join(', ')}
+            <span className="dl-summary__label">{tr('sumTags')}</span> {a.tags.join(', ')}
           </span>
         )}
         <span>
-          <span className="dl-summary__label">Criado por:</span> {a.createdBy?.displayName ?? '—'}
+          <span className="dl-summary__label">{tr('createdBy')}</span>{' '}
+          {a.createdBy?.displayName ?? '—'}
         </span>
         <span>
-          <span className="dl-summary__label">Atualizado:</span> {fmtDate(a.updatedAt)}
+          <span className="dl-summary__label">{tr('updated')}</span> {fmtDate(a.updatedAt)}
           {a.updatedBy ? ` por ${a.updatedBy.displayName}` : ''}
         </span>
       </div>
-      <HpsmSection title="Artigo">
+      <HpsmSection title={tr('article')}>
         <div className="dl-kb-body">
           <Markdown source={a.body} />
         </div>
       </HpsmSection>
-      <HpsmSection title={`Citado em (${a.reports.length})`} className="dl-mt-lg">
+      <HpsmSection title={tr('citedIn', { n: a.reports.length })} className="dl-mt-lg">
         {a.reports.length === 0 ? (
-          <p className="dl-static-empty">Nenhum relatório publicado cita este artigo ainda.</p>
+          <p className="dl-static-empty">{tr('notCited')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label="Relatórios que citam o artigo">
+            <Table size="xs" aria-label={tr('citingAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Amostra</TableHeader>
-                  <TableHeader scope="col">Veredito</TableHeader>
-                  <TableHeader scope="col">Analista</TableHeader>
-                  <TableHeader scope="col">Relatório</TableHeader>
+                  <TableHeader scope="col">{tr('sample')}</TableHeader>
+                  <TableHeader scope="col">{tr('verdict')}</TableHeader>
+                  <TableHeader scope="col">{tr('analyst')}</TableHeader>
+                  <TableHeader scope="col">{tr('report')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -397,12 +404,12 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
         )}
       </HpsmSection>
       {a.revisions.length > 0 && (
-        <HpsmSection title="Alterações" className="dl-mt-lg">
+        <HpsmSection title={tr('changes')} className="dl-mt-lg">
           <HpsmForm>
-            <HpsmField label="Últimas edições" wide top>
+            <HpsmField label={tr('lastEdits')} wide top>
               <HpsmReadonly multiline>
                 {a.revisions
-                  .map((r) => `${fmtDate(r.createdAt)} — ${r.editor?.displayName ?? 'alguém'}`)
+                  .map((r) => `${fmtDate(r.createdAt)} — ${r.editor?.displayName ?? tr('someone')}`)
                   .join('\n')}
               </HpsmReadonly>
             </HpsmField>

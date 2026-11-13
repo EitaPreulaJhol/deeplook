@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { daysUntil } from '../auth/passwordPolicy';
+import { t } from '../i18n/shell';
 import { HpsmMessage } from './messages';
 
 /** A partir de quantos dias antes da validade o aviso aparece. */
@@ -18,10 +19,10 @@ export function PasswordExpiryNotice() {
   return (
     <HpsmMessage kind="warning">
       {days === 0
-        ? 'Sua senha expira hoje.'
-        : `Sua senha expira em ${days} dia${days === 1 ? '' : 's'}.`}{' '}
+        ? t('expiresToday')
+        : t(days === 1 ? 'expiresInOne' : 'expiresInMany', { n: days })}{' '}
       <Link className="dl-link" to="/user?tab=senha">
-        Alterar senha
+        {t('changePassword')}
       </Link>
     </HpsmMessage>
   );

@@ -425,6 +425,8 @@ export const messages = {
   myWatches: ['Indicadores que sigo', 'Indicators I follow'],
   followingSince: ['Seguindo desde', 'Following since'],
   kindDomain: ['Domínio', 'Domain'],
+  sampleRuleName: ['Exemplo_Dropper', 'Example_Dropper'],
+  sampleRuleDesc: ['Executável com a string do dropper', 'Executable with the dropper string'],
 } as const satisfies Pairs;
 
 export const t = define(messages);

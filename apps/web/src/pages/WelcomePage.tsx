@@ -22,6 +22,7 @@ import { SHORTCUT_GROUPS, ShortcutKeys } from '../components/shortcutList';
 import { VerdictTag } from '../components/tags';
 import { useTakeNext } from '../components/useTakeNext';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/misc';
 
 interface Updates {
   since: string | null;
@@ -30,7 +31,9 @@ interface Updates {
 
 /** Pagina inicial do app logado: texto introdutorio de boas-vindas. */
 /** Atalhos resumidos nas Dicas (a lista completa abre com ? ou F1). */
-const TIP_SHORTCUTS = SHORTCUT_GROUPS.flatMap((group) => group.items).filter((item) => item.tip);
+// Funcao, e nao constante: os rotulos acompanham o idioma.
+const tipShortcuts = () =>
+  SHORTCUT_GROUPS.flatMap((group) => group.items).filter((item) => item.tip);
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 export function WelcomePage() {
@@ -49,15 +52,13 @@ export function WelcomePage() {
   return (
     <>
       <PageHeader
-        title="Página Inicial"
-        subtitle={user ? `Bem-vindo(a), ${user.displayName}.` : undefined}
+        title={t('home')}
+        subtitle={user ? t('welcomeUser', { name: user.displayName }) : undefined}
       />
 
       {completed.length > 0 && (
         <HpsmMessage kind="info">
-          {completed.length === 1
-            ? '1 amostra sua foi concluída desde a sua última visita.'
-            : `${completed.length} amostras suas foram concluídas desde a sua última visita.`}
+          {completed.length === 1 ? t('doneOne') : t('doneMany', { n: completed.length })}
         </HpsmMessage>
       )}
       {next.notice && (
@@ -68,14 +69,14 @@ export function WelcomePage() {
 
       <div className="dl-welcome">
         {completed.length > 0 && (
-          <HpsmSection title="Novidades desde a sua última visita">
+          <HpsmSection title={t('newsSince')}>
             <TableContainer>
-              <Table size="xs" aria-label="Amostras concluídas desde a última visita">
+              <Table size="xs" aria-label={t('doneSinceAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Amostra</TableHeader>
-                    <TableHeader scope="col">Veredito</TableHeader>
-                    <TableHeader scope="col">Concluída em</TableHeader>
+                    <TableHeader scope="col">{t('sample')}</TableHeader>
+                    <TableHeader scope="col">{t('verdict')}</TableHeader>
+                    <TableHeader scope="col">{t('completedAt')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -100,41 +101,39 @@ export function WelcomePage() {
           </HpsmSection>
         )}
 
-        <HpsmSection title="Bem-vindo ao DeepLook">
+        <HpsmSection title={t('welcomeTitle')}>
           <p>
-            O <strong>DeepLook</strong> é uma plataforma colaborativa para análise e verificação de
-            executáveis e links suspeitos. Aqui você envia amostras, acompanha a triagem feita pelos
-            analistas e consulta os relatórios publicados pela equipe, tudo antes de confiar em um
-            arquivo desconhecido.
+            {t('welcomeIntro').split('{brand}')[0]}
+            <strong>DeepLook</strong>
+            {t('welcomeIntro').split('{brand}')[1]}
           </p>
         </HpsmSection>
 
-        <HpsmSection title="Por onde começar">
+        <HpsmSection title={t('whereToStart')}>
           <ul>
             <li>
               <Link className="dl-link" to="/submit">
-                Enviar Amostra
+                {t('submitSample')}
               </Link>{' '}
-              - envie um arquivo ou link suspeito para que seja analisado.
+              {t('submitHint')}
             </li>
             <li>
               <Link className="dl-link" to="/me">
-                Meus Uploads
+                {t('myUploads')}
               </Link>{' '}
-              - acompanhe o status e o veredito das amostras que você enviou.
+              {t('myUploadsHint')}
             </li>
             {!ownOnly && (
               <li>
                 <Link className="dl-link" to="/history">
-                  Histórico Global
+                  {t('history')}
                 </Link>{' '}
-                - consulte todas as amostras enviadas e os relatórios publicados.
+                {t('historyHint')}
               </li>
             )}
             {canTriage && (
               <li>
-                Na aba <strong>Análise</strong> de cada amostra você faz a triagem e pode abrir um
-                ambiente isolado para examinar o arquivo com segurança.
+                {t('inTab')} <strong>{t('analysisTab')}</strong> {t('analysisHint')}
               </li>
             )}
             {canTriage && (
@@ -145,59 +144,56 @@ export function WelcomePage() {
                   disabled={next.taking}
                   onClick={() => void next.take()}
                 >
-                  {next.taking ? 'Pegando...' : 'Pegar a próxima'}
+                  {next.taking ? t('taking') : t('takeNext')}
                 </button>{' '}
-                - atribui a você a amostra pendente sem responsável mais antiga e abre a ficha.
+                {t('takeNextHint')}
               </li>
             )}
           </ul>
         </HpsmSection>
 
         {!canTriage && (
-          <HpsmSection title="Cliquei ou abri, e agora?">
+          <HpsmSection title={t('clickedTitle')}>
             <ul>
-              <li>Clicou no link ou digitou a senha? Troque a senha agora e avise o suporte.</li>
-              <li>Abriu o anexo? Desconecte o computador da rede e avise o suporte.</li>
+              <li>{t('clickedLink')}</li>
+              <li>{t('openedAttachment')}</li>
               <li>
-                Depois,{' '}
+                {t('then')}{' '}
                 <Link className="dl-link" to="/submit">
-                  envie a amostra
+                  {t('sendSample')}
                 </Link>{' '}
-                para a equipe de segurança analisar.
+                {t('toSecurity')}
               </li>
             </ul>
           </HpsmSection>
         )}
 
-        <HpsmSection title="Dicas">
+        <HpsmSection title={t('tips')}>
           <ul>
             <li>
-              Use o <strong>Navegador do Sistema</strong>, à esquerda, para trocar de tela. Cada
-              tela ou amostra aberta vira uma aba no topo da área de trabalho.
+              {t('use')} <strong>{t('navigator')}</strong>
+              {t('navigatorHint')}
             </li>
             <li>
-              Clique no seu nome, no canto superior direito, e escolha{' '}
+              {t('clickName')}{' '}
               <Link className="dl-link" to="/user">
-                Minha conta
+                {t('myAccount')}
               </Link>{' '}
-              para trocar a senha e ajustar suas preferências, inclusive qual tela abre ao entrar.
+              {t('myAccountHint')}
             </li>
             {canTriage && (
               <li>
-                Atalhos:{' '}
-                {TIP_SHORTCUTS.map((item, index) => (
+                {t('shortcuts')}{' '}
+                {tipShortcuts().map((item, index) => (
                   <Fragment key={item.label}>
                     {index > 0 && ', '}
                     <ShortcutKeys keys={item.keys} /> {lowerFirst(item.label)}
                   </Fragment>
                 ))}
-                . Pressione <ShortcutKeys keys={[['?'], ['F1']]} /> para ver todos os atalhos.
+                {t('press')} <ShortcutKeys keys={[['?'], ['F1']]} /> {t('seeAllShortcuts')}
               </li>
             )}
-            <li>
-              Atenção: as amostras podem ser maliciosas. Baixe e execute arquivos apenas em ambiente
-              isolado.
-            </li>
+            <li>{t('maliciousWarning')}</li>
           </ul>
         </HpsmSection>
       </div>

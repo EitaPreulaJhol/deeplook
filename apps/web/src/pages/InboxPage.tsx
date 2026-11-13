@@ -27,6 +27,7 @@ import {
 } from '../components/notifications';
 import { PageHeader } from '../components/PageHeader';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/misc';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -67,44 +68,43 @@ export function InboxPage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações da caixa de entrada">
+      <HpsmToolbar label={t('inboxActions')}>
         <HpsmToolbarButton
-          label="Marcar todas como lidas"
+          label={t('markAllRead')}
           disabled={unread === 0}
           onClick={() => void markRead()}
         />
-        <HpsmToolbarButton label="Atualizar" icon={IconRefresh} onClick={() => query.refetch()} />
+        <HpsmToolbarButton
+          label={t('refresh')}
+          icon={IconRefresh}
+          onClick={() => query.refetch()}
+        />
       </HpsmToolbar>
-      <PageHeader
-        title="Caixa de entrada"
-        subtitle="Atribuições, amostras concluídas, menções e atualizações nas suas amostras."
-      />
+      <PageHeader title={t('inbox')} subtitle={t('inboxSubtitle')} />
       <div className="dl-history-filter">
         <Checkbox
           id="inbox-only-unread"
-          labelText={`Somente não lidas (${unread})`}
+          labelText={t('onlyUnread', { n: unread })}
           checked={onlyUnread}
           onChange={(_, { checked }) => setOnlyUnread(checked)}
         />
       </div>
 
-      {query.isLoading && <HpsmLoading text="Carregando notificações..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingNotifs')} />}
       {query.data && items.length === 0 && (
-        <HpsmMessage kind="info">
-          {onlyUnread ? 'Nenhuma notificação não lida.' : 'Nenhuma notificação ainda.'}
-        </HpsmMessage>
+        <HpsmMessage kind="info">{onlyUnread ? t('noUnread') : t('noNotifs')}</HpsmMessage>
       )}
       {items.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Notificações (setas navegam, Enter abre)">
+          <Table size="xs" aria-label={t('notifsAria')}>
             <TableHead>
               <TableRow>
                 <TableHeader scope="col">
-                  <span className="cds--visually-hidden">Situação</span>
+                  <span className="cds--visually-hidden">{t('situation')}</span>
                 </TableHeader>
-                <TableHeader scope="col">Notificação</TableHeader>
-                <TableHeader scope="col">Amostra ou caso</TableHeader>
-                <TableHeader scope="col">Quando</TableHeader>
+                <TableHeader scope="col">{t('notification')}</TableHeader>
+                <TableHeader scope="col">{t('sampleOrCase')}</TableHeader>
+                <TableHeader scope="col">{t('when')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -120,8 +120,10 @@ export function InboxPage() {
                   onKeyDown={(event: KeyboardEvent) => onRowKeyDown(event, index, n)}
                 >
                   <TableCell className="dl-inbox-state">
-                    {!n.readAt && <span className="hpsm-inbox__dot" title="Não lida" />}
-                    <span className="cds--visually-hidden">{n.readAt ? 'Lida' : 'Não lida'}</span>
+                    {!n.readAt && <span className="hpsm-inbox__dot" title={t('unread')} />}
+                    <span className="cds--visually-hidden">
+                      {n.readAt ? t('read') : t('unread')}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {notificationText(n)}
@@ -130,7 +132,7 @@ export function InboxPage() {
                     )}
                     {notificationResolution(n) && (
                       <div className="hpsm-inbox__detail dl-resolution-line">
-                        O que fazer: {notificationResolution(n)}
+                        {t('whatToDo', { text: notificationResolution(n) })}
                       </div>
                     )}
                   </TableCell>

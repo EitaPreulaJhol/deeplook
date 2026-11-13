@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 
+import { t } from '../i18n/shell';
 import { useConfirm } from './HpsmConfirm';
 import { useWorkspace } from './workspace';
 
@@ -70,10 +71,10 @@ export function useUnsavedChanges(dirty: boolean) {
     if (blocker.state !== 'blocked') return;
     let active = true;
     confirm({
-      title: 'Alterações não salvas',
-      message: 'Há alterações não salvas nesta tela. Deseja sair e descartar as alterações?',
-      confirmLabel: 'Descartar',
-      cancelLabel: 'Continuar editando',
+      title: t('unsavedTitle'),
+      message: t('unsavedMsg'),
+      confirmLabel: t('discard'),
+      cancelLabel: t('keepEditing'),
       danger: true,
     }).then((discard) => {
       if (!active) return;

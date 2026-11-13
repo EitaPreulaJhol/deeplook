@@ -13,6 +13,7 @@ import { env } from '../../src/env';
 import { deleteExpiredSessions } from '../../src/lib/auth';
 import { cleanStaleWorkDirs } from '../../src/lib/backup';
 import { hashPassword } from '../../src/lib/crypto';
+import { registerErrorLanguage } from '../../src/lib/error-language';
 import { matchLookalike } from '../../src/lib/lookalike';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
@@ -45,6 +46,8 @@ async function main() {
   await app.register(multipart, {
     limits: { fileSize: env.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
   });
+  // Como no index.ts: erros em ingles para quem manda Accept-Language: en.
+  registerErrorLanguage(app);
   for (const r of [authRoutes, entryRoutes, meRoutes]) await app.register(r);
   await app.ready();
   const user = await prisma.user.create({
@@ -327,6 +330,24 @@ async function main() {
     payload: { email: 'a@x.io', password: 'errada' },
   });
   ok('login com acento', bad.json().error === 'Credenciais inválidas.', bad.body);
+  // Erros em ingles para quem pede (revisao de novembro, 2.5): a interface manda o idioma dela.
+  const missingEn = await app.inject({
+    method: 'GET',
+    url: '/api/entries/naoexiste',
+    headers: { cookie: cAna, 'accept-language': 'en' },
+  });
+  ok(
+    'erro em inglês com Accept-Language: en',
+    missingEn.json().error === 'Sample not found.',
+    missingEn.body,
+  );
+  const invalidEn = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    headers: { 'accept-language': 'en-US,en;q=0.9' },
+    payload: { email: 'a@x.io', password: 'errada' },
+  });
+  ok('login recusado em inglês', invalidEn.json().error === 'Invalid credentials.', invalidEn.body);
 
   await app.close();
   await prisma.$disconnect();
