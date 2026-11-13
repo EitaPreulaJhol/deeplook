@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { UnpackInfo } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
@@ -30,23 +31,23 @@ export function useUnpack(entryId: string, enabled: boolean) {
 }
 
 function situation(job: NonNullable<UnpackInfo['job']>): { tone: StatusTone; text: string } {
-  if (job.status === 'PENDING') return { tone: 'blue', text: 'Na fila' };
+  if (job.status === 'PENDING') return { tone: 'blue', text: t('queued') };
   if (job.status === 'RUNNING')
-    return { tone: 'blue', text: `Desempacotando desde ${fmtDate(job.startedAt)}` };
+    return { tone: 'blue', text: t('unpackingSince', { date: fmtDate(job.startedAt) }) };
   if (job.status === 'FAILED')
-    return { tone: 'orange', text: `Falhou: ${job.error ?? 'erro desconhecido'}` };
+    return { tone: 'orange', text: t('failed', { error: job.error ?? t('unknownErr') }) };
   const made = (job.files ?? []).filter((f) => f.entryId).length;
   if (!job.unpacker) {
     // Nota do porque (nada a desempacotar, protetor, empacotador sem desempacotador estatico).
     const protectedOrPacked = /^(protegido|empacotado)/.test(job.note ?? '');
     return {
       tone: protectedOrPacked ? 'orange' : 'none',
-      text: job.note ? job.note[0].toUpperCase() + job.note.slice(1) : 'Nada a desempacotar',
+      text: job.note ? job.note[0].toUpperCase() + job.note.slice(1) : t('nothingToUnpack'),
     };
   }
   return {
     tone: made ? 'green' : 'none',
-    text: `${made} arquivo(s) extraído(s) em ${fmtDate(job.finishedAt)}`,
+    text: t('extractedFiles', { n: made, date: fmtDate(job.finishedAt) }),
   };
 }
 
@@ -82,20 +83,17 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
   const button =
     canTriage && info.enabled && !busy && !extracted ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
-        {asking ? 'Pedindo...' : job ? 'Analisar de novo' : 'Identificar e desempacotar'}
+        {asking ? 'Pedindo...' : job ? t('analyzeAgain') : t('identifyUnpack')}
       </button>
     ) : null;
 
-  const title = 'Identificação e desempacotamento';
+  const title = t('unpackTitle');
   if (!job) {
     return (
       <HpsmSection title={title}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         <p className="dl-static-empty">
-          {info.enabled
-            ? 'Ainda não identificado (amostra enviada antes, ou fora do teto).'
-            : 'A identificação e o desempacotamento estão desligados (UNPACK_URL vazio).'}{' '}
-          {button}
+          {info.enabled ? t('unpackNotYet') : t('unpackOff')} {button}
         </p>
       </HpsmSection>
     );
@@ -108,15 +106,12 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
     <HpsmSection title={title}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <HpsmForm columns={2}>
-        <HpsmField
-          label="Situação"
-          help="UPX, instaladores (NSIS e Inno Setup até a 6.2), PyInstaller e arquivos compactados embutidos. Só lê e extrai; nada é executado."
-        >
+        <HpsmField label={t('sigState')} help={t('unpackHelp')}>
           <HpsmReadonly>
             <StatusText tone={state.tone}>{state.text}</StatusText> {button}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Desempacotador">
+        <HpsmField label={t('unpacker')}>
           <HpsmReadonly>
             {job.label ?? '—'}
             {job.unpacker && job.note && ` · ${job.note}`}
@@ -126,9 +121,7 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
           label="Detect It Easy"
           wide
           top
-          help={`Compilador, empacotador, protetor e instalador pelas assinaturas do Detect It Easy${
-            job.dieVersion ? ` ${job.dieVersion}` : ''
-          }. Pode errar: é uma pista, não um veredito.`}
+          help={t('dieHelp', { version: job.dieVersion ? ` ${job.dieVersion}` : '' })}
         >
           {detections.length ? (
             <ul className="dl-die-list">
@@ -145,9 +138,9 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
           ) : (
             <HpsmReadonly>
               {job.dieError
-                ? `Não identificado: ${job.dieError}`
+                ? t('dieNotIdentified', { error: job.dieError })
                 : job.status === 'DONE' || job.status === 'FAILED'
-                  ? 'Nada reconhecido'
+                  ? t('nothingRecognized')
                   : '—'}
             </HpsmReadonly>
           )}
@@ -172,7 +165,7 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
                 <span className="dl-hint-muted">
                   {' '}
                   · {formatFileSize(f.size)}
-                  {f.skipped && ` · ficou de fora: ${f.skipped}`}
+                  {f.skipped && ` · ${t('leftOut', { reason: f.skipped })}`}
                 </span>
               </li>
             );

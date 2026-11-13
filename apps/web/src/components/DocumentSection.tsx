@@ -1,23 +1,25 @@
 import { useState } from 'react';
 
 import type { DocumentInfo, StaticInfo } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
-const FORMAT: Record<DocumentInfo['format'], string> = {
+const FORMAT: Record<DocumentInfo['format'], string> = localized(() => ({
   pdf: 'PDF',
   ooxml: 'Office (OOXML)',
-  ole: 'Office antigo (OLE)',
+  ole: t('fmtOle'),
   rtf: 'RTF',
-};
+}));
 
-const RISK: Record<DocumentInfo['risk'], { label: string; tone: StatusTone }> = {
-  high: { label: 'Alto', tone: 'red' },
-  medium: { label: 'Médio', tone: 'orange' },
-  low: { label: 'Baixo', tone: 'green' },
-};
+const RISK: Record<DocumentInfo['risk'], { label: string; tone: StatusTone }> = localized(() => ({
+  high: { label: t('riskHigh'), tone: 'red' },
+  medium: { label: t('riskMedium'), tone: 'orange' },
+  low: { label: t('riskLow'), tone: 'green' },
+}));
 
 const LEVEL_TONE: Record<DocumentInfo['alerts'][number]['level'], StatusTone> = {
   high: 'red',
@@ -30,11 +32,7 @@ export function DocumentWarning({ info }: { info?: StaticInfo | null }) {
   const doc = info?.document;
   if (!doc || doc.risk !== 'high') return null;
   const first = doc.alerts.find((a) => a.level === 'high');
-  return (
-    <HpsmMessage kind="warning">
-      Atenção: documento com conteúdo ativo. {first?.text} Não abra fora do ambiente isolado.
-    </HpsmMessage>
-  );
+  return <HpsmMessage kind="warning">{t('docWarn', { alert: first?.text })}</HpsmMessage>;
 }
 
 /**
@@ -47,21 +45,21 @@ export function DocumentSection({ info }: { info?: StaticInfo | null }) {
   if (!doc) return null;
   const office = doc.office;
   return (
-    <HpsmSection title={`Documento (${FORMAT[doc.format]})`} className="dl-mt-lg">
+    <HpsmSection title={t('docTitle', { format: FORMAT[doc.format] })} className="dl-mt-lg">
       <HpsmForm columns={2}>
-        <HpsmField label="Risco">
+        <HpsmField label={t('risk')}>
           <HpsmReadonly>
             <StatusText tone={RISK[doc.risk].tone}>{RISK[doc.risk].label}</StatusText>
           </HpsmReadonly>
         </HpsmField>
         {doc.pdf?.pages && (
-          <HpsmField label="Páginas">
+          <HpsmField label={t('pages')}>
             <HpsmReadonly>{doc.pdf.pages}</HpsmReadonly>
           </HpsmField>
         )}
-        <HpsmField label="Alertas" wide top>
+        <HpsmField label={t('alerts')} wide top>
           {doc.alerts.length === 0 ? (
-            <HpsmReadonly>Nada de conteúdo ativo encontrado.</HpsmReadonly>
+            <HpsmReadonly>{t('noActiveContent')}</HpsmReadonly>
           ) : (
             <ul className="dl-doc-alerts">
               {doc.alerts.map((a) => (
@@ -73,19 +71,14 @@ export function DocumentSection({ info }: { info?: StaticInfo | null }) {
           )}
         </HpsmField>
         {doc.links.length > 0 && (
-          <HpsmField
-            label={`Links (${doc.links.length})`}
-            wide
-            top
-            help="Só como texto: não abra fora do sandbox."
-          >
+          <HpsmField label={`Links (${doc.links.length})`} wide top help={t('textOnlyHelp')}>
             <HpsmReadonly multiline mono copyable={{ value: doc.links.join('\n'), label: 'links' }}>
               {doc.links.join('\n')}
             </HpsmReadonly>
           </HpsmField>
         )}
         {office && office.embedded.length > 0 && (
-          <HpsmField label="Objetos embutidos" wide top>
+          <HpsmField label={t('embeddedObjects')} wide top>
             <HpsmReadonly multiline mono>
               {office.embedded.join('\n')}
             </HpsmReadonly>
@@ -94,15 +87,17 @@ export function DocumentSection({ info }: { info?: StaticInfo | null }) {
       </HpsmForm>
       {office && office.modules.length > 0 && (
         <div className="dl-doc-macros">
-          <h3 className="dl-doc-macros__head">Macros VBA ({office.modules.length})</h3>
+          <h3 className="dl-doc-macros__head">{t('vbaMacros', { n: office.modules.length })}</h3>
           <ul>
             {office.modules.map((m) => (
               <li key={m.name}>
                 <div className="dl-doc-macros__row">
                   <span className="dl-mono">{m.name}</span>
-                  <span className="dl-doc-macros__meta">{m.lines} linha(s)</span>
+                  <span className="dl-doc-macros__meta">{t('lineCount', { n: m.lines })}</span>
                   {m.autoExec.length > 0 && (
-                    <StatusText tone="red">roda ao abrir: {m.autoExec.join(', ')}</StatusText>
+                    <StatusText tone="red">
+                      {t('runsOnOpen', { list: m.autoExec.join(', ') })}
+                    </StatusText>
                   )}
                   {m.suspicious.length > 0 && (
                     <StatusText tone="orange">{m.suspicious.join(', ')}</StatusText>
@@ -113,13 +108,16 @@ export function DocumentSection({ info }: { info?: StaticInfo | null }) {
                     aria-expanded={open === m.name}
                     onClick={() => setOpen(open === m.name ? null : m.name)}
                   >
-                    {open === m.name ? 'Ocultar código' : 'Ver código'}
+                    {open === m.name ? t('hideCode') : t('showCode')}
                   </button>
                 </div>
                 {open === m.name && (
-                  <pre className="dl-doc-macros__code" aria-label={`Código do módulo ${m.name}`}>
+                  <pre
+                    className="dl-doc-macros__code"
+                    aria-label={t('moduleCode', { name: m.name })}
+                  >
                     {m.code}
-                    {m.truncated ? '\n… (cortado)' : ''}
+                    {m.truncated ? `\n… ${t('cut')}` : ''}
                   </pre>
                 )}
               </li>

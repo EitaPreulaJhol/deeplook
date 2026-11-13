@@ -13,7 +13,8 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { StaticInfo } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { CopyButton } from './CopyButton';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -27,20 +28,23 @@ function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
-const ENTROPY: Record<StaticInfo['entropyLevel'], { tone: StatusTone; text: string }> = {
-  low: { tone: 'none', text: 'baixa (texto, zeros, pouca variação)' },
-  normal: { tone: 'none', text: 'normal' },
-  high: { tone: 'orange', text: 'alta: provável compactação, criptografia ou empacotamento' },
-};
+const ENTROPY: Record<StaticInfo['entropyLevel'], { tone: StatusTone; text: string }> = localized(
+  () => ({
+    low: { tone: 'none', text: t('entropyLow') },
+    normal: { tone: 'none', text: t('entropyNormal') },
+    high: { tone: 'orange', text: t('entropyHigh') },
+  }),
+);
 
-const STRING_GROUPS: { key: keyof Omit<StaticInfo['strings'], 'total'>; label: string }[] = [
-  { key: 'suspicious', label: 'Palavras suspeitas' },
-  { key: 'urls', label: 'URLs' },
-  { key: 'ips', label: 'IPs públicos' },
-  { key: 'emails', label: 'E-mails' },
-  { key: 'paths', label: 'Caminhos' },
-  { key: 'registry', label: 'Chaves de registro' },
-];
+const STRING_GROUPS: { key: keyof Omit<StaticInfo['strings'], 'total'>; label: string }[] =
+  localized(() => [
+    { key: 'suspicious', label: t('sgSuspicious') },
+    { key: 'urls', label: 'URLs' },
+    { key: 'ips', label: t('sgIps') },
+    { key: 'emails', label: 'E-mails' },
+    { key: 'paths', label: t('sgPaths') },
+    { key: 'registry', label: t('sgRegistry') },
+  ]);
 
 /** Aviso no topo da ficha: executavel disfarcado com outra extensao. */
 export function DisguisedFileWarning({ info }: { info?: StaticInfo | null }) {
@@ -48,8 +52,9 @@ export function DisguisedFileWarning({ info }: { info?: StaticInfo | null }) {
   if (!mismatch?.dangerous || !info?.detectedType) return null;
   return (
     <HpsmMessage kind="warning">
-      Atenção: o nome diz <strong>.{mismatch.declared}</strong>, mas o conteúdo é{' '}
-      <strong>{info.detectedType.label}</strong>. Não abra fora do ambiente isolado.
+      {t('disguised1')} <strong>.{mismatch.declared}</strong>
+      {t('disguised2')} <strong>{info.detectedType.label}</strong>
+      {t('disguised3')}
     </HpsmMessage>
   );
 }
@@ -91,15 +96,13 @@ export function StaticAnalysisSection({
 
   if (!info) {
     return (
-      <HpsmSection title="Análise estática">
+      <HpsmSection title={t('staticTitle')}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         <p className="dl-static-empty">
-          {purged
-            ? 'Sem análise estática: o arquivo foi expurgado pela política de retenção antes de ser analisado.'
-            : 'Esta amostra foi enviada antes da análise estática.'}{' '}
+          {purged ? t('staticPurged') : t('staticBefore')}{' '}
           {canTriage && !purged && (
             <button type="button" className="dl-link-button" disabled={running} onClick={analyze}>
-              {running ? 'Analisando...' : 'Analisar agora'}
+              {running ? 'Analisando...' : t('analyzeNow')}
             </button>
           )}
         </p>
@@ -114,48 +117,46 @@ export function StaticAnalysisSection({
   const suggested = info.iocCandidates;
 
   return (
-    <HpsmSection title="Análise estática">
+    <HpsmSection title={t('staticTitle')}>
       <HpsmForm columns={2}>
-        <HpsmField label="Tipo real">
+        <HpsmField label={t('realType')}>
           <HpsmReadonly>
-            {info.detectedType?.label ?? 'Não identificado pela assinatura'}
+            {info.detectedType?.label ?? t('notIdentified')}
             {mismatch && (
               <>
                 {' '}
                 <StatusText tone={mismatch.dangerous ? 'red' : 'orange'}>
-                  {mismatch.dangerous ? 'executável disfarçado' : 'extensão divergente'}: .
-                  {mismatch.declared}
+                  {mismatch.dangerous ? t('disguisedExe') : t('extMismatch')}: .{mismatch.declared}
                 </StatusText>
               </>
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Entropia">
+        <HpsmField label={t('entropy')}>
           <HpsmReadonly>
             <StatusText tone={entropy.tone}>
-              {info.entropy.toFixed(2)} de 8 — {entropy.text}
+              {t('entropyOf8', { value: info.entropy.toFixed(2), text: entropy.text })}
             </StatusText>
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Analisado em">
+        <HpsmField label={t('analyzedAt')}>
           <HpsmReadonly>
             {fmtDate(info.analyzedAt)}
             {info.bytesAnalyzed < info.size &&
-              ` (primeiros ${formatFileSize(info.bytesAnalyzed)} de ${formatFileSize(info.size)})`}
+              ` ${t('firstBytes', { n: formatFileSize(info.bytesAnalyzed), total: formatFileSize(info.size) })}`}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Strings legíveis">
+        <HpsmField label={t('readableStrings')}>
           <HpsmReadonly>{info.strings.total}</HpsmReadonly>
         </HpsmField>
       </HpsmForm>
 
       {pe && (
         <div className="dl-static-block">
-          <h4 className="dl-static-title">Executável do Windows (PE)</h4>
+          <h4 className="dl-static-title">{t('peTitle')}</h4>
           {pe.imphash === undefined && (
             <p className="dl-static-empty">
-              Análise anterior ao imphash, à assinatura e aos recursos: eles aparecem quando a
-              reanálise em segundo plano chegar a esta amostra.{' '}
+              {t('peOld')}{' '}
               {canTriage && !purged && (
                 <button
                   type="button"
@@ -163,34 +164,34 @@ export function StaticAnalysisSection({
                   disabled={running}
                   onClick={analyze}
                 >
-                  {running ? 'Analisando...' : 'Analisar de novo'}
+                  {running ? 'Analisando...' : t('analyzeAgain')}
                 </button>
               )}
             </p>
           )}
           <HpsmForm columns={2}>
             <PeAlerts alerts={pe.alerts} />
-            <HpsmField label="Arquitetura">
+            <HpsmField label={t('architecture')}>
               <HpsmReadonly>{pe.machine}</HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Tipo">
+            <HpsmField label={t('type')}>
               <HpsmReadonly>
-                {pe.isDll ? 'Biblioteca (DLL)' : 'Programa (EXE)'} · {pe.subsystem}
+                {pe.isDll ? t('dll') : t('exe')} · {pe.subsystem}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Compilado em" help="Data declarada no cabeçalho; pode ser forjada.">
+            <HpsmField label={t('compiledAt')} help={t('compiledHelp')}>
               <HpsmReadonly>{fmtDate(pe.compiledAt)}</HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Empacotador">
+            <HpsmField label={t('packer')}>
               <HpsmReadonly>
                 {pe.packer ? (
                   <StatusText tone="orange">{pe.packer}</StatusText>
                 ) : (
-                  'Nenhum reconhecido'
+                  t('noneRecognized')
                 )}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Funções suspeitas" wide>
+            <HpsmField label={t('suspiciousFns')} wide>
               <HpsmReadonly>
                 {pe.suspiciousImports.length ? (
                   <span className="dl-static-chips">
@@ -199,7 +200,7 @@ export function StaticAnalysisSection({
                     ))}
                   </span>
                 ) : (
-                  'Nenhuma da lista de atenção'
+                  t('noneWatchlist')
                 )}
               </HpsmReadonly>
             </HpsmField>
@@ -207,21 +208,21 @@ export function StaticAnalysisSection({
           </HpsmForm>
           <div className="dl-static-tables">
             <TableContainer>
-              <Table size="xs" aria-label="Seções do executável">
+              <Table size="xs" aria-label={t('sectionsAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Seção</TableHeader>
-                    <TableHeader scope="col">Tamanho virtual</TableHeader>
-                    <TableHeader scope="col">Tamanho em disco</TableHeader>
-                    <TableHeader scope="col">Entropia</TableHeader>
-                    <TableHeader scope="col">Permissões</TableHeader>
+                    <TableHeader scope="col">{t('section')}</TableHeader>
+                    <TableHeader scope="col">{t('virtualSize')}</TableHeader>
+                    <TableHeader scope="col">{t('rawSize')}</TableHeader>
+                    <TableHeader scope="col">{t('entropy')}</TableHeader>
+                    <TableHeader scope="col">{t('permissions')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {pe.sections.map((s, i) => (
                     <TableRow key={`${s.name}-${i}`}>
                       <TableCell>
-                        <code>{s.name || '(sem nome)'}</code>
+                        <code>{s.name || t('noName')}</code>
                       </TableCell>
                       <TableCell>{formatFileSize(s.virtualSize)}</TableCell>
                       <TableCell>{formatFileSize(s.rawSize)}</TableCell>
@@ -241,11 +242,11 @@ export function StaticAnalysisSection({
               </Table>
             </TableContainer>
             <TableContainer>
-              <Table size="xs" aria-label="Bibliotecas importadas">
+              <Table size="xs" aria-label={t('importedLibsAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Biblioteca importada</TableHeader>
-                    <TableHeader scope="col">Funções</TableHeader>
+                    <TableHeader scope="col">{t('importedLib')}</TableHeader>
+                    <TableHeader scope="col">{t('functions')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -267,10 +268,10 @@ export function StaticAnalysisSection({
 
       {elf && (
         <div className="dl-static-block">
-          <h4 className="dl-static-title">Executável Linux (ELF)</h4>
+          <h4 className="dl-static-title">{t('elfTitle')}</h4>
           <HpsmForm columns={2}>
             {elf.alerts.length > 0 && (
-              <HpsmField label="Alertas" wide top>
+              <HpsmField label={t('alerts')} wide top>
                 <ul className="dl-doc-alerts">
                   {elf.alerts.map((alert) => (
                     <li key={alert}>
@@ -280,32 +281,32 @@ export function StaticAnalysisSection({
                 </ul>
               </HpsmField>
             )}
-            <HpsmField label="Arquitetura">
+            <HpsmField label={t('architecture')}>
               <HpsmReadonly>
                 {elf.machine} · {elf.class} bits · {elf.endian === 'little' ? 'little' : 'big'}
                 -endian
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Tipo">
+            <HpsmField label={t('type')}>
               <HpsmReadonly>
                 {elf.type}
-                {elf.static ? ' · estático' : ''}
-                {elf.stripped ? ' · sem símbolos (stripped)' : ''}
+                {elf.static ? ` · ${t('elfStatic')}` : ''}
+                {elf.stripped ? ` · ${t('elfStripped')}` : ''}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Carregador" help="Pedido no cabeçalho (PT_INTERP).">
+            <HpsmField label={t('loader')} help={t('loaderHelp')}>
               <HpsmReadonly>{elf.interpreter ? <code>{elf.interpreter}</code> : '—'}</HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Empacotador">
+            <HpsmField label={t('packer')}>
               <HpsmReadonly>
                 {elf.packer ? (
                   <StatusText tone="orange">{elf.packer}</StatusText>
                 ) : (
-                  'Nenhum reconhecido'
+                  t('noneRecognized')
                 )}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Bibliotecas" wide>
+            <HpsmField label={t('libraries')} wide>
               <HpsmReadonly>
                 {elf.needed.length ? (
                   <span className="dl-static-chips">
@@ -314,14 +315,14 @@ export function StaticAnalysisSection({
                     ))}
                   </span>
                 ) : (
-                  'Nenhuma declarada'
+                  t('noneDeclared')
                 )}
               </HpsmReadonly>
             </HpsmField>
             <HpsmField
-              label="Funções suspeitas"
+              label={t('suspiciousFns')}
               wide
-              help={`${elf.importedSymbols} função(ões) importada(s) no total.`}
+              help={t('importedTotal', { n: elf.importedSymbols })}
             >
               <HpsmReadonly>
                 {elf.suspiciousSymbols.length ? (
@@ -331,27 +332,27 @@ export function StaticAnalysisSection({
                     ))}
                   </span>
                 ) : (
-                  'Nenhuma da lista de atenção'
+                  t('noneWatchlist')
                 )}
               </HpsmReadonly>
             </HpsmField>
           </HpsmForm>
           {elf.sections.length > 0 && (
             <TableContainer>
-              <Table size="xs" aria-label="Seções do executável Linux">
+              <Table size="xs" aria-label={t('elfSectionsAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Seção</TableHeader>
-                    <TableHeader scope="col">Tipo</TableHeader>
-                    <TableHeader scope="col">Tamanho</TableHeader>
-                    <TableHeader scope="col">Entropia</TableHeader>
+                    <TableHeader scope="col">{t('section')}</TableHeader>
+                    <TableHeader scope="col">{t('type')}</TableHeader>
+                    <TableHeader scope="col">{t('size')}</TableHeader>
+                    <TableHeader scope="col">{t('entropy')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {elf.sections.map((s, i) => (
                     <TableRow key={`${s.name}-${i}`}>
                       <TableCell>
-                        <code>{s.name || '(sem nome)'}</code>
+                        <code>{s.name || t('noName')}</code>
                       </TableCell>
                       <TableCell>{s.type}</TableCell>
                       <TableCell>{formatFileSize(s.size)}</TableCell>
@@ -372,7 +373,7 @@ export function StaticAnalysisSection({
       )}
 
       <div className="dl-static-block">
-        <h4 className="dl-static-title">Strings por categoria</h4>
+        <h4 className="dl-static-title">{t('stringsByCategory')}</h4>
         {STRING_GROUPS.map(({ key, label }) => {
           const items = info.strings[key];
           return (
@@ -393,7 +394,7 @@ export function StaticAnalysisSection({
                   ))}
                 </ul>
               ) : (
-                <p className="dl-static-empty">Nenhuma.</p>
+                <p className="dl-static-empty">{t('noneDot')}</p>
               )}
             </details>
           );
@@ -403,13 +404,13 @@ export function StaticAnalysisSection({
       {suggested.length > 0 && (
         <div className="dl-static-block">
           <h4 className="dl-static-title">
-            IOCs sugeridos ({suggested.length}){' '}
-            <CopyButton value={suggested.map((i) => i.value).join('\n')} label="IOCs sugeridos" />
+            {t('suggestedIocs', { n: suggested.length })}{' '}
+            <CopyButton
+              value={suggested.map((i) => i.value).join('\n')}
+              label={t('suggestedIocsLabel')}
+            />
           </h4>
-          <p className="dl-related-hint">
-            Encontrados nas strings do arquivo; não entram no índice até constarem de um relatório
-            publicado (use "Inserir IOCs sugeridos" no Novo relatório).
-          </p>
+          <p className="dl-related-hint">{t('suggestedHelp')}</p>
           <ul className="dl-ioc-list">
             {suggested.map((ioc) => (
               <li key={`${ioc.kind}:${ioc.value}`}>

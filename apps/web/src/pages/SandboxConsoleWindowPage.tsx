@@ -17,6 +17,7 @@ import {
   useSandboxCountdown,
 } from '../components/sandboxStatus';
 import { StatusText, type StatusTone } from '../components/tags';
+import { t } from '../i18n/sandbox';
 
 function statusTone(status: SandboxStatus): StatusTone {
   if (status === 'RUNNING') return 'green';
@@ -58,7 +59,7 @@ export function SandboxConsoleWindowPage() {
 
   useEffect(() => {
     document.title = session?.entry?.title
-      ? `Console · ${session.entry.title}`
+      ? t('consoleTitle', { title: session.entry.title })
       : 'Console · DeepLook';
   }, [session?.entry?.title]);
 
@@ -84,22 +85,22 @@ export function SandboxConsoleWindowPage() {
     setError(null);
     const handle = consoleRef.current;
     if (!handle) {
-      setError('O console ainda não está disponível para captura.');
+      setError(t('consoleNotReady'));
       return;
     }
     void handle.captureScreen().then((ok) => {
-      if (!ok) setError('Não foi possível capturar a tela (o console ainda não renderizou).');
+      if (!ok) setError(t('captureNotRendered'));
     });
   };
 
   const body = () => {
-    if (query.isLoading) return <HpsmLoading text="Consultando o ambiente..." />;
+    if (query.isLoading) return <HpsmLoading text={t('consultingEnv')} />;
     if (query.isError || !session) {
-      return <HpsmMessage kind="error">Ambiente não encontrado para esta amostra.</HpsmMessage>;
+      return <HpsmMessage kind="error">{t('envNotFound')}</HpsmMessage>;
     }
     if (running) {
       if (!consoleEnabled) {
-        return <p className="dl-page-subtitle">O console está desabilitado neste servidor.</p>;
+        return <p className="dl-page-subtitle">{t('consoleDisabled')}</p>;
       }
       return (
         <SandboxConsole
@@ -113,7 +114,7 @@ export function SandboxConsoleWindowPage() {
     return (
       <Tile>
         <div className="dl-sandbox__head">
-          <h3>Ambiente isolado</h3>
+          <h3>{t('title')}</h3>
           <StatusText tone={statusTone(session.status)}>
             {SANDBOX_STATUS_LABELS[session.status]}
           </StatusText>
@@ -121,17 +122,17 @@ export function SandboxConsoleWindowPage() {
         <p className="dl-page-subtitle">
           {session.phase
             ? (SANDBOX_PHASE_LABELS[session.phase] ?? session.phase)
-            : 'Aguardando o provisionamento...'}
+            : t('waitingProvisioning')}
         </p>
         {session.lastError && (
-          <HpsmMessage kind="error">Falha no ambiente: {session.lastError}</HpsmMessage>
+          <HpsmMessage kind="error">{t('envFailed', { error: session.lastError })}</HpsmMessage>
         )}
         {!isSandboxActive(session.status) && (
           <Button
             disabled={busy !== null}
             onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
           >
-            Abrir novo ambiente
+            {t('openNewEnv')}
           </Button>
         )}
       </Tile>
@@ -143,9 +144,7 @@ export function SandboxConsoleWindowPage() {
       <div className="dl-console-window">
         <div className="dl-console-window__head">
           <div>
-            <h2 className="dl-console-window__title">
-              {session?.entry?.title ?? 'Ambiente isolado'}
-            </h2>
+            <h2 className="dl-console-window__title">{session?.entry?.title ?? t('title')}</h2>
             <div className="dl-taglist">
               {session && (
                 <StatusText tone={statusTone(session.status)}>
@@ -157,7 +156,7 @@ export function SandboxConsoleWindowPage() {
                   VM {session.vmid} · {session.node}
                 </StatusText>
               )}
-              {countdown && <StatusText>expira em {countdown}</StatusText>}
+              {countdown && <StatusText>{t('expiresIn', { time: countdown })}</StatusText>}
             </div>
           </div>
 
@@ -170,7 +169,7 @@ export function SandboxConsoleWindowPage() {
                 disabled={busy !== null}
                 onClick={() => run('extend', () => api.post(`/sandbox/${session.id}/extend`))}
               >
-                Estender prazo
+                {t('extendTime')}
               </Button>
               <Button
                 size="sm"
@@ -179,7 +178,7 @@ export function SandboxConsoleWindowPage() {
                 disabled={busy !== null || !running}
                 onClick={capture}
               >
-                Capturar tela
+                {t('captureScreen')}
               </Button>
               <Button
                 size="sm"
@@ -189,10 +188,9 @@ export function SandboxConsoleWindowPage() {
                 onClick={async () => {
                   if (
                     !(await confirm({
-                      title: 'Descartar ambiente',
-                      message:
-                        'Deseja realmente descartar o ambiente? A VM e a ISO da amostra serão destruídas e o console será desconectado.',
-                      confirmLabel: 'Descartar',
+                      title: t('discardEnv'),
+                      message: t('discardConfirm'),
+                      confirmLabel: t('discard'),
                       danger: true,
                     }))
                   )
@@ -203,7 +201,7 @@ export function SandboxConsoleWindowPage() {
                   });
                 }}
               >
-                Descartar ambiente
+                {t('discardEnv')}
               </Button>
             </div>
           )}

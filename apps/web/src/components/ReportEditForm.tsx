@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { Report, Verdict } from '../api/types';
+import { t } from '../i18n/entry';
 import { AttackPicker } from './attack';
 import { HpsmField, HpsmForm, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
@@ -47,16 +48,22 @@ export function ReportEditForm({
   const check = useRequiredFields([
     {
       id: 'report-edit-summary',
-      label: 'Resumo',
+      label: t('summary'),
       ok: summary.trim().length >= 3,
       api: 'summary',
       value: summary,
     },
-    { id: 'report-edit-findings', label: 'Achados', ok: true, api: 'findings', value: findings },
+    {
+      id: 'report-edit-findings',
+      label: t('findings'),
+      ok: true,
+      api: 'findings',
+      value: findings,
+    },
     { id: 'report-edit-iocs', label: 'IOCs', ok: true, api: 'iocs', value: iocs },
     {
       id: 'report-edit-attack',
-      label: 'Técnicas ATT&CK',
+      label: t('attackTechniques'),
       ok: true,
       api: 'attackTechniques',
       value: attack.join(','),
@@ -88,29 +95,29 @@ export function ReportEditForm({
 
   return (
     <>
-      <HpsmToolbar label="Edição do relatório">
+      <HpsmToolbar label={t('reportEditing')}>
         <HpsmToolbarButton
-          label={saving ? 'Salvando...' : 'Salvar alterações'}
-          title="Salvar (Ctrl+S)"
+          label={saving ? t('saving') : t('saveChanges')}
+          title={t('saveHint')}
           icon={IconAdd}
           disabled={saving || !dirty}
           onClick={() => void save()}
         />
         <HpsmToolbarButton
-          label="Cancelar"
+          label={t('cancel')}
           disabled={saving}
           onClick={() => {
             allowNavigation();
             onCancel();
           }}
         />
-        <span className="hpsm-toolbar__info">A versão atual fica guardada em Versões.</span>
+        <span className="hpsm-toolbar__info">{t('currentKept')}</span>
       </HpsmToolbar>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
       <HpsmForm>
         <HpsmField
-          label="Resumo"
+          label={t('summary')}
           htmlFor="report-edit-summary"
           required
           top
@@ -118,7 +125,7 @@ export function ReportEditForm({
         >
           <TextArea
             id="report-edit-summary"
-            labelText="Resumo"
+            labelText={t('summary')}
             hideLabel
             rows={3}
             value={summary}
@@ -126,14 +133,14 @@ export function ReportEditForm({
           />
         </HpsmField>
         <HpsmField
-          label="Achados"
+          label={t('findings')}
           htmlFor="report-edit-findings"
           top
           invalid={check.isInvalid('report-edit-findings')}
         >
           <TextArea
             id="report-edit-findings"
-            labelText="Achados"
+            labelText={t('findings')}
             hideLabel
             rows={5}
             value={findings}
@@ -156,36 +163,32 @@ export function ReportEditForm({
           />
         </HpsmField>
         <HpsmField
-          label="Técnicas ATT&CK"
+          label={t('attackTechniques')}
           htmlFor="report-edit-attack"
           top
           invalid={check.isInvalid('report-edit-attack')}
         >
           <AttackPicker id="report-edit-attack" value={attack} onChange={setAttack} />
         </HpsmField>
-        <HpsmField label="Artigos da base" htmlFor="report-edit-kb" top>
+        <HpsmField label={t('kbArticles')} htmlFor="report-edit-kb" top>
           <KbPicker id="report-edit-kb" value={kb} onChange={setKb} />
         </HpsmField>
         <HpsmField
-          label="Veredito"
+          label={t('colVerdict')}
           htmlFor="report-edit-verdict"
-          help={
-            report.status === 'PUBLISHED'
-              ? 'Relatório publicado: o veredito da amostra acompanha.'
-              : undefined
-          }
+          help={report.status === 'PUBLISHED' ? t('publishedVerdictHelp') : undefined}
         >
           <Select
             id="report-edit-verdict"
-            labelText="Veredito"
+            labelText={t('colVerdict')}
             hideLabel
             value={verdict}
             onChange={(e) => setVerdict(e.target.value as Verdict)}
           >
-            <SelectItem value="UNKNOWN" text="Desconhecido" />
-            <SelectItem value="CLEAN" text="Limpo" />
-            <SelectItem value="SUSPICIOUS" text="Suspeito" />
-            <SelectItem value="MALICIOUS" text="Malicioso" />
+            <SelectItem value="UNKNOWN" text={t('vUnknown')} />
+            <SelectItem value="CLEAN" text={t('vClean')} />
+            <SelectItem value="SUSPICIOUS" text={t('vSuspicious')} />
+            <SelectItem value="MALICIOUS" text={t('vMalicious')} />
           </Select>
         </HpsmField>
       </HpsmForm>

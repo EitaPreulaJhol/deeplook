@@ -1,5 +1,6 @@
 import type { Entry } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/entry';
 import { formatFileSize } from './HpsmFileDrop';
 import { statusLabel, verdictLabel } from './tags';
 
@@ -28,35 +29,40 @@ export function entryReportsMarkdown(entry: Entry, exportedBy: string): string {
   const lines = [
     `# ${entry.title}`,
     '',
-    `Exportado do DeepLook por ${exportedBy} em ${fmtDate(new Date().toISOString())}.`,
+    tr('exportedBy', { by: exportedBy, date: fmtDate(new Date().toISOString()) }),
     '',
-    '| Campo | Valor |',
+    tr('mdHeader'),
     '|---|---|',
     `| ID | ${cell(entry.id)} |`,
-    `| Tipo | ${entry.type === 'FILE' ? 'Arquivo' : 'Link'} |`,
-    `| Enviado por | ${cell(entry.owner.displayName)} |`,
-    `| Enviado em | ${fmtDate(entry.createdAt)} |`,
-    `| Status | ${statusLabel(entry.status)} |`,
-    `| Veredito | ${verdictLabel(entry.verdict)} |`,
+    `| ${tr('mdType')} | ${entry.type === 'FILE' ? tr('typeFile') : tr('typeUrl')} |`,
+    tr('mdOwner', { name: cell(entry.owner.displayName) }),
+    tr('mdSubmitted', { date: fmtDate(entry.createdAt) }),
+    tr('mdStatus', { status: statusLabel(entry.status) }),
+    tr('mdVerdict', { verdict: verdictLabel(entry.verdict) }),
     ...(entry.type === 'FILE'
       ? [
-          `| Arquivo | ${cell(entry.originalFilename)} (${formatFileSize(entry.fileSize)}) |`,
+          tr('mdFile', {
+            name: cell(entry.originalFilename),
+            size: formatFileSize(entry.fileSize),
+          }),
           `| SHA-256 | ${cell(entry.sha256)} |`,
         ]
       : [`| URL | ${cell(entry.url)} |`]),
-    ...(entry.tags.length ? [`| Tags | ${cell(entry.tags.map((t) => t.name).join(', '))} |`] : []),
+    ...(entry.tags.length
+      ? [tr('mdTags', { tags: cell(entry.tags.map((t) => t.name).join(', ')) })]
+      : []),
     '',
-    `## Relatórios publicados (${published.length})`,
+    tr('mdPublished', { n: published.length }),
     '',
   ];
   for (const report of published) {
     lines.push(
       `### ${report.analyst.displayName} — ${fmtDate(report.createdAt)}`,
       '',
-      `Veredito: **${verdictLabel(report.verdict)}**`,
+      tr('mdReportVerdict', { verdict: verdictLabel(report.verdict) }),
       '',
-      ...block('Resumo', report.summary),
-      ...block('Achados', report.findings),
+      ...block(tr('summary'), report.summary),
+      ...block(tr('findings'), report.findings),
       ...block('IOCs', report.iocs),
     );
   }

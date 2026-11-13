@@ -2,6 +2,8 @@ import { Button } from '@carbon/react';
 import RFB from '@novnc/novnc';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
+import { t } from '../i18n/sandbox';
+
 type ConsoleStatus = 'connecting' | 'connected' | 'closed' | 'error';
 
 interface Props {
@@ -70,8 +72,8 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
         setStatus('closed');
         setMessage(
           detail?.clean
-            ? 'Sessão do console encerrada.'
-            : `Console desconectado${detail?.name ? ` (${detail.name})` : ''}.`,
+            ? t('consoleSessionEnded')
+            : t('consoleDisconnected', { detail: detail?.name ? ` (${detail.name})` : '' }),
         );
         disconnectRef.current?.();
       });
@@ -86,11 +88,11 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = (await res.json()) as { password?: string };
-            if (!data.password) throw new Error('senha indisponível');
+            if (!data.password) throw new Error(t('passwordUnavailable'));
             rfb?.sendCredentials({ password: data.password });
           } catch (err) {
             setStatus('error');
-            setMessage(`Falha ao autenticar no console: ${(err as Error).message}`);
+            setMessage(t('authFailed', { error: (err as Error).message }));
           }
         })();
       });
@@ -126,12 +128,12 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
     } | null;
     const canvas = priv?._screen?._backbuffer ?? holderRef.current?.querySelector('canvas') ?? null;
     if (!canvas || canvas.width === 0 || canvas.height === 0) {
-      setMessage('Ainda não há imagem no console para capturar.');
+      setMessage(t('noImageYet'));
       return false;
     }
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) {
-      setMessage('Não foi possível capturar a tela do console.');
+      setMessage(t('captureFailedConsole'));
       return false;
     }
     const url = URL.createObjectURL(blob);
@@ -146,16 +148,16 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
     <div className="dl-sandbox-console">
       <div className="dl-sandbox-console__bar">
         <span className={`dl-sandbox-console__state dl-sandbox-console__state--${status}`}>
-          {status === 'connecting' && 'conectando ao console...'}
-          {status === 'connected' && 'console conectado'}
-          {status === 'closed' && 'console desconectado'}
-          {status === 'error' && 'falha no console'}
+          {status === 'connecting' && t('connecting')}
+          {status === 'connected' && t('connected')}
+          {status === 'closed' && t('disconnected')}
+          {status === 'error' && t('consoleFailure')}
         </span>
         <div className="dl-sandbox-console__actions">
           <input
             className="dl-sandbox-console__paste"
             type="text"
-            placeholder="Texto para colar na VM"
+            placeholder={t('pastePlaceholder')}
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
           />
@@ -168,7 +170,7 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
               setPasteText('');
             }}
           >
-            Colar
+            {t('paste')}
           </Button>
           <Button
             size="sm"
@@ -179,7 +181,7 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
             Ctrl+Alt+Del
           </Button>
           <Button size="sm" kind="tertiary" onClick={() => setNonce((n) => n + 1)}>
-            Reconectar
+            {t('reconnect')}
           </Button>
         </div>
       </div>

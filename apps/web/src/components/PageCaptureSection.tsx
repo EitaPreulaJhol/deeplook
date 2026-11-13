@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconScreen } from './icons';
@@ -84,14 +85,14 @@ export function PageCaptureSection({
   };
 
   return (
-    <HpsmSection title="Captura da página" className="dl-mt-lg">
+    <HpsmSection title={t('captureTitle')} className="dl-mt-lg">
       {canTriage && enabled && (
-        <HpsmToolbar label="Ações da captura">
+        <HpsmToolbar label={t('captureActions')}>
           <HpsmToolbarButton
             label={
-              running ? 'Capturando...' : captures.length ? 'Capturar de novo' : 'Capturar página'
+              running ? t('capturing') : captures.length ? t('captureAgain') : t('capturePage')
             }
-            title="Abre o link num navegador isolado, sem acesso à rede interna"
+            title={t('captureHelp')}
             icon={IconScreen}
             disabled={running}
             onClick={() => void start()}
@@ -99,24 +100,21 @@ export function PageCaptureSection({
         </HpsmToolbar>
       )}
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
-      {query.isLoading && <HpsmLoading text="Carregando capturas..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingCaptures')} />}
       {captures.length === 0 && enabled && (
         <p className="dl-static-empty">
-          Nenhuma captura.{' '}
-          {canTriage
-            ? '"Capturar página" abre o link num navegador isolado, sem acesso à rede interna, e guarda o print, o HTML, os redirecionamentos e o certificado.'
-            : 'Um analista pode capturar a página.'}
+          {t('noCaptures')} {canTriage ? t('noCapturesHelp') : t('analystCanCapture')}
         </p>
       )}
       {latest && (
         <div className="dl-capture">
-          {latest.status === 'PENDING' && (
-            <HpsmLoading text="Abrindo a página no navegador isolado..." />
-          )}
+          {latest.status === 'PENDING' && <HpsmLoading text={t('openingPage')} />}
           {latest.status === 'FAILED' && (
             <HpsmMessage kind="error">
-              Captura de {fmtDate(latest.createdAt)} falhou: {latest.error ?? 'motivo desconhecido'}
-              .
+              {t('captureFailed', {
+                date: fmtDate(latest.createdAt),
+                error: latest.error ?? t('unknownReason'),
+              })}
             </HpsmMessage>
           )}
           {latest.status === 'DONE' && (
@@ -126,35 +124,38 @@ export function PageCaptureSection({
                 href={`/api/captures/${latest.id}/screenshot`}
                 target="_blank"
                 rel="noreferrer"
-                title="Abrir o print inteiro em nova aba"
+                title={t('openFullPrint')}
               >
                 <img
                   src={`/api/captures/${latest.id}/screenshot`}
-                  alt={`Print da página: ${latest.title ?? latest.url}`}
+                  alt={t('pagePrint', { title: latest.title ?? latest.url })}
                 />
               </a>
               <HpsmForm>
-                <HpsmField label="Capturada em">
+                <HpsmField label={t('capturedAt')}>
                   <HpsmReadonly>
-                    {fmtDate(latest.finishedAt)} por {latest.requestedBy?.displayName ?? '—'}
+                    {t('dateBy', {
+                      date: fmtDate(latest.finishedAt),
+                      name: latest.requestedBy?.displayName ?? '—',
+                    })}
                   </HpsmReadonly>
                 </HpsmField>
-                <HpsmField label="Título">
+                <HpsmField label={t('title')}>
                   <HpsmReadonly>{latest.title || '—'}</HpsmReadonly>
                 </HpsmField>
-                <HpsmField label="Endereço final">
+                <HpsmField label={t('finalAddress')}>
                   <HpsmReadonly
                     mono
                     copyable={
                       latest.finalUrl
-                        ? { value: latest.finalUrl, label: 'endereço final' }
+                        ? { value: latest.finalUrl, label: t('finalAddressLower') }
                         : undefined
                     }
                   >
                     {latest.finalUrl ?? '—'}
                   </HpsmReadonly>
                 </HpsmField>
-                <HpsmField label="Resposta">
+                <HpsmField label={t('response')}>
                   <HpsmReadonly>
                     <StatusText
                       tone={latest.httpStatus && latest.httpStatus < 400 ? 'green' : 'orange'}
@@ -164,7 +165,7 @@ export function PageCaptureSection({
                   </HpsmReadonly>
                 </HpsmField>
                 <HpsmField
-                  label={`Redirecionamentos (${Math.max(0, (latest.redirects?.length ?? 1) - 1)})`}
+                  label={t('redirects', { n: Math.max(0, (latest.redirects?.length ?? 1) - 1) })}
                   top
                 >
                   <ol className="dl-capture__chain">
@@ -176,24 +177,27 @@ export function PageCaptureSection({
                     ))}
                   </ol>
                 </HpsmField>
-                <HpsmField label="Certificado" top>
+                <HpsmField label={t('certificate')} top>
                   {latest.certificate ? (
                     <HpsmReadonly>
-                      {latest.certificate.subject ?? '—'} · emitido por{' '}
-                      {latest.certificate.issuer ?? '—'} · {latest.certificate.protocol ?? ''} ·
-                      válido de {certDate(latest.certificate.validFrom)} a{' '}
-                      {certDate(latest.certificate.validTo)}
+                      {t('certInfo', {
+                        subject: latest.certificate.subject ?? '—',
+                        issuer: latest.certificate.issuer ?? '—',
+                        protocol: latest.certificate.protocol ?? '',
+                        from: certDate(latest.certificate.validFrom),
+                        to: certDate(latest.certificate.validTo),
+                      })}
                       {latest.certificate.validTo &&
                         new Date(latest.certificate.validTo) < new Date() && (
-                          <StatusText tone="red"> (vencido)</StatusText>
+                          <StatusText tone="red"> {t('expired')}</StatusText>
                         )}
                     </HpsmReadonly>
                   ) : (
-                    <HpsmReadonly>Sem HTTPS (página aberta em HTTP).</HpsmReadonly>
+                    <HpsmReadonly>{t('noHttps')}</HpsmReadonly>
                   )}
                 </HpsmField>
                 {(latest.blocked?.length ?? 0) > 0 && (
-                  <HpsmField label={`Bloqueados (${latest.blocked!.length})`} top>
+                  <HpsmField label={t('blocked', { n: latest.blocked!.length })} top>
                     <ul className="dl-capture__blocked">
                       {latest.blocked!.map((b) => (
                         <li key={b.host} title={b.reason}>
@@ -207,11 +211,9 @@ export function PageCaptureSection({
                 <HpsmField label="HTML">
                   <HpsmReadonly>
                     <a className="dl-link" href={`/api/captures/${latest.id}/html`}>
-                      Baixar HTML (texto)
+                      {t('downloadHtml')}
                     </a>
-                    {latest.htmlTruncated && (
-                      <span className="dl-hint-muted"> — cortado em 2 MB</span>
-                    )}
+                    {latest.htmlTruncated && <span className="dl-hint-muted"> {t('cut2mb')}</span>}
                   </HpsmReadonly>
                 </HpsmField>
               </HpsmForm>
@@ -219,7 +221,7 @@ export function PageCaptureSection({
           )}
           {captures.length > 1 && (
             <details className="dl-capture__older">
-              <summary>Capturas anteriores ({captures.length - 1})</summary>
+              <summary>{t('olderCaptures', { n: captures.length - 1 })}</summary>
               <ul>
                 {captures.slice(1).map((c) => (
                   <li key={c.id}>
@@ -233,17 +235,17 @@ export function PageCaptureSection({
                           target="_blank"
                           rel="noreferrer"
                         >
-                          print
+                          {t('printLink')}
                         </a>{' '}
                         ·{' '}
                         <a className="dl-link" href={`/api/captures/${c.id}/html`}>
-                          HTML (texto)
+                          {t('htmlText')}
                         </a>
                       </>
                     ) : c.status === 'FAILED' ? (
-                      `falhou: ${c.error ?? '—'}`
+                      t('failedLower', { error: c.error ?? '—' })
                     ) : (
-                      'em andamento'
+                      t('inProgress')
                     )}
                   </li>
                 ))}

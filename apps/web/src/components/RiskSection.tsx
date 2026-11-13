@@ -2,15 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import type { RiskInfo } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import type { StatusTone } from './tags';
 import { StatusText, verdictLabel } from './tags';
 
-const LEVEL: Record<RiskInfo['risk']['level'], { label: string; tone: StatusTone }> = {
-  high: { label: 'Alto', tone: 'red' },
-  medium: { label: 'Médio', tone: 'orange' },
-  low: { label: 'Baixo', tone: 'gray' },
-};
+const LEVEL: Record<RiskInfo['risk']['level'], { label: string; tone: StatusTone }> = localized(
+  () => ({
+    high: { label: t('riskHigh'), tone: 'red' },
+    medium: { label: t('riskMedium'), tone: 'orange' },
+    low: { label: t('riskLow'), tone: 'gray' },
+  }),
+);
 
 /** Peso com sinal: +35 soma, −10 atenua. */
 export const riskWeight = (weight: number) => (weight > 0 ? `+${weight}` : `−${Math.abs(weight)}`);
@@ -32,35 +36,33 @@ export function RiskSection({ entryId }: { entryId: string }) {
   if (!risk) return null;
   const level = LEVEL[risk.level];
   return (
-    <HpsmSection title="Pontuação de risco">
+    <HpsmSection title={t('riskTitle')}>
       <HpsmForm columns={2}>
-        <HpsmField label="Nota">
+        <HpsmField label={t('score')}>
           <HpsmReadonly>
             <StatusText tone={level.tone}>
-              {risk.score} de 100 · {level.label}
+              {t('scoreOf', { score: risk.score, level: level.label })}
             </StatusText>
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Sugestão">
+        <HpsmField label={t('suggestion')}>
           <HpsmReadonly>
             {risk.suggestedVerdict
-              ? `${verdictLabel(risk.suggestedVerdict)} (sugestão; o veredito é seu)`
-              : 'Sem sugestão'}
+              ? t('suggested', { verdict: verdictLabel(risk.suggestedVerdict) })
+              : t('noSuggestion')}
           </HpsmReadonly>
         </HpsmField>
       </HpsmForm>
       {risk.pending.length > 0 && (
-        <p className="dl-risk__note">
-          Ainda em andamento: {risk.pending.join(', ')}. A nota pode subir quando terminar.
-        </p>
+        <p className="dl-risk__note">{t('stillRunning', { list: risk.pending.join(', ') })}</p>
       )}
       {risk.reasons.length > 0 ? (
-        <table className="dl-risk__reasons" aria-label="Motivos da pontuação de risco">
+        <table className="dl-risk__reasons" aria-label={t('riskReasonsAria')}>
           <thead>
             <tr>
-              <th scope="col">Peso</th>
-              <th scope="col">Origem</th>
-              <th scope="col">Motivo</th>
+              <th scope="col">{t('weight')}</th>
+              <th scope="col">{t('source')}</th>
+              <th scope="col">{t('reason')}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,10 +78,7 @@ export function RiskSection({ entryId }: { entryId: string }) {
           </tbody>
         </table>
       ) : (
-        <p className="dl-risk__note">
-          Nenhuma análise encontrou sinal de risco. Isso não quer dizer que a amostra é segura: só
-          que nada foi detectado.
-        </p>
+        <p className="dl-risk__note">{t('noRisk')}</p>
       )}
     </HpsmSection>
   );

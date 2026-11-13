@@ -84,6 +84,33 @@ export const fmtDate = (iso?: string | null) =>
 export const fmtNumber = (n: number, options?: Intl.NumberFormatOptions) =>
   n.toLocaleString(intlLocale(), options);
 
+/**
+ * Tabela de rotulos no topo do modulo que acompanha o idioma: `build` roda de novo quando o
+ * idioma muda (e so entao). Leitura, `in`, Object.keys/entries e metodos de array funcionam como
+ * no objeto original.
+ *
+ *   const LABELS: Record<string, string> = localized(() => ({ a: t('a'), b: t('b') }));
+ */
+export function localized<T extends object>(build: () => T): T {
+  let cache: { locale: Locale; value: T } | null = null;
+  const value = (): T => {
+    if (!cache || cache.locale !== current) cache = { locale: current, value: build() };
+    return cache.value;
+  };
+  return new Proxy((Array.isArray(build()) ? [] : {}) as T, {
+    get: (_target, prop) => Reflect.get(value(), prop),
+    has: (_target, prop) => Reflect.has(value(), prop),
+    ownKeys: () => Reflect.ownKeys(value()),
+    getOwnPropertyDescriptor: (target, prop) => {
+      const descriptor = Reflect.getOwnPropertyDescriptor(value(), prop);
+      if (!descriptor) return undefined;
+      // O `length` do array-alvo nao e configuravel: o Proxy tem de dizer o mesmo.
+      const own = Reflect.getOwnPropertyDescriptor(target, prop);
+      return { ...descriptor, configurable: own ? own.configurable : true };
+    },
+  });
+}
+
 /** Textos que se repetem em todas as telas. */
 export const COMMON = {
   save: ['Salvar', 'Save'],

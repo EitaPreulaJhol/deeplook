@@ -2,6 +2,8 @@ import { Select, SelectItem, TextArea } from '@carbon/react';
 import { useEffect, useState } from 'react';
 
 import type { EntryStatus, Verdict } from '../api/types';
+import { localized } from '../i18n';
+import { t as tr } from '../i18n/entry';
 import { HpsmField, HpsmForm, HpsmFormActions, HpsmSection } from './HpsmForm';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
@@ -9,14 +11,14 @@ import { useUnsavedChanges } from './useUnsavedChanges';
 export const RESOLUTION_MAX = 500;
 
 /** Modelos para quem enviou: o que fazer, sem detalhes tecnicos. */
-export const RESOLUTION_TEMPLATES = [
-  'É golpe: não clique nos links, não abra os anexos e apague a mensagem.',
-  'Clicou no link ou digitou a senha? Troque a senha agora e avise o suporte.',
-  'Abriu o anexo? Desconecte o computador da rede e avise o suporte.',
-  'Ainda suspeito: não abra até a equipe concluir a análise.',
-  'Seguro: pode abrir.',
-  'Legítimo, mas desnecessário: pode apagar.',
-];
+export const RESOLUTION_TEMPLATES = localized(() => [
+  tr('tplScam'),
+  tr('tplClicked'),
+  tr('tplOpened'),
+  tr('tplStillSuspicious'),
+  tr('tplSafe'),
+  tr('tplUnneeded'),
+]);
 
 const TONE: Record<Verdict, string> = {
   MALICIOUS: 'danger',
@@ -39,7 +41,7 @@ export function ResolutionNotice({
   if (!resolution) return null;
   return (
     <div className={`dl-resolution dl-resolution--${TONE[verdict]}`} role="note">
-      <span className="dl-resolution__title">O que fazer (orientação da equipe de segurança)</span>
+      <span className="dl-resolution__title">{tr('whatToDoTitle')}</span>
       <span className="dl-resolution__text">{resolution}</span>
     </div>
   );
@@ -63,29 +65,26 @@ export function EntryStatusNotice({
   isOwner: boolean;
 }) {
   if (resolution) return null;
-  const dontOpen = type === 'FILE' ? 'não abra o arquivo' : 'não clique no link';
+  const dontOpen = type === 'FILE' ? tr('dontOpenFile') : tr('dontClickLink');
   let text: string;
   if (status !== 'COMPLETED') {
-    const stage =
-      status === 'PENDING'
-        ? 'Recebida: a equipe de segurança ainda vai analisar esta amostra.'
-        : 'A equipe de segurança está analisando esta amostra.';
-    text = `${stage} Enquanto isso, ${dontOpen}.${isOwner ? ' Você receberá um aviso quando terminar.' : ''}`;
+    const stage = status === 'PENDING' ? tr('stageReceived') : tr('stageAnalyzing');
+    text = tr('meanwhile', { stage, dontOpen }) + (isOwner ? ` ${tr('willNotify')}` : '');
   } else if (verdict === 'MALICIOUS') {
-    text = `Análise concluída: é perigosa. Por segurança, ${dontOpen}.`;
+    text = tr('doneDangerous', { dontOpen });
   } else if (verdict === 'SUSPICIOUS') {
-    text = `Análise concluída: é suspeita. Por segurança, ${dontOpen}.`;
+    text = tr('doneSuspicious', { dontOpen });
   } else if (verdict === 'CLEAN') {
-    text = 'Análise concluída: nada perigoso foi encontrado.';
+    text = tr('doneClean');
   } else {
-    text = `Análise concluída, sem resultado definitivo. Na dúvida, ${dontOpen} e fale com o suporte.`;
+    text = tr('doneUnknown', { dontOpen });
   }
   return (
     <div
       className={`dl-resolution dl-resolution--${status === 'COMPLETED' ? TONE[verdict] : 'info'}`}
       role="note"
     >
-      <span className="dl-resolution__title">Situação</span>
+      <span className="dl-resolution__title">{tr('situation')}</span>
       <span className="dl-resolution__text">{text}</span>
     </div>
   );
@@ -124,35 +123,35 @@ export function ResolutionForm({
   };
 
   return (
-    <HpsmSection title="Resolução para quem enviou">
+    <HpsmSection title={tr('resolutionTitle')}>
       <HpsmForm columns={1}>
-        <HpsmField label="Inserir modelo" htmlFor="resolution-template">
+        <HpsmField label={tr('insertTemplate')} htmlFor="resolution-template">
           <Select
             id="resolution-template"
-            labelText="Inserir modelo"
+            labelText={tr('insertTemplate')}
             hideLabel
             value=""
             onChange={(e) => addTemplate(e.target.value)}
           >
-            <SelectItem value="" text="— Escolha para acrescentar ao texto —" />
+            <SelectItem value="" text={tr('chooseToAppend')} />
             {RESOLUTION_TEMPLATES.map((t) => (
               <SelectItem key={t} value={t} text={t} />
             ))}
           </Select>
         </HpsmField>
         <HpsmField
-          label="Resolução"
+          label={tr('resolution')}
           htmlFor="resolution-text"
           top
-          help="Para quem enviou: curta e sem detalhes técnicos. Aparece em destaque na ficha, em Meus Uploads e no aviso de conclusão."
+          help={tr('resolutionHelpLong')}
         >
           <TextArea
             id="resolution-text"
-            labelText="Resolução"
+            labelText={tr('resolution')}
             hideLabel
             rows={3}
             maxLength={RESOLUTION_MAX}
-            placeholder="ex.: É golpe: não clique nos links e apague a mensagem."
+            placeholder={tr('resolutionPlaceholder')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
@@ -167,7 +166,7 @@ export function ResolutionForm({
             disabled={busy || !dirty}
             onClick={() => void save()}
           >
-            Salvar resolução
+            {tr('saveResolution')}
           </button>
         </HpsmFormActions>
       </HpsmForm>

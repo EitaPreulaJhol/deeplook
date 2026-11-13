@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { EntryStatus, EntryType, IocKind, Verdict } from '../api/types';
+import { t } from '../i18n/analysis';
 import { HpsmSection } from './HpsmForm';
 import { iocHref } from './iocs';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -65,9 +66,9 @@ function nodeHref(node: GraphNode): string {
 /** "+3 amostras, +2 indicadores" (o que ficou de fora pelos limites). */
 function hiddenText(hidden: Graph['hidden']): string | null {
   const parts = [
-    hidden.entries && `+${hidden.entries} amostra(s)`,
-    hidden.iocs && `+${hidden.iocs} indicador(es)`,
-    hidden.cases && `+${hidden.cases} caso(s)`,
+    hidden.entries && t('hiddenEntries', { n: hidden.entries }),
+    hidden.iocs && t('hiddenIocsMap', { n: hidden.iocs }),
+    hidden.cases && t('hiddenCases', { n: hidden.cases }),
   ].filter(Boolean);
   return parts.length ? parts.join(', ') : null;
 }
@@ -205,11 +206,11 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
     }
   };
 
-  if (query.isLoading) return <HpsmLoading text="Montando o mapa..." />;
+  if (query.isLoading) return <HpsmLoading text={t('buildingMap')} />;
   if (query.isError || !graph || !query.data) {
     return (
       <HpsmMessage kind="error">
-        {(query.error as Error | null)?.message ?? 'Não foi possível montar o mapa.'}
+        {(query.error as Error | null)?.message ?? t('mapFailed')}
       </HpsmMessage>
     );
   }
@@ -236,19 +237,14 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
       .filter(Boolean)
       .join('; ');
   const groups = [
-    { kind: 'ENTRY', title: 'Amostras' },
-    { kind: 'IOC', title: 'Indicadores' },
-    { kind: 'CASE', title: 'Casos' },
+    { kind: 'ENTRY', title: t('groupEntries') },
+    { kind: 'IOC', title: t('groupIocs') },
+    { kind: 'CASE', title: t('groupCases') },
   ] as const;
   const hidden = hiddenText(query.data.hidden);
 
   if (nodes.length === 1) {
-    return (
-      <p className="dl-static-empty">
-        Nenhuma ligação ainda. Indicadores de relatórios publicados, amostras com o mesmo arquivo,
-        parecidas ou com indicador em comum{source === 'entry' ? ' e os casos' : ''} aparecem aqui.
-      </p>
-    );
+    return <p className="dl-static-empty">{t(source === 'entry' ? 'noLinksEntry' : 'noLinks')}</p>;
   }
 
   return (
@@ -257,7 +253,7 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
       <div className="dl-map__canvas">
         <svg
           role="img"
-          aria-label={`Mapa de relações com ${nodes.length} itens; a lista ao lado traz os mesmos itens.`}
+          aria-label={t('mapAria', { n: nodes.length })}
           viewBox={`${minX} ${minY} ${width} ${height}`}
           preserveAspectRatio="xMidYMid meet"
         >
@@ -283,7 +279,7 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
             const p = pos.get(n.id)!;
             const isCenter = n.id === center;
             const kindLabel =
-              n.kind === 'ENTRY' ? 'Amostra' : n.kind === 'CASE' ? 'Caso' : n.iocKind;
+              n.kind === 'ENTRY' ? t('kindSample') : n.kind === 'CASE' ? t('kindCase') : n.iocKind;
             return (
               <g
                 key={n.id}
@@ -316,13 +312,13 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
           })}
         </svg>
         <p className="dl-map__legend">
-          <span className="dl-map__key dl-map__key--malicious">Malicioso</span>
-          <span className="dl-map__key dl-map__key--suspicious">Suspeito</span>
-          <span className="dl-map__key dl-map__key--clean">Limpo</span>
-          <span className="dl-map__key dl-map__key--unknown">Desconhecido</span>
-          <span className="dl-map__key dl-map__key--ioc">Indicador</span>
-          <span className="dl-map__key dl-map__key--case">Caso</span>
-          {hidden && <span className="dl-map__hidden">Não mostrados: {hidden}</span>}
+          <span className="dl-map__key dl-map__key--malicious">{t('vMalicious')}</span>
+          <span className="dl-map__key dl-map__key--suspicious">{t('vSuspicious')}</span>
+          <span className="dl-map__key dl-map__key--clean">{t('vClean')}</span>
+          <span className="dl-map__key dl-map__key--unknown">{t('vUnknown')}</span>
+          <span className="dl-map__key dl-map__key--ioc">{t('indicator')}</span>
+          <span className="dl-map__key dl-map__key--case">{t('kindCase')}</span>
+          {hidden && <span className="dl-map__hidden">{t('notShown', { list: hidden })}</span>}
         </p>
       </div>
       <div className="dl-map__list">
@@ -335,7 +331,7 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
                 {items.map((n) => (
                   <li key={n.id} data-node={n.id}>
                     {n.id === center ? (
-                      <strong>{n.label} (este)</strong>
+                      <strong>{t('thisOne', { label: n.label })}</strong>
                     ) : (
                       <Link className="dl-link" to={nodeHref(n)}>
                         {n.kind === 'IOC' ? `${n.iocKind} ${n.value}` : n.label}
@@ -354,7 +350,8 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
                       <span className="dl-map__expand">
                         {n.id in expanded ? (
                           <span className="dl-map__done">
-                            Expandida{expanded[n.id] ? ` (não mostrados: ${expanded[n.id]})` : ''}
+                            {t('expanded')}
+                            {expanded[n.id] ? ` ${t('notShownParen', { n: expanded[n.id] })}` : ''}
                           </span>
                         ) : (
                           <button
@@ -363,7 +360,7 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
                             disabled={busy !== null}
                             onClick={() => void expand(n)}
                           >
-                            {busy === n.id ? 'Expandindo...' : 'Expandir'}
+                            {busy === n.id ? t('expanding') : t('expand')}
                           </button>
                         )}
                       </span>

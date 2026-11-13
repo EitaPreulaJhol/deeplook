@@ -12,6 +12,7 @@ import {
   fmtNumber,
   getLocale,
   intlLocale,
+  localized,
   type Pairs,
   setLocale,
   t,
@@ -82,6 +83,33 @@ describe('idioma da interface', () => {
     expect(local('cancel')).toBe('Cancel');
   });
 
+  it('localized(): tabela no topo do módulo acompanha o idioma', () => {
+    const local = define({ a: ['Um', 'One'], b: ['Dois', 'Two'] } as const);
+    let builds = 0;
+    const table: Record<string, string> = localized(() => {
+      builds += 1;
+      return { a: local('a'), b: local('b') };
+    });
+    const list = localized(() => [local('a'), local('b')]);
+    expect(table.a).toBe('Um');
+    expect('b' in table).toBe(true);
+    expect(Object.entries(table)).toEqual([
+      ['a', 'Um'],
+      ['b', 'Dois'],
+    ]);
+    expect(list.map((x) => x.toUpperCase())).toEqual(['UM', 'DOIS']);
+    const before = builds;
+    void table.a;
+    expect(builds).toBe(before);
+    setLocale('en');
+    expect(table.a).toBe('One');
+    expect(Object.values(table)).toEqual(['One', 'Two']);
+    expect(list.length).toBe(2);
+    expect([...list]).toEqual(['One', 'Two']);
+    expect(Object.keys(list)).toEqual(['0', '1']);
+    expect(JSON.stringify(table)).toBe('{"a":"One","b":"Two"}');
+  });
+
   it('datas e números no idioma atual', () => {
     expect(fmtDateTime(null)).toBe('—');
     expect(fmtDate(undefined)).toBe('—');
@@ -107,6 +135,10 @@ describe('idioma da interface', () => {
       expect(pt.trim(), key).not.toBe('');
       expect(en.trim(), key).not.toBe('');
       expect(vars(en), key).toBe(vars(pt));
+      // Espaco no comeco ou no fim (texto colado a outro) tem de existir nos dois.
+      expect(en.match(/^\s*/)![0] + '|' + en.match(/\s*$/)![0], key).toBe(
+        pt.match(/^\s*/)![0] + '|' + pt.match(/\s*$/)![0],
+      );
     }
   });
 });

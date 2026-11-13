@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession } from '../api/types';
+import { t } from '../i18n/sandbox';
 import { useConfirm } from './HpsmConfirm';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -94,15 +95,13 @@ export function SandboxPanel({ entryId }: Props) {
     });
   };
 
-  if (query.isLoading) return <HpsmLoading text="Consultando o ambiente..." />;
+  if (query.isLoading) return <HpsmLoading text={t('consultingEnv')} />;
 
   if (!enabled) {
     return (
       <Tile className="dl-mb-lg">
-        <h3 className="dl-mb-md">Ambiente isolado</h3>
-        <p className="dl-page-subtitle">
-          O sandbox (VM isolada no Proxmox) não está habilitado neste servidor.
-        </p>
+        <h3 className="dl-mb-md">{t('title')}</h3>
+        <p className="dl-page-subtitle">{t('disabled')}</p>
       </Tile>
     );
   }
@@ -114,22 +113,14 @@ export function SandboxPanel({ entryId }: Props) {
     return (
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
-          <h3>Ambiente isolado</h3>
-          <StatusText>nenhum ambiente ativo</StatusText>
+          <h3>{t('title')}</h3>
+          <StatusText>{t('noActive')}</StatusText>
         </div>
-        <p className="dl-page-subtitle">
-          Cria um clone do template no Proxmox com a amostra dentro (CD-ROM somente leitura) e abre
-          o console em uma janela dedicada. O ambiente é destruído automaticamente no fim do prazo.
-        </p>
+        <p className="dl-page-subtitle">{t('intro')}</p>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
-        {popupBlocked && (
-          <HpsmMessage kind="warning">
-            Pop-up bloqueado. Permita pop-ups para este site e clique em “Abrir ambiente isolado”
-            novamente.
-          </HpsmMessage>
-        )}
+        {popupBlocked && <HpsmMessage kind="warning">{t('popupBlocked')}</HpsmMessage>}
         <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
-          {busy === 'open' ? 'Abrindo...' : 'Abrir ambiente isolado'}
+          {busy === 'open' ? t('opening') : t('openEnv')}
         </Button>
       </Tile>
     );
@@ -140,10 +131,10 @@ export function SandboxPanel({ entryId }: Props) {
     return (
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
-          <h3>Ambiente isolado</h3>
+          <h3>{t('title')}</h3>
           <StatusText tone="gray">{SANDBOX_STATUS_LABELS.STOPPING}</StatusText>
         </div>
-        <HpsmLoading text="Desligando a VM e apagando a ISO da amostra..." />
+        <HpsmLoading text={t('shuttingDown')} />
       </Tile>
     );
   }
@@ -156,11 +147,11 @@ export function SandboxPanel({ entryId }: Props) {
     return (
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
-          <h3>Ambiente isolado</h3>
+          <h3>{t('title')}</h3>
           <StatusText tone="blue">{SANDBOX_STATUS_LABELS[session.status]}</StatusText>
         </div>
         <p className="dl-page-subtitle">
-          {SANDBOX_PHASE_LABELS[session.phase ?? ''] ?? 'preparando o ambiente'}...
+          {SANDBOX_PHASE_LABELS[session.phase ?? ''] ?? t('preparing')}...
         </p>
         <ol className="dl-sandbox__steps">
           {steps.map((step, index) => (
@@ -172,10 +163,8 @@ export function SandboxPanel({ entryId }: Props) {
             </li>
           ))}
         </ol>
-        <HpsmLoading text="Isso leva alguns instantes." />
-        {session.status === 'REQUESTED' && (
-          <p className="dl-page-subtitle">Aguardando uma vaga na fila de provisionamento.</p>
-        )}
+        <HpsmLoading text={t('takesMoment')} />
+        {session.status === 'REQUESTED' && <p className="dl-page-subtitle">{t('waitingQueue')}</p>}
       </Tile>
     );
   }
@@ -185,26 +174,18 @@ export function SandboxPanel({ entryId }: Props) {
     return (
       <Tile className="dl-mb-lg">
         <div className="dl-sandbox__head">
-          <h3>Ambiente isolado</h3>
+          <h3>{t('title')}</h3>
           <div className="dl-taglist">
             <StatusText tone="green">{SANDBOX_STATUS_LABELS.RUNNING}</StatusText>
             <StatusText>
               VM {session.vmid} · {session.node}
             </StatusText>
-            {countdown && <StatusText>expira em {countdown}</StatusText>}
+            {countdown && <StatusText>{t('expiresIn', { time: countdown })}</StatusText>}
           </div>
         </div>
-        <p className="dl-page-subtitle">
-          A amostra está no CD-ROM da VM (somente leitura), junto com o SHA-256 e um LEIA-ME. O
-          console abre em uma janela dedicada (com a toolbar de controle da VM). Não exponha esta VM
-          à rede.
-        </p>
+        <p className="dl-page-subtitle">{t('runningHelp')}</p>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
-        {popupBlocked && (
-          <HpsmMessage kind="warning">
-            Pop-up bloqueado. Permita pop-ups para este site e clique em “Abrir console” novamente.
-          </HpsmMessage>
-        )}
+        {popupBlocked && <HpsmMessage kind="warning">{t('popupBlockedConsole')}</HpsmMessage>}
         <div className="dl-toolbar dl-mb-md">
           <Button
             size="sm"
@@ -212,7 +193,7 @@ export function SandboxPanel({ entryId }: Props) {
             disabled={busy !== null || !consoleEnabled}
             onClick={openConsole}
           >
-            Abrir console (nova janela)
+            {t('openConsole')}
           </Button>
           <Button
             size="sm"
@@ -221,7 +202,7 @@ export function SandboxPanel({ entryId }: Props) {
             disabled={busy !== null}
             onClick={() => run('extend', () => api.post(`/sandbox/${session.id}/extend`))}
           >
-            Estender prazo
+            {t('extendTime')}
           </Button>
           <Button
             size="sm"
@@ -231,17 +212,16 @@ export function SandboxPanel({ entryId }: Props) {
             onClick={async () => {
               if (
                 await confirm({
-                  title: 'Descartar ambiente',
-                  message:
-                    'Deseja realmente descartar o ambiente? A VM e a ISO da amostra serão destruídas e o console será desconectado.',
-                  confirmLabel: 'Descartar',
+                  title: t('discardEnv'),
+                  message: t('discardConfirm'),
+                  confirmLabel: t('discard'),
                   danger: true,
                 })
               )
                 void run('dispose', () => api.del(`/sandbox/${session.id}`));
             }}
           >
-            Descartar ambiente
+            {t('discardEnv')}
           </Button>
         </div>
         <SandboxArtifacts sessionId={session.id} running />
@@ -255,26 +235,24 @@ export function SandboxPanel({ entryId }: Props) {
   return (
     <Tile className="dl-mb-lg">
       <div className="dl-sandbox__head">
-        <h3>Ambiente isolado</h3>
+        <h3>{t('title')}</h3>
         <StatusText tone={failed ? 'red' : 'gray'}>
           {SANDBOX_STATUS_LABELS[session.status]}
         </StatusText>
       </div>
       {session.lastError && (
-        <HpsmMessage kind="error">Falha no ambiente: {session.lastError}</HpsmMessage>
+        <HpsmMessage kind="error">{t('envFailed', { error: session.lastError })}</HpsmMessage>
       )}
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <p className="dl-page-subtitle">
-        {session.status === 'EXPIRED'
-          ? 'O prazo do ambiente terminou e a VM foi destruída.'
-          : 'Ambiente encerrado: a VM e a ISO da amostra foram removidas.'}
+        {session.status === 'EXPIRED' ? t('envExpired') : t('envClosed')}
       </p>
       <Button
         renderIcon={IconScreen}
         disabled={busy !== null}
         onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
       >
-        Abrir novo ambiente
+        {t('openNewEnv')}
       </Button>
       {!failed && <SandboxArtifacts sessionId={session.id} running={false} />}
     </Tile>

@@ -2,6 +2,7 @@ import { Select, SelectItem, TextArea, TextInput } from '@carbon/react';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { CopyButton } from './CopyButton';
 import type { Step, StepId } from './decoder';
 import { DECODER_MAX, hexDump, resultText, runSteps, STEPS, suggestStep } from './decoder';
@@ -68,25 +69,25 @@ export function DecoderDialog({ initial, onClose }: { initial: string; onClose: 
         aria-labelledby={titleId}
       >
         <h2 id={titleId} className="hpsm-modal__head">
-          Decodificar
+          {t('decode')}
         </h2>
         <div className="dl-decoder__body">
           <TextArea
             id="decoder-input"
             ref={inputRef}
-            labelText="Texto"
+            labelText={t('text')}
             rows={4}
             value={input}
             maxLength={DECODER_MAX}
             onChange={(e) => setInput(e.target.value)}
           />
-          <ol className="dl-decoder__steps" aria-label="Passos">
+          <ol className="dl-decoder__steps" aria-label={t('steps')}>
             {steps.map((step, i) => (
               <li key={i} className={result.error?.index === i ? 'is-error' : undefined}>
                 <span className="dl-decoder__n">{i + 1}.</span>
                 <Select
                   id={`decoder-step-${i}`}
-                  labelText={`Passo ${i + 1}`}
+                  labelText={t('step', { n: i + 1 })}
                   hideLabel
                   size="sm"
                   value={step.id}
@@ -118,10 +119,10 @@ export function DecoderDialog({ initial, onClose }: { initial: string; onClose: 
                 <button
                   type="button"
                   className="dl-link-button"
-                  aria-label={`Tirar o passo ${i + 1}`}
+                  aria-label={t('removeStep', { n: i + 1 })}
                   onClick={() => setSteps((s) => s.filter((_, j) => j !== i))}
                 >
-                  Tirar
+                  {t('removeShort')}
                 </button>
                 {result.error?.index === i && (
                   <span className="dl-decoder__error" role="alert">
@@ -134,26 +135,26 @@ export function DecoderDialog({ initial, onClose }: { initial: string; onClose: 
           <div className="dl-decoder__add">
             <Select
               id="decoder-add"
-              labelText="Incluir passo"
+              labelText={t('addStep')}
               hideLabel
               size="sm"
               value=""
               onChange={(e) => e.target.value && add(e.target.value as StepId)}
             >
-              <SelectItem value="" text="+ Incluir passo…" />
+              <SelectItem value="" text={t('addStepOption')} />
               {(Object.keys(STEPS) as StepId[]).map((id) => (
                 <SelectItem key={id} value={id} text={STEPS[id].label} />
               ))}
             </Select>
             {suggestion && (
               <button type="button" className="dl-btn" onClick={() => add(suggestion)}>
-                Sugestão: {STEPS[suggestion].label}
+                {t('stepSuggestion', { step: STEPS[suggestion].label })}
               </button>
             )}
           </div>
           <div className="dl-decoder__result">
             <div className="dl-decoder__bar">
-              <span role="tablist" aria-label="Ver o resultado como">
+              <span role="tablist" aria-label={t('viewAs')}>
                 {(['text', 'hex'] as const).map((v) => (
                   <button
                     key={v}
@@ -163,27 +164,25 @@ export function DecoderDialog({ initial, onClose }: { initial: string; onClose: 
                     className={`dl-decoder__tab${view === v ? ' is-active' : ''}`}
                     onClick={() => setView(v)}
                   >
-                    {v === 'text' ? 'Texto' : 'Hex'}
+                    {v === 'text' ? t('text') : 'Hex'}
                   </button>
                 ))}
               </span>
               <span className="dl-hint-muted">
                 {result.bytes.length.toLocaleString(intlLocale())} byte(s)
-                {view === 'hex' && result.bytes.length > 4096 && ' · hex dos primeiros 4 KB'}
+                {view === 'hex' && result.bytes.length > 4096 && ` · ${t('hexFirst4k')}`}
               </span>
               <CopyButton value={text} label="resultado" />
             </div>
-            <pre className="dl-decoder__out" aria-label="Resultado">
+            <pre className="dl-decoder__out" aria-label={t('result')}>
               {shown}
-              {view === 'text' && text.length > SHOWN
-                ? '\n… (cortado na tela; o Copiar leva tudo)'
-                : ''}
+              {view === 'text' && text.length > SHOWN ? `\n… ${t('cutOnScreen')}` : ''}
             </pre>
           </div>
         </div>
         <div className="hpsm-modal__actions">
           <button type="button" className="dl-btn dl-btn--primary" onClick={onClose}>
-            Fechar
+            {t('close')}
           </button>
         </div>
       </div>

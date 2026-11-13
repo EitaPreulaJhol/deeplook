@@ -1,28 +1,30 @@
 import { useEffect, useState } from 'react';
 
 import type { SandboxStatus } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/sandbox';
 
 /** Rotulos dos estados do ambiente isolado (painel + janela do console). */
-export const SANDBOX_STATUS_LABELS: Record<SandboxStatus, string> = {
-  REQUESTED: 'solicitado',
-  PROVISIONING: 'provisionando',
-  RUNNING: 'em execução',
-  STOPPING: 'encerrando',
-  STOPPED: 'encerrado',
-  EXPIRED: 'expirado',
-  FAILED: 'falhou',
-};
+export const SANDBOX_STATUS_LABELS: Record<SandboxStatus, string> = localized(() => ({
+  REQUESTED: t('stRequested'),
+  PROVISIONING: t('stProvisioning'),
+  RUNNING: t('stRunning'),
+  STOPPING: t('stStopping'),
+  STOPPED: t('stStopped'),
+  EXPIRED: t('stExpired'),
+  FAILED: t('stFailed'),
+}));
 
 /** Rotulos das fases do provisionamento. */
-export const SANDBOX_PHASE_LABELS: Record<string, string> = {
-  'na-fila': 'na fila do Proxmox',
-  'gerando-iso': 'gerando a ISO com a amostra',
-  'enviando-iso': 'enviando a ISO para o Proxmox',
-  clonando: 'clonando o template da VM',
-  configurando: 'configurando a VM isolada',
-  iniciando: 'ligando a VM',
-  encerrando: 'encerrando o ambiente',
-};
+export const SANDBOX_PHASE_LABELS: Record<string, string> = localized(() => ({
+  'na-fila': t('phQueue'),
+  'gerando-iso': t('phIso'),
+  'enviando-iso': t('phUpload'),
+  clonando: t('phClone'),
+  configurando: t('phConfig'),
+  iniciando: t('phStart'),
+  encerrando: t('phStop'),
+}));
 
 /** Provisionamento/parada em andamento (usado no polling das telas). */
 export function isSandboxWorking(status?: SandboxStatus): boolean {

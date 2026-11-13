@@ -13,7 +13,8 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { CapaInfo, CapaRule, FlossString } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { attackHref, AttackTechniqueLinks } from './attack';
 import { CopyButton } from './CopyButton';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -25,24 +26,24 @@ import { StatusText } from './tags';
 const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 
 /** Primeiro nivel do namespace das regras do capa, em portugues. */
-const NAMESPACES: Record<string, string> = {
-  'anti-analysis': 'Antianálise',
-  collection: 'Coleta',
-  communication: 'Comunicação',
-  compiler: 'Compilador',
-  'data-manipulation': 'Manipulação de dados',
-  executable: 'Executável',
-  exploitation: 'Exploração',
-  'host-interaction': 'Interação com o sistema',
-  impact: 'Impacto',
-  linking: 'Ligação',
-  'load-code': 'Carga de código',
-  'malware-family': 'Família de malware',
-  persistence: 'Persistência',
+const NAMESPACES: Record<string, string> = localized(() => ({
+  'anti-analysis': t('nsAntiAnalysis'),
+  collection: t('nsCollection'),
+  communication: t('nsCommunication'),
+  compiler: t('nsCompiler'),
+  'data-manipulation': t('nsDataManipulation'),
+  executable: t('nsExecutable'),
+  exploitation: t('nsExploitation'),
+  'host-interaction': t('nsHostInteraction'),
+  impact: t('nsImpact'),
+  linking: t('nsLinking'),
+  'load-code': t('nsLoadCode'),
+  'malware-family': t('nsMalwareFamily'),
+  persistence: t('nsPersistence'),
   runtime: 'Runtime',
-  targeting: 'Alvo',
-  nursery: 'Em teste (nursery)',
-};
+  targeting: t('nsTarget'),
+  nursery: t('nsNursery'),
+}));
 /**
  * Capacidades que pesam na triagem, em destaque (prefixo do namespace). Grupos inteiros como
  * load-code tambem tem o que todo executavel faz (parse PE header), entao ali so os ramos de risco.
@@ -82,23 +83,23 @@ export function useCapa(entryId: string, enabled: boolean) {
 function situation(info: CapaInfo): { tone: StatusTone; text: string } {
   const a = info.analysis!;
   if (a.status === 'PENDING') {
-    const retry = a.attempts > 0 && a.error ? ` (nova tentativa: ${a.error})` : '';
+    const retry = a.attempts > 0 && a.error ? ` ${t('retrying', { error: a.error })}` : '';
     return {
       tone: 'blue',
-      text: `Na fila${a.ahead ? `, ${a.ahead} antes desta` : ''}${retry}`,
+      text: (a.ahead ? t('queuedAhead', { n: a.ahead }) : t('queued')) + retry,
     };
   }
   if (a.status === 'RUNNING')
-    return { tone: 'blue', text: `Analisando desde ${fmtDate(a.startedAt)}` };
+    return { tone: 'blue', text: t('runningSince', { date: fmtDate(a.startedAt) }) };
   if (a.status === 'FAILED')
-    return { tone: 'orange', text: `Falhou: ${a.error ?? 'erro desconhecido'}` };
-  return { tone: 'green', text: `Concluída em ${fmtDate(a.finishedAt)}` };
+    return { tone: 'orange', text: t('failed', { error: a.error ?? t('unknownErr') }) };
+  return { tone: 'green', text: t('doneAt', { date: fmtDate(a.finishedAt) }) };
 }
 
 /** Rotulo do grupo da regra (primeiro nivel do namespace). */
 export function namespaceGroup(namespace: string): string {
   const top = namespace.split('/')[0] ?? '';
-  return NAMESPACES[top] ?? (top || 'Outros');
+  return NAMESPACES[top] ?? (top || t('others'));
 }
 
 function RuleRow({ rule }: { rule: CapaRule }) {
@@ -140,12 +141,14 @@ function FlossList({ title, items }: { title: string; items: FlossString[] }) {
           {items.map((s, i) => (
             <li key={`${s.string}-${i}`}>
               <code>{s.string}</code>
-              {s.function && <span className="dl-hint-muted"> · função {s.function}</span>}
+              {s.function && (
+                <span className="dl-hint-muted"> {t('inFunction', { fn: s.function })}</span>
+              )}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="dl-static-empty">Nenhuma.</p>
+        <p className="dl-static-empty">{t('noneDot')}</p>
       )}
     </details>
   );
@@ -188,19 +191,16 @@ export function CapaSection({
   const button =
     canTriage && info.enabled && info.eligible && !purged && !busy ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
-        {asking ? 'Pedindo...' : a ? 'Analisar de novo' : 'Analisar funções'}
+        {asking ? 'Pedindo...' : a ? t('analyzeAgain') : t('analyzeFunctions')}
       </button>
     ) : null;
 
   if (!a) {
     return (
-      <HpsmSection title="Análise de funções (capa)">
+      <HpsmSection title={t('capaTitle')}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         <p className="dl-static-empty">
-          {info.enabled
-            ? 'Esta amostra ainda não teve as funções analisadas.'
-            : 'A análise de funções está desligada (CAPA_URL vazio).'}{' '}
-          {button}
+          {info.enabled ? t('capaNotYet') : t('capaOff')} {button}
         </p>
       </HpsmSection>
     );
@@ -211,37 +211,36 @@ export function CapaSection({
   const floss = a.floss;
   const suggested = a.iocCandidates ?? [];
   return (
-    <HpsmSection title="Análise de funções (capa)">
+    <HpsmSection title={t('capaTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <HpsmForm columns={2}>
-        <HpsmField
-          label="Situação"
-          help="O capa diz o que cada função faz; o FLOSS recupera as strings que só aparecem na execução. Nada é executado."
-        >
+        <HpsmField label={t('sigState')} help={t('capaHelp')}>
           <HpsmReadonly>
             <StatusText tone={state.tone}>{state.text}</StatusText> {button}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Executável">
+        <HpsmField label={t('executable')}>
           <HpsmReadonly>
             {a.capa
-              ? `${[a.capa.format, a.capa.arch, a.capa.os].filter(Boolean).join(' · ')} · ${
-                  a.capa.functions ?? '?'
-                } função(ões), ${a.capa.libraryFunctions ?? 0} de biblioteca`
+              ? t('capaExecutable', {
+                  info: [a.capa.format, a.capa.arch, a.capa.os].filter(Boolean).join(' · '),
+                  functions: a.capa.functions ?? '?',
+                  library: a.capa.libraryFunctions ?? 0,
+                })
               : '—'}
           </HpsmReadonly>
         </HpsmField>
         {a.status === 'DONE' && (
-          <HpsmField label="Ferramentas">
+          <HpsmField label={t('tools')}>
             <HpsmReadonly>
-              capa {a.versions?.capa ?? '?'} · regras {a.versions?.rules ?? '?'} · FLOSS{' '}
+              capa {a.versions?.capa ?? '?'} · {t('rules')} {a.versions?.rules ?? '?'} · FLOSS{' '}
               {a.versions?.floss ?? '?'}
               {a.ms !== null && ` · ${Math.round(a.ms / 1000)} s`}
             </HpsmReadonly>
           </HpsmField>
         )}
         {(a.capaError || a.flossError) && a.status === 'DONE' && (
-          <HpsmField label="Avisos">
+          <HpsmField label={t('warnings')}>
             <HpsmReadonly>
               {[a.capaError && `capa: ${a.capaError}`, a.flossError && `FLOSS: ${a.flossError}`]
                 .filter(Boolean)
@@ -250,12 +249,7 @@ export function CapaSection({
           </HpsmField>
         )}
         {a.attack.length > 0 && (
-          <HpsmField
-            label="Técnicas ATT&CK"
-            wide
-            top
-            help="Das regras do capa. Use “Inserir técnicas sugeridas” no Novo relatório."
-          >
+          <HpsmField label={t('attackTechniques')} wide top help={t('capaAttackHelp')}>
             <AttackTechniqueLinks ids={a.attack} />
           </HpsmField>
         )}
@@ -264,18 +258,17 @@ export function CapaSection({
       {a.capa && (
         <div className="dl-static-block">
           <h4 className="dl-static-title">
-            Capacidades ({rules.length}
-            {a.capa.truncated ? '+' : ''})
+            {t('capabilities', { n: `${rules.length}${a.capa.truncated ? '+' : ''}` })}
           </h4>
           {rules.length ? (
             <TableContainer>
-              <Table size="xs" aria-label="Capacidades encontradas pelo capa">
+              <Table size="xs" aria-label={t('capabilitiesAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Capacidade</TableHeader>
-                    <TableHeader scope="col">Grupo</TableHeader>
+                    <TableHeader scope="col">{t('capability')}</TableHeader>
+                    <TableHeader scope="col">{t('group')}</TableHeader>
                     <TableHeader scope="col">ATT&CK</TableHeader>
-                    <TableHeader scope="col">Funções</TableHeader>
+                    <TableHeader scope="col">{t('functions')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -286,32 +279,29 @@ export function CapaSection({
               </Table>
             </TableContainer>
           ) : (
-            <p className="dl-static-empty">Nenhuma regra do capa casou.</p>
+            <p className="dl-static-empty">{t('noCapaRule')}</p>
           )}
         </div>
       )}
 
       {floss && (
         <div className="dl-static-block">
-          <h4 className="dl-static-title">Strings escondidas (FLOSS)</h4>
-          <p className="dl-related-hint">
-            Montadas caractere por caractere ou decifradas em tempo de execução: a extração comum de
-            strings não as vê.
-          </p>
-          <FlossList title="Decifradas" items={floss.decoded} />
-          <FlossList title="Montadas na pilha" items={floss.stack} />
-          <FlossList title="Montadas na pilha, com laço (tight)" items={floss.tight} />
-          {floss.truncated && <p className="dl-static-empty">Listas cortadas em 300.</p>}
+          <h4 className="dl-static-title">{t('hiddenStrings')}</h4>
+          <p className="dl-related-hint">{t('hiddenStringsHelp')}</p>
+          <FlossList title={t('decoded')} items={floss.decoded} />
+          <FlossList title={t('stackStrings')} items={floss.stack} />
+          <FlossList title={t('tightStrings')} items={floss.tight} />
+          {floss.truncated && <p className="dl-static-empty">{t('listsCut300')}</p>}
         </div>
       )}
 
       {suggested.length > 0 && (
         <div className="dl-static-block">
           <h4 className="dl-static-title">
-            IOCs nas strings escondidas ({suggested.length}){' '}
+            {t('hiddenIocs', { n: suggested.length })}{' '}
             <CopyButton
               value={suggested.map((i) => i.value).join('\n')}
-              label="IOCs das strings escondidas"
+              label={t('hiddenIocsLabel')}
             />
           </h4>
           <ul className="dl-ioc-list">

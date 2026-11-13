@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { AntivirusInfo, AntivirusScan } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -15,10 +16,11 @@ function fmtDate(iso: string): string {
 
 /** Situacao da varredura: escaneando, limpo, infectado (assinatura) ou falha. */
 export function antivirusState(scan: AntivirusScan): { label: string; tone: StatusTone } {
-  if (scan.status === 'PENDING') return { label: 'Escaneando...', tone: 'blue' };
-  if (scan.status === 'CLEAN') return { label: 'Limpo', tone: 'green' };
-  if (scan.status === 'INFECTED') return { label: `Infectado: ${scan.signature}`, tone: 'red' };
-  return { label: `Falha: ${scan.error ?? 'erro desconhecido'}`, tone: 'orange' };
+  if (scan.status === 'PENDING') return { label: t('scanning'), tone: 'blue' };
+  if (scan.status === 'CLEAN') return { label: t('clean'), tone: 'green' };
+  if (scan.status === 'INFECTED')
+    return { label: t('avInfected', { signature: scan.signature }), tone: 'red' };
+  return { label: t('avFailed', { error: scan.error ?? t('unknownErr') }), tone: 'orange' };
 }
 
 /**
@@ -70,13 +72,13 @@ export function AntivirusSection({
   const state = scan
     ? antivirusState(scan)
     : busy
-      ? { label: 'Na fila...', tone: 'blue' as const }
-      : { label: 'Não escaneado (enviado antes do antivírus)', tone: 'gray' as const };
+      ? { label: t('queuedDots'), tone: 'blue' as const }
+      : { label: t('notScanned'), tone: 'gray' as const };
   return (
-    <HpsmSection title="Antivírus (ClamAV)">
+    <HpsmSection title={t('avTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <HpsmForm columns={2}>
-        <HpsmField label="Situação" wide>
+        <HpsmField label={t('sigState')} wide>
           <HpsmReadonly>
             <StatusText tone={state.tone}>{state.label}</StatusText>
             {canTriage && !purged && (
@@ -88,23 +90,23 @@ export function AntivirusSection({
                   disabled={asking || busy}
                   onClick={() => void rescan()}
                 >
-                  {busy ? 'Escaneando...' : scan ? 'Escanear de novo' : 'Escanear agora'}
+                  {busy ? t('scanning') : scan ? t('scanAgain') : t('scanNow')}
                 </button>
               </>
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Motor">
+        <HpsmField label={t('engine')}>
           <HpsmReadonly>{scan?.engine ?? '—'}</HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Base de assinaturas">
+        <HpsmField label={t('signatureDb')}>
           <HpsmReadonly>
             {scan?.dbVersion
               ? `${scan.dbVersion}${scan.dbDate ? ` · ${fmtDate(scan.dbDate)}` : ''}`
               : '—'}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Escaneado em">
+        <HpsmField label={t('scannedAt')}>
           <HpsmReadonly>{scan && !busy ? fmtDate(scan.scannedAt) : '—'}</HpsmReadonly>
         </HpsmField>
       </HpsmForm>

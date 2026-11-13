@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { api, apiFieldErrors } from '../api/client';
+import { t } from '../i18n/entry';
 import type { CaseSummary } from './cases';
 import { CASE_STATUS } from './cases';
 
@@ -48,13 +49,13 @@ export function AddToCaseDialog({
     };
   }, []);
 
-  const plural = entryIds.length === 1 ? 'esta amostra' : `as ${entryIds.length} amostras`;
+  const many = entryIds.length > 1;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     if (choice === 'new' && title.trim().length < 3) {
-      setError('Dê um título ao caso novo (mínimo de 3 caracteres).');
+      setError(t('caseTitleMin'));
       return;
     }
     setSaving(true);
@@ -73,7 +74,11 @@ export function AddToCaseDialog({
       onClose(result);
     } catch (err) {
       const details = apiFieldErrors(err);
-      setError(details?.title?.[0] ? `Título: ${details.title[0]}.` : (err as Error).message);
+      setError(
+        details?.title?.[0]
+          ? t('titleError', { detail: details.title[0] })
+          : (err as Error).message,
+      );
       setSaving(false);
     }
   };
@@ -106,13 +111,12 @@ export function AddToCaseDialog({
         onKeyDown={onKeyDown}
       >
         <h2 id={titleId} className="hpsm-modal__head">
-          Adicionar a caso
+          {t('addToCaseTitle')}
         </h2>
         <form onSubmit={submit}>
           <div className="hpsm-modal__prompt">
             <div className="hpsm-modal__message">
-              Inclua {plural} num caso ativo ou crie um caso novo com{' '}
-              {entryIds.length === 1 ? 'ela' : 'elas'}.
+              {many ? t('addToCaseMsgMany', { n: entryIds.length }) : t('addToCaseMsgOne')}
             </div>
             {error && (
               <div className="dl-dup-error" role="alert">
@@ -120,7 +124,7 @@ export function AddToCaseDialog({
               </div>
             )}
             <fieldset className="dl-dup-options">
-              <legend className="hpsm-modal__label">Caso:</legend>
+              <legend className="hpsm-modal__label">{t('caseLabel')}</legend>
               <label className="dl-dup-option">
                 <input
                   type="radio"
@@ -129,12 +133,12 @@ export function AddToCaseDialog({
                   checked={choice === 'new'}
                   onChange={() => setChoice('new')}
                 />
-                <span className="dl-dup-option__title">Novo caso:</span>
+                <span className="dl-dup-option__title">{t('newCaseLabel')}</span>
               </label>
               <input
                 className="hpsm-modal__input"
-                aria-label="Título do caso novo"
-                placeholder="Ex.: Campanha de boletos falsos — outubro"
+                aria-label={t('newCaseTitleAria')}
+                placeholder={t('newCasePlaceholder')}
                 maxLength={150}
                 value={title}
                 onFocus={() => setChoice('new')}
@@ -145,15 +149,15 @@ export function AddToCaseDialog({
               />
               <input
                 className="hpsm-modal__input dl-case-search"
-                aria-label="Buscar caso ativo"
-                placeholder="Buscar caso ativo (título ou CASO-0001)"
+                aria-label={t('searchActiveCase')}
+                placeholder={t('searchActiveCasePlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {query.isLoading && <div className="dl-related-hint">Carregando casos...</div>}
+              {query.isLoading && <div className="dl-related-hint">{t('loadingCases')}</div>}
               {query.data && cases.length === 0 && (
                 <div className="dl-related-hint">
-                  Nenhum caso ativo{search ? ' encontrado' : ''}.
+                  {t(search ? 'noActiveCaseFound' : 'noActiveCase')}
                 </div>
               )}
               {cases.map((c) => (
@@ -169,7 +173,8 @@ export function AddToCaseDialog({
                     {c.code} · {c.title}
                   </span>
                   <span className="dl-dup-option__reason">
-                    {CASE_STATUS[c.status].label} · {c.entries} amostra{c.entries === 1 ? '' : 's'}
+                    {CASE_STATUS[c.status].label} ·{' '}
+                    {t(c.entries === 1 ? 'oneSample' : 'nSamples', { n: c.entries })}
                   </span>
                 </label>
               ))}
@@ -177,10 +182,10 @@ export function AddToCaseDialog({
           </div>
           <div className="hpsm-modal__actions">
             <button type="submit" className="dl-btn dl-btn--primary" disabled={saving}>
-              {saving ? 'Salvando...' : choice === 'new' ? 'Criar caso' : 'Incluir no caso'}
+              {saving ? t('saving') : choice === 'new' ? t('createCase') : t('addToCaseBtn')}
             </button>
             <button type="button" className="dl-btn" onClick={() => onClose()}>
-              Cancelar
+              {t('cancel')}
             </button>
           </div>
         </form>

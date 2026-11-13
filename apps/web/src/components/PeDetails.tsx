@@ -9,7 +9,8 @@ import {
 } from '@carbon/react';
 
 import type { PeAlert, PeInfo } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { CopyButton } from './CopyButton';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly } from './HpsmForm';
@@ -31,45 +32,45 @@ const ALERT_TONE: Record<PeAlert['level'], StatusTone> = {
   info: 'none',
 };
 
-const VERSION_LABELS: Record<string, string> = {
-  CompanyName: 'Empresa',
-  FileDescription: 'Descrição',
-  FileVersion: 'Versão do arquivo',
-  InternalName: 'Nome interno',
-  OriginalFilename: 'Nome original',
-  ProductName: 'Produto',
-  ProductVersion: 'Versão do produto',
+const VERSION_LABELS: Record<string, string> = localized(() => ({
+  CompanyName: t('verCompany'),
+  FileDescription: t('verDescription'),
+  FileVersion: t('verFileVersion'),
+  InternalName: t('verInternalName'),
+  OriginalFilename: t('verOriginalName'),
+  ProductName: t('verProduct'),
+  ProductVersion: t('verProductVersion'),
   LegalCopyright: 'Copyright',
-  Comments: 'Comentários',
-};
+  Comments: t('verComments'),
+}));
 
 /** Idiomas dos recursos: o idioma de quem compilou e uma pista de origem. */
-const LANGS: Record<number, string> = {
-  0: 'neutro',
-  1033: 'inglês (EUA)',
-  2057: 'inglês (Reino Unido)',
-  1046: 'português (Brasil)',
-  2070: 'português (Portugal)',
-  3082: 'espanhol',
-  1036: 'francês',
-  1031: 'alemão',
-  1040: 'italiano',
-  1049: 'russo',
-  1058: 'ucraniano',
-  2052: 'chinês (simplificado)',
-  1028: 'chinês (tradicional)',
-  1041: 'japonês',
-  1042: 'coreano',
-  1065: 'persa',
-  1025: 'árabe',
-  1055: 'turco',
-};
+const LANGS: Record<number, string> = localized(() => ({
+  0: t('langNeutral'),
+  1033: t('langEnUs'),
+  2057: t('langEnGb'),
+  1046: t('langPtBr'),
+  2070: t('langPtPt'),
+  3082: t('langEs'),
+  1036: t('langFr'),
+  1031: t('langDe'),
+  1040: t('langIt'),
+  1049: t('langRu'),
+  1058: t('langUk'),
+  2052: t('langZhCn'),
+  1028: t('langZhTw'),
+  1041: t('langJa'),
+  1042: t('langKo'),
+  1065: t('langFa'),
+  1025: t('langAr'),
+  1055: t('langTr'),
+}));
 
-const EXECUTION_LEVELS: Record<string, { text: string; tone: StatusTone }> = {
-  requireAdministrator: { text: 'pede administrador', tone: 'orange' },
-  highestAvailable: { text: 'pede o maior privilégio disponível', tone: 'orange' },
-  asInvoker: { text: 'roda com o usuário que abriu', tone: 'none' },
-};
+const EXECUTION_LEVELS: Record<string, { text: string; tone: StatusTone }> = localized(() => ({
+  requireAdministrator: { text: t('execAdmin'), tone: 'orange' },
+  highestAvailable: { text: t('execHighest'), tone: 'orange' },
+  asInvoker: { text: t('execInvoker'), tone: 'none' },
+}));
 
 /** Conteudo embutido que chama atencao (executavel ou arquivo compactado). */
 const RISKY_CONTENT = new Set(['pe', 'elf', 'macho', 'zip', '7z', 'rar', 'cab', 'script', 'jar']);
@@ -77,7 +78,7 @@ const RISKY_CONTENT = new Set(['pe', 'elf', 'macho', 'zip', '7z', 'rar', 'cab', 
 export function PeAlerts({ alerts }: { alerts?: PeAlert[] }) {
   if (!alerts?.length) return null;
   return (
-    <HpsmField label="Alertas" wide top>
+    <HpsmField label={t('alerts')} wide top>
       <ul className="dl-doc-alerts">
         {alerts.map((a) => (
           <li key={a.text}>
@@ -95,88 +96,80 @@ export function PeHeaderFields({ pe }: { pe: PeInfo }) {
   const level = pe.manifest?.executionLevel ? EXECUTION_LEVELS[pe.manifest.executionLevel] : null;
   return (
     <>
-      <HpsmField
-        label="Imphash"
-        help="Hash das importações, igual ao do pefile e do VirusTotal. Amostras com o mesmo imphash aparecem em Relacionadas."
-      >
+      <HpsmField label="Imphash" help={t('imphashHelp')}>
         <HpsmReadonly>
           {pe.imphash ? (
             <>
               <code>{pe.imphash}</code> <CopyButton value={pe.imphash} label="imphash" />
             </>
           ) : (
-            'Sem importações legíveis'
+            t('noImports')
           )}
         </HpsmReadonly>
       </HpsmField>
-      <HpsmField
-        label="Rich header"
-        help="Registro das ferramentas do Visual Studio que montaram o programa. Editado ou copiado de outro binário é sinal de despiste."
-      >
+      <HpsmField label="Rich header" help={t('richHelp')}>
         <HpsmReadonly>
           {pe.rich ? (
             <>
               <code>{pe.rich.hash}</code> <CopyButton value={pe.rich.hash} label="Rich hash" />{' '}
               {pe.rich.checksumValid ? (
-                `· ${pe.rich.entries.length} ferramenta(s)`
+                t('richTools', { n: pe.rich.entries.length })
               ) : (
-                <StatusText tone="orange">editado</StatusText>
+                <StatusText tone="orange">{t('edited')}</StatusText>
               )}
             </>
           ) : (
-            'Ausente (não foi compilado com o Visual Studio)'
+            t('richAbsent')
           )}
         </HpsmReadonly>
       </HpsmField>
-      <HpsmField label="Ponto de entrada">
+      <HpsmField label={t('entryPoint')}>
         <HpsmReadonly>
           {pe.entryPoint ? (
             <>
-              <code>0x{pe.entryPoint.rva.toString(16)}</code> na seção{' '}
-              <code>{pe.entryPoint.section ?? '(nenhuma)'}</code>
+              <code>0x{pe.entryPoint.rva.toString(16)}</code> {t('inSection')}{' '}
+              <code>{pe.entryPoint.section ?? t('noneParen')}</code>
             </>
           ) : (
             '—'
           )}
         </HpsmReadonly>
       </HpsmField>
-      <HpsmField
-        label="Checksum"
-        help="O linker pode deixar em 0; drivers e DLLs do sistema precisam dele certo."
-      >
+      <HpsmField label="Checksum" help={t('checksumHelp')}>
         <HpsmReadonly>
           {!pe.checksum?.declared
-            ? 'Não preenchido'
+            ? t('notFilled')
             : pe.checksum.computed === null
-              ? 'Não recalculado (arquivo grande)'
+              ? t('notRecomputed')
               : pe.checksum.computed === pe.checksum.declared
-                ? 'Confere'
-                : 'Não confere'}
+                ? t('matches')
+                : t('noMatch')}
         </HpsmReadonly>
       </HpsmField>
-      <HpsmField
-        label="Dados anexados"
-        help="Bytes depois do fim do executável (overlay), fora a assinatura."
-      >
+      <HpsmField label={t('overlay')} help={t('overlayHelp')}>
         <HpsmReadonly>
           {pe.overlay
-            ? `${formatFileSize(pe.overlay.size)} · ${pe.overlay.type ?? 'tipo não reconhecido'} · entropia ${pe.overlay.entropy.toFixed(2)}`
-            : 'Nenhum'}
+            ? t('overlayInfo', {
+                size: formatFileSize(pe.overlay.size),
+                type: pe.overlay.type ?? t('unknownType'),
+                entropy: pe.overlay.entropy.toFixed(2),
+              })
+            : t('noneM')}
         </HpsmReadonly>
       </HpsmField>
-      <HpsmField label="TLS callbacks" help="Código que roda antes do ponto de entrada.">
+      <HpsmField label="TLS callbacks" help={t('tlsHelp')}>
         <HpsmReadonly>{pe.tlsCallbacks ?? 0}</HpsmReadonly>
       </HpsmField>
-      <HpsmField label="Manifesto">
+      <HpsmField label={t('manifest')}>
         <HpsmReadonly>
           {pe.manifest ? (
             level ? (
               <StatusText tone={level.tone}>{level.text}</StatusText>
             ) : (
-              'sem nível de execução declarado'
+              t('noExecLevel')
             )
           ) : (
-            'Nenhum'
+            t('noneM')
           )}
         </HpsmReadonly>
       </HpsmField>
@@ -186,73 +179,67 @@ export function PeHeaderFields({ pe }: { pe: PeInfo }) {
 
 function SignatureBlock({ signature }: { signature: NonNullable<PeInfo['signature']> }) {
   const situation: { tone: StatusTone; text: string } = signature.error
-    ? { tone: 'orange', text: `Não conferida: ${signature.error}` }
+    ? { tone: 'orange', text: t('sigNotChecked', { error: signature.error }) }
     : signature.digestMatches === false
-      ? { tone: 'red', text: 'Alterado depois de assinado' }
+      ? { tone: 'red', text: t('sigAltered') }
       : !signature.signatureValid
-        ? { tone: 'red', text: 'Assinatura inválida' }
-        : { tone: 'green', text: 'Íntegra' };
+        ? { tone: 'red', text: t('sigInvalid') }
+        : { tone: 'green', text: t('sigIntact') };
   const signer = signature.signer;
   return (
     <div className="dl-static-block">
-      <h4 className="dl-static-title">Assinatura digital</h4>
+      <h4 className="dl-static-title">{t('digitalSignature')}</h4>
       <HpsmForm columns={2}>
-        <HpsmField
-          label="Situação"
-          help="Confere o hash do arquivo e a assinatura com o certificado. A cadeia não é conferida contra as raízes confiáveis do Windows."
-        >
+        <HpsmField label={t('sigState')} help={t('sigStateHelp')}>
           <HpsmReadonly>
             <StatusText tone={situation.tone}>{situation.text}</StatusText>
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Assinado por">
+        <HpsmField label={t('signedBy')}>
           <HpsmReadonly>
             {signer?.subject ?? '—'}
             {signature.selfSigned && (
               <>
                 {' '}
-                <StatusText tone="orange">autoassinado</StatusText>
+                <StatusText tone="orange">{t('selfSigned')}</StatusText>
               </>
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Emitido por">
+        <HpsmField label={t('issuedBy')}>
           <HpsmReadonly>{signer?.issuer ?? '—'}</HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Validade do certificado">
+        <HpsmField label={t('certValidity')}>
           <HpsmReadonly>
             {signer ? `${fmtDay(signer.validFrom)} a ${fmtDay(signer.validTo)}` : '—'}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Impressão digital (SHA-1)">
+        <HpsmField label={t('thumbprint')}>
           <HpsmReadonly>
             {signer ? (
               <>
                 <code>{signer.sha1}</code>{' '}
-                <CopyButton value={signer.sha1} label="impressão digital" />
+                <CopyButton value={signer.sha1} label={t('thumbprintLower')} />
               </>
             ) : (
               '—'
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField
-          label="Carimbo de tempo"
-          help="Data em que a assinatura foi feita, segundo a autoridade de carimbo (não conferida)."
-        >
+        <HpsmField label={t('timestamp')} help={t('timestampHelp')}>
           <HpsmReadonly>
-            {signature.timestamp ? fmtDate(signature.timestamp) : 'Sem carimbo'}
+            {signature.timestamp ? fmtDate(signature.timestamp) : t('noTimestamp')}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Programa declarado">
+        <HpsmField label={t('declaredProgram')}>
           <HpsmReadonly>
             {[signature.programName, signature.programUrl].filter(Boolean).join(' · ') || '—'}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Cadeia no arquivo">
+        <HpsmField label={t('chainInFile')}>
           <HpsmReadonly>
             {signature.chain.length ? signature.chain.map((c) => c.subject).join(' → ') : '—'}
-            {signature.nested > 0 && ` (+${signature.nested} assinatura(s) aninhada(s))`}
+            {signature.nested > 0 && ` ${t('nested', { n: signature.nested })}`}
           </HpsmReadonly>
         </HpsmField>
       </HpsmForm>
@@ -286,37 +273,33 @@ function DotnetBlock({ dotnet }: { dotnet: NonNullable<PeInfo['dotnet']> }) {
             {dotnet.flags.length > 0 && ` · ${dotnet.flags.join(', ')}`}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Tipos e métodos">
+        <HpsmField label={t('typesMethods')}>
           <HpsmReadonly>
-            {dotnet.types} tipo(s) · {dotnet.methods} método(s)
+            {t('typesMethodsCount', { types: dotnet.types, methods: dotnet.methods })}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Ofuscador">
+        <HpsmField label={t('obfuscator')}>
           <HpsmReadonly>
             {dotnet.obfuscator ? (
               <StatusText tone="orange">{dotnet.obfuscator}</StatusText>
             ) : (
-              'Nenhum reconhecido'
+              t('noneRecognized')
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Chamadas sensíveis" wide>
-          <HpsmReadonly>{chips(dotnet.suspicious, 'Nenhuma da lista de atenção')}</HpsmReadonly>
+        <HpsmField label={t('sensitiveCalls')} wide>
+          <HpsmReadonly>{chips(dotnet.suspicious, t('noneWatchlist'))}</HpsmReadonly>
         </HpsmField>
-        <HpsmField
-          label="P/Invoke"
-          wide
-          help="Funções nativas do Windows que o código .NET chama diretamente (DllImport)."
-        >
+        <HpsmField label="P/Invoke" wide help={t('pinvokeHelp')}>
           <HpsmReadonly>
             {chips(
               dotnet.pinvoke.map((f) => `${f.dll}!${f.name}`),
-              'Nenhuma',
+              t('noneF'),
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Referências" wide>
-          <HpsmReadonly>{chips(dotnet.assemblyRefs, 'Nenhuma')}</HpsmReadonly>
+        <HpsmField label={t('references')} wide>
+          <HpsmReadonly>{chips(dotnet.assemblyRefs, t('noneF'))}</HpsmReadonly>
         </HpsmField>
       </HpsmForm>
     </div>
@@ -335,8 +318,8 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
         <SignatureBlock signature={pe.signature} />
       ) : (
         <div className="dl-static-block">
-          <h4 className="dl-static-title">Assinatura digital</h4>
-          <p className="dl-static-empty">Sem assinatura digital.</p>
+          <h4 className="dl-static-title">{t('digitalSignature')}</h4>
+          <p className="dl-static-empty">{t('noSignature')}</p>
         </div>
       )}
       {pe.dotnet && <DotnetBlock dotnet={pe.dotnet} />}
@@ -344,11 +327,11 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
         <div className="dl-static-tables">
           {version.length > 0 && (
             <TableContainer>
-              <Table size="xs" aria-label="Informações de versão">
+              <Table size="xs" aria-label={t('versionInfoAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Informação de versão</TableHeader>
-                    <TableHeader scope="col">Valor</TableHeader>
+                    <TableHeader scope="col">{t('versionInfo')}</TableHeader>
+                    <TableHeader scope="col">{t('value')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -364,14 +347,14 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
           )}
           {resources.length > 0 && (
             <TableContainer>
-              <Table size="xs" aria-label="Recursos do executável">
+              <Table size="xs" aria-label={t('resourcesAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Recurso</TableHeader>
-                    <TableHeader scope="col">Idioma</TableHeader>
-                    <TableHeader scope="col">Tamanho</TableHeader>
-                    <TableHeader scope="col">Entropia</TableHeader>
-                    <TableHeader scope="col">Conteúdo</TableHeader>
+                    <TableHeader scope="col">{t('resource')}</TableHeader>
+                    <TableHeader scope="col">{t('language')}</TableHeader>
+                    <TableHeader scope="col">{t('size')}</TableHeader>
+                    <TableHeader scope="col">{t('entropy')}</TableHeader>
+                    <TableHeader scope="col">{t('content')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -400,9 +383,7 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
                   ))}
                 </TableBody>
               </Table>
-              {pe.resourcesTruncated && (
-                <p className="dl-static-empty">Lista cortada: há mais recursos no arquivo.</p>
-              )}
+              {pe.resourcesTruncated && <p className="dl-static-empty">{t('resourcesCut')}</p>}
             </TableContainer>
           )}
         </div>
@@ -413,31 +394,33 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
             Exports ({pe.exports.total}){pe.exports.dll ? ` · ${pe.exports.dll}` : ''}
           </summary>
           <TableContainer>
-            <Table size="xs" aria-label="Funções exportadas">
+            <Table size="xs" aria-label={t('exportedAria')}>
               <TableHead>
                 <TableRow>
                   <TableHeader scope="col">Ordinal</TableHeader>
-                  <TableHeader scope="col">Nome</TableHeader>
-                  <TableHeader scope="col">Encaminha para</TableHeader>
+                  <TableHeader scope="col">{t('name')}</TableHeader>
+                  <TableHeader scope="col">{t('forwardsTo')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {pe.exports.symbols.map((s) => (
                   <TableRow key={s.ordinal}>
                     <TableCell>{s.ordinal}</TableCell>
-                    <TableCell>{s.name ? <code>{s.name}</code> : '(só ordinal)'}</TableCell>
+                    <TableCell>{s.name ? <code>{s.name}</code> : t('ordinalOnly')}</TableCell>
                     <TableCell>{s.forwarder ? <code>{s.forwarder}</code> : '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-          {pe.exports.truncated && <p className="dl-static-empty">Lista cortada.</p>}
+          {pe.exports.truncated && <p className="dl-static-empty">{t('listCut')}</p>}
         </details>
       )}
       {named.length > 0 && (
         <details className="dl-static-strings">
-          <summary>Funções importadas ({pe.imports.reduce((n, i) => n + i.functions, 0)})</summary>
+          <summary>
+            {t('importedFns', { n: pe.imports.reduce((n, i) => n + i.functions, 0) })}
+          </summary>
           {named.map((imp) => (
             <div key={imp.dll} className="dl-static-imports">
               <strong>{imp.dll}</strong>

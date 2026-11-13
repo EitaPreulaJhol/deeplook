@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { AttackData, AttackTechnique } from '../api/types';
+import { t as tr } from '../i18n/analysis';
 
 /**
  * MITRE ATT&CK (item 59): lista embutida na API (GET /api/attack), carregada
@@ -45,7 +46,7 @@ export function AttackTechniqueLinks({ ids }: { ids: string[] }) {
             <Link
               className="dl-link"
               to={attackHref(id)}
-              title={`${techniqueTitle(technique, data) || id} — ver as amostras com esta técnica`}
+              title={tr('techniqueLink', { title: techniqueTitle(technique, data) || id })}
             >
               <span className="dl-mono">{id}</span>
               {technique && <span className="dl-attack-list__name"> {technique.name}</span>}
@@ -136,9 +137,7 @@ export function AttackPicker({
           aria-autocomplete="list"
           aria-activedescendant={showList ? `${listId}-${active}` : undefined}
           autoComplete="off"
-          placeholder={
-            isLoading ? 'Carregando o ATT&CK...' : 'Código ou nome (ex.: T1566, phishing)'
-          }
+          placeholder={isLoading ? tr('loadingAttack') : tr('attackPlaceholder')}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -173,7 +172,7 @@ export function AttackPicker({
         )}
       </div>
       {value.length > 0 && (
-        <ul className="dl-attack-picker__chips" aria-label="Técnicas escolhidas">
+        <ul className="dl-attack-picker__chips" aria-label={tr('chosenTechniques')}>
           {value.map((techniqueId) => {
             const technique = data?.techniques.find((t) => t.id === techniqueId);
             return (
@@ -183,7 +182,7 @@ export function AttackPicker({
                 <button
                   type="button"
                   className="dl-attack-picker__remove"
-                  aria-label={`Remover ${techniqueId}`}
+                  aria-label={tr('removeTech', { id: techniqueId })}
                   onClick={() => onChange(value.filter((v) => v !== techniqueId))}
                 >
                   ×
@@ -235,7 +234,7 @@ export function AttackFilterInput({
         autoComplete="off"
         placeholder="T1566"
         value={draft}
-        title={techniqueTitle(known(draft), data) || 'Técnica MITRE ATT&CK (código)'}
+        title={techniqueTitle(known(draft), data) || tr('attackCode')}
         onChange={(e) => {
           const next = e.target.value;
           setDraft(next);

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { SandboxArtifacts as Artifacts } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/sandbox';
 import { HpsmMessage } from './messages';
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(intlLocale());
@@ -28,17 +29,17 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
   const appeared = data.processes?.appeared ?? [];
   if (!shots.length && !data.processes && !data.note) {
     return running && data.intervalS ? (
-      <p className="dl-hint-muted">
-        A primeira coleta (print e processos) sai em até {data.intervalS} s.
-      </p>
+      <p className="dl-hint-muted">{t('firstCollect', { n: data.intervalS })}</p>
     ) : null;
   }
   return (
     <div className="dl-sandbox-artifacts">
-      <h4>Artefatos do ambiente</h4>
-      {data.note && <HpsmMessage kind="warning">Processos: {data.note}.</HpsmMessage>}
+      <h4>{t('artifactsTitle')}</h4>
+      {data.note && (
+        <HpsmMessage kind="warning">{t('processesNote', { note: data.note })}</HpsmMessage>
+      )}
       {shown.length > 0 && (
-        <ul className="dl-sandbox-artifacts__shots" aria-label="Prints da tela da VM">
+        <ul className="dl-sandbox-artifacts__shots" aria-label={t('vmShotsAria')}>
           {shown.map((s) => (
             <li key={s.id}>
               <a
@@ -48,7 +49,7 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
               >
                 <img
                   src={`/api/sandbox/${sessionId}/artifacts/${s.id}`}
-                  alt={`Tela da VM às ${fmtTime(s.createdAt)}`}
+                  alt={t('vmScreenAt', { time: fmtTime(s.createdAt) })}
                   loading="lazy"
                 />
                 <span>{fmtTime(s.createdAt)}</span>
@@ -58,25 +59,29 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
         </ul>
       )}
       {shots.length > SHOWN && (
-        <p className="dl-hint-muted">
-          {shots.length} prints guardados; aqui, o primeiro e os mais recentes.
-        </p>
+        <p className="dl-hint-muted">{t('shotsKept', { n: shots.length })}</p>
       )}
       {data.processes && (
         <>
           <p className="dl-sandbox-artifacts__summary">
             {appeared.length
-              ? `${appeared.length} processo(s) surgiram desde a primeira listagem (${fmtTime(data.processes.firstAt)}):`
-              : `Nenhum processo novo desde a primeira listagem (${data.processes.lists} listagem(ns), a última às ${fmtTime(data.processes.at)}).`}
+              ? t('processesAppeared', {
+                  n: appeared.length,
+                  time: fmtTime(data.processes.firstAt),
+                })
+              : t('noNewProcesses', {
+                  lists: data.processes.lists,
+                  time: fmtTime(data.processes.at),
+                })}
           </p>
           {appeared.length > 0 && (
-            <table className="dl-risk__reasons" aria-label="Processos que surgiram">
+            <table className="dl-risk__reasons" aria-label={t('appearedAria')}>
               <thead>
                 <tr>
                   <th scope="col">PID</th>
-                  <th scope="col">Pai</th>
-                  <th scope="col">Processo</th>
-                  <th scope="col">Linha de comando</th>
+                  <th scope="col">{t('parent')}</th>
+                  <th scope="col">{t('process')}</th>
+                  <th scope="col">{t('commandLine')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -91,9 +96,7 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
               </tbody>
             </table>
           )}
-          <p className="dl-hint-muted">
-            É o que o próprio sistema da VM informa pelo agente: um malware pode esconder processos.
-          </p>
+          <p className="dl-hint-muted">{t('agentNote')}</p>
         </>
       )}
     </div>

@@ -1,38 +1,40 @@
 import { useState } from 'react';
 
 import type { ScriptInfo, StaticInfo } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import { useDecoder } from './shortcuts';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
 
-const LANGUAGE: Record<ScriptInfo['language'], string> = {
+const LANGUAGE: Record<ScriptInfo['language'], string> = localized(() => ({
   powershell: 'PowerShell',
   javascript: 'JScript/JavaScript',
   vbscript: 'VBScript',
-  batch: 'Lote (BAT/CMD)',
-  hta: 'HTA (aplicativo HTML)',
-};
+  batch: t('langBatch'),
+  hta: t('langHta'),
+}));
 
-const RISK: Record<ScriptInfo['risk'], { label: string; tone: StatusTone }> = {
-  high: { label: 'Alto', tone: 'red' },
-  medium: { label: 'Médio', tone: 'orange' },
-  low: { label: 'Baixo', tone: 'green' },
-};
+const RISK: Record<ScriptInfo['risk'], { label: string; tone: StatusTone }> = localized(() => ({
+  high: { label: t('riskHigh'), tone: 'red' },
+  medium: { label: t('riskMedium'), tone: 'orange' },
+  low: { label: t('riskLow'), tone: 'green' },
+}));
 
-const KIND: Record<ScriptInfo['findings'][number]['kind'], { label: string; tone: StatusTone }> = {
-  download: { label: 'baixa', tone: 'red' },
-  execute: { label: 'executa', tone: 'red' },
-  evasion: { label: 'evasão', tone: 'red' },
-  persistence: { label: 'persistência', tone: 'orange' },
-  obfuscation: { label: 'ofuscação', tone: 'orange' },
-  other: { label: 'outro', tone: 'gray' },
-};
+const KIND: Record<ScriptInfo['findings'][number]['kind'], { label: string; tone: StatusTone }> =
+  localized(() => ({
+    download: { label: t('kindDownload'), tone: 'red' },
+    execute: { label: t('kindExecute'), tone: 'red' },
+    evasion: { label: t('kindEvasion'), tone: 'red' },
+    persistence: { label: t('kindPersistence'), tone: 'orange' },
+    obfuscation: { label: t('kindObfuscation'), tone: 'orange' },
+    other: { label: t('kindOther'), tone: 'gray' },
+  }));
 
 /** Onde o achado apareceu: no arquivo ou numa camada decodificada. */
-const where = (layer: number) => (layer === 0 ? 'no arquivo' : `na camada ${layer}`);
+const where = (layer: number) => (layer === 0 ? t('inFile') : t('inLayer', { n: layer }));
 
 /** Aviso no topo da ficha: script que baixa e executa ou tenta escapar. */
 export function ScriptWarning({ info }: { info?: StaticInfo | null }) {
@@ -41,8 +43,10 @@ export function ScriptWarning({ info }: { info?: StaticInfo | null }) {
   const first = script.findings.find((f) => f.kind !== 'obfuscation') ?? script.findings[0];
   return (
     <HpsmMessage kind="warning">
-      Atenção: script {LANGUAGE[script.language]} com comportamento malicioso
-      {first ? ` (${first.name}: ${first.why})` : ''}. Não execute fora do ambiente isolado.
+      {t('scriptWarn', {
+        language: LANGUAGE[script.language],
+        detail: first ? ` (${first.name}: ${first.why})` : '',
+      })}
     </HpsmMessage>
   );
 }
@@ -57,22 +61,25 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
   const decode = useDecoder();
   if (!script) return null;
   return (
-    <HpsmSection title={`Script (${LANGUAGE[script.language]})`} className="dl-mt-lg">
+    <HpsmSection
+      title={t('scriptTitle', { language: LANGUAGE[script.language] })}
+      className="dl-mt-lg"
+    >
       <HpsmForm columns={2}>
-        <HpsmField label="Risco">
+        <HpsmField label={t('risk')}>
           <HpsmReadonly>
             <StatusText tone={RISK[script.risk].tone}>{RISK[script.risk].label}</StatusText>
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Linhas">
+        <HpsmField label={t('lines')}>
           <HpsmReadonly>
             {script.lines}
-            {script.encoded && ' · codificado com o Script Encoder (#@~^), não decodificado'}
+            {script.encoded && ` · ${t('encodedScript')}`}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Achados" wide top>
+        <HpsmField label={t('findings')} wide top>
           {script.findings.length === 0 ? (
-            <HpsmReadonly>Nenhuma chamada suspeita encontrada.</HpsmReadonly>
+            <HpsmReadonly>{t('noSuspiciousCalls')}</HpsmReadonly>
           ) : (
             <ul className="dl-doc-alerts">
               {script.findings.map((f) => (
@@ -90,12 +97,7 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
           )}
         </HpsmField>
         {script.urls.length > 0 && (
-          <HpsmField
-            label={`URLs (${script.urls.length})`}
-            wide
-            top
-            help="Achadas no arquivo e nas camadas. Só como texto: não abra fora do sandbox."
-          >
+          <HpsmField label={`URLs (${script.urls.length})`} wide top help={t('urlsHelp')}>
             <HpsmReadonly
               multiline
               mono
@@ -108,15 +110,18 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
       </HpsmForm>
       {script.layers.length > 0 && (
         <div className="dl-doc-macros">
-          <h3 className="dl-doc-macros__head">Camadas decodificadas ({script.layers.length})</h3>
+          <h3 className="dl-doc-macros__head">{t('decodedLayers', { n: script.layers.length })}</h3>
           <ul>
             {script.layers.map((l, i) => (
               <li key={i}>
                 <div className="dl-doc-macros__row">
-                  <span className="dl-mono">Camada {i + 1}</span>
+                  <span className="dl-mono">{t('layer', { n: i + 1 })}</span>
                   <span className="dl-doc-macros__meta">
-                    {l.method} · {where(l.from)} · {l.text.length.toLocaleString(intlLocale())}{' '}
-                    caractere(s)
+                    {t('layerMeta', {
+                      method: l.method,
+                      where: where(l.from),
+                      n: l.text.length.toLocaleString(intlLocale()),
+                    })}
                   </span>
                   <button
                     type="button"
@@ -124,16 +129,16 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
                     aria-expanded={open === i}
                     onClick={() => setOpen(open === i ? null : i)}
                   >
-                    {open === i ? 'Ocultar texto' : 'Ver texto'}
+                    {open === i ? t('hideText') : t('showText')}
                   </button>
                   <button type="button" className="dl-link-button" onClick={() => decode(l.text)}>
-                    Decodificar…
+                    {t('decodeEllipsis')}
                   </button>
                 </div>
                 {open === i && (
-                  <pre className="dl-doc-macros__code" aria-label={`Texto da camada ${i + 1}`}>
+                  <pre className="dl-doc-macros__code" aria-label={t('layerText', { n: i + 1 })}>
                     {l.text}
-                    {l.truncated ? '\n… (cortado)' : ''}
+                    {l.truncated ? `\n… ${t('cut')}` : ''}
                   </pre>
                 )}
               </li>

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import { localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmSection } from './HpsmForm';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -9,22 +11,22 @@ const BLOCK = 4 * 1024;
 const PER_LINE = 16;
 
 /** Cabecalhos conhecidos destacados no comeco do arquivo. */
-const MAGICS: { bytes: number[]; name: string }[] = [
-  { bytes: [0x4d, 0x5a], name: 'MZ — executável do Windows (PE)' },
-  { bytes: [0x7f, 0x45, 0x4c, 0x46], name: 'ELF — executável Linux' },
-  { bytes: [0x50, 0x4b, 0x03, 0x04], name: 'PK — ZIP (também Office moderno, JAR, APK)' },
-  { bytes: [0x25, 0x50, 0x44, 0x46], name: '%PDF — documento PDF' },
+const MAGICS: { bytes: number[]; name: string }[] = localized(() => [
+  { bytes: [0x4d, 0x5a], name: t('magicMz') },
+  { bytes: [0x7f, 0x45, 0x4c, 0x46], name: t('magicElf') },
+  { bytes: [0x50, 0x4b, 0x03, 0x04], name: t('magicPk') },
+  { bytes: [0x25, 0x50, 0x44, 0x46], name: t('magicPdf') },
   {
     bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1],
-    name: 'OLE — Office antigo (doc, xls, msi)',
+    name: t('magicOle'),
   },
-  { bytes: [0x52, 0x61, 0x72, 0x21], name: 'Rar! — arquivo RAR' },
-  { bytes: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c], name: '7z — arquivo 7-Zip' },
-  { bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], name: 'PNG — imagem' },
-  { bytes: [0xff, 0xd8, 0xff], name: 'JPEG — imagem' },
-  { bytes: [0x47, 0x49, 0x46, 0x38], name: 'GIF — imagem' },
-  { bytes: [0x1f, 0x8b], name: 'GZIP — arquivo compactado' },
-];
+  { bytes: [0x52, 0x61, 0x72, 0x21], name: t('magicRar') },
+  { bytes: [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c], name: t('magic7z') },
+  { bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], name: t('magicPng') },
+  { bytes: [0xff, 0xd8, 0xff], name: t('magicJpeg') },
+  { bytes: [0x47, 0x49, 0x46, 0x38], name: t('magicGif') },
+  { bytes: [0x1f, 0x8b], name: t('magicGzip') },
+]);
 
 interface HexChunk {
   offset: number;
@@ -79,10 +81,8 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
 
   if (purged) {
     return (
-      <HpsmSection title="Conteúdo (hex)">
-        <p className="dl-static-empty">
-          Indisponível: o arquivo desta amostra foi expurgado pela política de retenção.
-        </p>
+      <HpsmSection title={t('hexTitle')}>
+        <p className="dl-static-empty">{t('hexPurged')}</p>
       </HpsmSection>
     );
   }
@@ -96,35 +96,38 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
   const more = bytes && meta && bytes.length < meta.limit;
 
   return (
-    <HpsmSection title="Conteúdo (hex)">
+    <HpsmSection title={t('hexTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {!bytes ? (
         <p className="dl-static-empty">
-          Mostra os primeiros bytes do arquivo em hexadecimal, sem baixar nem executar.{' '}
+          {t('hexHelp')}{' '}
           <button
             type="button"
             className="dl-link-button"
             disabled={loading}
             onClick={() => void load(0)}
           >
-            {loading ? 'Carregando...' : 'Mostrar conteúdo'}
+            {loading ? t('loadingDots') : t('showContent')}
           </button>
         </p>
       ) : (
         <>
           <p className="dl-hex__info">
-            Exibindo {formatFileSize(bytes.length)} de {formatFileSize(meta?.size)}
+            {t('hexShowing', {
+              n: formatFileSize(bytes.length),
+              total: formatFileSize(meta?.size),
+            })}
             {meta && meta.size > meta.limit
-              ? ` (o visualizador vai até ${formatFileSize(meta.limit)})`
+              ? ` ${t('hexLimit', { limit: formatFileSize(meta.limit) })}`
               : ''}
             {magic && (
               <>
                 {' '}
-                · cabeçalho: <mark className="dl-hex__magic">{magic.name}</mark>
+                {t('header')} <mark className="dl-hex__magic">{magic.name}</mark>
               </>
             )}
           </p>
-          <pre className="dl-hex" aria-label="Conteúdo do arquivo em hexadecimal">
+          <pre className="dl-hex" aria-label={t('hexAria')}>
             {lines.map((start) => {
               const row = Array.from(bytes.subarray(start, start + PER_LINE));
               return (
@@ -154,10 +157,10 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
               disabled={loading}
               onClick={() => void load(bytes.length)}
             >
-              {loading ? 'Carregando...' : 'Mostrar mais 4 KB'}
+              {loading ? t('loadingDots') : t('showMore4k')}
             </button>
           )}
-          {loading && <HpsmLoading text="Lendo o arquivo..." />}
+          {loading && <HpsmLoading text={t('readingFile')} />}
         </>
       )}
     </HpsmSection>

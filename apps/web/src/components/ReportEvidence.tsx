@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { ReportEvidence as Evidence } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/entry';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField } from './HpsmForm';
@@ -19,7 +20,7 @@ const MAX_ITEMS = 20;
 const ACCEPT = 'image/png,image/jpeg,image/webp';
 
 function caption(e: Evidence, index: number): string {
-  return e.caption || `Evidência ${index + 1}`;
+  return e.caption || t('evidenceN', { n: index + 1 });
 }
 
 /**
@@ -78,9 +79,15 @@ function EvidenceViewer({
           <img src={evidenceUrl(item.id)} alt={caption(item, index)} />
         </div>
         <p className="dl-evidence-viewer__meta">
-          Imagem {index + 1} de {items.length} · {item.width}×{item.height} ·{' '}
-          {formatFileSize(item.size)} · {item.uploadedBy?.displayName ?? '—'},{' '}
-          {new Date(item.createdAt).toLocaleString(intlLocale())}
+          {t('imageInfo', {
+            n: index + 1,
+            total: items.length,
+            width: item.width,
+            height: item.height,
+            size: formatFileSize(item.size),
+            by: item.uploadedBy?.displayName ?? '—',
+            date: new Date(item.createdAt).toLocaleString(intlLocale()),
+          })}
         </p>
         <div className="hpsm-modal__actions">
           <button
@@ -89,7 +96,7 @@ function EvidenceViewer({
             disabled={index === 0}
             onClick={() => onIndex(index - 1)}
           >
-            ◀ Anterior
+            {t('prevRecord')}
           </button>
           <button
             type="button"
@@ -97,13 +104,13 @@ function EvidenceViewer({
             disabled={index === items.length - 1}
             onClick={() => onIndex(index + 1)}
           >
-            Próxima ▶
+            {t('nextRecord')}
           </button>
           <a className="dl-btn" href={evidenceUrl(item.id)} target="_blank" rel="noreferrer">
-            Abrir em nova aba
+            {t('openNewTab')}
           </a>
           <button ref={closeRef} type="button" className="dl-btn dl-btn--primary" onClick={onClose}>
-            Fechar
+            {t('close')}
           </button>
         </div>
       </div>
@@ -143,13 +150,13 @@ export function ReportEvidence({
     const chosen = files.slice(0, Math.max(0, room));
     const errors: string[] = [];
     if (files.length > chosen.length) {
-      errors.push(`no máximo ${MAX_ITEMS} imagens por relatório`);
+      errors.push(t('maxImages', { max: MAX_ITEMS }));
     }
     setBusy(true);
     let added = 0;
     for (const file of chosen) {
       if (file.size > MAX_MB * 1024 * 1024) {
-        errors.push(`${file.name}: maior que ${MAX_MB} MB`);
+        errors.push(t('tooLarge', { name: file.name, max: MAX_MB }));
         continue;
       }
       const form = new FormData();
@@ -172,27 +179,29 @@ export function ReportEvidence({
       errors.length
         ? {
             ok: false,
-            text: `${added ? `${added} imagem(ns) adicionada(s). ` : ''}Não enviadas: ${errors.join('; ').replace(/\.$/, '')}.`,
+            text:
+              (added ? `${t('imagesAdded', { n: added })} ` : '') +
+              t('notSent', { list: errors.join('; ').replace(/\.$/, '') }),
           }
         : {
             ok: true,
-            text: `${added} imagem(ns) adicionada(s). Metadados (EXIF, GPS, aparelho) removidos.`,
+            text: `${t('imagesAdded', { n: added })} ${t('metadataRemoved')}`,
           },
     );
   };
 
   const editCaption = async (e: Evidence, index: number) => {
     const text = await prompt({
-      title: 'Legenda da evidência',
-      label: 'Legenda',
+      title: t('captionTitle'),
+      label: t('caption'),
       defaultValue: e.caption ?? '',
       maxLength: 300,
-      confirmLabel: 'Salvar',
+      confirmLabel: t('save'),
     });
     if (text === null) return;
     try {
       await api.patch(`/evidence/${e.id}`, { caption: text });
-      setMsg({ ok: true, text: `Legenda da ${caption(e, index).toLowerCase()} atualizada.` });
+      setMsg({ ok: true, text: t('captionUpdated', { caption: caption(e, index).toLowerCase() }) });
       onChanged();
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
@@ -201,16 +210,16 @@ export function ReportEvidence({
 
   const remove = async (e: Evidence, index: number) => {
     const ok = await confirm({
-      title: 'Excluir evidência',
-      message: `Excluir "${caption(e, index)}"? A imagem é apagada do armazenamento.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteEvidence'),
+      message: t('deleteEvidenceConfirm', { caption: caption(e, index) }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.del(`/evidence/${e.id}`);
-      setMsg({ ok: true, text: 'Evidência excluída.' });
+      setMsg({ ok: true, text: t('evidenceDeleted') });
       onChanged();
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
@@ -218,7 +227,7 @@ export function ReportEvidence({
   };
 
   return (
-    <HpsmField label={`Evidências (${items.length})`} wide top>
+    <HpsmField label={t('evidences', { n: items.length })} wide top>
       <div className="dl-evidence">
         {msg && (
           <HpsmMessage key={msg.text} kind={msg.ok ? 'success' : 'error'}>
@@ -232,7 +241,7 @@ export function ReportEvidence({
                 <button
                   type="button"
                   className="dl-evidence__thumb"
-                  aria-label={`Ampliar: ${caption(e, i)}`}
+                  aria-label={t('enlarge', { caption: caption(e, i) })}
                   onClick={() => setViewing(i)}
                 >
                   <img src={evidenceUrl(e.id)} alt="" loading="lazy" />
@@ -247,14 +256,14 @@ export function ReportEvidence({
                       className="dl-link-button"
                       onClick={() => void editCaption(e, i)}
                     >
-                      Legenda…
+                      {t('captionEllipsis')}
                     </button>
                     <button
                       type="button"
                       className="dl-link-button"
                       onClick={() => void remove(e, i)}
                     >
-                      Excluir
+                      {t('delete')}
                     </button>
                   </span>
                 )}
@@ -266,7 +275,7 @@ export function ReportEvidence({
           <div className="dl-evidence__add">
             <TextInput
               id={`evidence-caption-${reportId}`}
-              labelText="Legenda (opcional)"
+              labelText={t('captionOptional')}
               size="sm"
               maxLength={300}
               value={newCaption}
@@ -287,11 +296,9 @@ export function ReportEvidence({
               disabled={busy}
               onClick={() => fileRef.current?.click()}
             >
-              {busy ? 'Enviando...' : 'Adicionar imagens…'}
+              {busy ? t('sending') : t('addImages')}
             </button>
-            <span className="dl-hint-muted">
-              PNG, JPEG ou WebP, até {MAX_MB} MB; EXIF/GPS removidos no servidor.
-            </span>
+            <span className="dl-hint-muted">{t('imagesHelp', { max: MAX_MB })}</span>
           </div>
         )}
       </div>

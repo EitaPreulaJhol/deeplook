@@ -4,7 +4,8 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ReportStatus, Verdict } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t as tr } from '../i18n/entry';
 import { HpsmField, HpsmForm } from './HpsmForm';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { verdictLabel } from './tags';
@@ -23,11 +24,11 @@ export interface ReportVersion {
   attackTechniques: string[];
 }
 
-const STATUS_LABEL: Record<ReportStatus, string> = {
-  DRAFT: 'rascunho',
-  IN_REVIEW: 'em revisão',
-  PUBLISHED: 'publicado',
-};
+const STATUS_LABEL: Record<ReportStatus, string> = localized(() => ({
+  DRAFT: tr('rsDraftLower'),
+  IN_REVIEW: tr('rsInReviewLower'),
+  PUBLISHED: tr('rsPublishedLower'),
+}));
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -35,7 +36,13 @@ function fmtDate(iso: string): string {
 
 /** "Versão 2 (atual) — Bruno Lima, 24/10/2026 10:00 · publicado". */
 export function versionLabel(v: ReportVersion): string {
-  return `Versão ${v.number}${v.current ? ' (atual)' : ''} — ${v.author?.displayName ?? 'removido'}, ${fmtDate(v.at)} · ${STATUS_LABEL[v.status]}`;
+  return tr('versionLabel', {
+    n: v.number,
+    current: v.current ? ` ${tr('currentParen')}` : '',
+    author: v.author?.displayName ?? tr('removedUser'),
+    date: fmtDate(v.at),
+    status: STATUS_LABEL[v.status],
+  });
 }
 
 /** Diferenca de um campo de texto: linhas removidas (−) e adicionadas (+). */
@@ -54,11 +61,7 @@ function TextDiff({
   const removed = lines.filter((l) => l.kind === 'del').length;
   return (
     <HpsmField label={label} wide top>
-      <div
-        className="dl-diff"
-        role="group"
-        aria-label={`${label}: ${added} linha(s) adicionada(s), ${removed} removida(s)`}
-      >
+      <div className="dl-diff" role="group" aria-label={tr('diffAria', { label, added, removed })}>
         <div className="dl-diff__count">
           <span className="dl-diff__count-add">+{added}</span>{' '}
           <span className="dl-diff__count-del">−{removed}</span>
@@ -97,12 +100,12 @@ export function ReportVersions({ reportId }: { reportId: string }) {
   const [fromN, setFromN] = useState<number | null>(null);
   const [toN, setToN] = useState<number | null>(null);
 
-  if (query.isLoading) return <HpsmLoading text="Carregando as versões..." />;
+  if (query.isLoading) return <HpsmLoading text={tr('loadingVersions')} />;
   if (query.isError) {
     return <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>;
   }
   if (versions.length < 2) {
-    return <HpsmMessage kind="info">Este relatório ainda não foi editado.</HpsmMessage>;
+    return <HpsmMessage kind="info">{tr('neverEdited')}</HpsmMessage>;
   }
   const last = versions.length;
   const from = versions[(fromN ?? last - 1) - 1];
@@ -137,23 +140,23 @@ export function ReportVersions({ reportId }: { reportId: string }) {
   return (
     <div className="dl-versions">
       <HpsmForm>
-        {picker(`versions-from-${reportId}`, 'Comparar', from.number, setFromN)}
+        {picker(`versions-from-${reportId}`, tr('compare'), from.number, setFromN)}
         {picker(`versions-to-${reportId}`, 'com', to.number, setToN)}
       </HpsmForm>
       {same ? (
-        <HpsmMessage kind="info">As duas versões têm o mesmo conteúdo.</HpsmMessage>
+        <HpsmMessage kind="info">{tr('sameContent')}</HpsmMessage>
       ) : (
         <HpsmForm>
           {from.verdict !== to.verdict && (
-            <HpsmField label="Veredito" wide>
+            <HpsmField label={tr('colVerdict')} wide>
               <span className="dl-diff__inline">
                 <span className="dl-diff__inline-del">{verdictLabel(from.verdict)}</span> →{' '}
                 <span className="dl-diff__inline-add">{verdictLabel(to.verdict)}</span>
               </span>
             </HpsmField>
           )}
-          <TextDiff label="Resumo" before={from.summary} after={to.summary} />
-          <TextDiff label="Achados" before={from.findings} after={to.findings} />
+          <TextDiff label={tr('summary')} before={from.summary} after={to.summary} />
+          <TextDiff label={tr('findings')} before={from.findings} after={to.findings} />
           <TextDiff label="IOCs" before={from.iocs} after={to.iocs} />
           {(addedTech.length > 0 || removedTech.length > 0) && (
             <HpsmField label="ATT&CK" wide>

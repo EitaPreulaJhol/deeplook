@@ -2,6 +2,8 @@
  * Decodificador (item 85): passos encadeados sobre bytes, todos no navegador.
  * O resultado e sempre mostrado como texto ou hex, nunca como HTML.
  */
+import { localized } from '../i18n';
+import { t } from '../i18n/analysis';
 
 export type StepId =
   | 'base64'
@@ -21,18 +23,18 @@ export interface Step {
   param?: string;
 }
 
-export const STEPS: Record<StepId, { label: string; param?: string }> = {
+export const STEPS: Record<StepId, { label: string; param?: string }> = localized(() => ({
   base64: { label: 'Base64' },
   hex: { label: 'Hex' },
   url: { label: 'URL (%xx)' },
   psenc: { label: 'PowerShell -EncodedCommand' },
-  utf16: { label: 'UTF-16LE → texto' },
-  xor: { label: 'XOR', param: 'Chave (texto ou 0x41 0x42…)' },
-  inflate: { label: 'Descompactar (gzip/zlib/deflate)' },
+  utf16: { label: t('stepUtf16') },
+  xor: { label: 'XOR', param: t('stepXorKey') },
+  inflate: { label: t('stepInflate') },
   rot13: { label: 'ROT13' },
-  reverse: { label: 'Inverter' },
-  charcodes: { label: 'Códigos de caractere (72,101,…)' },
-};
+  reverse: { label: t('stepReverse') },
+  charcodes: { label: t('stepCharcodes') },
+}));
 
 /** Entrada maxima (bytes). */
 export const DECODER_MAX = 1024 * 1024;
@@ -53,13 +55,13 @@ const textOf = (bytes: Uint8Array) => new TextDecoder('utf-8').decode(bytes);
 function base64(bytes: Uint8Array): Uint8Array {
   const clean = latin1(bytes).replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean) || clean.length === 0) {
-    throw new DecodeError('não é Base64 (caracteres fora de A–Z, a–z, 0–9, +, /)');
+    throw new DecodeError(t('errNotBase64'));
   }
   const padded = clean.padEnd(Math.ceil(clean.length / 4) * 4, '=');
   try {
     return fromLatin1(atob(padded));
   } catch {
-    throw new DecodeError('Base64 com tamanho inválido');
+    throw new DecodeError(t('errBase64Len'));
   }
 }
 
@@ -67,9 +69,8 @@ function hex(bytes: Uint8Array): Uint8Array {
   const clean = latin1(bytes)
     .replace(/0x|\\x|[\s,;:]/gi, '')
     .toLowerCase();
-  if (!/^[0-9a-f]*$/.test(clean) || clean.length === 0)
-    throw new DecodeError('não é hex (0–9, a–f)');
-  if (clean.length % 2) throw new DecodeError('hex com número ímpar de dígitos');
+  if (!/^[0-9a-f]*$/.test(clean) || clean.length === 0) throw new DecodeError(t('errNotHex'));
+  if (clean.length % 2) throw new DecodeError(t('errHexOdd'));
   const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   return out;
@@ -98,7 +99,7 @@ const utf16 = (bytes: Uint8Array) =>
 
 function xor(bytes: Uint8Array, param = ''): Uint8Array {
   const raw = param.trim();
-  if (!raw) throw new DecodeError('informe a chave do XOR');
+  if (!raw) throw new DecodeError(t('errXorKey'));
   const key = /^(0x[0-9a-f]{1,2}[\s,]*)+$/i.test(raw)
     ? Uint8Array.from(raw.match(/0x([0-9a-f]{1,2})/gi)!.map((h) => parseInt(h.slice(2), 16)))
     : utf8.encode(raw);
@@ -117,7 +118,7 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
       /* proximo formato */
     }
   }
-  throw new DecodeError('não é gzip, zlib nem deflate');
+  throw new DecodeError(t('errNotGzip'));
 }
 
 const rot13 = (bytes: Uint8Array) =>
@@ -131,7 +132,7 @@ const rot13 = (bytes: Uint8Array) =>
 
 function charcodes(bytes: Uint8Array): Uint8Array {
   const parts = latin1(bytes).match(/0x[0-9a-f]+|\d+/gi);
-  if (!parts?.length) throw new DecodeError('nenhum número encontrado');
+  if (!parts?.length) throw new DecodeError(t('errNoNumbers'));
   return utf8.encode(String.fromCharCode(...parts.map((p) => Number(p))));
 }
 
@@ -142,7 +143,7 @@ export async function runSteps(
 ): Promise<{ bytes: Uint8Array; error?: { index: number; message: string } }> {
   let bytes: Uint8Array = utf8.encode(input);
   if (bytes.length > DECODER_MAX) {
-    return { bytes: bytes.subarray(0, 0), error: { index: -1, message: 'texto maior que 1 MB' } };
+    return { bytes: bytes.subarray(0, 0), error: { index: -1, message: t('errTooLarge') } };
   }
   for (const [index, step] of steps.entries()) {
     try {

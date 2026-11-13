@@ -12,7 +12,8 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { ReputationInfo, ReputationResult } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -25,7 +26,7 @@ const VERDICT_TONE: Record<string, StatusTone> = {
   UNKNOWN: 'gray',
 };
 
-const KIND_LABEL = { HASH: 'SHA-256', DOMAIN: 'Domínio', IP: 'IP' } as const;
+const KIND_LABEL = localized(() => ({ HASH: 'SHA-256', DOMAIN: t('domain'), IP: 'IP' }));
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -33,11 +34,11 @@ function fmtDate(iso: string): string {
 
 /** Resultado de um servico: consultando, falha, nao encontrado ou o veredito dele. */
 function resultLabel(r: ReputationResult): { label: string; tone: StatusTone } {
-  if (r.status === 'PENDING') return { label: 'Consultando...', tone: 'blue' };
-  if (r.status === 'ERROR') return { label: 'Falha', tone: 'orange' };
-  if (r.status === 'NOT_FOUND') return { label: 'Não encontrado', tone: 'gray' };
+  if (r.status === 'PENDING') return { label: t('consulting'), tone: 'blue' };
+  if (r.status === 'ERROR') return { label: t('failure'), tone: 'orange' };
+  if (r.status === 'NOT_FOUND') return { label: t('notFound'), tone: 'gray' };
   // Registro, certificados e DNS passivo encontram dados, mas nao dao veredito.
-  if (r.verdict === 'UNKNOWN') return { label: 'Informativo', tone: 'gray' };
+  if (r.verdict === 'UNKNOWN') return { label: t('informative'), tone: 'gray' };
   return { label: verdictLabel(r.verdict), tone: VERDICT_TONE[r.verdict] ?? 'gray' };
 }
 
@@ -62,21 +63,27 @@ export function reputationSummary(
   info?: ReputationInfo,
 ): { text: string; tone: StatusTone } | null {
   if (!info || info.services.length === 0 || !info.indicator) return null;
-  if (info.pending) return { text: 'consultando...', tone: 'blue' };
+  if (info.pending) return { text: t('consultingLower'), tone: 'blue' };
   const answered = info.results.filter((r) => r.status === 'FOUND' || r.status === 'NOT_FOUND');
   for (const verdict of ['MALICIOUS', 'SUSPICIOUS'] as const) {
     const hits = info.results.filter((r) => r.status === 'FOUND' && r.verdict === verdict).length;
     if (hits) {
       return {
-        text: `${verdictLabel(verdict).toLowerCase()} em ${hits} de ${info.results.length} serviço${info.results.length === 1 ? '' : 's'}`,
+        text: t(info.results.length === 1 ? 'repHitsOne' : 'repHitsMany', {
+          verdict: verdictLabel(verdict).toLowerCase(),
+          hits,
+          total: info.results.length,
+        }),
         tone: VERDICT_TONE[verdict],
       };
     }
   }
-  if (answered.length === 0) return { text: 'sem resposta dos serviços', tone: 'gray' };
+  if (answered.length === 0) return { text: t('noAnswer'), tone: 'gray' };
   const failed = info.results.filter((r) => r.status === 'ERROR').length;
-  const counts = `${answered.length} serviço${answered.length === 1 ? '' : 's'}${failed ? ` · ${failed} com falha` : ''}`;
-  return { text: `sem alertas (${counts})`, tone: failed ? 'orange' : 'green' };
+  const counts =
+    t(answered.length === 1 ? 'serviceOne' : 'serviceMany', { n: answered.length }) +
+    (failed ? ` · ${t('withFailure', { n: failed })}` : '');
+  return { text: t('noAlerts', { counts }), tone: failed ? 'orange' : 'green' };
 }
 
 /** Secao "Reputacao externa" da aba Detalhes (escondida sem servico configurado). */
@@ -102,12 +109,11 @@ export function ReputationSection({ entryId, canTriage }: { entryId: string; can
   };
 
   return (
-    <HpsmSection title="Reputação externa">
+    <HpsmSection title={t('reputationTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <p className="dl-reputation__note">
-        Consultado: {KIND_LABEL[info.indicator.kind]}{' '}
-        <span className="dl-mono">{info.indicator.value}</span>. Só o indicador sai do DeepLook; o
-        arquivo e a URL completa não são enviados.
+        {t('queried', { kind: KIND_LABEL[info.indicator.kind] })}{' '}
+        <span className="dl-mono">{info.indicator.value}</span>. {t('onlyIndicator')}
         {canTriage && (
           <>
             {' '}
@@ -117,21 +123,21 @@ export function ReputationSection({ entryId, canTriage }: { entryId: string; can
               disabled={asking || info.pending}
               onClick={() => void recheck()}
             >
-              {info.pending ? 'Consultando...' : 'Consultar de novo'}
+              {info.pending ? t('consulting') : t('queryAgain')}
             </button>
           </>
         )}
       </p>
       {info.results.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Reputação externa">
+          <Table size="xs" aria-label={t('reputationTitle')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Serviço</TableHeader>
-                <TableHeader scope="col">Resultado</TableHeader>
-                <TableHeader scope="col">Resumo</TableHeader>
-                <TableHeader scope="col">Consultado em</TableHeader>
-                <TableHeader scope="col">Detalhes</TableHeader>
+                <TableHeader scope="col">{t('service')}</TableHeader>
+                <TableHeader scope="col">{t('result')}</TableHeader>
+                <TableHeader scope="col">{t('summary')}</TableHeader>
+                <TableHeader scope="col">{t('queriedAt')}</TableHeader>
+                <TableHeader scope="col">{t('details')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -157,7 +163,7 @@ export function ReputationSection({ entryId, canTriage }: { entryId: string; can
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          Abrir no {r.name} ↗
+                          {t('openIn', { name: r.name })}
                         </a>
                       ) : (
                         '—'

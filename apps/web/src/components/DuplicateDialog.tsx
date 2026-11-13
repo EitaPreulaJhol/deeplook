@@ -2,6 +2,7 @@ import type { FormEvent, KeyboardEvent } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { api, apiFieldErrors } from '../api/client';
+import { t as tr } from '../i18n/entry';
 import { describeReason, useRelatedEntries } from './EntryRelatedTab';
 import { VerdictTag } from './tags';
 
@@ -28,13 +29,13 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
     <EntryPickDialog
       entryId={entryId}
       excludeIds={excludeIds}
-      title="Marcar como duplicata"
-      message="Escolha a amostra principal. Esta amostra será concluída com o veredito da principal, passará a acompanhá-lo e sairá das filas."
-      legend="Amostra principal:"
-      otherLabel="ID ou link da amostra principal"
-      submitLabel="Marcar"
-      busyLabel="Marcando..."
-      emptyChoice="Escolha a amostra principal ou informe o ID."
+      title={tr('markDuplicateTitle')}
+      message={tr('markDuplicateMsg')}
+      legend={tr('mainSampleLegend')}
+      otherLabel={tr('mainSampleOther')}
+      submitLabel={tr('mark')}
+      busyLabel={tr('marking')}
+      emptyChoice={tr('mainSampleEmpty')}
       onPick={async (target) => {
         try {
           const res = await api.post<{ principal: { id: string; title: string } }>(
@@ -46,7 +47,7 @@ export function DuplicateDialog({ entryId, excludeIds, onClose }: Props) {
         } catch (err) {
           const details = apiFieldErrors(err);
           return details?.of?.length
-            ? `Amostra principal: ${details.of[0]}.`
+            ? tr('mainSampleError', { detail: details.of[0] })
             : (err as Error).message;
         }
       }}
@@ -198,7 +199,7 @@ export function EntryPickDialog({
             <fieldset className="dl-dup-options">
               <legend className="hpsm-modal__label">{legend}</legend>
               {related.isLoading && (
-                <div className="dl-related-hint">Procurando relacionadas...</div>
+                <div className="dl-related-hint">{tr('searchingRelated2')}</div>
               )}
               {candidates.map(({ entry, reasons }) => (
                 <label key={entry.id} className="dl-dup-option">
@@ -222,12 +223,12 @@ export function EntryPickDialog({
                   checked={choice === 'other'}
                   onChange={() => setChoice('other')}
                 />
-                <span className="dl-dup-option__title">Outra amostra (ID ou link):</span>
+                <span className="dl-dup-option__title">{tr('otherSample')}</span>
               </label>
               <input
                 className="hpsm-modal__input"
                 aria-label={otherLabel}
-                placeholder="Ex.: cm3x9... ou https://.../entries/cm3x9..."
+                placeholder={tr('otherSamplePlaceholder')}
                 value={other}
                 onFocus={() => setChoice('other')}
                 onChange={(e) => {
@@ -242,7 +243,7 @@ export function EntryPickDialog({
               {saving ? busyLabel : submitLabel}
             </button>
             <button type="button" className="dl-btn" onClick={() => onClose()}>
-              Cancelar
+              {tr('cancel')}
             </button>
           </div>
         </form>

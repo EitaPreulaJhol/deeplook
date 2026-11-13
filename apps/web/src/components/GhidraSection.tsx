@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { GhidraFunction, GhidraInfo } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { CopyButton } from './CopyButton';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -40,20 +41,23 @@ export function useGhidra(entryId: string, enabled: boolean) {
 
 function situation(a: NonNullable<GhidraInfo['analysis']>): { tone: StatusTone; text: string } {
   if (a.status === 'PENDING') {
-    const retry = a.attempts > 0 && a.error ? ` (nova tentativa: ${a.error})` : '';
-    return { tone: 'blue', text: `Na fila${a.ahead ? `, ${a.ahead} antes desta` : ''}${retry}` };
+    const retry = a.attempts > 0 && a.error ? ` ${t('retrying', { error: a.error })}` : '';
+    return {
+      tone: 'blue',
+      text: (a.ahead ? t('queuedAhead', { n: a.ahead }) : t('queued')) + retry,
+    };
   }
   if (a.status === 'RUNNING')
-    return { tone: 'blue', text: `Analisando desde ${fmtDate(a.startedAt)}` };
+    return { tone: 'blue', text: t('runningSince', { date: fmtDate(a.startedAt) }) };
   if (a.status === 'FAILED')
-    return { tone: 'orange', text: `Falhou: ${a.error ?? 'erro desconhecido'}` };
-  return { tone: 'green', text: `Concluída em ${fmtDate(a.finishedAt)}` };
+    return { tone: 'orange', text: t('failed', { error: a.error ?? t('unknownErr') }) };
+  return { tone: 'green', text: t('doneAt', { date: fmtDate(a.finishedAt) }) };
 }
 
 function DecompiledFunction({ fn }: { fn: GhidraFunction }) {
   const label = [
-    fn.isEntryPoint ? 'ponto de entrada' : null,
-    fn.sensitive.length ? `chama ${fn.sensitive.join(', ')}` : null,
+    fn.isEntryPoint ? t('entryPointLower') : null,
+    fn.sensitive.length ? t('calls', { apis: fn.sensitive.join(', ') }) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -64,21 +68,21 @@ function DecompiledFunction({ fn }: { fn: GhidraFunction }) {
         {label && <> · {label}</>}
       </summary>
       {fn.callers.length > 0 && (
-        <p className="dl-ghidra-fn__callers">Chamada por: {fn.callers.join(', ')}</p>
+        <p className="dl-ghidra-fn__callers">{t('calledBy', { list: fn.callers.join(', ') })}</p>
       )}
       {fn.c ? (
         <>
           <div className="dl-ghidra-fn__tools">
-            <CopyButton value={fn.c} label={`pseudo-C de ${fn.name}`} />
-            {fn.truncated && <span className="dl-hint-muted"> (cortado em 20 mil caracteres)</span>}
+            <CopyButton value={fn.c} label={t('pseudoCOf', { name: fn.name })} />
+            {fn.truncated && <span className="dl-hint-muted"> {t('cut20k')}</span>}
           </div>
-          <pre className="dl-doc-macros__code" aria-label={`Pseudo-C de ${fn.name}`}>
+          <pre className="dl-doc-macros__code" aria-label={t('pseudoCOfCap', { name: fn.name })}>
             {fn.c}
           </pre>
         </>
       ) : (
         <p className="dl-static-empty">
-          O descompilador não conseguiu: {fn.error ?? 'sem motivo'}.
+          {t('decompileFailed', { error: fn.error ?? t('noReason') })}
         </p>
       )}
     </details>
@@ -115,20 +119,16 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
   const button =
     canTriage && info.enabled && info.eligible && !busy ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
-        {asking ? 'Pedindo...' : a ? 'Analisar de novo' : 'Analisar com o Ghidra'}
+        {asking ? 'Pedindo...' : a ? t('analyzeAgain') : t('analyzeGhidra')}
       </button>
     ) : null;
 
   if (!a) {
     return (
-      <HpsmSection title="Análise com o Ghidra">
+      <HpsmSection title={t('ghidraTitle')}>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         <p className="dl-static-empty">
-          {!info.enabled
-            ? 'A análise com o Ghidra está desligada (GHIDRA_URL vazio).'
-            : info.reason
-              ? info.reason
-              : 'Sob demanda: um analista pede, e o resultado aparece aqui (de segundos a minutos).'}{' '}
+          {!info.enabled ? t('ghidraOff') : info.reason ? info.reason : t('ghidraOnDemand')}{' '}
           {button}
         </p>
       </HpsmSection>
@@ -138,63 +138,58 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
   const state = situation(a);
   const s = a.summary;
   return (
-    <HpsmSection title="Análise com o Ghidra">
+    <HpsmSection title={t('ghidraTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <HpsmForm columns={2}>
-        <HpsmField
-          label="Situação"
-          help="Funções, quem chama APIs sensíveis e o pseudo-C delas. O Ghidra lê o código; nada é executado."
-        >
+        <HpsmField label={t('sigState')} help={t('ghidraHelp')}>
           <HpsmReadonly>
             <StatusText tone={state.tone}>{state.text}</StatusText> {button}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Pedida por">
+        <HpsmField label={t('requestedBy')}>
           <HpsmReadonly>
-            {a.requestedBy?.displayName ?? '—'} em {fmtDate(a.createdAt)}
+            {t('byOn', { name: a.requestedBy?.displayName ?? '—', date: fmtDate(a.createdAt) })}
           </HpsmReadonly>
         </HpsmField>
         {s && (
           <>
-            <HpsmField label="Programa">
+            <HpsmField label={t('program')}>
               <HpsmReadonly>
                 {[s.format, s.language, s.compiler].filter(Boolean).join(' · ')}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Funções">
+            <HpsmField label={t('functions')}>
               <HpsmReadonly>
-                {s.functions} função(ões), {s.thunks} thunk(s) ·{' '}
+                {t('fnCount', { functions: s.functions, thunks: s.thunks })}{' '}
                 {s.sensitiveFunctions ? (
                   <StatusText tone="orange">
-                    {s.sensitiveFunctions} chamam APIs sensíveis
+                    {t('sensitiveCount', { n: s.sensitiveFunctions })}
                   </StatusText>
                 ) : (
-                  'nenhuma chama APIs sensíveis'
+                  t('noneSensitive')
                 )}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Base e entrada">
+            <HpsmField label={t('baseEntry')}>
               <HpsmReadonly>
-                <code>{s.imageBase ?? '—'}</code> · entrada <code>{s.entryPoint ?? '—'}</code>
+                <code>{s.imageBase ?? '—'}</code> {t('entryLower')}{' '}
+                <code>{s.entryPoint ?? '—'}</code>
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField
-              label="Projeto"
-              help="Para abrir no Ghidra local (File > Open... / Import). Tem os bytes da amostra: manuseie como ela."
-            >
+            <HpsmField label={t('project')} help={t('projectHelp')}>
               <HpsmReadonly>
                 {a.hasProject && info.canDownload ? (
                   <a className="dl-link" href={`/api/entries/${entryId}/ghidra/project`} download>
-                    Baixar projeto (.gzf, {formatFileSize(a.gzfSize ?? 0)})
+                    {t('downloadProject', { size: formatFileSize(a.gzfSize ?? 0) })}
                   </a>
                 ) : a.hasProject ? (
-                  'Só quem enviou e os analistas baixam.'
+                  t('downloadWho')
                 ) : (
                   (a.gzfError ?? '—')
                 )}
               </HpsmReadonly>
             </HpsmField>
-            <HpsmField label="Ferramenta">
+            <HpsmField label={t('tool')}>
               <HpsmReadonly>
                 Ghidra {a.version ?? '?'}
                 {a.ms !== null && ` · ${Math.round(a.ms / 1000)} s`}
@@ -206,11 +201,8 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
 
       {s && (
         <div className="dl-static-block">
-          <h4 className="dl-static-title">Pseudo-C ({s.decompiled.length})</h4>
-          <p className="dl-related-hint">
-            O ponto de entrada e as funções que mais chamam APIs sensíveis, como o descompilador do
-            Ghidra as vê. Nomes como FUN_140001451 são de funções sem símbolo.
-          </p>
+          <h4 className="dl-static-title">{t('pseudoC', { n: s.decompiled.length })}</h4>
+          <p className="dl-related-hint">{t('pseudoCHelp')}</p>
           {s.decompiled.map((fn) => (
             <DecompiledFunction key={fn.entry} fn={fn} />
           ))}
@@ -219,16 +211,16 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
 
       {s && s.largest.length > 0 && (
         <div className="dl-static-block">
-          <h4 className="dl-static-title">Maiores funções</h4>
+          <h4 className="dl-static-title">{t('largestFns')}</h4>
           <TableContainer>
-            <Table size="xs" aria-label="Maiores funções do executável">
+            <Table size="xs" aria-label={t('largestFnsAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Função</TableHeader>
-                  <TableHeader scope="col">Endereço</TableHeader>
-                  <TableHeader scope="col">Tamanho</TableHeader>
-                  <TableHeader scope="col">Complexidade</TableHeader>
-                  <TableHeader scope="col">Chama / chamada por</TableHeader>
+                  <TableHeader scope="col">{t('function')}</TableHeader>
+                  <TableHeader scope="col">{t('address')}</TableHeader>
+                  <TableHeader scope="col">{t('size')}</TableHeader>
+                  <TableHeader scope="col">{t('complexity')}</TableHeader>
+                  <TableHeader scope="col">{t('callsCalledBy')}</TableHeader>
                   <TableHeader scope="col">APIs</TableHeader>
                 </TableRow>
               </TableHead>

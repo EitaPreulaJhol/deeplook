@@ -13,7 +13,8 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { StaticInfo } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/analysis';
 import { useConfirm } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
@@ -25,11 +26,11 @@ function fmtDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
 }
 
-const WINDOW = {
-  normal: 'normal',
-  maximized: 'maximizada',
-  minimized: 'minimizada (oculta da vítima)',
-};
+const WINDOW = localized(() => ({
+  normal: t('winNormal'),
+  maximized: t('winMax'),
+  minimized: t('winMin'),
+}));
 
 /** Aviso no topo: atalho que abre interpretador/binario do sistema. */
 export function LnkWarning({ info }: { info?: StaticInfo | null }) {
@@ -37,8 +38,10 @@ export function LnkWarning({ info }: { info?: StaticInfo | null }) {
   if (!lnk || !lnk.alerts.length) return null;
   return (
     <HpsmMessage kind="warning">
-      Atenção: atalho (.lnk) que executa {lnk.target ?? 'um programa'}
-      {lnk.arguments ? ' com argumentos' : ''}. {lnk.alerts[0]} Não abra fora do ambiente isolado.
+      {t(lnk.arguments ? 'lnkWarnArgs' : 'lnkWarn', {
+        target: lnk.target ?? t('aProgram'),
+        alert: lnk.alerts[0],
+      })}
     </HpsmMessage>
   );
 }
@@ -49,9 +52,9 @@ export function LnkSection({ info }: { info?: StaticInfo | null }) {
   if (!lnk) return null;
   const command = [lnk.target, lnk.arguments].filter(Boolean).join(' ');
   return (
-    <HpsmSection title="Atalho do Windows (.lnk)" className="dl-mt-lg">
+    <HpsmSection title={t('lnkTitle')} className="dl-mt-lg">
       <HpsmForm columns={2}>
-        <HpsmField label="Destino" wide>
+        <HpsmField label={t('target')} wide>
           <HpsmReadonly
             mono
             copyable={lnk.target ? { value: lnk.target, label: 'destino' } : undefined}
@@ -59,24 +62,19 @@ export function LnkSection({ info }: { info?: StaticInfo | null }) {
             {lnk.target ?? '—'}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField
-          label="Argumentos"
-          wide
-          top
-          help="O comando costuma se esconder aqui. Só como texto."
-        >
+        <HpsmField label={t('arguments')} wide top help={t('argumentsHelp')}>
           <HpsmReadonly
             multiline
             mono
-            copyable={command ? { value: command, label: 'comando completo' } : undefined}
+            copyable={command ? { value: command, label: t('fullCommand') } : undefined}
           >
             {lnk.arguments || '—'}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Diretório">
+        <HpsmField label={t('directory')}>
           <HpsmReadonly mono>{lnk.workingDir ?? '—'}</HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Janela">
+        <HpsmField label={t('window')}>
           <HpsmReadonly>
             {lnk.window === 'minimized' ? (
               <StatusText tone="orange">{WINDOW[lnk.window]}</StatusText>
@@ -85,25 +83,28 @@ export function LnkSection({ info }: { info?: StaticInfo | null }) {
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Ícone">
+        <HpsmField label={t('icon')}>
           <HpsmReadonly mono>{lnk.iconLocation ?? '—'}</HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Descrição">
+        <HpsmField label={t('description')}>
           <HpsmReadonly>{lnk.description ?? '—'}</HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Máquina de origem">
+        <HpsmField label={t('sourceMachine')}>
           <HpsmReadonly mono>
             {lnk.machine ?? '—'}
             {lnk.mac ? ` · MAC ${lnk.mac}` : ''}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Datas do destino">
+        <HpsmField label={t('targetDates')}>
           <HpsmReadonly>
-            criado {fmtDate(lnk.created)} · alterado {fmtDate(lnk.modified)}
+            {t('createdModified', {
+              created: fmtDate(lnk.created),
+              modified: fmtDate(lnk.modified),
+            })}
           </HpsmReadonly>
         </HpsmField>
         {lnk.alerts.length > 0 && (
-          <HpsmField label="Alertas" wide top>
+          <HpsmField label={t('alerts')} wide top>
             <ul className="dl-doc-alerts">
               {lnk.alerts.map((a) => (
                 <li key={a}>
@@ -126,12 +127,12 @@ interface Child {
   verdict: 'UNKNOWN' | 'CLEAN' | 'SUSPICIOUS' | 'MALICIOUS';
 }
 
-const FORMAT = {
+const FORMAT = localized(() => ({
   iso9660: 'ISO 9660',
   fat: 'FAT',
   'vhd-fat': 'VHD (FAT)',
-  unsupported: 'não listada',
-};
+  unsupported: t('notListed'),
+}));
 
 /**
  * Secao "Imagem de disco" (item 84): arquivos da ISO/IMG/VHD (ocultos marcados),
@@ -164,10 +165,13 @@ export function DiskImageSection({
 
   const extract = async () => {
     const ok = await confirm({
-      title: 'Extrair arquivos',
-      message: `Extrair ${Math.min(image.files.length, 50)} arquivo(s) de "${image.label ?? 'imagem'}" como amostras? Cada um é analisado como um envio (antivírus, YARA, análise estática). Nada é executado.`,
-      confirmLabel: 'Extrair',
-      cancelLabel: 'Cancelar',
+      title: t('extractFiles'),
+      message: t('extractConfirm', {
+        n: Math.min(image.files.length, 50),
+        label: image.label ?? t('image'),
+      }),
+      confirmLabel: t('extract'),
+      cancelLabel: t('cancel'),
     });
     if (!ok) return;
     setBusy(true);
@@ -178,11 +182,11 @@ export function DiskImageSection({
       );
       setMsg({
         ok: true,
-        text: `${res.created} arquivo(s) extraído(s) como amostras.${
-          res.skipped.length
-            ? ` Pulados: ${res.skipped.map((s) => `${s.path} (${s.reason})`).join('; ')}.`
-            : ''
-        }`,
+        text:
+          t('extractedAsSamples', { n: res.created }) +
+          (res.skipped.length
+            ? ` ${t('skippedFiles', { list: res.skipped.map((s) => `${s.path} (${s.reason})`).join('; ') })}`
+            : ''),
       });
       await queryClient.invalidateQueries({ queryKey: ['entry', entryId] });
     } catch (err) {
@@ -193,13 +197,13 @@ export function DiskImageSection({
   };
 
   return (
-    <HpsmSection title={`Imagem de disco (${FORMAT[image.format]})`} className="dl-mt-lg">
+    <HpsmSection title={t('diskImage', { format: FORMAT[image.format] })} className="dl-mt-lg">
       {canTriage && image.files.length > 0 && children.length === 0 && (
-        <HpsmToolbar label="Ações da imagem">
+        <HpsmToolbar label={t('imageActions')}>
           <HpsmToolbarButton
-            label={busy ? 'Extraindo...' : 'Extrair como amostras'}
+            label={busy ? t('extracting') : t('extractAsSamples')}
             disabled={busy || purged}
-            title={purged ? 'O arquivo foi expurgado' : 'Cada arquivo vira uma amostra filha'}
+            title={purged ? t('filePurgedShort') : t('eachFileChild')}
             onClick={() => void extract()}
           />
         </HpsmToolbar>
@@ -210,22 +214,22 @@ export function DiskImageSection({
         </HpsmMessage>
       )}
       <HpsmForm columns={2}>
-        <HpsmField label="Rótulo">
+        <HpsmField label={t('label')}>
           <HpsmReadonly>{image.label ?? '—'}</HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Arquivos">
+        <HpsmField label={t('files')}>
           <HpsmReadonly>
             {image.files.length}
-            {image.truncated ? ' (lista cortada em 500)' : ''}
+            {image.truncated ? ` ${t('listCut500')}` : ''}
           </HpsmReadonly>
         </HpsmField>
         {image.note && (
-          <HpsmField label="Observação" wide>
+          <HpsmField label={t('note')} wide>
             <HpsmReadonly>{image.note}</HpsmReadonly>
           </HpsmField>
         )}
         {image.alerts.length > 0 && (
-          <HpsmField label="Alertas" wide top>
+          <HpsmField label={t('alerts')} wide top>
             <ul className="dl-doc-alerts">
               {image.alerts.map((a) => (
                 <li key={a}>
@@ -238,12 +242,12 @@ export function DiskImageSection({
       </HpsmForm>
       {image.files.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Arquivos da imagem">
+          <Table size="xs" aria-label={t('imageFilesAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Arquivo</TableHeader>
-                <TableHeader scope="col">Tamanho</TableHeader>
-                <TableHeader scope="col">Amostra</TableHeader>
+                <TableHeader scope="col">{t('file')}</TableHeader>
+                <TableHeader scope="col">{t('size')}</TableHeader>
+                <TableHeader scope="col">{t('sample')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -253,14 +257,14 @@ export function DiskImageSection({
                   <TableRow key={f.path}>
                     <TableCell className="dl-mono">
                       {f.path}
-                      {f.hidden && <StatusText tone="orange"> (oculto)</StatusText>}
+                      {f.hidden && <StatusText tone="orange"> {t('hidden')}</StatusText>}
                     </TableCell>
                     <TableCell>{formatFileSize(f.size)}</TableCell>
                     <TableCell>
                       {child ? (
                         <span className="dl-row-actions">
                           <Link className="dl-link" to={`/entries/${child.id}`}>
-                            abrir
+                            {t('open')}
                           </Link>
                           <StatusTag status={child.status} />
                           <VerdictTag verdict={child.verdict} />

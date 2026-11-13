@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { YaraInfo, YaraScan } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -25,13 +26,13 @@ function fmtDate(iso: string): string {
 
 /** Situacao da varredura YARA: escaneando, sem acertos, N regra(s) ou falha. */
 export function yaraState(scan: YaraScan): { label: string; tone: StatusTone } {
-  if (scan.status === 'PENDING') return { label: 'Escaneando...', tone: 'blue' };
-  if (scan.status === 'CLEAN') return { label: 'Nenhuma regra casou', tone: 'green' };
+  if (scan.status === 'PENDING') return { label: t('scanning'), tone: 'blue' };
+  if (scan.status === 'CLEAN') return { label: t('noRuleMatched'), tone: 'green' };
   if (scan.status === 'MATCHED') {
     const n = scan.matches.length;
-    return { label: `${n} regra${n > 1 ? 's casaram' : ' casou'}`, tone: 'red' };
+    return { label: n > 1 ? t('rulesMatched', { n }) : t('ruleMatched'), tone: 'red' };
   }
-  return { label: `Falha: ${scan.error ?? 'erro desconhecido'}`, tone: 'orange' };
+  return { label: t('avFailed', { error: scan.error ?? t('unknownErr') }), tone: 'orange' };
 }
 
 /**
@@ -86,14 +87,14 @@ export function YaraSection({
   const state = scan
     ? yaraState(scan)
     : busy
-      ? { label: 'Na fila...', tone: 'blue' as const }
-      : { label: 'Não escaneado (enviado antes das regras)', tone: 'gray' as const };
+      ? { label: t('queuedDots'), tone: 'blue' as const }
+      : { label: t('yaraNotScanned'), tone: 'gray' as const };
   const hits = scan?.status === 'MATCHED' ? scan.matches : [];
   return (
-    <HpsmSection title="Regras YARA">
+    <HpsmSection title={t('yaraTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       <HpsmForm columns={2}>
-        <HpsmField label="Situação" wide>
+        <HpsmField label={t('sigState')} wide>
           <HpsmReadonly>
             <StatusText tone={state.tone}>{state.label}</StatusText>
             {canTriage && !purged && info.activeRules > 0 && (
@@ -105,40 +106,40 @@ export function YaraSection({
                   disabled={asking || busy}
                   onClick={() => void rescan()}
                 >
-                  {busy ? 'Escaneando...' : scan ? 'Escanear de novo' : 'Escanear agora'}
+                  {busy ? t('scanning') : scan ? t('scanAgain') : t('scanNow')}
                 </button>
               </>
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Conjuntos aplicados">
+        <HpsmField label={t('appliedSets')}>
           <HpsmReadonly>
             {scan && !busy ? scan.rulesCount : '—'}
             {canTriage && (
               <>
                 {' '}
                 <Link className="dl-link" to="/yara">
-                  Ver regras
+                  {t('viewRules')}
                 </Link>
               </>
             )}
           </HpsmReadonly>
         </HpsmField>
-        <HpsmField label="Escaneado em">
+        <HpsmField label={t('scannedAt')}>
           <HpsmReadonly>{scan && !busy ? fmtDate(scan.scannedAt) : '—'}</HpsmReadonly>
         </HpsmField>
       </HpsmForm>
       {hits.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Regras YARA que casaram">
+          <Table size="xs" aria-label={t('yaraMatchedAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Regra</TableHeader>
-                <TableHeader scope="col">Conjunto</TableHeader>
-                <TableHeader scope="col">Tags</TableHeader>
-                <TableHeader scope="col">Descrição</TableHeader>
-                <TableHeader scope="col">Autor</TableHeader>
-                <TableHeader scope="col">Ocorrências</TableHeader>
+                <TableHeader scope="col">{t('rule')}</TableHeader>
+                <TableHeader scope="col">{t('set')}</TableHeader>
+                <TableHeader scope="col">{t('tags')}</TableHeader>
+                <TableHeader scope="col">{t('description')}</TableHeader>
+                <TableHeader scope="col">{t('author')}</TableHeader>
+                <TableHeader scope="col">{t('occurrences')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -152,7 +153,7 @@ export function YaraSection({
                   <TableCell>{hit.description ?? '—'}</TableCell>
                   <TableCell>
                     {hit.author ?? '—'}
-                    {hit.pack ? ` (pacote ${hit.pack})` : ''}
+                    {hit.pack ? ` ${t('inPack', { pack: hit.pack })}` : ''}
                   </TableCell>
                   <TableCell>{hit.matches}</TableCell>
                 </TableRow>

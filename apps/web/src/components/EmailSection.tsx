@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import type { EmailInfo, EmailParty } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/analysis';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import type { StatusTone } from './tags';
 import { StatusText } from './tags';
@@ -43,24 +44,24 @@ export function EmailSection({ info }: { info: EmailInfo }) {
     <>
       <HpsmSection title="E-mail">
         <HpsmForm columns={2}>
-          <HpsmField label="Assunto" wide>
+          <HpsmField label={t('subject')} wide>
             <HpsmReadonly>{info.subject ?? '—'}</HpsmReadonly>
           </HpsmField>
-          <HpsmField label="De">
+          <HpsmField label={t('from')}>
             <HpsmReadonly mono>{partyText(info.from)}</HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Responder para">
+          <HpsmField label={t('replyTo')}>
             <HpsmReadonly mono>
               {info.replyTo.length ? info.replyTo.map(partyText).join(', ') : '—'}
               {replyDiffers && (
                 <>
                   {' '}
-                  <StatusText tone="orange">domínio diferente do remetente</StatusText>
+                  <StatusText tone="orange">{t('differentDomain')}</StatusText>
                 </>
               )}
             </HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Para" wide>
+          <HpsmField label={t('to')} wide>
             <HpsmReadonly mono>
               {info.to.length ? info.to.map(partyText).join(', ') : '—'}
             </HpsmReadonly>
@@ -70,13 +71,13 @@ export function EmailSection({ info }: { info: EmailInfo }) {
               <HpsmReadonly mono>{info.cc.map(partyText).join(', ')}</HpsmReadonly>
             </HpsmField>
           )}
-          <HpsmField label="Data">
+          <HpsmField label={t('date')}>
             <HpsmReadonly>{fmtDate(info.date)}</HpsmReadonly>
           </HpsmField>
           <HpsmField label="Message-ID">
             <HpsmReadonly mono>{info.messageId ?? '—'}</HpsmReadonly>
           </HpsmField>
-          <HpsmField label="Autenticação" wide>
+          <HpsmField label={t('authentication')} wide>
             <HpsmReadonly>
               <span className="dl-email-auth">
                 {(['spf', 'dkim', 'dmarc'] as const).map((k) => (
@@ -91,8 +92,8 @@ export function EmailSection({ info }: { info: EmailInfo }) {
             </HpsmReadonly>
           </HpsmField>
           {info.received.length > 0 && (
-            <HpsmField label="Caminho" wide top>
-              <ol className="dl-email-hops" aria-label="Servidores (do primeiro ao último)">
+            <HpsmField label={t('path')} wide top>
+              <ol className="dl-email-hops" aria-label={t('serversAria')}>
                 {info.received.map((hop, i) => (
                   <li key={i}>
                     <span className="dl-mono">{hop.from ?? '?'}</span> →{' '}
@@ -106,12 +107,7 @@ export function EmailSection({ info }: { info: EmailInfo }) {
             </HpsmField>
           )}
           {info.links.length > 0 && (
-            <HpsmField
-              label={`Links (${info.links.length})`}
-              wide
-              top
-              help="Só como texto: não abra os links fora do sandbox."
-            >
+            <HpsmField label={`Links (${info.links.length})`} wide top help={t('linksHelp')}>
               <HpsmReadonly
                 multiline
                 mono
@@ -122,23 +118,19 @@ export function EmailSection({ info }: { info: EmailInfo }) {
             </HpsmField>
           )}
           <HpsmField
-            label="Corpo"
+            label={t('body')}
             wide
             top
-            help={
-              info.bodyTruncated
-                ? 'Mostrando os primeiros 20 mil caracteres.'
-                : 'Em texto (o HTML não é exibido).'
-            }
+            help={info.bodyTruncated ? t('bodyTruncated') : t('bodyText')}
           >
             <HpsmReadonly multiline>
-              <span className="dl-email-body">{info.body || '(vazio)'}</span>
+              <span className="dl-email-body">{info.body || t('empty')}</span>
             </HpsmReadonly>
           </HpsmField>
         </HpsmForm>
       </HpsmSection>
       {info.attachments.length > 0 && (
-        <HpsmSection title={`Anexos (${info.attachments.length})`} className="dl-mt-lg">
+        <HpsmSection title={t('attachments', { n: info.attachments.length })} className="dl-mt-lg">
           <ul className="dl-email-attachments">
             {info.attachments.map((a, i) => (
               <li key={`${a.filename}-${i}`}>
@@ -155,7 +147,7 @@ export function EmailSection({ info }: { info: EmailInfo }) {
                 {a.skipped && (
                   <>
                     {' '}
-                    <StatusText tone="gray">não enviado: {a.skipped}</StatusText>
+                    <StatusText tone="gray">{t('notSubmitted', { reason: a.skipped })}</StatusText>
                   </>
                 )}
               </li>
