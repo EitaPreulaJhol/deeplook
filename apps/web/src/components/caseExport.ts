@@ -1,5 +1,6 @@
 import type { AttackData } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/cases';
 import type { CaseDetail, CaseIoc } from './cases';
 import { CASE_STATUS, caseEventText, caseTechniques } from './cases';
 import { block, cell } from './entryExport';
@@ -27,46 +28,47 @@ export function caseMarkdown(
   const lines = [
     `# ${c.code} · ${c.title}`,
     '',
-    `Exportado do DeepLook por ${exportedBy} em ${fmtDate(new Date().toISOString())}.`,
+    tr('exportedBy', { by: exportedBy, date: fmtDate(new Date().toISOString()) }),
     '',
-    '| Campo | Valor |',
+    tr('mdHeader'),
     '|---|---|',
-    `| Código | ${c.code} |`,
-    `| Status | ${CASE_STATUS[c.status].label} |`,
-    `| Responsável | ${cell(c.assignee?.displayName)} |`,
-    `| Criado por | ${cell(c.createdBy?.displayName)} |`,
-    `| Criado em | ${fmtDate(c.createdAt)} |`,
-    ...(c.closedAt ? [`| Encerrado em | ${fmtDate(c.closedAt)} |`] : []),
+    tr('mdCode', { code: c.code }),
+    tr('mdStatus', { status: CASE_STATUS[c.status].label }),
+    tr('mdAssignee', { name: cell(c.assignee?.displayName) }),
+    tr('mdCreatedBy', { name: cell(c.createdBy?.displayName) }),
+    tr('mdCreatedAt', { date: fmtDate(c.createdAt) }),
+    ...(c.closedAt ? [tr('mdClosedAt', { date: fmtDate(c.closedAt) })] : []),
     '',
-    ...block('Descrição', c.description),
-    `## Amostras (${c.entries.length})`,
+    ...block(tr('description'), c.description),
+    tr('mdSamples', { n: c.entries.length }),
     '',
-    '| Amostra | Tipo | Status | Prioridade | Veredito | SHA-256 / URL |',
+    tr('mdSamplesHeader'),
     '|---|---|---|---|---|---|',
     ...c.entries.map(
       ({ entry }) =>
-        `| ${cell(entry.title)} | ${entry.type === 'FILE' ? 'Arquivo' : 'Link'} | ${statusLabel(entry.status)} | ${priorityLabel(entry.priority)} | ${verdictLabel(entry.verdict)} | ${cell(entry.type === 'FILE' ? entry.sha256 : entry.url)} |`,
+        `| ${cell(entry.title)} | ${entry.type === 'FILE' ? tr('typeFile') : tr('typeUrl')} | ${statusLabel(entry.status)} | ${priorityLabel(entry.priority)} | ${verdictLabel(entry.verdict)} | ${cell(entry.type === 'FILE' ? entry.sha256 : entry.url)} |`,
     ),
     '',
-    `## Relatórios publicados (${reports.length})`,
+    tr('mdPublished', { n: reports.length }),
     '',
   ];
   for (const r of reports) {
     lines.push(
       `### ${r.entry.title} — ${r.analyst?.displayName ?? '—'} — ${fmtDate(r.updatedAt)}`,
       '',
-      `Veredito: **${verdictLabel(r.verdict)}**`,
+      tr('mdVerdict', { verdict: verdictLabel(r.verdict) }),
       '',
       ...(r.attackTechniques.length ? [`ATT&CK: ${r.attackTechniques.join(', ')}`, ''] : []),
-      ...block('Resumo', r.summary),
-      ...block('Achados', r.findings),
+      ...block(tr('summary'), r.summary),
+      ...block(tr('findings'), r.findings),
       ...block('IOCs', r.iocs),
       ...(r.evidence.length
         ? [
-            `**Evidências (${r.evidence.length})** — imagens no DeepLook:`,
+            tr('mdEvidence', { n: r.evidence.length }),
             '',
             ...r.evidence.map(
-              (e, i) => `- ${e.caption || `Evidência ${i + 1}`} (${e.width}×${e.height})`,
+              (e, i) =>
+                `- ${e.caption || tr('evidenceItem', { n: i + 1 })} (${e.width}×${e.height})`,
             ),
             '',
           ]
@@ -74,37 +76,37 @@ export function caseMarkdown(
     );
   }
   lines.push(
-    `## Indicadores (${iocs.length})`,
+    tr('mdIndicators', { n: iocs.length }),
     '',
     ...(iocs.length
       ? [
-          '| Tipo | Valor | Origem | Amostras |',
+          tr('mdIocHeader'),
           '|---|---|---|---|',
           ...iocs.map(
             (i) =>
-              `| ${IOC_KIND_LABELS[i.kind]} | ${cell(i.value)} | ${i.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra'} | ${cell(i.entries.map((e) => e.title).join(', '))} |`,
+              `| ${IOC_KIND_LABELS[i.kind]} | ${cell(i.value)} | ${i.source === 'REPORT' ? tr('publishedReport') : tr('sampleItself')} | ${cell(i.entries.map((e) => e.title).join(', '))} |`,
           ),
         ]
-      : ['Nenhum indicador.']),
+      : [tr('noIndicator')]),
     '',
-    `## Técnicas ATT&CK (${techniques.length})`,
+    tr('mdTechniques', { n: techniques.length }),
     '',
     ...(techniques.length
       ? [
-          '| Técnica | Nome | Amostras |',
+          tr('mdTechHeader'),
           '|---|---|---|',
           ...techniques.map(
             (t) =>
               `| ${t.id} | ${cell(attack?.techniques.find((x) => x.id === t.id)?.name)} | ${cell(t.entries.join(', '))} |`,
           ),
         ]
-      : ['Nenhuma técnica nos relatórios publicados.']),
+      : [tr('noTechniques')]),
     '',
-    `## Linha do tempo (${c.events.length})`,
+    tr('mdTimeline', { n: c.events.length }),
     '',
     ...c.events.map(
       (e) =>
-        `- ${fmtDate(e.createdAt)} — **${e.actor?.displayName ?? 'Alguém'}** ${caseEventText(e, names)}${
+        `- ${fmtDate(e.createdAt)} — **${e.actor?.displayName ?? tr('someone')}** ${caseEventText(e, names)}${
           e.type === 'COMMENT' && e.detail ? `: ${e.detail.replace(/\r?\n/g, ' ')}` : ''
         }`,
     ),

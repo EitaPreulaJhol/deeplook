@@ -16,6 +16,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { evidenceUrl } from '../components/ReportEvidence';
 import { PriorityTag, StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/cases';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
@@ -63,7 +64,7 @@ export function CasePrintPage() {
   const ready = Boolean(c && iocs && !analystsQuery.isLoading && !attack.isLoading);
 
   useEffect(() => {
-    if (c) document.title = `Caso — ${c.code} ${c.title}`;
+    if (c) document.title = tr('printTitle', { code: c.code, title: c.title });
   }, [c]);
 
   // Impressao automatica (uma vez) quando tudo carregou.
@@ -77,11 +78,11 @@ export function CasePrintPage() {
 
   let body: ReactNode;
   if (caseQuery.isLoading || iocsQuery.isLoading) {
-    body = <HpsmLoading text="Preparando o caso..." />;
+    body = <HpsmLoading text={tr('preparingCase')} />;
   } else if (!c || !iocs) {
     body = (
       <HpsmMessage kind="error">
-        {(caseQuery.error as Error | null)?.message ?? 'Caso não encontrado.'}
+        {(caseQuery.error as Error | null)?.message ?? tr('caseNotFound')}
       </HpsmMessage>
     );
   } else {
@@ -91,31 +92,31 @@ export function CasePrintPage() {
     body = (
       <>
         <section className="dl-print__section">
-          <h2>Dados do caso</h2>
+          <h2>{tr('caseData')}</h2>
           <table className="dl-print__kv">
             <tbody>
-              <Row label="Código">{c.code}</Row>
-              <Row label="Status">{CASE_STATUS[c.status].label}</Row>
-              <Row label="Responsável">{c.assignee?.displayName ?? '—'}</Row>
-              <Row label="Criado por">{c.createdBy?.displayName ?? '—'}</Row>
-              <Row label="Criado em">{fmtDate(c.createdAt)}</Row>
-              {c.closedAt && <Row label="Encerrado em">{fmtDate(c.closedAt)}</Row>}
+              <Row label={tr('code')}>{c.code}</Row>
+              <Row label={tr('status')}>{CASE_STATUS[c.status].label}</Row>
+              <Row label={tr('assignee')}>{c.assignee?.displayName ?? '—'}</Row>
+              <Row label={tr('createdBy')}>{c.createdBy?.displayName ?? '—'}</Row>
+              <Row label={tr('createdAt')}>{fmtDate(c.createdAt)}</Row>
+              {c.closedAt && <Row label={tr('closedAt')}>{fmtDate(c.closedAt)}</Row>}
             </tbody>
           </table>
-          <h3>Descrição</h3>
+          <h3>{tr('description')}</h3>
           <p className="dl-print__text">{c.description || '—'}</p>
         </section>
 
         <section className="dl-print__section">
-          <h2>Amostras ({c.entries.length})</h2>
+          <h2>{tr('samplesN', { n: c.entries.length })}</h2>
           <table className="dl-print__grid dl-print__grid--wide">
             <thead>
               <tr>
-                <th scope="col">Amostra</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Status</th>
-                <th scope="col">Prioridade</th>
-                <th scope="col">Veredito</th>
+                <th scope="col">{tr('sample')}</th>
+                <th scope="col">{tr('type')}</th>
+                <th scope="col">{tr('status')}</th>
+                <th scope="col">{tr('priority')}</th>
+                <th scope="col">{tr('verdict')}</th>
                 <th scope="col">SHA-256 / URL</th>
               </tr>
             </thead>
@@ -145,22 +146,23 @@ export function CasePrintPage() {
         </section>
 
         <section className="dl-print__section">
-          <h2>Relatórios publicados ({reports.length})</h2>
-          {reports.length === 0 && <p>Nenhum relatório publicado.</p>}
+          <h2>{tr('publishedReportsN', { n: reports.length })}</h2>
+          {reports.length === 0 && <p>{tr('noPublished')}</p>}
           {reports.map((report) => (
             <article key={report.id} className="dl-print__report">
               <h3>
                 {report.entry.title} — {report.analyst?.displayName ?? '—'} —{' '}
-                {fmtDate(report.updatedAt)} — Veredito: <VerdictTag verdict={report.verdict} />
+                {fmtDate(report.updatedAt)} — {tr('verdictColon')}{' '}
+                <VerdictTag verdict={report.verdict} />
               </h3>
               {report.attackTechniques.length > 0 && (
                 <p>ATT&amp;CK: {report.attackTechniques.join(', ')}</p>
               )}
-              <h4>Resumo</h4>
+              <h4>{tr('summary')}</h4>
               <p className="dl-print__text">{report.summary}</p>
               {report.findings && (
                 <>
-                  <h4>Achados</h4>
+                  <h4>{tr('findings')}</h4>
                   <p className="dl-print__text">{report.findings}</p>
                 </>
               )}
@@ -172,12 +174,15 @@ export function CasePrintPage() {
               )}
               {report.evidence.length > 0 && (
                 <>
-                  <h4>Evidências ({report.evidence.length})</h4>
+                  <h4>{tr('evidenceN', { n: report.evidence.length })}</h4>
                   <div className="dl-print__evidence">
                     {report.evidence.map((e, i) => (
                       <figure key={e.id}>
-                        <img src={evidenceUrl(e.id)} alt={e.caption || `Evidência ${i + 1}`} />
-                        <figcaption>{e.caption || `Evidência ${i + 1}`}</figcaption>
+                        <img
+                          src={evidenceUrl(e.id)}
+                          alt={e.caption || tr('evidenceItem', { n: i + 1 })}
+                        />
+                        <figcaption>{e.caption || tr('evidenceItem', { n: i + 1 })}</figcaption>
                       </figure>
                     ))}
                   </div>
@@ -188,24 +193,24 @@ export function CasePrintPage() {
         </section>
 
         <section className="dl-print__section">
-          <h2>Indicadores ({iocs.length})</h2>
+          <h2>{tr('indicatorsN', { n: iocs.length })}</h2>
           {iocs.length === 0 ? (
-            <p>Nenhum indicador.</p>
+            <p>{tr('noIndicator')}</p>
           ) : (
             <table className="dl-print__grid">
               <thead>
                 <tr>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Origem</th>
-                  <th scope="col">Indicador</th>
-                  <th scope="col">Amostras</th>
+                  <th scope="col">{tr('type')}</th>
+                  <th scope="col">{tr('source')}</th>
+                  <th scope="col">{tr('indicator')}</th>
+                  <th scope="col">{tr('samples')}</th>
                 </tr>
               </thead>
               <tbody>
                 {iocs.map((ioc) => (
                   <tr key={`${ioc.kind}:${ioc.value}`}>
                     <td>{IOC_KIND_LABELS[ioc.kind]}</td>
-                    <td>{ioc.source === 'REPORT' ? 'Relatório' : 'Amostra'}</td>
+                    <td>{ioc.source === 'REPORT' ? tr('reportShort') : tr('sample')}</td>
                     <td className="dl-print__mono">{ioc.value}</td>
                     <td>{ioc.entries.map((e) => e.title).join(', ')}</td>
                   </tr>
@@ -216,16 +221,16 @@ export function CasePrintPage() {
         </section>
 
         <section className="dl-print__section">
-          <h2>Técnicas ATT&amp;CK ({techniques.length})</h2>
+          <h2>{tr('attackN', { n: techniques.length })}</h2>
           {techniques.length === 0 ? (
-            <p>Nenhuma técnica nos relatórios publicados.</p>
+            <p>{tr('noTechniques')}</p>
           ) : (
             <table className="dl-print__grid">
               <thead>
                 <tr>
-                  <th scope="col">Técnica</th>
-                  <th scope="col">Nome</th>
-                  <th scope="col">Amostras</th>
+                  <th scope="col">{tr('technique')}</th>
+                  <th scope="col">{tr('name')}</th>
+                  <th scope="col">{tr('samples')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -242,20 +247,20 @@ export function CasePrintPage() {
         </section>
 
         <section className="dl-print__section">
-          <h2>Linha do tempo ({c.events.length})</h2>
+          <h2>{tr('timelineN', { n: c.events.length })}</h2>
           <table className="dl-print__grid">
             <thead>
               <tr>
-                <th scope="col">Data</th>
-                <th scope="col">Usuário</th>
-                <th scope="col">Evento</th>
+                <th scope="col">{tr('date')}</th>
+                <th scope="col">{tr('user')}</th>
+                <th scope="col">{tr('event')}</th>
               </tr>
             </thead>
             <tbody>
               {c.events.map((e) => (
                 <tr key={e.id}>
                   <td>{fmtDate(e.createdAt)}</td>
-                  <td>{e.actor?.displayName ?? 'Alguém'}</td>
+                  <td>{e.actor?.displayName ?? tr('someone')}</td>
                   <td>
                     {caseEventText(e, names)}
                     {e.type === 'COMMENT' && e.detail && (
@@ -275,36 +280,33 @@ export function CasePrintPage() {
     <Theme theme="g10">
       <div className="dl-print">
         <div className="dl-print__toolbar">
-          <HpsmToolbar label="Ações do caso">
+          <HpsmToolbar label={tr('caseActions')}>
             <HpsmToolbarButton
-              label="Imprimir"
+              label={tr('print')}
               icon={IconPrint}
               disabled={!ready}
               onClick={() => window.print()}
             />
-            <HpsmToolbarButton label="Fechar" onClick={() => window.close()} />
+            <HpsmToolbarButton label={tr('close')} onClick={() => window.close()} />
           </HpsmToolbar>
         </div>
 
         <header className="dl-print__head">
           <img src="/icons/magnifier.svg" alt="" className="dl-print__logo" />
           <div>
-            <div className="dl-print__brand">DeepLook — Caso</div>
-            <h1 className="dl-print__title">{c ? `${c.code} · ${c.title}` : 'Caso'}</h1>
+            <div className="dl-print__brand">{tr('brand')}</div>
+            <h1 className="dl-print__title">{c ? `${c.code} · ${c.title}` : tr('case')}</h1>
           </div>
           <div className="dl-print__meta">
-            Impresso por {user?.displayName ?? '—'}
+            {tr('printedBy', { name: user?.displayName ?? '—' })}
             <br />
-            em {fmtDate(printedAt.current)}
+            {tr('printedOn', { date: fmtDate(printedAt.current) })}
           </div>
         </header>
 
         {body}
 
-        <footer className="dl-print__foot">
-          Atenção: as amostras deste caso podem ser maliciosas. Manuseie arquivos e links apenas em
-          ambiente isolado.
-        </footer>
+        <footer className="dl-print__foot">{tr('printWarning')}</footer>
       </div>
     </Theme>
   );

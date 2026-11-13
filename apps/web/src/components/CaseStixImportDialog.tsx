@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { api } from '../api/client';
+import { localized } from '../i18n';
+import { t } from '../i18n/cases';
 
 type LinkStatus = 'new' | 'existing' | 'in-case' | 'limit';
 type HashStatus = 'existing' | 'in-case' | 'unknown';
@@ -25,17 +27,17 @@ interface Result {
 const MAX_BYTES = 2 * 1024 * 1024;
 const SHOWN = 100;
 
-const LINK_LABEL: Record<LinkStatus, string> = {
-  new: 'Vira amostra nova',
-  existing: 'Já é amostra: entra no caso',
-  'in-case': 'Já está no caso',
-  limit: 'Acima do limite: não entra',
-};
-const HASH_LABEL: Record<HashStatus, string> = {
-  existing: 'Já foi enviado: entra no caso',
-  'in-case': 'Já está no caso',
-  unknown: 'Nunca enviado: não entra',
-};
+const LINK_LABEL: Record<LinkStatus, string> = localized(() => ({
+  new: t('lnNew'),
+  existing: t('lnExisting'),
+  'in-case': t('inCase'),
+  limit: t('lnLimit'),
+}));
+const HASH_LABEL: Record<HashStatus, string> = localized(() => ({
+  existing: t('hsExisting'),
+  'in-case': t('inCase'),
+  unknown: t('hsUnknown'),
+}));
 
 /**
  * Importar um pacote STIX 2.1 num caso (revisao de novembro, 3.5): escolhe o arquivo (o pacote
@@ -84,7 +86,7 @@ export function CaseStixImportDialog({
     setError(null);
     setPreview(null);
     if (file.size > MAX_BYTES) {
-      setError('Arquivo grande demais (máximo 2 MB).');
+      setError(t('fileTooLarge2mb'));
       return;
     }
     const content = await file.text();
@@ -110,8 +112,9 @@ export function CaseStixImportDialog({
     try {
       const r = await api.post<Result>(`/cases/${caseId}/stix/import`, { text });
       onDone(
-        `Pacote importado: ${r.created} link(s) novo(s) como amostra e ${r.linked} amostra(s) que já existiam` +
-          `${r.unknown ? `; ${r.unknown} arquivo(s) nunca enviado(s) ficaram de fora` : ''}. O resumo está no histórico do caso.`,
+        t('stixImported', { created: r.created, linked: r.linked }) +
+          (r.unknown ? `; ${t('stixUnknown', { n: r.unknown })}` : '') +
+          `. ${t('stixSummaryInHistory')}`,
       );
     } catch (err) {
       setError((err as Error).message);
@@ -129,16 +132,13 @@ export function CaseStixImportDialog({
         aria-labelledby={titleId}
       >
         <h2 id={titleId} className="hpsm-modal__head">
-          Importar pacote STIX no caso
+          {t('stixTitle')}
         </h2>
         <div className="dl-import__body">
           <p className="dl-import__hint">
-            Um pacote <strong>STIX 2.1</strong> (JSON, até 2 MB), por exemplo o exportado de outro
-            DeepLook em Exportar &gt; Pacote do caso. Os <strong>links</strong> viram amostras do
-            caso (até {preview?.maxNewLinks ?? 50} novos por vez); os <strong>arquivos</strong> só
-            entram se o mesmo SHA-256 já foi enviado ao DeepLook, porque o pacote não traz o
-            arquivo. Domínios, IPs e e-mails não entram aqui: para segui-los, use Importar
-            indicadores.
+            {t('stixHint1')} <strong>STIX 2.1</strong> {t('stixHint2')}{' '}
+            <strong>{t('stixLinks')}</strong> {t('stixHint3', { n: preview?.maxNewLinks ?? 50 })}{' '}
+            <strong>{t('stixFiles')}</strong> {t('stixHint4')}
           </p>
           <div className="dl-import__row">
             <input
@@ -156,10 +156,10 @@ export function CaseStixImportDialog({
               disabled={busy}
               onClick={() => fileRef.current?.click()}
             >
-              Escolher arquivo…
+              {t('chooseFile')}
             </button>
             {fileName && <span className="dl-mono">{fileName}</span>}
-            {busy && !preview && <span>Lendo...</span>}
+            {busy && !preview && <span>{t('reading')}</span>}
           </div>
 
           {error && (
@@ -171,17 +171,17 @@ export function CaseStixImportDialog({
           {preview && (
             <div className="dl-import__preview" aria-live="polite">
               <p className="dl-import__summary">
-                {preview.name ? `Pacote "${preview.name}"` : 'Pacote sem nome'}:{' '}
-                <strong>{entering} amostra(s) entram no caso</strong>
-                {preview.others > 0 && `, ${preview.others} outro(s) indicador(es) não entram`}
-                {preview.invalid > 0 && `, ${preview.invalid} inválido(s)`}.
+                {preview.name ? t('packageNamed', { name: preview.name }) : t('packageUnnamed')}:{' '}
+                <strong>{t('entering', { n: entering })}</strong>
+                {preview.others > 0 && `, ${t('othersLeftOut', { n: preview.others })}`}
+                {preview.invalid > 0 && `, ${t('invalidN', { n: preview.invalid })}`}.
               </p>
               {preview.links.length > 0 && (
-                <table className="dl-import__table" aria-label="Links do pacote">
+                <table className="dl-import__table" aria-label={t('packageLinksAria')}>
                   <thead>
                     <tr>
-                      <th scope="col">Link</th>
-                      <th scope="col">O que acontece</th>
+                      <th scope="col">{t('link')}</th>
+                      <th scope="col">{t('whatHappens')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -195,11 +195,11 @@ export function CaseStixImportDialog({
                 </table>
               )}
               {preview.hashes.length > 0 && (
-                <table className="dl-import__table" aria-label="Arquivos do pacote">
+                <table className="dl-import__table" aria-label={t('packageFilesAria')}>
                   <thead>
                     <tr>
                       <th scope="col">SHA-256</th>
-                      <th scope="col">O que acontece</th>
+                      <th scope="col">{t('whatHappens')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -213,7 +213,7 @@ export function CaseStixImportDialog({
                 </table>
               )}
               {preview.links.length + preview.hashes.length > 2 * SHOWN && (
-                <p className="dl-hint-muted">Lista cortada: o resumo acima conta tudo.</p>
+                <p className="dl-hint-muted">{t('listCutSummary')}</p>
               )}
             </div>
           )}
@@ -225,10 +225,10 @@ export function CaseStixImportDialog({
             disabled={busy || !preview || entering === 0}
             onClick={() => void runImport()}
           >
-            {busy && preview ? 'Importando...' : `Importar ${entering}`}
+            {busy && preview ? t('importing') : t('importN', { n: entering })}
           </button>
           <button type="button" className="dl-btn" onClick={onClose}>
-            Cancelar
+            {t('cancel')}
           </button>
         </div>
       </div>

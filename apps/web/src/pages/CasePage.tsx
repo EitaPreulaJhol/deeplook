@@ -44,6 +44,7 @@ import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../comp
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { useWorkspaceTitle } from '../components/workspace';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/cases';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -123,14 +124,14 @@ export function CasePage() {
   const check = useRequiredFields([
     {
       id: 'case-title',
-      label: 'Título (3 a 150 caracteres)',
+      label: tr('titleRange'),
       ok: form.title.trim().length >= 3,
       api: 'title',
       value: form.title,
     },
     {
       id: 'case-assignee',
-      label: 'Responsável',
+      label: tr('assignee'),
       ok: true,
       api: 'assigneeId',
       value: form.assigneeId,
@@ -167,7 +168,7 @@ export function CasePage() {
         assigneeId: form.assigneeId || null,
       });
       allowNavigation();
-      return 'Caso atualizado.';
+      return tr('caseUpdated');
     });
   };
   useSaveShortcut(save, !busy && dirty);
@@ -180,23 +181,23 @@ export function CasePage() {
         entryIds: [entryId],
       });
       setAddId('');
-      return res.added ? 'Amostra incluída no caso.' : 'A amostra já estava no caso.';
+      return res.added ? tr('entryAdded') : tr('entryAlready');
     });
   };
 
   const removeEntry = async (entry: { id: string; title: string }) => {
     if (!c) return;
     const ok = await confirm({
-      title: 'Retirar amostra',
-      message: `Retirar "${entry.title}" do caso ${c.code}? A amostra não é apagada.`,
-      confirmLabel: 'Retirar',
-      cancelLabel: 'Cancelar',
+      title: tr('removeSample'),
+      message: tr('removeSampleConfirm', { title: entry.title, code: c.code }),
+      confirmLabel: tr('removeShort'),
+      cancelLabel: tr('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/cases/${c.id}/entries/${entry.id}`);
-      return `"${entry.title}" retirada do caso.`;
+      return tr('sampleRemoved', { title: entry.title });
     });
   };
 
@@ -208,15 +209,15 @@ export function CasePage() {
       await api.post(`/cases/${c.id}/comments`, { text: comment, mentions: cited });
       setComment('');
       setMentions([]);
-      return 'Comentário registrado.';
+      return tr('commentSaved');
     });
   };
 
-  if (query.isLoading) return <HpsmLoading text="Carregando caso..." />;
+  if (query.isLoading) return <HpsmLoading text={tr('loadingCase')} />;
   if (query.isError || !c) {
     return (
       <HpsmMessage kind="error">
-        {(query.error as Error | null)?.message ?? 'Caso não encontrado.'}
+        {(query.error as Error | null)?.message ?? tr('caseNotFound')}
       </HpsmMessage>
     );
   }
@@ -228,30 +229,30 @@ export function CasePage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações do caso">
+      <HpsmToolbar label={tr('caseActions')}>
         <HpsmToolbarButton
-          label="Voltar aos casos"
+          label={tr('backToCases')}
           icon={IconArrowLeft}
           onClick={() => navigate('/casos')}
         />
         <HpsmToolbarButton
-          label={busy ? 'Salvando...' : 'Salvar'}
-          title="Salvar (Ctrl+S)"
+          label={busy ? tr('saving') : tr('save')}
+          title={tr('saveHint')}
           icon={IconAdd}
           disabled={busy || !dirty}
           onClick={() => void save()}
         />
         <HpsmToolbarDivider />
         <HpsmToolbarButton
-          label="Imprimir"
+          label={tr('print')}
           icon={IconPrint}
           onClick={() => window.open(`/casos/${c.id}/imprimir?auto=1`, '_blank')}
         />
         <HpsmToolbarMenu
-          label="Exportar"
+          label={tr('export')}
           items={[
             {
-              label: 'Caso completo (Markdown)',
+              label: tr('caseMd'),
               icon: IconDownload,
               disabled: !iocsQuery.data,
               action: () =>
@@ -261,12 +262,12 @@ export function CasePage() {
                 ),
             },
             {
-              label: 'Pacote do caso (STIX 2.1)',
+              label: tr('casePackage'),
               icon: IconDownload,
               action: () => downloadUrl(`/api/cases/${c.id}/iocs/export?format=stix-case`),
             },
             {
-              label: 'Importar pacote STIX…',
+              label: tr('importStix'),
               icon: IconAdd,
               disabled: c.status === 'CLOSED',
               action: () => setImporting(true),
@@ -279,7 +280,7 @@ export function CasePage() {
                 ['misp', 'MISP'],
               ] as const
             ).map(([format, name], i) => ({
-              label: `IOCs do caso (${name})`,
+              label: tr('caseIocs', { name }),
               icon: IconDownload,
               separated: i === 0,
               disabled: iocs.length === 0,
@@ -308,30 +309,31 @@ export function CasePage() {
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
       <div className="dl-summary dl-mb-lg">
         <span>
-          <span className="dl-summary__label">Status:</span>{' '}
+          <span className="dl-summary__label">{tr('sumStatus')}</span>{' '}
           <StatusText tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</StatusText>
         </span>
         <span>
-          <span className="dl-summary__label">Responsável:</span> {c.assignee?.displayName ?? '—'}
+          <span className="dl-summary__label">{tr('sumAssignee')}</span>{' '}
+          {c.assignee?.displayName ?? '—'}
         </span>
         <span>
-          <span className="dl-summary__label">Amostras:</span> {c.entries.length}
+          <span className="dl-summary__label">{tr('sumSamples')}</span> {c.entries.length}
         </span>
         <span>
-          <span className="dl-summary__label">Criado:</span> {fmtDate(c.createdAt)}
+          <span className="dl-summary__label">{tr('sumCreated')}</span> {fmtDate(c.createdAt)}
           {c.createdBy ? ` por ${c.createdBy.displayName}` : ''}
         </span>
         {c.closedAt && (
           <span>
-            <span className="dl-summary__label">Encerrado:</span> {fmtDate(c.closedAt)}
+            <span className="dl-summary__label">{tr('sumClosed')}</span> {fmtDate(c.closedAt)}
           </span>
         )}
       </div>
 
-      <HpsmSection title="Dados do caso">
+      <HpsmSection title={tr('caseData')}>
         <HpsmForm columns={2}>
           <HpsmField
-            label="Título"
+            label={tr('title')}
             htmlFor="case-title"
             required
             wide
@@ -339,47 +341,47 @@ export function CasePage() {
           >
             <TextInput
               id="case-title"
-              labelText="Título"
+              labelText={tr('title')}
               hideLabel
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             />
           </HpsmField>
-          <HpsmField label="Status" htmlFor="case-status">
+          <HpsmField label={tr('status')} htmlFor="case-status">
             <Select
               id="case-status"
-              labelText="Status"
+              labelText={tr('status')}
               hideLabel
               value={form.status}
               onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
             >
-              <SelectItem value="OPEN" text="Aberto" />
-              <SelectItem value="IN_PROGRESS" text="Em andamento" />
-              <SelectItem value="CLOSED" text="Encerrado" />
+              <SelectItem value="OPEN" text={tr('stOpen')} />
+              <SelectItem value="IN_PROGRESS" text={tr('stInProgress')} />
+              <SelectItem value="CLOSED" text={tr('stClosed')} />
             </Select>
           </HpsmField>
           <HpsmField
-            label="Responsável"
+            label={tr('assignee')}
             htmlFor="case-assignee"
             invalid={check.isInvalid('case-assignee')}
           >
             <Select
               id="case-assignee"
-              labelText="Responsável"
+              labelText={tr('assignee')}
               hideLabel
               value={form.assigneeId}
               onChange={(e) => setForm((f) => ({ ...f, assigneeId: e.target.value }))}
             >
-              <SelectItem value="" text="— Sem responsável —" />
+              <SelectItem value="" text={tr('noAssigneeOption')} />
               {analysts.map((a) => (
                 <SelectItem key={a.id} value={a.id} text={a.displayName} />
               ))}
             </Select>
           </HpsmField>
-          <HpsmField label="Descrição" htmlFor="case-description" wide top>
+          <HpsmField label={tr('description')} htmlFor="case-description" wide top>
             <TextArea
               id="case-description"
-              labelText="Descrição"
+              labelText={tr('description')}
               hideLabel
               rows={3}
               value={form.description}
@@ -389,18 +391,18 @@ export function CasePage() {
         </HpsmForm>
       </HpsmSection>
 
-      <HpsmSection title={`Amostras (${c.entries.length})`} className="dl-mt-lg">
+      <HpsmSection title={tr('samplesN', { n: c.entries.length })} className="dl-mt-lg">
         <TableContainer>
-          <Table size="xs" aria-label="Amostras do caso">
+          <Table size="xs" aria-label={tr('caseSamplesAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Amostra</TableHeader>
-                <TableHeader scope="col">Tipo</TableHeader>
-                <TableHeader scope="col">Status</TableHeader>
-                <TableHeader scope="col">Prioridade</TableHeader>
-                <TableHeader scope="col">Veredito</TableHeader>
-                <TableHeader scope="col">Incluída</TableHeader>
-                <TableHeader scope="col">Ações</TableHeader>
+                <TableHeader scope="col">{tr('sample')}</TableHeader>
+                <TableHeader scope="col">{tr('type')}</TableHeader>
+                <TableHeader scope="col">{tr('status')}</TableHeader>
+                <TableHeader scope="col">{tr('priority')}</TableHeader>
+                <TableHeader scope="col">{tr('verdict')}</TableHeader>
+                <TableHeader scope="col">{tr('added')}</TableHeader>
+                <TableHeader scope="col">{tr('actions')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -432,14 +434,10 @@ export function CasePage() {
                       type="button"
                       className="dl-link-button dl-link-button--danger"
                       disabled={busy || onlyOne}
-                      title={
-                        onlyOne
-                          ? 'O caso precisa de ao menos uma amostra (encerre o caso para desfazê-lo)'
-                          : undefined
-                      }
+                      title={onlyOne ? tr('needsOne') : undefined}
                       onClick={() => void removeEntry(entry)}
                     >
-                      Retirar…
+                      {tr('removeEllipsis')}
                     </button>
                   </TableCell>
                 </TableRow>
@@ -450,9 +448,9 @@ export function CasePage() {
         <div className="dl-case-add">
           <TextInput
             id="case-add-entry"
-            labelText="Incluir amostra (ID ou link)"
+            labelText={tr('addSample')}
             size="sm"
-            placeholder="Ex.: cm3x9... ou https://.../entries/cm3x9..."
+            placeholder={tr('addSamplePlaceholder')}
             value={addId}
             onChange={(e) => setAddId(e.target.value)}
             onKeyDown={(e) => {
@@ -468,14 +466,14 @@ export function CasePage() {
             disabled={busy || !addId.trim()}
             onClick={() => void addEntry()}
           >
-            Incluir
+            {tr('add')}
           </Button>
         </div>
       </HpsmSection>
 
-      <HpsmSection title={`Relatórios das amostras (${reports.length})`} className="dl-mt-lg">
+      <HpsmSection title={tr('reportsN', { n: reports.length })} className="dl-mt-lg">
         {reports.length === 0 ? (
-          <p className="dl-static-empty">Nenhuma amostra do caso tem relatório publicado ainda.</p>
+          <p className="dl-static-empty">{tr('noReports')}</p>
         ) : (
           <ul className="dl-case-reports">
             {reports.map((r) => (
@@ -497,22 +495,20 @@ export function CasePage() {
         )}
       </HpsmSection>
 
-      <HpsmSection title={`Indicadores das amostras (${iocs.length})`} className="dl-mt-lg">
+      <HpsmSection title={tr('iocsN', { n: iocs.length })} className="dl-mt-lg">
         {iocsQuery.isLoading ? (
-          <HpsmLoading text="Juntando os indicadores..." />
+          <HpsmLoading text={tr('gatheringIocs')} />
         ) : iocs.length === 0 ? (
-          <p className="dl-static-empty">
-            Nenhum indicador nos relatórios publicados nem nas próprias amostras.
-          </p>
+          <p className="dl-static-empty">{tr('noIocs')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label="Indicadores das amostras do caso">
+            <Table size="xs" aria-label={tr('caseIocsAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Tipo</TableHeader>
-                  <TableHeader scope="col">Indicador</TableHeader>
-                  <TableHeader scope="col">Origem</TableHeader>
-                  <TableHeader scope="col">Amostras</TableHeader>
+                  <TableHeader scope="col">{tr('type')}</TableHeader>
+                  <TableHeader scope="col">{tr('indicator')}</TableHeader>
+                  <TableHeader scope="col">{tr('source')}</TableHeader>
+                  <TableHeader scope="col">{tr('samples')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -525,7 +521,7 @@ export function CasePage() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      {ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra'}
+                      {ioc.source === 'REPORT' ? tr('publishedReport') : tr('sampleItself')}
                     </TableCell>
                     <TableCell>
                       {ioc.entries.map((e, i) => (
@@ -546,16 +542,16 @@ export function CasePage() {
       </HpsmSection>
 
       {/* Mapa de relacoes (item 91): amostras do caso e indicadores em comum. */}
-      <HpsmSection title="Mapa de relações" className="dl-mt-lg">
+      <HpsmSection title={tr('relationMap')} className="dl-mt-lg">
         <RelationMap source="case" id={c.id} />
       </HpsmSection>
 
-      <HpsmSection title="Linha do tempo" className="dl-mt-lg">
+      <HpsmSection title={tr('timeline')} className="dl-mt-lg">
         <ol className="dl-case-timeline">
           {c.events.map((e) => (
             <li key={e.id}>
               <span className="dl-case-timeline__when">{fmtDate(e.createdAt)}</span>{' '}
-              <strong>{e.actor?.displayName ?? 'Alguém'}</strong> {caseEventText(e, names)}
+              <strong>{e.actor?.displayName ?? tr('someone')}</strong> {caseEventText(e, names)}
               {e.type === 'COMMENT' && e.detail && (
                 <p className="dl-case-timeline__comment">{renderMentions(e.detail, e.toValue)}</p>
               )}
@@ -565,8 +561,8 @@ export function CasePage() {
         <div className="dl-case-comment">
           <MentionTextArea
             id="case-comment"
-            labelText="Novo comentário"
-            helperText="Digite @ para mencionar um analista; o responsável do caso é avisado."
+            labelText={tr('newComment')}
+            helperText={tr('commentHelp')}
             rows={3}
             value={comment}
             onChange={setComment}
@@ -583,7 +579,7 @@ export function CasePage() {
             disabled={busy || !comment.trim()}
             onClick={() => void sendComment()}
           >
-            Comentar
+            {tr('comment')}
           </Button>
         </div>
       </HpsmSection>

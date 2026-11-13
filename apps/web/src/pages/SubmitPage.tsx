@@ -34,7 +34,8 @@ import { useSaveShortcut } from '../components/shortcuts';
 import type { StatusTone } from '../components/tags';
 import { StatusText, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/submit';
 
 /**
  * SHA-256 do arquivo calculado no navegador + amostra ja enviada com o mesmo
@@ -103,13 +104,15 @@ interface ZipResult {
   skipped: { name: string; path: string; reason: string }[];
 }
 
-const ROW_STATUS: Record<BatchRow['status'], { label: string; tone: StatusTone }> = {
-  waiting: { label: 'Aguardando', tone: 'gray' },
-  sending: { label: 'Enviando...', tone: 'blue' },
-  done: { label: 'Enviada', tone: 'green' },
-  skipped: { label: 'Ignorado', tone: 'orange' },
-  error: { label: 'Falha', tone: 'red' },
-};
+const ROW_STATUS: Record<BatchRow['status'], { label: string; tone: StatusTone }> = localized(
+  () => ({
+    waiting: { label: t('rowWaiting'), tone: 'gray' },
+    sending: { label: t('sending'), tone: 'blue' },
+    done: { label: t('rowSent'), tone: 'green' },
+    skipped: { label: t('rowSkipped'), tone: 'orange' },
+    error: { label: t('rowFailed'), tone: 'red' },
+  }),
+);
 
 const isZipName = (name: string) => /\.zip$/i.test(name);
 
@@ -138,27 +141,26 @@ function BatchResult({ rows, source }: { rows: BatchRow[]; source: string }) {
   const running = rows.some((r) => r.status === 'waiting' || r.status === 'sending');
   const failed = rows.length - done;
   return (
-    <HpsmSection title={`Resultado do envio — ${source}`}>
+    <HpsmSection title={t('batchTitle', { source })}>
       {!running &&
         (failed === 0 ? (
           <HpsmMessage kind="success">
-            {done === 1 ? '1 amostra criada.' : `${done} amostras criadas.`}
+            {done === 1 ? t('createdOne') : t('createdMany', { n: done })}
           </HpsmMessage>
         ) : (
           <HpsmMessage kind={done ? 'warning' : 'error'}>
-            {done === 1 ? '1 amostra criada' : `${done} amostras criadas`};{' '}
-            {failed === 1 ? '1 arquivo não foi enviado' : `${failed} arquivos não foram enviados`}.
-            Veja o motivo de cada um abaixo.
+            {t(done === 1 ? 'createdOneShort' : 'createdManyShort', { n: done })};{' '}
+            {t(failed === 1 ? 'failedOne' : 'failedMany', { n: failed })}. {t('seeReasons')}
           </HpsmMessage>
         ))}
       <TableContainer>
-        <Table size="xs" aria-label="Resultado do envio">
+        <Table size="xs" aria-label={t('batchAria')}>
           <TableHead>
             <TableRow>
-              <TableHeader scope="col">Arquivo</TableHeader>
-              <TableHeader scope="col">Tamanho</TableHeader>
-              <TableHeader scope="col">Situação</TableHeader>
-              <TableHeader scope="col">Amostra</TableHeader>
+              <TableHeader scope="col">{t('file')}</TableHeader>
+              <TableHeader scope="col">{t('size')}</TableHeader>
+              <TableHeader scope="col">{t('situation')}</TableHeader>
+              <TableHeader scope="col">{t('sample')}</TableHeader>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -183,7 +185,7 @@ function BatchResult({ rows, source }: { rows: BatchRow[]; source: string }) {
                       {row.previous && (
                         <span className="dl-batch__previous">
                           {' '}
-                          · já enviada antes:{' '}
+                          {t('alreadySent')}{' '}
                           <Link className="dl-link" to={`/entries/${row.previous.id}`}>
                             {row.previous.title}
                           </Link>
@@ -256,29 +258,31 @@ export function SubmitPage() {
     {
       id: 'file-pick',
       label: tooBig.length
-        ? `Arquivo (${tooBig[0].name}${tooBig.length > 1 ? ` e mais ${tooBig.length - 1} passam` : ' passa'} de ${maxUploadMb} MB)`
-        : 'Arquivo',
+        ? tooBig.length > 1
+          ? t('tooBigMany', { name: tooBig[0].name, n: tooBig.length - 1, max: maxUploadMb })
+          : t('tooBigOne', { name: tooBig[0].name, max: maxUploadMb })
+        : t('file'),
       ok: files.length > 0 && tooBig.length === 0,
     },
-    { id: 'zip-password', label: 'Senha do .zip', ok: true, api: 'password', value: zipPassword },
+    { id: 'zip-password', label: t('zipPassword'), ok: true, api: 'password', value: zipPassword },
   ]);
   const urlCheck = useRequiredFields([
     {
       id: 'url',
-      label: 'URL suspeita',
+      label: t('suspiciousUrl'),
       ok: /^https?:\/\/\S+\.\S+/i.test(url.trim()),
       value: url,
     },
     // So a API valida estes (tamanhos): o destaque vem do `details` do 400.
-    { id: 'url-title', label: 'Título', ok: true, api: 'title', value: urlTitle },
+    { id: 'url-title', label: t('title'), ok: true, api: 'title', value: urlTitle },
     {
       id: 'url-description',
-      label: 'Descrição',
+      label: t('description'),
       ok: true,
       api: 'description',
       value: urlDescription,
     },
-    { id: 'url-tags', label: 'Tags', ok: true, api: 'tags', value: urlTags },
+    { id: 'url-tags', label: t('tags'), ok: true, api: 'tags', value: urlTags },
   ]);
   const validation = tab === 'file' ? fileCheck.message : urlCheck.message;
 
@@ -298,14 +302,10 @@ export function SubmitPage() {
     form.append('password', zipPassword);
     if (description) form.append('description', description);
     if (tags) form.append('tags', tags);
-    setProgress('Enviando o .zip...');
+    setProgress(t('sendingZip'));
     try {
       const res = await api.upload<ZipResult>('/entries/zip', form, (percent) =>
-        setProgress(
-          percent < 100
-            ? `Enviando o .zip... ${percent}%`
-            : 'Abrindo o .zip e criando as amostras...',
-        ),
+        setProgress(percent < 100 ? t('sendingZipPct', { percent }) : t('openingZip')),
       );
       setBatch({ source: zip.name, rows: zipRows(res) });
       resetFileForm();
@@ -339,7 +339,7 @@ export function SubmitPage() {
     resetFileForm();
     // Um por vez: o limite de tamanho do servidor vale para cada arquivo.
     for (let i = 0; i < list.length; i++) {
-      setProgress(`Enviando ${i + 1} de ${list.length}...`);
+      setProgress(t('sendingNofM', { i: i + 1, total: list.length }));
       update(i, { status: 'sending' });
       try {
         const form = new FormData();
@@ -353,8 +353,8 @@ export function SubmitPage() {
           (percent) =>
             setProgress(
               percent < 100
-                ? `Enviando ${i + 1} de ${list.length}... ${percent}%`
-                : `Analisando ${i + 1} de ${list.length}...`,
+                ? t('sendingNofMPct', { i: i + 1, total: list.length, percent })
+                : t('analyzingNofM', { i: i + 1, total: list.length }),
             ),
         );
         update(i, { status: 'done', entry: res.entry, previous: res.previous });
@@ -389,7 +389,7 @@ export function SubmitPage() {
       if (description) form.append('description', description);
       if (tags) form.append('tags', tags);
       const res = await api.upload<{ entry: Entry }>('/entries/file', form, (percent) =>
-        setProgress(percent < 100 ? `Enviando... ${percent}%` : 'Analisando o arquivo...'),
+        setProgress(percent < 100 ? t('sendingPct', { percent }) : t('analyzingFile')),
       );
       allowNavigation();
       navigate(`/entries/${res.entry.id}`);
@@ -435,97 +435,98 @@ export function SubmitPage() {
 
   return (
     <>
-      <PageHeader
-        title="Enviar Amostra"
-        subtitle="Envie um arquivo suspeito ou um link para que os analistas possam investigar."
-      />
+      <PageHeader title={t('pageTitle')} subtitle={t('pageSubtitle')} />
 
-      <HpsmToolbar label="Ações do envio">
+      <HpsmToolbar label={t('submitActions')}>
         <HpsmToolbarButton
           label={
             loading
-              ? 'Enviando...'
+              ? t('sending')
               : tab === 'url'
-                ? 'Enviar link'
+                ? t('sendLink')
                 : zipMode
-                  ? 'Desmembrar e enviar'
+                  ? t('splitAndSend')
                   : files.length > 1
-                    ? `Enviar ${files.length} arquivos`
-                    : 'Enviar arquivo'
+                    ? t('sendNFiles', { n: files.length })
+                    : t('sendFile')
           }
-          title="Enviar (Ctrl+S)"
+          title={t('sendHint')}
           icon={IconAdd}
           disabled={loading || quotaFull}
           onClick={tab === 'file' ? submitFile : submitUrl}
         />
         <HpsmToolbarButton
-          label="Cancelar"
+          label={t('cancel')}
           icon={IconArrowLeft}
           disabled={loading}
           onClick={() => navigate(-1)}
         />
         {quota && !quotaFull && (
           <span className="hpsm-toolbar__info dl-quota">
-            {quota.remaining === 1 ? 'Resta 1 envio' : `Restam ${quota.remaining} envios`} de{' '}
-            {quota.limit} nas próximas 24 horas
+            {t(quota.remaining === 1 ? 'quotaOne' : 'quotaMany', {
+              n: quota.remaining,
+              limit: quota.limit,
+            })}
           </span>
         )}
         {loading && (
           <HpsmLoading
             className="hpsm-toolbar__loading"
-            text={tab === 'url' ? 'Registrando link...' : (progress ?? 'Fazendo upload seguro...')}
+            text={tab === 'url' ? t('registeringLink') : (progress ?? t('secureUpload'))}
           />
         )}
       </HpsmToolbar>
 
       {quotaFull && quota && (
         <HpsmMessage kind="warning">
-          Você já enviou {quota.limit} amostras nas últimas 24 horas (limite para usuários comuns).
-          A próxima libera às{' '}
-          {quota.resetAt
-            ? new Date(quota.resetAt).toLocaleTimeString(intlLocale(), {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : '—'}
-          .
+          {t('quotaFull', {
+            limit: quota.limit,
+            time: quota.resetAt
+              ? new Date(quota.resetAt).toLocaleTimeString(intlLocale(), {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '—',
+          })}
         </HpsmMessage>
       )}
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
       {validation && <HpsmMessage kind="error">{validation}</HpsmMessage>}
       {tab === 'file' && duplicate && !zipMode && (
         <HpsmMessage kind="warning">
-          Esta amostra já foi enviada:{' '}
+          {t('alreadySubmitted')}{' '}
           <Link className="dl-link" to={`/entries/${duplicate.id}`}>
             {duplicate.title}
           </Link>{' '}
-          (veredito: <VerdictTag verdict={duplicate.verdict} />
-          ). Você ainda pode enviá-la com um novo contexto.
+          {t('verdictParen')} <VerdictTag verdict={duplicate.verdict} />
+          {t('stillCanSend')}
         </HpsmMessage>
       )}
 
       <HpsmTabs
-        ariaLabel="Tipo de amostra"
+        ariaLabel={t('sampleType')}
         active={tab}
         onChange={setTab}
         items={[
-          { id: 'file', label: 'Arquivo' },
-          { id: 'url', label: 'Link' },
+          { id: 'file', label: t('file') },
+          { id: 'url', label: t('link') },
         ]}
       />
 
       <div className="hpsm-tabpanel" onKeyDown={submitOnEnter}>
         {tab === 'file' ? (
-          <HpsmSection title="Dados do arquivo" className="dl-form-col">
+          <HpsmSection title={t('fileData')} className="dl-form-col">
             <HpsmForm>
               <HpsmField
-                label="Arquivo"
+                label={t('file')}
                 required
                 top
                 help={
                   many
-                    ? 'Cada arquivo vira uma amostra com o próprio nome; descrição e tags valem para todas.'
-                    : `Um ou mais arquivos (até ${MAX_FILES})${maxUploadMb ? `, com até ${maxUploadMb} MB cada` : ''}.`
+                    ? t('manyHelp')
+                    : maxUploadMb
+                      ? t('filesHelpMax', { n: MAX_FILES, max: maxUploadMb })
+                      : t('filesHelp', { n: MAX_FILES })
                 }
                 invalid={fileCheck.isInvalid('file-pick')}
               >
@@ -537,23 +538,16 @@ export function SubmitPage() {
                   }}
                   multiple
                   maxFiles={MAX_FILES}
-                  onLimit={(max) =>
-                    setError(
-                      `Selecione no máximo ${max} arquivos por envio; os excedentes foram ignorados.`,
-                    )
-                  }
+                  onLimit={(max) => setError(t('maxFilesIgnored', { max }))}
                   buttonId="file-pick"
                   invalid={fileCheck.isInvalid('file-pick')}
                 />
               </HpsmField>
               {file && isZipName(file.name) && (
-                <HpsmField
-                  label="Pacote .zip"
-                  help="O .zip é aberto só no servidor, sem executar nada. Até 20 arquivos por pacote."
-                >
+                <HpsmField label={t('zipPackage')} help={t('zipHelp')}>
                   <Checkbox
                     id="zip-unzip"
-                    labelText="Desmembrar: cada arquivo de dentro do .zip vira uma amostra"
+                    labelText={t('splitZip')}
                     checked={unzip}
                     onChange={(_, { checked }) => setUnzip(checked)}
                   />
@@ -561,14 +555,14 @@ export function SubmitPage() {
               )}
               {zipMode && (
                 <HpsmField
-                  label="Senha do .zip"
+                  label={t('zipPassword')}
                   htmlFor="zip-password"
                   invalid={fileCheck.isInvalid('zip-password')}
-                  help="Pacotes de malware costumam usar “infected”. Deixe em branco se não houver senha."
+                  help={t('zipPasswordHelp')}
                 >
                   <TextInput
                     id="zip-password"
-                    labelText="Senha do .zip"
+                    labelText={t('zipPassword')}
                     hideLabel
                     autoComplete="off"
                     value={zipPassword}
@@ -583,37 +577,37 @@ export function SubmitPage() {
                       {hash}
                     </HpsmReadonly>
                   ) : (
-                    <HpsmLoading text="Calculando o hash do arquivo..." />
+                    <HpsmLoading text={t('computingHash')} />
                   )}
                 </HpsmField>
               )}
               {!many && (
-                <HpsmField label="Título" htmlFor="file-title">
+                <HpsmField label={t('title')} htmlFor="file-title">
                   <TextInput
                     id="file-title"
-                    labelText="Título"
+                    labelText={t('title')}
                     hideLabel
-                    placeholder="Ex.: instalador_suspeito.exe"
+                    placeholder={t('titlePlaceholderFile')}
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
                 </HpsmField>
               )}
-              <HpsmField label="Descrição" htmlFor="file-description" top>
+              <HpsmField label={t('description')} htmlFor="file-description" top>
                 <TextArea
                   id="file-description"
-                  labelText="Descrição"
+                  labelText={t('description')}
                   hideLabel
-                  placeholder="Onde encontrou, o que chamou a atenção..."
+                  placeholder={t('descPlaceholderFile')}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                 />
               </HpsmField>
-              <HpsmField label="Tags" htmlFor="file-tags" help="Separadas por vírgula.">
+              <HpsmField label={t('tags')} htmlFor="file-tags" help={t('tagsHelp')}>
                 <TextInput
                   id="file-tags"
-                  labelText="Tags"
+                  labelText={t('tags')}
                   hideLabel
                   placeholder="phishing, malware, ransomware"
                   value={tags}
@@ -623,18 +617,18 @@ export function SubmitPage() {
             </HpsmForm>
           </HpsmSection>
         ) : (
-          <HpsmSection title="Dados do link" className="dl-form-col">
+          <HpsmSection title={t('linkData')} className="dl-form-col">
             <HpsmForm>
               <HpsmField
-                label="URL suspeita"
+                label={t('suspiciousUrl')}
                 htmlFor="url"
                 required
                 invalid={urlCheck.isInvalid('url')}
-                help="Endereço completo, com http:// ou https://."
+                help={t('urlHelp')}
               >
                 <TextInput
                   id="url"
-                  labelText="URL suspeita"
+                  labelText={t('suspiciousUrl')}
                   hideLabel
                   placeholder="https://exemplo-suspeito.com/login"
                   value={url}
@@ -642,44 +636,44 @@ export function SubmitPage() {
                 />
               </HpsmField>
               <HpsmField
-                label="Título"
+                label={t('title')}
                 htmlFor="url-title"
                 invalid={urlCheck.isInvalid('url-title')}
               >
                 <TextInput
                   id="url-title"
-                  labelText="Título"
+                  labelText={t('title')}
                   hideLabel
-                  placeholder="Ex.: página de phishing falsa"
+                  placeholder={t('titlePlaceholderUrl')}
                   value={urlTitle}
                   onChange={(e) => setUrlTitle(e.target.value)}
                 />
               </HpsmField>
               <HpsmField
-                label="Descrição"
+                label={t('description')}
                 htmlFor="url-description"
                 top
                 invalid={urlCheck.isInvalid('url-description')}
               >
                 <TextArea
                   id="url-description"
-                  labelText="Descrição"
+                  labelText={t('description')}
                   hideLabel
-                  placeholder="Como chegou até esse link, contexto, remetente..."
+                  placeholder={t('descPlaceholderUrl')}
                   value={urlDescription}
                   onChange={(e) => setUrlDescription(e.target.value)}
                   rows={4}
                 />
               </HpsmField>
               <HpsmField
-                label="Tags"
+                label={t('tags')}
                 htmlFor="url-tags"
-                help="Separadas por vírgula."
+                help={t('tagsHelp')}
                 invalid={urlCheck.isInvalid('url-tags')}
               >
                 <TextInput
                   id="url-tags"
-                  labelText="Tags"
+                  labelText={t('tags')}
                   hideLabel
                   placeholder="phishing, scam"
                   value={urlTags}

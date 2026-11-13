@@ -22,6 +22,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/cases';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -78,55 +79,52 @@ export function CasesPage() {
 
   return (
     <>
-      <PageHeader
-        title="Casos"
-        subtitle="Amostras da mesma campanha agrupadas. Crie um caso pela ficha (Mais ▾) ou marcando amostras na lista."
-      />
+      <PageHeader title={t('cases')} subtitle={t('casesSubtitle')} />
       <HpsmFilterBar
         onClear={() => {
           setDraft('');
           setParams({}, { replace: true });
         }}
       >
-        <HpsmFilterItem label="Buscar" htmlFor="case-q">
+        <HpsmFilterItem label={t('search')} htmlFor="case-q">
           <TextInput
             id="case-q"
-            labelText="Buscar"
+            labelText={t('search')}
             hideLabel
             size="sm"
-            placeholder="Título, descrição ou CASO-0001"
+            placeholder={t('casesSearchPlaceholder')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
         </HpsmFilterItem>
-        <HpsmFilterItem label="Status" htmlFor="case-status">
+        <HpsmFilterItem label={t('status')} htmlFor="case-status">
           <Select
             id="case-status"
-            labelText="Status"
+            labelText={t('status')}
             hideLabel
             size="sm"
             value={status}
             onChange={(e) => setParam('status', e.target.value)}
           >
-            <SelectItem value="" text="Todos" />
-            <SelectItem value="active" text="Ativos (não encerrados)" />
-            <SelectItem value="OPEN" text="Aberto" />
-            <SelectItem value="IN_PROGRESS" text="Em andamento" />
-            <SelectItem value="CLOSED" text="Encerrado" />
+            <SelectItem value="" text={t('all')} />
+            <SelectItem value="active" text={t('activeOnly')} />
+            <SelectItem value="OPEN" text={t('stOpen')} />
+            <SelectItem value="IN_PROGRESS" text={t('stInProgress')} />
+            <SelectItem value="CLOSED" text={t('stClosed')} />
           </Select>
         </HpsmFilterItem>
-        <HpsmFilterItem label="Responsável" htmlFor="case-assignee">
+        <HpsmFilterItem label={t('assignee')} htmlFor="case-assignee">
           <Select
             id="case-assignee"
-            labelText="Responsável"
+            labelText={t('assignee')}
             hideLabel
             size="sm"
             value={assignee}
             onChange={(e) => setParam('assignee', e.target.value)}
           >
-            <SelectItem value="" text="Todos" />
-            <SelectItem value="me" text="Meus casos" />
-            <SelectItem value="none" text="Sem responsável" />
+            <SelectItem value="" text={t('all')} />
+            <SelectItem value="me" text={t('myCases')} />
+            <SelectItem value="none" text={t('unassigned')} />
             {(analystsQuery.data?.analysts ?? []).map((a) => (
               <SelectItem key={a.id} value={a.id} text={a.displayName} />
             ))}
@@ -134,22 +132,22 @@ export function CasesPage() {
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {query.isLoading && <HpsmLoading text="Carregando casos..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingCases')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && items.length === 0 && (
-        <HpsmMessage kind="info">Nenhum caso encontrado.</HpsmMessage>
+        <HpsmMessage kind="info">{t('noCasesFound')}</HpsmMessage>
       )}
       {items.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Casos">
+          <Table size="xs" aria-label={t('cases')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Caso</TableHeader>
-                <TableHeader scope="col">Título</TableHeader>
-                <TableHeader scope="col">Status</TableHeader>
-                <TableHeader scope="col">Responsável</TableHeader>
-                <TableHeader scope="col">Amostras</TableHeader>
-                <TableHeader scope="col">Atualizado</TableHeader>
+                <TableHeader scope="col">{t('case')}</TableHeader>
+                <TableHeader scope="col">{t('title')}</TableHeader>
+                <TableHeader scope="col">{t('status')}</TableHeader>
+                <TableHeader scope="col">{t('assignee')}</TableHeader>
+                <TableHeader scope="col">{t('samples')}</TableHeader>
+                <TableHeader scope="col">{t('updated')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>

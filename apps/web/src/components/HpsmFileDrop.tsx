@@ -1,6 +1,7 @@
 import type { DragEvent } from 'react';
 import { useId, useRef, useState } from 'react';
 
+import { t } from '../i18n/submit';
 import { IconPage } from './icons';
 
 /** Tamanho legivel: 2483712 -> "2.4 MB". */
@@ -96,11 +97,11 @@ export function HpsmFileDrop({
         <span>
           {dragging
             ? multiple
-              ? 'Solte os arquivos para anexar'
-              : 'Solte o arquivo para anexar'
+              ? t('dropFiles')
+              : t('dropFile')
             : multiple
-              ? 'Arraste os arquivos aqui ou'
-              : 'Arraste o arquivo aqui ou'}
+              ? t('dragFiles')
+              : t('dragFile')}
         </span>
         <button
           id={buttonId}
@@ -109,7 +110,7 @@ export function HpsmFileDrop({
           aria-invalid={invalid || undefined}
           onClick={() => inputRef.current?.click()}
         >
-          {multiple ? 'Selecionar arquivos' : 'Selecionar arquivo'}
+          {multiple ? t('selectFiles') : t('selectFile')}
         </button>
         <input
           ref={inputRef}
@@ -136,17 +137,17 @@ export function HpsmFileDrop({
           <button
             type="button"
             className="hpsm-filedrop__remove"
-            aria-label={`Remover ${file.name}`}
+            aria-label={t('removeFile', { name: file.name })}
             onClick={() => remove(file)}
           >
-            Remover
+            {t('remove')}
           </button>
         </div>
       ))}
       {files.length > 1 && (
         <div className="hpsm-filedrop__total">
-          {files.length} arquivos · {formatFileSize(total)}
-          {maxFiles ? ` (máximo de ${maxFiles} por envio)` : ''}
+          {t('filesTotal', { n: files.length, size: formatFileSize(total) })}
+          {maxFiles ? ` ${t('maxPerSubmission', { n: maxFiles })}` : ''}
         </div>
       )}
     </div>

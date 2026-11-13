@@ -1,14 +1,18 @@
 import type { EntryStatus, EntryType, IocKind, Priority, Verdict } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/cases';
 import type { StatusTone } from './tags';
 
 /** Casos (item 55): agrupam amostras da mesma campanha (so analistas). */
 export type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
-export const CASE_STATUS: Record<CaseStatus, { label: string; tone: StatusTone }> = {
-  OPEN: { label: 'Aberto', tone: 'orange' },
-  IN_PROGRESS: { label: 'Em andamento', tone: 'blue' },
-  CLOSED: { label: 'Encerrado', tone: 'green' },
-};
+export const CASE_STATUS: Record<CaseStatus, { label: string; tone: StatusTone }> = localized(
+  () => ({
+    OPEN: { label: t('stOpen'), tone: 'orange' },
+    IN_PROGRESS: { label: t('stInProgress'), tone: 'blue' },
+    CLOSED: { label: t('stClosed'), tone: 'green' },
+  }),
+);
 
 type Person = { id: string; displayName: string } | null;
 
@@ -93,21 +97,24 @@ type CaseEvent = CaseDetail['events'][number];
 export function caseEventText(e: CaseEvent, names: Map<string, string>): string {
   switch (e.type) {
     case 'CREATED':
-      return 'criou o caso';
+      return t('evCreated');
     case 'ENTRY_ADDED':
-      return `incluiu a amostra ${e.entry?.title ?? '(removida)'}`;
+      return t('evEntryAdded', { title: e.entry?.title ?? t('removedParen') });
     case 'ENTRY_REMOVED':
-      return `retirou a amostra ${e.entry?.title ?? '(removida)'}`;
+      return t('evEntryRemoved', { title: e.entry?.title ?? t('removedParen') });
     case 'STATUS_CHANGED':
-      return `mudou o status: ${CASE_STATUS[e.fromValue as CaseStatus]?.label ?? e.fromValue} → ${CASE_STATUS[e.toValue as CaseStatus]?.label ?? e.toValue}`;
+      return t('evStatus', {
+        from: CASE_STATUS[e.fromValue as CaseStatus]?.label ?? e.fromValue,
+        to: CASE_STATUS[e.toValue as CaseStatus]?.label ?? e.toValue,
+      });
     case 'ASSIGNED':
       return e.toValue
-        ? `atribuiu a ${names.get(e.toValue) ?? 'outro analista'}`
-        : 'deixou o caso sem responsável';
+        ? t('evAssigned', { name: names.get(e.toValue) ?? t('otherAnalyst') })
+        : t('evUnassigned');
     case 'UPDATED':
-      return e.detail ? `renomeou para "${e.detail}"` : 'alterou a descrição';
+      return e.detail ? t('evRenamed', { title: e.detail }) : t('evDescription');
     case 'COMMENT':
-      return 'comentou';
+      return t('evComment');
   }
 }
 
