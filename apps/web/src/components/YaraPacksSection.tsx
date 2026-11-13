@@ -19,9 +19,18 @@ import { t } from '../i18n/detection';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmSection } from './HpsmForm';
 import { HpsmLoading } from './messages';
+import {
+  EffectivenessCells,
+  EffectivenessHeaders,
+  NeverFiredFilter,
+  type RuleEffectiveness,
+  useRuleEffectiveness,
+} from './RuleEffectiveness';
 import { StatusText } from './tags';
 
-type PackRule = Pick<YaraRule, 'id' | 'name' | 'enabled' | 'pack'>;
+type PackRule = Pick<YaraRule, 'id' | 'name' | 'enabled' | 'pack'> & {
+  effectiveness?: RuleEffectiveness;
+};
 
 /**
  * Pacotes de regras de fontes confiaveis (item 143): as regras ficam fora da lista
@@ -50,11 +59,14 @@ export function YaraPacksSection({
   const rulesQuery = useQuery({
     queryKey: ['yara-pack-rules', openPack, q.trim()],
     queryFn: () =>
-      api.get<{ total: number; limit: number; rules: PackRule[] }>(
+      api.get<{ total: number; limit: number; rules: PackRule[]; effectivenessDays?: number }>(
         `/yara/packs/${openPack}/rules?q=${encodeURIComponent(q.trim())}`,
       ),
     enabled: Boolean(openPack),
   });
+  // Eficacia (plano pos-revisao, item 2.3).
+  const days = rulesQuery.data?.effectivenessDays ?? 90;
+  const effectiveness = useRuleEffectiveness(rulesQuery.data?.rules ?? []);
 
   const refresh = () =>
     Promise.all([
@@ -178,17 +190,29 @@ export function YaraPacksSection({
                 : t('setsN', { n: rulesQuery.data.total })}
             </p>
           )}
+          <NeverFiredFilter
+            id="yara-pack-never-fired"
+            days={days}
+            checked={effectiveness.neverOnly}
+            count={effectiveness.never}
+            onChange={effectiveness.setNeverOnly}
+          />
           <TableContainer>
             <Table size="xs" aria-label={t('packRulesAria')}>
               <TableHead>
                 <TableRow>
                   <TableHeader scope="col">{t('set')}</TableHeader>
                   <TableHeader scope="col">{t('situation')}</TableHeader>
+                  <EffectivenessHeaders
+                    days={days}
+                    sort={effectiveness.sort}
+                    onSort={effectiveness.toggle}
+                  />
                   <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(rulesQuery.data?.rules ?? []).map((rule) => (
+                {effectiveness.rows.map((rule) => (
                   <TableRow key={rule.id} className={rule.enabled ? undefined : 'is-off'}>
                     <TableCell>
                       <span className="dl-cell-text" title={rule.name}>
@@ -200,6 +224,7 @@ export function YaraPacksSection({
                         {rule.enabled ? t('active') : t('inactive')}
                       </StatusText>
                     </TableCell>
+                    <EffectivenessCells value={rule.effectiveness} />
                     <TableCell>
                       <span className="dl-row-actions">
                         <button

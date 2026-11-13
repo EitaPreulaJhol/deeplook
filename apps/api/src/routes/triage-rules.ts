@@ -5,6 +5,7 @@ import { TECHNIQUE_ID } from '../lib/attack';
 import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
+import { EFFECTIVENESS_DAYS, triageEffectiveness } from '../lib/rule-effectiveness';
 import { NEEDS_VALUE, triageRuleLabel } from '../lib/triage-rules';
 import { sendValidationError } from '../lib/validation';
 
@@ -98,7 +99,16 @@ export async function triageRuleRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'asc' },
       include: { createdBy: { select: { id: true, displayName: true } } },
     });
-    return reply.send({ rules: rules.map((r) => ({ ...r, label: triageRuleLabel(r) })) });
+    // Eficacia (plano pos-revisao, item 2.3): disparos e quantos em amostra limpa.
+    const stats = await triageEffectiveness(rules);
+    return reply.send({
+      rules: rules.map((r) => ({
+        ...r,
+        label: triageRuleLabel(r),
+        effectiveness: stats.get(r.id),
+      })),
+      effectivenessDays: EFFECTIVENESS_DAYS,
+    });
   });
 
   app.post('/api/triage-rules', async (req, reply) => {

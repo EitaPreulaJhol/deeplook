@@ -25,6 +25,13 @@ import {
 } from '../components/HpsmForm';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import {
+  EffectivenessCells,
+  EffectivenessHeaders,
+  NeverFiredFilter,
+  type RuleEffectiveness,
+  useRuleEffectiveness,
+} from '../components/RuleEffectiveness';
 import { PriorityTag, StatusText } from '../components/tags';
 import { localized } from '../i18n';
 import { t as tr } from '../i18n/detection';
@@ -59,6 +66,7 @@ interface TriageRule {
   enabled: boolean;
   label: string;
   createdBy: { id: string; displayName: string } | null;
+  effectiveness?: RuleEffectiveness;
 }
 
 /** Condicoes: rotulo e o valor (obrigatorio, opcional ou nenhum) com a dica. */
@@ -142,9 +150,12 @@ export function TriageRulesPage() {
   const confirm = useConfirm();
   const query = useQuery({
     queryKey: ['triage-rules'],
-    queryFn: () => api.get<{ rules: TriageRule[] }>('/triage-rules'),
+    queryFn: () => api.get<{ rules: TriageRule[]; effectivenessDays?: number }>('/triage-rules'),
   });
   const rules = query.data?.rules ?? [];
+  // Eficacia (plano pos-revisao, item 2.3): ordenar por disparos e ver as que nunca dispararam.
+  const days = query.data?.effectivenessDays ?? 90;
+  const effectiveness = useRuleEffectiveness(rules);
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -242,57 +253,72 @@ export function TriageRulesPage() {
         {rules.length === 0 ? (
           <p className="dl-static-empty">{tr('noRulesManual')}</p>
         ) : (
-          <TableContainer>
-            <Table size="xs" aria-label={tr('triageTitle')}>
-              <TableHead>
-                <TableRow>
-                  <TableHeader scope="col">{tr('name')}</TableHeader>
-                  <TableHeader scope="col">{tr('when')}</TableHeader>
-                  <TableHeader scope="col">{tr('tags')}</TableHeader>
-                  <TableHeader scope="col">{tr('priority')}</TableHeader>
-                  <TableHeader scope="col">{tr('situation')}</TableHeader>
-                  <TableHeader scope="col">{tr('actions')}</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rules.map((r) => (
-                  <TableRow key={r.id} className={r.enabled ? undefined : 'is-off'}>
-                    <TableCell>{r.name}</TableCell>
-                    <TableCell>{r.label}</TableCell>
-                    <TableCell>{r.tags.join(', ') || '—'}</TableCell>
-                    <TableCell>
-                      {r.priority ? <PriorityTag priority={r.priority} /> : tr('keeps')}
-                    </TableCell>
-                    <TableCell>
-                      <StatusText tone={r.enabled ? 'green' : 'gray'}>
-                        {r.enabled ? tr('on') : tr('off')}
-                      </StatusText>
-                    </TableCell>
-                    <TableCell>
-                      <span className="dl-row-actions">
-                        <button
-                          type="button"
-                          className="dl-link-button"
-                          disabled={busy}
-                          onClick={() => void toggle(r)}
-                        >
-                          {r.enabled ? tr('turnOff') : tr('turnOn')}
-                        </button>
-                        <button
-                          type="button"
-                          className="dl-link-button"
-                          disabled={busy}
-                          onClick={() => void remove(r)}
-                        >
-                          {tr('delete')}
-                        </button>
-                      </span>
-                    </TableCell>
+          <>
+            <NeverFiredFilter
+              id="triage-never-fired"
+              days={days}
+              checked={effectiveness.neverOnly}
+              count={effectiveness.never}
+              onChange={effectiveness.setNeverOnly}
+            />
+            <TableContainer>
+              <Table size="xs" aria-label={tr('triageTitle')}>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader scope="col">{tr('name')}</TableHeader>
+                    <TableHeader scope="col">{tr('when')}</TableHeader>
+                    <TableHeader scope="col">{tr('tags')}</TableHeader>
+                    <TableHeader scope="col">{tr('priority')}</TableHeader>
+                    <TableHeader scope="col">{tr('situation')}</TableHeader>
+                    <EffectivenessHeaders
+                      days={days}
+                      sort={effectiveness.sort}
+                      onSort={effectiveness.toggle}
+                    />
+                    <TableHeader scope="col">{tr('actions')}</TableHeader>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {effectiveness.rows.map((r) => (
+                    <TableRow key={r.id} className={r.enabled ? undefined : 'is-off'}>
+                      <TableCell>{r.name}</TableCell>
+                      <TableCell>{r.label}</TableCell>
+                      <TableCell>{r.tags.join(', ') || '—'}</TableCell>
+                      <TableCell>
+                        {r.priority ? <PriorityTag priority={r.priority} /> : tr('keeps')}
+                      </TableCell>
+                      <TableCell>
+                        <StatusText tone={r.enabled ? 'green' : 'gray'}>
+                          {r.enabled ? tr('on') : tr('off')}
+                        </StatusText>
+                      </TableCell>
+                      <EffectivenessCells value={r.effectiveness} />
+                      <TableCell>
+                        <span className="dl-row-actions">
+                          <button
+                            type="button"
+                            className="dl-link-button"
+                            disabled={busy}
+                            onClick={() => void toggle(r)}
+                          >
+                            {r.enabled ? tr('turnOff') : tr('turnOn')}
+                          </button>
+                          <button
+                            type="button"
+                            className="dl-link-button"
+                            disabled={busy}
+                            onClick={() => void remove(r)}
+                          >
+                            {tr('delete')}
+                          </button>
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
       </HpsmSection>
 

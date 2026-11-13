@@ -264,7 +264,7 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
 
   const have = new Set(entry.tags.map((t) => t.name.toLowerCase()));
   let priority: Priority = entry.priority;
-  const applied: { name: string; tags: string[]; priority: Priority | null }[] = [];
+  const applied: { id: string; name: string; tags: string[]; priority: Priority | null }[] = [];
   for (const rule of rules) {
     if (!matches(rule, facts)) continue;
     const tags = rule.tags.map((t) => t.toLowerCase()).filter((t) => !have.has(t));
@@ -275,7 +275,7 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
         ? rule.priority
         : null;
     if (raise) priority = raise;
-    if (tags.length || raise) applied.push({ name: rule.name, tags, priority: raise });
+    if (tags.length || raise) applied.push({ id: rule.id, name: rule.name, tags, priority: raise });
   }
   if (!applied.length) return [];
 
@@ -302,6 +302,8 @@ export async function applyTriageRules(entryId: string): Promise<string[]> {
         entryId,
         actorId: null,
         type: 'TRIAGE_RULE',
+        // Id da regra: a eficacia conta por ele mesmo se a regra mudar de nome (plano 2.3).
+        fromValue: a.id,
         toValue: a.name,
         detail: parts,
       });

@@ -168,6 +168,10 @@ async function main() {
       ),
     evs,
   );
+  // Eficacia (plano pos-revisao, item 2.3): o evento guarda o id da regra, alem do nome.
+  const fired = evs.find((e) => e.type === 'TRIAGE_RULE');
+  const ruleRow = await prisma.triageRule.findFirst({ where: { name: 'TLD suspeito' } });
+  ok('o evento da regra guarda o id dela', fired?.fromValue === ruleRow?.id, fired);
   ok('não repete', (await applyTriageRules(link!.id)).length === 0);
   // Item 163: o nome da regra e configuracao dos analistas; quem enviou ve so as tags.
   const types = async (c: string) =>

@@ -22,6 +22,13 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconAdd } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import {
+  EffectivenessCells,
+  EffectivenessHeaders,
+  NeverFiredFilter,
+  type RuleEffectiveness,
+  useRuleEffectiveness,
+} from '../components/RuleEffectiveness';
 import { useSaveShortcut } from '../components/shortcuts';
 import { StatusText } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
@@ -64,9 +71,16 @@ export function YaraRulesPage() {
   const confirm = useConfirm();
   const query = useQuery({
     queryKey: ['yara-rules'],
-    queryFn: () => api.get<{ rules: YaraRule[] }>('/yara/rules'),
+    queryFn: () =>
+      api.get<{
+        rules: (YaraRule & { effectiveness?: RuleEffectiveness })[];
+        effectivenessDays?: number;
+      }>('/yara/rules'),
   });
   const rules = query.data?.rules ?? [];
+  // Eficacia (plano pos-revisao, item 2.3): ordenar por disparos e ver as que nunca dispararam.
+  const days = query.data?.effectivenessDays ?? 90;
+  const effectiveness = useRuleEffectiveness(rules);
   const active = rules.filter((r) => r.enabled).length;
 
   const [editing, setEditing] = useState<YaraRule | null>(null);
@@ -347,63 +361,80 @@ export function YaraRulesPage() {
         <HpsmMessage kind="info">{t('noTeamRules')}</HpsmMessage>
       )}
       {rules.length > 0 && (
-        <TableContainer className="dl-mt-lg">
-          <Table size="xs" aria-label={t('yaraTitle')}>
-            <TableHead>
-              <TableRow>
-                <TableHeader scope="col">{t('name')}</TableHeader>
-                <TableHeader scope="col">{t('situation')}</TableHeader>
-                <TableHeader scope="col">{t('description')}</TableHeader>
-                <TableHeader scope="col">{t('changedBy')}</TableHeader>
-                <TableHeader scope="col">{t('updatedAt')}</TableHeader>
-                <TableHeader scope="col">{t('actions')}</TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rules.map((rule) => (
-                <TableRow
-                  key={rule.id}
-                  className={editing?.id === rule.id ? 'is-selected' : undefined}
-                >
-                  <TableCell>{rule.name}</TableCell>
-                  <TableCell>
-                    <StatusText tone={rule.enabled ? 'green' : 'gray'}>
-                      {rule.enabled ? t('active') : t('disabledF')}
-                    </StatusText>
-                  </TableCell>
-                  <TableCell>{rule.description ?? '—'}</TableCell>
-                  <TableCell>{rule.updatedBy?.displayName ?? '—'}</TableCell>
-                  <TableCell>{fmtDate(rule.updatedAt)}</TableCell>
-                  <TableCell>
-                    <Button size="sm" kind="tertiary" onClick={() => startEdit(rule)}>
-                      {t('edit')}
-                    </Button>{' '}
-                    <Button size="sm" kind="tertiary" onClick={() => void toggle(rule)}>
-                      {rule.enabled ? t('disable') : t('enable')}
-                    </Button>{' '}
-                    <Button
-                      size="sm"
-                      kind="tertiary"
-                      disabled={retroRunning}
-                      title={retroRunning ? t('retroRunning') : t('retroHelp')}
-                      onClick={() => void startRetro(rule)}
-                    >
-                      {t('applyExistingEllipsis')}
-                    </Button>{' '}
-                    <Button
-                      size="sm"
-                      kind="danger--tertiary"
-                      aria-label={t('deleteRuleNamed', { name: rule.name })}
-                      onClick={() => void remove(rule)}
-                    >
-                      {t('delete')}
-                    </Button>
-                  </TableCell>
+        <>
+          <div className="dl-mt-lg">
+            <NeverFiredFilter
+              id="yara-never-fired"
+              days={days}
+              checked={effectiveness.neverOnly}
+              count={effectiveness.never}
+              onChange={effectiveness.setNeverOnly}
+            />
+          </div>
+          <TableContainer>
+            <Table size="xs" aria-label={t('yaraTitle')}>
+              <TableHead>
+                <TableRow>
+                  <TableHeader scope="col">{t('name')}</TableHeader>
+                  <TableHeader scope="col">{t('situation')}</TableHeader>
+                  <TableHeader scope="col">{t('description')}</TableHeader>
+                  <EffectivenessHeaders
+                    days={days}
+                    sort={effectiveness.sort}
+                    onSort={effectiveness.toggle}
+                  />
+                  <TableHeader scope="col">{t('changedBy')}</TableHeader>
+                  <TableHeader scope="col">{t('updatedAt')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {effectiveness.rows.map((rule) => (
+                  <TableRow
+                    key={rule.id}
+                    className={editing?.id === rule.id ? 'is-selected' : undefined}
+                  >
+                    <TableCell>{rule.name}</TableCell>
+                    <TableCell>
+                      <StatusText tone={rule.enabled ? 'green' : 'gray'}>
+                        {rule.enabled ? t('active') : t('disabledF')}
+                      </StatusText>
+                    </TableCell>
+                    <TableCell>{rule.description ?? '—'}</TableCell>
+                    <EffectivenessCells value={rule.effectiveness} />
+                    <TableCell>{rule.updatedBy?.displayName ?? '—'}</TableCell>
+                    <TableCell>{fmtDate(rule.updatedAt)}</TableCell>
+                    <TableCell>
+                      <Button size="sm" kind="tertiary" onClick={() => startEdit(rule)}>
+                        {t('edit')}
+                      </Button>{' '}
+                      <Button size="sm" kind="tertiary" onClick={() => void toggle(rule)}>
+                        {rule.enabled ? t('disable') : t('enable')}
+                      </Button>{' '}
+                      <Button
+                        size="sm"
+                        kind="tertiary"
+                        disabled={retroRunning}
+                        title={retroRunning ? t('retroRunning') : t('retroHelp')}
+                        onClick={() => void startRetro(rule)}
+                      >
+                        {t('applyExistingEllipsis')}
+                      </Button>{' '}
+                      <Button
+                        size="sm"
+                        kind="danger--tertiary"
+                        aria-label={t('deleteRuleNamed', { name: rule.name })}
+                        onClick={() => void remove(rule)}
+                      >
+                        {t('delete')}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
       )}
       <YaraPacksSection
         retroRunning={retroRunning}

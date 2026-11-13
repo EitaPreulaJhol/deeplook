@@ -427,6 +427,25 @@ export const messages = {
   kindDomain: ['Domínio', 'Domain'],
   sampleRuleName: ['Exemplo_Dropper', 'Example_Dropper'],
   sampleRuleDesc: ['Executável com a string do dropper', 'Executable with the dropper string'],
+  // Eficacia das regras (plano pos-revisao, item 2.3).
+  effFired: ['Disparos ({days} dias)', 'Fired ({days} days)'],
+  effFiredHelp: [
+    'Em quantas amostras a regra disparou nos últimos {days} dias.',
+    'How many samples the rule fired on in the last {days} days.',
+  ],
+  effClean: ['% em limpas', '% on clean'],
+  effCleanHelp: [
+    'Das amostras em que a regra disparou nos últimos {days} dias, quantas terminaram com o veredito Limpo.',
+    'Of the samples the rule fired on in the last {days} days, how many ended with a Clean verdict.',
+  ],
+  effNoisy: [
+    'Dispara muito em amostras que terminam limpas: talvez precise de ajuste.',
+    'Fires often on samples that end up clean: it may need tuning.',
+  ],
+  effNeverOnly: [
+    'Só as que não dispararam em {days} dias ({n})',
+    'Only those that did not fire in {days} days ({n})',
+  ],
 } as const satisfies Pairs;
 
 export const t = define(messages);

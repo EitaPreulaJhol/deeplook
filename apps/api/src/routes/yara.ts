@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { prisma } from '../lib/prisma';
+import { EFFECTIVENESS_DAYS, yaraEffectiveness } from '../lib/rule-effectiveness';
 import { sendValidationError } from '../lib/validation';
 import { validateRule, yaraScanEntry } from '../lib/yara';
 import { activeRulesWhere, rememberDeletedRule, yaraPackList } from '../lib/yara-packs';
@@ -73,12 +74,20 @@ export async function yaraRoutes(app: FastifyInstance) {
   app.get('/api/yara/rules', async (req, reply) => {
     const user = await requireAnalyst(req, reply);
     if (!user) return;
-    const rules = await prisma.yaraRule.findMany({
-      where: { pack: null },
-      orderBy: { name: 'asc' },
-      select: ruleSelect,
+    const [rules, stats] = await Promise.all([
+      prisma.yaraRule.findMany({
+        where: { pack: null },
+        orderBy: { name: 'asc' },
+        select: ruleSelect,
+      }),
+      yaraEffectiveness(),
+    ]);
+    // Eficacia (plano pos-revisao, item 2.3): disparos e quantos em amostra limpa.
+    const none = { fired: 0, clean: 0 };
+    return reply.send({
+      rules: rules.map((r) => ({ ...r, effectiveness: stats.get(r.name) ?? none })),
+      effectivenessDays: EFFECTIVENESS_DAYS,
     });
-    return reply.send({ rules });
   });
 
   // Pacotes de regras (item 143): o que existe e as regras de um deles, sem o texto.
@@ -106,7 +115,14 @@ export async function yaraRoutes(app: FastifyInstance) {
         select: { id: true, name: true, enabled: true, pack: true },
       }),
     ]);
-    return reply.send({ total, limit: PACK_RULES_LIMIT, rules });
+    const stats = await yaraEffectiveness();
+    const none = { fired: 0, clean: 0 };
+    return reply.send({
+      total,
+      limit: PACK_RULES_LIMIT,
+      rules: rules.map((r) => ({ ...r, effectiveness: stats.get(r.name) ?? none })),
+      effectivenessDays: EFFECTIVENESS_DAYS,
+    });
   });
 
   app.get('/api/yara/rules/:id', async (req, reply) => {
