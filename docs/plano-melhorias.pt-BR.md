@@ -62,7 +62,7 @@ funcionalidade de tela: é **robustez, automação e operação**.
 | 7.11 | Extração de configuração de famílias conhecidas (extratores maco/CAPE) | 🟡 | M–G | API / Compose | ⬜ |
 | 7.12 | Emulação com o Speakeasy (sequência de APIs sem VM) | ⚪ | M | API / Compose | ⬜ |
 | 7.13 | APK, JAR e Mach-O | ⚪ | M | API | ⬜ |
-| 7.14 | Office e PDF mais fundo (oletools, XLM 4.0) | ⚪ | P–M | API / Compose | ⬜ |
+| 7.14 | Office e PDF mais fundo (oletools, XLM 4.0) | ⚪ | P–M | API / Compose | ✅ |
 | 7.15 | Sugerir regra YARA a partir da amostra | ⚪ | M | API / Web | ⬜ |
 | 8.1 | Filas de análise e captura: o banco fora não derruba mais a API | 🔴 | P | API | ✅ |
 | 8.2 | Desempacotamento que falha no meio não duplica as filhas | 🟡 | P | API | ✅ |

@@ -49,6 +49,17 @@ updates:
     ignore:
       - dependency-name: playwright
 
+  # Office e PDF mais fundo (revisao de novembro, 3.2): o lockfile com hash do oletools.
+  - package-ecosystem: pip
+    directory: /apps/oletools
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      patches:
+        update-types: [minor, patch]
+
   # Analise de funcoes (item 7.2): o lockfile com hash do pip-compile (requirements.in). O capa
   # e o FLOSS sobem a mao: as regras e as assinaturas baixadas no Dockerfile (URL, hash e
   # CAPA_RULES_VERSION) tem de ser da mesma versao do capa, e um PR so do pip as deixaria para tras.
@@ -75,6 +86,7 @@ updates:
       - /apps/capa
       - /apps/ghidra
       - /apps/unpack
+      - /apps/oletools
     schedule:
       interval: weekly
       day: monday

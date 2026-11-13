@@ -3254,6 +3254,33 @@ li .dl-link {
   font-style: italic;
 }
 
+/* Documento (oletools): alertas, listas e o codigo das macros, recolhido. */
+.dl-office__alerts,
+.dl-office__list {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.dl-office__code {
+  margin-block-start: 0.5rem;
+
+  summary {
+    cursor: pointer;
+    font-size: 0.8125rem;
+  }
+
+  pre {
+    max-block-size: 24rem;
+    overflow: auto;
+    margin: 0.25rem 0 0;
+    padding: 0.5rem;
+    background: var(--dl-table-row-alt);
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
+
 /* Pontuacao de risco (ficha da amostra): motivos com o peso de cada um. */
 .dl-risk__note {
   margin: 0.5rem 0 0;

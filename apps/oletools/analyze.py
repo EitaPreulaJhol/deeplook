@@ -1,0 +1,194 @@
+"""Analise de um documento com o oletools (item 7.14; revisao de novembro, 3.2).
+
+Roda num processo filho do server.py, com tempo-limite: um documento malicioso pode travar um
+parser, e quem cai e este processo, nao o servidor. Le o arquivo do caminho dado e escreve um JSON
+na saida padrao. Nada do documento e executado: o oletools so le.
+
+  olevba   macros VBA (codigo, palavras-chave suspeitas, desofuscacao) e macros XLM 4.0
+  mraptor  o veredito do MacroRaptor: macro que executa ao abrir E grava ou executa algo
+  msodde   campos DDE (executam comandos sem macro)
+  oleid    os indicadores do arquivo (cifrado, macros, objetos externos, Flash)
+  rtfobj   objetos embutidos num RTF (o Equation Editor do CVE-2017-11882, por exemplo)
+"""
+
+import io
+import json
+import logging
+import os
+import sys
+from contextlib import redirect_stderr, redirect_stdout
+
+# Tetos do que sai: o resultado vai para o banco por amostra.
+MAX_CODE_PER_MODULE = 20_000
+MAX_CODE_TOTAL = 200_000
+MAX_MODULES = 50
+MAX_KEYWORDS = 200
+MAX_XLM_LINES = 300
+MAX_TEXT = 4000
+
+logging.disable(logging.CRITICAL)
+
+
+def text(value, limit=MAX_TEXT):
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", "replace")
+    return str(value)[:limit] if value is not None else None
+
+
+def run_quiet(fn, *args, **kwargs):
+    """O oletools imprime na tela: o que ele imprime nao pode misturar com o JSON."""
+    sink = io.StringIO()
+    with redirect_stdout(sink), redirect_stderr(sink):
+        return fn(*args, **kwargs)
+
+
+def vba_report(path, data):
+    from oletools import mraptor, olevba
+
+    out = {"macros": False, "xlm": False, "modules": [], "keywords": [], "xlmLines": [],
+           "stomping": False, "mraptor": None, "error": None}
+    parser = None
+    try:
+        parser = run_quiet(olevba.VBA_Parser, path, data=data)
+        out["macros"] = bool(run_quiet(parser.detect_vba_macros))
+        try:
+            out["xlm"] = bool(run_quiet(parser.detect_xlm_macros))
+        except Exception:  # noqa: BLE001 - so parte dos formatos tem XLM
+            out["xlm"] = False
+        if out["xlm"]:
+            lines = getattr(parser, "xlm_macros", []) or []
+            out["xlmLines"] = [text(line, 400) for line in lines[:MAX_XLM_LINES]]
+        if out["macros"]:
+            total = 0
+            code_all = []
+            for _filename, _stream, vba_filename, code in run_quiet(parser.extract_macros):
+                code = text(code, 10_000_000) or ""
+                code_all.append(code)
+                if len(out["modules"]) >= MAX_MODULES:
+                    continue
+                shown = code[: max(0, min(MAX_CODE_PER_MODULE, MAX_CODE_TOTAL - total))]
+                total += len(shown)
+                out["modules"].append({
+                    "name": text(vba_filename, 200),
+                    "lines": code.count("\n") + 1,
+                    "code": shown,
+                    "truncated": len(shown) < len(code),
+                })
+            try:
+                out["stomping"] = bool(run_quiet(parser.detect_vba_stomping))
+            except Exception:  # noqa: BLE001
+                out["stomping"] = False
+            raptor = mraptor.MacroRaptor("\n".join(code_all))
+            raptor.scan()
+            out["mraptor"] = {
+                "suspicious": bool(raptor.suspicious),
+                "autoexec": bool(raptor.autoexec),
+                "write": bool(raptor.write),
+                "execute": bool(raptor.execute),
+                "flags": text(raptor.get_flags(), 10),
+            }
+        if out["macros"] or out["xlm"]:
+            results = run_quiet(parser.analyze_macros, show_decoded_strings=True, deobfuscate=True) or []
+            seen = set()
+            for kind, keyword, description in results:
+                key = (kind, text(keyword, 300))
+                if key in seen:
+                    continue
+                seen.add(key)
+                out["keywords"].append({
+                    "type": text(kind, 40),
+                    "keyword": text(keyword, 300),
+                    "description": text(description, 300),
+                })
+                if len(out["keywords"]) >= MAX_KEYWORDS:
+                    break
+    except Exception as exc:  # noqa: BLE001 - falha vira campo legivel
+        # RTF nao tem VBA: o olevba recusa o arquivo, e quem o le e o rtfobj (abaixo).
+        if not data.lstrip()[:5].startswith(b"{\\rt"):
+            out["error"] = text(f"{type(exc).__name__}: {exc}", 300)
+    finally:
+        if parser is not None:
+            try:
+                parser.close()
+            except Exception:  # noqa: BLE001
+                pass
+    return out
+
+
+def dde_report(path):
+    from oletools import msodde
+
+    try:
+        found = run_quiet(msodde.process_maybe_encrypted, path)
+        found = text(found, MAX_TEXT) or ""
+        links = [line.strip() for line in found.splitlines() if line.strip()]
+        return {"links": links[:50], "error": None}
+    except Exception as exc:  # noqa: BLE001
+        return {"links": [], "error": text(f"{type(exc).__name__}: {exc}", 300)}
+
+
+def oleid_report(path):
+    from oletools import oleid
+
+    try:
+        checker = run_quiet(oleid.OleID, path)
+        indicators = run_quiet(checker.check) or []
+        return {
+            "indicators": [
+                {
+                    "id": text(i.id, 60),
+                    "name": text(i.name, 120),
+                    "value": text(i.value, 200),
+                    "risk": text(getattr(i, "risk", None), 20),
+                    "description": text(getattr(i, "description", None), 300),
+                }
+                for i in indicators[:40]
+            ],
+            "error": None,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"indicators": [], "error": text(f"{type(exc).__name__}: {exc}", 300)}
+
+
+def rtf_report(data):
+    from oletools import rtfobj
+
+    if not data.lstrip()[:5].startswith(b"{\\rt"):
+        return None
+    try:
+        parser = rtfobj.RtfObjParser(data)
+        run_quiet(parser.parse)
+        objects = []
+        for obj in parser.objects[:50]:
+            objects.append({
+                "ole": bool(obj.is_ole),
+                "package": bool(getattr(obj, "is_package", False)),
+                "className": text(getattr(obj, "class_name", None), 120),
+                "filename": text(getattr(obj, "filename", None), 200),
+                "size": int(getattr(obj, "oledata_size", 0) or 0),
+            })
+        return {"objects": objects, "error": None}
+    except Exception as exc:  # noqa: BLE001
+        return {"objects": [], "error": text(f"{type(exc).__name__}: {exc}", 300)}
+
+
+def main():
+    path = sys.argv[1]
+    with open(path, "rb") as f:
+        data = f.read()
+    from oletools import olevba
+
+    result = {
+        "ok": True,
+        "version": getattr(olevba, "__version__", None),
+        "vba": vba_report(path, data),
+        "dde": dde_report(path),
+        "oleid": oleid_report(path),
+        "rtf": rtf_report(data),
+    }
+    sys.stdout.write(json.dumps(result))
+
+
+if __name__ == "__main__":
+    os.environ.setdefault("HOME", "/tmp")
+    main()

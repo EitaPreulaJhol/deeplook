@@ -89,6 +89,7 @@ jobs:
           - { app: ghidra, dir: ghidra, dockerfile: Dockerfile }
           # Desempacotar e extrair (item 7.8): upx, 7-Zip, innoextract e pyinstxtractor.
           - { app: unpack, dir: unpack, dockerfile: Dockerfile }
+          - { app: oletools, dir: oletools, dockerfile: Dockerfile }
     steps:
       - uses: actions/checkout@v4
 

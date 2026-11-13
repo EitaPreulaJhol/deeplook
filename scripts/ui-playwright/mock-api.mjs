@@ -1031,6 +1031,14 @@ export async function setupMock(context, state) {
         if (!existing) state.yaraRules.push(rule);
         return json(route, existing ? 200 : 201, { rule, warnings: [] });
       }
+      // Documento (oletools): o roteiro define o que cada GET devolve (lista = sequencia).
+      const of = p.match(/^\/api\/entries\/(\w+)\/office$/);
+      if (of && req.method() === 'GET') {
+        const r = state.office?.[of[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { enabled: true, eligible: false, maxMb: 32, analysis: null });
+      }
+      if (of && req.method() === 'POST') return json(route, 202, { ok: true });
       // Pontuacao de risco: sem roteiro, nota 0 (a secao aparece com "nenhum sinal").
       const rk = p.match(/^\/api\/entries\/(\w+)\/risk$/);
       if (rk && req.method() === 'GET') {

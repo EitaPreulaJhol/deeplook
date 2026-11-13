@@ -96,6 +96,18 @@ export function scoreRisk(input: RiskInputs): RiskScore {
   else if (facts.macro) add('Documento', 'contém macros VBA', 15);
   else if (input.documentRisk === 'medium') add('Documento', 'documento de risco médio', 10);
   if (facts.lnk) add('Atalho', 'atalho (.lnk) com alertas', 25);
+  // oletools (revisao 3.2): o que o parser em TypeScript nao ve (MacroRaptor, XLM 4.0, stomping).
+  const office = facts.officeAlerts.filter((a) => a.level === 'high');
+  if (office.length) {
+    add(
+      'Documento (oletools)',
+      list(
+        office.map((a) => a.text.replace(/[.:].*$/, '')),
+        2,
+      ),
+      Math.min(30, office.length * 15),
+    );
+  }
 
   if (facts.lookalikes.length) {
     add('Domínio parecido', `imita ${list([...new Set(facts.lookalikes)])}`, 35);
@@ -190,6 +202,9 @@ export async function riskOf(entryId: string): Promise<RiskScore | null> {
     entry.capaAnalysis &&
       ['PENDING', 'RUNNING'].includes(entry.capaAnalysis.status) &&
       'análise de funções',
+    entry.officeAnalysis &&
+      ['PENDING', 'RUNNING'].includes(entry.officeAnalysis.status) &&
+      'análise do documento',
     reputation.some((r) => r.status === 'PENDING') && 'reputação externa',
   ].filter((name): name is string => Boolean(name));
   return scoreRisk({

@@ -83,6 +83,8 @@ export type Facts = {
   hiddenIocs: string[];
   /** Detect It Easy (item 7.9): tipo e o texto completo ("Packer: UPX(4.24)[NRV, brute]"). */
   die: { type: string; string: string }[];
+  /** Alertas do oletools (item 7.14; revisao 3.2): macros, XLM, DDE, objetos de RTF. */
+  officeAlerts: { level: string; text: string }[];
 };
 
 /** Sem acento e em minusculas: "assinatura" casa "Assinatura" e "não" casa "nao". */
@@ -185,6 +187,7 @@ export async function loadFacts(entryId: string) {
       lookalikeHits: { select: { companyDomain: true } },
       capaAnalysis: { select: { status: true, capa: true, attack: true, iocCandidates: true } },
       unpackJob: { select: { detections: true } },
+      officeAnalysis: { select: { status: true, alerts: true } },
     },
   });
   if (!entry) return null;
@@ -239,6 +242,10 @@ export async function loadFacts(entryId: string) {
       type: d.type,
       string: d.string,
     })),
+    officeAlerts:
+      entry.officeAnalysis?.status === 'DONE'
+        ? ((entry.officeAnalysis.alerts ?? []) as { level: string; text: string }[])
+        : [],
   };
 
   return { facts, entry };

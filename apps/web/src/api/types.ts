@@ -675,6 +675,53 @@ export interface AuditEvent {
   createdAt: string;
 }
 
+/** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
+export interface OfficeInfo {
+  enabled: boolean;
+  eligible: boolean;
+  maxMb: number;
+  analysis: {
+    status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    result: {
+      vba?: {
+        macros: boolean;
+        xlm: boolean;
+        stomping: boolean;
+        modules: { name: string | null; lines: number; code: string; truncated: boolean }[];
+        keywords: { type: string | null; keyword: string | null; description: string | null }[];
+        xlmLines: string[];
+        mraptor: {
+          suspicious: boolean;
+          autoexec: boolean;
+          write: boolean;
+          execute: boolean;
+          flags: string | null;
+        } | null;
+        error: string | null;
+      };
+      dde?: { links: string[]; error: string | null };
+      rtf?: {
+        objects: {
+          ole: boolean;
+          package: boolean;
+          className: string | null;
+          filename: string | null;
+          size: number;
+        }[];
+        error: string | null;
+      } | null;
+    } | null;
+    alerts: { level: 'high' | 'medium' | 'info'; text: string }[] | null;
+    error: string | null;
+    version: string | null;
+    ms: number | null;
+    attempts: number;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+  } | null;
+}
+
 /** Pontuacao de risco explicavel (GET /api/entries/:id/risk, so analistas). */
 export interface RiskInfo {
   risk: {

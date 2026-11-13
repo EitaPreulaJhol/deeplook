@@ -278,7 +278,18 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
   e e-mail só são contados (seguir já existe em Importar indicadores); no máximo 50 links novos
   por importação. A criação de amostra de link saiu da rota para `lib/entry-create.ts`, e o envio
   pela tela e a importação usam o mesmo caminho.
-- **3.2 e 3.7:** pendentes. **3.6** adiado pelo dono.
+- **3.2 ✅**: oletools num serviço novo (`apps/oletools`), no mesmo isolamento do capa (sem rede,
+  somente leitura, sem root, um contêiner por análise) e com a análise num processo filho com
+  tempo-limite. Fila persistida como a do capa; cada documento do Office ou RTF vai sozinho; a ficha
+  ganha a seção **Documento (oletools)**; os alertas altos entram na pontuação de risco; o status do
+  sistema ganha o componente. **Limite do teste:** sem o Office não deu para montar um `.doc` com
+  VBA aqui. O caminho das macros foi conferido de duas formas: rodando o `analyze.py` da imagem num
+  código VBA solto (MacroRaptor `A-X`, palavras-chave e desofuscação) e num SYLK com XLM 4.0, e, na
+  API, com um serviço falso. Com o contêiner real, o teste de integração cobre DOCX com DDE e RTF com
+  o objeto do Equation Editor. **Ação do dono:** defina `OLETOOLS_TOKEN` no `.env` antes de subir
+  esta versão; com o valor padrão a API se recusa a subir em produção (como os outros tokens).
+  **Achado no caminho:** o checklist de implantação não gerava o `DATA_KEY` da fase 1; agora gera.
+- **3.7:** pendente. **3.6** adiado pelo dono.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|

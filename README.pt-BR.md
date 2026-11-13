@@ -52,6 +52,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
   [Análise com o Ghidra](#análise-com-o-ghidra).
 - **unpack**: identifica os executáveis com o Detect It Easy e desempacota (UPX, instaladores,
   PyInstaller), no mesmo isolamento. Ver [Identificar e desempacotar](#identificar-e-desempacotar).
+- **oletools**: macros VBA e XLM 4.0, DDE e objetos de RTF dos documentos do Office, no mesmo
+  isolamento. Ver [Documentos do Office (oletools)](#documentos-do-office-oletools).
 - Porta publicada no host: **`127.0.0.1:8080`** (consumida pelo Cloudflare Tunnel).
 
 ---
@@ -69,7 +71,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 # 1) Configure as variáveis (senhas, segredo de sessão, admin)
 cp .env.example .env
 # edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
-# GHIDRA_TOKEN, UNPACK_TOKEN, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e S3_SECRET_KEY
+# GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e
+# S3_SECRET_KEY
 # (com SESSION_SECRET, um dos tokens ou a senha do banco ou do MinIO no valor padrão, a API não sobe)
 
 # 2) Suba tudo
@@ -552,6 +555,29 @@ erro, e nunca chega a ser usada.
   64 KB.
 - Criar, alterar e excluir regras fica na Auditoria.
 
+## Documentos do Office (oletools)
+
+Cada documento do Office (antigo ou novo) e cada RTF enviado vai, sozinho e em segundo plano, para
+o serviço **`oletools`**, que mostra na ficha a seção **Documento (oletools)**. Ela fica ao lado da
+análise de documentos que já existia (em TypeScript, no envio), e traz o que aquela não vê:
+
+- **macros VBA** com o código de cada módulo (recolhido) e as palavras-chave suspeitas, com a
+  **desofuscação** do olevba (Base64, hexadecimal, `StrReverse`, `Chr()`...);
+- o veredito do **MacroRaptor**: macro suspeita quando executa ao abrir **e** grava arquivos ou
+  executa programas;
+- **macros XLM 4.0** (Excel 4), que muito malware usa justamente porque escapam de quem só olha VBA,
+  e **VBA stomping** (o código-fonte não bate com o compilado);
+- **campos DDE**, que executam comandos sem macro;
+- **objetos de um RTF**, com destaque para o Equation Editor (CVE-2017-11882);
+- os indicadores do **oleid** (cifrado, macros, objetos externos).
+
+Os alertas altos entram na **pontuação de risco**. O serviço segue o isolamento do `capa`: sem
+rede nenhuma, raiz somente leitura, sem capacidades e sem root, um contêiner por análise, e a
+análise roda num processo filho com tempo-limite (`OLETOOLS_TIMEOUT_S`, padrão 120 s), então um
+documento que trave o parser derruba só aquele processo. **Nada do documento é executado.**
+Analistas pedem de novo pela seção. Defina `OLETOOLS_TOKEN` (16+ caracteres) no `.env`; com o
+valor padrão, a API não sobe em produção. `OLETOOLS_URL=` (vazio) desliga.
+
 ## Identificar e desempacotar
 
 Todo executável que chega (Windows, Linux, macOS, APK e JAR, até `UNPACK_MAX_MB`) passa pelo
@@ -1014,6 +1040,10 @@ COOKIE_SECURE=true
 | `UNPACK_TIMEOUT_S` | tempo máximo de um desempacotador, no serviço | `180` |
 | `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | quantos arquivos (de 1 a 100, o máximo que a API aceita numa resposta; fora disso o serviço ajusta e avisa no log) e quantos MB somados saem de uma amostra | `50` / `256` |
 | `UNPACK_MEM_LIMIT` / `UNPACK_RECYCLE` | memória do contêiner; um container novo a cada trabalho | `2g` / `true` |
+| `OLETOOLS_URL` | serviço de análise de documentos (oletools); vazio desliga | `http://oletools:3500` |
+| `OLETOOLS_TOKEN` | token compartilhado entre a API e o serviço `oletools` (16+ caracteres) | — |
+| `OLETOOLS_MAX_MB` | documentos maiores não vão para o oletools | `32` |
+| `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | teto de uma análise e memória do contêiner | `120` / `1g` |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV, fixada por tag e digest (como a do Postgres; `node scripts/pin-images.mjs` confere e `--write` atualiza) | `clamav/clamav:1.5@sha256:…` |
@@ -1021,7 +1051,7 @@ COOKIE_SECURE=true
 | `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.pt-BR.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN`/`OLETOOLS_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios em análise na memória. O envio vai para o disco enquanto chega e só entra na memória depois de inteiro; sem espaço, espera a vez por até 30 s e então responde 503 "tente de novo em instantes" | `600` |
 | `MAX_UPLOAD_SPOOL_MB` | soma dos envios que estão chegando, em disco (`/tmp` da API); acima, 503. Cada pessoa ocupa no máximo metade (além disso, 429) | `2048` |
@@ -1071,6 +1101,7 @@ deeplook/
 │  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
 │  ├─ ghidra/         # Ghidra headless (Java 25), scripts de exportação e o servidor, sem rede
 │  ├─ unpack/         # Detect It Easy e os desempacotadores (um plugin por arquivo em unpackers/)
+│  ├─ oletools/       # olevba, MacroRaptor, msodde, oleid e rtfobj (analyze.py num processo filho)
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)

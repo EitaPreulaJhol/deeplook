@@ -167,6 +167,10 @@ services:
       UNPACK_MAX_MB: ${UNPACK_MAX_MB:-64}
       # Acima do UNPACK_TIMEOUT_S do servico.
       UNPACK_REQUEST_TIMEOUT_S: ${UNPACK_REQUEST_TIMEOUT_S:-400}
+      # Office e PDF mais fundo (item 7.14): o servico oletools abaixo; OLETOOLS_URL= desliga.
+      OLETOOLS_URL: ${OLETOOLS_URL-http://oletools:3500}
+      OLETOOLS_TOKEN: ${OLETOOLS_TOKEN:-troque-este-token-do-oletools}
+      OLETOOLS_MAX_MB: ${OLETOOLS_MAX_MB:-32}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
@@ -367,6 +371,32 @@ services:
     tmpfs:
       - /tmp:size=1g,noexec,nosuid,nodev
     mem_limit: ${UNPACK_MEM_LIMIT:-2g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # Office e PDF mais fundo (item 7.14; revisao de novembro, 3.2): oletools (olevba, MacroRaptor,
+  # msodde, oleid, rtfobj). So le: nenhuma macro e executada. Mesmo isolamento do capa: sem rede,
+  # raiz somente leitura, sem capacidades e sem root, um container por analise.
+  oletools:
+    build:
+      context: ./apps/oletools
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      OLETOOLS_TOKEN: ${OLETOOLS_TOKEN:-troque-este-token-do-oletools}
+      OLETOOLS_MAX_MB: ${OLETOOLS_MAX_MB:-32}
+      OLETOOLS_TIMEOUT_S: ${OLETOOLS_TIMEOUT_S:-120}
+      OLETOOLS_RECYCLE: ${OLETOOLS_RECYCLE:-true}
+    # O documento fica no /tmp em memoria, sem executaveis.
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    mem_limit: ${OLETOOLS_MEM_LIMIT:-1g}
     pids_limit: 64
     cap_drop:
       - ALL

@@ -15,6 +15,7 @@ import { normalizeUrl, urlKey } from './ioc-normalize';
 import { notifyWatchers, sampleIndicators } from './ioc-watch';
 import { rememberUrls } from './iocs';
 import { scanLookalikesQuietly } from './lookalike';
+import { enqueueOletoolsIfEligible } from './oletools';
 import { relationHashes } from './pe-analysis';
 import { prisma } from './prisma';
 import { createWithinQuota, QuotaExceeded } from './quota';
@@ -144,6 +145,8 @@ export async function createFileEntry(
   yaraScanInBackground(entry.id, buffer, req.log);
   // Analise de funcoes (item 7.2): executavel do Windows ou do Linux vai para a fila do capa.
   await enqueueCapaIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
+  // Documento do Office ou RTF (item 7.14): oletools, em segundo plano.
+  await enqueueOletoolsIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Identificar (Detect It Easy, 7.9) e desempacotar (7.8): todo executavel vai para a fila, menos a
   // filha que o servico ja identificou e que nenhum desempacotador reconhece.
   if (input.identified && !input.identified.candidate) {

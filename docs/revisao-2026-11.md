@@ -279,7 +279,18 @@ It comes before the analysis features because tests and fuzzing protect what pha
   e-mails are only counted (following them already exists in Import indicators); at most 50 new
   links per import. Link sample creation moved from the route to `lib/entry-create.ts`, and
   submission from the screen and the import use the same path.
-- **3.2 and 3.7:** pending. **3.6** deferred by the owner.
+- **3.2 ✅**: oletools in a new service (`apps/oletools`), with capa's isolation (no network,
+  read-only, no root, one container per analysis) and the analysis in a child process with a time
+  limit. A persisted queue like capa's; every Office document or RTF goes by itself; the record gets
+  the **Documento (oletools)** section; high alerts count in the risk score; system status gets the
+  component. **Test limit:** without Office, a `.doc` with VBA could not be built here. The macro path
+  was checked two ways: running the image's `analyze.py` on loose VBA code (MacroRaptor `A-X`, keywords
+  and deobfuscation) and on a SYLK with XLM 4.0, and, in the API, with a fake service. With the real
+  container, the integration test covers a DOCX with DDE and an RTF with the Equation Editor object.
+  **Owner action:** set `OLETOOLS_TOKEN` in `.env` before bringing this version up; with the default
+  value the API refuses to start in production (like the other tokens). **Found along the way:** the
+  deployment checklist did not generate phase 1's `DATA_KEY`; now it does.
+- **3.7:** pending. **3.6** deferred by the owner.
 
 | # | Item | How | Size |
 |---|---|---|---|

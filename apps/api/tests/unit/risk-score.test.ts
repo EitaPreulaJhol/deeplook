@@ -29,6 +29,7 @@ const facts = (over: Partial<Facts> = {}): Facts => ({
   peAlerts: [],
   hiddenIocs: [],
   die: [],
+  officeAlerts: [],
   ...over,
 });
 const input = (over: Partial<Facts> = {}, rest: Partial<RiskInputs> = {}): RiskInputs => ({
@@ -205,6 +206,21 @@ test('limiares, ordem dos motivos e análises pendentes', () => {
     [60, 25, 10, -15],
   );
   assert.deepEqual(scoreRisk(input({}, { pending: ['antivírus'] })).pending, ['antivírus']);
+});
+
+test('oletools: alertas altos somam com teto, os demais não', () => {
+  const high = (text: string) => ({ level: 'high', text });
+  const one = scoreRisk(
+    input({
+      officeAlerts: [
+        high('Macro suspeita pelo MacroRaptor: executa ao abrir.'),
+        { level: 'medium', text: 'x' },
+      ],
+    }),
+  );
+  assert.equal(one.score, 15);
+  assert.equal(one.reasons[0].text, 'Macro suspeita pelo MacroRaptor', 'só o começo do alerta');
+  assert.equal(scoreRisk(input({ officeAlerts: [high('a'), high('b'), high('c')] })).score, 30);
 });
 
 test('a soma dos pesos mostrados é a nota (até os tetos de 0 e 100)', () => {

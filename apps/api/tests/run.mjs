@@ -19,6 +19,7 @@ const LDAP = 'dl-ldap';
 const CAPA = 'dl-capa';
 const GHIDRA = 'dl-ghidra';
 const UNPACK = 'dl-unpack';
+const OLETOOLS = 'dl-oletools';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -259,6 +260,18 @@ const startGhidra = () =>
     tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
   });
 
+const startOletools = () =>
+  startService({
+    name: OLETOOLS,
+    dir: 'oletools',
+    port: 53500,
+    inner: 3500,
+    env: 'OLETOOLS_TOKEN',
+    memory: '1g',
+    pids: 64,
+    tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
+  });
+
 const startUnpack = () =>
   startService({
     name: UNPACK,
@@ -353,6 +366,7 @@ if (files.some((f) => /^pe-|capa|ghidra|unpack/.test(f))) {
 if (files.some((f) => f.includes('capa'))) await startCapa();
 if (files.some((f) => f.includes('ghidra'))) await startGhidra();
 if (files.some((f) => f.includes('unpack'))) await startUnpack();
+if (files.some((f) => f.includes('oletools'))) await startOletools();
 
 let total = 0;
 const bad = [];
@@ -363,8 +377,8 @@ for (const file of files) {
   for (const line of failed) console.log(`      ${line}`);
   if (status !== 0 || failed.length) bad.push(file);
 }
-if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK);
-else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK);
+if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS);
+else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS);
 console.log(
   bad.length
     ? `\n${bad.length} arquivo(s) com falha: ${bad.join(', ')}`

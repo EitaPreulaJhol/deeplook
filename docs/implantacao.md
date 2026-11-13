@@ -41,8 +41,8 @@ Each step says **what to do**, **how to check it** and, when one already exists,
   ```
 - [ ] **Generate the secrets** (one per line; never reuse them across variables):
   ```bash
-  for v in POSTGRES_PASSWORD SESSION_SECRET CAPTURE_TOKEN CAPA_TOKEN GHIDRA_TOKEN UNPACK_TOKEN \
-    MINIO_ROOT_PASSWORD; do
+  for v in POSTGRES_PASSWORD SESSION_SECRET DATA_KEY CAPTURE_TOKEN CAPA_TOKEN GHIDRA_TOKEN \
+    UNPACK_TOKEN OLETOOLS_TOKEN MINIO_ROOT_PASSWORD; do
     echo "$v=$(openssl rand -hex 32)"; done
   ```
   `S3_SECRET_KEY` must be **equal** to `MINIO_ROOT_PASSWORD`. Also set `ADMIN_EMAIL` and your own

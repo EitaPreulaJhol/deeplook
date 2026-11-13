@@ -202,6 +202,17 @@ const EnvSchema = z
       .default(''),
     UNPACK_MAX_MB: z.coerce.number().int().min(1).max(200).default(64),
     UNPACK_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(400),
+    /**
+     * Office e PDF mais fundo (item 7.14; revisao de novembro, 3.2): servico oletools (olevba,
+     * MacroRaptor, msodde, oleid, rtfobj; sem rede) e o token compartilhado. Vazio = desligado.
+     */
+    OLETOOLS_URL: z.string().default(''),
+    OLETOOLS_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    OLETOOLS_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
+    OLETOOLS_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -265,6 +276,7 @@ const KNOWN_SECRETS = new Set([
   'troque-este-token-do-capa',
   'troque-este-token-do-ghidra',
   'troque-este-token-do-unpack',
+  'troque-este-token-do-oletools',
 ]);
 /**
  * Senhas do banco e do MinIO que o compose e o .env.example trazem: publicas tambem. Com elas,
@@ -293,6 +305,7 @@ const refused = [
   env.CAPA_URL && KNOWN_SECRETS.has(env.CAPA_TOKEN) && 'CAPA_TOKEN',
   env.GHIDRA_URL && KNOWN_SECRETS.has(env.GHIDRA_TOKEN) && 'GHIDRA_TOKEN',
   env.UNPACK_URL && KNOWN_SECRETS.has(env.UNPACK_TOKEN) && 'UNPACK_TOKEN',
+  env.OLETOOLS_URL && KNOWN_SECRETS.has(env.OLETOOLS_TOKEN) && 'OLETOOLS_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',
   PUBLIC_S3_SECRETS.includes(env.S3_SECRET_KEY) && 'S3_SECRET_KEY',
   // Igual ao SESSION_SECRET nao separa nada: quem tem um tem o outro.

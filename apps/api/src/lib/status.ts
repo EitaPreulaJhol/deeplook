@@ -16,6 +16,7 @@ import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { pendingRekey } from './data-key-rekey';
 import { ghidraEnabled } from './ghidra';
 import { ldapConfig, ldapProbe } from './ldap';
+import { oletoolsEnabled } from './oletools';
 import { captureEnabled } from './page-capture';
 import { prisma } from './prisma';
 import { pveTemplateExists, pveVersion } from './proxmox';
@@ -46,6 +47,7 @@ export interface StatusCheck {
     | 'yaraPacks'
     | 'integrity'
     | 'audit'
+    | 'oletools'
     | 'backup'
     | 'config';
   name: string;
@@ -577,6 +579,62 @@ async function capaCheck(): Promise<StatusCheck> {
   };
 }
 
+/** Office e PDF mais fundo (item 7.14): servico oletools, fila e analises em 24 h. */
+async function oletoolsCheck(): Promise<StatusCheck> {
+  const name = 'Documentos (oletools)';
+  if (!oletoolsEnabled()) {
+    return {
+      id: 'oletools',
+      name,
+      level: 'off',
+      summary: 'desligado (OLETOOLS_URL vazio)',
+      details: [],
+    };
+  }
+  const details = [{ label: 'Endereço', value: env.OLETOOLS_URL }];
+  const health = () =>
+    timed(async () => {
+      const res = await fetch(`${env.OLETOOLS_URL.replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+      return (await res.json()) as { state?: string; oletools?: string };
+    });
+  let probe = await health();
+  // Um container por analise: na troca o servico some por um instante (como no capa).
+  if (probe.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    probe = await health();
+  }
+  if (probe.error) {
+    return {
+      id: 'oletools',
+      name,
+      level: 'error',
+      summary: probe.error,
+      latencyMs: probe.ms,
+      details,
+    };
+  }
+  details.push({ label: 'Versão', value: `oletools ${probe.value?.oletools ?? '?'}` });
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [queued, done, failed] = await Promise.all([
+    prisma.officeAnalysis.count({ where: { status: { in: ['PENDING', 'RUNNING'] } } }),
+    prisma.officeAnalysis.count({ where: { finishedAt: { gt: since }, status: 'DONE' } }),
+    prisma.officeAnalysis.count({ where: { finishedAt: { gt: since }, status: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Na fila', value: String(queued) });
+  details.push({ label: 'Análises em 24 h', value: `${done} · ${failed} falha(s)` });
+  return {
+    id: 'oletools',
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: probe.value?.state === 'analisando' ? 'respondendo (analisando)' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
 /** Analise com o Ghidra (item 7.3): servico ghidra, fila e analises em 24 h. */
 async function ghidraCheck(): Promise<StatusCheck> {
   const name = 'Análise com o Ghidra';
@@ -881,6 +939,7 @@ export async function systemStatus() {
     capaCheck(),
     ghidraCheck(),
     unpackCheck(),
+    oletoolsCheck(),
     reputationCheck(),
     ldapCheck(),
     yaraPacksCheck(),

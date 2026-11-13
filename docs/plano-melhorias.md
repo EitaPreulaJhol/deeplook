@@ -62,7 +62,7 @@ functionality: it is **robustness, automation and operation**.
 | 7.11 | Configuration extraction from known families (maco/CAPE extractors) | 🟡 | M–G | API / Compose | ⬜ |
 | 7.12 | Emulation with Speakeasy (API sequence without a VM) | ⚪ | M | API / Compose | ⬜ |
 | 7.13 | APK, JAR and Mach-O | ⚪ | M | API | ⬜ |
-| 7.14 | Deeper Office and PDF (oletools, XLM 4.0) | ⚪ | P–M | API / Compose | ⬜ |
+| 7.14 | Deeper Office and PDF (oletools, XLM 4.0) | ⚪ | P–M | API / Compose | ✅ |
 | 7.15 | Suggest a YARA rule from the sample | ⚪ | M | API / Web | ⬜ |
 | 8.1 | Analysis and capture queues: a database outage no longer brings the API down | 🔴 | P | API | ✅ |
 | 8.2 | Unpacking that fails halfway no longer duplicates the children | 🟡 | P | API | ✅ |

@@ -20,6 +20,7 @@ import { backfillReportIocs } from './lib/iocs';
 import { startLdapSweep } from './lib/ldap-sweep';
 import { setLogger } from './lib/log';
 import { network } from './lib/network';
+import { startOletoolsQueue } from './lib/oletools';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { backfillPeAnalysis } from './lib/pe-backfill';
 import { prisma } from './lib/prisma';
@@ -63,6 +64,7 @@ import { kbRoutes } from './routes/kb';
 import { managementRoutes } from './routes/management';
 import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
+import { oletoolsRoutes } from './routes/oletools';
 import { openApiRoutes } from './routes/openapi';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
@@ -157,6 +159,8 @@ async function main() {
   await app.register(capaRoutes);
   await app.register(ghidraRoutes);
   await app.register(unpackRoutes);
+  // Office e PDF mais fundo (item 7.14).
+  await app.register(oletoolsRoutes);
   // Relatorio gerencial (item 77).
   await app.register(managementRoutes);
   // Importar indicadores (item 78).
@@ -276,6 +280,11 @@ async function main() {
 
   // Chave de dados: recifra com o DATA_KEY atual o 2FA que ainda esta sob outra chave.
   void startDataKeyRekey(app.log);
+
+  // Office e PDF mais fundo (item 7.14): fila do oletools, um documento por vez.
+  void startOletoolsQueue(app.log).catch((err) =>
+    app.log.error({ err }, '[oletools] fila não subiu'),
+  );
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

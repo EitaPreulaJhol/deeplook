@@ -207,6 +207,7 @@ model Entry {
   tlsh               String?
   /// Analise de funcoes (capa e FLOSS, item 7.2).
   capaAnalysis       CapaAnalysis?
+  officeAnalysis     OfficeAnalysis?
   /// Analise com o Ghidra, sob demanda (item 7.3).
   ghidraAnalysis     GhidraAnalysis?
   /// Desempacotar e extrair (item 7.8).
@@ -224,8 +225,8 @@ model Entry {
   emailInfo          Json?
   /// Anexo de um e-mail enviado (amostra pai = o .eml).
   parentEntryId      String?
-  parentEntry        Entry?    @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
-  attachmentsOf      Entry[]   @relation("EntryAttachments")
+  parentEntry        Entry?          @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  attachmentsOf      Entry[]         @relation("EntryAttachments")
   /// Arquivo apagado do armazenamento pela retencao (RETENTION_DAYS); ficha,
   /// relatorios, IOCs e hash continuam (src/lib/retention.ts).
   filePurgedAt       DateTime?
@@ -564,6 +565,36 @@ model CapaAnalysis {
   @@index([status, nextAttemptAt])
 }
 
+enum OfficeStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Office e PDF mais fundo (item 7.14; revisao de novembro, 3.2): o oletools no servico oletools,
+/// em segundo plano, um por vez. Uma por amostra; documentos OLE, OOXML e RTF.
+model OfficeAnalysis {
+  id            String       @id @default(cuid())
+  entryId       String       @unique
+  entry         Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status        OfficeStatus @default(PENDING)
+  /// O que o servico devolveu (apps/oletools/analyze.py): vba, dde, oleid, rtf.
+  result        Json?
+  /// Alertas montados aqui a partir do resultado ({ level, text }).
+  alerts        Json?
+  error         String?
+  version       String?
+  ms            Int?
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+}
+
 enum GhidraStatus {
   PENDING
   RUNNING
@@ -645,31 +676,31 @@ enum CaptureStatus {
 /// Captura da pagina de um link (item 80) pelo navegador isolado (servico capture):
 /// print e HTML no MinIO (captures/<amostra>/<id>.png | .html.txt).
 model PageCapture {
-  id            String        @id @default(cuid())
-  entryId       String
-  entry         Entry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  requestedById String?
-  requestedBy   User?         @relation(fields: [requestedById], references: [id], onDelete: SetNull)
-  status        CaptureStatus @default(PENDING)
+  id             String        @id @default(cuid())
+  entryId        String
+  entry          Entry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  requestedById  String?
+  requestedBy    User?         @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  status         CaptureStatus @default(PENDING)
   /// Endereco pedido (o da amostra no momento).
-  url           String
-  finalUrl      String?
-  title         String?
-  httpStatus    Int?
+  url            String
+  finalUrl       String?
+  title          String?
+  httpStatus     Int?
   /// [{ url, status }] do pedido inicial ao final.
-  redirects     Json?
+  redirects      Json?
   /// { subject, issuer, protocol, validFrom, validTo } (null = sem HTTPS).
-  certificate   Json?
+  certificate    Json?
   /// [{ host, reason }] do que o proxy recusou (rede interna, esquemas).
-  blocked       Json?
-  screenshotKey String?
+  blocked        Json?
+  screenshotKey  String?
   /// Hash perceptual do topo do print (lib/phash.ts); nulo nas antigas e nas paginas em branco.
   screenshotHash String?
-  htmlKey       String?
-  htmlTruncated Boolean       @default(false)
-  error         String?
-  createdAt     DateTime      @default(now())
-  finishedAt    DateTime?
+  htmlKey        String?
+  htmlTruncated  Boolean       @default(false)
+  error          String?
+  createdAt      DateTime      @default(now())
+  finishedAt     DateTime?
 
   @@index([entryId, createdAt])
   @@index([screenshotHash])

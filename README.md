@@ -52,6 +52,8 @@ validate the application with Strix. Thank you ❤️.
   [Ghidra analysis](#ghidra-analysis).
 - **unpack**: identifies the executables with Detect It Easy and unpacks them (UPX, installers,
   PyInstaller), with the same isolation. See [Identify and unpack](#identify-and-unpack).
+- **oletools**: VBA and XLM 4.0 macros, DDE and RTF objects in Office documents, with the same
+  isolation. See [Office documents (oletools)](#office-documents-oletools).
 - Port published on the host: **`127.0.0.1:8080`** (consumed by the Cloudflare Tunnel).
 
 ---
@@ -69,7 +71,8 @@ validate the application with Strix. Thank you ❤️.
 # 1) Configure the variables (passwords, session secret, admin)
 cp .env.example .env
 # edit .env, mainly: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
-# GHIDRA_TOKEN, UNPACK_TOKEN, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD and S3_SECRET_KEY
+# GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD and
+# S3_SECRET_KEY
 # (with SESSION_SECRET, one of the tokens, or the database or MinIO password at the default value, the API will not start)
 
 # 2) Bring everything up
@@ -548,6 +551,30 @@ service). A rule with a syntax error is refused immediately, with the line of th
   64 KB.
 - Creating, changing and deleting rules is recorded in the Audit log.
 
+## Office documents (oletools)
+
+Every Office document (old or new) and every RTF submitted goes, by itself and in the background, to
+the **`oletools`** service, which shows the **Documento (oletools)** section on the record. It sits next
+to the document analysis that already existed (in TypeScript, at submission) and brings what that one
+does not see:
+
+- **VBA macros** with each module's code (collapsed) and the suspicious keywords, with olevba's
+  **deobfuscation** (Base64, hex, `StrReverse`, `Chr()`...);
+- the **MacroRaptor** verdict: a macro is suspicious when it runs on open **and** writes files or runs
+  programs;
+- **XLM 4.0 macros** (Excel 4), used by a lot of malware precisely because they escape whoever only looks
+  at VBA, and **VBA stomping** (the source code does not match the compiled one);
+- **DDE fields**, which run commands without a macro;
+- **objects in an RTF**, highlighting the Equation Editor (CVE-2017-11882);
+- **oleid**'s indicators (encrypted, macros, external objects).
+
+High alerts count in the **risk score**. The service follows `capa`'s isolation: no network at all,
+read-only root, no capabilities and no root user, one container per analysis, and the analysis runs in a
+child process with a time limit (`OLETOOLS_TIMEOUT_S`, default 120 s), so a document that hangs the
+parser only brings down that process. **Nothing in the document is executed.** Analysts ask again from
+the section. Set `OLETOOLS_TOKEN` (16+ characters) in `.env`; with the default value, the API does not
+start in production. `OLETOOLS_URL=` (empty) turns it off.
+
 ## Identify and unpack
 
 Every executable that arrives (Windows, Linux, macOS, APK and JAR, up to `UNPACK_MAX_MB`) goes through the
@@ -1002,6 +1029,10 @@ COOKIE_SECURE=true
 | `UNPACK_TIMEOUT_S` | maximum time of an unpacker, in the service | `180` |
 | `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | how many files (from 1 to 100, the maximum the API accepts in one response; beyond that the service adjusts and warns in the log) and how many combined MB come out of a sample | `50` / `256` |
 | `UNPACK_MEM_LIMIT` / `UNPACK_RECYCLE` | container memory; a new container for each job | `2g` / `true` |
+| `OLETOOLS_URL` | document analysis service (oletools); empty turns it off | `http://oletools:3500` |
+| `OLETOOLS_TOKEN` | token shared between the API and the `oletools` service (16+ characters) | — |
+| `OLETOOLS_MAX_MB` | larger documents do not go to oletools | `32` |
+| `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | ceiling of one analysis and container memory | `120` / `1g` |
 | `CAPTURE_RECYCLE` | a new container for each capture; `false` goes back to the long-lived process, which serves queued captures without swapping | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | Chromium's own sandbox in the capture; `false` only as an emergency exit on a host without user namespaces | `true` |
 | `CLAMAV_IMAGE` | ClamAV container image, pinned by tag and digest (like the Postgres one; `node scripts/pin-images.mjs` checks and `--write` updates) | `clamav/clamav:1.5@sha256:…` |
@@ -1009,7 +1040,7 @@ COOKIE_SECURE=true
 | `CAPTURE_EGRESS_SUBNET` | Fixed subnet of the capture's outbound network (`capture-egress`), so the host can route it through a VPN with source-based routing (`docs/implantacao.md`, step 3). Changing it requires `docker compose down` before `up` | `172.31.252.0/24` |
 | `DEEPLOOK_SUBNET` | Fixed subnet of the internal `deeplook` network, the only one from which the API accepts connections and the client IP (becomes the API's `TRUSTED_NETWORK`). Change it only if it collides with another host network, and run `docker compose down` before `up` to recreate the network | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin seeded on the first boot; change the password on first access. With the default password, its login is refused in production | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: starts even with the default `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN`, with the default database or MinIO password, and accepts the admin login with the default password (local demonstration only) | `false` |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: starts even with the default `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN`/`OLETOOLS_TOKEN`, with the default database or MinIO password, and accepts the admin login with the default password (local demonstration only) | `false` |
 | `MAX_UPLOAD_MB` | Maximum upload size | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | sum of the uploads under analysis in memory. An upload goes to disk while it arrives and only enters memory once complete; with no room, it waits its turn for up to 30 s and then responds 503 "try again shortly" | `600` |
 | `MAX_UPLOAD_SPOOL_MB` | sum of the uploads still arriving, on disk (the API's `/tmp`); above it, 503. Each person takes at most half of it (beyond that, 429) | `2048` |
@@ -1059,6 +1090,7 @@ deeplook/
 │  ├─ capa/           # capa and FLOSS (Python) for function analysis, no network
 │  ├─ ghidra/         # Ghidra headless (Java 25), export scripts and the server, no network
 │  ├─ unpack/         # Detect It Easy and the unpackers (one plugin per file in unpackers/)
+│  ├─ oletools/       # olevba, MacroRaptor, msodde, oleid and rtfobj (analyze.py in a child process)
 │  ├─ capture/        # isolated browser that captures a link's page, and the egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # build server and /api proxy (the real configuration)

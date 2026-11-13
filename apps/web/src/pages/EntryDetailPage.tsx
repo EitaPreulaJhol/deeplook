@@ -47,6 +47,7 @@ import {
 } from '../components/icons';
 import { LookalikeWarning } from '../components/LookalikeWarning';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
+import { OfficeSection } from '../components/OfficeSection';
 import { PageCaptureSection } from '../components/PageCaptureSection';
 import { PageHeader } from '../components/PageHeader';
 import { RelationMap } from '../components/RelationMap';
@@ -805,6 +806,7 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && <UnpackSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <GhidraSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
+          {entry.type === 'FILE' && <OfficeSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <ScriptSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <LnkSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && (
