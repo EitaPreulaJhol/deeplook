@@ -1,12 +1,6 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
-import { reportRoutes } from '../../src/routes/reports';
 
 // Fluxo de revisao com pedidos ao mesmo tempo: editar x enviar, aprovar x devolver.
 let fails = 0;
@@ -18,10 +12,7 @@ const PASSWORD = 'Senha-Forte-123!';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, reportRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
 
   const passwordHash = await hashPassword(PASSWORD);

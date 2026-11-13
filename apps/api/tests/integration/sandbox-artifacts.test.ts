@@ -1,8 +1,3 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import websocket from '@fastify/websocket';
-import Fastify from 'fastify';
-
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
   if (!cond) fails++;
@@ -27,17 +22,13 @@ async function main() {
   const { artifactKeysOf, collectArtifacts, collectRunning } =
     await import('../../src/lib/sandbox-artifacts');
   const { dispose } = await import('../../src/lib/sandbox');
-  const { authRoutes } = await import('../../src/routes/auth');
-  const { sandboxRoutes } = await import('../../src/routes/sandbox');
   await ensureBucket(3, 500);
   pveMockReset();
 
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(websocket);
-  await app.register(authRoutes);
-  await app.register(sandboxRoutes);
+  const { buildApp } = await import('../../src/app');
+
+  const app = await buildApp();
+
   await app.ready();
 
   const passwordHash = await hashPassword('senha-123!');

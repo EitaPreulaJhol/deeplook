@@ -5,11 +5,8 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import {
@@ -23,10 +20,6 @@ import {
 import { prisma } from '../../src/lib/prisma';
 import { purgeExpiredFiles } from '../../src/lib/retention';
 import { ensureBucket, s3 } from '../../src/lib/s3';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { ghidraRoutes } from '../../src/routes/ghidra';
-import { trashRoutes } from '../../src/routes/trash';
 
 // Analise com o Ghidra (item 7.3) contra o servico de verdade (tests/run.mjs o sobe com o
 // endurecimento do compose e o restart que troca o container a cada analise), e contra um
@@ -137,11 +130,7 @@ async function main() {
   ghidraTiming.serviceWaitMs = 120_000;
   ghidraTiming.retryEveryMs = 500;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, ghidraRoutes, trashRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   for (const [email, role] of [
     ['ana@x.io', 'ANALYST'],

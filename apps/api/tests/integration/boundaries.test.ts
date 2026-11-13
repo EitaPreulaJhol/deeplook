@@ -1,21 +1,15 @@
 import { spawnSync } from 'node:child_process';
 
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { SESSION_COOKIE, sessionIdOf } from '../../src/lib/auth';
-import { CROSS_SITE_ERROR, installCrossSiteGuard } from '../../src/lib/cross-site';
+import { CROSS_SITE_ERROR } from '../../src/lib/cross-site';
 import { hashPassword } from '../../src/lib/crypto';
 import { networkPolicy } from '../../src/lib/network';
 import { prisma } from '../../src/lib/prisma';
 import { insecureDefaults } from '../../src/lib/status';
-import { authRoutes } from '../../src/routes/auth';
-import { meRoutes } from '../../src/routes/me';
-import { sandboxRoutes } from '../../src/routes/sandbox';
-import { sessionRoutes } from '../../src/routes/sessions';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -28,6 +22,7 @@ const SUBNET = '172.31.250.0/24';
 /** Fronteiras da API: de quem aceita conexao, de que site aceita pedido e o que o banco guarda. */
 async function main() {
   // 1. Rede confiavel (vuln-0008): so o nginx da rede deeplook informa o IP do cliente.
+  // Aqui e a politica de rede em si, com uma faixa de teste: um Fastify minimo, fora do buildApp().
   const policy = networkPolicy(SUBNET);
   const probe = Fastify({ trustProxy: policy.trustProxy });
   probe.get('/ip', async (req) => ({ ip: req.ip }));
@@ -67,7 +62,8 @@ async function main() {
     insecureDefaults(),
   );
 
-  // Conexao de verdade: fora da faixa, o socket cai antes de o HTTP ser lido.
+  // Conexao de verdade: fora da faixa, o socket cai antes de o HTTP ser lido (politica de teste,
+  // sem o loopback, num Fastify minimo).
   const served = async (value: string) => {
     const server = Fastify();
     server.get('/', async () => ({ ok: true }));
@@ -90,12 +86,9 @@ async function main() {
   ok('conexão de dentro da faixa atendida', accepted.res === 200, accepted);
 
   // 2. Pedido de outro site (CSRF), inclusive WebSocket.
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(websocket);
-  installCrossSiteGuard(app);
-  for (const r of [authRoutes, meRoutes, sessionRoutes, sandboxRoutes]) await app.register(r);
+  // O app da producao (src/app.ts), com a protecao instalada como no index.ts. trustProxy
+  // desligado: o injectWS simula a conexao sem socket (ver console-access.test.ts).
+  const app = await buildApp({ trustProxy: false });
   await app.ready();
 
   const passwordHash = await hashPassword(PASSWORD);
@@ -213,7 +206,8 @@ async function main() {
     logout.body,
   );
 
-  // 4. Sob HTTPS (COOKIE_SECURE=true), o cookie e __Host- com Secure e Path=/.
+  // 4. Sob HTTPS (COOKIE_SECURE=true), o cookie e __Host- com Secure e Path=/. Outro processo, porque
+  // o COOKIE_SECURE e lido ao importar o env; so o cookie interessa, num Fastify minimo.
   const child = spawnSync(
     process.execPath,
     [

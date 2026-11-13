@@ -1,19 +1,9 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
 import { resetStatusCache } from '../../src/lib/status';
-import { adminRoutes } from '../../src/routes/admin';
-import { apiTokenRoutes } from '../../src/routes/api-tokens';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { statusRoutes } from '../../src/routes/status';
 
 // Item 3.2: status do sistema por maquina, com token de escopo STATUS (so admin cria, e o
 // token so alcanca GET /api/status).
@@ -36,13 +26,7 @@ interface StatusBody {
 
 async function main() {
   await ensureBucket(3, 500);
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, apiTokenRoutes, statusRoutes, entryRoutes, adminRoutes]) {
-    await app.register(r);
-  }
+  const app = await buildApp();
   await app.ready();
 
   const ids: Record<string, string> = {};

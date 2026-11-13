@@ -1,17 +1,10 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { allowedBy, loadAllowlist } from '../../src/lib/allowlist';
 import { hashPassword } from '../../src/lib/crypto';
 import { syncReportIocs } from '../../src/lib/iocs';
 import { matchLookalike, rescanAllLookalikes } from '../../src/lib/lookalike';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
 import * as cd from '../../src/routes/company-domains';
-import { entryRoutes } from '../../src/routes/entries';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -68,11 +61,7 @@ async function main() {
   ok('nome curto não vira "palavra a mais"', matchLookalike('itaueira.com', ['ita.com']) === null);
 
   // 2. API.
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, cd.companyDomainRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const ids: Record<string, string> = {};
   for (const [email, role] of [

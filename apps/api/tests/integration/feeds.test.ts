@@ -2,20 +2,13 @@ import { execFile } from 'node:child_process';
 import type { AddressInfo } from 'node:net';
 import { promisify } from 'node:util';
 
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { invalidateAllowlist } from '../../src/lib/allowlist';
 import { hashPassword } from '../../src/lib/crypto';
 import { resetFeedCache } from '../../src/lib/indicator-feed';
 import { iocsStix, stixIndicatorId, uuidV5 } from '../../src/lib/ioc-export';
 import { prisma } from '../../src/lib/prisma';
-import { apiTokenRoutes } from '../../src/routes/api-tokens';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { COLLECTION_ID, feedRoutes } from '../../src/routes/feeds';
+import { COLLECTION_ID } from '../../src/routes/feeds';
 
 // Feed de indicadores (item 5.3): TAXII 2.1 e feed MISP, so de amostras maliciosas e suspeitas,
 // sem a lista de permitidos e sem os dominios da empresa.
@@ -36,10 +29,7 @@ interface Envelope {
 }
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, apiTokenRoutes, entryRoutes, feedRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
 
   const ids: Record<string, string> = {};

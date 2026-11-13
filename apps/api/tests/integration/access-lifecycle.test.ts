@@ -1,18 +1,8 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
-import { adminRoutes } from '../../src/routes/admin';
-import { apiTokenRoutes } from '../../src/routes/api-tokens';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { sandboxRoutes } from '../../src/routes/sandbox';
-import { settingsRoutes } from '../../src/routes/settings';
 
 // Quem ve o que, e o que muda quando a conta perde acesso; cota com envios simultaneos.
 let fails = 0;
@@ -26,20 +16,7 @@ async function main() {
   env.CLAMAV_HOST = '';
   env.UPLOAD_DAILY_LIMIT = 20;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [
-    authRoutes,
-    adminRoutes,
-    apiTokenRoutes,
-    settingsRoutes,
-    entryRoutes,
-    sandboxRoutes,
-  ]) {
-    await app.register(r);
-  }
+  const app = await buildApp();
   await app.ready();
 
   const ids: Record<string, string> = {};

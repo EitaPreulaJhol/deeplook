@@ -1,7 +1,5 @@
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { ensureBucket } from '../../src/lib/s3';
-import { healthRoutes } from '../../src/routes/health';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -16,8 +14,7 @@ interface Ready {
 
 async function main() {
   await ensureBucket();
-  const app = Fastify();
-  await app.register(healthRoutes);
+  const app = await buildApp();
   await app.ready();
 
   // 1. Liveness: responde sem tocar em dependencia nenhuma.

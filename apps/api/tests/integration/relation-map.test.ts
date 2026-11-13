@@ -1,13 +1,8 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { invalidateAllowlist } from '../../src/lib/allowlist';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
-import { GRAPH_LIMITS, graphRoutes } from '../../src/routes/graph';
+import { GRAPH_LIMITS } from '../../src/routes/graph';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -24,10 +19,7 @@ type G = {
 };
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, graphRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const ids: Record<string, string> = {};
   for (const [email, role] of [

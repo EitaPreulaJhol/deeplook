@@ -2,10 +2,8 @@ import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
@@ -15,9 +13,6 @@ import { scanContextOf, scanWithYara } from '../../src/lib/yara';
 import { installYaraPacks, loadPackState, packRulesDir, yaraPacks } from '../../src/lib/yara-packs';
 import { checkYaraPack, configurePackSource, runDuePackChecks } from '../../src/lib/yara-update';
 import { ZipWriter } from '../../src/lib/zip-writer';
-import { authRoutes } from '../../src/routes/auth';
-import { settingsRoutes } from '../../src/routes/settings';
-import { yaraRoutes } from '../../src/routes/yara';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -60,10 +55,7 @@ const SHA = (n: number) => String(n).repeat(40).slice(0, 40);
 async function main() {
   env.CLAMAV_HOST = '';
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, settingsRoutes, yaraRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const owner = await prisma.user.create({
     data: {

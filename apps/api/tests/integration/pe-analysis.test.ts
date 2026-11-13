@@ -2,11 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import type { Prisma } from '../../src/generated/prisma/client';
 import { hashPassword } from '../../src/lib/crypto';
@@ -15,9 +11,6 @@ import { backfillPeAnalysis } from '../../src/lib/pe-backfill';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { relatedRoutes } from '../../src/routes/related';
 
 // Analise de PE (item 7.1) contra executaveis reais (mingw-w64, mcs, upx, osslsigncode) e o
 // gabarito do pefile, do dnfile e do osslsigncode, gerados por tests/fixtures/pe/gen.sh.
@@ -493,11 +486,7 @@ async function main() {
   env.CLAMAV_HOST = '';
   env.UPLOAD_DAILY_LIMIT = 0;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, relatedRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   await prisma.user.create({
     data: {

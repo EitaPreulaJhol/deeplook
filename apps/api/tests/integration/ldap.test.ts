@@ -1,11 +1,8 @@
 import { execFileSync } from 'node:child_process';
 
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
 import { InsufficientAccessError, NoSuchObjectError } from 'ldapts';
 
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
 import {
@@ -18,9 +15,6 @@ import {
 import { sweepLdapAccounts } from '../../src/lib/ldap-sweep';
 import { prisma } from '../../src/lib/prisma';
 import { systemStatus } from '../../src/lib/status';
-import { adminRoutes } from '../../src/routes/admin';
-import { authRoutes } from '../../src/routes/auth';
-import { meRoutes } from '../../src/routes/me';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -43,10 +37,7 @@ const base: Partial<LdapConfig> = {
 };
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, meRoutes, adminRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   // Grupo de analistas so com quem for pedido (o teste pode rodar de novo).
   const setAnalysts = (uid: string) =>

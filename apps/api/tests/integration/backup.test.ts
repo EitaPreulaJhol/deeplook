@@ -14,10 +14,8 @@ import {
 import { join } from 'node:path';
 
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import {
   BACKUP_DIR_MARKER,
@@ -42,7 +40,6 @@ import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
 import { backupCheck } from '../../src/lib/status';
-import { authRoutes } from '../../src/routes/auth';
 import * as routes from '../../src/routes/backups';
 
 let fails = 0;
@@ -60,10 +57,7 @@ async function main() {
     command: ['docker', 'exec', '-i', 'dl-shadow-pg', 'pg_dump'],
     databaseUrl: `postgresql://postgres:pg@localhost:5432/${DB}`,
   });
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, routes.backupRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   for (const [email, role] of [
     ['adm@x.io', 'ADMIN'],

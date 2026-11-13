@@ -1,18 +1,13 @@
 import { randomBytes } from 'node:crypto';
 
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
 import { extractZipEntry, listZip } from '../../src/lib/zip';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
 
 // Item 4.2: o download confere o SHA-256 e o tamanho enquanto os bytes passam.
 
@@ -26,11 +21,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   await ensureBucket(3, 500);
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
 
   const ids: Record<string, string> = {};

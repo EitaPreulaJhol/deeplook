@@ -4,11 +4,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import {
   capaEligible,
@@ -22,9 +18,6 @@ import {
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
-import { authRoutes } from '../../src/routes/auth';
-import { capaRoutes } from '../../src/routes/capa';
-import { entryRoutes } from '../../src/routes/entries';
 
 // Analise de funcoes (item 7.2) contra o servico capa de verdade (tests/run.mjs o sobe com o
 // endurecimento do compose e o restart que troca o container a cada analise), e contra um
@@ -142,11 +135,7 @@ async function main() {
   capaTiming.serviceWaitMs = 90_000;
   capaTiming.retryEveryMs = 500;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, capaRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   for (const [email, role] of [
     ['ana@x.io', 'ANALYST'],

@@ -1,18 +1,9 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
-import { TRUST_PROXY } from '../../src/lib/auth';
 import { createCaptcha } from '../../src/lib/captcha';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { insecureDefaults } from '../../src/lib/status';
-import { assignmentRoutes } from '../../src/routes/assignment';
-import { authRoutes } from '../../src/routes/auth';
-import { broadcastRoutes } from '../../src/routes/broadcasts';
-import { companyDomainRoutes } from '../../src/routes/company-domains';
-import { triageRuleRoutes } from '../../src/routes/triage-rules';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -22,18 +13,7 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
 const PASSWORD = 'Senha-Forte-123!';
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [
-    authRoutes,
-    assignmentRoutes,
-    broadcastRoutes,
-    companyDomainRoutes,
-    triageRuleRoutes,
-  ]) {
-    await app.register(r);
-  }
+  const app = await buildApp();
   await app.ready();
   const hash = await hashPassword(PASSWORD);
   const mk = (email: string, data: Record<string, unknown> = {}) =>
@@ -49,8 +29,12 @@ async function main() {
     });
 
   // 1. Quem o IP do cliente pode informar (item 112).
-  const probe = Fastify({ trustProxy: TRUST_PROXY });
-  probe.get('/ip', async (req) => ({ ip: req.ip }));
+  // O app da producao (src/app.ts), com o trustProxy que ele usa, e uma rota que so devolve o IP.
+  const probe = await buildApp({
+    beforeRoutes: (a) => {
+      a.get('/ip', async (req) => ({ ip: req.ip }));
+    },
+  });
   await probe.ready();
   const seen = async (remoteAddress: string, forwarded: string) =>
     (

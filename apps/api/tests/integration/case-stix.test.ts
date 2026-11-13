@@ -1,13 +1,7 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashPassword } from '../../src/lib/crypto';
 import { normalizeUrl, urlKey } from '../../src/lib/ioc-normalize';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
-import { caseRoutes } from '../../src/routes/cases';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -20,11 +14,7 @@ type Obj = { type: string; id: string; [key: string]: unknown };
 // Pacote STIX 2.1 do caso (revisao de novembro, 3.5): exportar o caso inteiro e importar o pacote
 // de outro DeepLook num caso. A ida e a volta usam o mesmo formato.
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(authRoutes);
-  await app.register(caseRoutes);
+  const app = await buildApp();
   await app.ready();
 
   const passwordHash = await hashPassword('senha-123!');

@@ -3,11 +3,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import type { Prisma } from '../../src/generated/prisma/client';
 import { capaIdle, capaTiming, stopCapaQueue } from '../../src/lib/capa';
@@ -15,9 +11,6 @@ import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { applyTriageRules } from '../../src/lib/triage-rules';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { triageRuleRoutes } from '../../src/routes/triage-rules';
 
 // Regras de triagem com os sinais da analise do executavel (7.1) e de funcoes (7.2): item 7.4.
 // As do PE valem na chegada (a analise estatica roda antes); as do capa, quando ela conclui.
@@ -88,11 +81,7 @@ async function main() {
   capaTiming.serviceWaitMs = 10_000;
   capaTiming.retryEveryMs = 200;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, triageRuleRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   await prisma.user.create({
     data: {

@@ -2,11 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { crc32, deflateRawSync } from 'node:zlib';
 
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import {
@@ -19,9 +15,6 @@ import {
 import { prisma } from '../../src/lib/prisma';
 import { riskOf } from '../../src/lib/risk-score';
 import { ensureBucket } from '../../src/lib/s3';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { oletoolsRoutes } from '../../src/routes/oletools';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -117,13 +110,7 @@ async function main() {
   env.OLETOOLS_URL = REAL;
   env.OLETOOLS_TOKEN = TOKEN;
   Object.assign(oletoolsTiming, { serviceWaitMs: 30_000, retryEveryMs: 300, retryAfterMs: 0 });
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, {
-    limits: { fileSize: env.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
-  });
-  for (const r of [authRoutes, entryRoutes, oletoolsRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const log = { info: () => undefined, error: (o: object, m: string) => console.log('LOG', m, o) };
   await startOletoolsQueue(log);

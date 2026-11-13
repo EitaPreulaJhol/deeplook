@@ -1,8 +1,6 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { createSession } from '../../src/lib/auth';
 import { hashPassword } from '../../src/lib/crypto';
@@ -15,9 +13,6 @@ import {
   hotp,
   newSecret,
 } from '../../src/lib/two-factor';
-import { adminRoutes } from '../../src/routes/admin';
-import { authRoutes } from '../../src/routes/auth';
-import { meRoutes } from '../../src/routes/me';
 import { checkSecondFactor } from '../../src/routes/two-factor';
 
 let fails = 0;
@@ -29,10 +24,7 @@ const PASSWORD = 'Senha-Forte-123!';
 const NEW_PASSWORD = 'Outra-Senha-Forte-456!';
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, meRoutes, adminRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
 
   const mkUser = (email: string, data: Record<string, unknown> = {}) =>

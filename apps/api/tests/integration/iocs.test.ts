@@ -1,10 +1,6 @@
 import { Writable } from 'node:stream';
 
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { allowedBy, invalidateAllowlist, loadAllowlist } from '../../src/lib/allowlist';
 import { hashPassword } from '../../src/lib/crypto';
@@ -12,15 +8,10 @@ import { urlKey } from '../../src/lib/ioc-normalize';
 import { reindexIocs } from '../../src/lib/ioc-reindex';
 import { extractIocs, syncReportIocs } from '../../src/lib/iocs';
 import { prisma } from '../../src/lib/prisma';
-import { requestLogSerializer } from '../../src/lib/request-log';
 import { ensureBucket } from '../../src/lib/s3';
 import { setOwnSamplesOnly } from '../../src/lib/settings';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
-import { allowlistRoutes } from '../../src/routes/allowlist';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes, URL_MAX } from '../../src/routes/entries';
-import { iocImportRoutes } from '../../src/routes/ioc-import';
-import { iocRoutes } from '../../src/routes/iocs';
+import { URL_MAX } from '../../src/routes/entries';
 import { findRelated } from '../../src/routes/related';
 
 let fails = 0;
@@ -33,12 +24,7 @@ async function main() {
   env.CLAMAV_HOST = '';
   env.UPLOAD_DAILY_LIMIT = 0;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, iocRoutes, allowlistRoutes, iocImportRoutes])
-    await app.register(r);
+  const app = await buildApp();
   await app.ready();
 
   for (const [email, role] of [
@@ -96,10 +82,10 @@ async function main() {
 
   // 3. Log sem a query string (item 163).
   const lines: string[] = [];
-  const logged = Fastify({
+  // O app da producao (src/app.ts) com o log ligado, como o index.ts o monta.
+  const logged = await buildApp({
     logger: {
       level: 'info',
-      serializers: { req: requestLogSerializer },
       stream: new Writable({
         write(chunk, _enc, done) {
           lines.push(String(chunk));
@@ -108,7 +94,6 @@ async function main() {
       }),
     },
   });
-  logged.get('/api/search', async () => ({ ok: true }));
   await logged.inject({ method: 'GET', url: '/api/search?q=token-da-vitima' });
   await logged.close();
   const all = lines.join('');

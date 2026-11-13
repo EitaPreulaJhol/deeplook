@@ -1435,7 +1435,9 @@ node scripts/trivy.mjs image deeplook-api   # CVE in an image (the same command 
   It also uses the executables and images the integration tests generate in `tests/.tmp`, if present.
   It is not coverage-guided: it finds the shallow error in headers and tables, not the one that needs a
   wholly valid file.
-- **Integration** (`apps/api/tests/integration`): each file runs on a new database. The disk images
+- **Integration** (`apps/api/tests/integration`): each file runs on a new database, with the same app
+  as production (`buildApp()`, in `apps/api/src/app.ts`: every route, the error handler, the 404,
+  the error language and the cross-site request guard). The disk images
   and the certificates are generated on the spot, in `tests/.tmp`. `--clean` removes the
   containers when finished.
   The `pe-analysis` executables are compiled on Debian (mingw-w64, mcs, upx, osslsigncode)

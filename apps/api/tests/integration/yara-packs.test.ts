@@ -1,18 +1,10 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { scanContextOf, scanWithYara } from '../../src/lib/yara';
 import { installYaraPacks, yaraPacks } from '../../src/lib/yara-packs';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { settingsRoutes } from '../../src/routes/settings';
-import { yaraRoutes } from '../../src/routes/yara';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -31,11 +23,7 @@ async function main() {
   env.CLAMAV_HOST = '';
   env.UPLOAD_DAILY_LIMIT = 0;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, yaraRoutes, settingsRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   for (const [email, role] of [
     ['adm@x.io', 'ADMIN'],

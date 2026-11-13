@@ -6,11 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { crc32 } from 'node:zlib';
 
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { unpackChildCreator } from '../../src/lib/entry-create';
@@ -25,9 +21,6 @@ import {
   unpackIdle,
   unpackTiming,
 } from '../../src/lib/unpack';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { unpackRoutes } from '../../src/routes/unpack';
 
 // Desempacotar e extrair (item 7.8) contra o servico de verdade (tests/run.mjs o sobe com o
 // endurecimento do compose, o restart que troca o container a cada trabalho e o teto de 10
@@ -136,11 +129,7 @@ async function main() {
   unpackTiming.serviceWaitMs = 90_000;
   unpackTiming.retryEveryMs = 500;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 16 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, unpackRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   await startUnpackQueue(app.log, unpackChildCreator(app.log));
   for (const [email, role] of [

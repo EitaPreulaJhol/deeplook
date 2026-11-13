@@ -1454,7 +1454,9 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
   executáveis e imagens que os testes de integração geram em `tests/.tmp`, se existirem. Não é
   guiado por cobertura: acha o erro raso em cabeçalhos e tabelas, não o que exige um arquivo
   válido por inteiro.
-- **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo. As imagens
+- **Integração** (`apps/api/tests/integration`): cada arquivo roda num banco novo, com o mesmo app
+  da produção (`buildApp()`, em `apps/api/src/app.ts`: todas as rotas, o tratador de erro, o 404, o
+  idioma dos erros e a proteção contra pedido de outro site). As imagens
   de disco e os certificados são gerados na hora, em `tests/.tmp`. `--clean` remove os
   containers ao terminar.
   Os executáveis do `pe-analysis` são compilados num Debian (mingw-w64, mcs, upx, osslsigncode)

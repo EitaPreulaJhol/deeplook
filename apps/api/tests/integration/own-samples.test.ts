@@ -1,38 +1,12 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { urlKey } from '../../src/lib/ioc-normalize';
 import { rememberUrls } from '../../src/lib/iocs';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
-import { adminRoutes } from '../../src/routes/admin';
-import { antivirusRoutes } from '../../src/routes/antivirus';
-import { apiTokenRoutes } from '../../src/routes/api-tokens';
-import { authRoutes } from '../../src/routes/auth';
-import { captureRoutes } from '../../src/routes/captures';
-import { caseRoutes } from '../../src/routes/cases';
-import { duplicateRoutes } from '../../src/routes/duplicates';
-import { entryRoutes } from '../../src/routes/entries';
-import { evidenceRoutes } from '../../src/routes/evidence';
-import { favoritesRoutes } from '../../src/routes/favorites';
-import { graphRoutes } from '../../src/routes/graph';
-import { hexRoutes } from '../../src/routes/hex';
-import { iocRoutes } from '../../src/routes/iocs';
-import { kbRoutes } from '../../src/routes/kb';
-import { notificationRoutes } from '../../src/routes/notifications';
-import { relatedRoutes } from '../../src/routes/related';
-import { reportRoutes } from '../../src/routes/reports';
-import { reputationRoutes } from '../../src/routes/reputation';
-import { sandboxRoutes } from '../../src/routes/sandbox';
-import { searchRoutes } from '../../src/routes/search';
-import { settingsRoutes } from '../../src/routes/settings';
-import { trashRoutes } from '../../src/routes/trash';
-import { yaraRoutes } from '../../src/routes/yara';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -44,45 +18,20 @@ async function main() {
   env.CLAMAV_HOST = '';
   env.UPLOAD_DAILY_LIMIT = 0;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  // Toda rota de uma amostra entra na varredura, inclusive as que ainda vao existir.
+  // Toda rota de uma amostra entra na varredura, inclusive as que ainda vao existir: o app e o da
+  // producao (src/app.ts), com todas as rotas.
   const entryRouteList: { method: string; url: string }[] = [];
-  app.addHook('onRoute', (r) => {
-    if (!r.url.startsWith('/api/entries/:id')) return;
-    for (const method of [r.method].flat()) {
-      if (method !== 'HEAD' && method !== 'OPTIONS') entryRouteList.push({ method, url: r.url });
-    }
+  const app = await buildApp({
+    beforeRoutes: (a) => {
+      a.addHook('onRoute', (r) => {
+        if (!r.url.startsWith('/api/entries/:id')) return;
+        for (const method of [r.method].flat()) {
+          if (method !== 'HEAD' && method !== 'OPTIONS')
+            entryRouteList.push({ method, url: r.url });
+        }
+      });
+    },
   });
-  for (const r of [
-    authRoutes,
-    adminRoutes,
-    settingsRoutes,
-    entryRoutes,
-    antivirusRoutes,
-    apiTokenRoutes,
-    captureRoutes,
-    caseRoutes,
-    duplicateRoutes,
-    evidenceRoutes,
-    favoritesRoutes,
-    graphRoutes,
-    hexRoutes,
-    iocRoutes,
-    kbRoutes,
-    notificationRoutes,
-    relatedRoutes,
-    reportRoutes,
-    reputationRoutes,
-    sandboxRoutes,
-    searchRoutes,
-    trashRoutes,
-    yaraRoutes,
-  ]) {
-    await app.register(r);
-  }
   await app.ready();
 
   const ids: Record<string, string> = {};

@@ -1,16 +1,8 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { ALLOWED_ROUTES, hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
 import { documentedRoutes } from '../../src/lib/openapi';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { openApiRoutes } from '../../src/routes/openapi';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -19,11 +11,7 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
 };
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, openApiRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const u = await prisma.user.create({
     data: {

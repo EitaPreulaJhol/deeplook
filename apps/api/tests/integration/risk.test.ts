@@ -1,12 +1,6 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
-import { riskRoutes } from '../../src/routes/risk';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -16,11 +10,7 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
 
 // Pontuacao de risco (item 7.5): a rota junta o que as analises gravaram na amostra.
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(authRoutes);
-  await app.register(riskRoutes);
+  const app = await buildApp();
   await app.ready();
 
   const passwordHash = await hashPassword('senha-123!');

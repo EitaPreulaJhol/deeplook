@@ -1,14 +1,7 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import websocket from '@fastify/websocket';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { FailureWindow } from '../../src/lib/rate-limit';
-import { authRoutes } from '../../src/routes/auth';
-import { sandboxRoutes } from '../../src/routes/sandbox';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -18,12 +11,9 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
 
 // O WebSocket do console autentica por conta propria, fora do requireUser.
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(websocket);
-  await app.register(authRoutes);
-  await app.register(sandboxRoutes);
+  // trustProxy desligado: o injectWS simula a conexao sem socket, e com o trustProxy (como na
+  // producao) o Fastify le o endereco do socket para calcular o IP. Na producao ele sempre existe.
+  const app = await buildApp({ trustProxy: false });
   await app.ready();
 
   const passwordHash = await hashPassword('senha-123!');

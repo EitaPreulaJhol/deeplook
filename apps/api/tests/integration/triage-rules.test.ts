@@ -1,8 +1,4 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { rescanAllLookalikes } from '../../src/lib/lookalike';
@@ -10,10 +6,6 @@ import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { applyTriageRules } from '../../src/lib/triage-rules';
 import { yaraScanEntry } from '../../src/lib/yara';
-import { assignmentRoutes } from '../../src/routes/assignment';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { triageRuleRoutes } from '../../src/routes/triage-rules';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -25,12 +17,7 @@ async function main() {
   env.CLAMAV_HOST = '';
   env.UPLOAD_DAILY_LIMIT = 0;
   await ensureBucket();
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
-  for (const r of [authRoutes, entryRoutes, triageRuleRoutes, assignmentRoutes])
-    await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const ids: Record<string, string> = {};
   for (const [email, role] of [

@@ -9,11 +9,11 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
+import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import { deleteExpiredSessions } from '../../src/lib/auth';
 import { cleanStaleWorkDirs } from '../../src/lib/backup';
 import { hashPassword } from '../../src/lib/crypto';
-import { registerErrorLanguage } from '../../src/lib/error-language';
 import { matchLookalike } from '../../src/lib/lookalike';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
@@ -25,9 +25,7 @@ import {
   uploadLimits,
 } from '../../src/lib/upload-gate';
 import { SPOOL_PREFIX } from '../../src/lib/upload-spool';
-import { authRoutes } from '../../src/routes/auth';
 import { entryRoutes } from '../../src/routes/entries';
-import { meRoutes } from '../../src/routes/me';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -40,15 +38,7 @@ const spooled = () => readdirSync(tmpdir()).filter((name) => name.startsWith(SPO
 
 async function main() {
   await ensureBucket(3, 500);
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, {
-    limits: { fileSize: env.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
-  });
-  // Como no index.ts: erros em ingles para quem manda Accept-Language: en.
-  registerErrorLanguage(app);
-  for (const r of [authRoutes, entryRoutes, meRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
   const user = await prisma.user.create({
     data: {
@@ -253,7 +243,8 @@ async function main() {
   ok('envio lento: no fim, nada sobra', spooled().length === 0 && spoolGate.inUse === 0);
 
   // Arquivo que passa do limite sem declarar o tamanho certo: o multipart corta o fluxo, e o que
-  // ja foi para o disco e apagado. Outra instancia, com o limite em 1 KB, para nao enviar 200 MB.
+  // ja foi para o disco e apagado. Outra instancia, com o limite em 1 KB, para nao enviar 200 MB:
+  // a unica montagem fora do buildApp() neste arquivo (o limite do multipart vem do .env).
   const small = Fastify();
   await small.register(cookie, { secret: env.SESSION_SECRET });
   await small.register(rateLimit, { global: false });

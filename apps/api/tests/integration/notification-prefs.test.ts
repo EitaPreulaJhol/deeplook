@@ -1,16 +1,9 @@
-import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
-import Fastify from 'fastify';
-
-import { env } from '../../src/env';
+import { buildApp } from '../../src/app';
 import { hashPassword } from '../../src/lib/crypto';
 import { NOTIFICATION_TYPES } from '../../src/lib/notification-types';
 import { notify } from '../../src/lib/notifications';
 import { resolvePreferences } from '../../src/lib/preferences';
 import { prisma } from '../../src/lib/prisma';
-import { authRoutes } from '../../src/routes/auth';
-import { entryRoutes } from '../../src/routes/entries';
-import { meRoutes } from '../../src/routes/me';
 
 let fails = 0;
 const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
@@ -19,10 +12,7 @@ const ok = (label: string, cond: boolean | undefined, detail: unknown = '') => {
 };
 
 async function main() {
-  const app = Fastify();
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  await app.register(rateLimit, { global: false });
-  for (const r of [authRoutes, entryRoutes, meRoutes]) await app.register(r);
+  const app = await buildApp();
   await app.ready();
 
   const ids: Record<string, string> = {};

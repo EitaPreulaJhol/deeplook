@@ -1,19 +1,12 @@
-import cookie from '@fastify/cookie';
-import multipart from '@fastify/multipart';
-import rateLimit from '@fastify/rate-limit';
-import websocket from '@fastify/websocket';
-import Fastify from 'fastify';
-
+import { buildApp } from './app';
 import { env, sandboxEnabled } from './env';
 import { startAuditCheck } from './lib/audit-check';
-import { startSessionCleanup, TRUST_PROXY } from './lib/auth';
+import { startSessionCleanup } from './lib/auth';
 import { startBackups } from './lib/backup';
 import { startBackupSchedule } from './lib/backup-schedule';
 import { startCapaQueue } from './lib/capa';
-import { installCrossSiteGuard } from './lib/cross-site';
 import { startDataKeyRekey } from './lib/data-key-rekey';
 import { unpackChildCreator } from './lib/entry-create';
-import { registerErrorLanguage } from './lib/error-language';
 import { startGhidraQueue } from './lib/ghidra';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
@@ -25,9 +18,8 @@ import { startOletoolsQueue } from './lib/oletools';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { backfillPeAnalysis } from './lib/pe-backfill';
 import { prisma } from './lib/prisma';
-import { requestLogSerializer } from './lib/request-log';
 import { startRetention } from './lib/retention';
-import { ensureBucket, isMissingObject, MISSING_OBJECT_MESSAGE } from './lib/s3';
+import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { backfillTlsh } from './lib/tlsh-backfill';
@@ -35,177 +27,20 @@ import { startUnpackQueue } from './lib/unpack';
 import { installYaraPacks } from './lib/yara-packs';
 import { failInterruptedRetroscans } from './lib/yara-retro';
 import { startYaraPackUpdates } from './lib/yara-update';
-import { adminRoutes } from './routes/admin';
-import { allowlistRoutes } from './routes/allowlist';
-import { antivirusRoutes } from './routes/antivirus';
-import { apiTokenRoutes } from './routes/api-tokens';
-import { assignmentRoutes } from './routes/assignment';
-import { attackRoutes } from './routes/attack';
-import { authRoutes } from './routes/auth';
-import { backupRoutes } from './routes/backups';
-import { broadcastRoutes } from './routes/broadcasts';
-import { capaRoutes } from './routes/capa';
-import { captureRoutes } from './routes/captures';
-import { caseRoutes } from './routes/cases';
-import { companyDomainRoutes } from './routes/company-domains';
-import { compareRoutes } from './routes/compare';
-import { dashboardRoutes } from './routes/dashboard';
-import { duplicateRoutes } from './routes/duplicates';
-import { entryRoutes } from './routes/entries';
-import { evidenceRoutes } from './routes/evidence';
-import { favoritesRoutes } from './routes/favorites';
-import { feedRoutes } from './routes/feeds';
-import { ghidraRoutes } from './routes/ghidra';
-import { graphRoutes } from './routes/graph';
-import { healthRoutes } from './routes/health';
-import { hexRoutes } from './routes/hex';
-import { iocImportRoutes } from './routes/ioc-import';
-import { iocRoutes } from './routes/iocs';
-import { kbRoutes } from './routes/kb';
-import { managementRoutes } from './routes/management';
-import { meRoutes } from './routes/me';
-import { notificationRoutes } from './routes/notifications';
-import { oletoolsRoutes } from './routes/oletools';
-import { openApiRoutes } from './routes/openapi';
-import { relatedRoutes } from './routes/related';
-import { reportRoutes } from './routes/reports';
-import { reputationRoutes } from './routes/reputation';
-import { riskRoutes } from './routes/risk';
-import { sandboxRoutes } from './routes/sandbox';
-import { searchRoutes } from './routes/search';
-import { sessionRoutes } from './routes/sessions';
-import { settingsRoutes } from './routes/settings';
-import { statusRoutes } from './routes/status';
-import { teamViewRoutes } from './routes/team-views';
-import { templateRoutes } from './routes/templates';
-import { trashRoutes } from './routes/trash';
-import { triageRuleRoutes } from './routes/triage-rules';
-import { twoFactorRoutes } from './routes/two-factor';
-import { unpackRoutes } from './routes/unpack';
-import { yaraRoutes } from './routes/yara';
 
 async function main() {
-  const app = Fastify({
-    logger: { serializers: { req: requestLogSerializer } },
-    trustProxy: TRUST_PROXY,
-    bodyLimit: 5 * 1024 * 1024,
-  });
+  // Montagem do app (rotas, plugins, ganchos, tratador de erro): src/app.ts, a mesma dos testes.
+  const app = await buildApp({ logger: true });
 
   // Trabalhos de fundo (bucket, retencao, backup, sandbox) escrevem no logger
   // do Fastify a partir daqui, e nao mais em texto solto no console (item 1.3).
   setLogger(app.log);
 
-  // So a rede confiavel (o nginx e os servicos da rede deeplook) conecta na API: o navegador
-  // isolado da captura, na outra rede, deixa de alcanca-la (src/lib/network.ts).
-  network.guard(app.server, app.log);
   if (network.networks.length) {
     app.log.info({ trusted: network.networks }, '[rede] conexoes so da rede confiavel');
   } else {
     app.log.warn('[rede] TRUSTED_NETWORK vazio: a API aceita conexao de qualquer rede privada');
   }
-  // Pedido que muda estado vindo de outro site (CSRF), antes de qualquer rota.
-  installCrossSiteGuard(app);
-
-  await app.register(cookie, { secret: env.SESSION_SECRET });
-  // Limite de tentativas so nas rotas que pedem (config.rateLimit da rota).
-  await app.register(rateLimit, { global: false });
-  await app.register(multipart, {
-    limits: { fileSize: env.MAX_UPLOAD_MB * 1024 * 1024, files: 1 },
-  });
-  // WebSocket usado pelo console do sandbox. O noVNC exige o subprotocolo
-  // "binary" no handshake, entao negociamos ele aqui.
-  await app.register(websocket, {
-    options: {
-      handleProtocols: (protocols: Set<string>) => (protocols.has('binary') ? 'binary' : false),
-      maxPayload: 16 * 1024 * 1024,
-    },
-  });
-
-  // Liveness (/api/health) e readiness (/api/health/ready), item 1.2.
-  // Erros em ingles para quem pede (Accept-Language: en), antes das rotas (revisao 2.5).
-  registerErrorLanguage(app);
-
-  await app.register(healthRoutes);
-
-  await app.register(authRoutes);
-  await app.register(meRoutes);
-  await app.register(sessionRoutes);
-  await app.register(favoritesRoutes);
-  await app.register(relatedRoutes);
-  // Mapa de relacoes (item 91).
-  await app.register(graphRoutes);
-  // Dominios parecidos com os da empresa (item 92).
-  await app.register(companyDomainRoutes);
-  // Documentacao da API (item 93).
-  await app.register(openApiRoutes);
-  // Backup em ZIP (item 81).
-  await app.register(backupRoutes);
-  // Status do sistema por maquina, com token de escopo STATUS (item 3.2).
-  await app.register(statusRoutes);
-  // Configuracoes do sistema (item 140).
-  await app.register(settingsRoutes);
-  await app.register(iocRoutes);
-  await app.register(notificationRoutes);
-  await app.register(templateRoutes);
-  await app.register(duplicateRoutes);
-  await app.register(dashboardRoutes);
-  await app.register(entryRoutes);
-  await app.register(reportRoutes);
-  await app.register(evidenceRoutes);
-  // Regras de triagem (item 86).
-  await app.register(triageRuleRoutes);
-  // Avisos gerais (item 88).
-  await app.register(broadcastRoutes);
-  // Atribuicao automatica (item 72).
-  await app.register(assignmentRoutes);
-  // Captura da pagina de um link (item 80).
-  await app.register(captureRoutes);
-  await app.register(capaRoutes);
-  await app.register(ghidraRoutes);
-  await app.register(unpackRoutes);
-  // Office e PDF mais fundo (item 7.14).
-  await app.register(oletoolsRoutes);
-  // Relatorio gerencial (item 77).
-  await app.register(managementRoutes);
-  // Importar indicadores (item 78).
-  await app.register(iocImportRoutes);
-  // Feed de indicadores (item 5.3): TAXII 2.1 e feed MISP, para um TIP ou SIEM buscar.
-  await app.register(feedRoutes);
-  await app.register(reputationRoutes);
-  // Pontuacao de risco explicavel (item 7.5).
-  await app.register(riskRoutes);
-  await app.register(antivirusRoutes);
-  await app.register(attackRoutes);
-  await app.register(compareRoutes);
-  await app.register(teamViewRoutes);
-  await app.register(kbRoutes);
-  await app.register(caseRoutes);
-  await app.register(allowlistRoutes);
-  await app.register(searchRoutes);
-  await app.register(yaraRoutes);
-  await app.register(hexRoutes);
-  await app.register(adminRoutes);
-  await app.register(apiTokenRoutes);
-  await app.register(trashRoutes);
-  await app.register(twoFactorRoutes);
-  await app.register(sandboxRoutes);
-
-  app.setNotFoundHandler((_request, reply) => {
-    reply.code(404).send({ error: 'Rota nao encontrada.' });
-  });
-
-  app.setErrorHandler((error, req, reply) => {
-    if (isMissingObject(error)) {
-      return reply.code(404).send({ error: MISSING_OBJECT_MESSAGE });
-    }
-    req.log.error({ err: error }, 'Erro na requisicao');
-    const err = error as { statusCode?: number; message?: string };
-    const status = err.statusCode ?? 500;
-    if (status >= 400 && status < 500) {
-      return reply.code(status).send({ error: err.message ?? 'Erro na requisição.' });
-    }
-    return reply.code(500).send({ error: 'Erro interno do servidor.' });
-  });
 
   // IOCs dos relatorios publicados ainda nao indexados (aba Relacionadas).
   try {
