@@ -386,6 +386,9 @@ substituída a cada ambiente.
    captura de rede"**. Ele confere o caminho inteiro (sniffer, netcap, MinIO e Suricata) e não soma
    no risco.
 
+O roteiro completo, com o console, o agente, o Sysmon, dois ambientes ao mesmo tempo e as falhas
+provocadas, está em [`teste-proxmox-real.pt-BR.md`](teste-proxmox-real.pt-BR.md).
+
 Problemas comuns:
 
 | Sintoma | Causa provável |
