@@ -109,6 +109,11 @@ function formEncode(body: Record<string, unknown>): string {
   const form = new URLSearchParams();
   for (const [key, value] of Object.entries(body)) {
     if (value === undefined || value === null) continue;
+    // Lista (ex.: o comando do agent/exec, programa + argumentos): o PVE le a chave repetida.
+    if (Array.isArray(value)) {
+      for (const item of value) form.append(key, String(item));
+      continue;
+    }
     form.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
   }
   return form.toString();

@@ -417,18 +417,21 @@ model SandboxSession {
   analystId String
   analyst   User   @relation(fields: [analystId], references: [id], onDelete: Cascade)
 
-  node      String
-  vmid      Int?
-  name      String
-  status    SandboxStatus @default(REQUESTED)
+  node          String
+  vmid          Int?
+  name          String
+  status        SandboxStatus     @default(REQUESTED)
   /// Etapa atual do provisionamento (texto curto mostrado na UI).
-  phase     String?
+  phase         String?
   /// Volume do ISO gerado com a amostra (para limpar depois).
-  isoVolume String?
+  isoVolume     String?
   /// UPID da task do Proxmox em andamento (clone/start/upload).
-  upid      String?
-  ip        String?
-  lastError String?
+  upid          String?
+  ip            String?
+  lastError     String?
+  /// Por que a coleta de processos nao funciona (agente ausente, sem permissao); revisao 3.7.
+  artifactsNote String?
+  artifacts     SandboxArtifact[]
 
   expiresAt DateTime
   startedAt DateTime?
@@ -439,6 +442,27 @@ model SandboxSession {
   @@index([status, expiresAt])
   @@index([entryId])
   @@index([analystId])
+}
+
+enum SandboxArtifactKind {
+  SCREENSHOT
+  PROCESSES
+}
+
+/// Artefatos do sandbox (revisao de novembro, 3.7), colhidos enquanto o ambiente roda: o print da
+/// tela (no MinIO) e a lista de processos que o agente do guest devolve.
+model SandboxArtifact {
+  id         String              @id @default(cuid())
+  sessionId  String
+  session    SandboxSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind       SandboxArtifactKind
+  /// Print da tela (SCREENSHOT): chave no bucket.
+  storageKey String?
+  /// Processos (PROCESSES): [{ pid, ppid, name, cmd }].
+  processes  Json?
+  createdAt  DateTime            @default(now())
+
+  @@index([sessionId, createdAt])
 }
 
 /// Tipos de evento do historico (auditoria) de uma amostra.

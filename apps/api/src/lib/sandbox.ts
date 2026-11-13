@@ -16,6 +16,7 @@ import { log, reason } from './log';
 import { prisma } from './prisma';
 import { ProxmoxError, pve, pveNode, pveUploadIso, waitTask } from './proxmox';
 import { s3 } from './s3';
+import { collectArtifacts, startArtifactCollector } from './sandbox-artifacts';
 
 const execFileAsync = promisify(execFile);
 
@@ -439,6 +440,11 @@ export async function dispose(
   const node = session.node || pveNode();
   const vmid = session.vmid;
 
+  if (vmid && session.status === 'RUNNING') {
+    // 0. Ultima coleta de artefatos (revisao 3.7): o estado da tela e dos processos no fim.
+    await collectArtifacts(sessionId).catch(() => undefined);
+  }
+
   if (vmid) {
     // 1. Desligamento gracioso (o guest agent/ACPI cuida disso), com timeout.
     try {
@@ -648,6 +654,8 @@ export async function initSandbox(log: {
       );
     }
     startSandboxReaper();
+    // Artefatos (revisao 3.7): print e processos dos ambientes em execucao.
+    startArtifactCollector();
   } catch (err) {
     log.error({ err }, '[sandbox] falha ao inicializar o sandbox');
   } finally {

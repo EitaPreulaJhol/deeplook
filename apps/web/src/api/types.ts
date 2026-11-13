@@ -675,6 +675,28 @@ export interface AuditEvent {
   createdAt: string;
 }
 
+/** Artefatos do sandbox (GET /api/sandbox/:id/artifacts; revisao 3.7). */
+export interface SandboxArtifacts {
+  status: SandboxStatus;
+  note: string | null;
+  intervalS: number;
+  screenshots: { id: string; createdAt: string }[];
+  processes: {
+    at: string;
+    firstAt: string;
+    lists: number;
+    current: SandboxProcess[];
+    appeared: SandboxProcess[];
+  } | null;
+}
+
+export interface SandboxProcess {
+  pid: number;
+  ppid: number | null;
+  name: string;
+  cmd: string | null;
+}
+
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 export interface OfficeInfo {
   enabled: boolean;

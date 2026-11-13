@@ -1198,6 +1198,15 @@ export async function setupMock(context, state) {
           session: state.sandboxes[m[1]] ?? null,
         });
       }
+      // Artefatos do sandbox (revisao 3.7): o roteiro define o que cada GET devolve (lista = sequencia).
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/artifacts$/);
+      if (m) {
+        const r = state.sandboxArtifacts?.[m[1]];
+        const value = Array.isArray(r) ? (r.length > 1 ? r.shift() : r[0]) : r;
+        return json(route, 200, value ?? { status: 'RUNNING', note: null, intervalS: 60, screenshots: [], processes: null });
+      }
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/artifacts\/(\w+)$/);
+      if (m) return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from(EVIDENCE_PNG, 'base64') });
       m = p.match(/^\/api\/sandbox\/([\w-]+)\/extend$/);
       if (m) {
         const session = Object.values(state.sandboxes).find((x) => x.id === m[1]);

@@ -229,6 +229,13 @@ const EnvSchema = z
     SANDBOX_MAX_ACTIVE: z.coerce.number().min(1).default(4),
     SANDBOX_MAX_PER_USER: z.coerce.number().min(1).default(2),
     SANDBOX_MOCK_VNC_URL: z.string().default(''),
+    /**
+     * Artefatos do sandbox (revisao de novembro, 3.7): a cada N segundos, enquanto o ambiente roda,
+     * a API guarda um print da tela e a lista de processos (pelo qemu-guest-agent). 0 desliga.
+     */
+    SANDBOX_ARTIFACT_INTERVAL_S: z.coerce.number().int().min(0).max(3600).default(60),
+    /** Prints guardados por ambiente (o primeiro e os mais recentes ficam). */
+    SANDBOX_ARTIFACT_MAX_SHOTS: z.coerce.number().int().min(1).max(500).default(60),
   })
   .superRefine((value, ctx) => {
     // Sem sandbox ligado (ou em modo mock) nao exigimos nada do Proxmox.

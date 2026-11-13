@@ -3254,6 +3254,46 @@ li .dl-link {
   font-style: italic;
 }
 
+/* Artefatos do sandbox (revisao 3.7): miniaturas dos prints em linha, com a hora. */
+.dl-sandbox-artifacts {
+  margin-block-start: 1rem;
+
+  h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+.dl-sandbox-artifacts__shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    font-size: 0.75rem;
+  }
+
+  img {
+    inline-size: 9rem;
+    block-size: 6rem;
+    border: 1px solid var(--dl-table-border);
+    object-fit: cover;
+    background: var(--dl-table-row-alt);
+  }
+}
+
+.dl-sandbox-artifacts__summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+}
+
 /* Documento (oletools): alertas, listas e o codigo das macros, recolhido. */
 .dl-office__alerts,
 .dl-office__list {

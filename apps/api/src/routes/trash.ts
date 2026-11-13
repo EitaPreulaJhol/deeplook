@@ -9,6 +9,7 @@ import { deleteGhidraProject } from '../lib/ghidra';
 import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
 import { activeSessionForEntry } from '../lib/sandbox';
+import { artifactKeysOf } from '../lib/sandbox-artifacts';
 import { sendValidationError } from '../lib/validation';
 import { deleteEvidenceObjects } from './evidence';
 
@@ -142,6 +143,8 @@ export async function trashRoutes(app: FastifyInstance) {
       await deleteGhidraProject(id);
       await deleteEvidenceObjects([
         ...evidence.map((e) => e.storageKey),
+        // Prints do sandbox (revisao 3.7).
+        ...(await artifactKeysOf(id)),
         ...captures
           .flatMap((c) => [c.screenshotKey, c.htmlKey])
           .filter((k): k is string => Boolean(k)),

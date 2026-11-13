@@ -33,7 +33,11 @@ const START_MS = 1200;
 const UPLOAD_MS = 1500;
 const STOP_MS = 600;
 
+/** Quantas listagens de processos o agente simulado ja fez. */
+let agentRuns = 0;
+
 export function pveMockReset(): void {
+  agentRuns = 0;
   vms.clear();
   tasks.clear();
   isos.clear();
@@ -180,6 +184,35 @@ export async function pveMock(
 
     if (rest === '/agent/ping') {
       throw new Error('agent nao disponivel no mock');
+    }
+
+    // Agente do guest (revisao 3.7): um Windows com tres processos e, a partir da segunda
+    // listagem, mais dois, como se a amostra tivesse comecado a rodar.
+    // VM 9999: simula o agente desligado no guest.
+    if (rest.startsWith('/agent/') && vmid === 9999) {
+      throw new Error('QEMU guest agent is not running');
+    }
+    if (rest === '/agent/get-osinfo') {
+      return { result: { id: 'mswindows', name: 'Microsoft Windows 10' } };
+    }
+    if (rest === '/agent/exec' && method === 'POST') {
+      agentRuns += 1;
+      return { pid: 1000 + agentRuns };
+    }
+    if (rest.startsWith('/agent/exec-status')) {
+      const lines = [
+        '"ProcessId","ParentProcessId","Name","CommandLine"',
+        '"4","0","System",""',
+        '"612","4","smss.exe","\\SystemRoot\\System32\\smss.exe"',
+        '"3020","2988","explorer.exe","C:\\Windows\\Explorer.EXE"',
+        ...(agentRuns > 1
+          ? [
+              '"4410","3020","fatura.exe","""D:\\fatura.exe"" /silent"',
+              '"4512","4410","powershell.exe","powershell -enc SQBFAFgA"',
+            ]
+          : []),
+      ];
+      return { exited: 1, exitcode: 0, 'out-data': lines.join('\r\n') };
     }
   }
 

@@ -206,6 +206,9 @@ services:
       SANDBOX_MAX_ACTIVE: ${SANDBOX_MAX_ACTIVE:-4}
       SANDBOX_MAX_PER_USER: ${SANDBOX_MAX_PER_USER:-2}
       SANDBOX_MOCK_VNC_URL: ${SANDBOX_MOCK_VNC_URL:-}
+      # Artefatos do ambiente: print e processos a cada N segundos (0 desliga).
+      SANDBOX_ARTIFACT_INTERVAL_S: ${SANDBOX_ARTIFACT_INTERVAL_S:-60}
+      SANDBOX_ARTIFACT_MAX_SHOTS: ${SANDBOX_ARTIFACT_MAX_SHOTS:-60}
     # Sem BACKUP_DIR a pasta montada nao e usada (a API nem a recebe acima).
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/backups

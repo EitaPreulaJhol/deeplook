@@ -289,7 +289,17 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
   o objeto do Equation Editor. **Ação do dono:** defina `OLETOOLS_TOKEN` no `.env` antes de subir
   esta versão; com o valor padrão a API se recusa a subir em produção (como os outros tokens).
   **Achado no caminho:** o checklist de implantação não gerava o `DATA_KEY` da fase 1; agora gera.
-- **3.7:** pendente. **3.6** adiado pelo dono.
+- **3.7 ✅** (sem o pcap, adiado pelo dono): enquanto o ambiente roda, prints periódicos da tela e
+  a lista de processos pelo `qemu-guest-agent`, e uma última coleta ao encerrar; na aba Análise,
+  as miniaturas e os processos que surgiram desde o início. **Achado que mudou o desenho:** o PVE 9
+  tirou o endpoint de screenshot (o README já registrava; o botão "Capturar tela" lê o canvas no
+  navegador). A API passou a tirar o print pelo próprio console VNC (`lib/vnc-snapshot.ts`, um
+  cliente RFB mínimo, só leitura, compartilhado); o endpoint continua sendo tentado primeiro, para
+  o PVE 8. **Limite do teste:** sem um Proxmox aqui, o caminho real (vncwebsocket do PVE e
+  `agent/exec`) não foi exercitado; o leitor VNC foi testado contra um servidor RFB com senha e
+  contra o VNC simulado do projeto, e a coleta inteira contra o Proxmox simulado. Vale confirmar no
+  seu PVE que o papel `PVEVMAdmin` dá o uso do agente (`VM.GuestAgent.Unrestricted` no PVE 9).
+- **3.6** adiado pelo dono.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|

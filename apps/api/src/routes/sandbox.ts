@@ -1,3 +1,6 @@
+import type { Readable } from 'node:stream';
+
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import WebSocket from 'ws';
 
@@ -21,6 +24,7 @@ import {
   pveVersion,
   waitTask,
 } from '../lib/proxmox';
+import { s3 } from '../lib/s3';
 import {
   activeSessionForEntry,
   createSession,
@@ -29,6 +33,7 @@ import {
   listSessions,
   sandboxReady,
 } from '../lib/sandbox';
+import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
 
 const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
 
@@ -337,6 +342,81 @@ export async function sandboxRoutes(app: FastifyInstance) {
     reply.header('Content-Type', 'image/png');
     reply.header('Cache-Control', 'no-store');
     return reply.send(shot.body);
+  });
+
+  // ---- Artefatos (revisao 3.7): prints periodicos e processos, tambem depois de encerrado ----
+  // Leitura para qualquer analista (sao evidencia da amostra); operar o ambiente continua sendo do
+  // dono ou de um admin.
+  const artifactSession = async (req: FastifyRequest, reply: FastifyReply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return null;
+    if (!isAnalyst(user)) {
+      reply.code(403).send({ error: 'Somente analistas veem os artefatos do ambiente.' });
+      return null;
+    }
+    const { id } = req.params as { id: string };
+    const session = await prisma.sandboxSession.findUnique({
+      where: { id },
+      select: { id: true, status: true, artifactsNote: true, startedAt: true, stoppedAt: true },
+    });
+    if (!session) reply.code(404).send({ error: 'Ambiente não encontrado.' });
+    return session;
+  };
+
+  app.get('/api/sandbox/:id/artifacts', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const [shots, lists] = await Promise.all([
+      prisma.sandboxArtifact.findMany({
+        where: { sessionId: session.id, kind: 'SCREENSHOT' },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, createdAt: true },
+      }),
+      prisma.sandboxArtifact.findMany({
+        where: { sessionId: session.id, kind: 'PROCESSES' },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true, processes: true },
+      }),
+    ]);
+    const first = lists[0];
+    const last = lists.at(-1);
+    const processes = (last?.processes ?? []) as GuestProcess[];
+    return reply.send({
+      status: session.status,
+      note: session.artifactsNote,
+      intervalS: env.SANDBOX_ARTIFACT_INTERVAL_S,
+      screenshots: shots,
+      processes: last
+        ? {
+            at: last.createdAt,
+            firstAt: first!.createdAt,
+            lists: lists.length,
+            current: processes,
+            // O que surgiu desde a primeira listagem (a amostra rodando, o que ela abriu).
+            appeared: newProcesses((first!.processes ?? []) as GuestProcess[], processes),
+          }
+        : null,
+    });
+  });
+
+  app.get('/api/sandbox/:id/artifacts/:artifactId', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const { artifactId } = req.params as { artifactId: string };
+    const shot = await prisma.sandboxArtifact.findFirst({
+      where: { id: artifactId, sessionId: session.id, kind: 'SCREENSHOT' },
+      select: { storageKey: true, createdAt: true },
+    });
+    if (!shot?.storageKey) return reply.code(404).send({ error: 'Print não encontrado.' });
+    const obj = await s3.send(
+      new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: shot.storageKey }),
+    );
+    return reply
+      .header('Content-Type', 'image/png')
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Content-Security-Policy', "default-src 'none'; sandbox")
+      .header('Cache-Control', 'private, max-age=3600')
+      .send(obj.Body as Readable);
   });
 
   // ---- Console: o front so recebe o caminho do websocket (ticket fica aqui) ----

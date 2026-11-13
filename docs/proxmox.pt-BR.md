@@ -100,7 +100,7 @@ elas o upload da ISO **ou** o clone falham com `403`):
 | Caminho | Papel sugerido | Cobre |
 |---|---|---|
 | `/` | `PVEAuditor` | `GET /version` (health) e auditoria geral |
-| `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot) |
+| `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot), o uso do agente da VM (`VM.GuestAgent.Unrestricted` no PVE 9, `VM.Monitor` no 8) para a lista de processos dos artefatos |
 | `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.AllocateTemplate` (upload da ISO), `Datastore.Allocate` (apagar a ISO) |
 | `/storage/<storage dos discos do template>` | `PVEDatastoreAdmin` | `Datastore.AllocateSpace` para o clone criar os discos |
 | `/sdn/zones/<zona>/<bridge do template>` | `PVESDNUser` | `SDN.Use` para o clone reutilizar a rede do template |

@@ -7,6 +7,7 @@ import type { SandboxSession } from '../api/types';
 import { useConfirm } from './HpsmConfirm';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
+import { SandboxArtifacts } from './SandboxArtifacts';
 import {
   isSandboxWorking,
   SANDBOX_PHASE_LABELS,
@@ -243,6 +244,7 @@ export function SandboxPanel({ entryId }: Props) {
             Descartar ambiente
           </Button>
         </div>
+        <SandboxArtifacts sessionId={session.id} running />
       </Tile>
     );
   }
@@ -274,6 +276,7 @@ export function SandboxPanel({ entryId }: Props) {
       >
         Abrir novo ambiente
       </Button>
+      {!failed && <SandboxArtifacts sessionId={session.id} running={false} />}
     </Tile>
   );
 }

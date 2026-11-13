@@ -95,7 +95,7 @@ Grant the permissions below (**Datastore** is the most often forgotten — witho
 | Path | Suggested role | Covers |
 |---|---|---|
 | `/` | `PVEAuditor` | `GET /version` (health) and general auditing |
-| `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot) |
+| `/vms` (propagate) | `PVEVMAdmin` | `VM.Audit`, `VM.Allocate` (clone/delete), `VM.Clone`, `VM.Config.*`, `VM.PowerMgmt` (start/stop), `VM.Console` (vncproxy/screenshot), use of the VM agent (`VM.GuestAgent.Unrestricted` on PVE 9, `VM.Monitor` on 8) for the artifacts' process list |
 | `/storage/<PROXMOX_ISO_STORAGE>` | `PVEDatastoreAdmin` | `Datastore.Audit`, `Datastore.AllocateTemplate` (ISO upload), `Datastore.Allocate` (ISO delete) |
 | `/storage/<storage of the template disks>` | `PVEDatastoreAdmin` | `Datastore.AllocateSpace` so the clone can create its disks |
 | `/sdn/zones/<zone>/<template bridge>` | `PVESDNUser` | `SDN.Use` so the clone can reuse the template network |

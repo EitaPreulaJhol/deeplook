@@ -290,7 +290,18 @@ It comes before the analysis features because tests and fuzzing protect what pha
   **Owner action:** set `OLETOOLS_TOKEN` in `.env` before bringing this version up; with the default
   value the API refuses to start in production (like the other tokens). **Found along the way:** the
   deployment checklist did not generate phase 1's `DATA_KEY`; now it does.
-- **3.7:** pending. **3.6** deferred by the owner.
+- **3.7 ✅** (without the pcap, deferred by the owner): while the environment runs, periodic
+  screenshots and the process list through the `qemu-guest-agent`, and a last collection on closing;
+  in the Analysis tab, the thumbnails and the processes that appeared since the start. **Finding that
+  changed the design:** PVE 9 removed the screenshot endpoint (the README already noted it; the
+  "Capturar tela" button reads the canvas in the browser). The API now takes the screenshot through
+  the VNC console itself (`lib/vnc-snapshot.ts`, a minimal read-only, shared RFB client); the
+  endpoint is still tried first, for PVE 8. **Test limit:** without a Proxmox here, the real path
+  (PVE's vncwebsocket and `agent/exec`) was not exercised; the VNC reader was tested against an RFB
+  server with a password and against the project's mock VNC, and the whole collection against the
+  mock Proxmox. Worth confirming on your PVE that the `PVEVMAdmin` role grants agent use
+  (`VM.GuestAgent.Unrestricted` on PVE 9).
+- **3.6** deferred by the owner.
 
 | # | Item | How | Size |
 |---|---|---|---|

@@ -1319,6 +1319,27 @@ With `PROXMOX_MOCK=true` the API simulates Proxmox in memory (clone, start, task
 vncproxy, screenshot): the full flow — provision, console, discard — runs
 without a real PVE. Validate with `scripts/smoke-sandbox.ps1`.
 
+### Environment artifacts
+
+While the environment runs, the API keeps every `SANDBOX_ARTIFACT_INTERVAL_S` (default 60 s; `0` turns it
+off) a **screenshot** of the VM and the **process list**, and takes a last collection on closing. They
+stay with the sample after the VM is destroyed, for any analyst, in the **Análise** tab: the thumbnails
+with the time and the **processes that appeared** since the first listing, with the parent process and the
+command line (the sample running, the PowerShell it opened).
+
+- **Screenshot:** through the PVE screenshot endpoint when it exists and, on PVE 9 (which removed it),
+  through the VNC console itself: the API does what noVNC does, asks for one frame and closes, sending no
+  keyboard or mouse and without dropping whoever is on the console. Up to `SANDBOX_ARTIFACT_MAX_SHOTS` per
+  environment (default 60): the first and the most recent. They go to MinIO, are in the backup and leave
+  with the sample when the trash is emptied.
+- **Processes:** through the `qemu-guest-agent` the template already requires: on Windows,
+  `Get-CimInstance Win32_Process` (with the command line); on Linux, `ps`. It is what the VM's own system
+  reports, and malware can hide processes. It needs permission to use the agent in PVE
+  (`VM.GuestAgent.Unrestricted` on PVE 9, `VM.Monitor` on 8; the `PVEVMAdmin` role on `/vms` covers it).
+  Without the agent or the permission, only the screenshots remain, and the reason shows on screen.
+- **Network traffic (pcap):** not yet. The VM goes out through the isolated network behind the Mikrotik
+  CHR, and the capture should come from there.
+
 ### Limits, TTL and cleanup
 
 - `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limit how many environments exist.
