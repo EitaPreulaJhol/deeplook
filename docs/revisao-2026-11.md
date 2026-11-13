@@ -162,6 +162,8 @@ scope.
 2. Validate which suggestions from section 3 go in, and in what order.
 3. Run `test:images`, `test:smoke` and the full integration suite before publishing this review's
    fixes.
+4. The suggestions that came after this review are in the
+   [post-review plan](plano-2026-11.md).
 
 ## 5. Action plan
 

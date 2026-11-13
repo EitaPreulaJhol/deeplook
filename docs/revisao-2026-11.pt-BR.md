@@ -160,6 +160,8 @@ Nada daqui foi iniciado. E-mail e webhooks ficaram de fora: o plano os marca com
 2. Validar quais sugestões da seção 3 entram, e em que ordem.
 3. Rodar `test:images`, `test:smoke` e a bateria de integração inteira antes de publicar as
    correções desta revisão.
+4. As sugestões que vieram depois desta revisão estão no
+   [plano pós-revisão](plano-2026-11.pt-BR.md).
 
 ## 5. Plano de ação
 

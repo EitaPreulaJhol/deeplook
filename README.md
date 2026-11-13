@@ -1096,7 +1096,7 @@ deeplook/
 │     ├─ nginx.conf   # build server and /api proxy (the real configuration)
 │     ├─ vitest.config.ts # unit tests and coverage floor
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox
+├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox, revisao-2026-11, plano-2026-11
 ├─ icons/             # icon library (HPSM style)
 ├─ scripts/           # visual tests (ui-playwright/), Trivy (trivy.mjs) and Playwright check
 ├─ trivy.yaml         # severity, justified exceptions and what fails the image scan

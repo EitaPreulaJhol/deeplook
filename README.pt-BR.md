@@ -1107,7 +1107,7 @@ deeplook/
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox
+├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox, revisao-2026-11, plano-2026-11
 ├─ icons/             # biblioteca de ícones (estilo HPSM)
 ├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
 ├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
