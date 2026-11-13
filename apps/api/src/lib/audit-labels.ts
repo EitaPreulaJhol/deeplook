@@ -1,0 +1,61 @@
+import type { AuditAction } from '../generated/prisma/client';
+
+/**
+ * Nomes das acoes da Auditoria, em portugues e em ingles (CSV da auditoria; plano pos-revisao, item
+ * 1.4, parte 3). O web tem os mesmos em apps/web/src/i18n/admin.ts (`act.*`): o teste
+ * tests/unit/history-language.test.ts confere que as duas listas continuam iguais.
+ */
+export const AUDIT_LABELS: Record<AuditAction, readonly [pt: string, en: string]> = {
+  USER_REGISTERED: ['Cadastro com chave', 'Registration with key'],
+  USER_ROLE_CHANGED: ['Papel alterado', 'Role changed'],
+  USER_SUSPENDED: ['Conta suspensa', 'Account suspended'],
+  USER_REACTIVATED: ['Conta reativada', 'Account reactivated'],
+  USER_LDAP_RELINKED: ['Conta religada a outro DN do AD', 'Account relinked to another AD DN'],
+  USER_PASSWORD_RESET: ['Senha redefinida pelo admin', 'Password reset by the admin'],
+  USER_PASSWORD_CHANGED: ['Senha alterada pelo usuário', 'Password changed by the user'],
+  KEY_CREATED: ['Chave gerada', 'Key created'],
+  KEY_REVOKED: ['Chave revogada', 'Key revoked'],
+  TEMPLATE_CREATED: ['Modelo criado', 'Template created'],
+  TEMPLATE_UPDATED: ['Modelo alterado', 'Template changed'],
+  TEMPLATE_DELETED: ['Modelo excluído', 'Template deleted'],
+  LOGIN_FAILED: ['Login recusado', 'Sign-in refused'],
+  LOGIN_LOCKED: ['Login bloqueado (tentativas)', 'Sign-in locked (attempts)'],
+  API_ACCESS_GRANTED: ['Acesso por API liberado', 'API access granted'],
+  API_ACCESS_REVOKED: ['Acesso por API retirado', 'API access removed'],
+  API_TOKEN_CREATED: ['Token de API gerado', 'API token created'],
+  API_TOKEN_REVOKED: ['Token de API revogado', 'API token revoked'],
+  SESSION_REVOKED: ['Sessão encerrada', 'Session ended'],
+  TWO_FACTOR_ENABLED: ['2FA ativado', '2FA turned on'],
+  TWO_FACTOR_DISABLED: ['2FA desativado', '2FA turned off'],
+  TWO_FACTOR_RECOVERY_CODES: ['Códigos de recuperação gerados', 'Recovery codes generated'],
+  TWO_FACTOR_RECOVERY_USED: ['Login com código de recuperação', 'Sign-in with a recovery code'],
+  ENTRY_TRASHED: ['Amostra movida para a lixeira', 'Sample moved to trash'],
+  ENTRY_RESTORED: ['Amostra restaurada', 'Sample restored'],
+  ENTRY_DELETED: ['Amostra excluída definitivamente', 'Sample permanently deleted'],
+  ENTRY_DOWNLOADED: ['Amostra baixada', 'Sample downloaded'],
+  ENTRY_INTEGRITY_FAILED: [
+    'Arquivo divergente do SHA-256 da ficha',
+    'File does not match the record SHA-256',
+  ],
+  ENTRY_INTEGRITY_RESTORED: [
+    'Arquivo voltou a conferir com o SHA-256',
+    'File matches the SHA-256 again',
+  ],
+  YARA_RULE_CREATED: ['Regra YARA criada', 'YARA rule created'],
+  YARA_RULE_UPDATED: ['Regra YARA alterada', 'YARA rule changed'],
+  YARA_RULE_DELETED: ['Regra YARA excluída', 'YARA rule deleted'],
+  ALLOWLIST_ADDED: ['Indicador permitido incluído', 'Allowed indicator added'],
+  ALLOWLIST_REMOVED: ['Indicador permitido removido', 'Allowed indicator removed'],
+  ALLOWLIST_IMPORTED: ['Indicadores permitidos importados', 'Allowed indicators imported'],
+  BACKUP_CREATED: ['Backup gerado', 'Backup created'],
+  BACKUP_DOWNLOADED: ['Backup baixado', 'Backup downloaded'],
+  BACKUP_DELETED: ['Backup excluído', 'Backup deleted'],
+  COMPANY_DOMAIN_ADDED: ['Domínio da empresa incluído', 'Company domain added'],
+  COMPANY_DOMAIN_REMOVED: ['Domínio da empresa excluído', 'Company domain deleted'],
+  TRIAGE_RULE_CHANGED: ['Regra de triagem alterada', 'Triage rule changed'],
+  SETTING_CHANGED: ['Configuração alterada', 'Setting changed'],
+  YARA_PACK_UPDATED: ['Pacote YARA atualizado', 'YARA pack updated'],
+  ASSIGNMENT_CHANGED: ['Atribuição automática alterada', 'Automatic assignment changed'],
+  BROADCAST_PUBLISHED: ['Aviso geral publicado', 'Announcement published'],
+  BROADCAST_ENDED: ['Aviso geral encerrado', 'Announcement ended'],
+};

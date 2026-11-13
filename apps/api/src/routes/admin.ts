@@ -1,13 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import type { AuditAction, Prisma } from '../generated/prisma/client';
+import type { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { checkAuditChain } from '../lib/audit-check';
+import { AUDIT_LABELS } from '../lib/audit-labels';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
 import { requestLang } from '../lib/error-language';
+import { localizeAudit } from '../lib/history-language';
 import { passwordState } from '../lib/password-policy';
 import { prisma } from '../lib/prisma';
 import { closeSessionsOf } from '../lib/sandbox';
@@ -84,56 +86,6 @@ const AuditQuery = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-/** Rotulos das acoes (CSV); o front tem os mesmos. */
-const AUDIT_LABELS: Record<AuditAction, string> = {
-  USER_REGISTERED: 'Cadastro com chave',
-  USER_ROLE_CHANGED: 'Papel alterado',
-  USER_SUSPENDED: 'Conta suspensa',
-  USER_REACTIVATED: 'Conta reativada',
-  USER_LDAP_RELINKED: 'Conta religada a outro DN do AD',
-  USER_PASSWORD_RESET: 'Senha redefinida pelo admin',
-  USER_PASSWORD_CHANGED: 'Senha alterada pelo usuário',
-  KEY_CREATED: 'Chave gerada',
-  KEY_REVOKED: 'Chave revogada',
-  TEMPLATE_CREATED: 'Modelo criado',
-  TEMPLATE_UPDATED: 'Modelo alterado',
-  TEMPLATE_DELETED: 'Modelo excluído',
-  LOGIN_FAILED: 'Login recusado',
-  LOGIN_LOCKED: 'Login bloqueado (tentativas)',
-  API_ACCESS_GRANTED: 'Acesso por API liberado',
-  API_ACCESS_REVOKED: 'Acesso por API retirado',
-  API_TOKEN_CREATED: 'Token de API gerado',
-  API_TOKEN_REVOKED: 'Token de API revogado',
-  SESSION_REVOKED: 'Sessão encerrada',
-  TWO_FACTOR_ENABLED: '2FA ativado',
-  TWO_FACTOR_DISABLED: '2FA desativado',
-  TWO_FACTOR_RECOVERY_CODES: 'Códigos de recuperação gerados',
-  TWO_FACTOR_RECOVERY_USED: 'Login com código de recuperação',
-  ENTRY_TRASHED: 'Amostra movida para a lixeira',
-  ENTRY_RESTORED: 'Amostra restaurada',
-  ENTRY_DELETED: 'Amostra excluída definitivamente',
-  ENTRY_DOWNLOADED: 'Amostra baixada',
-  ENTRY_INTEGRITY_FAILED: 'Arquivo divergente do SHA-256 da ficha',
-  ENTRY_INTEGRITY_RESTORED: 'Arquivo voltou a conferir com o SHA-256',
-  YARA_RULE_CREATED: 'Regra YARA criada',
-  YARA_RULE_UPDATED: 'Regra YARA alterada',
-  YARA_RULE_DELETED: 'Regra YARA excluída',
-  ALLOWLIST_ADDED: 'Indicador permitido incluído',
-  ALLOWLIST_REMOVED: 'Indicador permitido removido',
-  ALLOWLIST_IMPORTED: 'Indicadores permitidos importados',
-  BACKUP_CREATED: 'Backup gerado',
-  BACKUP_DOWNLOADED: 'Backup baixado',
-  BACKUP_DELETED: 'Backup excluído',
-  COMPANY_DOMAIN_ADDED: 'Domínio da empresa incluído',
-  COMPANY_DOMAIN_REMOVED: 'Domínio da empresa excluído',
-  TRIAGE_RULE_CHANGED: 'Regra de triagem alterada',
-  SETTING_CHANGED: 'Configuração alterada',
-  YARA_PACK_UPDATED: 'Pacote YARA atualizado',
-  ASSIGNMENT_CHANGED: 'Atribuição automática alterada',
-  BROADCAST_PUBLISHED: 'Aviso geral publicado',
-  BROADCAST_ENDED: 'Aviso geral encerrado',
-};
-
 export async function adminRoutes(app: FastifyInstance) {
   // Status do sistema: API, banco, MinIO, Proxmox e filas (cada um com tempo-limite).
   app.get('/api/admin/status', async (req, reply) => {
@@ -181,7 +133,8 @@ export async function adminRoutes(app: FastifyInstance) {
         include: auditInclude,
       }),
     ]);
-    return reply.send({ total, items });
+    // Detalhe e alvo no idioma de quem pede (plano pos-revisao, item 1.4).
+    return reply.send({ total, items: localizeAudit(items, requestLang(req)) });
   });
 
   // Cadeia da auditoria (revisao de novembro, 1.3): confere agora e devolve a ponta.
@@ -195,18 +148,26 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!user) return;
     const parsed = AuditQuery.safeParse(req.query);
     if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
-    const items = await prisma.auditEvent.findMany({
-      where: auditWhere(parsed.data),
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 10000,
-      include: auditInclude,
-    });
+    const lang = requestLang(req);
+    const en = lang === 'en';
+    const items = localizeAudit(
+      await prisma.auditEvent.findMany({
+        where: auditWhere(parsed.data),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 10000,
+        include: auditInclude,
+      }),
+      lang,
+    );
+    // No idioma de quem baixa (plano pos-revisao, item 1.4): cabecalho, acao, detalhe e alvo.
     const csv = toCsv(
-      ['Data', 'Quem', 'Ação', 'Alvo', 'Detalhe', 'IP', 'Sequência', 'Hash'],
+      en
+        ? ['Date', 'Who', 'Action', 'Target', 'Detail', 'IP', 'Sequence', 'Hash']
+        : ['Data', 'Quem', 'Ação', 'Alvo', 'Detalhe', 'IP', 'Sequência', 'Hash'],
       items.map((e) => [
         e.createdAt,
-        e.actor ? `${e.actor.displayName} <${e.actor.email}>` : '(anônimo)',
-        AUDIT_LABELS[e.action],
+        e.actor ? `${e.actor.displayName} <${e.actor.email}>` : en ? '(anonymous)' : '(anônimo)',
+        AUDIT_LABELS[e.action][en ? 1 : 0],
         e.targetLabel ?? e.targetUser?.email ?? '',
         e.detail ?? '',
         e.ip ?? '',

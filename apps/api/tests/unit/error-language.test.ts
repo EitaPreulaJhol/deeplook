@@ -106,3 +106,16 @@ test('mensagem do Proxmox: detalhe do PVE com ponto e a dica de permissão no fi
     'Proxmox answered HTTP 500 on GET /version.',
   );
 });
+
+test('idioma pela URL (?lang=): vale sobre o cabeçalho, para links de download', () => {
+  assert.equal(
+    requestLang({ headers: { 'accept-language': 'pt-BR' }, query: { lang: 'en' } }),
+    'en',
+  );
+  assert.equal(
+    requestLang({ headers: { 'accept-language': 'en' }, query: { lang: 'pt-BR' } }),
+    'pt-BR',
+  );
+  assert.equal(requestLang({ headers: { 'accept-language': 'en' }, query: { lang: 'xx' } }), 'en');
+  assert.equal(requestLang({ headers: {}, query: {} }), 'pt-BR');
+});

@@ -1232,8 +1232,11 @@ the language (`13/11/2026` or `11/13/2026`).
   (`Accept-Language`), including through the status token. The database keeps the Portuguese, and the
   API translates on output; old records come out translated too. When the language changes, the
   interface fetches again what was cached.
-- **Still in Portuguese:** the history, notification and audit details (and the audit CSV), the
-  OpenAPI specification and what people write.
+- **History, notifications and audit:** the detail the system writes comes out in the requester's
+  language; the audit CSV follows the interface language (the link sends `?lang=`, which the API
+  accepts on any route).
+- **Still in Portuguese:** the OpenAPI specification and what people write (comments, resolutions,
+  titles).
 - `node scripts/check-i18n.mjs` counts the Portuguese text still loose in the code and rejects `t()` at
   module top level or inside `useMemo` without `locale` in the dependencies (the text would not follow
   a language change). Label tables at module top level use `localized()`.

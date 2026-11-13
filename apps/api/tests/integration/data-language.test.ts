@@ -20,7 +20,7 @@ async function main() {
     data: {
       email: 'ana@x.io',
       displayName: 'Ana',
-      role: 'ANALYST',
+      role: 'ADMIN',
       passwordHash: await hashPassword('senha-123!'),
     },
   });
@@ -121,6 +121,72 @@ async function main() {
     'comparação em inglês',
     cmp.a?.detectedType === 'Windows executable (PE)' && cmp.a.pe.machine === 'x64 (64-bit)',
     cmp,
+  );
+
+  // 4. Historico, notificacoes e auditoria (parte 3): so o texto do sistema e traduzido.
+  await prisma.entryEvent.createMany({
+    data: [
+      { entryId: entry.id, type: 'FILE_PURGED', detail: 'retenção de 90 dias após a conclusão' },
+      { entryId: entry.id, actorId: owner.id, type: 'COMMENT', detail: 'sem senha' },
+    ],
+  });
+  const events = (await get(`/api/entries/${entry.id}/events`, 'en')).json<{
+    events: { type: string; detail: string | null }[];
+  }>().events;
+  ok(
+    'histórico em inglês: o detalhe do sistema, e o comentário como foi escrito',
+    events.find((e) => e.type === 'FILE_PURGED')?.detail ===
+      'retention of 90 days after completion' &&
+      events.find((e) => e.type === 'COMMENT')?.detail === 'sem senha',
+    events,
+  );
+  await prisma.notification.create({
+    data: {
+      userId: owner.id,
+      type: 'IOC_SEEN',
+      entryId: entry.id,
+      detail: 'Domínio evil.top numa amostra nova',
+    },
+  });
+  const notes = (await get('/api/me/notifications', 'en')).json<{
+    items: { type: string; detail: string | null }[];
+  }>().items;
+  ok(
+    'notificação em inglês',
+    notes.find((n) => n.type === 'IOC_SEEN')?.detail === 'Domain evil.top in a new sample',
+    notes,
+  );
+  await prisma.auditEvent.create({
+    data: {
+      action: 'BACKUP_CREATED',
+      actorId: owner.id,
+      targetLabel: 'Backup agendado',
+      detail: 'agendado · sem as amostras · com senha',
+    },
+  });
+  type Audit = { action: string; detail: string | null; targetLabel: string | null };
+  const audit = (await get('/api/admin/audit?action=BACKUP_CREATED', 'en')).json<{
+    items: Audit[];
+  }>().items[0];
+  ok(
+    'auditoria em inglês: detalhe trecho a trecho e alvo fixo',
+    audit?.detail === 'scheduled · without the samples · with a password' &&
+      audit.targetLabel === 'Scheduled backup',
+    audit,
+  );
+  const csvEn = (await get('/api/admin/audit/export.csv?action=BACKUP_CREATED', 'en')).body;
+  const csvPt = (await get('/api/admin/audit/export.csv?action=BACKUP_CREATED')).body;
+  ok(
+    'CSV em inglês: cabeçalho, ação e detalhe',
+    csvEn.includes('Date') &&
+      csvEn.includes('Backup created') &&
+      csvEn.includes('scheduled · without the samples · with a password'),
+    csvEn.slice(0, 400),
+  );
+  ok(
+    'CSV em português: como antes',
+    csvPt.includes('Data') && csvPt.includes('agendado · sem as amostras · com senha'),
+    csvPt.slice(0, 400),
   );
 
   await app.close();

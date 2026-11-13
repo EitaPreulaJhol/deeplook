@@ -22,6 +22,7 @@ import { extractDiskFile } from '../lib/disk-image';
 import { createFileEntry, createUrlEntry } from '../lib/entry-create';
 import { requestLang } from '../lib/error-language';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { localizeEntryEvents } from '../lib/history-language';
 import { hashingStream, judge, recordIntegrity } from '../lib/integrity';
 import { rememberUrls } from '../lib/iocs';
 import { scanLookalikesQuietly } from '../lib/lookalike';
@@ -978,7 +979,10 @@ export async function entryRoutes(app: FastifyInstance) {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       include: { actor: { select: { id: true, displayName: true } } },
     });
-    return reply.send({ events: await eventsForViewer(events, user) });
+    // Detalhe do sistema no idioma de quem pede (plano pos-revisao, item 1.4).
+    return reply.send({
+      events: localizeEntryEvents(await eventsForViewer(events, user), requestLang(req)),
+    });
   });
 
   /** Cota de envio esgotada (item 64): 429 com a espera; devolve as vagas restantes. */

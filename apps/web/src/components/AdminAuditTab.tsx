@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import type { AuditAction, AuditChainState, AuditEvent } from '../api/types';
-import { intlLocale, localized } from '../i18n';
+import { getLocale, intlLocale, localized } from '../i18n';
 import { t } from '../i18n/admin';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -149,7 +149,7 @@ export function AdminAuditTab() {
     <>
       <HpsmFilterBar
         onClear={clear}
-        exportHref={`/api/admin/audit/export.csv?${filters.toString()}`}
+        exportHref={`/api/admin/audit/export.csv?${filters.toString()}&lang=${getLocale()}`}
       >
         <HpsmFilterItem label={t('search')} htmlFor="audit-q">
           <TextInput

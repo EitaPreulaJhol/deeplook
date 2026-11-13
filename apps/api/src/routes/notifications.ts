@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import type { Prisma } from '../generated/prisma/client';
 import { type PublicUser, requireUser, visibleEntries } from '../lib/auth';
+import { requestLang } from '../lib/error-language';
+import { localizeNotifications } from '../lib/history-language';
 import { prisma } from '../lib/prisma';
 import { sendValidationError } from '../lib/validation';
 import { caseCode } from './cases';
@@ -66,7 +68,8 @@ export async function notificationRoutes(app: FastifyInstance) {
       unreadCount(user),
     ]);
     return reply.send({
-      items: items.map((n) => ({
+      // Detalhe do sistema no idioma de quem pede (plano pos-revisao, item 1.4).
+      items: localizeNotifications(items, requestLang(req)).map((n) => ({
         ...n,
         case: n.case ? { ...n.case, code: caseCode(n.case.number) } : null,
       })),

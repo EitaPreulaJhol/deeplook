@@ -1245,8 +1245,11 @@ navegador em inglês. Datas e números seguem o idioma (`13/11/2026` ou `11/13/2
   pede (`Accept-Language`), inclusive pelo token de status. O banco guarda o português, e a API
   traduz na saída; registros antigos também saem traduzidos. Ao trocar o idioma, a interface busca
   de novo o que estava em cache.
-- **Continua em português:** os detalhes do histórico, das notificações e da auditoria (e o CSV
-  dela), a especificação OpenAPI e o que as pessoas escrevem.
+- **Histórico, notificações e auditoria:** o detalhe que o sistema escreve sai no idioma de quem
+  pede; o CSV da auditoria segue o idioma da interface (o link manda `?lang=`, que a API aceita em
+  qualquer rota).
+- **Continua em português:** a especificação OpenAPI e o que as pessoas escrevem (comentários,
+  resoluções, títulos).
 - `node scripts/check-i18n.mjs` conta o texto em português que ainda está solto no código e reprova
   `t()` no topo do módulo ou dentro de `useMemo` sem `locale` nas dependências (o texto não
   acompanharia a troca de idioma). Tabelas de rótulos no topo do módulo usam `localized()`.

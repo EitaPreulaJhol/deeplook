@@ -10,7 +10,12 @@ import { MESSAGES_EN } from './messages-en';
  */
 export type Lang = 'pt-BR' | 'en';
 
-export function requestLang(req: Pick<FastifyRequest, 'headers'>): Lang {
+export function requestLang(
+  req: Pick<FastifyRequest, 'headers'> & { query?: FastifyRequest['query'] },
+): Lang {
+  // Link de download (CSV) nao leva o cabecalho da interface: o idioma vem na URL (?lang=en).
+  const fromUrl = (req.query as { lang?: unknown } | undefined)?.lang;
+  if (fromUrl === 'en' || fromUrl === 'pt-BR') return fromUrl;
   const header = req.headers['accept-language'];
   const first = (Array.isArray(header) ? header[0] : (header ?? '')).split(',')[0].trim();
   return /^en\b/i.test(first) ? 'en' : 'pt-BR';
