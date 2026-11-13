@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+import { localized } from '../i18n';
+import { t as tr } from '../i18n/mgmt';
+
 export interface DailyPoint {
   /** YYYY-MM-DD no fuso do navegador. */
   day: string;
@@ -10,10 +13,10 @@ export interface DailyPoint {
 const W = 720;
 const H = 200;
 const PAD = { top: 12, right: 8, bottom: 26, left: 32 };
-const SERIES = [
-  { key: 'submitted' as const, label: 'Enviadas', className: 'dl-chart__bar--s1' },
-  { key: 'completed' as const, label: 'Concluídas', className: 'dl-chart__bar--s2' },
-];
+const SERIES = localized(() => [
+  { key: 'submitted' as const, label: tr('sent'), className: 'dl-chart__bar--s1' },
+  { key: 'completed' as const, label: tr('done'), className: 'dl-chart__bar--s2' },
+]);
 
 function dayLabel(day: string): string {
   const [, m, d] = day.split('-');
@@ -62,7 +65,7 @@ export function DailyChart({ data }: { data: DailyPoint[] }) {
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={`Amostras enviadas (${totals[0]}) e concluídas (${totals[1]}) por dia`}
+          aria-label={tr('chartAria', { s: totals[0], c: totals[1] })}
           onMouseLeave={() => setHover(null)}
         >
           {ticks.map((t) => (
@@ -141,24 +144,24 @@ export function DailyChart({ data }: { data: DailyPoint[] }) {
           >
             <strong>{dayLabel(point.day)}</strong>
             <span>
-              <span className={`dl-chart__swatch ${SERIES[0].className}`} /> Enviadas:{' '}
-              {point.submitted}
+              <span className={`dl-chart__swatch ${SERIES[0].className}`} />{' '}
+              {tr('sentN', { n: point.submitted })}
             </span>
             <span>
-              <span className={`dl-chart__swatch ${SERIES[1].className}`} /> Concluídas:{' '}
-              {point.completed}
+              <span className={`dl-chart__swatch ${SERIES[1].className}`} />{' '}
+              {tr('doneN', { n: point.completed })}
             </span>
           </div>
         )}
       </div>
       <details className="dl-chart__table">
-        <summary>Ver em tabela</summary>
+        <summary>{tr('viewTable')}</summary>
         <table>
           <thead>
             <tr>
-              <th scope="col">Dia</th>
-              <th scope="col">Enviadas</th>
-              <th scope="col">Concluídas</th>
+              <th scope="col">{tr('day')}</th>
+              <th scope="col">{tr('sent')}</th>
+              <th scope="col">{tr('done')}</th>
             </tr>
           </thead>
           <tbody>

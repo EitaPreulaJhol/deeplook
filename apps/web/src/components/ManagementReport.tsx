@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 
 import type { Priority, Verdict } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/mgmt';
 import { HpsmSection } from './HpsmForm';
 import { PriorityTag, StatusText, VerdictTag } from './tags';
 
@@ -49,8 +50,8 @@ export function fmtHours(h: number | null): string {
 
 /** "01/10/2026 a 31/10/2026". */
 export function periodLabel(from: string, to: string): string {
-  const br = (d: string) => d.split('-').reverse().join('/');
-  return from === to ? br(from) : `${br(from)} a ${br(to)}`;
+  const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(intlLocale());
+  return from === to ? day(from) : tr('periodRange', { from: day(from), to: day(to) });
 }
 
 function Kpi({
@@ -85,33 +86,33 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
   const techniqueMax = Math.max(1, ...d.techniques.map((t) => t.count));
   return (
     <>
-      <div className="dl-kpis" aria-label="Indicadores do período">
+      <div className="dl-kpis" aria-label={tr('periodIndicators')}>
         <Kpi
           value={d.received.total}
-          label="Amostras recebidas"
-          hint={`${d.received.files} arquivo(s), ${d.received.urls} link(s)`}
+          label={tr('received')}
+          hint={tr('receivedDetail', { files: d.received.files, urls: d.received.urls })}
         />
-        <Kpi value={d.completed} label="Concluídas" tone="green" hint="sem duplicatas" />
+        <Kpi value={d.completed} label={tr('done')} tone="green" hint={tr('noDuplicates')} />
         <Kpi
           value={fmtHours(d.timeToComplete.all.avgHours)}
-          label="Tempo médio até concluir"
+          label={tr('avgTime')}
           hint={`mediana ${fmtHours(d.timeToComplete.all.medianHours)}`}
         />
-        <Kpi value={d.cases.opened} label="Casos abertos" tone="orange" />
-        <Kpi value={d.cases.closed} label="Casos encerrados" tone="blue" />
-        <Kpi value={d.cases.openNow} label="Casos em aberto hoje" />
+        <Kpi value={d.cases.opened} label={tr('casesOpened')} tone="orange" />
+        <Kpi value={d.cases.closed} label={tr('casesClosed')} tone="blue" />
+        <Kpi value={d.cases.openNow} label={tr('casesOpenToday')} />
       </div>
 
       <div className="dl-dash-grid">
-        <HpsmSection title="Tempo até concluir por prioridade">
+        <HpsmSection title={tr('timeByPriority')}>
           <TableContainer>
-            <Table size="xs" aria-label="Tempo até concluir por prioridade">
+            <Table size="xs" aria-label={tr('timeByPriority')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Prioridade</TableHeader>
-                  <TableHeader scope="col">Concluídas</TableHeader>
-                  <TableHeader scope="col">Tempo médio</TableHeader>
-                  <TableHeader scope="col">Mediana</TableHeader>
+                  <TableHeader scope="col">{tr('priority')}</TableHeader>
+                  <TableHeader scope="col">{tr('done')}</TableHeader>
+                  <TableHeader scope="col">{tr('avgTimeShort')}</TableHeader>
+                  <TableHeader scope="col">{tr('median')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -133,7 +134,7 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
           </TableContainer>
         </HpsmSection>
 
-        <HpsmSection title={`Vereditos das concluídas (${d.completed})`}>
+        <HpsmSection title={tr('verdictsOfDone', { n: d.completed })}>
           <ul className="dl-hbars">
             {VERDICTS.map((v) => (
               <li key={v}>
@@ -153,13 +154,11 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
         </HpsmSection>
       </div>
 
-      <HpsmSection title="Técnicas ATT&CK mais vistas" className="dl-mt-lg">
+      <HpsmSection title={tr('topAttackShort')} className="dl-mt-lg">
         {d.techniques.length === 0 ? (
-          <p className="dl-static-empty">
-            Nenhuma técnica nos relatórios publicados escritos no período.
-          </p>
+          <p className="dl-static-empty">{tr('noAttackPeriod')}</p>
         ) : (
-          <ul className="dl-hbars dl-hbars--wide" aria-label="Técnicas ATT&CK mais vistas">
+          <ul className="dl-hbars dl-hbars--wide" aria-label={tr('topAttackShort')}>
             {d.techniques.map((t) => (
               <li key={t.id}>
                 <span className="dl-hbars__label" title={t.name}>
@@ -178,16 +177,16 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
         )}
       </HpsmSection>
 
-      <HpsmSection title="Carga por analista" className="dl-mt-lg">
+      <HpsmSection title={tr('workload')} className="dl-mt-lg">
         <TableContainer>
-          <Table size="xs" aria-label="Carga por analista no período">
+          <Table size="xs" aria-label={tr('workloadPeriodAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Analista</TableHeader>
-                <TableHeader scope="col">Concluídas (responsável)</TableHeader>
-                <TableHeader scope="col">Tempo médio até concluir</TableHeader>
-                <TableHeader scope="col">Relatórios publicados</TableHeader>
-                <TableHeader scope="col">Revisões feitas</TableHeader>
+                <TableHeader scope="col">{tr('analyst')}</TableHeader>
+                <TableHeader scope="col">{tr('doneAssignee')}</TableHeader>
+                <TableHeader scope="col">{tr('avgTime')}</TableHeader>
+                <TableHeader scope="col">{tr('publishedReports')}</TableHeader>
+                <TableHeader scope="col">{tr('reviewsDone')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>

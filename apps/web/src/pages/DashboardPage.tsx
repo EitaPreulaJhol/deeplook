@@ -25,6 +25,7 @@ import { PageHeader } from '../components/PageHeader';
 import type { StatusTone } from '../components/tags';
 import { StatusText, VerdictTag } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/mgmt';
 
 const PERIODS = [7, 30, 90] as const;
 const VERDICTS: Verdict[] = ['MALICIOUS', 'SUSPICIOUS', 'CLEAN', 'UNKNOWN'];
@@ -32,7 +33,7 @@ const VERDICTS: Verdict[] = ['MALICIOUS', 'SUSPICIOUS', 'CLEAN', 'UNKNOWN'];
 /** Numero que leva a lista ja filtrada (ou texto, sem link). */
 function Num({ to, value, label }: { to?: string; value: number; label: string }) {
   return to ? (
-    <Link className="dl-link" to={to} title={`Abrir a lista: ${label}`}>
+    <Link className="dl-link" to={to} title={tr('openList', { label })}>
       {value}
     </Link>
   ) : (
@@ -64,7 +65,7 @@ function Kpi({
     </>
   );
   return to ? (
-    <Link className="dl-kpi dl-kpi--link" to={to} title={`Abrir a lista: ${label}`}>
+    <Link className="dl-kpi dl-kpi--link" to={to} title={tr('openList', { label })}>
       {body}
     </Link>
   ) : (
@@ -102,30 +103,23 @@ export function DashboardPage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações do painel">
+      <HpsmToolbar label={tr('dashActions')}>
         <HpsmToolbarButton
-          label={query.isFetching ? 'Atualizando...' : 'Atualizar'}
+          label={query.isFetching ? tr('refreshing') : tr('refresh')}
           icon={IconRefresh}
           disabled={query.isFetching}
           onClick={() => void query.refetch()}
         />
       </HpsmToolbar>
-      <PageHeader
-        title="Painel"
-        subtitle={
-          mine
-            ? 'Situação das amostras que você enviou.'
-            : 'Situação das filas de análise. Cada número abre a lista correspondente.'
-        }
-      />
+      <PageHeader title={tr('dashboard')} subtitle={mine ? tr('dashMine') : tr('dashQueues')} />
       <div className="hpsm-filterbar">
         <div className="hpsm-filterbar__item">
           <label className="hpsm-filterbar__label" htmlFor="dash-period">
-            Período:
+            {tr('period')}
           </label>
           <Select
             id="dash-period"
-            labelText="Período"
+            labelText={tr('periodLabel')}
             hideLabel
             size="sm"
             value={String(days)}
@@ -137,31 +131,31 @@ export function DashboardPage() {
             }}
           >
             {PERIODS.map((p) => (
-              <SelectItem key={p} value={String(p)} text={`Últimos ${p} dias`} />
+              <SelectItem key={p} value={String(p)} text={tr('lastNDays', { p })} />
             ))}
           </Select>
         </div>
       </div>
 
-      {query.isLoading && <HpsmLoading text="Calculando os indicadores..." />}
+      {query.isLoading && <HpsmLoading text={tr('computing')} />}
       {query.isError && (
         <HpsmMessage kind="error">
-          Erro ao carregar o painel: {(query.error as Error).message}
+          {tr('dashError', { error: (query.error as Error).message })}
         </HpsmMessage>
       )}
 
       {d && (
         <>
-          <div className="dl-kpis" aria-label="Indicadores">
+          <div className="dl-kpis" aria-label={tr('indicatorsAria')}>
             <Kpi
               value={d.byStatus.PENDING}
-              label="Pendentes"
+              label={tr('pending')}
               tone="gray"
               to={link('status=PENDING')}
             />
             <Kpi
               value={d.byStatus.IN_REVIEW}
-              label="Em análise"
+              label={tr('inReview')}
               tone="blue"
               to={link('status=IN_REVIEW')}
             />
@@ -170,41 +164,41 @@ export function DashboardPage() {
               <>
                 <Kpi
                   value={d.open.warn}
-                  label="Em alerta ou atrasadas"
+                  label={tr('warnOrLate')}
                   tone="orange"
-                  hint={`mais de ${d.sla.warnHours} h no status`}
+                  hint={tr('moreThanH', { h: d.sla.warnHours })}
                   to={link('age=warn')}
                 />
                 <Kpi
                   value={d.open.late}
-                  label="Atrasadas"
+                  label={tr('late')}
                   tone="red"
-                  hint={`mais de ${d.sla.lateHours} h no status`}
+                  hint={tr('moreThanH', { h: d.sla.lateHours })}
                   to={link('age=late')}
                 />
               </>
             )}
             <Kpi
               value={d.period.submitted}
-              label="Enviadas no período"
+              label={tr('sentInPeriod')}
               hint={`desde ${sinceLabel}`}
               to={link(`submittedFrom=${since}`)}
             />
             <Kpi
               value={d.period.completed}
-              label="Concluídas no período"
+              label={tr('doneInPeriod')}
               tone="green"
-              hint={`desde ${sinceLabel} (sem duplicatas)`}
+              hint={tr('sinceNoDup', { since: sinceLabel })}
               to={link(`completedFrom=${since}`)}
             />
           </div>
 
           <div className="dl-dash-grid">
-            <HpsmSection title={`Entrada e conclusão por dia (últimos ${d.days} dias)`}>
+            <HpsmSection title={tr('dailyTitle', { days: d.days })}>
               <DailyChart data={d.daily} />
             </HpsmSection>
 
-            <HpsmSection title={`Vereditos (${verdictTotal} amostras)`}>
+            <HpsmSection title={tr('verdictsTitle', { n: verdictTotal })}>
               <ul className="dl-hbars">
                 {VERDICTS.map((v) => (
                   <li key={v}>
@@ -227,13 +221,11 @@ export function DashboardPage() {
           </div>
 
           {canTriage && (
-            <HpsmSection title="Técnicas ATT&CK mais vistas no período" className="dl-mt-lg">
+            <HpsmSection title={tr('topAttack')} className="dl-mt-lg">
               {(d.techniques ?? []).length === 0 ? (
-                <p className="dl-static-empty">
-                  Nenhuma técnica registrada nos relatórios publicados desde {sinceLabel}.
-                </p>
+                <p className="dl-static-empty">{tr('noAttack', { since: sinceLabel })}</p>
               ) : (
-                <ul className="dl-hbars dl-hbars--wide" aria-label="Técnicas ATT&CK mais vistas">
+                <ul className="dl-hbars dl-hbars--wide" aria-label={tr('topAttackAria')}>
                   {(d.techniques ?? []).map((t) => (
                     <li key={t.id}>
                       <span className="dl-hbars__label" title={t.name}>
@@ -260,16 +252,16 @@ export function DashboardPage() {
           )}
 
           {!mine && d.workload.length > 0 && (
-            <HpsmSection title="Carga por analista" className="dl-mt-lg">
+            <HpsmSection title={tr('workload')} className="dl-mt-lg">
               <TableContainer>
-                <Table size="xs" aria-label="Carga por analista">
+                <Table size="xs" aria-label={tr('workload')}>
                   <TableHead>
                     <TableRow>
-                      <TableHeader scope="col">Responsável</TableHeader>
-                      <TableHeader scope="col">Pendentes</TableHeader>
-                      <TableHeader scope="col">Em análise</TableHeader>
-                      <TableHeader scope="col">Atrasadas</TableHeader>
-                      <TableHeader scope="col">Concluídas no período</TableHeader>
+                      <TableHeader scope="col">{tr('assignee')}</TableHeader>
+                      <TableHeader scope="col">{tr('pendingCol')}</TableHeader>
+                      <TableHeader scope="col">{tr('inReviewCol')}</TableHeader>
+                      <TableHeader scope="col">{tr('lateCol')}</TableHeader>
+                      <TableHeader scope="col">{tr('doneInPeriodCol')}</TableHeader>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -281,14 +273,14 @@ export function DashboardPage() {
                           <TableCell>
                             <Num
                               value={w.pending}
-                              label={`${w.name}: pendentes`}
+                              label={tr('wPending', { name: w.name })}
                               to={link(`${who}&status=PENDING`)}
                             />
                           </TableCell>
                           <TableCell>
                             <Num
                               value={w.inReview}
-                              label={`${w.name}: em análise`}
+                              label={tr('wInReview', { name: w.name })}
                               to={link(`${who}&status=IN_REVIEW`)}
                             />
                           </TableCell>
@@ -297,7 +289,7 @@ export function DashboardPage() {
                               <StatusText tone="red">
                                 <Num
                                   value={w.late}
-                                  label={`${w.name}: atrasadas`}
+                                  label={tr('wLate', { name: w.name })}
                                   to={link(`${who}&age=late`)}
                                 />
                               </StatusText>
@@ -309,7 +301,7 @@ export function DashboardPage() {
                             {w.id ? (
                               <Num
                                 value={w.completed}
-                                label={`${w.name}: concluídas`}
+                                label={tr('wDone', { name: w.name })}
                                 to={link(`${who}&completedFrom=${since}`)}
                               />
                             ) : (

@@ -28,17 +28,18 @@ import {
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/mgmt';
 
 type Row = Broadcast & { active: boolean; _count: { dismissals: number } };
 
-const DURATIONS = [
-  { value: '4', text: '4 horas' },
-  { value: '24', text: '1 dia' },
-  { value: '72', text: '3 dias' },
-  { value: '168', text: '1 semana' },
-  { value: '720', text: '30 dias' },
-];
+const DURATIONS = localized(() => [
+  { value: '4', text: t('dur4h') },
+  { value: '24', text: t('dur1d') },
+  { value: '72', text: t('dur3d') },
+  { value: '168', text: t('dur1w') },
+  { value: '720', text: t('dur30d') },
+]);
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -67,7 +68,7 @@ export function BroadcastsPage() {
   const check = useRequiredFields([
     {
       id: 'broadcast-text',
-      label: 'Texto (5 a 300 caracteres)',
+      label: t('textRange'),
       ok: form.text.trim().length >= 5,
       api: 'text',
       value: form.text,
@@ -99,31 +100,28 @@ export function BroadcastsPage() {
       });
       setForm({ text: '', level: 'INFO', hours: '24', caseId: '' });
       check.reset();
-      return 'Aviso publicado: já aparece no topo para todos.';
+      return t('broadcastPublished');
     });
   };
 
   const end = async (b: Row) => {
     const ok = await confirm({
-      title: 'Encerrar aviso',
-      message: `Encerrar agora o aviso "${b.text}"? Ele sai da faixa de todos.`,
-      confirmLabel: 'Encerrar',
-      cancelLabel: 'Cancelar',
+      title: t('endBroadcast'),
+      message: t('endBroadcastConfirm', { text: b.text }),
+      confirmLabel: t('end'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.post(`/broadcasts/${b.id}/end`);
-      return 'Aviso encerrado.';
+      return t('broadcastEnded');
     });
   };
 
   return (
     <>
-      <PageHeader
-        title="Avisos gerais"
-        subtitle="Avisos da equipe para todos os usuários, numa faixa no topo e na Página Inicial, até vencer ou a pessoa dispensar. No máximo 3 ativos."
-      />
+      <PageHeader title={t('broadcastsTitle')} subtitle={t('broadcastsSubtitle')} />
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
@@ -131,13 +129,13 @@ export function BroadcastsPage() {
       )}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
 
-      <HpsmSection title="Novo aviso">
+      <HpsmSection title={t('newBroadcast')}>
         {active.length >= 3 ? (
-          <p className="dl-static-empty">Já há 3 avisos ativos. Encerre um para publicar outro.</p>
+          <p className="dl-static-empty">{t('maxActive')}</p>
         ) : (
           <HpsmForm columns={2}>
             <HpsmField
-              label="Texto"
+              label={t('text')}
               htmlFor="broadcast-text"
               required
               wide
@@ -146,31 +144,31 @@ export function BroadcastsPage() {
             >
               <TextArea
                 id="broadcast-text"
-                labelText="Texto"
+                labelText={t('text')}
                 hideLabel
                 rows={2}
                 maxLength={300}
-                placeholder="ex.: Campanha de phishing do “boleto vencido” em andamento. Não abra anexos de cobrança."
+                placeholder={t('broadcastPlaceholder')}
                 value={form.text}
                 onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
               />
             </HpsmField>
-            <HpsmField label="Nível" htmlFor="broadcast-level">
+            <HpsmField label={t('level')} htmlFor="broadcast-level">
               <Select
                 id="broadcast-level"
-                labelText="Nível"
+                labelText={t('level')}
                 hideLabel
                 value={form.level}
                 onChange={(e) => setForm((f) => ({ ...f, level: e.target.value }))}
               >
-                <SelectItem value="INFO" text="Informação" />
-                <SelectItem value="WARNING" text="Alerta" />
+                <SelectItem value="INFO" text={t('info')} />
+                <SelectItem value="WARNING" text={t('warning')} />
               </Select>
             </HpsmField>
-            <HpsmField label="Vale por" htmlFor="broadcast-hours">
+            <HpsmField label={t('validFor')} htmlFor="broadcast-hours">
               <Select
                 id="broadcast-hours"
-                labelText="Vale por"
+                labelText={t('validFor')}
                 hideLabel
                 value={form.hours}
                 onChange={(e) => setForm((f) => ({ ...f, hours: e.target.value }))}
@@ -180,15 +178,15 @@ export function BroadcastsPage() {
                 ))}
               </Select>
             </HpsmField>
-            <HpsmField label="Caso (opcional)" htmlFor="broadcast-case">
+            <HpsmField label={t('caseOptional')} htmlFor="broadcast-case">
               <Select
                 id="broadcast-case"
-                labelText="Caso"
+                labelText={t('case')}
                 hideLabel
                 value={form.caseId}
                 onChange={(e) => setForm((f) => ({ ...f, caseId: e.target.value }))}
               >
-                <SelectItem value="" text="— Nenhum —" />
+                <SelectItem value="" text={t('noneOption')} />
                 {(casesQuery.data?.items ?? []).map((c) => (
                   <SelectItem key={c.id} value={c.id} text={`${c.code} · ${c.title}`} />
                 ))}
@@ -201,28 +199,28 @@ export function BroadcastsPage() {
                 disabled={busy}
                 onClick={publish}
               >
-                Publicar aviso
+                {t('publishBroadcast')}
               </button>
             </HpsmFormActions>
           </HpsmForm>
         )}
       </HpsmSection>
 
-      <HpsmSection title={`Avisos (${items.length})`} className="dl-mt-lg">
-        {query.isLoading && <HpsmLoading text="Carregando avisos..." />}
+      <HpsmSection title={t('broadcastsN', { n: items.length })} className="dl-mt-lg">
+        {query.isLoading && <HpsmLoading text={t('loadingBroadcasts')} />}
         {items.length === 0 && !query.isLoading ? (
-          <p className="dl-static-empty">Nenhum aviso nos últimos 30 dias.</p>
+          <p className="dl-static-empty">{t('noBroadcasts')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label="Avisos gerais">
+            <Table size="xs" aria-label={t('broadcastsTitle')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Aviso</TableHeader>
-                  <TableHeader scope="col">Nível</TableHeader>
-                  <TableHeader scope="col">Por</TableHeader>
-                  <TableHeader scope="col">Vale até</TableHeader>
-                  <TableHeader scope="col">Dispensado por</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{t('notice')}</TableHeader>
+                  <TableHeader scope="col">{t('level')}</TableHeader>
+                  <TableHeader scope="col">{t('by')}</TableHeader>
+                  <TableHeader scope="col">{t('validUntil')}</TableHeader>
+                  <TableHeader scope="col">{t('dismissedBy')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -241,15 +239,15 @@ export function BroadcastsPage() {
                     </TableCell>
                     <TableCell>
                       <StatusText tone={b.level === 'WARNING' ? 'orange' : 'blue'}>
-                        {b.level === 'WARNING' ? 'Alerta' : 'Informação'}
+                        {b.level === 'WARNING' ? t('warning') : t('info')}
                       </StatusText>
                     </TableCell>
                     <TableCell>{b.createdBy?.displayName ?? '—'}</TableCell>
                     <TableCell>
                       {fmt(b.expiresAt)}
-                      {!b.active && ' (encerrado)'}
+                      {!b.active && ` ${t('endedParen')}`}
                     </TableCell>
-                    <TableCell>{b._count.dismissals} pessoa(s)</TableCell>
+                    <TableCell>{t('peopleN', { n: b._count.dismissals })}</TableCell>
                     <TableCell>
                       {b.active && (
                         <button
@@ -258,7 +256,7 @@ export function BroadcastsPage() {
                           disabled={busy}
                           onClick={() => void end(b)}
                         >
-                          Encerrar
+                          {t('end')}
                         </button>
                       )}
                     </TableCell>

@@ -11,6 +11,8 @@ import type { ManagementData } from '../components/ManagementReport';
 import { ManagementReport, periodLabel } from '../components/ManagementReport';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { localized } from '../i18n';
+import { t } from '../i18n/mgmt';
 
 /** Data local AAAA-MM-DD. */
 function ymd(d: Date): string {
@@ -44,14 +46,14 @@ export function presetRange(preset: string, now = new Date()): { from: string; t
   }
 }
 
-const PRESETS = [
-  { value: '7', text: 'Últimos 7 dias' },
-  { value: '30', text: 'Últimos 30 dias' },
-  { value: '90', text: 'Últimos 90 dias' },
-  { value: 'month', text: 'Mês atual' },
-  { value: 'lastMonth', text: 'Mês anterior' },
-  { value: 'year', text: 'Ano atual' },
-];
+const PRESETS = localized(() => [
+  { value: '7', text: t('last7') },
+  { value: '30', text: t('last30') },
+  { value: '90', text: t('last90') },
+  { value: 'month', text: t('thisMonth') },
+  { value: 'lastMonth', text: t('lastMonth') },
+  { value: 'year', text: t('thisYear') },
+]);
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -93,35 +95,35 @@ export function ManagementPage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações do relatório gerencial">
+      <HpsmToolbar label={t('mgmtActions')}>
         <HpsmToolbarButton
-          label={query.isFetching ? 'Atualizando...' : 'Atualizar'}
+          label={query.isFetching ? t('refreshing') : t('refresh')}
           icon={IconRefresh}
           disabled={query.isFetching}
           onClick={() => void query.refetch()}
         />
         <HpsmToolbarButton
-          label="Exportar CSV"
+          label={t('exportCsv')}
           icon={IconDownload}
           disabled={!query.data}
           onClick={() => downloadUrl(`/api/management?${qs}&format=csv`)}
         />
         <HpsmToolbarButton
-          label="Imprimir"
+          label={t('print')}
           icon={IconPrint}
           disabled={!query.data}
           onClick={() => window.open(`/gerencial/imprimir?de=${from}&ate=${to}&auto=1`, '_blank')}
         />
       </HpsmToolbar>
       <PageHeader
-        title="Relatório gerencial"
-        subtitle={`Resumo de ${periodLabel(from, to)}: entrada e conclusão de amostras, tempo de análise, vereditos, técnicas, casos e carga por analista.`}
+        title={t('mgmtTitle')}
+        subtitle={t('mgmtSubtitle', { period: periodLabel(from, to) })}
       />
       <HpsmFilterBar onClear={() => set(presetRange('30')!)}>
-        <HpsmFilterItem label="Período" htmlFor="mgmt-preset">
+        <HpsmFilterItem label={t('periodLabel')} htmlFor="mgmt-preset">
           <Select
             id="mgmt-preset"
-            labelText="Período"
+            labelText={t('periodLabel')}
             hideLabel
             size="sm"
             value={preset ?? ''}
@@ -130,17 +132,17 @@ export function ManagementPage() {
               if (r) set(r);
             }}
           >
-            {!preset && <SelectItem value="" text="Personalizado" />}
+            {!preset && <SelectItem value="" text={t('custom')} />}
             {PRESETS.map((p) => (
               <SelectItem key={p.value} value={p.value} text={p.text} />
             ))}
           </Select>
         </HpsmFilterItem>
-        <HpsmFilterItem label="De" htmlFor="mgmt-from">
+        <HpsmFilterItem label={t('from')} htmlFor="mgmt-from">
           <TextInput
             id="mgmt-from"
             type="date"
-            labelText="De"
+            labelText={t('from')}
             hideLabel
             size="sm"
             value={from}
@@ -148,11 +150,11 @@ export function ManagementPage() {
             onChange={(e) => DATE.test(e.target.value) && set({ from: e.target.value, to })}
           />
         </HpsmFilterItem>
-        <HpsmFilterItem label="Até" htmlFor="mgmt-to">
+        <HpsmFilterItem label={t('to')} htmlFor="mgmt-to">
           <TextInput
             id="mgmt-to"
             type="date"
-            labelText="Até"
+            labelText={t('to')}
             hideLabel
             size="sm"
             value={to}
@@ -162,10 +164,10 @@ export function ManagementPage() {
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {query.isLoading && <HpsmLoading text="Calculando o relatório..." />}
+      {query.isLoading && <HpsmLoading text={t('computingReport')} />}
       {query.isError && (
         <HpsmMessage kind="error">
-          Erro ao gerar o relatório: {(query.error as Error).message}
+          {t('reportError', { error: (query.error as Error).message })}
         </HpsmMessage>
       )}
       {query.data && <ManagementReport data={query.data} />}

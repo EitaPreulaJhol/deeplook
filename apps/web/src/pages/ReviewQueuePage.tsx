@@ -21,6 +21,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { TypeTag, VerdictTag } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/mgmt';
 
 type QueueItem = Report & { entry: { id: string; title: string; type: 'FILE' | 'URL' } };
 
@@ -65,34 +66,31 @@ export function ReviewQueuePage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações da fila">
+      <HpsmToolbar label={t('queueActions')}>
         <HpsmToolbarButton
-          label="Atualizar"
+          label={t('refresh')}
           icon={IconRefresh}
           onClick={() => void query.refetch()}
         />
       </HpsmToolbar>
-      <PageHeader
-        title="Relatórios para revisar"
-        subtitle="Relatórios de outros analistas aguardando aprovação."
-      />
-      {query.isLoading && <HpsmLoading text="Carregando a fila..." />}
+      <PageHeader title={t('reviewsTitle')} subtitle={t('reviewsSubtitle')} />
+      {query.isLoading && <HpsmLoading text={t('loadingQueue')} />}
       {query.isError && (
-        <HpsmMessage kind="error">Erro ao carregar: {(query.error as Error).message}</HpsmMessage>
+        <HpsmMessage kind="error">
+          {t('loadErr', { error: (query.error as Error).message })}
+        </HpsmMessage>
       )}
-      {query.data && items.length === 0 && (
-        <HpsmMessage kind="info">Nenhum relatório aguardando revisão.</HpsmMessage>
-      )}
+      {query.data && items.length === 0 && <HpsmMessage kind="info">{t('noReviews')}</HpsmMessage>}
       {items.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Relatórios para revisar (setas navegam, Enter abre)">
+          <Table size="xs" aria-label={t('reviewsAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Amostra</TableHeader>
-                <TableHeader scope="col">Tipo</TableHeader>
-                <TableHeader scope="col">Autor</TableHeader>
-                <TableHeader scope="col">Veredito proposto</TableHeader>
-                <TableHeader scope="col">Enviado para revisão</TableHeader>
+                <TableHeader scope="col">{t('sample')}</TableHeader>
+                <TableHeader scope="col">{t('type')}</TableHeader>
+                <TableHeader scope="col">{t('author')}</TableHeader>
+                <TableHeader scope="col">{t('proposedVerdict')}</TableHeader>
+                <TableHeader scope="col">{t('sentForReview')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>

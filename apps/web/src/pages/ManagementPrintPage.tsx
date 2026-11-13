@@ -8,6 +8,7 @@ import { IconPrint } from '../components/icons';
 import { ManagementReport, periodLabel } from '../components/ManagementReport';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/mgmt';
 import { useManagement, useManagementPeriod } from './ManagementPage';
 
 /**
@@ -22,7 +23,7 @@ export function ManagementPrintPage() {
   const printedAt = useRef(new Date().toLocaleString(intlLocale()));
 
   useEffect(() => {
-    document.title = `Relatório gerencial — ${periodLabel(from, to)}`;
+    document.title = t('mgmtPrintTitle', { period: periodLabel(from, to) });
   }, [from, to]);
 
   const printed = useRef(false);
@@ -37,34 +38,33 @@ export function ManagementPrintPage() {
     <Theme theme="g10">
       <div className="dl-print dl-print--management">
         <div className="dl-print__toolbar">
-          <HpsmToolbar label="Ações do relatório">
+          <HpsmToolbar label={t('reportActions')}>
             <HpsmToolbarButton
-              label="Imprimir"
+              label={t('print')}
               icon={IconPrint}
               disabled={!query.data}
               onClick={() => window.print()}
             />
-            <HpsmToolbarButton label="Fechar" onClick={() => window.close()} />
+            <HpsmToolbarButton label={t('close')} onClick={() => window.close()} />
           </HpsmToolbar>
         </div>
         <header className="dl-print__head">
           <img src="/icons/magnifier.svg" alt="" className="dl-print__logo" />
           <div>
-            <div className="dl-print__brand">DeepLook — Relatório gerencial</div>
+            <div className="dl-print__brand">{t('brandMgmt')}</div>
             <h1 className="dl-print__title">{periodLabel(from, to)}</h1>
           </div>
           <div className="dl-print__meta">
-            Impresso por {user?.displayName ?? '—'}
+            {t('printedBy', { name: user?.displayName ?? '—' })}
             <br />
-            em {printedAt.current}
+            {t('printedOn', { date: printedAt.current })}
           </div>
         </header>
-        {query.isLoading && <HpsmLoading text="Calculando o relatório..." />}
+        {query.isLoading && <HpsmLoading text={t('computingReport')} />}
         {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
         {query.data && <ManagementReport data={query.data} />}
         <footer className="dl-print__foot">
-          Concluídas: amostras que chegaram a Concluído no período, sem duplicatas. Tempo até
-          concluir: do envio à conclusão. Fuso: {query.data?.period.tz ?? '—'}.
+          {t('printFootnote', { tz: query.data?.period.tz ?? '—' })}
         </footer>
       </div>
     </Theme>

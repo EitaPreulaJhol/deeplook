@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/frame';
 
 export interface Broadcast {
   id: string;
@@ -52,7 +53,7 @@ export function BroadcastBanner() {
   };
 
   return (
-    <div className="dl-broadcasts" role="region" aria-label="Avisos da equipe de segurança">
+    <div className="dl-broadcasts" role="region" aria-label={t('banner.aria')}>
       {items.map((b) => (
         <div
           key={b.id}
@@ -63,7 +64,7 @@ export function BroadcastBanner() {
             {b.level === 'WARNING' ? '⚠' : 'ℹ'}
           </span>
           <span className="dl-broadcast__text">
-            <strong>{b.level === 'WARNING' ? 'Alerta: ' : 'Aviso: '}</strong>
+            <strong>{b.level === 'WARNING' ? t('banner.warning') : t('banner.notice')} </strong>
             {b.text}
             {b.case && (
               <>
@@ -75,13 +76,14 @@ export function BroadcastBanner() {
             )}
           </span>
           <span className="dl-broadcast__meta">
-            {b.createdBy?.displayName ?? 'Equipe'} · até {until(b.expiresAt)}
+            {b.createdBy?.displayName ?? t('banner.team')} ·{' '}
+            {t('banner.until', { date: until(b.expiresAt) })}
           </span>
           <button
             type="button"
             className="dl-broadcast__close"
-            aria-label={`Dispensar o aviso: ${b.text}`}
-            title="Dispensar (só para você)"
+            aria-label={t('banner.dismiss', { text: b.text })}
+            title={t('banner.dismissHint')}
             onClick={() => void dismiss(b.id)}
           >
             ×

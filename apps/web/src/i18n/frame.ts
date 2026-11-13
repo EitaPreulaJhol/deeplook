@@ -180,6 +180,13 @@ export const messages = {
   ],
 
   'lang.label': ['Idioma', 'Language'],
+  'banner.aria': ['Avisos da equipe de segurança', 'Security team notices'],
+  'banner.dismiss': ['Dispensar o aviso: {text}', 'Dismiss the notice: {text}'],
+  'banner.dismissHint': ['Dispensar (só para você)', 'Dismiss (only for you)'],
+  'banner.warning': ['Alerta:', 'Warning:'],
+  'banner.notice': ['Aviso:', 'Notice:'],
+  'banner.team': ['Equipe', 'Team'],
+  'banner.until': ['até {date}', 'until {date}'],
 } as const satisfies Pairs;
 
 export type MessageKey = keyof typeof messages;

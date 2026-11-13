@@ -22,6 +22,7 @@ import { HpsmField, HpsmForm, HpsmFormActions, HpsmSection } from '../components
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
+import { t } from '../i18n/mgmt';
 
 interface Member {
   id: string;
@@ -94,36 +95,39 @@ export function AssignmentPage() {
     run(async () => {
       await api.post('/assignment/groups', { name: newGroup });
       setNewGroup('');
-      return `Grupo "${newGroup.trim()}" criado. Escolha os membros em "Membros…".`;
+      return t('groupCreated', { name: newGroup.trim() });
     });
 
   const renameGroup = async (g: Group) => {
     const name = await prompt({
-      title: 'Renomear grupo',
-      label: 'Nome',
+      title: t('renameGroup'),
+      label: t('name'),
       defaultValue: g.name,
       maxLength: 60,
-      confirmLabel: 'Salvar',
+      confirmLabel: t('save'),
     });
     if (name === null || name.trim() === g.name) return;
     await run(async () => {
       await api.patch(`/assignment/groups/${g.id}`, { name });
-      return `Grupo renomeado para "${name.trim()}".`;
+      return t('groupRenamed', { name: name.trim() });
     });
   };
 
   const deleteGroup = async (g: Group) => {
     const ok = await confirm({
-      title: 'Excluir grupo',
-      message: `Excluir o grupo "${g.name}"?${g.rules ? ` As ${g.rules} regra(s) dele também saem.` : ''} As amostras já atribuídas não mudam.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteGroup'),
+      message: t('deleteGroupConfirm', {
+        name: g.name,
+        rules: g.rules ? ` ${t('groupRulesToo', { n: g.rules })}` : '',
+      }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/assignment/groups/${g.id}`);
-      return `Grupo "${g.name}" excluído.`;
+      return t('groupDeleted', { name: g.name });
     });
   };
 
@@ -132,7 +136,7 @@ export function AssignmentPage() {
     run(async () => {
       await api.patch(`/assignment/groups/${editing.id}`, { memberIds: [...editing.members] });
       setEditing(null);
-      return 'Membros atualizados.';
+      return t('membersUpdated');
     });
 
   const setAway = (userId: string, away: boolean, name: string) =>
@@ -140,13 +144,17 @@ export function AssignmentPage() {
       await api.put(`/assignment/away/${userId}`, { away });
       if (userId === user?.id) await refresh();
       return away
-        ? `${userId === user?.id ? 'Você está' : `${name} está`} ausente: o rodízio pula até voltar.`
-        : `${userId === user?.id ? 'Você voltou' : `${name} voltou`} ao rodízio.`;
+        ? userId === user?.id
+          ? t('youAway')
+          : t('userAway', { name })
+        : userId === user?.id
+          ? t('youBack')
+          : t('userBack', { name });
     });
 
   const addRule = () =>
     run(async () => {
-      if (!rule.groupId) throw new Error('Escolha o grupo que recebe as amostras.');
+      if (!rule.groupId) throw new Error(t('chooseGroup'));
       await api.post('/assignment/rules', {
         groupId: rule.groupId,
         entryType: rule.entryType || null,
@@ -154,67 +162,62 @@ export function AssignmentPage() {
         priority: rule.priority || null,
       });
       setRule(EMPTY_RULE);
-      return 'Regra incluída no fim da lista.';
+      return t('ruleAddedEnd');
     });
 
   const moveRule = (r: Rule, direction: 'up' | 'down') =>
     run(async () => {
       await api.post(`/assignment/rules/${r.id}/move`, { direction });
-      return `Regra "${r.label}" ${direction === 'up' ? 'subiu' : 'desceu'}.`;
+      return t(direction === 'up' ? 'ruleUp' : 'ruleDown', { name: r.label });
     });
 
   const toggleRule = (r: Rule) =>
     run(async () => {
       await api.patch(`/assignment/rules/${r.id}`, { enabled: !r.enabled });
-      return `Regra "${r.label}" ${r.enabled ? 'desligada' : 'ligada'}.`;
+      return t(r.enabled ? 'ruleOff' : 'ruleOn', { name: r.label });
     });
 
   const deleteRule = async (r: Rule) => {
     const ok = await confirm({
-      title: 'Excluir regra',
-      message: `Excluir a regra "${r.label} → ${r.group.name}"?`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteRule'),
+      message: t('deleteAssignConfirm', { rule: r.label, group: r.group.name }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/assignment/rules/${r.id}`);
-      return 'Regra excluída.';
+      return t('ruleDeletedShort');
     });
   };
 
   return (
     <>
-      <PageHeader
-        title="Atribuição automática"
-        subtitle="Amostras novas vão para um grupo pela primeira regra que casar; dentro do grupo, para quem recebeu há mais tempo, pulando ausentes. Sem regra, ficam sem responsável."
-      />
+      <PageHeader title={t('assignTitle')} subtitle={t('assignSubtitle')} />
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
         </HpsmMessage>
       )}
-      {query.isLoading && <HpsmLoading text="Carregando a configuração..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingConfig')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
 
       {data && (
         <>
-          <HpsmSection title={`Regras (${data.rules.length})`}>
+          <HpsmSection title={t('rulesN', { n: data.rules.length })}>
             {data.rules.length === 0 ? (
-              <p className="dl-static-empty">
-                Nenhuma regra: as amostras novas ficam sem responsável.
-              </p>
+              <p className="dl-static-empty">{t('noAssignRules')}</p>
             ) : (
               <TableContainer>
-                <Table size="xs" aria-label="Regras de atribuição">
+                <Table size="xs" aria-label={t('assignRulesAria')}>
                   <TableHead>
                     <TableRow>
-                      <TableHeader scope="col">Ordem</TableHeader>
-                      <TableHeader scope="col">Quando chegar</TableHeader>
-                      <TableHeader scope="col">Vai para o grupo</TableHeader>
-                      <TableHeader scope="col">Situação</TableHeader>
-                      <TableHeader scope="col">Ações</TableHeader>
+                      <TableHeader scope="col">{t('order')}</TableHeader>
+                      <TableHeader scope="col">{t('whenArrives')}</TableHeader>
+                      <TableHeader scope="col">{t('goesToGroup')}</TableHeader>
+                      <TableHeader scope="col">{t('situation')}</TableHeader>
+                      <TableHeader scope="col">{t('actions')}</TableHeader>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -225,7 +228,7 @@ export function AssignmentPage() {
                         <TableCell>{r.group.name}</TableCell>
                         <TableCell>
                           <StatusText tone={r.enabled ? 'green' : 'gray'}>
-                            {r.enabled ? 'Ligada' : 'Desligada'}
+                            {r.enabled ? t('on') : t('off')}
                           </StatusText>
                         </TableCell>
                         <TableCell>
@@ -234,19 +237,19 @@ export function AssignmentPage() {
                               type="button"
                               className="dl-link-button"
                               disabled={busy || i === 0}
-                              aria-label={`Subir a regra ${i + 1}`}
+                              aria-label={t('moveUpRule', { n: i + 1 })}
                               onClick={() => void moveRule(r, 'up')}
                             >
-                              ▲ Subir
+                              {t('moveUp')}
                             </button>
                             <button
                               type="button"
                               className="dl-link-button"
                               disabled={busy || i === data.rules.length - 1}
-                              aria-label={`Descer a regra ${i + 1}`}
+                              aria-label={t('moveDownRule', { n: i + 1 })}
                               onClick={() => void moveRule(r, 'down')}
                             >
-                              ▼ Descer
+                              {t('moveDown')}
                             </button>
                             <button
                               type="button"
@@ -254,7 +257,7 @@ export function AssignmentPage() {
                               disabled={busy}
                               onClick={() => void toggleRule(r)}
                             >
-                              {r.enabled ? 'Desligar' : 'Ligar'}
+                              {r.enabled ? t('turnOff') : t('turnOn')}
                             </button>
                             <button
                               type="button"
@@ -262,7 +265,7 @@ export function AssignmentPage() {
                               disabled={busy}
                               onClick={() => void deleteRule(r)}
                             >
-                              Excluir
+                              {t('delete')}
                             </button>
                           </span>
                         </TableCell>
@@ -273,40 +276,40 @@ export function AssignmentPage() {
               </TableContainer>
             )}
             {data.groups.length === 0 ? (
-              <p className="dl-static-empty">Crie um grupo abaixo para poder incluir regras.</p>
+              <p className="dl-static-empty">{t('createGroupFirst')}</p>
             ) : (
               <HpsmForm columns={2}>
-                <HpsmField label="Grupo" htmlFor="rule-group" required>
+                <HpsmField label={t('group')} htmlFor="rule-group" required>
                   <Select
                     id="rule-group"
-                    labelText="Grupo"
+                    labelText={t('group')}
                     hideLabel
                     value={rule.groupId}
                     onChange={(e) => setRule((r) => ({ ...r, groupId: e.target.value }))}
                   >
-                    <SelectItem value="" text="— Escolha —" />
+                    <SelectItem value="" text={t('choose')} />
                     {data.groups.map((g) => (
                       <SelectItem key={g.id} value={g.id} text={g.name} />
                     ))}
                   </Select>
                 </HpsmField>
-                <HpsmField label="Tipo" htmlFor="rule-type">
+                <HpsmField label={t('type')} htmlFor="rule-type">
                   <Select
                     id="rule-type"
-                    labelText="Tipo"
+                    labelText={t('type')}
                     hideLabel
                     value={rule.entryType}
                     onChange={(e) => setRule((r) => ({ ...r, entryType: e.target.value }))}
                   >
-                    <SelectItem value="" text="Qualquer" />
-                    <SelectItem value="FILE" text="Arquivo" />
-                    <SelectItem value="URL" text="Link" />
+                    <SelectItem value="" text={t('any')} />
+                    <SelectItem value="FILE" text={t('file')} />
+                    <SelectItem value="URL" text={t('link')} />
                   </Select>
                 </HpsmField>
-                <HpsmField label="Com a tag" htmlFor="rule-tag">
+                <HpsmField label={t('withTag')} htmlFor="rule-tag">
                   <TextInput
                     id="rule-tag"
-                    labelText="Com a tag"
+                    labelText={t('withTag')}
                     hideLabel
                     maxLength={50}
                     placeholder="qualquer"
@@ -314,19 +317,19 @@ export function AssignmentPage() {
                     onChange={(e) => setRule((r) => ({ ...r, tag: e.target.value }))}
                   />
                 </HpsmField>
-                <HpsmField label="Prioridade" htmlFor="rule-priority">
+                <HpsmField label={t('priority')} htmlFor="rule-priority">
                   <Select
                     id="rule-priority"
-                    labelText="Prioridade"
+                    labelText={t('priority')}
                     hideLabel
                     value={rule.priority}
                     onChange={(e) => setRule((r) => ({ ...r, priority: e.target.value }))}
                   >
-                    <SelectItem value="" text="Qualquer" />
-                    <SelectItem value="P1" text="P1 Crítica" />
-                    <SelectItem value="P2" text="P2 Alta" />
-                    <SelectItem value="P3" text="P3 Média" />
-                    <SelectItem value="P4" text="P4 Baixa" />
+                    <SelectItem value="" text={t('any')} />
+                    <SelectItem value="P1" text={t('p1')} />
+                    <SelectItem value="P2" text={t('p2')} />
+                    <SelectItem value="P3" text={t('p3')} />
+                    <SelectItem value="P4" text={t('p4')} />
                   </Select>
                 </HpsmField>
                 <HpsmFormActions>
@@ -336,23 +339,23 @@ export function AssignmentPage() {
                     disabled={busy}
                     onClick={() => void addRule()}
                   >
-                    Incluir regra
+                    {t('addRule')}
                   </button>
                 </HpsmFormActions>
               </HpsmForm>
             )}
           </HpsmSection>
 
-          <HpsmSection title={`Grupos (${data.groups.length})`} className="dl-mt-lg">
+          <HpsmSection title={t('groupsN', { n: data.groups.length })} className="dl-mt-lg">
             {data.groups.length > 0 && (
               <TableContainer>
-                <Table size="xs" aria-label="Grupos de analistas">
+                <Table size="xs" aria-label={t('groupsAria')}>
                   <TableHead>
                     <TableRow>
-                      <TableHeader scope="col">Grupo</TableHeader>
-                      <TableHeader scope="col">Membros</TableHeader>
-                      <TableHeader scope="col">Regras</TableHeader>
-                      <TableHeader scope="col">Ações</TableHeader>
+                      <TableHeader scope="col">{t('group')}</TableHeader>
+                      <TableHeader scope="col">{t('members')}</TableHeader>
+                      <TableHeader scope="col">{t('rules')}</TableHeader>
+                      <TableHeader scope="col">{t('actions')}</TableHeader>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -361,7 +364,7 @@ export function AssignmentPage() {
                         <TableCell>{g.name}</TableCell>
                         <TableCell>
                           {g.members.length === 0 ? (
-                            <em>ninguém (as regras dele não atribuem)</em>
+                            <em>{t('nobody')}</em>
                           ) : (
                             g.members.map((m, i) => (
                               <span key={m.id}>
@@ -391,7 +394,7 @@ export function AssignmentPage() {
                                 })
                               }
                             >
-                              Membros…
+                              {t('membersEllipsis')}
                             </button>
                             <button
                               type="button"
@@ -399,7 +402,7 @@ export function AssignmentPage() {
                               disabled={busy}
                               onClick={() => void renameGroup(g)}
                             >
-                              Renomear…
+                              {t('renameEllipsis')}
                             </button>
                             <button
                               type="button"
@@ -407,12 +410,12 @@ export function AssignmentPage() {
                               disabled={busy}
                               onClick={() => void deleteGroup(g)}
                             >
-                              Excluir
+                              {t('delete')}
                             </button>
                           </span>
                           {editing?.id === g.id && (
                             <fieldset className="dl-members">
-                              <legend>Membros de {g.name}</legend>
+                              <legend>{t('membersOf', { name: g.name })}</legend>
                               {data.analysts.map((a) => (
                                 <Checkbox
                                   key={a.id}
@@ -434,14 +437,14 @@ export function AssignmentPage() {
                                   disabled={busy}
                                   onClick={() => void saveMembers()}
                                 >
-                                  Salvar membros
+                                  {t('saveMembers')}
                                 </button>
                                 <button
                                   type="button"
                                   className="dl-btn"
                                   onClick={() => setEditing(null)}
                                 >
-                                  Cancelar
+                                  {t('cancel')}
                                 </button>
                               </span>
                             </fieldset>
@@ -454,14 +457,14 @@ export function AssignmentPage() {
               </TableContainer>
             )}
             <HpsmForm>
-              <HpsmField label="Novo grupo" htmlFor="group-name">
+              <HpsmField label={t('newGroup')} htmlFor="group-name">
                 <span className="dl-inline-form">
                   <TextInput
                     id="group-name"
-                    labelText="Novo grupo"
+                    labelText={t('newGroup')}
                     hideLabel
                     maxLength={60}
-                    placeholder="ex.: Phishing"
+                    placeholder={t('groupPlaceholder')}
                     value={newGroup}
                     onChange={(e) => setNewGroup(e.target.value)}
                   />
@@ -471,33 +474,32 @@ export function AssignmentPage() {
                     disabled={busy || newGroup.trim().length < 2}
                     onClick={() => void createGroup()}
                   >
-                    Criar grupo
+                    {t('createGroup')}
                   </button>
                 </span>
               </HpsmField>
             </HpsmForm>
           </HpsmSection>
 
-          <HpsmSection title="Disponibilidade" className="dl-mt-lg">
+          <HpsmSection title={t('availability')} className="dl-mt-lg">
             <p className="dl-static-empty">
-              Quem está ausente (férias, folga) não recebe amostras do rodízio.{' '}
-              {isAdmin
-                ? 'Como admin, você marca qualquer analista.'
-                : 'Você marca a si mesmo; um admin marca os outros.'}
+              {t('awayHint')} {isAdmin ? t('awayAdmin') : t('awaySelf')}
             </p>
             <TableContainer>
-              <Table size="xs" aria-label="Disponibilidade dos analistas">
+              <Table size="xs" aria-label={t('availabilityAria')}>
                 <TableHead>
                   <TableRow>
-                    <TableHeader scope="col">Analista</TableHeader>
-                    <TableHeader scope="col">Ausente</TableHeader>
+                    <TableHeader scope="col">{t('analyst')}</TableHeader>
+                    <TableHeader scope="col">{t('away')}</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {data.analysts.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell>
-                        {a.id === user?.id ? `${a.displayName} (você)` : a.displayName}
+                        {a.id === user?.id
+                          ? t('youSuffix', { name: a.displayName })
+                          : a.displayName}
                       </TableCell>
                       <TableCell>
                         <Checkbox
