@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { test } from 'node:test';
 
 import ts from 'typescript';
 
 import { MESSAGES_EN } from '../../src/lib/messages-en';
+import { scanTexts, sourceFiles } from './source-texts';
 
 /**
  * Cobertura do dicionario de erros em ingles (plano pos-revisao, item 1.2).
@@ -102,9 +103,6 @@ const NOT_SENT: [text: string, reason: string][] = [
   ['[s3] Nao foi possivel garantir o bucket apos varias tentativas.', 'partida da API'],
 ];
 
-const PT =
-  /[ãõçáéíóúâêôàÃÇÁÉÍÓÚ]|\b(de|da|do|das|dos|para|com|sem|uma|um|não|nao|que|por|na|no|ou|em|ao|os|as)\b/i;
-const LOG_METHOD = /\.(log|info|warn|error|debug|trace|fatal)$|^console\./;
 const ZOD_CALL =
   /\.(min|max|length|regex|refine|superRefine|email|url|int|positive|nonnegative|nonempty|startsWith|endsWith)$/;
 
@@ -112,59 +110,6 @@ interface Found {
   file: string;
   line: number;
   text: string;
-}
-
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === 'generated' ? [] : sourceFiles(path);
-    return /\.ts$/.test(name) ? [path] : [];
-  });
-}
-
-const unparen = (node: ts.Node): ts.Node =>
-  ts.isParenthesizedExpression(node) ? unparen(node.expression) : node;
-/** O primeiro ancestral que nao e um parentese. */
-function outerParent(node: ts.Node): ts.Node | undefined {
-  let up: ts.Node | undefined = node.parent;
-  while (up && ts.isParenthesizedExpression(up)) up = up.parent;
-  return up;
-}
-const isPlus = (node: ts.Node): node is ts.BinaryExpression =>
-  ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken;
-const isText = (node: ts.Node) =>
-  ts.isStringLiteral(node) ||
-  ts.isNoSubstitutionTemplateLiteral(node) ||
-  ts.isTemplateExpression(node);
-
-/** Concatenacao que tem algum texto (e nao uma soma de numeros). */
-function hasText(node: ts.Node): boolean {
-  const n = unparen(node);
-  if (isText(n)) return true;
-  return isPlus(n) && (hasText(n.left) || hasText(n.right));
-}
-
-/** O texto como a API o monta, com `{n}` no lugar de cada trecho variavel. */
-function build(node: ts.Node, slot: { next: number }): string {
-  const n = unparen(node);
-  if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return n.text;
-  if (ts.isTemplateExpression(n)) {
-    return n.head.text + n.templateSpans.map((s) => `{${slot.next++}}${s.literal.text}`).join('');
-  }
-  if (isPlus(n) && hasText(n)) return build(n.left, slot) + build(n.right, slot);
-  return `{${slot.next++}}`;
-}
-
-function inLogOrImport(node: ts.Node): boolean {
-  for (let up = node.parent; up; up = up.parent) {
-    if (ts.isImportDeclaration(up)) return true;
-    if (ts.isCallExpression(up)) {
-      const callee = up.expression.getText();
-      if (LOG_METHOD.test(callee) && /log|console/.test(callee)) return true;
-    }
-    if (ts.isStatement(up)) return false;
-  }
-  return false;
 }
 
 function errorContext(node: ts.Node, file: string): boolean {
@@ -188,36 +133,13 @@ function errorContext(node: ts.Node, file: string): boolean {
 }
 
 function extract(): Found[] {
-  const found: Found[] = [];
-  for (const path of sourceFiles(SRC)) {
+  return sourceFiles(SRC).flatMap((path) => {
     const file = relative(ROOT, path).split('\\').join('/');
-    if (file === 'src/lib/messages-en.ts' || FILES_NOT_SENT[file]) continue;
-    const sf = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
-    const visit = (node: ts.Node): void => {
-      // Um texto dentro de uma concatenacao e lido pelo topo dela.
-      const up = outerParent(node);
-      const inChain = up !== undefined && isPlus(up);
-      if ((isText(node) || (isPlus(node) && hasText(node))) && !inChain) {
-        const text = build(node, { next: 0 });
-        // O portugues pode estar so dentro de um `${...}` (ex.: `${msg || 'sem detalhes'}`).
-        const portuguese = PT.test(text) || PT.test(node.getText());
-        if (
-          portuguese &&
-          /[A-Za-zÀ-ú]{3}/.test(text) &&
-          !inLogOrImport(node) &&
-          errorContext(node, file)
-        ) {
-          const line = sf.getLineAndCharacterOfPosition(node.getStart()).line + 1;
-          found.push({ file, line, text });
-        }
-        // Textos dentro de `${...}` ou de uma concatenacao nao contam sozinhos.
-        return;
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(sf);
-  }
-  return found;
+    if (file === 'src/lib/messages-en.ts' || FILES_NOT_SENT[file]) return [];
+    return scanTexts(path, (node, item) => item.portuguese && errorContext(node, file)).map(
+      ({ line, text }) => ({ file, line, text }),
+    );
+  });
 }
 
 const found = extract();

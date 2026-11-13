@@ -7,10 +7,11 @@ import { checkAuditChain } from '../lib/audit-check';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
 import { toCsv } from '../lib/csv';
+import { requestLang } from '../lib/error-language';
 import { passwordState } from '../lib/password-policy';
 import { prisma } from '../lib/prisma';
 import { closeSessionsOf } from '../lib/sandbox';
-import { systemStatus } from '../lib/status';
+import { localizeStatus, systemStatus } from '../lib/status';
 import { sendValidationError } from '../lib/validation';
 
 const CreateKeySchema = z.object({
@@ -138,7 +139,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get('/api/admin/status', async (req, reply) => {
     const user = await requireAdmin(req, reply);
     if (!user) return;
-    return reply.send(await systemStatus());
+    return reply.send(localizeStatus(await systemStatus(), requestLang(req)));
   });
 
   // ---- Usuarios ----

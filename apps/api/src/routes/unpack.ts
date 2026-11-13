@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { localizeStaticInfo } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { prisma } from '../lib/prisma';
 import { requestUnpack, unpackEnabled } from '../lib/unpack';
 
@@ -58,7 +60,8 @@ export async function unpackRoutes(app: FastifyInstance) {
       enabled: unpackEnabled(),
       applicable: entry.type === 'FILE' && executable(entry.staticInfo),
       maxMb: env.UNPACK_MAX_MB,
-      job,
+      // Motivos e notas no idioma de quem pede (plano pos-revisao, item 1.4).
+      job: localizeStaticInfo(job, requestLang(req)),
       children,
     });
   });

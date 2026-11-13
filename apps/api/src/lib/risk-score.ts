@@ -1,5 +1,7 @@
 import type { Verdict } from '../generated/prisma/client';
 import { capaRisky } from './capa-risk';
+import { localizeText } from './data-language';
+import type { Lang } from './error-language';
 import { prisma } from './prisma';
 import { SERVICE_NAMES, type ServiceId } from './reputation';
 import { type Facts, loadFacts } from './triage-rules';
@@ -19,7 +21,7 @@ import { type Facts, loadFacts } from './triage-rules';
  */
 
 export type RiskReason = {
-  /** De onde veio: o nome da analise, como a ficha a chama. */
+  /** De onde veio: o nome da analise, como a ficha a chama, no idioma do pedido. */
   source: string;
   text: string;
   /** Pontos somados (negativo = atenuante). */
@@ -51,28 +53,44 @@ export type RiskInputs = {
 export const RISK_MALICIOUS = 70;
 export const RISK_SUSPICIOUS = 35;
 
-const list = (items: string[], max = 3) =>
+/**
+ * Lista curta: "a, b, c e mais 2". O idioma vem de quem pede (plano pos-revisao, item 1.4): a nota
+ * e calculada a cada pedido, e os motivos saem no idioma da interface.
+ */
+const list = (items: string[], lang: Lang, max = 3) =>
   items.length > max
-    ? `${items.slice(0, max).join(', ')} e mais ${items.length - max}`
+    ? `${items.slice(0, max).join(', ')} ${lang === 'en' ? 'and' : 'e mais'} ${
+        lang === 'en' ? `${items.length - max} more` : items.length - max
+      }`
     : items.join(', ');
 
 /** A nota e os motivos, a partir dos sinais. Pura: os testes a chamam direto. */
-export function scoreRisk(input: RiskInputs): RiskScore {
+export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
   const { facts } = input;
   const reasons: RiskReason[] = [];
+  const en = lang === 'en';
+  const tr = (pt: string, english: string) => (en ? english : pt);
   const add = (source: string, text: string, weight: number) => {
     if (weight !== 0) reasons.push({ source, text, weight });
   };
 
   if (facts.antivirus !== null) {
-    add('Antivírus', `o ClamAV detectou ${facts.antivirus || 'uma ameaça'}`, 60);
+    add(
+      tr('Antivírus', 'Antivirus'),
+      en
+        ? `ClamAV detected ${facts.antivirus || 'a threat'}`
+        : `o ClamAV detectou ${facts.antivirus || 'uma ameaça'}`,
+      60,
+    );
   }
 
   const yara = [...new Set(facts.yara)];
   if (yara.length) {
     add(
       'YARA',
-      `${yara.length} conjunto(s) de regras casaram: ${list(yara)}`,
+      en
+        ? `${yara.length} rule set(s) matched: ${list(yara, lang)}`
+        : `${yara.length} conjunto(s) de regras casaram: ${list(yara, lang)}`,
       Math.min(50, 35 + (yara.length - 1) * 5),
     );
   }
@@ -82,27 +100,59 @@ export function scoreRisk(input: RiskInputs): RiskScore {
   const bad = input.reputation.filter((r) => r.verdict === 'MALICIOUS');
   const odd = input.reputation.filter((r) => r.verdict === 'SUSPICIOUS');
   const good = input.reputation.filter((r) => r.verdict === 'CLEAN');
-  if (bad.length) add('Reputação externa', `malicioso em ${list(bad.map(named))}`, 60);
-  else if (odd.length) add('Reputação externa', `suspeito em ${list(odd.map(named))}`, 25);
-  else if (good.length) add('Reputação externa', `limpo em ${list(good.map(named))}`, -10);
+  const reputation = tr('Reputação externa', 'External reputation');
+  if (bad.length) {
+    add(reputation, `${tr('malicioso em', 'malicious on')} ${list(bad.map(named), lang)}`, 60);
+  } else if (odd.length) {
+    add(reputation, `${tr('suspeito em', 'suspicious on')} ${list(odd.map(named), lang)}`, 25);
+  } else if (good.length) {
+    add(reputation, `${tr('limpo em', 'clean on')} ${list(good.map(named), lang)}`, -10);
+  }
 
   if (facts.disguised) {
-    add('Tipo do arquivo', 'executável ou script disfarçado com outra extensão', 30);
+    add(
+      tr('Tipo do arquivo', 'File type'),
+      tr(
+        'executável ou script disfarçado com outra extensão',
+        'executable or script disguised with another extension',
+      ),
+      30,
+    );
   }
-  if (input.scriptRisk === 'high') add('Script', 'comportamento de alto risco no script', 35);
-  else if (input.scriptRisk === 'medium')
-    add('Script', 'comportamento de risco médio no script', 15);
-  if (input.documentRisk === 'high') add('Documento', 'documento de alto risco', 35);
-  else if (facts.macro) add('Documento', 'contém macros VBA', 15);
-  else if (input.documentRisk === 'medium') add('Documento', 'documento de risco médio', 10);
-  if (facts.lnk) add('Atalho', 'atalho (.lnk) com alertas', 25);
+  if (input.scriptRisk === 'high') {
+    add(
+      'Script',
+      tr('comportamento de alto risco no script', 'high-risk behavior in the script'),
+      35,
+    );
+  } else if (input.scriptRisk === 'medium') {
+    add(
+      'Script',
+      tr('comportamento de risco médio no script', 'medium-risk behavior in the script'),
+      15,
+    );
+  }
+  const document = tr('Documento', 'Document');
+  if (input.documentRisk === 'high')
+    add(document, tr('documento de alto risco', 'high-risk document'), 35);
+  else if (facts.macro) add(document, tr('contém macros VBA', 'contains VBA macros'), 15);
+  else if (input.documentRisk === 'medium') {
+    add(document, tr('documento de risco médio', 'medium-risk document'), 10);
+  }
+  if (facts.lnk)
+    add(
+      tr('Atalho', 'Shortcut'),
+      tr('atalho (.lnk) com alertas', 'shortcut (.lnk) with alerts'),
+      25,
+    );
   // oletools (revisao 3.2): o que o parser em TypeScript nao ve (MacroRaptor, XLM 4.0, stomping).
   const office = facts.officeAlerts.filter((a) => a.level === 'high');
   if (office.length) {
     add(
-      'Documento (oletools)',
+      tr('Documento (oletools)', 'Document (oletools)'),
       list(
-        office.map((a) => a.text.replace(/[.:].*$/, '')),
+        office.map((a) => localizeText(a.text, lang).replace(/[.:].*$/, '')),
+        lang,
         2,
       ),
       Math.min(30, office.length * 15),
@@ -110,37 +160,59 @@ export function scoreRisk(input: RiskInputs): RiskScore {
   }
 
   if (facts.lookalikes.length) {
-    add('Domínio parecido', `imita ${list([...new Set(facts.lookalikes)])}`, 35);
+    add(
+      tr('Domínio parecido', 'Lookalike domain'),
+      `${tr('imita', 'imitates')} ${list([...new Set(facts.lookalikes)], lang)}`,
+      35,
+    );
   }
 
+  const executable = tr('Executável', 'Executable');
   const highAlerts = facts.peAlerts.filter((a) => a.level === 'high');
   const mediumAlerts = facts.peAlerts.filter((a) => a.level === 'medium');
   if (highAlerts.length) {
+    const items = list(
+      highAlerts.map((a) => localizeText(a.text, lang)),
+      lang,
+      2,
+    );
     add(
-      'Executável',
-      `${highAlerts.length} alerta(s) alto(s): ${list(
-        highAlerts.map((a) => a.text),
-        2,
-      )}`,
+      executable,
+      en
+        ? `${highAlerts.length} high alert(s): ${items}`
+        : `${highAlerts.length} alerta(s) alto(s): ${items}`,
       Math.min(30, highAlerts.length * 12),
     );
   }
   if (mediumAlerts.length) {
     add(
-      'Executável',
-      `${mediumAlerts.length} alerta(s) médio(s)`,
+      executable,
+      en ? `${mediumAlerts.length} medium alert(s)` : `${mediumAlerts.length} alerta(s) médio(s)`,
       Math.min(12, mediumAlerts.length * 4),
     );
   }
-  if (facts.signatureInvalid) add('Assinatura', 'assinatura digital que não confere', 20);
-  else if (input.signedValid) add('Assinatura', 'assinatura digital válida', -15);
+  const signature = tr('Assinatura', 'Signature');
+  if (facts.signatureInvalid) {
+    add(
+      signature,
+      tr('assinatura digital que não confere', 'digital signature that does not match'),
+      20,
+    );
+  } else if (input.signedValid) {
+    add(signature, tr('assinatura digital válida', 'valid digital signature'), -15);
+  }
 
   const packers = facts.die.filter((d) => ['packer', 'protector'].includes(d.type.toLowerCase()));
   if (facts.packer || packers.length) {
-    add('Empacotamento', `empacotado ou protegido (${facts.packer ?? packers[0].string})`, 10);
+    add(
+      tr('Empacotamento', 'Packing'),
+      `${tr('empacotado ou protegido', 'packed or protected')} (${facts.packer ?? packers[0].string})`,
+      10,
+    );
   }
 
   // Capacidades de risco do capa, por grupo: dez regras de "communication" contam uma vez.
+  const functions = tr('Análise de funções', 'Function analysis');
   const groups = [
     ...new Set(
       facts.capaRules.filter((r) => capaRisky(r.namespace)).map((r) => r.namespace.split('/')[0]),
@@ -148,13 +220,19 @@ export function scoreRisk(input: RiskInputs): RiskScore {
   ];
   if (groups.length) {
     add(
-      'Análise de funções',
-      `capacidades de risco: ${list(groups, 4)}`,
+      functions,
+      `${tr('capacidades de risco', 'risky capabilities')}: ${list(groups, lang, 4)}`,
       Math.min(30, groups.length * 6),
     );
   }
   if (facts.hiddenIocs.length) {
-    add('Análise de funções', `${facts.hiddenIocs.length} indicador(es) em strings ofuscadas`, 10);
+    add(
+      functions,
+      en
+        ? `${facts.hiddenIocs.length} indicator(s) in obfuscated strings`
+        : `${facts.hiddenIocs.length} indicador(es) em strings ofuscadas`,
+      10,
+    );
   }
 
   reasons.sort((a, b) => b.weight - a.weight);
@@ -176,7 +254,7 @@ export function scoreRisk(input: RiskInputs): RiskScore {
 }
 
 /** A nota de uma amostra, com o que as analises ja gravaram. Null se ela nao existe. */
-export async function riskOf(entryId: string): Promise<RiskScore | null> {
+export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<RiskScore | null> {
   const loaded = await loadFacts(entryId);
   if (!loaded) return null;
   const { facts, entry } = loaded;
@@ -196,23 +274,28 @@ export async function riskOf(entryId: string): Promise<RiskScore | null> {
     } | null;
   };
   const sig = st.pe?.signature;
+  const en = lang === 'en';
   const pending = [
-    entry.antivirus?.status === 'PENDING' && 'antivírus',
+    entry.antivirus?.status === 'PENDING' && (en ? 'antivirus' : 'antivírus'),
     entry.yara?.status === 'PENDING' && 'YARA',
     entry.capaAnalysis &&
       ['PENDING', 'RUNNING'].includes(entry.capaAnalysis.status) &&
-      'análise de funções',
+      (en ? 'function analysis' : 'análise de funções'),
     entry.officeAnalysis &&
       ['PENDING', 'RUNNING'].includes(entry.officeAnalysis.status) &&
-      'análise do documento',
-    reputation.some((r) => r.status === 'PENDING') && 'reputação externa',
+      (en ? 'document analysis' : 'análise do documento'),
+    reputation.some((r) => r.status === 'PENDING') &&
+      (en ? 'external reputation' : 'reputação externa'),
   ].filter((name): name is string => Boolean(name));
-  return scoreRisk({
-    facts,
-    reputation: reputation.filter((r) => r.status === 'FOUND'),
-    signedValid: Boolean(sig && !sig.error && sig.signatureValid && sig.digestMatches !== false),
-    scriptRisk: st.script?.risk ?? null,
-    documentRisk: st.document?.risk ?? null,
-    pending,
-  });
+  return scoreRisk(
+    {
+      facts,
+      reputation: reputation.filter((r) => r.status === 'FOUND'),
+      signedValid: Boolean(sig && !sig.error && sig.signatureValid && sig.digestMatches !== false),
+      scriptRisk: st.script?.risk ?? null,
+      documentRisk: st.document?.risk ?? null,
+      pending,
+    },
+    lang,
+  );
 }

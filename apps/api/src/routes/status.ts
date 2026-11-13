@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { requireAdmin } from '../lib/auth';
-import { cachedSystemStatus } from '../lib/status';
+import { requestLang } from '../lib/error-language';
+import { cachedSystemStatus, localizeStatus } from '../lib/status';
 import { sendValidationError } from '../lib/validation';
 
 const Query = z.object({
@@ -29,6 +30,6 @@ export async function statusRoutes(app: FastifyInstance) {
     // Detalhe de infraestrutura nao fica em cache de navegador ou de proxy.
     reply.header('Cache-Control', 'no-store');
     if (parsed.data.strict === '1' && status.overall === 'error') reply.code(503);
-    return reply.send(status);
+    return reply.send(localizeStatus(status, requestLang(req)));
   });
 }

@@ -235,3 +235,30 @@ test('a soma dos pesos mostrados é a nota (até os tetos de 0 e 100)', () => {
     risk.reasons.reduce((sum, r) => sum + r.weight, 0),
   );
 });
+
+test('em inglês (plano pós-revisão, item 1.4): mesma nota, motivos e listas no idioma do pedido', () => {
+  const signals = input(
+    {
+      antivirus: 'Win.Trojan.Agent-1',
+      yara: ['A', 'B', 'C', 'D', 'E'],
+      macro: true,
+      signatureInvalid: true,
+    },
+    { reputation: [{ service: 'virustotal', verdict: 'MALICIOUS', summary: '' }] },
+  );
+  const pt = scoreRisk(signals);
+  const en = scoreRisk(signals, 'en');
+  assert.equal(en.score, pt.score);
+  assert.deepEqual(
+    en.reasons.map((r) => r.weight),
+    pt.reasons.map((r) => r.weight),
+  );
+  const text = (risk: typeof en, source: string) =>
+    risk.reasons.find((r) => r.source === source)?.text;
+  assert.equal(text(en, 'Antivirus'), 'ClamAV detected Win.Trojan.Agent-1');
+  assert.equal(text(en, 'YARA'), '5 rule set(s) matched: A, B, C and 2 more');
+  assert.equal(text(pt, 'YARA'), '5 conjunto(s) de regras casaram: A, B, C e mais 2');
+  assert.equal(text(en, 'Document'), 'contains VBA macros');
+  assert.equal(text(en, 'Signature'), 'digital signature that does not match');
+  assert.ok(text(en, 'External reputation')?.startsWith('malicious on '));
+});

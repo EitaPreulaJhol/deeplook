@@ -14,8 +14,10 @@ import { describe, readSchedule, scheduledBackupProblem } from './backup-schedul
 import { capaEnabled } from './capa';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { pendingRekey } from './data-key-rekey';
+import { createTranslator, type Lang } from './error-language';
 import { ghidraEnabled } from './ghidra';
 import { ldapConfig, ldapProbe } from './ldap';
+import { MESSAGES_EN } from './messages-en';
 import { oletoolsEnabled } from './oletools';
 import { captureEnabled } from './page-capture';
 import { prisma } from './prisma';
@@ -24,6 +26,7 @@ import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
 import { s3 } from './s3';
 import { countActive } from './sandbox';
 import { slaWhere } from './sla';
+import { STATUS_EN } from './status-en';
 import { unpackEnabled } from './unpack';
 import { yaraUpdateStatus } from './yara-update';
 
@@ -982,4 +985,24 @@ export function cachedSystemStatus(): ReturnType<typeof systemStatus> {
 /** Para os testes: esquece o cache. */
 export function resetStatusCache(): void {
   statusCache = null;
+}
+
+// Os erros conhecidos (messages-en.ts) tambem: o motivo de uma falha aparece dentro do status.
+const toEnglish = createTranslator([...STATUS_EN, ...MESSAGES_EN]);
+
+/**
+ * O status no idioma de quem pede (plano pos-revisao, item 1.4): nome, resumo e detalhes de cada
+ * verificacao. Os ids, niveis e numeros nao mudam; sem `en`, sai como foi montado.
+ */
+export function localizeStatus<T extends { checks: StatusCheck[] }>(status: T, lang: Lang): T {
+  if (lang !== 'en') return status;
+  return {
+    ...status,
+    checks: status.checks.map((check) => ({
+      ...check,
+      name: toEnglish(check.name),
+      summary: toEnglish(check.summary),
+      details: check.details.map((d) => ({ label: toEnglish(d.label), value: toEnglish(d.value) })),
+    })),
+  };
 }

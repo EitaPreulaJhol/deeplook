@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { findTechnique } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { localizeText } from '../lib/data-language';
+import { type Lang, requestLang } from '../lib/error-language';
 import { prisma } from '../lib/prisma';
 import type { StaticInfo } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
@@ -35,7 +37,7 @@ export function diffSets(a: Iterable<string>, b: Iterable<string>): SetDiff {
 }
 
 /** Campos da amostra mostrados lado a lado (e o que alimenta as listas). */
-async function profile(id: string) {
+async function profile(id: string, lang: Lang) {
   const entry = await prisma.entry.findUnique({
     where: { id },
     select: {
@@ -85,15 +87,16 @@ async function profile(id: string) {
       sha256: entry.sha256,
       url: entry.url,
       urlDomain: entry.urlDomain,
-      detectedType: info?.detectedType?.label ?? null,
+      // Rotulos no idioma de quem pede (plano pos-revisao, item 1.4).
+      detectedType: localizeText(info?.detectedType?.label ?? null, lang),
       entropy: info?.entropy ?? null,
       entropyLevel: info?.entropyLevel ?? null,
       stringsTotal: info?.strings.total ?? null,
       pe: info?.pe
         ? {
-            machine: info.pe.machine,
+            machine: localizeText(info.pe.machine, lang),
             isDll: info.pe.isDll,
-            subsystem: info.pe.subsystem,
+            subsystem: localizeText(info.pe.subsystem, lang),
             compiledAt: info.pe.compiledAt,
             packer: info.pe.packer,
             // Item 7.1 (null em analise antiga).
@@ -136,7 +139,8 @@ export async function compareRoutes(app: FastifyInstance) {
     if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
     const { a, b } = parsed.data;
     if (a === b) return reply.code(400).send({ error: 'Escolha duas amostras diferentes.' });
-    const [pa, pb] = await Promise.all([profile(a), profile(b)]);
+    const lang = requestLang(req);
+    const [pa, pb] = await Promise.all([profile(a, lang), profile(b, lang)]);
     if (!pa || !pb) return reply.code(404).send({ error: 'Amostra não encontrada.' });
     const keys = Object.keys(pa.lists) as (keyof typeof pa.lists)[];
     const lists = Object.fromEntries(keys.map((k) => [k, diffSets(pa.lists[k], pb.lists[k])]));

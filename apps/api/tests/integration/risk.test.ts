@@ -130,6 +130,33 @@ async function main() {
     full.pending,
   );
 
+  // Em ingles (plano pos-revisao, item 1.4): a mesma nota, com as origens e os motivos no idioma
+  // de quem pede, e o que esta em andamento tambem.
+  const ptRisk = (await risk(loud.id, cAna)).json<{
+    risk: { score: number; reasons: { source: string; text: string }[]; pending: string[] };
+  }>().risk;
+  const enRes = await app.inject({
+    method: 'GET',
+    url: `/api/entries/${loud.id}/risk`,
+    headers: { cookie: cAna, 'accept-language': 'en' },
+  });
+  const enRisk = enRes.json<typeof ptRisk extends infer T ? { risk: T } : never>().risk;
+  ok('inglês: a mesma nota', enRisk.score === ptRisk.score, [enRisk.score, ptRisk.score]);
+  ok(
+    'inglês: origens e motivos traduzidos',
+    enRisk.reasons.some(
+      (r) => r.source === 'Antivirus' && r.text === 'ClamAV detected Win.Trojan.Agent-1',
+    ) &&
+      enRisk.reasons.some((r) => r.source === 'File type') &&
+      ptRisk.reasons.some((r) => r.source === 'Antivírus'),
+    enRisk.reasons,
+  );
+  ok(
+    'inglês: em andamento',
+    enRisk.pending.includes('function analysis') && enRisk.pending.includes('external reputation'),
+    enRisk.pending,
+  );
+
   // Na lixeira, a amostra some tambem daqui.
   await prisma.entry.update({ where: { id: loud.id }, data: { deletedAt: new Date() } });
   ok('amostra na lixeira: 404', (await risk(loud.id, cAna)).statusCode === 404);

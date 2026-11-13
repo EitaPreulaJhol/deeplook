@@ -1227,9 +1227,13 @@ the language (`13/11/2026` or `11/13/2026`).
   Scripts that do not send the header keep getting Portuguese; for English, `Accept-Language: en`.
   The `tests/unit/messages-coverage.test.ts` test reads the API code and fails on an untranslated
   error message.
-- **Still in Portuguese:** what the API stores as data and shows as is (static analysis alerts, script
-  findings, risk score reasons, history and system status details), the audit CSV, the OpenAPI
-  specification and what people write.
+- **Status, risk and analyses:** the system status, the risk score and what the analyses stored
+  (alerts, script findings, file type, failure reasons) come out in the requester's language
+  (`Accept-Language`), including through the status token. The database keeps the Portuguese, and the
+  API translates on output; old records come out translated too. When the language changes, the
+  interface fetches again what was cached.
+- **Still in Portuguese:** the history, notification and audit details (and the audit CSV), the
+  OpenAPI specification and what people write.
 - `node scripts/check-i18n.mjs` counts the Portuguese text still loose in the code and rejects `t()` at
   module top level or inside `useMemo` without `locale` in the dependencies (the text would not follow
   a language change). Label tables at module top level use `localized()`.

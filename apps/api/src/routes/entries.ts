@@ -17,8 +17,10 @@ import {
   visibleEntries,
 } from '../lib/auth';
 import { toCsv } from '../lib/csv';
+import { localizeStaticInfo } from '../lib/data-language';
 import { extractDiskFile } from '../lib/disk-image';
 import { createFileEntry, createUrlEntry } from '../lib/entry-create';
+import { requestLang } from '../lib/error-language';
 import { recordEvent, recordTriageChanges } from '../lib/events';
 import { hashingStream, judge, recordIntegrity } from '../lib/integrity';
 import { rememberUrls } from '../lib/iocs';
@@ -952,7 +954,7 @@ export async function entryRoutes(app: FastifyInstance) {
     await applyTriageRules(id).catch((err: unknown) =>
       req.log.error({ err }, 'Falha nas regras de triagem'),
     );
-    return reply.send({ staticInfo });
+    return reply.send({ staticInfo: localizeStaticInfo(staticInfo, requestLang(req)) });
   });
 
   // Historico (auditoria) da amostra: quem fez o que e quando.
@@ -1246,6 +1248,8 @@ export async function entryRoutes(app: FastifyInstance) {
     const [withLinks] = await linksForViewer([found], user);
     const entry = {
       ...withLinks,
+      // Alertas e motivos da analise no idioma de quem pede (plano pos-revisao, item 1.4).
+      staticInfo: localizeStaticInfo(withLinks.staticInfo, requestLang(req)),
       duplicateOf: linked(found.duplicateOf),
       parentEntry: linked(found.parentEntry),
     };

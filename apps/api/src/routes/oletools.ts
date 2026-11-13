@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { localizeAlerts, localizeText } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { enqueueOletools, oletoolsEligible, oletoolsEnabled } from '../lib/oletools';
 import { prisma } from '../lib/prisma';
 
@@ -52,11 +54,17 @@ export async function oletoolsRoutes(app: FastifyInstance) {
       where: { entryId: id },
       select: analysisSelect,
     });
+    const lang = requestLang(req);
     return reply.send({
       enabled: oletoolsEnabled(),
       eligible: state.eligible,
       maxMb: env.OLETOOLS_MAX_MB,
-      analysis,
+      // Alertas e motivo da falha no idioma de quem pede (plano pos-revisao, item 1.4).
+      analysis: analysis && {
+        ...analysis,
+        alerts: localizeAlerts(analysis.alerts as { level: string; text: string }[] | null, lang),
+        error: localizeText(analysis.error, lang),
+      },
     });
   });
 

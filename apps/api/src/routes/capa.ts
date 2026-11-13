@@ -3,6 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { capaEligible, capaEnabled, enqueueCapa } from '../lib/capa';
+import { localizeText } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { prisma } from '../lib/prisma';
 
 const analysisSelect = {
@@ -69,7 +71,9 @@ export async function capaRoutes(app: FastifyInstance) {
       enabled: capaEnabled(),
       eligible: state.eligible,
       maxMb: env.CAPA_MAX_MB,
-      analysis: analysis ? { ...analysis, ahead } : null,
+      analysis: analysis
+        ? { ...analysis, error: localizeText(analysis.error, requestLang(req)), ahead }
+        : null,
     });
   });
 

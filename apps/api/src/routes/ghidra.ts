@@ -6,6 +6,8 @@ import type { FastifyInstance } from 'fastify';
 import { env } from '../env';
 import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { localizeText } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { enqueueGhidra, ghidraEnabled, ghidraIneligible } from '../lib/ghidra';
 import { prisma } from '../lib/prisma';
 import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
@@ -64,6 +66,8 @@ export async function ghidraRoutes(app: FastifyInstance) {
           })
         : null;
     const reason = ghidraIneligible(entry);
+    // Motivos no idioma de quem pede (plano pos-revisao, item 1.4).
+    const lang = requestLang(req);
     const { gzfKey, ...rest } = analysis ?? { gzfKey: null };
     const kind = (entry.staticInfo as { detectedType?: { id?: string } | null } | null)
       ?.detectedType?.id;
@@ -72,11 +76,19 @@ export async function ghidraRoutes(app: FastifyInstance) {
       // Executavel (a secao aparece); eligible diz se da para pedir agora (.NET, teto, expurgo).
       applicable: entry.type === 'FILE' && (kind === 'pe' || kind === 'elf'),
       eligible: reason === null,
-      reason,
+      reason: localizeText(reason, lang),
       maxMb: env.GHIDRA_MAX_MB,
       // Baixar o projeto: quem enviou e os analistas (como a amostra).
       canDownload: entry.ownerId === user.id || isAnalyst(user),
-      analysis: analysis ? { ...rest, hasProject: Boolean(gzfKey), ahead } : null,
+      analysis: analysis
+        ? {
+            ...rest,
+            error: localizeText(analysis.error, lang),
+            gzfError: localizeText(analysis.gzfError, lang),
+            hasProject: Boolean(gzfKey),
+            ahead,
+          }
+        : null,
     });
   });
 

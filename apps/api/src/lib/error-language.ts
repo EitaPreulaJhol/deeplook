@@ -18,41 +18,54 @@ export function requestLang(req: Pick<FastifyRequest, 'headers'>): Lang {
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const EXACT = new Map<string, string>();
-const PATTERNS: { re: RegExp; slots: number[]; en: string }[] = [];
-for (const [pt, en] of MESSAGES_EN) {
-  if (!/\{\d+\}/.test(pt)) {
-    EXACT.set(pt, en);
-    continue;
+export type Translator = (text: string) => string;
+
+/**
+ * Tradutor a partir de pares [portugues, ingles]. A chave e o texto exato; `{0}`, `{1}`... marcam
+ * os trechos variaveis. Vale o primeiro padrao que casar, na ordem da lista. Os trechos variaveis
+ * que forem eles mesmos textos conhecidos (o motivo de um erro dentro de outro) tambem sao
+ * traduzidos. Texto sem par sai como veio.
+ */
+export function createTranslator(
+  pairs: readonly (readonly [pt: string, en: string])[],
+): Translator {
+  const exactPairs = new Map<string, string>();
+  const patterns: { re: RegExp; slots: number[]; en: string }[] = [];
+  for (const [pt, en] of pairs) {
+    if (!/\{\d+\}/.test(pt)) {
+      exactPairs.set(pt, en);
+      continue;
+    }
+    const slots: number[] = [];
+    const source = pt
+      .split(/(\{\d+\})/)
+      .map((part) => {
+        const slot = /^\{(\d+)\}$/.exec(part);
+        if (!slot) return escape(part);
+        slots.push(Number(slot[1]));
+        return '([\\s\\S]*?)';
+      })
+      .join('');
+    patterns.push({ re: new RegExp(`^${source}$`), slots, en });
   }
-  const slots: number[] = [];
-  const source = pt
-    .split(/(\{\d+\})/)
-    .map((part) => {
-      const slot = /^\{(\d+)\}$/.exec(part);
-      if (!slot) return escape(part);
-      slots.push(Number(slot[1]));
-      return '([\\s\\S]*?)';
-    })
-    .join('');
-  PATTERNS.push({ re: new RegExp(`^${source}$`), slots, en });
+  const translate = (text: string, depth: number): string => {
+    const exact = exactPairs.get(text);
+    if (exact !== undefined) return exact;
+    if (depth > 2) return text;
+    for (const { re, slots, en } of patterns) {
+      const match = re.exec(text);
+      if (!match) continue;
+      const values = new Map<number, string>();
+      slots.forEach((slot, i) => values.set(slot, translate(match[i + 1] ?? '', depth + 1)));
+      return en.replace(/\{(\d+)\}/g, (all, n: string) => values.get(Number(n)) ?? all);
+    }
+    return text;
+  };
+  return (text) => translate(text, 0);
 }
 
-/** A mensagem em ingles, ou a original quando nao ha par. Os trechos variaveis que forem eles
- * mesmos mensagens conhecidas (o motivo de um erro dentro de outro) tambem sao traduzidos. */
-export function translateMessage(text: string, depth = 0): string {
-  const exact = EXACT.get(text);
-  if (exact !== undefined) return exact;
-  if (depth > 2) return text;
-  for (const { re, slots, en } of PATTERNS) {
-    const match = re.exec(text);
-    if (!match) continue;
-    const values = new Map<number, string>();
-    slots.forEach((slot, i) => values.set(slot, translateMessage(match[i + 1] ?? '', depth + 1)));
-    return en.replace(/\{(\d+)\}/g, (all, n: string) => values.get(Number(n)) ?? all);
-  }
-  return text;
-}
+/** A mensagem de erro em ingles, ou a original quando nao ha par. */
+export const translateMessage: Translator = createTranslator(MESSAGES_EN);
 
 type ErrorBody = { error?: unknown; details?: unknown };
 

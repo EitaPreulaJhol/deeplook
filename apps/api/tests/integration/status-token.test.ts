@@ -298,6 +298,54 @@ async function main() {
     })) === 1,
   );
 
+  // Em ingles (plano pos-revisao, item 1.4): o status e calculado a cada pedido e sai no idioma
+  // de quem pede. Nomes, rotulos e resumos sem portugues; ids e niveis iguais.
+  const english = await app.inject({
+    method: 'GET',
+    url: '/api/admin/status',
+    headers: { cookie: cAdm, 'accept-language': 'en' },
+  });
+  const portuguese = await app.inject({
+    method: 'GET',
+    url: '/api/admin/status',
+    headers: { cookie: cAdm },
+  });
+  type Check = {
+    id: string;
+    level: string;
+    name: string;
+    summary: string;
+    details: { label: string }[];
+  };
+  const enChecks = english.json<{ checks: Check[] }>().checks;
+  const ptChecks = portuguese.json<{ checks: Check[] }>().checks;
+  const accented = /[ãõçáéíóúâêôà]/i;
+  const leftovers = enChecks.flatMap((c) =>
+    [c.name, c.summary, ...c.details.map((d) => d.label)].filter((t) => accented.test(t)),
+  );
+  ok(
+    'status em inglês: sem português nos nomes, resumos e rótulos',
+    leftovers.length === 0,
+    leftovers,
+  );
+  ok(
+    'status em inglês: os mesmos ids e níveis',
+    JSON.stringify(enChecks.map((c) => [c.id, c.level])) ===
+      JSON.stringify(ptChecks.map((c) => [c.id, c.level])),
+  );
+  ok(
+    'status em inglês: banco de dados',
+    enChecks.find((c) => c.id === 'database')?.name === 'Database' &&
+      ptChecks.find((c) => c.id === 'database')?.name === 'Banco de dados',
+  );
+  const byToken = await status({ ...bearer(status1.secret), 'accept-language': 'en' });
+  ok(
+    'token de status em inglês também',
+    byToken.json<{ checks: Check[] }>().checks.find((c) => c.id === 'database')?.name ===
+      'Database',
+    byToken.body,
+  );
+
   await app.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');

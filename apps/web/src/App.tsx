@@ -1,4 +1,5 @@
-import { Suspense, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Suspense, useEffect, useRef } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { clearAfterLogin, peekAfterLogin, useAuth } from './auth/AuthContext';
@@ -92,12 +93,21 @@ export default function App() {
   const { user, loading } = useAuth();
   // A raiz assina o idioma (revisao 2.5): ao trocar, a arvore inteira se redesenha, inclusive o
   // que usa t() fora de componente (rotulos de status, veredito...).
-  useLocale();
+  const locale = useLocale();
   // Logado, vale a preferencia da conta (a mesma em qualquer maquina).
   const language = user?.preferences.language;
   useEffect(() => {
     if (language) setLocale(language);
   }, [language]);
+  // O que a API traduz na hora (status do sistema, pontuacao de risco: plano pos-revisao, item
+  // 1.4) veio no idioma antigo: ao trocar, as consultas em cache sao buscadas de novo.
+  const queryClient = useQueryClient();
+  const shownLocale = useRef(locale);
+  useEffect(() => {
+    if (shownLocale.current === locale) return;
+    shownLocale.current = locale;
+    void queryClient.invalidateQueries();
+  }, [locale, queryClient]);
 
   if (loading) return <FullScreenLoader />;
 

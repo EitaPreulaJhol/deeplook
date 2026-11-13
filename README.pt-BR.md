@@ -1240,9 +1240,13 @@ navegador em inglês. Datas e números seguem o idioma (`13/11/2026` ou `11/13/2
   que não mandam o cabeçalho continuam recebendo português; para inglês, `Accept-Language: en`.
   O teste `tests/unit/messages-coverage.test.ts` lê o código da API e reprova mensagem de erro sem
   tradução.
-- **Continua em português:** o que a API grava como dado e mostra como está (alertas da análise
-  estática, achados de script, motivos da pontuação de risco, detalhes do histórico e do status do
-  sistema), o CSV da auditoria, a especificação OpenAPI e o que as pessoas escrevem.
+- **Status, risco e análises:** o status do sistema, a pontuação de risco e o que as análises
+  gravaram (alertas, achados de script, tipo do arquivo, motivos de falha) saem no idioma de quem
+  pede (`Accept-Language`), inclusive pelo token de status. O banco guarda o português, e a API
+  traduz na saída; registros antigos também saem traduzidos. Ao trocar o idioma, a interface busca
+  de novo o que estava em cache.
+- **Continua em português:** os detalhes do histórico, das notificações e da auditoria (e o CSV
+  dela), a especificação OpenAPI e o que as pessoas escrevem.
 - `node scripts/check-i18n.mjs` conta o texto em português que ainda está solto no código e reprova
   `t()` no topo do módulo ou dentro de `useMemo` sem `locale` nas dependências (o texto não
   acompanharia a troca de idioma). Tabelas de rótulos no topo do módulo usam `localized()`.
