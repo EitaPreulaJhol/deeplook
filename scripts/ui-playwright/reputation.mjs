@@ -43,6 +43,18 @@ state.reputation.e2 = {
     { ...row('threatfox', 'ThreatFox', 'NOT_FOUND', 'UNKNOWN', 'não encontrado na base'), kind: 'DOMAIN' },
   ],
 };
+// e4: enriquecimento de links (revisao 3.3): registro novo vira suspeito, o resto e informativo.
+state.reputation.e4 = {
+  services: [...services, { id: 'rdap', name: 'Registro (RDAP)' }, { id: 'crtsh', name: 'Certificados (crt.sh)' }, { id: 'vtdns', name: 'DNS passivo (VirusTotal)' }],
+  indicator: { kind: 'DOMAIN', value: 'login.novo.top' },
+  pending: false,
+  results: [
+    { ...row('virustotal', 'VirusTotal', 'FOUND', 'CLEAN', '0/70 motores detectaram'), kind: 'DOMAIN' },
+    { ...row('rdap', 'Registro (RDAP)', 'FOUND', 'SUSPICIOUS', 'domínio novo: novo.top registrado em 2026-10-19 (há 3 dias)'), kind: 'DOMAIN' },
+    { ...row('crtsh', 'Certificados (crt.sh)', 'FOUND', 'UNKNOWN', '4 certificados, o primeiro em 2025-01-02 (há 658 dias), o último em 2026-10-01', 'https://crt.sh/?q=login.novo.top'), kind: 'DOMAIN' },
+    { ...row('vtdns', 'DNS passivo (VirusTotal)', 'FOUND', 'UNKNOWN', 'apontou para: 203.0.113.9 (último visto em 2026-10-21)'), kind: 'DOMAIN' },
+  ],
+};
 await setupMock(context, state);
 const page = await context.newPage();
 watchErrors(page);
@@ -99,6 +111,14 @@ state.role = undefined;
 // 5. Sem servico configurado: nada aparece.
 await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
 expect('sem serviços: sem seção nem resumo', (await section.count()) === 0 && !(await summaryText()).includes('Reputação'));
+
+// 6. Enriquecimento de links: rotulos e o resumo do topo.
+await page.goto(ORIGIN + '/entries/e4', { waitUntil: 'networkidle' });
+const r4 = await rows();
+expect('linhas do enriquecimento na ordem', r4.map((x) => x[0]).join('|') === 'VirusTotal|Registro (RDAP)|Certificados (crt.sh)|DNS passivo (VirusTotal)', r4.map((x) => x[0]).join('|'));
+expect('domínio novo: suspeito', r4[1][1] === 'Suspeito', r4[1].join(' / '));
+expect('certificados e DNS passivo: informativo', r4[2][1] === 'Informativo' && r4[3][1] === 'Informativo', `${r4[2][1]} / ${r4[3][1]}`);
+expect('topo: suspeito em 1 de 4', (await summaryText()).includes('Reputação: suspeito em 1 de 4 serviços'), await summaryText());
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nreputação externa: tudo ok');

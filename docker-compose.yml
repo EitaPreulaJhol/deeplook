@@ -138,6 +138,11 @@ services:
       VT_API_KEY: ${VT_API_KEY:-}
       ABUSECH_AUTH_KEY: ${ABUSECH_AUTH_KEY:-}
       ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      # Enriquecimento de links: registro (RDAP) e certificados (crt.sh) sem chave, so por opcao;
+      # DNS passivo com a chave do VirusTotal.
+      RDAP_ENABLED: ${RDAP_ENABLED:-false}
+      CT_ENABLED: ${CT_ENABLED:-false}
+      PASSIVE_DNS_ENABLED: ${PASSIVE_DNS_ENABLED:-true}
       # Antivirus: o servico clamav abaixo; CLAMAV_HOST= (vazio) no .env desliga.
       CLAMAV_HOST: ${CLAMAV_HOST-clamav}
       CLAMAV_PORT: ${CLAMAV_PORT:-3310}

@@ -2,6 +2,7 @@ import { isIP } from 'node:net';
 
 import { env } from '../env';
 import type { Prisma, ReputationKind, ReputationStatus, Verdict } from '../generated/prisma/client';
+import { crtsh, EnrichmentHttpError, rdap, vtdns } from './link-enrichment';
 import { prisma } from './prisma';
 
 /**
@@ -10,7 +11,16 @@ import { prisma } from './prisma';
  * completa nem o arquivo). Cada servico so liga com a chave no .env.
  */
 
-export type ServiceId = 'virustotal' | 'malwarebazaar' | 'urlhaus' | 'threatfox' | 'abuseipdb';
+export type ServiceId =
+  | 'virustotal'
+  | 'malwarebazaar'
+  | 'urlhaus'
+  | 'threatfox'
+  | 'abuseipdb'
+  // Enriquecimento de links (revisao de novembro, 3.3; lib/link-enrichment.ts).
+  | 'rdap'
+  | 'crtsh'
+  | 'vtdns';
 
 export const SERVICE_NAMES: Record<ServiceId, string> = {
   virustotal: 'VirusTotal',
@@ -18,6 +28,9 @@ export const SERVICE_NAMES: Record<ServiceId, string> = {
   urlhaus: 'URLhaus',
   threatfox: 'ThreatFox',
   abuseipdb: 'AbuseIPDB',
+  rdap: 'Registro (RDAP)',
+  crtsh: 'Certificados (crt.sh)',
+  vtdns: 'DNS passivo (VirusTotal)',
 };
 
 /** Enderecos das APIs (o teste de integracao aponta para um servidor local). */
@@ -36,19 +49,31 @@ export const MIN_INTERVAL_MS: Record<ServiceId, number> = {
   urlhaus: 1_000,
   threatfox: 1_000,
   abuseipdb: 1_000,
+  rdap: 1_000,
+  // O crt.sh e um servico comunitario e lento: uma consulta a cada 3 s.
+  crtsh: 3_000,
+  // Mesma chave e mesma cota do VirusTotal: entra na fila dele (QUEUE_OF).
+  vtdns: 15_000,
 };
+
+/** Servicos que dividem a cota (e a fila) de outro. */
+const QUEUE_OF: Partial<Record<ServiceId, ServiceId>> = { vtdns: 'virustotal' };
 const CACHE_MS = 24 * 60 * 60 * 1000;
 const TIMEOUT_MS = 15_000;
 
 /** Quais servicos consultam cada tipo de indicador. */
 const BY_KIND: Record<ReputationKind, ServiceId[]> = {
   HASH: ['virustotal', 'malwarebazaar', 'threatfox'],
-  DOMAIN: ['virustotal', 'urlhaus', 'threatfox'],
-  IP: ['virustotal', 'urlhaus', 'threatfox', 'abuseipdb'],
+  DOMAIN: ['virustotal', 'urlhaus', 'threatfox', 'rdap', 'crtsh', 'vtdns'],
+  IP: ['virustotal', 'urlhaus', 'threatfox', 'abuseipdb', 'rdap', 'vtdns'],
 };
 
 function keyOf(service: ServiceId): string {
   if (service === 'virustotal') return env.VT_API_KEY;
+  // Sem chave: so ligam por opcao explicita, para nenhum dominio sair sem a pessoa escolher.
+  if (service === 'rdap') return env.RDAP_ENABLED === 'true' ? 'on' : '';
+  if (service === 'crtsh') return env.CT_ENABLED === 'true' ? 'on' : '';
+  if (service === 'vtdns') return env.PASSIVE_DNS_ENABLED === 'true' ? env.VT_API_KEY : '';
   if (service === 'abuseipdb') return env.ABUSEIPDB_API_KEY;
   return env.ABUSECH_AUTH_KEY;
 }
@@ -265,6 +290,9 @@ const CLIENTS: Record<ServiceId, (kind: ReputationKind, value: string) => Promis
   urlhaus,
   threatfox,
   abuseipdb,
+  rdap: (kind, value) => rdap(kind, value) as Promise<Lookup>,
+  crtsh: (kind, value) => crtsh(kind, value) as Promise<Lookup>,
+  vtdns: (kind, value) => vtdns(kind, value) as Promise<Lookup>,
 };
 
 // ---- Fila por servico (respeita o intervalo minimo) ----
@@ -272,7 +300,8 @@ const CLIENTS: Record<ServiceId, (kind: ReputationKind, value: string) => Promis
 const queues = new Map<ServiceId, Promise<unknown>>();
 const lastCall = new Map<ServiceId, number>();
 
-function throttled<T>(service: ServiceId, fn: () => Promise<T>): Promise<T> {
+function throttled<T>(caller: ServiceId, fn: () => Promise<T>): Promise<T> {
+  const service = QUEUE_OF[caller] ?? caller;
   const prev = queues.get(service) ?? Promise.resolve();
   const next = prev
     .catch(() => undefined)
@@ -369,7 +398,8 @@ export async function checkReputation(entryId: string, force = false): Promise<v
       try {
         result = await throttled(service, () => CLIENTS[service](indicator.kind, indicator.value));
       } catch (err) {
-        const status = err instanceof HttpError ? err.status : null;
+        const status =
+          err instanceof HttpError || err instanceof EnrichmentHttpError ? err.status : null;
         const reason =
           status === 401 || status === 403
             ? 'chave recusada pelo serviço'

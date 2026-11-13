@@ -262,7 +262,16 @@ It comes before the analysis features because tests and fuzzing protect what pha
   no hash. **Difference from the plan:** no new library, neither in the API nor in the capture.
   **Found along the way:** `capture-recycle.test.ts` only passed because another test file created
   the bucket first; run alone, it failed with `NoSuchBucket`. The test now creates the bucket.
-- **3.2, 3.3, 3.5 and 3.7:** pending. **3.6** deferred by the owner.
+- **3.3 ✅**: link enrichment as three new rows of external reputation: **Registro (RDAP)**, asked
+  directly of the TLD registry's server through IANA's list; **Certificados (crt.sh)**; and
+  **DNS passivo**, through VirusTotal resolutions (the owner's decision). Only the domain or the IP
+  leaves. **Difference from the plan:** RDAP and crt.sh need no key and are therefore **off by
+  default** (`RDAP_ENABLED`, `CT_ENABLED`), so no domain goes to a service the person did not
+  choose; passive DNS turns on with the VirusTotal key and shares its quota. A domain under 30 days
+  old and a first certificate under 14 days old become *Suspicious* and count in the risk score.
+  **Found along the way:** external reputation had no integration test; `reputation.test.ts` now
+  covers the enrichment and what leaves DeepLook.
+- **3.2, 3.5 and 3.7:** pending. **3.6** deferred by the owner.
 
 | # | Item | How | Size |
 |---|---|---|---|

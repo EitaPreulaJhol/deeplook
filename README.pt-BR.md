@@ -706,6 +706,27 @@ externa** da ficha e num resumo no topo, por exemplo "malicioso em 2 de 3 servi�
   Status do sistema.
 - **Atenção:** mesmo só o hash revela a terceiros que a amostra está sendo analisada.
 
+### Enriquecimento de links
+
+Na mesma seção, os links ganham três consultas que não são de reputação, e sim de contexto. Também
+só o domínio (ou o IP) sai, nunca a URL:
+
+| Linha | O que mostra | Liga com |
+|---|---|---|
+| **Registro (RDAP)** | quando o domínio foi registrado, o registrador e o vencimento (para IP: a faixa, o dono e o país). Consulta o servidor RDAP do próprio registro do TLD, achado pela lista pública da IANA, sem intermediário, e pelo domínio registrável (`login.banco.com.br` → `banco.com.br`) | `RDAP_ENABLED=true` |
+| **Certificados (crt.sh)** | quantos certificados públicos o host teve, o primeiro e o último, e as autoridades (Certificate Transparency) | `CT_ENABLED=true` |
+| **DNS passivo (VirusTotal)** | para que IPs o domínio apontou (ou que domínios apontaram para o IP) | a `VT_API_KEY`; `PASSIVE_DNS_ENABLED=false` desliga |
+
+- **Desligados por padrão** os dois que não pedem chave: sem a opção no `.env`, nenhum domínio sai
+  para um serviço que você não escolheu. O DNS passivo usa o VirusTotal, que já recebe o domínio,
+  e divide a cota e a fila dele (4 consultas por minuto no plano gratuito).
+- **Resultado informativo** (cinza): dados, sem veredito. Duas exceções viram **Suspeito**, e
+  entram na pontuação de risco: domínio registrado há menos de 30 dias e primeiro certificado
+  do host há menos de 14 dias, os sinais clássicos de página de phishing recém-montada.
+- **Cache de 24 h**, "Consultar de novo" e falhas na linha, como os outros serviços. O crt.sh é
+  um serviço comunitário e às vezes lento ou fora do ar: a consulta tem 20 s, e a falha não
+  atrapalha as outras.
+
 ## Backup e restauração
 
 Em **Administração > Backup** (só admin), **Gerar backup** monta em segundo plano um ZIP
@@ -945,6 +966,9 @@ COOKIE_SECURE=true
 | `VT_API_KEY` | chave do VirusTotal (reputação externa); vazio desliga | — |
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |
 | `ABUSEIPDB_API_KEY` | chave do AbuseIPDB (IPs) | — |
+| `RDAP_ENABLED` | `true`: consulta o registro do domínio (RDAP) dos links; só o domínio sai | `false` |
+| `CT_ENABLED` | `true`: consulta os certificados do host no crt.sh (Certificate Transparency) | `false` |
+| `PASSIVE_DNS_ENABLED` | `false`: não pede as resoluções do domínio ao VirusTotal (com a `VT_API_KEY`) | `true` |
 | `CLAMAV_HOST` | host do `clamd` (serviço `clamav` do compose); vazio desliga o antivírus | `clamav` |
 | `CLAMAV_PORT` | porta do `clamd` | `3310` |
 | `CAPTURE_URL` | serviço do navegador isolado (captura de página de link); vazio desliga | `http://capture:3100` |

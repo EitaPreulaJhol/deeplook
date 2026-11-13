@@ -35,6 +35,8 @@ function resultLabel(r: ReputationResult): { label: string; tone: StatusTone } {
   if (r.status === 'PENDING') return { label: 'Consultando...', tone: 'blue' };
   if (r.status === 'ERROR') return { label: 'Falha', tone: 'orange' };
   if (r.status === 'NOT_FOUND') return { label: 'Não encontrado', tone: 'gray' };
+  // Registro, certificados e DNS passivo encontram dados, mas nao dao veredito.
+  if (r.verdict === 'UNKNOWN') return { label: 'Informativo', tone: 'gray' };
   return { label: verdictLabel(r.verdict), tone: VERDICT_TONE[r.verdict] ?? 'gray' };
 }
 

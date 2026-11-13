@@ -261,7 +261,16 @@ Vem antes das funcionalidades de análise porque os testes e o fuzzing protegem 
   captura. **Achado no caminho:** `capture-recycle.test.ts` só passava porque outro arquivo de
   teste criava o bucket antes; rodando sozinho, falhava com `NoSuchBucket`. O teste agora cria o
   bucket.
-- **3.2, 3.3, 3.5 e 3.7:** pendentes. **3.6** adiado pelo dono.
+- **3.3 ✅**: enriquecimento de links como três novas linhas da reputação externa: **Registro
+  (RDAP)**, consultado direto no servidor do registro do TLD pela lista da IANA; **Certificados
+  (crt.sh)**; e **DNS passivo**, pelas resoluções do VirusTotal (decisão do dono). Só o domínio ou
+  o IP sai. **Diferença para o planejado:** RDAP e crt.sh não pedem chave e por isso ficam
+  **desligados por padrão** (`RDAP_ENABLED`, `CT_ENABLED`), para nenhum domínio sair para um
+  serviço que a pessoa não escolheu; o DNS passivo liga com a chave do VirusTotal e divide a cota
+  dele. Domínio com menos de 30 dias e primeiro certificado com menos de 14 viram *Suspeito* e
+  entram na pontuação de risco. **Achado no caminho:** a reputação externa não tinha teste de
+  integração; `reputation.test.ts` cobre agora o enriquecimento e o que sai do DeepLook.
+- **3.2, 3.5 e 3.7:** pendentes. **3.6** adiado pelo dono.
 
 | # | Item | Como | Tam. |
 |---|---|---|---|

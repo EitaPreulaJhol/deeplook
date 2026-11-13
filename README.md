@@ -697,6 +697,26 @@ the card and in a summary at the top, for example "malicious in 2 of 3 services"
 - **Failures** (key refused, limit, timeout) appear on the service's line and in System status.
 - **Warning:** even just the hash reveals to third parties that the sample is being analyzed.
 
+### Link enrichment
+
+In the same section, links get three lookups that are about context rather than reputation. Here too
+only the domain (or the IP) leaves, never the URL:
+
+| Row | What it shows | Turned on by |
+|---|---|---|
+| **Registro (RDAP)** | when the domain was registered, the registrar and the expiry (for an IP: the range, the owner and the country). It asks the RDAP server of the TLD's own registry, found through IANA's public list, with no middleman, and by the registrable domain (`login.banco.com.br` → `banco.com.br`) | `RDAP_ENABLED=true` |
+| **Certificados (crt.sh)** | how many public certificates the host has had, the first and the last, and the authorities (Certificate Transparency) | `CT_ENABLED=true` |
+| **DNS passivo (VirusTotal)** | which IPs the domain pointed to (or which domains pointed to the IP) | the `VT_API_KEY`; `PASSIVE_DNS_ENABLED=false` turns it off |
+
+- **Off by default** for the two that need no key: without the option in `.env`, no domain goes to a
+  service you did not choose. Passive DNS uses VirusTotal, which already receives the domain, and shares
+  its quota and queue (4 queries per minute on the free plan).
+- **Informational result** (gray): data, no verdict. Two exceptions become **Suspicious**, and count in
+  the risk score: a domain registered less than 30 days ago and a host's first certificate less than 14
+  days ago, the classic signs of a freshly set-up phishing page.
+- **24 h cache**, "Check again" and failures on the row, like the other services. crt.sh is a community
+  service and sometimes slow or down: the lookup has 20 s, and a failure does not affect the others.
+
 ## Backup and restore
 
 In **Administration > Backup** (admin only), **Generate backup** builds in the background a ZIP
@@ -934,6 +954,9 @@ COOKIE_SECURE=true
 | `VT_API_KEY` | VirusTotal key (external reputation); empty turns it off | — |
 | `ABUSECH_AUTH_KEY` | abuse.ch key: enables MalwareBazaar, URLhaus and ThreatFox | — |
 | `ABUSEIPDB_API_KEY` | AbuseIPDB key (IPs) | — |
+| `RDAP_ENABLED` | `true`: looks up the links' domain registration (RDAP); only the domain leaves | `false` |
+| `CT_ENABLED` | `true`: looks up the host's certificates on crt.sh (Certificate Transparency) | `false` |
+| `PASSIVE_DNS_ENABLED` | `false`: does not ask VirusTotal for the domain's resolutions (with `VT_API_KEY`) | `true` |
 | `CLAMAV_HOST` | `clamd` host (`clamav` service of compose); empty turns the antivirus off | `clamav` |
 | `CLAMAV_PORT` | `clamd` port | `3310` |
 | `CAPTURE_URL` | isolated browser service (link page capture); empty turns it off | `http://capture:3100` |
