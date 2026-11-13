@@ -36,7 +36,18 @@ const SAME = new Set([
 ]);
 
 /** Textos do arquivo que aparecem fora do status (ex.: na Auditoria), e nao vao para STATUS_EN. */
-const NOT_STATUS = new Set(['Backup agendado', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']);
+const NOT_STATUS = new Set([
+  'Backup agendado',
+  'seg',
+  'ter',
+  'qua',
+  'qui',
+  'sex',
+  'sáb',
+  'dom',
+  // Mensagem do log de alertas (plano pos-revisao, 5.2): so em portugues; o codigo e estavel.
+  '{0} voltou ao normal',
+]);
 
 function visibleContext(node: ts.Node): boolean {
   for (let up = node.parent; up && !ts.isSourceFile(up); up = up.parent) {

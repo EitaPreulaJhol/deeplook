@@ -119,6 +119,10 @@ services:
       BACKUP_DIR: ${BACKUP_DIR:+/backups}
       # Senha do ZIP do backup agendado (dias e horario na aba Backup); vazia, ele nao liga.
       BACKUP_SCHEDULE_PASSWORD: ${BACKUP_SCHEDULE_PASSWORD:-}
+      # Log centralizado de alertas (plano pos-revisao, 5.2): com ALERT_LOG_DIR no .env, uma linha
+      # JSON por alerta em /alerts/deeplook-alerts.jsonl (montado abaixo), para um coletor levar ao
+      # SIEM. Vazio, desligado.
+      ALERT_LOG: ${ALERT_LOG_DIR:+/alerts/deeplook-alerts.jsonl}
       # Conferencia de integridade dos arquivos guardados (item 4.2); 0 minutos desliga.
       INTEGRITY_SCRUB_INTERVAL_MINUTES: ${INTEGRITY_SCRUB_INTERVAL_MINUTES:-60}
       INTEGRITY_SCRUB_MAX_MB: ${INTEGRITY_SCRUB_MAX_MB:-512}
@@ -212,6 +216,7 @@ services:
     # Sem BACKUP_DIR a pasta montada nao e usada (a API nem a recebe acima).
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/backups
+      - ${ALERT_LOG_DIR:-./data/alerts}:/alerts
       - api-tmp:/tmp
     depends_on:
       db:

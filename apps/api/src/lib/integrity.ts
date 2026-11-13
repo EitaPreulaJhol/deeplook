@@ -3,6 +3,7 @@ import { Transform } from 'node:stream';
 
 import type { FastifyRequest } from 'fastify';
 
+import { writeAlert } from './alert-log';
 import { audit } from './audit';
 import { log } from './log';
 import { prisma } from './prisma';
@@ -135,6 +136,14 @@ export async function recordIntegrity(
       : `${VIA[source.via]}: SHA-256 esperado ${target.sha256}, calculado ${outcome.actual} ` +
         `(${outcome.bytes} bytes lidos; a ficha diz ${target.fileSize ?? 'sem tamanho'})`;
   await audit(prisma, source.req ?? null, { ...base, action: 'ENTRY_INTEGRITY_FAILED', detail });
+  await writeAlert('error', 'integrity.mismatch', 'Arquivo guardado não confere com a ficha', {
+    entryId: target.id,
+    title: target.title,
+    via: source.via,
+    state: outcome.state,
+    expected: target.sha256,
+    ...(outcome.state === 'mismatch' ? { actual: outcome.actual, bytes: outcome.bytes } : {}),
+  });
   log.error(
     { entryId: target.id, state: outcome.state },
     '[integridade] o arquivo guardado nao confere com a ficha',

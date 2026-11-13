@@ -104,6 +104,8 @@ const EnvSchema = z
      * BACKUP_DIR do .env). Vazia, o ZIP vai para o bucket, no mesmo disco dos dados.
      */
     BACKUP_DIR: z.string().default(''),
+    /** Log centralizado de alertas (plano pos-revisao, item 5.2): caminho do arquivo; vazio desliga. */
+    ALERT_LOG: z.string().default(''),
     /**
      * Senha do ZIP do backup agendado (item 6.13): a da tela nao fica guardada, entao o
      * agendamento usa esta. Vazia, o agendamento nao liga. O ZIP agendado leva as amostras.

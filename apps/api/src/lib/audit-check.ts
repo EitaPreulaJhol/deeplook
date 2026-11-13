@@ -1,3 +1,4 @@
+import { writeStateAlert } from './alert-log';
 import { type AuditChainState, chainAuditHistory, verifyAuditChain } from './audit';
 
 /**
@@ -52,6 +53,17 @@ export function startAuditCheck(log: Logger): void {
       } else {
         log.error({ problem: state.problem, head: state.head }, '[auditoria] CADEIA QUEBRADA');
       }
+      // Log de alertas (plano pos-revisao, 5.2): ao quebrar e ao voltar a conferir.
+      await writeStateAlert('audit-chain', state.ok ? 'ok' : 'broken', state.ok, () =>
+        state.ok
+          ? ['info', 'audit.chain_ok', 'Cadeia da auditoria íntegra de novo', { head: state.head }]
+          : [
+              'error',
+              'audit.chain_broken',
+              'Cadeia da auditoria quebrada',
+              { problem: state.problem, head: state.head },
+            ],
+      );
     } catch (err) {
       log.error({ err }, '[auditoria] falha na conferência da cadeia');
     }

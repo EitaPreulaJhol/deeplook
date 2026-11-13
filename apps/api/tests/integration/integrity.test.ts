@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
@@ -21,6 +23,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   await ensureBucket(3, 500);
+  const alertLog = join(process.env.TEST_TMP!, `alertas-integridade-${Date.now()}.jsonl`);
+  env.ALERT_LOG = alertLog;
   const app = await buildApp();
   await app.ready();
 
@@ -130,6 +134,21 @@ async function main() {
   ok('divergente: a amostra fica marcada', flagged.integrityFailedAt !== null, flagged);
   const failed = await audits('ENTRY_INTEGRITY_FAILED', 'bom-integridade');
   ok('divergente: uma auditoria', failed.length === 1, failed.length);
+  // Log centralizado de alertas (plano pos-revisao, 5.2): a divergencia vira uma linha.
+  const alerts = existsSync(alertLog)
+    ? readFileSync(alertLog, 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l))
+    : [];
+  ok(
+    'divergente: uma linha no log de alertas',
+    alerts.length === 1 &&
+      alerts[0].code === 'integrity.mismatch' &&
+      alerts[0].context.entryId === good.id &&
+      alerts[0].context.expected === good.sha256,
+    alerts,
+  );
   ok(
     'auditoria: quem baixou, de quem é, o hash esperado e o calculado',
     failed[0]?.actorId === ids['ana@x.io'] &&

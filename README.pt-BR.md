@@ -1017,6 +1017,7 @@ COOKIE_SECURE=true
 | `BACKUP_RETENTION_DAYS` | dias até o ZIP do backup (Administração > Backup) expirar e sair do bucket ou da pasta | `7` |
 | `BACKUP_PG_DUMP` | comando do `pg_dump` usado no backup (versão 16 ou mais nova; a imagem da API já traz) | `pg_dump` |
 | `BACKUP_SCHEDULE_PASSWORD` | senha do ZIP do backup agendado (12+ caracteres; dias e horário na aba Backup). Vazia, o agendamento não liga | — |
+| `ALERT_LOG_DIR` | pasta do host do log centralizado de alertas (`deeplook-alerts.jsonl`, uma linha JSON por alerta); precisa ser gravável pelo uid 1000. Vazio: desligado | — |
 | `BACKUP_DIR` | pasta do host onde o ZIP do backup é gravado (disco externo, NAS); precisa ser gravável pelo uid 1000 e ter o arquivo `.deeplook-backups`. Vazio: o ZIP fica no bucket, no mesmo disco dos dados | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
@@ -1192,6 +1193,25 @@ npx prisma generate
 ```
 
 ---
+
+## Log centralizado de alertas
+
+Com `ALERT_LOG_DIR` no `.env`, a API grava em `deeplook-alerts.jsonl`, nessa pasta, uma linha JSON
+por alerta, para um coletor (Filebeat, Fluent Bit, rsyslog, Wazuh) levar ao SIEM. Sem a variável,
+nada é gravado. Cada linha traz `time`, `level` (`info`, `warn` ou `error`), `code`, `message` (em
+português) e `context`:
+
+| `code` | Quando |
+|---|---|
+| `backup.failed` | um backup (agendado ou pela tela) falhou |
+| `status.down` / `status.recovered` | um componente do status do sistema passou a erro / voltou (conferido a cada 5 min) |
+| `audit.chain_broken` / `audit.chain_ok` | a cadeia da auditoria quebrou / voltou a conferir (conferida de hora em hora) |
+| `integrity.mismatch` | um arquivo guardado não confere com o SHA-256 da ficha (no download ou na conferência periódica) |
+| `yara.update_held` | uma atualização de regras YARA ficou retida para aprovação |
+
+O mesmo estado não se repete: um componente fora do ar gera uma linha ao cair e outra ao voltar. O
+arquivo é aberto em modo de acréscimo a cada linha, então o `logrotate` (com `create` ou
+`copytruncate`) funciona sem reiniciar a API. Falha ao gravar vai só para o log da API.
 
 ## Segurança e avisos
 

@@ -6,6 +6,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
+import { writeAlert } from './alert-log';
 import { audit } from './audit';
 import { notify } from './notifications';
 import { type Db, prisma } from './prisma';
@@ -444,6 +445,11 @@ export async function checkYaraPack(
               detail: `retida: ${reasons.join(' ')}`,
             });
             await notifyAdmins(tx, `${pack.name}: atualização retida para aprovação`, null);
+          });
+          await writeAlert('warn', 'yara.update_held', 'Atualização de regras YARA retida', {
+            pack: pack.name,
+            commit: commit.sha,
+            reasons,
           });
         }
       } else if (options.apply) {

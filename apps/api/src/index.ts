@@ -23,6 +23,7 @@ import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
 import { startSlaEscalation } from './lib/sla-escalation';
+import { startStatusAlerts } from './lib/status';
 import { backfillTlsh } from './lib/tlsh-backfill';
 import { startUnpackQueue } from './lib/unpack';
 import { installYaraPacks } from './lib/yara-packs';
@@ -79,6 +80,8 @@ async function main() {
   startSessionCleanup(app.log);
   // Auditoria (revisao de novembro, 1.3): encadeia o historico e confere a cadeia de hora em hora.
   startAuditCheck(app.log);
+  // Log centralizado de alertas (plano pos-revisao, 5.2): componente que cai ou volta.
+  startStatusAlerts(app.log);
 
   // Desligamento controlado (item 119): termina o que esta em andamento, com teto.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {

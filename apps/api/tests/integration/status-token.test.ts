@@ -1,9 +1,13 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { buildApp } from '../../src/app';
+import { env } from '../../src/env';
 import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
-import { resetStatusCache } from '../../src/lib/status';
+import { checkStatusAlerts, resetStatusCache } from '../../src/lib/status';
 
 // Item 3.2: status do sistema por maquina, com token de escopo STATUS (so admin cria, e o
 // token so alcanca GET /api/status).
@@ -345,6 +349,33 @@ async function main() {
       'Database',
     byToken.body,
   );
+
+  // Log centralizado de alertas (plano pos-revisao, 5.2): o componente que cai e volta.
+  const alertLog = join(process.env.TEST_TMP!, `alertas-status-${Date.now()}.jsonl`);
+  env.ALERT_LOG = alertLog;
+  const read = () =>
+    existsSync(alertLog)
+      ? readFileSync(alertLog, 'utf8')
+          .trim()
+          .split('\n')
+          .map((l) => JSON.parse(l) as { code: string; context: { component: string } })
+      : [];
+  await checkStatusAlerts(); // estado inicial: nada fora, nenhuma linha
+  const before = read().length;
+  env.CAPTURE_URL = 'http://127.0.0.1:9';
+  env.CAPTURE_TOKEN = '0123456789abcdef0123456789abcdef';
+  await checkStatusAlerts();
+  await checkStatusAlerts(); // de novo fora: sem linha repetida
+  env.CAPTURE_URL = '';
+  await checkStatusAlerts();
+  const lines = read().slice(before);
+  ok(
+    'log de alertas: a captura cai e volta (duas linhas, sem repetir)',
+    lines.map((l) => `${l.code}:${l.context.component}`).join() ===
+      'status.down:capture,status.recovered:capture',
+    lines,
+  );
+  env.ALERT_LOG = '';
 
   await app.close();
   await prisma.$disconnect();

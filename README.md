@@ -1005,6 +1005,7 @@ COOKIE_SECURE=true
 | `BACKUP_RETENTION_DAYS` | days until the backup ZIP (Administration > Backup) expires and leaves the bucket or the folder | `7` |
 | `BACKUP_PG_DUMP` | the `pg_dump` command used in the backup (version 16 or newer; the API image already includes it) | `pg_dump` |
 | `BACKUP_SCHEDULE_PASSWORD` | password of the scheduled backup ZIP (12+ characters; days and time on the Backup tab). Empty, the schedule does not turn on | — |
+| `ALERT_LOG_DIR` | host folder of the centralized alert log (`deeplook-alerts.jsonl`, one JSON line per alert); must be writable by uid 1000. Empty: off | — |
 | `BACKUP_DIR` | host folder where the backup ZIP is written (external disk, NAS); must be writable by uid 1000 and contain the `.deeplook-backups` file. Empty: the ZIP stays in the bucket, on the same disk as the data | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | how often, in minutes, the server checks the SHA-256 of the stored files; `0` turns it off | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | how much to read per round of the periodic check (a file larger than that is still checked, on its own) | `512` |
@@ -1181,6 +1182,26 @@ npx prisma generate
 ```
 
 ---
+
+## Centralized alert log
+
+With `ALERT_LOG_DIR` in `.env`, the API writes to `deeplook-alerts.jsonl`, in that folder, one JSON
+line per alert, for a collector (Filebeat, Fluent Bit, rsyslog, Wazuh) to ship to the SIEM. Without
+the variable, nothing is written. Each line carries `time`, `level` (`info`, `warn` or `error`),
+`code`, `message` (in Portuguese) and `context`:
+
+| `code` | When |
+|---|---|
+| `backup.failed` | a backup (scheduled or from the screen) failed |
+| `status.down` / `status.recovered` | a system status component went to error / came back (checked every 5 min) |
+| `audit.chain_broken` / `audit.chain_ok` | the audit chain broke / checks out again (checked hourly) |
+| `integrity.mismatch` | a stored file doesn't match the record's SHA-256 (on download or in the periodic check) |
+| `yara.update_held` | a YARA rule update was held for approval |
+
+The same state doesn't repeat: a component that goes down produces one line when it falls and
+another when it comes back. The file is opened in append mode on every line, so `logrotate` (with
+`create` or `copytruncate`) works without restarting the API. A write failure only goes to the API
+log.
 
 ## Security and warnings
 

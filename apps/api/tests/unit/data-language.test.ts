@@ -68,6 +68,9 @@ const SAME = new Set([
 ]);
 
 /** Titulo e descricao da amostra filha do unpack: as pessoas editam, ficam como foram gravados. */
+/** Mensagens do log de alertas (plano pos-revisao, 5.2): so em portugues; o codigo e estavel. */
+const ALERT_TEXT = new Set(['Atualização de regras YARA retida']);
+
 const USER_TEXT = new Set(['{0} (desempacotado)', 'Extraído de "{0}" pelo desempacotador {1}{2}.']);
 
 const phrase = (text: string) =>
@@ -88,7 +91,8 @@ const known = new Set([...DATA_EN, ...HISTORY_EN, ...MESSAGES_EN].map(([pt]) => 
 
 test('todo texto das análises tem tradução em data-en.ts', () => {
   const missing = found.filter(
-    (f) => !known.has(f.text) && !SAME.has(f.text) && !USER_TEXT.has(f.text),
+    (f) =>
+      !known.has(f.text) && !SAME.has(f.text) && !USER_TEXT.has(f.text) && !ALERT_TEXT.has(f.text),
   );
   assert.deepEqual(
     missing.map((f) => `${f.file}:${f.line}  ${JSON.stringify(f.text)}`),

@@ -29,6 +29,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 
 import { env } from '../env';
+import { writeAlert } from './alert-log';
 import { audit, auditHead } from './audit';
 import { log } from './log';
 import { advisoryLock, prisma } from './prisma';
@@ -420,6 +421,10 @@ export async function runBackup(id: string, password: string | null = null): Pro
         error: (err as Error).message.slice(0, 500),
         finishedAt: new Date(),
       },
+    });
+    await writeAlert('error', 'backup.failed', 'Falha ao gerar o backup', {
+      backupId: id,
+      error: (err as Error).message.slice(0, 500),
     });
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -8,6 +8,7 @@ import {
   PUBLIC_S3_SECRETS,
   sandboxEnabled,
 } from '../env';
+import { alertLogEnabled, writeStateAlert } from './alert-log';
 import { lastAuditCheck } from './audit-check';
 import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
@@ -1005,4 +1006,31 @@ export function localizeStatus<T extends { checks: StatusCheck[] }>(status: T, l
       details: check.details.map((d) => ({ label: toEnglish(d.label), value: toEnglish(d.value) })),
     })),
   };
+}
+
+/** Intervalo do monitor de alertas do status (plano pos-revisao, item 5.2). */
+const STATUS_ALERT_EVERY_MS = 5 * 60 * 1000;
+
+/** Confere o status e grava no log de alertas o componente que caiu ou voltou. */
+export async function checkStatusAlerts(): Promise<void> {
+  const { checks } = await systemStatus();
+  for (const check of checks) {
+    const down = check.level === 'error';
+    await writeStateAlert(`status:${check.id}`, down ? 'down' : 'up', !down, () =>
+      down
+        ? ['error', 'status.down', `${check.name}: ${check.summary}`, { component: check.id }]
+        : ['info', 'status.recovered', `${check.name} voltou ao normal`, { component: check.id }],
+    );
+  }
+}
+
+/** Monitor do status para o log de alertas: so roda com o log ligado. */
+export function startStatusAlerts(logger: { error: (o: object, m: string) => void }): void {
+  if (!alertLogEnabled()) return;
+  const run = () =>
+    void checkStatusAlerts().catch((err: unknown) =>
+      logger.error({ err }, '[alertas] falha ao conferir o status'),
+    );
+  setTimeout(run, 60 * 1000).unref();
+  setInterval(run, STATUS_ALERT_EVERY_MS).unref();
 }
