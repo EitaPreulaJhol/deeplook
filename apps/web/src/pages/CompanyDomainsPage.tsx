@@ -28,6 +28,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { VerdictTag } from '../components/tags';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/detection';
 
 interface CompanyDomain {
   id: string;
@@ -63,7 +64,7 @@ export function CompanyDomainsPage() {
   const check = useRequiredFields([
     {
       id: 'company-domain',
-      label: 'Domínio',
+      label: t('domain'),
       ok: domain.trim().length >= 3,
       api: 'domain',
       value: domain,
@@ -90,45 +91,42 @@ export function CompanyDomainsPage() {
       const res = await api.post<{ item: CompanyDomain }>('/company-domains', { domain });
       setDomain('');
       check.reset();
-      return `${res.item.domain} incluído e posto na lista de permissões. As amostras estão sendo revistas.`;
+      return t('domainAdded', { domain: res.item.domain });
     });
   };
 
   const remove = async (d: CompanyDomain) => {
     const ok = await confirm({
-      title: 'Excluir domínio da empresa',
-      message: `Excluir ${d.domain}? Ele sai da lista de permissões e os parecidos com ele deixam de ser marcados.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteCompanyDomain'),
+      message: t('deleteDomainConfirm', { domain: d.domain }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/company-domains/${d.id}`);
-      return `${d.domain} excluído.`;
+      return t('domainDeleted', { domain: d.domain });
     });
   };
 
   const data = query.data;
   return (
     <>
-      <PageHeader
-        title="Domínios da empresa"
-        subtitle="Links, remetentes e indicadores parecidos com os domínios da empresa (outro TLD, letras parecidas, erro de digitação, palavra a mais, nome no subdomínio) são marcados nas amostras. Nada é consultado na internet."
-      />
+      <PageHeader title={t('cdTitle')} subtitle={t('cdSubtitle')} />
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
         </HpsmMessage>
       )}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
-      {query.isLoading && <HpsmLoading text="Carregando..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingDots')} />}
 
-      <HpsmSection title={`Domínios (${data?.domains.length ?? 0})`}>
+      <HpsmSection title={t('domainsN', { n: data?.domains.length ?? 0 })}>
         {data && data.domains.length === 0 && (
           <p className="dl-static-empty">
-            Nenhum domínio cadastrado.
-            {isAdmin ? '' : ' O administrador cadastra os domínios da empresa.'}
+            {t('noDomains')}
+            {isAdmin ? '' : ` ${t('adminRegisters')}`}
           </p>
         )}
         {data && data.domains.length > 0 && (
@@ -137,8 +135,10 @@ export function CompanyDomainsPage() {
               <li key={d.id}>
                 <span className="dl-mono">{d.domain}</span>{' '}
                 <span className="dl-company-domains__by">
-                  por {d.createdBy?.displayName ?? '—'} em{' '}
-                  {new Date(d.createdAt).toLocaleDateString(intlLocale())}
+                  {t('byOn', {
+                    name: d.createdBy?.displayName ?? '—',
+                    date: new Date(d.createdAt).toLocaleDateString(intlLocale()),
+                  })}
                 </span>
                 {isAdmin && (
                   <button
@@ -147,7 +147,7 @@ export function CompanyDomainsPage() {
                     disabled={busy}
                     onClick={() => void remove(d)}
                   >
-                    Excluir
+                    {t('delete')}
                   </button>
                 )}
               </li>
@@ -157,15 +157,15 @@ export function CompanyDomainsPage() {
         {isAdmin && data && data.domains.length < data.max && (
           <HpsmForm>
             <HpsmField
-              label="Novo domínio"
+              label={t('newDomain')}
               htmlFor="company-domain"
               required
               invalid={check.isInvalid('company-domain')}
-              help="O domínio registrado (ex.: empresa.com.br); os subdomínios valem junto."
+              help={t('newDomainHelp')}
             >
               <TextInput
                 id="company-domain"
-                labelText="Novo domínio"
+                labelText={t('newDomain')}
                 hideLabel
                 placeholder="empresa.com.br"
                 value={domain}
@@ -182,26 +182,26 @@ export function CompanyDomainsPage() {
                 disabled={busy}
                 onClick={add}
               >
-                Incluir
+                {t('add')}
               </button>
             </HpsmFormActions>
           </HpsmForm>
         )}
       </HpsmSection>
 
-      <HpsmSection title={`Variações vistas (${data?.seen.length ?? 0})`} className="dl-mt-lg">
+      <HpsmSection title={t('seenN', { n: data?.seen.length ?? 0 })} className="dl-mt-lg">
         {data && data.seen.length === 0 ? (
-          <p className="dl-static-empty">Nenhum domínio parecido apareceu nas amostras.</p>
+          <p className="dl-static-empty">{t('noneSeen')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label="Variações vistas">
+            <Table size="xs" aria-label={t('seenAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Domínio visto</TableHeader>
-                  <TableHeader scope="col">Parecido com</TableHeader>
-                  <TableHeader scope="col">Motivo</TableHeader>
-                  <TableHeader scope="col">Onde</TableHeader>
-                  <TableHeader scope="col">Amostras</TableHeader>
+                  <TableHeader scope="col">{t('seenDomain')}</TableHeader>
+                  <TableHeader scope="col">{t('similarTo')}</TableHeader>
+                  <TableHeader scope="col">{t('reason')}</TableHeader>
+                  <TableHeader scope="col">{t('where')}</TableHeader>
+                  <TableHeader scope="col">{t('samples')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>

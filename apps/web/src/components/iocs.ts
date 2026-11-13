@@ -1,17 +1,19 @@
 import type { IocKind } from '../api/types';
+import { localized } from '../i18n';
+import { t as tr } from '../i18n/detection';
 import { sha256Hex } from './sha256';
 
 /** Rotulo do tipo de indicador. */
-export const IOC_KIND_LABELS: Record<IocKind, string> = {
+export const IOC_KIND_LABELS: Record<IocKind, string> = localized(() => ({
   IPV4: 'IPv4',
   IPV6: 'IPv6',
-  DOMAIN: 'Domínio',
+  DOMAIN: tr('kindDomain'),
   EMAIL: 'E-mail',
   MD5: 'MD5',
   SHA1: 'SHA-1',
   SHA256: 'SHA-256',
   URL: 'URL',
-};
+}));
 
 /**
  * Caminho da ficha do indicador (o mesmo na tela e na API, sem o /api). A URL vai pela

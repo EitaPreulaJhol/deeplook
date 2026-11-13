@@ -26,6 +26,8 @@ import {
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { PriorityTag, StatusText } from '../components/tags';
+import { localized } from '../i18n';
+import { t as tr } from '../i18n/detection';
 
 type Condition =
   | 'DETECTED_TYPE'
@@ -63,70 +65,70 @@ interface TriageRule {
 const CONDITIONS: Record<
   Condition,
   { label: string; value?: { required: boolean; hint: string } }
-> = {
+> = localized(() => ({
   DETECTED_TYPE: {
-    label: 'Tipo real é…',
-    value: { required: true, hint: 'ex.: pe, ole, pdf, lnk, zip' },
+    label: tr('cDetectedType'),
+    value: { required: true, hint: tr('cDetectedTypeHint') },
   },
   YARA: {
-    label: 'Regra YARA casou',
-    value: { required: false, hint: 'nome da regra (vazio = qualquer)' },
+    label: tr('cYara'),
+    value: { required: false, hint: tr('cYaraHint') },
   },
   ANTIVIRUS: {
-    label: 'Antivírus detectou',
-    value: { required: false, hint: 'parte da assinatura (vazio = qualquer)' },
+    label: tr('cAv'),
+    value: { required: false, hint: tr('cAvHint') },
   },
   DOMAIN: {
-    label: 'Domínio do link',
-    value: { required: true, hint: 'ex.: banco-falso.com ou .top' },
+    label: tr('cDomain'),
+    value: { required: true, hint: tr('cDomainHint') },
   },
-  SENDER: { label: 'Remetente do e-mail', value: { required: true, hint: 'endereço ou domínio' } },
-  MACRO: { label: 'Documento com macro' },
-  DISGUISED: { label: 'Executável disfarçado (extensão)' },
-  SCRIPT_RISK: { label: 'Script com risco alto' },
-  DOCUMENT_RISK: { label: 'Documento com risco alto' },
-  LNK: { label: 'Atalho (.lnk) suspeito' },
+  SENDER: { label: tr('cSender'), value: { required: true, hint: tr('cSenderHint') } },
+  MACRO: { label: tr('cMacro') },
+  DISGUISED: { label: tr('cDisguised') },
+  SCRIPT_RISK: { label: tr('cScriptHigh') },
+  DOCUMENT_RISK: { label: tr('cDocHigh') },
+  LNK: { label: tr('cLnk') },
   LOOKALIKE: {
-    label: 'Parecido com domínio da empresa',
-    value: { required: false, hint: 'domínio da empresa (vazio = qualquer)' },
+    label: tr('cLookalike'),
+    value: { required: false, hint: tr('cLookalikeHint') },
   },
   // Item 7.4: analise do executavel (7.1) e de funcoes, capa e FLOSS (7.2).
   CAPA_CAPABILITY: {
-    label: 'O capa encontrou a capacidade',
+    label: tr('cCapa'),
     value: {
       required: false,
-      hint: 'parte do nome (inject) ou grupo (persistence); vazio = qualquer capacidade de risco',
+      hint: tr('cCapaHint'),
     },
   },
   ATTACK_TECHNIQUE: {
-    label: 'Técnica ATT&CK (pelo capa)',
-    value: { required: true, hint: 'ex.: T1055 (vale também para T1055.003)' },
+    label: tr('cAttack'),
+    value: { required: true, hint: tr('cAttackHint') },
   },
-  SIGNATURE_INVALID: { label: 'Assinatura digital não confere' },
+  SIGNATURE_INVALID: { label: tr('cSigBad') },
   PACKED: {
-    label: 'Executável empacotado',
-    value: { required: false, hint: 'empacotador, ex.: UPX (vazio = qualquer)' },
+    label: tr('cPacked'),
+    value: { required: false, hint: tr('cPackedHint') },
   },
   PE_ALERT: {
-    label: 'Alerta do executável',
+    label: tr('cPeAlert'),
     value: {
       required: false,
-      hint: 'trecho do alerta, ex.: administrador (vazio = qualquer alerta alto)',
+      hint: tr('cPeAlertHint'),
     },
   },
   HIDDEN_IOC: {
-    label: 'Indicador em string escondida (FLOSS)',
-    value: { required: false, hint: 'domínio ou trecho (vazio = qualquer)' },
+    label: tr('cFloss'),
+    value: { required: false, hint: tr('cFlossHint') },
   },
   // Item 7.9.
   DIE_DETECTION: {
-    label: 'Detect It Easy detectou',
+    label: tr('cDie'),
     value: {
       required: false,
-      hint: 'trecho, ex.: Themida, Inno Setup, Delphi (vazio = qualquer empacotador ou protetor)',
+      hint: tr('cDieHint'),
     },
   },
-};
+}));
 
 const EMPTY = { name: '', condition: 'MACRO' as Condition, value: '', tags: '', priority: '' };
 
@@ -150,21 +152,21 @@ export function TriageRulesPage() {
   const check = useRequiredFields([
     {
       id: 'rule-name',
-      label: 'Nome (3 a 80 caracteres)',
+      label: tr('nameRange'),
       ok: form.name.trim().length >= 3,
       api: 'name',
       value: form.name,
     },
     {
       id: 'rule-value',
-      label: 'Valor',
+      label: tr('value'),
       ok: !valueSpec?.required || form.value.trim().length > 0,
       api: 'value',
       value: form.value,
     },
     {
       id: 'rule-tags',
-      label: 'Tags ou prioridade',
+      label: tr('tagsOrPriority'),
       ok: form.tags.trim().length > 0 || form.priority !== '',
       api: 'tags',
       value: form.tags,
@@ -200,59 +202,56 @@ export function TriageRulesPage() {
       });
       setForm(EMPTY);
       check.reset();
-      return `Regra "${form.name.trim()}" incluída. Vale para as próximas amostras.`;
+      return tr('ruleAdded', { name: form.name.trim() });
     });
   };
 
   const toggle = (r: TriageRule) =>
     run(async () => {
       await api.patch(`/triage-rules/${r.id}`, { enabled: !r.enabled });
-      return `Regra "${r.name}" ${r.enabled ? 'desligada' : 'ligada'}.`;
+      return tr(r.enabled ? 'ruleOff' : 'ruleOn', { name: r.name });
     });
 
   const remove = async (r: TriageRule) => {
     const ok = await confirm({
-      title: 'Excluir regra',
-      message: `Excluir a regra "${r.name}"? As tags já aplicadas continuam nas amostras.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: tr('deleteRule'),
+      message: tr('deleteRuleConfirm', { name: r.name }),
+      confirmLabel: tr('delete'),
+      cancelLabel: tr('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/triage-rules/${r.id}`);
-      return `Regra "${r.name}" excluída.`;
+      return tr('ruleDeleted', { name: r.name });
     });
   };
 
   return (
     <>
-      <PageHeader
-        title="Regras de triagem"
-        subtitle="Quando a análise de uma amostra nova achar algo, ela ganha tags e, se for o caso, prioridade mais alta. Todas as regras que casarem valem; nada é tirado nem rebaixado. Regras de YARA e antivírus valem quando a varredura termina."
-      />
+      <PageHeader title={tr('triageTitle')} subtitle={tr('triageSubtitle')} />
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
         </HpsmMessage>
       )}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
-      {query.isLoading && <HpsmLoading text="Carregando as regras..." />}
+      {query.isLoading && <HpsmLoading text={tr('loadingRules')} />}
 
-      <HpsmSection title={`Regras (${rules.length})`}>
+      <HpsmSection title={tr('rulesN', { n: rules.length })}>
         {rules.length === 0 ? (
-          <p className="dl-static-empty">Nenhuma regra: a triagem é toda manual.</p>
+          <p className="dl-static-empty">{tr('noRulesManual')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label="Regras de triagem">
+            <Table size="xs" aria-label={tr('triageTitle')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Nome</TableHeader>
-                  <TableHeader scope="col">Quando</TableHeader>
-                  <TableHeader scope="col">Tags</TableHeader>
-                  <TableHeader scope="col">Prioridade</TableHeader>
-                  <TableHeader scope="col">Situação</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{tr('name')}</TableHeader>
+                  <TableHeader scope="col">{tr('when')}</TableHeader>
+                  <TableHeader scope="col">{tr('tags')}</TableHeader>
+                  <TableHeader scope="col">{tr('priority')}</TableHeader>
+                  <TableHeader scope="col">{tr('situation')}</TableHeader>
+                  <TableHeader scope="col">{tr('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -262,11 +261,11 @@ export function TriageRulesPage() {
                     <TableCell>{r.label}</TableCell>
                     <TableCell>{r.tags.join(', ') || '—'}</TableCell>
                     <TableCell>
-                      {r.priority ? <PriorityTag priority={r.priority} /> : 'mantém'}
+                      {r.priority ? <PriorityTag priority={r.priority} /> : tr('keeps')}
                     </TableCell>
                     <TableCell>
                       <StatusText tone={r.enabled ? 'green' : 'gray'}>
-                        {r.enabled ? 'Ligada' : 'Desligada'}
+                        {r.enabled ? tr('on') : tr('off')}
                       </StatusText>
                     </TableCell>
                     <TableCell>
@@ -277,7 +276,7 @@ export function TriageRulesPage() {
                           disabled={busy}
                           onClick={() => void toggle(r)}
                         >
-                          {r.enabled ? 'Desligar' : 'Ligar'}
+                          {r.enabled ? tr('turnOff') : tr('turnOn')}
                         </button>
                         <button
                           type="button"
@@ -285,7 +284,7 @@ export function TriageRulesPage() {
                           disabled={busy}
                           onClick={() => void remove(r)}
                         >
-                          Excluir
+                          {tr('delete')}
                         </button>
                       </span>
                     </TableCell>
@@ -297,28 +296,28 @@ export function TriageRulesPage() {
         )}
       </HpsmSection>
 
-      <HpsmSection title="Nova regra" className="dl-mt-lg">
+      <HpsmSection title={tr('newRule')} className="dl-mt-lg">
         <HpsmForm columns={2}>
           <HpsmField
-            label="Nome"
+            label={tr('name')}
             htmlFor="rule-name"
             required
             invalid={check.isInvalid('rule-name')}
           >
             <TextInput
               id="rule-name"
-              labelText="Nome"
+              labelText={tr('name')}
               hideLabel
               maxLength={80}
-              placeholder="ex.: Documento com macro"
+              placeholder={tr('namePlaceholder')}
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </HpsmField>
-          <HpsmField label="Quando" htmlFor="rule-condition">
+          <HpsmField label={tr('when')} htmlFor="rule-condition">
             <Select
               id="rule-condition"
-              labelText="Quando"
+              labelText={tr('when')}
               hideLabel
               value={form.condition}
               onChange={(e) =>
@@ -332,7 +331,7 @@ export function TriageRulesPage() {
           </HpsmField>
           {valueSpec && (
             <HpsmField
-              label="Valor"
+              label={tr('value')}
               htmlFor="rule-value"
               required={valueSpec.required}
               help={valueSpec.hint}
@@ -340,7 +339,7 @@ export function TriageRulesPage() {
             >
               <TextInput
                 id="rule-value"
-                labelText="Valor"
+                labelText={tr('value')}
                 hideLabel
                 maxLength={200}
                 value={form.value}
@@ -349,41 +348,37 @@ export function TriageRulesPage() {
             </HpsmField>
           )}
           <HpsmField
-            label="Incluir tags"
+            label={tr('addTags')}
             htmlFor="rule-tags"
-            help="Separadas por vírgula. Ou só a prioridade."
+            help={tr('addTagsHelp')}
             invalid={check.isInvalid('rule-tags')}
           >
             <TextInput
               id="rule-tags"
-              labelText="Incluir tags"
+              labelText={tr('addTags')}
               hideLabel
-              placeholder="ex.: macro, office"
+              placeholder={tr('tagsPlaceholder')}
               value={form.tags}
               onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
             />
           </HpsmField>
-          <HpsmField
-            label="Subir a prioridade para"
-            htmlFor="rule-priority"
-            help="Só sobe; nunca rebaixa."
-          >
+          <HpsmField label={tr('raisePriority')} htmlFor="rule-priority" help={tr('raiseHelp')}>
             <Select
               id="rule-priority"
-              labelText="Subir a prioridade para"
+              labelText={tr('raisePriority')}
               hideLabel
               value={form.priority}
               onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
             >
-              <SelectItem value="" text="Manter" />
-              <SelectItem value="P1" text="P1 Crítica" />
-              <SelectItem value="P2" text="P2 Alta" />
-              <SelectItem value="P3" text="P3 Média" />
+              <SelectItem value="" text={tr('keep')} />
+              <SelectItem value="P1" text={tr('p1')} />
+              <SelectItem value="P2" text={tr('p2')} />
+              <SelectItem value="P3" text={tr('p3')} />
             </Select>
           </HpsmField>
           <HpsmFormActions>
             <button type="button" className="dl-btn dl-btn--primary" disabled={busy} onClick={add}>
-              Incluir regra
+              {tr('addRule')}
             </button>
           </HpsmFormActions>
         </HpsmForm>

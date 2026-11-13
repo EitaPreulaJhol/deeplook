@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { YaraPack, YaraRule } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { t } from '../i18n/detection';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmSection } from './HpsmForm';
 import { HpsmLoading } from './messages';
@@ -72,19 +73,19 @@ export function YaraPacksSection({
   const toggle = (rule: PackRule) =>
     run(
       () => api.patch(`/yara/rules/${rule.id}`, { enabled: !rule.enabled }),
-      `Regra "${rule.name}" ${rule.enabled ? 'desativada' : 'ativada'}.`,
+      t(rule.enabled ? 'yaraDisabled' : 'yaraEnabled', { name: rule.name }),
     );
   const remove = async (rule: PackRule) => {
     const ok = await confirm({
-      title: 'Excluir regra do pacote',
-      message: `Excluir "${rule.name}"? Ela não volta sozinha. Para só parar de usar, desative.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deletePackRule'),
+      message: t('deletePackRuleConfirm', { name: rule.name }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     if (reading?.id === rule.id) setReading(null);
-    await run(() => api.del(`/yara/rules/${rule.id}`), `Regra "${rule.name}" excluída.`);
+    await run(() => api.del(`/yara/rules/${rule.id}`), t('ruleDeleted', { name: rule.name }));
   };
   const read = async (rule: PackRule) => {
     try {
@@ -96,18 +97,18 @@ export function YaraPacksSection({
 
   const packs = packsQuery.data?.packs ?? [];
   return (
-    <HpsmSection title="Pacotes de regras" className="dl-mt-lg">
-      {packsQuery.isLoading && <HpsmLoading text="Carregando os pacotes..." />}
+    <HpsmSection title={t('packsTitle')} className="dl-mt-lg">
+      {packsQuery.isLoading && <HpsmLoading text={t('loadingPacks')} />}
       <TableContainer>
-        <Table size="xs" aria-label="Pacotes de regras YARA">
+        <Table size="xs" aria-label={t('packsAria')}>
           <TableHead>
             <TableRow>
-              <TableHeader scope="col">Pacote</TableHeader>
-              <TableHeader scope="col">Autor</TableHeader>
-              <TableHeader scope="col">Licença</TableHeader>
-              <TableHeader scope="col">Conjuntos ativos</TableHeader>
-              <TableHeader scope="col">Situação</TableHeader>
-              <TableHeader scope="col">Ações</TableHeader>
+              <TableHeader scope="col">{t('pack')}</TableHeader>
+              <TableHeader scope="col">{t('author')}</TableHeader>
+              <TableHeader scope="col">{t('license')}</TableHeader>
+              <TableHeader scope="col">{t('activeSets')}</TableHeader>
+              <TableHeader scope="col">{t('situation')}</TableHeader>
+              <TableHeader scope="col">{t('actions')}</TableHeader>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -121,7 +122,7 @@ export function YaraPacksSection({
                 </TableCell>
                 <TableCell>
                   <StatusText tone={pack.enabled ? 'green' : 'gray'}>
-                    {pack.enabled ? 'Ligado' : 'Desligado'}
+                    {pack.enabled ? t('onM') : t('offM')}
                   </StatusText>
                 </TableCell>
                 <TableCell>
@@ -136,7 +137,7 @@ export function YaraPacksSection({
                         setQ('');
                       }}
                     >
-                      {openPack === pack.id ? 'Fechar regras' : 'Ver regras'}
+                      {openPack === pack.id ? t('closeRules') : t('viewRules')}
                     </button>
                   )}
                 </TableCell>
@@ -146,13 +147,13 @@ export function YaraPacksSection({
         </Table>
       </TableContainer>
       <p className="dl-static-empty">
-        Ligar e desligar um pacote fica em{' '}
+        {t('packToggleWhere')}{' '}
         {user?.role === 'ADMIN' ? (
           <Link className="dl-link" to="/admin?tab=settings">
-            Administração &gt; Configurações
+            {t('adminSettings')}
           </Link>
         ) : (
-          'Administração > Configurações (só administradores)'
+          t('adminSettingsOnly')
         )}
         .
       </p>
@@ -161,26 +162,29 @@ export function YaraPacksSection({
         <>
           <TextInput
             id="yara-pack-search"
-            labelText="Buscar regra do pacote"
+            labelText={t('searchPackRule')}
             size="sm"
-            placeholder="Nome do arquivo, ex.: ransomware"
+            placeholder={t('searchPackPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           {rulesQuery.data && (
             <p className="dl-static-empty">
               {rulesQuery.data.total > rulesQuery.data.rules.length
-                ? `Mostrando ${rulesQuery.data.rules.length} de ${rulesQuery.data.total}. Busque para achar as demais.`
-                : `${rulesQuery.data.total} conjunto(s).`}
+                ? t('showingNofTotal', {
+                    n: rulesQuery.data.rules.length,
+                    total: rulesQuery.data.total,
+                  })
+                : t('setsN', { n: rulesQuery.data.total })}
             </p>
           )}
           <TableContainer>
-            <Table size="xs" aria-label="Regras do pacote">
+            <Table size="xs" aria-label={t('packRulesAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Conjunto</TableHeader>
-                  <TableHeader scope="col">Situação</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{t('set')}</TableHeader>
+                  <TableHeader scope="col">{t('situation')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -193,7 +197,7 @@ export function YaraPacksSection({
                     </TableCell>
                     <TableCell>
                       <StatusText tone={rule.enabled ? 'green' : 'gray'}>
-                        {rule.enabled ? 'Ativa' : 'Inativa'}
+                        {rule.enabled ? t('active') : t('inactive')}
                       </StatusText>
                     </TableCell>
                     <TableCell>
@@ -203,14 +207,14 @@ export function YaraPacksSection({
                           className="dl-link-button"
                           onClick={() => void read(rule)}
                         >
-                          Ler
+                          {t('read')}
                         </button>
                         <button
                           type="button"
                           className="dl-link-button"
                           onClick={() => void toggle(rule)}
                         >
-                          {rule.enabled ? 'Desativar' : 'Ativar'}
+                          {rule.enabled ? t('disable') : t('enable')}
                         </button>
                         <button
                           type="button"
@@ -218,14 +222,14 @@ export function YaraPacksSection({
                           disabled={retroRunning}
                           onClick={() => onRetro(rule)}
                         >
-                          Aplicar às amostras
+                          {t('applyToSamples')}
                         </button>
                         <button
                           type="button"
                           className="dl-link-button"
                           onClick={() => void remove(rule)}
                         >
-                          Excluir
+                          {t('delete')}
                         </button>
                       </span>
                     </TableCell>

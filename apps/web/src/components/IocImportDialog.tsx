@@ -3,6 +3,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import type { IocKind } from '../api/types';
+import { localized } from '../i18n';
+import { t } from '../i18n/detection';
 import { IOC_KIND_LABELS } from './iocs';
 
 type Target = 'watch' | 'allow';
@@ -21,15 +23,15 @@ interface Preview {
 const SHOWN = 200;
 const MAX_BYTES = 2 * 1024 * 1024;
 
-const STATUS: Record<Target, Record<Status, string>> = {
-  watch: { new: 'Novo', exists: 'Já sigo', covered: '—', limit: 'Sem vaga (limite de 200)' },
+const STATUS: Record<Target, Record<Status, string>> = localized(() => ({
+  watch: { new: t('stNew'), exists: t('stFollowing'), covered: '—', limit: t('stNoRoom') },
   allow: {
-    new: 'Novo',
-    exists: 'Já permitido',
-    covered: 'Já coberto (domínio ou faixa)',
+    new: t('stNew'),
+    exists: t('stAllowed'),
+    covered: t('stCovered'),
     limit: '—',
   },
-};
+}));
 
 /**
  * Importar indicadores (item 78) em CSV/lista ou STIX 2.1: cola ou escolhe o
@@ -78,7 +80,7 @@ export function IocImportDialog({
     if (!file) return;
     setError(null);
     if (file.size > MAX_BYTES) {
-      setError('Arquivo grande demais (máximo 2 MB).');
+      setError(t('fileTooLarge2mb'));
       return;
     }
     setText(await file.text());
@@ -102,7 +104,7 @@ export function IocImportDialog({
   const runImport = async () => {
     setError(null);
     if (target === 'allow' && reason.trim().length < 3) {
-      setError('Diga por que esses indicadores são legítimos (motivo, 3 a 300 caracteres).');
+      setError(t('reasonRequired'));
       document.getElementById('import-reason')?.focus();
       return;
     }
@@ -115,8 +117,8 @@ export function IocImportDialog({
       });
       onDone(
         target === 'watch'
-          ? `${res.added} indicador(es) passaram a ser seguidos.`
-          : `${res.added} indicador(es) incluídos na lista de permissões.`,
+          ? t('watchedAdded', { n: res.added })
+          : t('allowAdded', { n: res.added }),
       );
     } catch (err) {
       setError((err as Error).message);
@@ -125,8 +127,7 @@ export function IocImportDialog({
     }
   };
 
-  const title =
-    target === 'watch' ? 'Importar indicadores para seguir' : 'Importar indicadores permitidos';
+  const title = target === 'watch' ? t('importWatchTitle') : t('importAllowTitle');
   return (
     <div className="hpsm-modal" role="presentation">
       <div
@@ -140,15 +141,13 @@ export function IocImportDialog({
         </h2>
         <div className="dl-import__body">
           <p className="dl-import__hint">
-            Um indicador por linha (CSV com ou sem coluna de tipo; hxxp e [.] são aceitos) ou um
-            pacote <strong>STIX 2.1</strong> (JSON). Até 5000 linhas ou 2 MB. Nada é consultado na
-            internet.
-            {target === 'watch' && ' Faixas de IP e IPs privados não podem ser seguidos.'}
+            {t('importHint1')} <strong>STIX 2.1</strong> {t('importHint2')}
+            {target === 'watch' && ` ${t('importHintWatch')}`}
           </p>
           <TextArea
             id="import-text"
             ref={textRef}
-            labelText="Lista ou pacote STIX"
+            labelText={t('listOrStix')}
             rows={6}
             value={text}
             onChange={(e) => {
@@ -166,7 +165,7 @@ export function IocImportDialog({
               onChange={(e) => void loadFile(e.target.files?.[0])}
             />
             <button type="button" className="dl-btn" onClick={() => fileRef.current?.click()}>
-              Escolher arquivo…
+              {t('chooseFile')}
             </button>
             <button
               type="button"
@@ -174,7 +173,7 @@ export function IocImportDialog({
               disabled={busy || !text.trim()}
               onClick={() => void runPreview()}
             >
-              {busy && !preview ? 'Lendo...' : 'Pré-visualizar'}
+              {busy && !preview ? t('reading') : t('preview')}
             </button>
           </div>
 
@@ -187,24 +186,24 @@ export function IocImportDialog({
           {preview && (
             <div className="dl-import__preview" aria-live="polite">
               <p className="dl-import__summary">
-                {preview.format === 'stix' ? 'Pacote STIX' : 'Lista'}:{' '}
-                <strong>{preview.counts.new} novo(s)</strong>
+                {preview.format === 'stix' ? t('stixPackage') : t('list')}:{' '}
+                <strong>{t('newN', { n: preview.counts.new })}</strong>
                 {preview.counts.exists > 0 &&
-                  `, ${preview.counts.exists} ${target === 'watch' ? 'já seguido(s)' : 'já permitido(s)'}`}
-                {preview.counts.covered > 0 && `, ${preview.counts.covered} já coberto(s)`}
-                {preview.counts.limit > 0 && `, ${preview.counts.limit} sem vaga`}
-                {preview.invalid.length > 0 && `, ${preview.invalid.length} inválido(s)`}
-                {preview.repeated > 0 && `, ${preview.repeated} repetido(s)`}.
-                {preview.room !== null && ` Vagas para seguir: ${preview.room}.`}
+                  `, ${t(target === 'watch' ? 'alreadyFollowedN' : 'alreadyAllowedN', { n: preview.counts.exists })}`}
+                {preview.counts.covered > 0 && `, ${t('coveredN', { n: preview.counts.covered })}`}
+                {preview.counts.limit > 0 && `, ${t('noRoomN', { n: preview.counts.limit })}`}
+                {preview.invalid.length > 0 && `, ${t('invalidN', { n: preview.invalid.length })}`}
+                {preview.repeated > 0 && `, ${t('repeatedN', { n: preview.repeated })}`}.
+                {preview.room !== null && ` ${t('roomLeft', { n: preview.room })}`}
               </p>
               {preview.items.length > 0 && (
-                <table className="dl-import__table" aria-label="Indicadores reconhecidos">
+                <table className="dl-import__table" aria-label={t('recognizedAria')}>
                   <thead>
                     <tr>
-                      <th scope="col">Tipo</th>
-                      <th scope="col">Indicador</th>
-                      <th scope="col">Onde</th>
-                      <th scope="col">Situação</th>
+                      <th scope="col">{t('type')}</th>
+                      <th scope="col">{t('indicator')}</th>
+                      <th scope="col">{t('where')}</th>
+                      <th scope="col">{t('situation')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -220,17 +219,19 @@ export function IocImportDialog({
                 </table>
               )}
               {preview.items.length > SHOWN && (
-                <p className="dl-hint-muted">+{preview.items.length - SHOWN} reconhecidos</p>
+                <p className="dl-hint-muted">
+                  {t('moreRecognized', { n: preview.items.length - SHOWN })}
+                </p>
               )}
               {preview.invalid.length > 0 && (
                 <>
-                  <h3 className="dl-import__subhead">Não importados</h3>
-                  <table className="dl-import__table" aria-label="Linhas não importadas">
+                  <h3 className="dl-import__subhead">{t('notImported')}</h3>
+                  <table className="dl-import__table" aria-label={t('notImportedAria')}>
                     <thead>
                       <tr>
-                        <th scope="col">Onde</th>
-                        <th scope="col">Texto</th>
-                        <th scope="col">Motivo</th>
+                        <th scope="col">{t('where')}</th>
+                        <th scope="col">{t('text')}</th>
+                        <th scope="col">{t('reason')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -245,7 +246,7 @@ export function IocImportDialog({
                   </table>
                   {preview.invalid.length > SHOWN && (
                     <p className="dl-hint-muted">
-                      +{preview.invalid.length - SHOWN} não importados
+                      {t('moreNotImported', { n: preview.invalid.length - SHOWN })}
                     </p>
                   )}
                 </>
@@ -253,7 +254,7 @@ export function IocImportDialog({
               {target === 'allow' && fresh.length > 0 && (
                 <TextInput
                   id="import-reason"
-                  labelText="Motivo (vale para todos)"
+                  labelText={t('reasonForAll')}
                   maxLength={300}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -269,10 +270,10 @@ export function IocImportDialog({
             disabled={busy || fresh.length === 0}
             onClick={() => void runImport()}
           >
-            {busy && preview ? 'Importando...' : `Importar ${fresh.length}`}
+            {busy && preview ? t('importing') : t('importN', { n: fresh.length })}
           </button>
           <button type="button" className="dl-btn" onClick={onClose}>
-            Cancelar
+            {t('cancel')}
           </button>
         </div>
       </div>

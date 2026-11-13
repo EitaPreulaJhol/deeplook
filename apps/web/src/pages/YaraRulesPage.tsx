@@ -28,6 +28,7 @@ import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { YaraPacksSection } from '../components/YaraPacksSection';
 import { useRetroscans, YaraRetroscans } from '../components/YaraRetroscans';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/detection';
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -87,14 +88,14 @@ export function YaraRulesPage() {
   const check = useRequiredFields([
     {
       id: 'yara-name',
-      label: 'Nome (2 a 80 caracteres)',
+      label: t('nameRange2'),
       ok: form.name.trim().length >= 2 && form.name.trim().length <= 80,
       api: 'name',
       value: form.name,
     },
     {
       id: 'yara-source',
-      label: 'Regra',
+      label: t('rule'),
       ok: form.source.trim().length >= 10,
       api: 'source',
       value: form.source,
@@ -143,7 +144,7 @@ export function YaraRulesPage() {
       );
       setOutput(
         res.ok
-          ? { ok: true, lines: res.warnings.length ? res.warnings : ['A regra compila sem erros.'] }
+          ? { ok: true, lines: res.warnings.length ? res.warnings : [t('compilesOk')] }
           : { ok: false, lines: res.errors },
       );
     } catch (err) {
@@ -171,7 +172,7 @@ export function YaraRulesPage() {
       await queryClient.invalidateQueries({ queryKey: ['yara-rules'] });
       setNotice({
         ok: true,
-        text: `Regra "${res.rule.name}" salva${res.rule.enabled ? '; vale para os próximos envios' : ' (desativada)'}.`,
+        text: t(res.rule.enabled ? 'yaraSavedOn' : 'yaraSavedOff', { name: res.rule.name }),
       });
       allowNavigation();
       startNew();
@@ -192,7 +193,7 @@ export function YaraRulesPage() {
       await queryClient.invalidateQueries({ queryKey: ['yara-rules'] });
       setNotice({
         ok: true,
-        text: `Regra "${rule.name}" ${rule.enabled ? 'desativada' : 'ativada'}.`,
+        text: t(rule.enabled ? 'yaraDisabled' : 'yaraEnabled', { name: rule.name }),
       });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
@@ -204,10 +205,10 @@ export function YaraRulesPage() {
   const retroRunning = retro.data?.items.some((r) => r.status === 'RUNNING') ?? false;
   const startRetro = async (rule: Pick<YaraRule, 'id' | 'name'>) => {
     const ok = await confirm({
-      title: 'Aplicar às amostras existentes',
-      message: `Varrer todos os arquivos já guardados com a regra "${rule.name}"? Roda em segundo plano; dá para cancelar. Os acertos aparecem aqui e na ficha de cada amostra.`,
-      confirmLabel: 'Aplicar',
-      cancelLabel: 'Cancelar',
+      title: t('applyExisting'),
+      message: t('applyExistingConfirm', { name: rule.name }),
+      confirmLabel: t('apply'),
+      cancelLabel: t('cancel'),
     });
     if (!ok) return;
     setNotice(null);
@@ -219,7 +220,10 @@ export function YaraRulesPage() {
       await queryClient.invalidateQueries({ queryKey: ['yara-retroscans'] });
       setNotice({
         ok: true,
-        text: `Varredura retroativa de "${rule.name}" iniciada: ${res.retroscan.total.toLocaleString(intlLocale())} amostra(s).`,
+        text: t('retroStarted', {
+          name: rule.name,
+          n: res.retroscan.total.toLocaleString(intlLocale()),
+        }),
       });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
@@ -228,10 +232,10 @@ export function YaraRulesPage() {
 
   const remove = async (rule: YaraRule) => {
     const ok = await confirm({
-      title: 'Excluir regra',
-      message: `Excluir a regra "${rule.name}"? Os acertos já registrados nas amostras continuam lá.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteRule'),
+      message: t('deleteYaraConfirm', { name: rule.name }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
@@ -239,7 +243,7 @@ export function YaraRulesPage() {
       await api.del(`/yara/rules/${rule.id}`);
       await queryClient.invalidateQueries({ queryKey: ['yara-rules'] });
       if (editing?.id === rule.id) startNew();
-      setNotice({ ok: true, text: `Regra "${rule.name}" excluída.` });
+      setNotice({ ok: true, text: t('ruleDeleted', { name: rule.name }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     }
@@ -249,20 +253,20 @@ export function YaraRulesPage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações da regra">
+      <HpsmToolbar label={t('ruleActions')}>
         <HpsmToolbarButton
-          label={busy ? 'Salvando...' : 'Salvar regra'}
-          title="Salvar (Ctrl+S)"
+          label={busy ? t('saving') : t('saveRule')}
+          title={t('saveHint')}
           icon={IconAdd}
           disabled={busy}
           onClick={save}
         />
-        <HpsmToolbarButton label="Validar" disabled={busy} onClick={() => void validate()} />
-        {editing && <HpsmToolbarButton label="Cancelar edição" onClick={startNew} />}
+        <HpsmToolbarButton label={t('validate')} disabled={busy} onClick={() => void validate()} />
+        {editing && <HpsmToolbarButton label={t('cancelEdit')} onClick={startNew} />}
       </HpsmToolbar>
       <PageHeader
-        title="Regras YARA"
-        subtitle={`Aplicadas a cada arquivo enviado (${active} ativa${active === 1 ? '' : 's'}). O resultado aparece na ficha da amostra.`}
+        title={t('yaraTitle')}
+        subtitle={t(active === 1 ? 'yaraSubtitleOne' : 'yaraSubtitleMany', { n: active })}
       />
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
@@ -271,54 +275,54 @@ export function YaraRulesPage() {
       )}
       {check.message && !output && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
 
-      <HpsmSection title={editing ? `Editar regra: ${editing.name}` : 'Nova regra'}>
+      <HpsmSection title={editing ? t('editRule', { name: editing.name }) : t('newRule')}>
         <HpsmForm columns={2}>
           <HpsmField
-            label="Nome"
+            label={t('name')}
             htmlFor="yara-name"
             required
             invalid={check.isInvalid('yara-name')}
           >
             <TextInput
               id="yara-name"
-              labelText="Nome"
+              labelText={t('name')}
               hideLabel
-              placeholder="Ex.: Família XYZ"
+              placeholder={t('yaraNamePlaceholder')}
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </HpsmField>
-          <HpsmField label="Ativa" htmlFor="yara-enabled">
+          <HpsmField label={t('active')} htmlFor="yara-enabled">
             <Checkbox
               id="yara-enabled"
-              labelText="Aplicar aos próximos envios"
+              labelText={t('applyNext')}
               checked={form.enabled}
               onChange={(_, { checked }) => setForm((f) => ({ ...f, enabled: checked }))}
             />
           </HpsmField>
-          <HpsmField label="Descrição" htmlFor="yara-description" wide>
+          <HpsmField label={t('description')} htmlFor="yara-description" wide>
             <TextInput
               id="yara-description"
-              labelText="Descrição"
+              labelText={t('description')}
               hideLabel
-              placeholder="Opcional: o que a regra detecta"
+              placeholder={t('descPlaceholder')}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
           </HpsmField>
           <HpsmField
-            label="Regra"
+            label={t('rule')}
             htmlFor="yara-source"
             required
             wide
             top
             invalid={check.isInvalid('yara-source')}
-            help="Sintaxe YARA; o arquivo pode ter várias regras. Validada antes de salvar."
+            help={t('ruleHelp')}
           >
             <TextArea
               id="yara-source"
               className="dl-code-input"
-              labelText="Regra"
+              labelText={t('rule')}
               hideLabel
               rows={14}
               spellCheck={false}
@@ -330,28 +334,28 @@ export function YaraRulesPage() {
         </HpsmForm>
         {output && (
           <div className="dl-compiler-output" data-ok={output.ok} role="status">
-            <strong>{output.ok ? 'Compilador: ok' : 'Compilador: erro'}</strong>
+            <strong>{output.ok ? t('compilerOk') : t('compilerError')}</strong>
             <pre>{output.lines.join('\n\n')}</pre>
           </div>
         )}
       </HpsmSection>
 
-      {query.isLoading && <HpsmLoading text="Carregando regras..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingRules2')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && rules.length === 0 && (
-        <HpsmMessage kind="info">Nenhuma regra da equipe cadastrada.</HpsmMessage>
+        <HpsmMessage kind="info">{t('noTeamRules')}</HpsmMessage>
       )}
       {rules.length > 0 && (
         <TableContainer className="dl-mt-lg">
-          <Table size="xs" aria-label="Regras YARA">
+          <Table size="xs" aria-label={t('yaraTitle')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Nome</TableHeader>
-                <TableHeader scope="col">Situação</TableHeader>
-                <TableHeader scope="col">Descrição</TableHeader>
-                <TableHeader scope="col">Alterada por</TableHeader>
-                <TableHeader scope="col">Atualizada em</TableHeader>
-                <TableHeader scope="col">Ações</TableHeader>
+                <TableHeader scope="col">{t('name')}</TableHeader>
+                <TableHeader scope="col">{t('situation')}</TableHeader>
+                <TableHeader scope="col">{t('description')}</TableHeader>
+                <TableHeader scope="col">{t('changedBy')}</TableHeader>
+                <TableHeader scope="col">{t('updatedAt')}</TableHeader>
+                <TableHeader scope="col">{t('actions')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -363,7 +367,7 @@ export function YaraRulesPage() {
                   <TableCell>{rule.name}</TableCell>
                   <TableCell>
                     <StatusText tone={rule.enabled ? 'green' : 'gray'}>
-                      {rule.enabled ? 'Ativa' : 'Desativada'}
+                      {rule.enabled ? t('active') : t('disabledF')}
                     </StatusText>
                   </TableCell>
                   <TableCell>{rule.description ?? '—'}</TableCell>
@@ -371,31 +375,27 @@ export function YaraRulesPage() {
                   <TableCell>{fmtDate(rule.updatedAt)}</TableCell>
                   <TableCell>
                     <Button size="sm" kind="tertiary" onClick={() => startEdit(rule)}>
-                      Editar
+                      {t('edit')}
                     </Button>{' '}
                     <Button size="sm" kind="tertiary" onClick={() => void toggle(rule)}>
-                      {rule.enabled ? 'Desativar' : 'Ativar'}
+                      {rule.enabled ? t('disable') : t('enable')}
                     </Button>{' '}
                     <Button
                       size="sm"
                       kind="tertiary"
                       disabled={retroRunning}
-                      title={
-                        retroRunning
-                          ? 'Já há uma varredura retroativa em andamento'
-                          : 'Varrer os arquivos já guardados com esta regra'
-                      }
+                      title={retroRunning ? t('retroRunning') : t('retroHelp')}
                       onClick={() => void startRetro(rule)}
                     >
-                      Aplicar às existentes…
+                      {t('applyExistingEllipsis')}
                     </Button>{' '}
                     <Button
                       size="sm"
                       kind="danger--tertiary"
-                      aria-label={`Excluir a regra ${rule.name}`}
+                      aria-label={t('deleteRuleNamed', { name: rule.name })}
                       onClick={() => void remove(rule)}
                     >
-                      Excluir
+                      {t('delete')}
                     </Button>
                   </TableCell>
                 </TableRow>

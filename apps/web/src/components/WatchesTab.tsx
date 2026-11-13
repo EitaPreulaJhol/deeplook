@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { IocKind } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/detection';
 import { HpsmSection } from './HpsmForm';
 import { IocImportDialog } from './IocImportDialog';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
@@ -46,7 +47,7 @@ export function WatchesTab() {
       await api.del(`${iocHref(w.kind, w.value)}/watch`);
       await queryClient.invalidateQueries({ queryKey: ['me', 'watches'] });
       await queryClient.invalidateQueries({ queryKey: ['ioc'] });
-      setNotice({ ok: true, text: `Você deixou de seguir ${w.value}.` });
+      setNotice({ ok: true, text: t('unfollowedValue', { value: w.value }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     }
@@ -59,14 +60,12 @@ export function WatchesTab() {
           {notice.text}
         </HpsmMessage>
       )}
-      {query.isLoading && <HpsmLoading text="Carregando indicadores..." />}
-      <HpsmSection title={`Indicadores que sigo (${watches.length})`}>
+      {query.isLoading && <HpsmLoading text={t('loadingIocs')} />}
+      <HpsmSection title={t('myWatchesN', { n: watches.length })}>
         <p className="dl-static-empty">
-          Você recebe um aviso na Caixa de entrada quando um destes indicadores aparece numa amostra
-          nova ou num relatório publicado. Para seguir outro, abra a ficha dele (pelo "Ir para:" ou
-          pelos IOCs de uma amostra) e clique em Seguir, ou{' '}
+          {t('watchesHint')}{' '}
           <button type="button" className="dl-link-button" onClick={() => setImporting(true)}>
-            importe uma lista (CSV ou STIX)
+            {t('importList')}
           </button>
           .
         </p>
@@ -84,13 +83,13 @@ export function WatchesTab() {
         )}
         {watches.length > 0 && (
           <TableContainer>
-            <Table size="xs" aria-label="Indicadores que sigo">
+            <Table size="xs" aria-label={t('myWatches')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Tipo</TableHeader>
-                  <TableHeader scope="col">Indicador</TableHeader>
-                  <TableHeader scope="col">Seguindo desde</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{t('type')}</TableHeader>
+                  <TableHeader scope="col">{t('indicator')}</TableHeader>
+                  <TableHeader scope="col">{t('followingSince')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -109,7 +108,7 @@ export function WatchesTab() {
                         className="dl-link-button"
                         onClick={() => void unwatch(w)}
                       >
-                        Deixar de seguir
+                        {t('unfollow')}
                       </button>
                     </TableCell>
                   </TableRow>

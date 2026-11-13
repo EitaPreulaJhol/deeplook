@@ -24,6 +24,7 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { useWorkspaceTitle } from '../components/workspace';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/detection';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
@@ -33,13 +34,13 @@ function fmtDate(iso?: string | null): string {
 function describe(sighting: IocSighting): string {
   switch (sighting.kind) {
     case 'REPORT':
-      return `Relatório de ${sighting.analyst} (${fmtDate(sighting.createdAt)})`;
+      return t('reportBy', { analyst: sighting.analyst, date: fmtDate(sighting.createdAt) });
     case 'FILE':
-      return 'É o arquivo da amostra (SHA-256)';
+      return t('isFile');
     case 'URL_HOST':
-      return 'É o domínio ou o IP do link da amostra';
+      return t('isHost');
     case 'URL_SAMPLE':
-      return 'É o link da amostra';
+      return t('isLink');
   }
 }
 
@@ -77,11 +78,7 @@ export function IocPage() {
       else await api.post(path, {});
       await queryClient.invalidateQueries({ queryKey: ['ioc', kind, value] });
       await queryClient.invalidateQueries({ queryKey: ['me', 'watches'] });
-      setWatchNotice(
-        watching
-          ? 'Você deixou de seguir este indicador.'
-          : 'Seguindo: você será avisado quando ele aparecer numa amostra nova ou num relatório.',
-      );
+      setWatchNotice(watching ? t('unfollowed') : t('following'));
     } catch (err) {
       setWatchNotice((err as Error).message);
     } finally {
@@ -90,32 +87,28 @@ export function IocPage() {
   };
 
   const toolbar = (
-    <HpsmToolbar label="Ações do indicador">
-      <HpsmToolbarButton label="Voltar" icon={IconArrowLeft} onClick={() => navigate(-1)} />
+    <HpsmToolbar label={t('iocActions')}>
+      <HpsmToolbarButton label={t('back')} icon={IconArrowLeft} onClick={() => navigate(-1)} />
       {query.data && (
         <HpsmToolbarButton
-          label={watching ? 'Deixar de seguir' : 'Seguir'}
+          label={watching ? t('unfollow') : t('follow')}
           icon={IconBell}
           pressed={watching}
           disabled={watchBusy}
-          title={
-            watching
-              ? 'Parar de receber avisos deste indicador'
-              : 'Avisar na Caixa de entrada quando este indicador aparecer de novo'
-          }
+          title={watching ? t('unfollowHelp') : t('followHelp')}
           onClick={() => void toggleWatch()}
         />
       )}
     </HpsmToolbar>
   );
 
-  if (query.isLoading) return <HpsmLoading text="Procurando o indicador..." />;
+  if (query.isLoading) return <HpsmLoading text={t('searchingIoc')} />;
   if (query.isError || !query.data) {
     return (
       <>
         {toolbar}
         <HpsmMessage kind="error">
-          Indicador inválido: {(query.error as Error | null)?.message ?? value}
+          {t('invalidIoc', { error: (query.error as Error | null)?.message ?? value })}
         </HpsmMessage>
       </>
     );
@@ -153,59 +146,60 @@ export function IocPage() {
       )}
       <PageHeader
         title={`${IOC_KIND_LABELS[ioc.kind]}: ${ioc.value}`}
-        subtitle="Ficha do indicador: amostras e relatórios publicados em que ele aparece."
+        subtitle={t('iocSubtitle')}
       />
       {query.data?.allowed && (
         <HpsmMessage kind="info">
-          Indicador permitido
-          {query.data.allowed.by !== ioc.value
-            ? ` (coberto por ${query.data.allowed.by})`
-            : ''}: {query.data.allowed.reason}. Não liga amostras nas Relacionadas nem gera alertas.
+          {t('allowedIoc', {
+            covered:
+              query.data.allowed.by !== ioc.value
+                ? ` ${t('coveredBy', { by: query.data.allowed.by })}`
+                : '',
+            reason: query.data.allowed.reason,
+          })}
         </HpsmMessage>
       )}
       <div className="dl-summary dl-mb-lg">
         <span>
-          <span className="dl-summary__label">Tipo:</span> {IOC_KIND_LABELS[ioc.kind]}
+          <span className="dl-summary__label">{t('sumType')}</span> {IOC_KIND_LABELS[ioc.kind]}
         </span>
         <span className="dl-ioc-value">
-          <span className="dl-summary__label">Valor:</span>{' '}
+          <span className="dl-summary__label">{t('sumValue')}</span>{' '}
           <span className="dl-mono">{ioc.value}</span>
           <CopyButton value={ioc.value} label="indicador" />
         </span>
         {host && (
           <span>
-            <span className="dl-summary__label">Host:</span>{' '}
+            <span className="dl-summary__label">{t('sumHost')}</span>{' '}
             <Link className="dl-link dl-mono" to={iocHref(host.kind, host.value)}>
               {host.value}
             </Link>
           </span>
         )}
         <span>
-          <span className="dl-summary__label">Primeira aparição:</span> {fmtDate(firstSeen)}
+          <span className="dl-summary__label">{t('firstSeen')}</span> {fmtDate(firstSeen)}
         </span>
         <span>
-          <span className="dl-summary__label">Última aparição:</span> {fmtDate(lastSeen)}
+          <span className="dl-summary__label">{t('lastSeen')}</span> {fmtDate(lastSeen)}
         </span>
         <span>
-          <span className="dl-summary__label">Amostras:</span> {total}
+          <span className="dl-summary__label">{t('sumSamples')}</span> {total}
         </span>
       </div>
 
       {items.length === 0 ? (
-        <HpsmMessage kind="info">
-          Este indicador ainda não apareceu em nenhuma amostra nem em relatório publicado.
-        </HpsmMessage>
+        <HpsmMessage kind="info">{t('notSeenYet')}</HpsmMessage>
       ) : (
         <TableContainer>
-          <Table size="xs" aria-label="Amostras com o indicador (setas navegam, Enter abre)">
+          <Table size="xs" aria-label={t('iocSamplesAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Amostra</TableHeader>
-                <TableHeader scope="col">Tipo</TableHeader>
-                <TableHeader scope="col">Status</TableHeader>
-                <TableHeader scope="col">Veredito</TableHeader>
-                <TableHeader scope="col">Onde aparece</TableHeader>
-                <TableHeader scope="col">Enviada em</TableHeader>
+                <TableHeader scope="col">{t('sample')}</TableHeader>
+                <TableHeader scope="col">{t('type')}</TableHeader>
+                <TableHeader scope="col">{t('status')}</TableHeader>
+                <TableHeader scope="col">{t('verdict')}</TableHeader>
+                <TableHeader scope="col">{t('whereSeen')}</TableHeader>
+                <TableHeader scope="col">{t('submittedOn')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>

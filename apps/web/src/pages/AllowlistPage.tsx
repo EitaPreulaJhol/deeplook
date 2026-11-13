@@ -26,7 +26,8 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { useSaveShortcut } from '../components/shortcuts';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/detection';
 
 interface Allowed {
   id: string;
@@ -37,24 +38,24 @@ interface Allowed {
   createdBy: { id: string; displayName: string } | null;
 }
 
-const KINDS: { id: IocKind; placeholder: string; help: string }[] = [
-  { id: 'DOMAIN', placeholder: 'empresa.com.br', help: 'Vale também para os subdomínios.' },
-  { id: 'IPV4', placeholder: '10.0.0.0/8 ou 203.0.113.10', help: 'Um IP ou uma faixa (CIDR).' },
+const KINDS: { id: IocKind; placeholder: string; help: string }[] = localized(() => [
+  { id: 'DOMAIN', placeholder: t('phDomain'), help: t('hDomain') },
+  { id: 'IPV4', placeholder: t('phIpv4'), help: t('hIpv4') },
   {
     id: 'IPV6',
-    placeholder: '2001:db8::/32 ou 2606:4700::1111',
-    help: 'Um IPv6 ou uma faixa (CIDR).',
+    placeholder: t('phIpv6'),
+    help: t('hIpv6'),
   },
   {
     id: 'URL',
-    placeholder: 'https://portal.empresa.com.br/login',
-    help: 'Só este link. Para o site inteiro, permita o domínio.',
+    placeholder: t('phUrl'),
+    help: t('hUrl'),
   },
-  { id: 'EMAIL', placeholder: 'avisos@empresa.com.br', help: 'Endereço exato.' },
-  { id: 'SHA256', placeholder: '64 caracteres hexadecimais', help: 'Arquivo legítimo conhecido.' },
-  { id: 'SHA1', placeholder: '40 caracteres hexadecimais', help: 'Arquivo legítimo conhecido.' },
-  { id: 'MD5', placeholder: '32 caracteres hexadecimais', help: 'Arquivo legítimo conhecido.' },
-];
+  { id: 'EMAIL', placeholder: t('phEmail'), help: t('hEmail') },
+  { id: 'SHA256', placeholder: t('ph64'), help: t('hHash') },
+  { id: 'SHA1', placeholder: t('ph40'), help: t('hHash') },
+  { id: 'MD5', placeholder: t('ph32'), help: t('hHash') },
+]);
 
 const EMPTY = { kind: 'DOMAIN' as IocKind, value: '', reason: '' };
 
@@ -81,14 +82,14 @@ export function AllowlistPage() {
   const check = useRequiredFields([
     {
       id: 'allow-value',
-      label: 'Indicador',
+      label: t('indicator'),
       ok: form.value.trim().length > 0,
       api: 'value',
       value: form.value,
     },
     {
       id: 'allow-reason',
-      label: 'Motivo (mínimo de 3 caracteres)',
+      label: t('reasonMin'),
       ok: form.reason.trim().length >= 3,
       api: 'reason',
       value: form.reason,
@@ -119,17 +120,17 @@ export function AllowlistPage() {
 
   const remove = async (item: Allowed) => {
     const ok = await confirm({
-      title: 'Remover da lista de permissões',
-      message: `Remover ${item.value}? Ele volta a ligar amostras, gerar alertas e aparecer nas sugestões.`,
-      confirmLabel: 'Remover',
-      cancelLabel: 'Cancelar',
+      title: t('removeFromAllowlist'),
+      message: t('removeAllowConfirm', { value: item.value }),
+      confirmLabel: t('remove'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.del(`/allowlist/${item.id}`);
       await queryClient.invalidateQueries({ queryKey: ['allowlist'] });
-      setNotice({ ok: true, text: `${item.value} removido da lista de permissões.` });
+      setNotice({ ok: true, text: t('removedFromAllowlist', { value: item.value }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     }
@@ -137,17 +138,17 @@ export function AllowlistPage() {
 
   return (
     <>
-      <HpsmToolbar label="Ações da lista de permissões">
+      <HpsmToolbar label={t('allowActions')}>
         <HpsmToolbarButton
-          label={busy ? 'Incluindo...' : 'Incluir'}
-          title="Incluir (Ctrl+S)"
+          label={busy ? t('adding') : t('add')}
+          title={t('addHint')}
           icon={IconAdd}
           disabled={busy}
           onClick={() => void add()}
         />
         <HpsmToolbarButton
-          label="Importar…"
-          title="Importar uma lista (CSV) ou um pacote STIX 2.1"
+          label={t('importEllipsis')}
+          title={t('importHelp')}
           icon={IconDownload}
           onClick={() => setImporting(true)}
         />
@@ -163,22 +164,19 @@ export function AllowlistPage() {
           }}
         />
       )}
-      <PageHeader
-        title="Indicadores permitidos"
-        subtitle="Legítimos conhecidos: não ligam amostras nas Relacionadas, não geram alertas de IOC e somem dos IOCs sugeridos. O que for escrito no relatório não muda."
-      />
+      <PageHeader title={t('allowTitle')} subtitle={t('allowSubtitle')} />
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
         </HpsmMessage>
       )}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
-      <HpsmSection title="Incluir indicador">
+      <HpsmSection title={t('addIndicator')}>
         <HpsmForm columns={2}>
-          <HpsmField label="Tipo" htmlFor="allow-kind">
+          <HpsmField label={t('type')} htmlFor="allow-kind">
             <Select
               id="allow-kind"
-              labelText="Tipo"
+              labelText={t('type')}
               hideLabel
               value={form.kind}
               onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as IocKind }))}
@@ -189,7 +187,7 @@ export function AllowlistPage() {
             </Select>
           </HpsmField>
           <HpsmField
-            label="Indicador"
+            label={t('indicator')}
             htmlFor="allow-value"
             required
             help={kind.help}
@@ -197,7 +195,7 @@ export function AllowlistPage() {
           >
             <TextInput
               id="allow-value"
-              labelText="Indicador"
+              labelText={t('indicator')}
               hideLabel
               placeholder={kind.placeholder}
               value={form.value}
@@ -205,7 +203,7 @@ export function AllowlistPage() {
             />
           </HpsmField>
           <HpsmField
-            label="Motivo"
+            label={t('reason')}
             htmlFor="allow-reason"
             required
             wide
@@ -213,9 +211,9 @@ export function AllowlistPage() {
           >
             <TextInput
               id="allow-reason"
-              labelText="Motivo"
+              labelText={t('reason')}
               hideLabel
-              placeholder="Ex.: domínio da empresa; CDN oficial do fornecedor"
+              placeholder={t('reasonPlaceholder')}
               value={form.reason}
               onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
             />
@@ -223,20 +221,18 @@ export function AllowlistPage() {
         </HpsmForm>
       </HpsmSection>
 
-      {query.isLoading && <HpsmLoading text="Carregando a lista..." />}
-      {query.data && items.length === 0 && (
-        <HpsmMessage kind="info">Nenhum indicador permitido ainda.</HpsmMessage>
-      )}
+      {query.isLoading && <HpsmLoading text={t('loadingList')} />}
+      {query.data && items.length === 0 && <HpsmMessage kind="info">{t('noAllowed')}</HpsmMessage>}
       {items.length > 0 && (
         <TableContainer className="dl-mt-lg">
-          <Table size="xs" aria-label="Indicadores permitidos">
+          <Table size="xs" aria-label={t('allowTitle')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Tipo</TableHeader>
-                <TableHeader scope="col">Indicador</TableHeader>
-                <TableHeader scope="col">Motivo</TableHeader>
-                <TableHeader scope="col">Incluído</TableHeader>
-                <TableHeader scope="col">Ações</TableHeader>
+                <TableHeader scope="col">{t('type')}</TableHeader>
+                <TableHeader scope="col">{t('indicator')}</TableHeader>
+                <TableHeader scope="col">{t('reason')}</TableHeader>
+                <TableHeader scope="col">{t('addedCol')}</TableHeader>
+                <TableHeader scope="col">{t('actions')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -255,10 +251,10 @@ export function AllowlistPage() {
                     <Button
                       size="sm"
                       kind="danger--tertiary"
-                      aria-label={`Remover ${item.value}`}
+                      aria-label={t('removeValue', { value: item.value })}
                       onClick={() => void remove(item)}
                     >
-                      Remover
+                      {t('remove')}
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -13,7 +13,8 @@ import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { EntryStatus, Verdict } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/detection';
 import { HpsmSection } from './HpsmForm';
 import type { StatusTone } from './tags';
 import { StatusTag, StatusText, VerdictTag } from './tags';
@@ -43,12 +44,12 @@ interface RetroscanDetail extends Retroscan {
   }[];
 }
 
-const STATUS: Record<RetroStatus, { label: string; tone: StatusTone }> = {
-  RUNNING: { label: 'Em andamento', tone: 'blue' },
-  DONE: { label: 'Concluída', tone: 'green' },
-  CANCELLED: { label: 'Cancelada', tone: 'gray' },
-  FAILED: { label: 'Falhou', tone: 'red' },
-};
+const STATUS: Record<RetroStatus, { label: string; tone: StatusTone }> = localized(() => ({
+  RUNNING: { label: t('retroRunningSt'), tone: 'blue' },
+  DONE: { label: t('retroDone'), tone: 'green' },
+  CANCELLED: { label: t('retroCancelled'), tone: 'gray' },
+  FAILED: { label: t('retroFailed'), tone: 'red' },
+}));
 
 const fmt = (n: number) => n.toLocaleString(intlLocale());
 
@@ -64,7 +65,7 @@ function Progress({ r }: { r: Retroscan }) {
       <span className="dl-retro-progress__track" aria-hidden="true">
         <span className="dl-retro-progress__bar" style={{ width: `${pct}%` }} />
       </span>
-      {fmt(r.scanned)} de {fmt(r.total)} ({pct}%)
+      {t('progressOf', { n: fmt(r.scanned), total: fmt(r.total), pct })}
     </span>
   );
 }
@@ -103,7 +104,7 @@ export function YaraRetroscans({
   const cancel = async (r: Retroscan) => {
     try {
       await api.post(`/yara/retroscans/${r.id}/cancel`, {});
-      onNotice({ ok: true, text: `Cancelando a varredura da regra "${r.ruleName}"...` });
+      onNotice({ ok: true, text: t('cancellingScan', { name: r.ruleName }) });
       await queryClient.invalidateQueries({ queryKey: ['yara-retroscans'] });
     } catch (err) {
       onNotice({ ok: false, text: (err as Error).message });
@@ -113,17 +114,17 @@ export function YaraRetroscans({
   if (!items.length) return null;
   const d = detail.data?.retroscan;
   return (
-    <HpsmSection title="Varreduras retroativas" className="dl-mt-lg">
+    <HpsmSection title={t('retroTitle')} className="dl-mt-lg">
       <TableContainer>
-        <Table size="xs" aria-label="Varreduras retroativas">
+        <Table size="xs" aria-label={t('retroTitle')}>
           <TableHead>
             <TableRow>
-              <TableHeader scope="col">Regra</TableHeader>
-              <TableHeader scope="col">Situação</TableHeader>
-              <TableHeader scope="col">Progresso</TableHeader>
-              <TableHeader scope="col">Casaram</TableHeader>
-              <TableHeader scope="col">Iniciada</TableHeader>
-              <TableHeader scope="col">Ações</TableHeader>
+              <TableHeader scope="col">{t('rule')}</TableHeader>
+              <TableHeader scope="col">{t('situation')}</TableHeader>
+              <TableHeader scope="col">{t('progress')}</TableHeader>
+              <TableHeader scope="col">{t('matchedCol')}</TableHeader>
+              <TableHeader scope="col">{t('started')}</TableHeader>
+              <TableHeader scope="col">{t('actions')}</TableHeader>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -138,8 +139,8 @@ export function YaraRetroscans({
                   <Progress r={r} />
                   {(r.failed > 0 || r.skipped > 0) && (
                     <span className="dl-retro-note">
-                      {r.failed > 0 && ` · ${fmt(r.failed)} ilegível(is)`}
-                      {r.skipped > 0 && ` · ${fmt(r.skipped)} acima de 100 MB`}
+                      {r.failed > 0 && ` · ${t('unreadableN', { n: fmt(r.failed) })}`}
+                      {r.skipped > 0 && ` · ${t('over100N', { n: fmt(r.skipped) })}`}
                     </span>
                   )}
                 </TableCell>
@@ -155,7 +156,7 @@ export function YaraRetroscans({
                     aria-expanded={openId === r.id}
                     onClick={() => setOpenId(openId === r.id ? null : r.id)}
                   >
-                    {openId === r.id ? 'Ocultar acertos' : `Ver acertos (${fmt(r.matched)})`}
+                    {openId === r.id ? t('hideHits') : t('viewHits', { n: fmt(r.matched) })}
                   </button>
                   {r.status === 'RUNNING' && (
                     <>
@@ -165,7 +166,7 @@ export function YaraRetroscans({
                         className="dl-link-button dl-link-button--danger"
                         onClick={() => void cancel(r)}
                       >
-                        Cancelar
+                        {t('cancel')}
                       </button>
                     </>
                   )}
@@ -177,11 +178,13 @@ export function YaraRetroscans({
       </TableContainer>
       {openId && (
         <div className="dl-retro-hits" aria-live="polite">
-          <h3 className="dl-retro-hits__head">Amostras que casaram com "{openItem?.ruleName}"</h3>
-          {detail.isLoading && <p className="dl-static-empty">Carregando...</p>}
+          <h3 className="dl-retro-hits__head">
+            {t('matchedSamples', { name: openItem?.ruleName })}
+          </h3>
+          {detail.isLoading && <p className="dl-static-empty">{t('loadingDots')}</p>}
           {d && d.hits.length === 0 && (
             <p className="dl-static-empty">
-              {d.status === 'RUNNING' ? 'Nenhuma ainda.' : 'Nenhuma amostra casou.'}
+              {d.status === 'RUNNING' ? t('noneYet') : t('noneMatched')}
             </p>
           )}
           {d && d.hits.length > 0 && (
