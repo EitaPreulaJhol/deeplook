@@ -848,6 +848,13 @@ h6 {
   white-space: nowrap;
 }
 
+/* Nota curta colada ao botao anterior (ex.: a senha do ZIP do download). */
+.hpsm-toolbar__note {
+  padding-inline: 0.25rem 0.5rem;
+  color: var(--dl-text-muted);
+  white-space: nowrap;
+}
+
 .hpsm-toolbar__divider {
   inline-size: 1px;
   block-size: 1rem;

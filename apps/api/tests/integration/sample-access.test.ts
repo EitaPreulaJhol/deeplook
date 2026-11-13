@@ -9,6 +9,7 @@ import { hashToken, newTokenSecret } from '../../src/lib/api-tokens';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
+import { extractZipEntry, listZip } from '../../src/lib/zip';
 import { authRoutes } from '../../src/routes/auth';
 import { entryRoutes } from '../../src/routes/entries';
 import { iocRoutes } from '../../src/routes/iocs';
@@ -107,15 +108,56 @@ async function main() {
     'auditoria com amostra e hash',
     byAna?.targetLabel === 'fatura.exe' &&
       byAna.targetUserId === ids['dono@x.io'] &&
-      byAna.detail === `SHA-256 ${SHA}`,
+      byAna.detail === `SHA-256 ${SHA} · arquivo original`,
     byAna,
   );
+
+  // 2b. ZIP com a senha "infected" (plano pos-revisao, item 2.1).
+  const zipped = await get(`${url}?format=zip`, cDono);
+  ok('ZIP: 200', zipped.statusCode === 200, zipped.statusCode);
+  ok(
+    'ZIP: tipo, nome .zip, senha no cabeçalho e o mesmo isolamento do arquivo cru',
+    zipped.headers['content-type'] === 'application/zip' &&
+      zipped.headers['content-disposition'] === 'attachment; filename="fatura.exe.zip"' &&
+      zipped.headers['x-deeplook-zip-password'] === 'infected' &&
+      zipped.headers['x-content-type-options'] === 'nosniff' &&
+      /\bsandbox\b/.test(String(zipped.headers['content-security-policy'])),
+    zipped.headers,
+  );
+  ok(
+    'ZIP: Content-Length calculado antes confere com o corpo',
+    Number(zipped.headers['content-length']) === zipped.rawPayload.length,
+    [zipped.headers['content-length'], zipped.rawPayload.length],
+  );
+  const [inside] = listZip(zipped.rawPayload);
+  ok(
+    'ZIP: uma entrada cifrada com o nome original e o conteúdo da amostra',
+    listZip(zipped.rawPayload).length === 1 &&
+      inside.encrypted &&
+      inside.name === 'fatura.exe' &&
+      extractZipEntry(zipped.rawPayload, inside, 'infected', 1024).toString() === 'MZ-teste',
+    inside,
+  );
+  ok('ZIP: o conteúdo não sai em claro', !zipped.rawPayload.includes('MZ-teste'));
+  const lastZip = (await audits()).find((r) => r.detail?.includes('ZIP'));
+  ok(
+    'ZIP: a auditoria registra o formato',
+    lastZip?.detail === `SHA-256 ${SHA} · ZIP com senha (infected)`,
+    lastZip,
+  );
+  ok(
+    'ZIP: outro usuário continua 403',
+    (await get(`${url}?format=zip`, cOutro)).statusCode === 403,
+  );
+  const badFormat = await get(`${url}?format=exe`, cDono);
+  ok('formato desconhecido = 400', badFormat.statusCode === 400, badFormat.json());
+  ok('ZIP e formato inválido: só o ZIP entrou na auditoria', (await audits()).length === 4);
 
   // 3. Arquivo inexistente nao audita nem revela nada a quem nao pode.
   await prisma.entry.update({ where: { id: entry.id }, data: { filePurgedAt: new Date() } });
   ok('expurgado: outro usuário continua 403', (await get(url, cOutro)).statusCode === 403);
   ok('expurgado: quem enviou recebe 410', (await get(url, cDono)).statusCode === 410);
-  ok('expurgado não audita', (await audits()).length === 3);
+  ok('expurgado não audita', (await audits()).length === 4);
   ok(
     'amostra inexistente = 404',
     (await get('/api/entries/nada/download', cAna)).statusCode === 404,

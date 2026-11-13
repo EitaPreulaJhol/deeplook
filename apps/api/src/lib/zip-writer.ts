@@ -93,7 +93,7 @@ interface CentralEntry {
 }
 
 /** Data e hora no formato do MS-DOS (hora local, como os descompactadores esperam). */
-function dosDateTime(d: Date): { time: number; date: number } {
+export function dosDateTime(d: Date): { time: number; date: number } {
   const year = Math.max(1980, d.getFullYear());
   return {
     time: (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2),
@@ -101,7 +101,8 @@ function dosDateTime(d: Date): { time: number; date: number } {
   };
 }
 
-function zip64Extra(fields: number[]): Buffer {
+/** Campo extra ZIP64 (id 0x0001) com os valores de 8 bytes, na ordem da especificacao. */
+export function zip64Extra(fields: number[]): Buffer {
   const buf = Buffer.alloc(4 + fields.length * 8);
   buf.writeUInt16LE(0x0001, 0);
   buf.writeUInt16LE(fields.length * 8, 2);

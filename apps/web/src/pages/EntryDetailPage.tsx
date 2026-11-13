@@ -327,6 +327,19 @@ export function EntryDetailPage() {
     { id: 'mapa', label: tr('tabMap') },
     { id: 'historico', label: tr('tabHistory') },
   ];
+  // Download (item 122): so quem enviou e os analistas. O botao baixa o ZIP com senha; o arquivo
+  // original fica no menu Mais, com confirmacao (plano pos-revisao, item 2.1).
+  const canDownload = entry.type === 'FILE' && (canTriage || entry.ownerId === user?.id);
+  const downloadOriginal = async () => {
+    const ok = await confirm({
+      title: tr('downloadOriginalTitle'),
+      message: tr('downloadOriginalConfirm'),
+      confirmLabel: tr('downloadOriginalButton'),
+      cancelLabel: tr('cancel'),
+      danger: true,
+    });
+    if (ok) downloadUrl(`/api/entries/${entry.id}/download?format=raw`);
+  };
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam && tabs.some((t) => t.id === tabParam) ? tabParam : 'detalhes';
 
@@ -369,16 +382,20 @@ export function EntryDetailPage() {
           </>
         )}
         {/* Item 122: so quem enviou e os analistas. */}
-        {entry.type === 'FILE' && (canTriage || entry.ownerId === user?.id) && (
+        {canDownload && (
           <>
             <HpsmToolbarDivider />
+            {/* Plano pos-revisao, item 2.1: ZIP com a senha "infected"; o original fica no Mais. */}
             <HpsmToolbarButton
               label={tr('downloadSample')}
               icon={IconDownload}
-              href={`/api/entries/${entry.id}/download`}
+              href={`/api/entries/${entry.id}/download?format=zip`}
               disabled={!entry.storageKey}
-              title={entry.filePurgedAt ? tr('filePurged') : tr('maliciousWarning')}
+              title={entry.filePurgedAt ? tr('filePurged') : tr('downloadZipHelp')}
             />
+            {entry.storageKey && !entry.filePurgedAt && (
+              <span className="hpsm-toolbar__note">{tr('zipPassword')}</span>
+            )}
           </>
         )}
         <HpsmToolbarDivider />
@@ -418,6 +435,17 @@ export function EntryDetailPage() {
                   { label: tr('compareWith'), action: () => setCompareOpen(true) },
                   { label: tr('addToCase'), action: () => setCaseOpen(true) },
                   { label: tr('decodeText'), action: () => decode() },
+                ]
+              : []),
+            ...(canDownload
+              ? [
+                  {
+                    label: tr('downloadOriginal'),
+                    icon: IconDownload,
+                    separated: true,
+                    disabled: !entry.storageKey,
+                    action: () => void downloadOriginal(),
+                  },
                 ]
               : []),
             {

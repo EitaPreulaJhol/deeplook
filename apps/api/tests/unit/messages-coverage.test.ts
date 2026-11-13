@@ -92,6 +92,10 @@ const NOT_SENT: [text: string, reason: string][] = [
   ['sem TLS: use ldaps:// ou LDAP_STARTTLS=true', DATA],
   ['LDAP_USER_FILTER sem {login}', DATA],
   ['AD não configurado', DATA],
+  // ZIP do download: o erro aparece no meio da resposta, que ja comecou; a conexao cai e o motivo
+  // so vai para o log.
+  ['a amostra passou do tamanho esperado ({0} bytes)', 'erro no meio do download: so log'],
+  ['a amostra veio com {0} de {1} bytes', 'erro no meio do download: so log'],
   // Erros internos.
   ['a chave de dados que cifrou este valor não está no ambiente', INTERNAL],
   ['formato de segredo desconhecido', INTERNAL],

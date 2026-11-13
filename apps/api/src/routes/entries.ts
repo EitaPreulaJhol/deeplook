@@ -30,6 +30,7 @@ import { prisma } from '../lib/prisma';
 import { QuotaExceeded, quotaMessage, uploadQuota } from '../lib/quota';
 import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
+import { SAMPLE_ZIP_PASSWORD, sampleZipStream, zipEntryName } from '../lib/sample-zip';
 import { slaConfig, slaWhere } from '../lib/sla';
 import type { StaticInfo } from '../lib/static-analysis';
 import { analyzeInThread, diskImageInThread } from '../lib/static-analysis-thread';
@@ -1418,12 +1419,19 @@ export async function entryRoutes(app: FastifyInstance) {
     });
   });
 
-  // Download do arquivo (autenticado; objetos nunca ficam publicos no MinIO)
+  // Download do arquivo (autenticado; objetos nunca ficam publicos no MinIO).
+  // ?format=zip (plano pos-revisao, item 2.1): dentro de um ZIP com a senha "infected", que e o
+  // que a interface pede. Sem `format`, o arquivo cru, como antes (links antigos). Token de API
+  // nao baixa amostra (lib/api-tokens.ts): so o navegador chega aqui.
+  const DownloadQuery = z.object({ format: z.enum(['raw', 'zip']).default('raw') });
   app.get('/api/entries/:id/download', async (req, reply) => {
     const user = await requireUser(req, reply);
     if (!user) return;
 
     const { id } = req.params as { id: string };
+    const query = DownloadQuery.safeParse(req.query);
+    if (!query.success) return sendValidationError(reply, query.error);
+    const zip = query.data.format === 'zip';
     const entry = await prisma.entry.findUnique({ where: { id } });
     // So quem enviou e os analistas (item 122); a resposta nao revela o estado do arquivo.
     if (entry && entry.ownerId !== user.id && !isAnalyst(user)) {
@@ -1452,25 +1460,51 @@ export async function entryRoutes(app: FastifyInstance) {
       actorId: user.id,
       targetUserId: entry.ownerId,
       targetLabel: entry.title,
-      detail: entry.sha256 ? `SHA-256 ${entry.sha256}` : null,
+      detail: [
+        entry.sha256 ? `SHA-256 ${entry.sha256}` : null,
+        zip ? `ZIP com senha (${SAMPLE_ZIP_PASSWORD})` : 'arquivo original',
+      ]
+        .filter(Boolean)
+        .join(' · '),
     });
 
     const safeName = (entry.originalFilename || 'sample.bin').replace(/[^\w.-]+/g, '_');
     // Sempre octet-stream: o mimeType gravado veio do navegador de quem enviou (pode dizer
     // text/html ou image/svg+xml), e a amostra e maliciosa por definicao. Com nosniff e o
     // sandbox, nenhum navegador interpreta o conteudo, mesmo chamado direto na API (sem o nginx).
-    reply.header('Content-Type', 'application/octet-stream');
+    reply.header('Content-Type', zip ? 'application/zip' : 'application/octet-stream');
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Content-Security-Policy', "default-src 'none'; sandbox");
-    reply.header('Content-Disposition', `attachment; filename="${safeName}"`);
+    reply.header('Content-Disposition', `attachment; filename="${safeName}${zip ? '.zip' : ''}"`);
     // O tamanho do objeto de verdade, e nao o da ficha: se os dois divergirem, o corpo
     // continua bem formado para o cliente e a divergencia aparece na conferencia abaixo.
     const length = obj.ContentLength ?? entry.fileSize;
-    if (length) reply.header('Content-Length', String(length));
 
     const body = obj.Body as Readable;
+    // O ZIP vai depois da conferencia: o SHA-256 e o tamanho sao dos bytes originais. Sem o
+    // tamanho exato (nao acontece com o MinIO) nao da para montar o ZIP em fluxo.
+    let packed: ReturnType<typeof sampleZipStream> | null = null;
+    if (zip) {
+      if (length == null) {
+        body.destroy();
+        return reply
+          .code(502)
+          .send({ error: 'O armazenamento não informou o tamanho do arquivo.' });
+      }
+      packed = sampleZipStream({ name: zipEntryName(entry.originalFilename), size: length });
+      reply.header('Content-Length', String(packed.length));
+      reply.header('X-DeepLook-Zip-Password', SAMPLE_ZIP_PASSWORD);
+    } else if (length) {
+      reply.header('Content-Length', String(length));
+    }
+    const onBroken = (err: Error | null) => {
+      if (err) req.log.warn({ err }, '[download] interrompido');
+    };
+
     // Amostra sem hash gravado nao tem com o que comparar.
-    if (!entry.sha256) return reply.send(body);
+    if (!entry.sha256) {
+      return reply.send(packed ? pipeline(body, packed.stream, onBroken) : body);
+    }
 
     // Integridade (item 4.2): confere o SHA-256 e o tamanho enquanto os bytes passam, sem ler
     // duas vezes. O arquivo e entregue de qualquer jeito (recusar tiraria do analista a unica
@@ -1485,19 +1519,19 @@ export async function entryRoutes(app: FastifyInstance) {
       sha256: entry.sha256,
       fileSize: entry.fileSize,
     };
-    const checked = pipeline(
-      body,
-      hashingStream((read) =>
-        recordIntegrity(target, judge(target, read), {
-          via: 'download',
-          actorId: user.id,
-          req,
-        }),
-      ),
-      (err) => {
-        if (err) req.log.warn({ err }, '[integridade] download interrompido: sem conferencia');
-      },
+    const hashing = hashingStream((read) =>
+      recordIntegrity(target, judge(target, read), {
+        via: 'download',
+        actorId: user.id,
+        req,
+      }),
     );
+    const onChecked = (err: Error | null) => {
+      if (err) req.log.warn({ err }, '[integridade] download interrompido: sem conferencia');
+    };
+    const checked = packed
+      ? pipeline(body, hashing, packed.stream, onChecked)
+      : pipeline(body, hashing, onChecked);
     return reply.send(checked);
   });
 }

@@ -10,6 +10,7 @@ import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket, s3 } from '../../src/lib/s3';
+import { extractZipEntry, listZip } from '../../src/lib/zip';
 import { authRoutes } from '../../src/routes/auth';
 import { entryRoutes } from '../../src/routes/entries';
 
@@ -79,8 +80,12 @@ async function main() {
     const id = res.json<{ entry: { id: string } }>().entry.id;
     return prisma.entry.findUniqueOrThrow({ where: { id } });
   };
-  const download = (id: string, c = cDono) =>
-    app.inject({ method: 'GET', url: `/api/entries/${id}/download`, headers: { cookie: c } });
+  const download = (id: string, c = cDono, query = '') =>
+    app.inject({
+      method: 'GET',
+      url: `/api/entries/${id}/download${query}`,
+      headers: { cookie: c },
+    });
   const put = (key: string, body: Buffer) =>
     s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: body }));
   const row = (id: string) => prisma.entry.findUniqueOrThrow({ where: { id } });
@@ -160,6 +165,21 @@ async function main() {
     after.integrityFailedAt?.getTime() === flagged.integrityFailedAt?.getTime() &&
       after.integrityCheckedAt!.getTime() > before.getTime(),
   );
+
+  // 3b. Em ZIP com senha (plano pos-revisao, item 2.1): a conferencia e dos bytes originais.
+  const dlZip = await download(good.id, cDono, '?format=zip');
+  const [zipEntry] = listZip(dlZip.rawPayload);
+  ok(
+    'ZIP: marcada continua avisando no cabeçalho e entrega os mesmos bytes',
+    dlZip.statusCode === 200 &&
+      dlZip.headers['x-deeplook-integrity'] === 'mismatch' &&
+      Buffer.compare(
+        extractZipEntry(dlZip.rawPayload, zipEntry, 'infected', 1024 * 1024),
+        badBytes,
+      ) === 0,
+    dlZip.headers,
+  );
+  ok('ZIP: sem nova auditoria', (await audits('ENTRY_INTEGRITY_FAILED')).length === 1);
 
   // 4. O objeto volta ao que era: a marca sai e a auditoria registra.
   await put(good.storageKey!, original);

@@ -661,4 +661,9 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Proxmox nao retornou porta/ticket do console.',
     'Proxmox did not return the console port/ticket.',
   ],
+  // Plano pos-revisao, item 2.1: download em ZIP com senha.
+  [
+    'O armazenamento não informou o tamanho do arquivo.',
+    'The storage did not report the file size.',
+  ],
 ];

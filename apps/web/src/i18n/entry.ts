@@ -213,7 +213,19 @@ export const messages = {
   prevRecordHelp: ['Registro anterior da lista', 'Previous record in the list'],
   nextRecord: ['Próxima ▶', 'Next ▶'],
   nextRecordHelp: ['Próximo registro da lista', 'Next record in the list'],
-  downloadSample: ['Baixar amostra', 'Download sample'],
+  downloadSample: ['Baixar amostra (ZIP)', 'Download sample (ZIP)'],
+  zipPassword: ['senha: infected', 'password: infected'],
+  downloadZipHelp: [
+    'ZIP com a senha infected, para o antivírus não apagar o arquivo e ninguém executá-lo por engano. Atenção: esta amostra pode ser maliciosa.',
+    'ZIP with the password infected, so the antivirus does not delete the file and nobody runs it by mistake. Warning: this sample may be malicious.',
+  ],
+  downloadOriginal: ['Baixar arquivo original…', 'Download original file…'],
+  downloadOriginalTitle: ['Baixar o arquivo original?', 'Download the original file?'],
+  downloadOriginalConfirm: [
+    'O arquivo sai sem embalagem: o antivírus da máquina pode apagá-lo, e um clique duplo o executa. Prefira o ZIP com senha; baixe o original só numa máquina isolada.',
+    'The file comes out unpacked: the antivirus may delete it, and a double-click runs it. Prefer the password-protected ZIP; download the original only on an isolated machine.',
+  ],
+  downloadOriginalButton: ['Baixar original', 'Download original'],
   filePurged: [
     'O arquivo foi expurgado pela política de retenção.',
     'The file was purged by the retention policy.',

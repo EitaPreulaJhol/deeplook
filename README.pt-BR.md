@@ -1154,6 +1154,12 @@ npx prisma generate
   Manuseie arquivos baixados em ambiente isolado.
 - Os objetos ficam em bucket **privado** no MinIO; o download só ocorre por
   endpoint autenticado da API.
+- **"Baixar amostra" entrega um ZIP com a senha `infected`** (cifra ZipCrypto, que o Explorer do
+  Windows abre sem instalar nada), para o antivírus da máquina não apagar o arquivo e ninguém
+  executá-lo com um clique duplo. A senha é pública: a cifra é só embalagem. O arquivo original
+  fica em **Mais ▸ Baixar arquivo original…**, com confirmação. Na API:
+  `GET /api/entries/{id}/download?format=zip` (sem `format`, o arquivo cru, como antes). A
+  Auditoria registra o formato de cada download.
 - O cadastro exige **chave de ativação** gerada por um admin.
 - Senhas usam **hash bcrypt**; a sessão usa **cookie httpOnly**. O banco guarda só o SHA-256
   do cookie (como nos tokens de API), então nem o banco nem um backup entregam sessões válidas.
