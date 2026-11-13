@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../api/client';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/admin';
 import {
   describeDraft,
   monthGrid,
@@ -31,20 +32,11 @@ interface ScheduleView {
   problem?: string | null;
 }
 
-const MONTHS = [
-  'janeiro',
-  'fevereiro',
-  'março',
-  'abril',
-  'maio',
-  'junho',
-  'julho',
-  'agosto',
-  'setembro',
-  'outubro',
-  'novembro',
-  'dezembro',
-];
+const MONTHS = localized(() =>
+  Array.from({ length: 12 }, (_, m) =>
+    new Date(2026, m, 1).toLocaleDateString(intlLocale(), { month: 'long' }),
+  ),
+);
 
 const EMPTY: ScheduleDraft = {
   enabled: false,
@@ -81,9 +73,9 @@ function MonthCalendar({
     d.getDate() === today.getDate();
   const past = (d: Date) => d < new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return (
-    <table className="dl-backup-cal" aria-label={`Backups em ${MONTHS[month]} de ${year}`}>
+    <table className="dl-backup-cal" aria-label={t('calAria', { month: MONTHS[month], year })}>
       <caption>
-        {MONTHS[month][0].toUpperCase() + MONTHS[month].slice(1)} de {year}
+        {t('calCaption', { month: MONTHS[month][0].toUpperCase() + MONTHS[month].slice(1), year })}
       </caption>
       <thead>
         <tr>
@@ -110,7 +102,7 @@ function MonthCalendar({
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  title={on ? `Backup às ${draft.time}` : undefined}
+                  title={on ? t('backupAt', { time: draft.time }) : undefined}
                 >
                   {d.getDate()}
                 </td>
@@ -166,9 +158,9 @@ export function AdminBackupSchedule() {
     }));
 
   const problem = !validTime(draft.time)
-    ? 'Informe o horário no formato HH:MM.'
+    ? t('timeFormat')
     : draft.enabled && draft.mode === 'weekly' && draft.days.length === 0
-      ? 'Escolha ao menos um dia da semana.'
+      ? t('pickWeekday')
       : null;
 
   const save = async () => {
@@ -183,9 +175,7 @@ export function AdminBackupSchedule() {
       await queryClient.invalidateQueries({ queryKey: ['admin', 'backups', 'schedule'] });
       setNotice({
         ok: true,
-        text: draft.enabled
-          ? `Agendamento salvo: ${describeDraft(draft)}.`
-          : 'Agendamento desligado.',
+        text: draft.enabled ? t('scheduleSaved', { desc: describeDraft(draft) }) : t('scheduleOff'),
       });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
@@ -194,63 +184,56 @@ export function AdminBackupSchedule() {
     }
   };
 
-  if (query.isLoading) return <HpsmLoading text="Carregando o agendamento..." />;
+  if (query.isLoading) return <HpsmLoading text={t('loadingSchedule')} />;
   const data = query.data;
 
   return (
-    <HpsmSection title="Backup agendado" className="dl-mt-lg">
+    <HpsmSection title={t('scheduledBackup')} className="dl-mt-lg">
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
         </HpsmMessage>
       )}
       {data?.problem && data.passwordConfigured && (
-        <HpsmMessage kind="error">Backup agendado com problema: {data.problem}.</HpsmMessage>
+        <HpsmMessage kind="error">{t('scheduleProblem', { problem: data.problem })}</HpsmMessage>
       )}
       {data && !data.passwordConfigured && (
-        <HpsmMessage kind="info">
-          Para ligar o agendamento, defina BACKUP_SCHEDULE_PASSWORD no .env (12 caracteres ou mais)
-          e reinicie a API: o backup agendado leva as amostras e sai sempre com senha.
-        </HpsmMessage>
+        <HpsmMessage kind="info">{t('schedulePwdHint')}</HpsmMessage>
       )}
       {saved?.enabled && saved.timezone !== timezone && (
         <HpsmMessage kind="warning">
-          O agendamento foi salvo no fuso {saved.timezone}; este navegador está em {timezone}. O
-          calendário abaixo usa o fuso daqui, e salvar daqui passa a valer o fuso daqui.
+          {t('tzMismatch', { saved: saved.timezone, current: timezone })}
         </HpsmMessage>
       )}
       <p className="dl-backup__intro">
-        O backup agendado leva os arquivos das amostras (malware) e sai com a senha
-        BACKUP_SCHEDULE_PASSWORD do .env. Vai para{' '}
-        {data?.destination === 'dir'
-          ? 'a pasta de backup (BACKUP_DIR).'
-          : 'o MinIO, no mesmo disco dos dados: configure BACKUP_DIR para levá-lo para fora.'}{' '}
-        Se a API estiver fora do ar na hora marcada, ele sai quando ela voltar.
+        {t('schedIntro', {
+          dest: data?.destination === 'dir' ? t('destDir') : t('destMinio'),
+        })}
       </p>
       <div className="dl-backup-schedule">
         <div className="dl-backup-schedule__form">
           <Checkbox
             id="schedule-enabled"
-            labelText="Gerar backup automaticamente"
+            labelText={t('autoBackup')}
             checked={draft.enabled}
             disabled={busy || (!data?.passwordConfigured && !draft.enabled)}
             onChange={(_, { checked }) => setDraft((d) => ({ ...d, enabled: checked }))}
           />
           <Select
             id="schedule-mode"
-            labelText="Repetir"
+            labelText={t('repeat')}
             value={draft.mode}
             disabled={busy}
             onChange={(e) =>
               setDraft((d) => ({ ...d, mode: e.target.value as ScheduleDraft['mode'] }))
             }
           >
-            <SelectItem value="weekly" text="Nos dias da semana escolhidos" />
-            <SelectItem value="monthly" text="Uma vez por mês" />
+            <SelectItem value="weekly" text={t('onWeekdays')} />
+            <SelectItem value="monthly" text={t('monthly')} />
           </Select>
           {draft.mode === 'weekly' ? (
             <fieldset className="dl-backup-schedule__days">
-              <legend className="cds--label">Dias da semana</legend>
+              <legend className="cds--label">{t('weekdays')}</legend>
               <div className="dl-backup-schedule__day-grid">
                 {WEEKDAY_LABELS.map((label, day) => (
                   <Checkbox
@@ -268,33 +251,33 @@ export function AdminBackupSchedule() {
                   disabled={busy}
                   onClick={() => setDraft((d) => ({ ...d, days: [0, 1, 2, 3, 4, 5, 6] }))}
                 >
-                  Todos os dias
+                  {t('everyDay')}
                 </button>
               </div>
             </fieldset>
           ) : (
             <Select
               id="schedule-day-of-month"
-              labelText="Dia do mês"
-              helperText="Até o dia 28, para valer em todos os meses."
+              labelText={t('dayOfMonth')}
+              helperText={t('dayOfMonthHelp')}
               value={String(draft.dayOfMonth)}
               disabled={busy}
               onChange={(e) => setDraft((d) => ({ ...d, dayOfMonth: Number(e.target.value) }))}
             >
               {Array.from({ length: 28 }, (_, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)} text={`Dia ${i + 1}`} />
+                <SelectItem key={i + 1} value={String(i + 1)} text={t('dayN', { n: i + 1 })} />
               ))}
             </Select>
           )}
           <TextInput
             id="schedule-time"
             type="time"
-            labelText="Horário"
-            helperText={`Horário deste navegador (${timezone}).`}
+            labelText={t('time')}
+            helperText={t('browserTime', { tz: timezone })}
             value={draft.time}
             disabled={busy}
             invalid={!validTime(draft.time)}
-            invalidText="Use o formato HH:MM."
+            invalidText={t('timeInvalid')}
             onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
           />
           <button
@@ -303,15 +286,17 @@ export function AdminBackupSchedule() {
             disabled={busy}
             onClick={() => void save()}
           >
-            Salvar agendamento
+            {t('saveSchedule')}
           </button>
           {saved?.enabled && saved.nextRunAt && (
             <p className="dl-backup__counts">
-              Salvo: {data?.summary}. Próximo: {fmt(new Date(saved.nextRunAt))}.
+              {t('savedNext', { summary: data?.summary, next: fmt(new Date(saved.nextRunAt)) })}
             </p>
           )}
           {saved?.lastRunAt && (
-            <p className="dl-backup__counts">Último agendado: {fmt(new Date(saved.lastRunAt))}.</p>
+            <p className="dl-backup__counts">
+              {t('lastScheduled', { date: fmt(new Date(saved.lastRunAt)) })}
+            </p>
           )}
         </div>
         <div className="dl-backup-schedule__calendar">
@@ -320,7 +305,7 @@ export function AdminBackupSchedule() {
               <MonthCalendar key={`${m.year}-${m.month}`} {...m} draft={draft} />
             ))}
           </div>
-          <h4 className="dl-backup-schedule__next-title">Próximas execuções</h4>
+          <h4 className="dl-backup-schedule__next-title">{t('upcoming')}</h4>
           {upcoming.length ? (
             <ol className="dl-backup-schedule__next">
               {upcoming.map((d) => (
@@ -328,9 +313,7 @@ export function AdminBackupSchedule() {
               ))}
             </ol>
           ) : (
-            <p className="dl-static-empty">
-              {draft.enabled ? 'Nenhuma execução com esta escolha.' : 'Agendamento desligado.'}
-            </p>
+            <p className="dl-static-empty">{draft.enabled ? t('noRuns') : t('scheduleOff')}</p>
           )}
         </div>
       </div>

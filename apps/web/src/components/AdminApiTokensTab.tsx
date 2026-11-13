@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { ApiToken } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t as tr } from '../i18n/admin';
 import { lastUse, SCOPE_LABEL, tokenState } from './ApiTokensTab';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
@@ -47,17 +48,17 @@ export function AdminApiTokensTab() {
 
   const revoke = async (t: AdminToken) => {
     const ok = await confirm({
-      title: 'Revogar token',
-      message: `O token "${t.name}" de ${t.user.displayName} deixa de funcionar imediatamente.`,
-      confirmLabel: 'Revogar',
-      cancelLabel: 'Cancelar',
+      title: tr('revokeToken'),
+      message: tr('revokeTokenMsg', { name: t.name, user: t.user.displayName }),
+      confirmLabel: tr('revoke'),
+      cancelLabel: tr('cancel'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.del(`/admin/api-tokens/${t.id}`);
       await queryClient.invalidateQueries({ queryKey: ['admin'] });
-      setNotice({ ok: true, text: `Token "${t.name}" de ${t.user.displayName} revogado.` });
+      setNotice({ ok: true, text: tr('tokenRevoked', { name: t.name, user: t.user.displayName }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     }
@@ -73,42 +74,42 @@ export function AdminApiTokensTab() {
         </HpsmMessage>
       )}
       <HpsmFilterBar onClear={() => setStatus('active')}>
-        <HpsmFilterItem label="Mostrar" htmlFor="tokens-status">
+        <HpsmFilterItem label={tr('show')} htmlFor="tokens-status">
           <Select
             id="tokens-status"
-            labelText="Mostrar"
+            labelText={tr('show')}
             hideLabel
             size="sm"
             value={status}
             onChange={(e) => setStatus(e.target.value as 'active' | 'all')}
           >
-            <SelectItem value="active" text="Ativos" />
-            <SelectItem value="all" text="Todos (inclui vencidos e revogados)" />
+            <SelectItem value="active" text={tr('activeTokens')} />
+            <SelectItem value="all" text={tr('allTokens')} />
           </Select>
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {query.isLoading && <HpsmLoading text="Carregando tokens..." />}
+      {query.isLoading && <HpsmLoading text={tr('loadingTokens')} />}
       {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
       {query.data && tokens.length === 0 && (
         <HpsmMessage kind="info">
-          {status === 'active' ? 'Nenhum token ativo.' : 'Nenhum token gerado.'}
+          {status === 'active' ? tr('noActiveTokens') : tr('noTokens')}
         </HpsmMessage>
       )}
       {tokens.length > 0 && (
         <TableContainer>
-          <Table size="xs" aria-label="Tokens de API">
+          <Table size="xs" aria-label={tr('tokensAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Usuário</TableHeader>
-                <TableHeader scope="col">Nome</TableHeader>
-                <TableHeader scope="col">Finalidade</TableHeader>
-                <TableHeader scope="col">Início</TableHeader>
-                <TableHeader scope="col">Criado em</TableHeader>
-                <TableHeader scope="col">Expira em</TableHeader>
-                <TableHeader scope="col">Último uso</TableHeader>
-                <TableHeader scope="col">Situação</TableHeader>
-                <TableHeader scope="col">Ações</TableHeader>
+                <TableHeader scope="col">{tr('user')}</TableHeader>
+                <TableHeader scope="col">{tr('name')}</TableHeader>
+                <TableHeader scope="col">{tr('purpose')}</TableHeader>
+                <TableHeader scope="col">{tr('prefix')}</TableHeader>
+                <TableHeader scope="col">{tr('createdOn')}</TableHeader>
+                <TableHeader scope="col">{tr('expiresAt')}</TableHeader>
+                <TableHeader scope="col">{tr('lastUse')}</TableHeader>
+                <TableHeader scope="col">{tr('situation')}</TableHeader>
+                <TableHeader scope="col">{tr('actions')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -137,7 +138,7 @@ export function AdminApiTokensTab() {
                           className="dl-link-button dl-link-button--danger"
                           onClick={() => void revoke(t)}
                         >
-                          Revogar…
+                          {tr('revokeEllipsis')}
                         </button>
                       ) : (
                         '—'

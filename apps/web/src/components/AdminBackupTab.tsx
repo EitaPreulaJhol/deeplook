@@ -14,7 +14,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/admin';
 import { AdminBackupSchedule } from './AdminBackupSchedule';
 import { useConfirm } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
@@ -46,12 +47,12 @@ interface Backup {
 }
 
 const STATUS: Record<Backup['status'], { text: string; tone: 'blue' | 'green' | 'red' | 'gray' }> =
-  {
-    RUNNING: { text: 'Gerando', tone: 'blue' },
-    READY: { text: 'Pronto', tone: 'green' },
-    FAILED: { text: 'Falhou', tone: 'red' },
-    EXPIRED: { text: 'Vencido', tone: 'gray' },
-  };
+  localized(() => ({
+    RUNNING: { text: t('bkRunning'), tone: 'blue' },
+    READY: { text: t('bkReady'), tone: 'green' },
+    FAILED: { text: t('bkFailed'), tone: 'red' },
+    EXPIRED: { text: t('bkExpired'), tone: 'gray' },
+  }));
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString(intlLocale()) : '—');
 
@@ -101,9 +102,9 @@ export function AdminBackupTab() {
   const passwordProblem = noPassword
     ? null
     : password.length < 12
-      ? 'A senha do ZIP precisa de 12 caracteres ou mais.'
+      ? t('zipPwdMin')
       : password !== again
-        ? 'As duas senhas não conferem.'
+        ? t('pwdMismatch')
         : null;
 
   const generate = async () => {
@@ -111,17 +112,13 @@ export function AdminBackupTab() {
       setNotice({ ok: false, text: passwordProblem });
       return;
     }
-    const risks = [
-      withSamples && 'O ZIP vai conter os arquivos enviados, ou seja, malware real.',
-      noPassword &&
-        'Sem senha, qualquer pessoa com o ZIP lê o banco, com hashes de senha e segredos de 2FA.',
-    ].filter(Boolean);
+    const risks = [withSamples && t('riskMalware'), noPassword && t('riskNoPwd')].filter(Boolean);
     if (risks.length) {
       const ok = await confirm({
-        title: 'Confirmar o backup',
-        message: `${risks.join(' ')} Gerar assim mesmo?`,
-        confirmLabel: 'Gerar',
-        cancelLabel: 'Cancelar',
+        title: t('confirmBackup'),
+        message: t('createAnyway', { risks: risks.join(' ') }),
+        confirmLabel: t('create'),
+        cancelLabel: t('cancel'),
         danger: true,
       });
       if (!ok) return;
@@ -135,22 +132,22 @@ export function AdminBackupTab() {
       );
       setPassword('');
       setAgain('');
-      return 'Backup iniciado. Acompanhe abaixo; "Baixar" aparece quando terminar.';
+      return t('backupStarted');
     });
   };
 
   const remove = async (b: Backup) => {
     const ok = await confirm({
-      title: 'Excluir backup',
-      message: `Excluir o backup de ${fmt(b.createdAt)}? O ZIP sai do servidor.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteBackup'),
+      message: t('deleteBackupConfirm', { date: fmt(b.createdAt) }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
       await api.del(`/admin/backups/${b.id}`);
-      return 'Backup excluído.';
+      return t('backupDeleted');
     });
   };
 
@@ -161,30 +158,26 @@ export function AdminBackupTab() {
           {notice.text}
         </HpsmMessage>
       )}
-      <HpsmSection title="Gerar backup">
+      <HpsmSection title={t('createBackup')}>
         <p className="dl-backup__intro">
-          Um ZIP com o banco (pg_dump), as evidências e capturas do MinIO e um manifesto com o
-          SHA-256 de cada parte. Fica disponível por {query.data?.retentionDays ?? 7} dias. A
-          restauração está no LEIA-ME dentro do ZIP e no README.
+          {t('backupIntro', { days: query.data?.retentionDays ?? 7 })}
         </p>
         <p className="dl-backup__intro">
-          {query.data?.destination === 'dir'
-            ? 'Gravado na pasta de backup do servidor (BACKUP_DIR), com um arquivo .sha256 ao lado para conferir a cópia.'
-            : 'Guardado no MinIO, no mesmo disco dos dados: configure BACKUP_DIR no .env para gravar numa pasta fora dele.'}
+          {query.data?.destination === 'dir' ? t('destDirInfo') : t('destMinioInfo')}
         </p>
         {query.data?.destinationProblem && (
           <HpsmMessage kind="error">{query.data.destinationProblem}</HpsmMessage>
         )}
         <Checkbox
           id="backup-samples"
-          labelText="Incluir os arquivos das amostras (o ZIP terá malware)"
+          labelText={t('includeSamples')}
           checked={withSamples}
           disabled={Boolean(running)}
           onChange={(_, { checked }) => setWithSamples(checked)}
         />
         <Checkbox
           id="backup-no-password"
-          labelText="Exportar sem senha (qualquer pessoa com o ZIP lê o banco)"
+          labelText={t('noPassword')}
           checked={noPassword}
           disabled={Boolean(running)}
           onChange={(_, { checked }) => setNoPassword(checked)}
@@ -194,9 +187,9 @@ export function AdminBackupTab() {
             <TextInput
               id="backup-password"
               type="password"
-              labelText="Senha do ZIP"
+              labelText={t('zipPwd')}
               autoComplete="new-password"
-              helperText="12 caracteres ou mais. Não fica guardada: sem ela, o backup não abre. Abra com o 7-Zip."
+              helperText={t('zipPwdHelp')}
               value={password}
               disabled={Boolean(running)}
               onChange={(e) => setPassword(e.target.value)}
@@ -204,7 +197,7 @@ export function AdminBackupTab() {
             <TextInput
               id="backup-password-again"
               type="password"
-              labelText="Repita a senha"
+              labelText={t('repeatPwd')}
               autoComplete="new-password"
               value={again}
               disabled={Boolean(running)}
@@ -218,12 +211,12 @@ export function AdminBackupTab() {
           disabled={busy || Boolean(running)}
           onClick={() => void generate()}
         >
-          Gerar backup
+          {t('createBackup')}
         </button>
         {running && (
           <div className="dl-backup__running" role="status">
             <ProgressBar
-              label={running.step ?? 'Gerando...'}
+              label={running.step ?? t('creating')}
               value={running.progress}
               max={100}
               helperText={`${running.progress}%`}
@@ -234,22 +227,22 @@ export function AdminBackupTab() {
 
       <AdminBackupSchedule />
 
-      <HpsmSection title={`Backups (${items.length})`} className="dl-mt-lg">
-        {query.isLoading && <HpsmLoading text="Carregando backups..." />}
+      <HpsmSection title={t('backupsN', { n: items.length })} className="dl-mt-lg">
+        {query.isLoading && <HpsmLoading text={t('loadingBackups')} />}
         {!query.isLoading && items.length === 0 ? (
-          <p className="dl-static-empty">Nenhum backup gerado ainda.</p>
+          <p className="dl-static-empty">{t('noBackups')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label="Backups">
+            <Table size="xs" aria-label={t('backupsAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Gerado em</TableHeader>
-                  <TableHeader scope="col">Por</TableHeader>
-                  <TableHeader scope="col">Situação</TableHeader>
-                  <TableHeader scope="col">Conteúdo</TableHeader>
-                  <TableHeader scope="col">Tamanho</TableHeader>
-                  <TableHeader scope="col">Vence em</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{t('createdAt')}</TableHeader>
+                  <TableHeader scope="col">{t('by')}</TableHeader>
+                  <TableHeader scope="col">{t('situation')}</TableHeader>
+                  <TableHeader scope="col">{t('content')}</TableHeader>
+                  <TableHeader scope="col">{t('size')}</TableHeader>
+                  <TableHeader scope="col">{t('expiresOn')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -257,7 +250,7 @@ export function AdminBackupTab() {
                   <TableRow key={b.id} className={b.status === 'EXPIRED' ? 'is-off' : undefined}>
                     <TableCell>{fmt(b.createdAt)}</TableCell>
                     <TableCell>
-                      {b.scheduled ? 'Agendado' : (b.createdBy?.displayName ?? '—')}
+                      {b.scheduled ? t('scheduled') : (b.createdBy?.displayName ?? '—')}
                     </TableCell>
                     <TableCell>
                       <StatusText tone={STATUS[b.status].tone}>{STATUS[b.status].text}</StatusText>
@@ -266,18 +259,21 @@ export function AdminBackupTab() {
                     </TableCell>
                     <TableCell>
                       {b.includeSamples ? (
-                        <StatusText tone="red">com as amostras (malware)</StatusText>
+                        <StatusText tone="red">{t('withSamples')}</StatusText>
                       ) : (
-                        'sem as amostras'
+                        t('withoutSamples')
                       )}
                       <span className="dl-backup__counts">
-                        {b.encrypted ? 'com senha' : 'sem senha'}
+                        {b.encrypted ? t('withPwd') : t('withoutPwd')}
                       </span>
                       {b.manifest && (
                         <span className="dl-backup__counts">
-                          {b.manifest.counts.entries} amostra(s), {b.manifest.counts.reports}{' '}
-                          relatório(s), {b.manifest.counts.objects} arquivo(s) · versão{' '}
-                          {b.manifest.version}
+                          {t('manifestCounts', {
+                            entries: b.manifest.counts.entries,
+                            reports: b.manifest.counts.reports,
+                            objects: b.manifest.counts.objects,
+                            version: b.manifest.version,
+                          })}
                         </span>
                       )}
                     </TableCell>
@@ -290,7 +286,7 @@ export function AdminBackupTab() {
                           href={`/api/admin/backups/${b.id}/download`}
                           download
                         >
-                          Baixar
+                          {t('download')}
                         </a>
                       )}{' '}
                       {b.status !== 'RUNNING' && (
@@ -300,7 +296,7 @@ export function AdminBackupTab() {
                           disabled={busy}
                           onClick={() => void remove(b)}
                         >
-                          Excluir
+                          {t('delete')}
                         </button>
                       )}
                     </TableCell>

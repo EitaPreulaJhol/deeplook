@@ -11,7 +11,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import type { StatusLevel, SystemStatus } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/admin';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
 import { IconRefresh } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -21,12 +22,12 @@ import { StatusText } from './tags';
 /** Atualizacao automatica da pagina de status. */
 const REFRESH_MS = 30_000;
 
-const LEVELS: Record<StatusLevel, { tone: StatusTone; label: string }> = {
+const LEVELS: Record<StatusLevel, { tone: StatusTone; label: string }> = localized(() => ({
   ok: { tone: 'green', label: 'OK' },
-  warn: { tone: 'orange', label: 'Alerta' },
-  error: { tone: 'red', label: 'Falha' },
-  off: { tone: 'gray', label: 'Desligado' },
-};
+  warn: { tone: 'orange', label: t('lvWarn') },
+  error: { tone: 'red', label: t('lvError') },
+  off: { tone: 'gray', label: t('lvOff') },
+}));
 
 /**
  * Aba "Status do sistema" da Administracao (System Status do HPSM): API,
@@ -43,44 +44,39 @@ export function AdminStatusTab() {
 
   return (
     <>
-      <HpsmToolbar label="Ações do status">
+      <HpsmToolbar label={t('statusActions')}>
         <HpsmToolbarButton
-          label={query.isFetching ? 'Verificando...' : 'Atualizar'}
+          label={query.isFetching ? t('checking') : t('refresh')}
           icon={IconRefresh}
           disabled={query.isFetching}
           onClick={() => void query.refetch()}
         />
         {data && (
           <span className="hpsm-toolbar__info">
-            Verificado às {new Date(data.checkedAt).toLocaleTimeString(intlLocale())} · atualiza a
-            cada 30 s
+            {t('checkedAt', { time: new Date(data.checkedAt).toLocaleTimeString(intlLocale()) })}
           </span>
         )}
       </HpsmToolbar>
 
-      {query.isLoading && <HpsmLoading text="Verificando os componentes..." />}
+      {query.isLoading && <HpsmLoading text={t('checkingComponents')} />}
       {query.isError && (
         <HpsmMessage kind="error">
-          Não foi possível obter o status: {(query.error as Error).message}
+          {t('statusError', { error: (query.error as Error).message })}
         </HpsmMessage>
       )}
-      {data?.overall === 'error' && (
-        <HpsmMessage kind="error">Há componentes com falha. Veja os detalhes abaixo.</HpsmMessage>
-      )}
-      {data?.overall === 'warn' && (
-        <HpsmMessage kind="warning">Há componentes em alerta. Veja os detalhes abaixo.</HpsmMessage>
-      )}
+      {data?.overall === 'error' && <HpsmMessage kind="error">{t('someFailed')}</HpsmMessage>}
+      {data?.overall === 'warn' && <HpsmMessage kind="warning">{t('someWarn')}</HpsmMessage>}
 
       {data && (
         <TableContainer>
-          <Table size="xs" aria-label="Status do sistema">
+          <Table size="xs" aria-label={t('statusAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Componente</TableHeader>
-                <TableHeader scope="col">Situação</TableHeader>
-                <TableHeader scope="col">Resumo</TableHeader>
-                <TableHeader scope="col">Tempo</TableHeader>
-                <TableHeader scope="col">Detalhes</TableHeader>
+                <TableHeader scope="col">{t('component')}</TableHeader>
+                <TableHeader scope="col">{t('situation')}</TableHeader>
+                <TableHeader scope="col">{t('summary')}</TableHeader>
+                <TableHeader scope="col">{t('elapsed')}</TableHeader>
+                <TableHeader scope="col">{t('details')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>

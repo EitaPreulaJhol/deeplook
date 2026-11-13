@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/admin';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
@@ -48,17 +49,19 @@ type CheckResult =
   | { outcome: 'applied'; commit: string; summary: Summary }
   | { outcome: 'held'; commit: string; reasons: string[]; summary: Summary };
 
-const STATUS = {
-  APPLIED: { label: 'Aplicada', tone: 'green' },
-  HELD: { label: 'Retida', tone: 'orange' },
-  ROLLED_BACK: { label: 'Desfeita', tone: 'gray' },
-  DISMISSED: { label: 'Descartada', tone: 'gray' },
-} as const;
+const STATUS = localized(
+  () =>
+    ({
+      APPLIED: { label: t('upApplied'), tone: 'green' },
+      HELD: { label: t('upHeld'), tone: 'orange' },
+      ROLLED_BACK: { label: t('upRolledBack'), tone: 'gray' },
+      DISMISSED: { label: t('upDismissed'), tone: 'gray' },
+    }) as const,
+);
 
 const changes = (s: Summary) =>
-  `${s.added} novos, ${s.changed} alterados, ${s.removed} removidos${
-    s.kept ? `, ${s.kept} não compilam e ficaram de fora` : ''
-  }`;
+  t('changesSummary', { added: s.added, changed: s.changed, removed: s.removed }) +
+  (s.kept ? `, ${t('keptOut', { n: s.kept })}` : '');
 
 /**
  * Atualizacao automatica dos pacotes de regras (item 150): o que passa nos filtros
@@ -97,29 +100,27 @@ export function AdminYaraUpdates() {
   const setAuto = (autoUpdate: boolean) =>
     run(async () => {
       await api.patch('/admin/yara-packs/updates', { autoUpdate });
-      return autoUpdate
-        ? 'Atualização automática ligada.'
-        : 'Atualização automática desligada. O botão "Verificar agora" continua valendo.';
+      return autoUpdate ? t('autoOn') : t('autoOff');
     });
 
   const check = (id: string, name: string) =>
     run(async () => {
       const res = await api.post<CheckResult>(`/admin/yara-packs/${id}/check`, { apply: false });
-      if (res.outcome === 'current') return `${name} já está na versão mais recente disponível.`;
+      if (res.outcome === 'current') return t('upToDate', { name });
       if (res.outcome === 'skipped') {
-        return `${name}: a versão mais recente foi desfeita ou descartada. Aguardando uma mais nova.`;
+        return t('skippedVersion', { name });
       }
-      if (res.outcome === 'held') return `${name}: atualização retida. Veja o motivo abaixo.`;
-      if (res.outcome === 'applied') return `${name} atualizado: ${changes(res.summary)}.`;
+      if (res.outcome === 'held') return t('heldVersion', { name });
+      if (res.outcome === 'applied') return t('updated', { name, changes: changes(res.summary) });
       const ok = await confirm({
-        title: `Atualizar ${name}`,
-        message: `A nova versão passou nos filtros: ${changes(res.summary)}. Aplicar agora?`,
-        confirmLabel: 'Aplicar',
-        cancelLabel: 'Agora não',
+        title: t('updateTitle', { name }),
+        message: t('passedFilters', { changes: changes(res.summary) }),
+        confirmLabel: t('apply'),
+        cancelLabel: t('notNow'),
       });
-      if (!ok) return `${name}: nada mudou. A versão nova: ${changes(res.summary)}.`;
+      if (!ok) return t('nothingChanged', { name, changes: changes(res.summary) });
       await api.post(`/admin/yara-packs/${id}/check`, { apply: true });
-      return `${name} atualizado: ${changes(res.summary)}.`;
+      return t('updated', { name, changes: changes(res.summary) });
     });
 
   const act = async (
@@ -130,7 +131,7 @@ export function AdminYaraUpdates() {
     confirmLabel: string,
     done: string,
   ) => {
-    const ok = await confirm({ title, message, confirmLabel, cancelLabel: 'Cancelar' });
+    const ok = await confirm({ title, message, confirmLabel, cancelLabel: t('cancel') });
     if (!ok) return;
     await run(async () => {
       await api.post(`/admin/yara-releases/${release.id}/${action}`, {});
@@ -143,7 +144,7 @@ export function AdminYaraUpdates() {
   const nameOf = (id: string) => data.packs.find((p) => p.id === id)?.name ?? id;
 
   return (
-    <HpsmSection title="Atualização dos pacotes" className="dl-form-col dl-mt-lg">
+    <HpsmSection title={t('packUpdates')} className="dl-form-col dl-mt-lg">
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
@@ -152,41 +153,43 @@ export function AdminYaraUpdates() {
       <HpsmForm>
         <Checkbox
           id="yara-auto-update"
-          labelText="Atualizar sozinho os pacotes ligados"
-          helperText="Toda semana, só com versões de pelo menos 7 dias. Entra sozinho o que passa nos filtros: licença igual, até 20% de mudança, sem disparar em amostras Limpas e sem deixar a compilação muito mais lenta. O resto fica retido aqui. Precisa de acesso ao GitHub; sem internet, nada muda."
+          labelText={t('autoUpdate')}
+          helperText={t('autoUpdateHelp')}
           checked={data.autoUpdate}
           disabled={busy}
           onChange={(_, { checked }) => void setAuto(checked)}
         />
         {data.packs.map((pack) => (
           <div key={pack.id} className="dl-pack-update">
-            <strong>{pack.name}</strong> · versão de {pack.commitDate}
+            <strong>{pack.name}</strong> · {t('versionOf', { date: pack.commitDate })}
             {pack.lastCheck
-              ? ` · verificado em ${new Date(pack.lastCheck).toLocaleString(intlLocale())}`
-              : ' · ainda não verificado'}{' '}
+              ? ` · ${t('checkedOn', { date: new Date(pack.lastCheck).toLocaleString(intlLocale()) })}`
+              : ` · ${t('notChecked')}`}{' '}
             <button
               type="button"
               className="dl-link-button"
               disabled={busy}
               onClick={() => void check(pack.id, pack.name)}
             >
-              Verificar agora
+              {t('checkNow')}
             </button>
             {pack.lastError && (
-              <p className="hpsm-field__help">Última tentativa falhou: {pack.lastError}</p>
+              <p className="hpsm-field__help">{t('lastFailed', { error: pack.lastError })}</p>
             )}
           </div>
         ))}
       </HpsmForm>
       {data.releases.length > 0 && (
-        <ul className="dl-pack-releases" aria-label="Atualizações dos pacotes">
+        <ul className="dl-pack-releases" aria-label={t('packUpdatesAria')}>
           {data.releases.map((release) => (
             <li key={release.id}>
               <StatusText tone={STATUS[release.status].tone}>
                 {STATUS[release.status].label}
               </StatusText>{' '}
-              {nameOf(release.pack)} ·{' '}
-              {new Date(release.createdAt).toLocaleDateString(intlLocale())} · commit{' '}
+              {t('releaseLine', {
+                name: nameOf(release.pack),
+                date: new Date(release.createdAt).toLocaleDateString(intlLocale()),
+              })}{' '}
               <span className="dl-mono">{release.commit.slice(0, 8)}</span> ·{' '}
               {changes(release.summary)}
               {release.status === 'HELD' && (
@@ -205,14 +208,14 @@ export function AdminYaraUpdates() {
                         void act(
                           release,
                           'approve',
-                          'Aprovar a atualização',
-                          `Aplicar esta versão de ${nameOf(release.pack)} mesmo com os motivos acima? Depois dá para voltar.`,
-                          'Aprovar',
-                          'Atualização aprovada e aplicada.',
+                          t('approveUpdate'),
+                          t('approveConfirm', { name: nameOf(release.pack) }),
+                          t('approve'),
+                          t('approved'),
                         )
                       }
                     >
-                      Aprovar
+                      {t('approve')}
                     </button>
                     <button
                       type="button"
@@ -222,14 +225,14 @@ export function AdminYaraUpdates() {
                         void act(
                           release,
                           'dismiss',
-                          'Descartar a atualização',
-                          'Esta versão não será oferecida de novo; só uma mais nova.',
-                          'Descartar',
-                          'Atualização descartada.',
+                          t('dismissUpdate'),
+                          t('dismissHelp'),
+                          t('dismiss'),
+                          t('dismissed'),
                         )
                       }
                     >
-                      Descartar
+                      {t('dismiss')}
                     </button>
                   </span>
                 </>
@@ -245,14 +248,14 @@ export function AdminYaraUpdates() {
                       void act(
                         release,
                         'rollback',
-                        'Voltar a versão',
-                        `Desfazer esta atualização de ${nameOf(release.pack)}? Esta versão não volta sozinha; só uma mais nova.`,
-                        'Voltar',
-                        'Versão anterior restaurada.',
+                        t('rollback'),
+                        t('rollbackConfirm', { name: nameOf(release.pack) }),
+                        t('rollbackShort'),
+                        t('rolledBack'),
                       )
                     }
                   >
-                    Voltar a versão
+                    {t('rollback')}
                   </button>
                 </>
               )}

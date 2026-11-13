@@ -15,7 +15,8 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import type { AuditAction, AuditChainState, AuditEvent } from '../api/types';
-import { intlLocale } from '../i18n';
+import { intlLocale, localized } from '../i18n';
+import { t } from '../i18n/admin';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
 import { HpsmLoading, HpsmMessage } from './messages';
 import type { StatusTone } from './tags';
@@ -24,62 +25,64 @@ import { StatusText } from './tags';
 const PAGE_SIZE = 50;
 
 /** Rotulos e cores das acoes (o CSV usa os mesmos rotulos, no backend). */
-export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTone }> = {
-  USER_REGISTERED: { label: 'Cadastro com chave', tone: 'green' },
-  USER_ROLE_CHANGED: { label: 'Papel alterado', tone: 'blue' },
-  USER_SUSPENDED: { label: 'Conta suspensa', tone: 'orange' },
-  USER_REACTIVATED: { label: 'Conta reativada', tone: 'green' },
-  USER_LDAP_RELINKED: { label: 'Conta religada a outro DN do AD', tone: 'red' },
-  USER_PASSWORD_RESET: { label: 'Senha redefinida pelo admin', tone: 'orange' },
-  USER_PASSWORD_CHANGED: { label: 'Senha alterada pelo usuário', tone: 'blue' },
-  KEY_CREATED: { label: 'Chave gerada', tone: 'blue' },
-  KEY_REVOKED: { label: 'Chave revogada', tone: 'orange' },
-  TEMPLATE_CREATED: { label: 'Modelo criado', tone: 'gray' },
-  TEMPLATE_UPDATED: { label: 'Modelo alterado', tone: 'gray' },
-  TEMPLATE_DELETED: { label: 'Modelo excluído', tone: 'gray' },
-  LOGIN_FAILED: { label: 'Login recusado', tone: 'orange' },
-  LOGIN_LOCKED: { label: 'Login bloqueado (tentativas)', tone: 'red' },
-  API_ACCESS_GRANTED: { label: 'Acesso por API liberado', tone: 'blue' },
-  API_ACCESS_REVOKED: { label: 'Acesso por API retirado', tone: 'orange' },
-  API_TOKEN_CREATED: { label: 'Token de API gerado', tone: 'blue' },
-  API_TOKEN_REVOKED: { label: 'Token de API revogado', tone: 'orange' },
-  SESSION_REVOKED: { label: 'Sessão encerrada', tone: 'orange' },
-  TWO_FACTOR_ENABLED: { label: '2FA ativado', tone: 'green' },
-  TWO_FACTOR_DISABLED: { label: '2FA desativado', tone: 'orange' },
-  TWO_FACTOR_RECOVERY_CODES: { label: 'Códigos de recuperação gerados', tone: 'blue' },
-  TWO_FACTOR_RECOVERY_USED: { label: 'Login com código de recuperação', tone: 'orange' },
-  ENTRY_TRASHED: { label: 'Amostra movida para a lixeira', tone: 'orange' },
-  ENTRY_RESTORED: { label: 'Amostra restaurada', tone: 'green' },
-  ENTRY_DELETED: { label: 'Amostra excluída definitivamente', tone: 'red' },
-  ENTRY_DOWNLOADED: { label: 'Amostra baixada', tone: 'orange' },
-  ENTRY_INTEGRITY_FAILED: { label: 'Arquivo divergente do SHA-256 da ficha', tone: 'red' },
-  ENTRY_INTEGRITY_RESTORED: { label: 'Arquivo voltou a conferir com o SHA-256', tone: 'green' },
-  YARA_RULE_CREATED: { label: 'Regra YARA criada', tone: 'gray' },
-  YARA_RULE_UPDATED: { label: 'Regra YARA alterada', tone: 'gray' },
-  YARA_RULE_DELETED: { label: 'Regra YARA excluída', tone: 'gray' },
-  ALLOWLIST_ADDED: { label: 'Indicador permitido incluído', tone: 'gray' },
-  ALLOWLIST_REMOVED: { label: 'Indicador permitido removido', tone: 'gray' },
-  ALLOWLIST_IMPORTED: { label: 'Indicadores permitidos importados', tone: 'gray' },
-  BACKUP_CREATED: { label: 'Backup gerado', tone: 'blue' },
-  BACKUP_DOWNLOADED: { label: 'Backup baixado', tone: 'orange' },
-  BACKUP_DELETED: { label: 'Backup excluído', tone: 'gray' },
-  COMPANY_DOMAIN_ADDED: { label: 'Domínio da empresa incluído', tone: 'blue' },
-  COMPANY_DOMAIN_REMOVED: { label: 'Domínio da empresa excluído', tone: 'orange' },
-  TRIAGE_RULE_CHANGED: { label: 'Regra de triagem alterada', tone: 'blue' },
-  SETTING_CHANGED: { label: 'Configuração alterada', tone: 'blue' },
-  YARA_PACK_UPDATED: { label: 'Pacote YARA atualizado', tone: 'blue' },
-  ASSIGNMENT_CHANGED: { label: 'Atribuição automática alterada', tone: 'blue' },
-  BROADCAST_PUBLISHED: { label: 'Aviso geral publicado', tone: 'blue' },
-  BROADCAST_ENDED: { label: 'Aviso geral encerrado', tone: 'gray' },
-};
+export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTone }> = localized(
+  () => ({
+    USER_REGISTERED: { label: t('act.USER_REGISTERED'), tone: 'green' },
+    USER_ROLE_CHANGED: { label: t('act.USER_ROLE_CHANGED'), tone: 'blue' },
+    USER_SUSPENDED: { label: t('act.USER_SUSPENDED'), tone: 'orange' },
+    USER_REACTIVATED: { label: t('act.USER_REACTIVATED'), tone: 'green' },
+    USER_LDAP_RELINKED: { label: t('act.USER_LDAP_RELINKED'), tone: 'red' },
+    USER_PASSWORD_RESET: { label: t('act.USER_PASSWORD_RESET'), tone: 'orange' },
+    USER_PASSWORD_CHANGED: { label: t('act.USER_PASSWORD_CHANGED'), tone: 'blue' },
+    KEY_CREATED: { label: t('act.KEY_CREATED'), tone: 'blue' },
+    KEY_REVOKED: { label: t('act.KEY_REVOKED'), tone: 'orange' },
+    TEMPLATE_CREATED: { label: t('act.TEMPLATE_CREATED'), tone: 'gray' },
+    TEMPLATE_UPDATED: { label: t('act.TEMPLATE_UPDATED'), tone: 'gray' },
+    TEMPLATE_DELETED: { label: t('act.TEMPLATE_DELETED'), tone: 'gray' },
+    LOGIN_FAILED: { label: t('act.LOGIN_FAILED'), tone: 'orange' },
+    LOGIN_LOCKED: { label: t('act.LOGIN_LOCKED'), tone: 'red' },
+    API_ACCESS_GRANTED: { label: t('act.API_ACCESS_GRANTED'), tone: 'blue' },
+    API_ACCESS_REVOKED: { label: t('act.API_ACCESS_REVOKED'), tone: 'orange' },
+    API_TOKEN_CREATED: { label: t('act.API_TOKEN_CREATED'), tone: 'blue' },
+    API_TOKEN_REVOKED: { label: t('act.API_TOKEN_REVOKED'), tone: 'orange' },
+    SESSION_REVOKED: { label: t('act.SESSION_REVOKED'), tone: 'orange' },
+    TWO_FACTOR_ENABLED: { label: t('act.TWO_FACTOR_ENABLED'), tone: 'green' },
+    TWO_FACTOR_DISABLED: { label: t('act.TWO_FACTOR_DISABLED'), tone: 'orange' },
+    TWO_FACTOR_RECOVERY_CODES: { label: t('act.TWO_FACTOR_RECOVERY_CODES'), tone: 'blue' },
+    TWO_FACTOR_RECOVERY_USED: { label: t('act.TWO_FACTOR_RECOVERY_USED'), tone: 'orange' },
+    ENTRY_TRASHED: { label: t('act.ENTRY_TRASHED'), tone: 'orange' },
+    ENTRY_RESTORED: { label: t('act.ENTRY_RESTORED'), tone: 'green' },
+    ENTRY_DELETED: { label: t('act.ENTRY_DELETED'), tone: 'red' },
+    ENTRY_DOWNLOADED: { label: t('act.ENTRY_DOWNLOADED'), tone: 'orange' },
+    ENTRY_INTEGRITY_FAILED: { label: t('act.ENTRY_INTEGRITY_FAILED'), tone: 'red' },
+    ENTRY_INTEGRITY_RESTORED: { label: t('act.ENTRY_INTEGRITY_RESTORED'), tone: 'green' },
+    YARA_RULE_CREATED: { label: t('act.YARA_RULE_CREATED'), tone: 'gray' },
+    YARA_RULE_UPDATED: { label: t('act.YARA_RULE_UPDATED'), tone: 'gray' },
+    YARA_RULE_DELETED: { label: t('act.YARA_RULE_DELETED'), tone: 'gray' },
+    ALLOWLIST_ADDED: { label: t('act.ALLOWLIST_ADDED'), tone: 'gray' },
+    ALLOWLIST_REMOVED: { label: t('act.ALLOWLIST_REMOVED'), tone: 'gray' },
+    ALLOWLIST_IMPORTED: { label: t('act.ALLOWLIST_IMPORTED'), tone: 'gray' },
+    BACKUP_CREATED: { label: t('act.BACKUP_CREATED'), tone: 'blue' },
+    BACKUP_DOWNLOADED: { label: t('act.BACKUP_DOWNLOADED'), tone: 'orange' },
+    BACKUP_DELETED: { label: t('act.BACKUP_DELETED'), tone: 'gray' },
+    COMPANY_DOMAIN_ADDED: { label: t('act.COMPANY_DOMAIN_ADDED'), tone: 'blue' },
+    COMPANY_DOMAIN_REMOVED: { label: t('act.COMPANY_DOMAIN_REMOVED'), tone: 'orange' },
+    TRIAGE_RULE_CHANGED: { label: t('act.TRIAGE_RULE_CHANGED'), tone: 'blue' },
+    SETTING_CHANGED: { label: t('act.SETTING_CHANGED'), tone: 'blue' },
+    YARA_PACK_UPDATED: { label: t('act.YARA_PACK_UPDATED'), tone: 'blue' },
+    ASSIGNMENT_CHANGED: { label: t('act.ASSIGNMENT_CHANGED'), tone: 'blue' },
+    BROADCAST_PUBLISHED: { label: t('act.BROADCAST_PUBLISHED'), tone: 'blue' },
+    BROADCAST_ENDED: { label: t('act.BROADCAST_ENDED'), tone: 'gray' },
+  }),
+);
 
-const PERIODS = [
-  { value: '1', text: 'Últimas 24 horas' },
-  { value: '7', text: 'Últimos 7 dias' },
-  { value: '30', text: 'Últimos 30 dias' },
-  { value: '90', text: 'Últimos 90 dias' },
-  { value: '', text: 'Todo o período' },
-];
+const PERIODS = localized(() => [
+  { value: '1', text: t('last24h') },
+  { value: '7', text: t('last7') },
+  { value: '30', text: t('last30') },
+  { value: '90', text: t('last90') },
+  { value: '', text: t('allTime') },
+]);
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
@@ -148,21 +151,21 @@ export function AdminAuditTab() {
         onClear={clear}
         exportHref={`/api/admin/audit/export.csv?${filters.toString()}`}
       >
-        <HpsmFilterItem label="Buscar" htmlFor="audit-q">
+        <HpsmFilterItem label={t('search')} htmlFor="audit-q">
           <TextInput
             id="audit-q"
-            labelText="Buscar"
+            labelText={t('search')}
             hideLabel
             size="sm"
-            placeholder="Quem, alvo, detalhe, IP..."
+            placeholder={t('auditSearchPlaceholder')}
             value={draftQ}
             onChange={(e) => setDraftQ(e.target.value)}
           />
         </HpsmFilterItem>
-        <HpsmFilterItem label="Ação" htmlFor="audit-action">
+        <HpsmFilterItem label={t('action')} htmlFor="audit-action">
           <Select
             id="audit-action"
-            labelText="Ação"
+            labelText={t('action')}
             hideLabel
             size="sm"
             value={action}
@@ -171,16 +174,16 @@ export function AdminAuditTab() {
               setOffset(0);
             }}
           >
-            <SelectItem value="" text="Todas" />
+            <SelectItem value="" text={t('allF')} />
             {(Object.keys(AUDIT_ACTIONS) as AuditAction[]).map((key) => (
               <SelectItem key={key} value={key} text={AUDIT_ACTIONS[key].label} />
             ))}
           </Select>
         </HpsmFilterItem>
-        <HpsmFilterItem label="Período" htmlFor="audit-days">
+        <HpsmFilterItem label={t('period')} htmlFor="audit-days">
           <Select
             id="audit-days"
-            labelText="Período"
+            labelText={t('period')}
             hideLabel
             size="sm"
             value={days}
@@ -198,39 +201,36 @@ export function AdminAuditTab() {
 
       {chain.data && !chain.data.ok && (
         <HpsmMessage kind="error">
-          A cadeia da auditoria está quebrada: {chain.data.problem?.reason ?? 'motivo desconhecido'}
-          . Os registros podem ter sido alterados ou apagados fora do sistema.
+          {t('chainBroken', { reason: chain.data.problem?.reason ?? t('unknownReason') })}
         </HpsmMessage>
       )}
       {chain.data?.ok && chain.data.head && (
         <p className="dl-audit__chain">
-          Cadeia íntegra: {chain.data.events} evento{chain.data.events === 1 ? '' : 's'}, ponta{' '}
+          {t(chain.data.events === 1 ? 'chainOkOne' : 'chainOkMany', { n: chain.data.events })}{' '}
           <span className="dl-mono" title={chain.data.head.hash}>
             #{chain.data.head.seq} {chain.data.head.hash.slice(0, 16)}…
           </span>
         </p>
       )}
-      {query.isLoading && <HpsmLoading text="Carregando a auditoria..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingAudit')} />}
       {query.isError && (
         <HpsmMessage kind="error">
-          Erro ao carregar a auditoria: {(query.error as Error).message}
+          {t('auditError', { error: (query.error as Error).message })}
         </HpsmMessage>
       )}
-      {query.data && total === 0 && (
-        <HpsmMessage kind="info">Nenhum registro de auditoria com esses filtros.</HpsmMessage>
-      )}
+      {query.data && total === 0 && <HpsmMessage kind="info">{t('noAudit')}</HpsmMessage>}
 
       {query.data && (
         <>
           <TableContainer>
-            <Table size="xs" aria-label="Auditoria">
+            <Table size="xs" aria-label={t('auditAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Data</TableHeader>
-                  <TableHeader scope="col">Quem</TableHeader>
-                  <TableHeader scope="col">Ação</TableHeader>
-                  <TableHeader scope="col">Alvo</TableHeader>
-                  <TableHeader scope="col">Detalhe</TableHeader>
+                  <TableHeader scope="col">{t('date')}</TableHeader>
+                  <TableHeader scope="col">{t('who')}</TableHeader>
+                  <TableHeader scope="col">{t('action')}</TableHeader>
+                  <TableHeader scope="col">{t('target')}</TableHeader>
+                  <TableHeader scope="col">{t('detail')}</TableHeader>
                   <TableHeader scope="col">IP</TableHeader>
                 </TableRow>
               </TableHead>
@@ -242,7 +242,7 @@ export function AdminAuditTab() {
                       {event.actor ? (
                         <span title={event.actor.email}>{event.actor.displayName}</span>
                       ) : (
-                        <span className="dl-audit__anon">(anônimo)</span>
+                        <span className="dl-audit__anon">{t('anonymous')}</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -265,15 +265,13 @@ export function AdminAuditTab() {
             </Table>
           </TableContainer>
           <div className="dl-table-foot">
-            <span>
-              Exibindo registros {first} a {last} de {total}
-            </span>
-            <div className="hpsm-pager" role="group" aria-label="Paginação">
+            <span>{t('showing', { first, last, total })}</span>
+            <div className="hpsm-pager" role="group" aria-label={t('pagination')}>
               <button
                 type="button"
                 className="hpsm-pager__btn"
-                title="Primeira página"
-                aria-label="Primeira página"
+                title={t('firstPage')}
+                aria-label={t('firstPage')}
                 disabled={offset === 0}
                 onClick={() => setOffset(0)}
               >
@@ -282,28 +280,28 @@ export function AdminAuditTab() {
               <button
                 type="button"
                 className="hpsm-pager__btn"
-                title="Página anterior"
-                aria-label="Página anterior"
+                title={t('prevPage')}
+                aria-label={t('prevPage')}
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
               >
-                ‹ Anterior
+                {t('prevShort')}
               </button>
               <button
                 type="button"
                 className="hpsm-pager__btn"
-                title="Próxima página"
-                aria-label="Próxima página"
+                title={t('nextPage')}
+                aria-label={t('nextPage')}
                 disabled={last >= total}
                 onClick={() => setOffset(offset + PAGE_SIZE)}
               >
-                Próxima ›
+                {t('nextShort')}
               </button>
               <button
                 type="button"
                 className="hpsm-pager__btn"
-                title="Última página"
-                aria-label="Última página"
+                title={t('lastPage')}
+                aria-label={t('lastPage')}
                 disabled={last >= total}
                 onClick={() => setOffset(lastOffset)}
               >

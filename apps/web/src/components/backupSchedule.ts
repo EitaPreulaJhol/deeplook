@@ -3,6 +3,8 @@
  * manda ao salvar, e a API calcula a proxima execucao de verdade com ele. Aqui so a previa, para
  * o admin ver no calendario quando o backup vai sair antes de salvar.
  */
+import { localized } from '../i18n';
+import { t } from '../i18n/admin';
 
 export interface ScheduleDraft {
   enabled: boolean;
@@ -15,8 +17,24 @@ export interface ScheduleDraft {
   time: string;
 }
 
-export const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const WEEKDAY_SHORT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+export const WEEKDAY_LABELS = localized(() => [
+  t('wdSun'),
+  t('wdMon'),
+  t('wdTue'),
+  t('wdWed'),
+  t('wdThu'),
+  t('wdFri'),
+  t('wdSat'),
+]);
+const WEEKDAY_SHORT = localized(() => [
+  t('wdsSun'),
+  t('wdsMon'),
+  t('wdsTue'),
+  t('wdsWed'),
+  t('wdsThu'),
+  t('wdsFri'),
+  t('wdsSat'),
+]);
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export const validTime = (time: string) => TIME.test(time);
@@ -58,10 +76,14 @@ export function monthGrid(year: number, month: number): (Date | null)[][] {
 
 /** "seg, qua e sex às 02:00", "todos os dias às 02:00" ou "todo dia 5 às 03:30". */
 export function describeDraft(draft: ScheduleDraft): string {
-  if (draft.mode === 'monthly') return `todo dia ${draft.dayOfMonth} às ${draft.time}`;
-  if (draft.days.length === 7) return `todos os dias às ${draft.time}`;
+  if (draft.mode === 'monthly') {
+    return t('schedMonthly', { day: draft.dayOfMonth, time: draft.time });
+  }
+  if (draft.days.length === 7) return t('schedDaily', { time: draft.time });
   const names = [...draft.days].sort().map((d) => WEEKDAY_SHORT[d]);
   const list =
-    names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}` : names[0];
-  return `${list ?? 'nenhum dia'} às ${draft.time}`;
+    names.length > 1
+      ? t('listAnd', { list: names.slice(0, -1).join(', '), last: names[names.length - 1] })
+      : names[0];
+  return t('schedAt', { days: list ?? t('noDay'), time: draft.time });
 }

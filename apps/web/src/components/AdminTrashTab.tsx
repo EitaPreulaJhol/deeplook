@@ -15,6 +15,7 @@ import { useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import type { EntryType, Verdict } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/admin';
 import { useConfirm } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmFilterBar, HpsmFilterItem } from './HpsmFilterBar';
@@ -60,7 +61,7 @@ export function AdminTrashTab() {
   // Vindo da ficha ("Mover para a lixeira"), o aviso aparece aqui.
   const trashed = (location.state as { trashed?: string } | null)?.trashed;
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
-    trashed ? { ok: true, text: `"${trashed}" foi movida para a lixeira.` } : null,
+    trashed ? { ok: true, text: t('movedToTrash', { title: trashed }) } : null,
   );
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export function AdminTrashTab() {
     try {
       await api.post(`/admin/trash/${item.id}/restore`, {});
       await refresh();
-      setNotice({ ok: true, text: `"${item.title}" foi restaurada e voltou às listas.` });
+      setNotice({ ok: true, text: t('restored', { title: item.title }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     } finally {
@@ -101,10 +102,10 @@ export function AdminTrashTab() {
 
   const remove = async (item: TrashItem) => {
     const ok = await confirm({
-      title: 'Excluir definitivamente',
-      message: `"${item.title}" será apagada com o arquivo, os relatórios, o histórico e as atualizações. Não há como desfazer.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteForever'),
+      message: t('deleteForeverConfirm', { title: item.title }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
@@ -113,7 +114,7 @@ export function AdminTrashTab() {
     try {
       await api.del(`/admin/trash/${item.id}`);
       await refresh();
-      setNotice({ ok: true, text: `"${item.title}" foi excluída definitivamente.` });
+      setNotice({ ok: true, text: t('deletedForever', { title: item.title }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     } finally {
@@ -140,44 +141,42 @@ export function AdminTrashTab() {
           setOffset(0);
         }}
       >
-        <HpsmFilterItem label="Buscar" htmlFor="trash-q">
+        <HpsmFilterItem label={t('search')} htmlFor="trash-q">
           <TextInput
             id="trash-q"
-            labelText="Buscar"
+            labelText={t('search')}
             hideLabel
             size="sm"
-            placeholder="Título, hash, URL..."
+            placeholder={t('trashSearchPlaceholder')}
             value={draftQ}
             onChange={(e) => setDraftQ(e.target.value)}
           />
         </HpsmFilterItem>
       </HpsmFilterBar>
 
-      {query.isLoading && <HpsmLoading text="Carregando a lixeira..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingTrash')} />}
       {query.isError && (
         <HpsmMessage kind="error">
-          Erro ao carregar a lixeira: {(query.error as Error).message}
+          {t('trashError', { error: (query.error as Error).message })}
         </HpsmMessage>
       )}
       {query.data && total === 0 && (
-        <HpsmMessage kind="info">
-          {q ? 'Nenhuma amostra na lixeira com essa busca.' : 'A lixeira está vazia.'}
-        </HpsmMessage>
+        <HpsmMessage kind="info">{q ? t('trashNoMatch') : t('trashEmpty')}</HpsmMessage>
       )}
 
       {query.data && total > 0 && (
         <>
           <TableContainer>
-            <Table size="xs" aria-label="Lixeira">
+            <Table size="xs" aria-label={t('trashAria')}>
               <TableHead>
                 <TableRow>
-                  <TableHeader scope="col">Amostra</TableHeader>
-                  <TableHeader scope="col">Tipo</TableHeader>
-                  <TableHeader scope="col">Veredito</TableHeader>
-                  <TableHeader scope="col">Enviada por</TableHeader>
-                  <TableHeader scope="col">Movida por</TableHeader>
-                  <TableHeader scope="col">Na lixeira desde</TableHeader>
-                  <TableHeader scope="col">Ações</TableHeader>
+                  <TableHeader scope="col">{t('sample')}</TableHeader>
+                  <TableHeader scope="col">{t('type')}</TableHeader>
+                  <TableHeader scope="col">{t('verdict')}</TableHeader>
+                  <TableHeader scope="col">{t('submittedBy')}</TableHeader>
+                  <TableHeader scope="col">{t('movedBy')}</TableHeader>
+                  <TableHeader scope="col">{t('trashedSince')}</TableHeader>
+                  <TableHeader scope="col">{t('actions')}</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -187,10 +186,10 @@ export function AdminTrashTab() {
                       <strong>{item.title}</strong>
                       <span className="dl-trash__meta">
                         {item.type === 'FILE'
-                          ? `${formatFileSize(item.fileSize)}${item.filePurgedAt ? ' · arquivo já expurgado' : ''}`
+                          ? `${formatFileSize(item.fileSize)}${item.filePurgedAt ? ` · ${t('alreadyPurged')}` : ''}`
                           : item.url}
                         {item._count.reports > 0 &&
-                          ` · ${item._count.reports} relatório${item._count.reports === 1 ? '' : 's'}`}
+                          ` · ${t(item._count.reports === 1 ? 'oneReport' : 'nReports', { n: item._count.reports })}`}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -210,7 +209,7 @@ export function AdminTrashTab() {
                           disabled={busy !== null}
                           onClick={() => void restore(item)}
                         >
-                          Restaurar
+                          {t('restore')}
                         </button>
                         <button
                           type="button"
@@ -218,7 +217,7 @@ export function AdminTrashTab() {
                           disabled={busy !== null}
                           onClick={() => void remove(item)}
                         >
-                          Excluir definitivamente…
+                          {t('deleteForeverEllipsis')}
                         </button>
                       </span>
                     </TableCell>
@@ -228,29 +227,27 @@ export function AdminTrashTab() {
             </Table>
           </TableContainer>
           <div className="dl-table-foot">
-            <span>
-              Exibindo registros {first} a {last} de {total}
-            </span>
-            <div className="hpsm-pager" role="group" aria-label="Paginação">
+            <span>{t('showing', { first, last, total })}</span>
+            <div className="hpsm-pager" role="group" aria-label={t('pagination')}>
               <button
                 type="button"
                 className="hpsm-pager__btn"
-                title="Página anterior"
-                aria-label="Página anterior"
+                title={t('prevPage')}
+                aria-label={t('prevPage')}
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
               >
-                ‹ Anterior
+                {t('prevShort')}
               </button>
               <button
                 type="button"
                 className="hpsm-pager__btn"
-                title="Próxima página"
-                aria-label="Próxima página"
+                title={t('nextPage')}
+                aria-label={t('nextPage')}
                 disabled={last >= total}
                 onClick={() => setOffset(offset + PAGE_SIZE)}
               >
-                Próxima ›
+                {t('nextShort')}
               </button>
             </div>
           </div>

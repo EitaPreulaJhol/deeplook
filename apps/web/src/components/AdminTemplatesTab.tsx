@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { ReportTemplate, Verdict } from '../api/types';
 import { intlLocale } from '../i18n';
+import { t } from '../i18n/admin';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
@@ -68,19 +69,19 @@ export function AdminTemplatesTab() {
   const check = useRequiredFields([
     {
       id: 'tpl-name',
-      label: 'Nome (2 a 80 caracteres)',
+      label: t('nameRange'),
       ok: form.name.trim().length >= 2,
       api: 'name',
       value: form.name,
     },
     {
       id: 'tpl-summary',
-      label: 'Resumo (mínimo de 3 caracteres)',
+      label: t('summaryMin'),
       ok: form.summary.trim().length >= 3,
       api: 'summary',
       value: form.summary,
     },
-    { id: 'tpl-findings', label: 'Achados', ok: true, api: 'findings', value: form.findings },
+    { id: 'tpl-findings', label: t('findings'), ok: true, api: 'findings', value: form.findings },
     { id: 'tpl-iocs', label: 'IOCs', ok: true, api: 'iocs', value: form.iocs },
   ]);
 
@@ -111,7 +112,7 @@ export function AdminTemplatesTab() {
         ? await api.patch<{ template: ReportTemplate }>(`/report-templates/${editing.id}`, form)
         : await api.post<{ template: ReportTemplate }>('/report-templates', form);
       await queryClient.invalidateQueries({ queryKey: ['report-templates'] });
-      setNotice({ ok: true, text: `Modelo "${res.template.name}" salvo.` });
+      setNotice({ ok: true, text: t('templateSaved', { name: res.template.name }) });
       allowNavigation();
       startNew();
     } catch (err) {
@@ -123,10 +124,10 @@ export function AdminTemplatesTab() {
 
   const remove = async (template: ReportTemplate) => {
     const ok = await confirm({
-      title: 'Excluir modelo',
-      message: `Excluir o modelo "${template.name}"? Relatórios já escritos não mudam.`,
-      confirmLabel: 'Excluir',
-      cancelLabel: 'Cancelar',
+      title: t('deleteTemplate'),
+      message: t('deleteTemplateConfirm', { name: template.name }),
+      confirmLabel: t('delete'),
+      cancelLabel: t('cancel'),
       danger: true,
     });
     if (!ok) return;
@@ -134,7 +135,7 @@ export function AdminTemplatesTab() {
       await api.del(`/report-templates/${template.id}`);
       await queryClient.invalidateQueries({ queryKey: ['report-templates'] });
       if (editing?.id === template.id) startNew();
-      setNotice({ ok: true, text: `Modelo "${template.name}" excluído.` });
+      setNotice({ ok: true, text: t('templateDeleted', { name: template.name }) });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
     }
@@ -151,44 +152,49 @@ export function AdminTemplatesTab() {
       )}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
 
-      <HpsmSection title={editing ? `Editar modelo: ${editing.name}` : 'Novo modelo'}>
-        <HpsmToolbar label="Ações do modelo">
+      <HpsmSection title={editing ? t('editTemplate', { name: editing.name }) : t('newTemplate')}>
+        <HpsmToolbar label={t('templateActions')}>
           <HpsmToolbarButton
-            label={saving ? 'Salvando...' : 'Salvar modelo'}
-            title="Salvar (Ctrl+S)"
+            label={saving ? t('saving') : t('saveTemplate')}
+            title={t('saveHint')}
             icon={IconAdd}
             disabled={saving}
             onClick={save}
           />
-          {editing && <HpsmToolbarButton label="Cancelar edição" onClick={startNew} />}
+          {editing && <HpsmToolbarButton label={t('cancelEdit')} onClick={startNew} />}
         </HpsmToolbar>
         <HpsmForm columns={2}>
-          <HpsmField label="Nome" htmlFor="tpl-name" required invalid={check.isInvalid('tpl-name')}>
+          <HpsmField
+            label={t('name')}
+            htmlFor="tpl-name"
+            required
+            invalid={check.isInvalid('tpl-name')}
+          >
             <TextInput
               id="tpl-name"
-              labelText="Nome"
+              labelText={t('name')}
               hideLabel
-              placeholder="Ex.: Phishing de credenciais"
+              placeholder={t('templatePlaceholder')}
               value={form.name}
               onChange={(e) => set('name')(e.target.value)}
             />
           </HpsmField>
-          <HpsmField label="Veredito sugerido" htmlFor="tpl-verdict">
+          <HpsmField label={t('suggestedVerdict')} htmlFor="tpl-verdict">
             <Select
               id="tpl-verdict"
-              labelText="Veredito sugerido"
+              labelText={t('suggestedVerdict')}
               hideLabel
               value={form.verdict}
               onChange={(e) => set('verdict')(e.target.value)}
             >
-              <SelectItem value="UNKNOWN" text="Desconhecido" />
-              <SelectItem value="CLEAN" text="Limpo" />
-              <SelectItem value="SUSPICIOUS" text="Suspeito" />
-              <SelectItem value="MALICIOUS" text="Malicioso" />
+              <SelectItem value="UNKNOWN" text={t('vUnknown')} />
+              <SelectItem value="CLEAN" text={t('vClean')} />
+              <SelectItem value="SUSPICIOUS" text={t('vSuspicious')} />
+              <SelectItem value="MALICIOUS" text={t('vMalicious')} />
             </Select>
           </HpsmField>
           <HpsmField
-            label="Resumo"
+            label={t('summary')}
             htmlFor="tpl-summary"
             required
             wide
@@ -197,7 +203,7 @@ export function AdminTemplatesTab() {
           >
             <TextArea
               id="tpl-summary"
-              labelText="Resumo"
+              labelText={t('summary')}
               hideLabel
               rows={3}
               value={form.summary}
@@ -205,7 +211,7 @@ export function AdminTemplatesTab() {
             />
           </HpsmField>
           <HpsmField
-            label="Achados"
+            label={t('findings')}
             htmlFor="tpl-findings"
             wide
             top
@@ -213,7 +219,7 @@ export function AdminTemplatesTab() {
           >
             <TextArea
               id="tpl-findings"
-              labelText="Achados"
+              labelText={t('findings')}
               hideLabel
               rows={4}
               value={form.findings}
@@ -226,7 +232,7 @@ export function AdminTemplatesTab() {
             wide
             top
             invalid={check.isInvalid('tpl-iocs')}
-            help="Opcional: indicadores comuns a este tipo de caso."
+            help={t('iocsHelp')}
           >
             <TextArea
               id="tpl-iocs"
@@ -240,19 +246,19 @@ export function AdminTemplatesTab() {
         </HpsmForm>
       </HpsmSection>
 
-      {query.isLoading && <HpsmLoading text="Carregando modelos..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingTemplates')} />}
       {query.data && templates.length === 0 && (
-        <HpsmMessage kind="info">Nenhum modelo de relatório cadastrado.</HpsmMessage>
+        <HpsmMessage kind="info">{t('noTemplates')}</HpsmMessage>
       )}
       {templates.length > 0 && (
         <TableContainer className="dl-mt-lg">
-          <Table size="xs" aria-label="Modelos de relatório">
+          <Table size="xs" aria-label={t('templatesAria')}>
             <TableHead>
               <TableRow>
-                <TableHeader scope="col">Nome</TableHeader>
-                <TableHeader scope="col">Veredito sugerido</TableHeader>
-                <TableHeader scope="col">Atualizado em</TableHeader>
-                <TableHeader scope="col">Ações</TableHeader>
+                <TableHeader scope="col">{t('name')}</TableHeader>
+                <TableHeader scope="col">{t('suggestedVerdict')}</TableHeader>
+                <TableHeader scope="col">{t('updatedAt')}</TableHeader>
+                <TableHeader scope="col">{t('actions')}</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -268,15 +274,15 @@ export function AdminTemplatesTab() {
                   <TableCell>{fmtDate(template.updatedAt)}</TableCell>
                   <TableCell>
                     <Button size="sm" kind="tertiary" onClick={() => startEdit(template)}>
-                      Editar
+                      {t('edit')}
                     </Button>{' '}
                     <Button
                       size="sm"
                       kind="danger--tertiary"
-                      aria-label={`Excluir o modelo ${template.name}`}
+                      aria-label={t('deleteTemplateNamed', { name: template.name })}
                       onClick={() => void remove(template)}
                     >
-                      Excluir
+                      {t('delete')}
                     </Button>
                   </TableCell>
                 </TableRow>

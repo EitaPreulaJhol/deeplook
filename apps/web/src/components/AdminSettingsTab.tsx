@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { YaraPack } from '../api/types';
+import { t } from '../i18n/admin';
 import { AdminYaraUpdates } from './AdminYaraUpdates';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmForm, HpsmSection } from './HpsmForm';
@@ -30,12 +31,10 @@ export function AdminSettingsTab() {
 
   const change = async (next: boolean) => {
     const ok = await confirm({
-      title: next ? 'Restringir as amostras' : 'Abrir as amostras',
-      message: next
-        ? 'Usuários comuns passarão a ver e exportar só as amostras que eles mesmos enviaram, inclusive pela API. Analistas e administradores continuam vendo tudo.'
-        : 'Usuários comuns voltarão a ver e exportar as amostras de todos.',
-      confirmLabel: next ? 'Restringir' : 'Abrir',
-      cancelLabel: 'Cancelar',
+      title: next ? t('restrictSamples') : t('openSamples'),
+      message: next ? t('restrictHelp') : t('openHelp'),
+      confirmLabel: next ? t('restrict') : t('open'),
+      cancelLabel: t('cancel'),
     });
     if (!ok) return;
     setBusy(true);
@@ -46,9 +45,7 @@ export function AdminSettingsTab() {
       await queryClient.invalidateQueries({ queryKey: ['me', 'sample-access'] });
       setNotice({
         ok: true,
-        text: next
-          ? 'Usuários comuns agora veem só as próprias amostras.'
-          : 'Usuários comuns voltaram a ver as amostras de todos.',
+        text: next ? t('restricted') : t('opened'),
       });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
@@ -59,12 +56,12 @@ export function AdminSettingsTab() {
 
   const changePack = async (pack: YaraPack, next: boolean) => {
     const ok = await confirm({
-      title: next ? `Ligar o pacote ${pack.name}` : `Desligar o pacote ${pack.name}`,
+      title: t(next ? 'packOnTitle' : 'packOffTitle', { name: pack.name }),
       message: next
-        ? `As ${pack.fileCount} regras do pacote passam a valer para os próximos arquivos, e a varredura fica mais lenta. O resultado mostra o autor de cada regra (licença ${pack.license}).`
-        : 'As regras saem da varredura dos próximos arquivos, mas ficam guardadas, com o que já foi desativado. Resultados antigos não mudam.',
-      confirmLabel: next ? 'Ligar' : 'Desligar',
-      cancelLabel: 'Cancelar',
+        ? t('packOnHelp', { n: pack.fileCount, license: pack.license })
+        : t('packOffHelp'),
+      confirmLabel: next ? t('switchOn') : t('switchOff'),
+      cancelLabel: t('cancel'),
     });
     if (!ok) return;
     setBusy(true);
@@ -76,7 +73,7 @@ export function AdminSettingsTab() {
       queryClient.setQueryData(['yara-packs'], saved);
       setNotice({
         ok: true,
-        text: `Pacote ${pack.name} ${next ? 'ligado' : 'desligado'}. Vale para os próximos arquivos.`,
+        text: t(next ? 'packOn' : 'packOff', { name: pack.name }),
       });
     } catch (err) {
       setNotice({ ok: false, text: (err as Error).message });
@@ -92,17 +89,19 @@ export function AdminSettingsTab() {
           {notice.text}
         </HpsmMessage>
       )}
-      {query.isLoading && <HpsmLoading text="Carregando as configurações..." />}
+      {query.isLoading && <HpsmLoading text={t('loadingSettings')} />}
       {query.isError && (
-        <HpsmMessage kind="error">Erro ao carregar: {(query.error as Error).message}</HpsmMessage>
+        <HpsmMessage kind="error">
+          {t('loadErr', { error: (query.error as Error).message })}
+        </HpsmMessage>
       )}
       {query.data && (
-        <HpsmSection title="Acesso às amostras" className="dl-form-col">
+        <HpsmSection title={t('sampleAccess')} className="dl-form-col">
           <HpsmForm>
             <Checkbox
               id="setting-own-samples"
-              labelText="Usuários comuns veem só as amostras que eles mesmos enviaram"
-              helperText="Vale para listas, CSV, busca, indicadores, avisos e API. Analistas e administradores continuam vendo tudo. A mudança vale na hora e vai para a Auditoria."
+              labelText={t('ownOnly')}
+              helperText={t('ownOnlyHelp')}
               checked={query.data.ownSamplesOnly}
               disabled={busy}
               onChange={(_, { checked }) => void change(checked)}
@@ -111,22 +110,26 @@ export function AdminSettingsTab() {
         </HpsmSection>
       )}
       {packsQuery.data && (
-        <HpsmSection title="Pacotes de regras YARA" className="dl-form-col dl-mt-lg">
+        <HpsmSection title={t('yaraPacks')} className="dl-form-col dl-mt-lg">
           <HpsmForm>
             {packsQuery.data.packs.map((pack) => (
               <div key={pack.id}>
                 <Checkbox
                   id={`yara-pack-${pack.id}`}
-                  labelText={`${pack.name} (${pack.fileCount} conjuntos)`}
+                  labelText={t('packSets', { name: pack.name, n: pack.fileCount })}
                   helperText={pack.description}
                   checked={pack.enabled}
                   disabled={busy}
                   onChange={(_, { checked }) => void changePack(pack, checked)}
                 />
                 <p className="hpsm-field__help">
-                  Autor: {pack.author} · Licença {pack.license} · Versão de {pack.commitDate} ·{' '}
+                  {t('packMeta', {
+                    author: pack.author,
+                    license: pack.license,
+                    date: pack.commitDate,
+                  })}{' '}
                   <a className="dl-link" href={pack.url} target="_blank" rel="noreferrer">
-                    Fonte
+                    {t('source')}
                   </a>
                 </p>
               </div>
