@@ -7,6 +7,7 @@ import { CopyButton } from '../components/CopyButton';
 import { HpsmSection } from '../components/HpsmForm';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
+import { getLocale } from '../i18n';
 import { t } from '../i18n/misc';
 
 type Schema = {
@@ -157,7 +158,11 @@ export function ApiDocsPage() {
           </li>
         </ol>
         <p>
-          <a className="dl-link" href="/api/openapi.json" download="deeplook-openapi.json">
+          <a
+            className="dl-link"
+            href={`/api/openapi.json?lang=${getLocale()}`}
+            download="deeplook-openapi.json"
+          >
             {t('downloadSpec')}
           </a>{' '}
           {t('specHint')}

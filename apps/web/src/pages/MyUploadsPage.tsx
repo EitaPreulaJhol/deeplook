@@ -12,7 +12,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { statusLabel, verdictLabel } from '../components/tags';
 import { useEntryListState } from '../components/useEntryListState';
-import { intlLocale } from '../i18n';
+import { getLocale, intlLocale } from '../i18n';
 import { t } from '../i18n/entry';
 
 export function MyUploadsPage() {
@@ -63,7 +63,7 @@ export function MyUploadsPage() {
   const exportParams = new URLSearchParams(params);
   exportParams.delete('offset');
   exportParams.delete('limit');
-  const exportHref = `/api/entries/export.csv?${exportParams.toString()}`;
+  const exportHref = `/api/entries/export.csv?${exportParams.toString()}&lang=${getLocale()}`;
 
   const viewName = suggestViewName(t('myUploads'), [
     t('myUploads'),

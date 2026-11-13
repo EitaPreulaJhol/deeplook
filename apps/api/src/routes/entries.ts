@@ -16,7 +16,7 @@ import {
   requireUser,
   visibleEntries,
 } from '../lib/auth';
-import { toCsv } from '../lib/csv';
+import { csvSeparator, toCsv } from '../lib/csv';
 import { localizeStaticInfo } from '../lib/data-language';
 import { extractDiskFile } from '../lib/disk-image';
 import { createFileEntry, createUrlEntry } from '../lib/entry-create';
@@ -414,13 +414,59 @@ const BulkSchema = z.object({
 /** Limite de linhas da exportacao CSV. */
 const EXPORT_MAX_ROWS = 10_000;
 
-const PRIORITY_LABELS = { P1: 'P1 Crítica', P2: 'P2 Alta', P3: 'P3 Média', P4: 'P4 Baixa' };
-const STATUS_LABELS = { PENDING: 'Pendente', IN_REVIEW: 'Em análise', COMPLETED: 'Concluído' };
+// Rotulos do CSV, em portugues e em ingles (plano pos-revisao, item 1.4): o link manda ?lang=.
+const PRIORITY_LABELS = {
+  P1: ['P1 Crítica', 'P1 Critical'],
+  P2: ['P2 Alta', 'P2 High'],
+  P3: ['P3 Média', 'P3 Medium'],
+  P4: ['P4 Baixa', 'P4 Low'],
+} as const;
+const STATUS_LABELS = {
+  PENDING: ['Pendente', 'Pending'],
+  IN_REVIEW: ['Em análise', 'In analysis'],
+  COMPLETED: ['Concluído', 'Completed'],
+} as const;
 const VERDICT_LABELS = {
-  UNKNOWN: 'Desconhecido',
-  CLEAN: 'Limpo',
-  SUSPICIOUS: 'Suspeito',
-  MALICIOUS: 'Malicioso',
+  UNKNOWN: ['Desconhecido', 'Unknown'],
+  CLEAN: ['Limpo', 'Clean'],
+  SUSPICIOUS: ['Suspeito', 'Suspicious'],
+  MALICIOUS: ['Malicioso', 'Malicious'],
+} as const;
+const CSV_HEADER = {
+  pt: [
+    'ID',
+    'Amostra',
+    'Tipo',
+    'Enviado por',
+    'Responsável',
+    'Prioridade',
+    'Status',
+    'Veredito',
+    'Resolução',
+    'Relatórios',
+    'SHA-256',
+    'URL',
+    'Tags',
+    'Enviado em',
+    'No status desde',
+  ],
+  en: [
+    'ID',
+    'Sample',
+    'Type',
+    'Submitted by',
+    'Assignee',
+    'Priority',
+    'Status',
+    'Verdict',
+    'Resolution',
+    'Reports',
+    'SHA-256',
+    'URL',
+    'Tags',
+    'Submitted at',
+    'In status since',
+  ],
 };
 
 /**
@@ -716,33 +762,20 @@ export async function entryRoutes(app: FastifyInstance) {
       },
     });
 
+    const lang = requestLang(req);
+    const en = lang === 'en';
+    const pick = (pair: readonly [string, string]) => pair[en ? 1 : 0];
     const csv = toCsv(
-      [
-        'ID',
-        'Amostra',
-        'Tipo',
-        'Enviado por',
-        'Responsável',
-        'Prioridade',
-        'Status',
-        'Veredito',
-        'Resolução',
-        'Relatórios',
-        'SHA-256',
-        'URL',
-        'Tags',
-        'Enviado em',
-        'No status desde',
-      ],
+      en ? CSV_HEADER.en : CSV_HEADER.pt,
       items.map((e) => [
         e.id,
         e.title,
-        e.type === 'FILE' ? 'Arquivo' : 'Link',
+        e.type === 'FILE' ? (en ? 'File' : 'Arquivo') : 'Link',
         e.owner.displayName,
         e.assignee?.displayName ?? '',
-        PRIORITY_LABELS[e.priority],
-        STATUS_LABELS[e.status],
-        VERDICT_LABELS[e.verdict],
+        pick(PRIORITY_LABELS[e.priority]),
+        pick(STATUS_LABELS[e.status]),
+        pick(VERDICT_LABELS[e.verdict]),
         e.resolution,
         e._count.reports,
         e.sha256,
@@ -751,6 +784,7 @@ export async function entryRoutes(app: FastifyInstance) {
         e.createdAt,
         e.statusChangedAt,
       ]),
+      csvSeparator(lang),
     );
 
     const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');

@@ -6,6 +6,8 @@ import { ALLOW_KINDS, allowedBy, invalidateAllowlist, loadAllowlist } from '../l
 import { audit } from '../lib/audit';
 import type { PublicUser } from '../lib/auth';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { localizeData } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import type { ImportTarget } from '../lib/ioc-import';
 import { IMPORT_MAX_ITEMS, ImportError, parseImport, validateImported } from '../lib/ioc-import';
 import { rememberUrls } from '../lib/iocs';
@@ -106,7 +108,8 @@ export async function iocImportRoutes(app: FastifyInstance) {
     return reply.send({
       format: data.format,
       items,
-      invalid: data.invalid,
+      // Por que cada linha ficou de fora, no idioma de quem pede (plano pos-revisao, item 1.4).
+      invalid: localizeData(data.invalid, requestLang(req)),
       repeated: data.repeated,
       counts,
       room,

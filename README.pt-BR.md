@@ -1248,8 +1248,11 @@ navegador em inglês. Datas e números seguem o idioma (`13/11/2026` ou `11/13/2
 - **Histórico, notificações e auditoria:** o detalhe que o sistema escreve sai no idioma de quem
   pede; o CSV da auditoria segue o idioma da interface (o link manda `?lang=`, que a API aceita em
   qualquer rota).
-- **Continua em português:** a especificação OpenAPI e o que as pessoas escrevem (comentários,
-  resoluções, títulos).
+- **CSVs e especificação:** os CSVs (lista de amostras, auditoria, relatório gerencial,
+  indicadores) seguem o idioma da interface, inclusive o separador (`;` em português, `,` em
+  inglês para o Excel), e a especificação OpenAPI sai no idioma de quem pede.
+- **Continua em português:** o que as pessoas escrevem (comentários, resoluções, títulos) e as
+  exportações STIX e MISP.
 - `node scripts/check-i18n.mjs` conta o texto em português que ainda está solto no código e reprova
   `t()` no topo do módulo ou dentro de `useMemo` sem `locale` nas dependências (o texto não
   acompanharia a troca de idioma). Tabelas de rótulos no topo do módulo usam `localized()`.

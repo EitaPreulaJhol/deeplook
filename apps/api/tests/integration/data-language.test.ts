@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import { buildApp } from '../../src/app';
+import { env } from '../../src/env';
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 
@@ -187,6 +188,49 @@ async function main() {
     'CSV em português: como antes',
     csvPt.includes('Data') && csvPt.includes('agendado · sem as amostras · com senha'),
     csvPt.slice(0, 400),
+  );
+
+  // 5. Reputacao, especificacao e CSVs (parte 4). O MalwareBazaar so aparece com a chave.
+  env.ABUSECH_AUTH_KEY = 'chave-de-teste';
+  await prisma.reputationResult.create({
+    data: {
+      entryId: entry.id,
+      service: 'malwarebazaar',
+      kind: 'HASH',
+      indicator: entry.sha256 ?? '',
+      status: 'FOUND',
+      verdict: 'MALICIOUS',
+      summary: 'malware conhecido · exe · visto em 2026-11-01',
+    },
+  });
+  const rep = (await get(`/api/entries/${entry.id}/reputation`, 'en')).json<{
+    results: { summary: string }[];
+  }>().results;
+  ok(
+    'reputação em inglês, trecho a trecho',
+    rep[0]?.summary === 'known malware · exe · seen on 2026-11-01',
+    rep,
+  );
+  const spec = (await get('/api/openapi.json?lang=en')).json<{
+    paths: Record<string, Record<string, { summary?: string }>>;
+  }>();
+  ok(
+    'especificação em inglês (?lang=)',
+    spec.paths['/api/entries/file']?.post?.summary === 'Submit a file',
+    spec.paths['/api/entries/file'],
+  );
+  const list = (await get('/api/entries/export.csv?lang=en')).body;
+  ok(
+    'CSV das amostras em inglês',
+    list.includes('ID,Sample,Type,Submitted by') && list.includes(',File,'),
+    list.slice(0, 200),
+  );
+  const day = new Date().toISOString().slice(0, 10);
+  const report = (await get(`/api/management?from=${day}&to=${day}&format=csv&lang=en`)).body;
+  ok(
+    'CSV gerencial em inglês',
+    report.includes('Section,Item,Count') && report.includes('Samples,Received'),
+    report.slice(0, 300),
   );
 
   await app.close();

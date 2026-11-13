@@ -1235,8 +1235,11 @@ the language (`13/11/2026` or `11/13/2026`).
 - **History, notifications and audit:** the detail the system writes comes out in the requester's
   language; the audit CSV follows the interface language (the link sends `?lang=`, which the API
   accepts on any route).
-- **Still in Portuguese:** the OpenAPI specification and what people write (comments, resolutions,
-  titles).
+- **CSVs and specification:** the CSVs (sample list, audit, management report, indicators) follow
+  the interface language, including the separator (`;` in Portuguese, `,` in English for Excel),
+  and the OpenAPI specification comes out in the requester's language.
+- **Still in Portuguese:** what people write (comments, resolutions, titles) and the STIX and MISP
+  exports.
 - `node scripts/check-i18n.mjs` counts the Portuguese text still loose in the code and rejects `t()` at
   module top level or inside `useMemo` without `locale` in the dependencies (the text would not follow
   a language change). Label tables at module top level use `localized()`.

@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 
 import { isAnalyst, requireUser } from '../lib/auth';
+import { localizeData, localizeText } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { prisma } from '../lib/prisma';
 import {
   checkReputation,
@@ -49,13 +51,16 @@ export async function reputationRoutes(app: FastifyInstance) {
     const pending =
       rows.some((r) => r.status === 'PENDING') ||
       expected.some((s) => !rows.some((r) => r.service === s));
+    // Nomes e resumos no idioma de quem pede (plano pos-revisao, item 1.4).
+    const lang = requestLang(req);
     return reply.send({
-      services: services.map((s) => ({ id: s, name: SERVICE_NAMES[s] })),
+      services: services.map((s) => ({ id: s, name: localizeText(SERVICE_NAMES[s], lang) })),
       indicator,
       pending,
       results: rows.map((r) => ({
         ...r,
-        name: SERVICE_NAMES[r.service as ServiceId] ?? r.service,
+        summary: localizeData({ summary: r.summary }, lang).summary,
+        name: localizeText(SERVICE_NAMES[r.service as ServiceId] ?? r.service, lang),
       })),
     });
   });

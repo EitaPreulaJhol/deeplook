@@ -31,6 +31,11 @@ test('csv: aspas, ponto e vírgula e quebra de linha ficam entre aspas', () => {
   assert.equal(csv, `${BOM}v\r\n"a;b"\r\n"diz ""oi"""\r\n"duas\nlinhas"\r\n`);
 });
 
+test('csv em inglês (plano pós-revisão, item 1.4): vírgula como separador, vírgula entre aspas', () => {
+  assert.equal(toCsv(['a', 'b'], [['x, y', 'z;w']], ','), `${BOM}a,b\r\n"x, y",z;w\r\n`);
+  assert.equal(toCsv(['v'], [['x, y']]), `${BOM}v\r\nx, y\r\n`, 'em português, a vírgula não muda');
+});
+
 test('csv: célula que começaria fórmula ganha apóstrofo', () => {
   for (const start of ['=', '+', '-', '@', '\t', '\r']) {
     const [, line] = toCsv(['v'], [[`${start}cmd|' /C calc'!A0`]]).split('\r\n');

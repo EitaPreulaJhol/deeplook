@@ -364,6 +364,54 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'builds text one character at a time (obfuscation)',
   ],
 
+  // ---- Reputacao externa (reputation.ts): nome dos servicos e resumo do resultado ----
+  ['Registro (RDAP)', 'Registration (RDAP)'],
+  ['Certificados (crt.sh)', 'Certificates (crt.sh)'],
+  ['DNS passivo (VirusTotal)', 'Passive DNS (VirusTotal)'],
+  ['não encontrado na base', 'not found in the database'],
+  ['malware conhecido', 'known malware'],
+  ['consultando...', 'checking...'],
+  ['resposta inválida', 'invalid answer'],
+  ['chave recusada pelo serviço', 'key refused by the service'],
+  ['limite de consultas do serviço atingido', 'service query limit reached'],
+  ['o serviço não respondeu a tempo', 'the service did not answer in time'],
+  ['{0}/{1} motores detectaram{2}', '{0}/{1} engines detected{2}'],
+  ['visto em {0}', 'seen on {0}'],
+  [
+    '{0} URL(s) de malware conhecida(s) neste host · {1} online',
+    '{0} known malware URL(s) on this host · {1} online',
+  ],
+  ['confiança de abuso {0}%', 'abuse confidence {0}%'],
+  ['confiança {0}%', 'confidence {0}%'],
+  ['{0} denúncia(s) em 90 dias', '{0} report(s) in 90 days'],
+  ['falha na consulta{0}', 'lookup failed{0}'],
+
+  // ---- Atualizacao dos pacotes YARA (yara-update.ts): motivos de ter ficado retida ----
+  ['o pacote tem arquivos demais', 'the pack has too many files'],
+  [
+    'A licença da fonte mudou: é preciso ler antes de aceitar.',
+    'The source license changed: it must be read before accepting.',
+  ],
+  [
+    'Mudança grande: {0} de {1} conjuntos alterados ou removidos.',
+    'Large change: {0} of {1} rule sets changed or removed.',
+  ],
+  ['Regra nova dispara em amostra Limpa: {0}.', 'New rule fires on a Clean sample: {0}.'],
+  ['Compilação mais lenta: de {0} ms para {1} ms.', 'Slower compilation: from {0} ms to {1} ms.'],
+  ['{0}: atualização retida para aprovação', '{0}: update held for approval'],
+
+  // ---- Importacao de indicadores (ioc-import.ts): por que uma linha ficou de fora ----
+  ['URL inválida (só http e https)', 'Invalid URL (http and https only)'],
+  ['faixa de IPs só vale na lista de permissões', 'IP ranges are only valid on the allowlist'],
+  ['IP privado não aparece nos relatórios', 'A private IP does not show up in reports'],
+  ['não é um indicador reconhecido', 'not a recognized indicator'],
+  ['pattern sem indicador suportado', 'pattern without a supported indicator'],
+  ['domínio', 'domain'],
+  ['não é um {0} válido', 'not a valid {0}'],
+  ['linha {0}', 'line {0}'],
+  ['linha acima de {0} caracteres', 'line over {0} characters'],
+  ['pattern {0} não é lido', 'pattern {0} is not read'],
+
   // Por ultimo: casaria com "empacotado com {0} (Detect It Easy): ..." (unpack) se viesse antes.
   ['empacotado com {0}', 'packed with {0}'],
 ];

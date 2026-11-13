@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { audit } from '../lib/audit';
 import { requireAdmin, requireUser, visibleEntries } from '../lib/auth';
+import { localizeData } from '../lib/data-language';
+import { requestLang } from '../lib/error-language';
 import { prisma } from '../lib/prisma';
 import { ownSamplesOnly, setOwnSamplesOnly } from '../lib/settings';
 import { sendValidationError } from '../lib/validation';
@@ -48,7 +50,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.get('/api/admin/yara-packs/updates', async (req, reply) => {
     const user = await requireAdmin(req, reply);
     if (!user) return;
-    return reply.send(await yaraUpdateStatus());
+    return reply.send(localizeData(await yaraUpdateStatus(), requestLang(req)));
   });
 
   app.patch('/api/admin/yara-packs/updates', async (req, reply) => {
@@ -63,7 +65,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       targetLabel: 'Atualização automática dos pacotes YARA',
       detail: parsed.data.autoUpdate ? 'ligada' : 'desligada',
     });
-    return reply.send(await yaraUpdateStatus());
+    return reply.send(localizeData(await yaraUpdateStatus(), requestLang(req)));
   });
 
   app.post('/api/admin/yara-packs/:id/check', async (req, reply) => {
@@ -79,7 +81,13 @@ export async function settingsRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'Pacote não encontrado.' });
     }
     try {
-      return reply.send(await checkYaraPack(id, { apply: parsed.data.apply, actorId: user.id }));
+      // Motivos de retencao no idioma de quem pede (plano pos-revisao, item 1.4).
+      return reply.send(
+        localizeData(
+          await checkYaraPack(id, { apply: parsed.data.apply, actorId: user.id }),
+          requestLang(req),
+        ),
+      );
     } catch (err) {
       return reply
         .code(502)
@@ -100,7 +108,7 @@ export async function settingsRoutes(app: FastifyInstance) {
         if (!done) {
           return reply.code(409).send({ error: 'Esta atualização não permite mais essa ação.' });
         }
-        return reply.send(await yaraUpdateStatus());
+        return reply.send(localizeData(await yaraUpdateStatus(), requestLang(req)));
       } catch (err) {
         return reply
           .code(502)

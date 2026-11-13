@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { DATA_EN } from '../../src/lib/data-en';
+import { HISTORY_EN } from '../../src/lib/history-en';
 import { localizeAlerts, localizeStaticInfo, localizeText } from '../../src/lib/data-language';
 import { MESSAGES_EN } from '../../src/lib/messages-en';
 import { scanTexts } from './source-texts';
@@ -29,10 +30,15 @@ const FILES = [
   'ghidra',
   'script-analysis',
   'file-type',
+  'reputation',
+  'yara-update',
+  'ioc-import',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
 const SAME = new Set([
+  'HTTP {0}',
+  '{0} (commit {1})',
   // Extensao .com (o detector a toma pela preposicao).
   'com',
   'ARM Thumb-2',
@@ -64,13 +70,20 @@ const SAME = new Set([
 const USER_TEXT = new Set(['{0} (desempacotado)', 'Extraído de "{0}" pelo desempacotador {1}{2}.']);
 
 const phrase = (text: string) =>
-  /^[A-Za-zÀ-ú0-9{(][^\\^$|[\]]*$/.test(text) && (/\s/.test(text) || /[à-ú]/i.test(text));
+  /^[A-Za-zÀ-ú0-9{(][^\\^$|[\]]*$/.test(text) &&
+  (/\s/.test(text) || /[à-ú]/i.test(text) || /\.\.\.$/.test(text));
 const found = FILES.flatMap((file) =>
-  scanTexts(join(ROOT, file), (_node, item) => item.portuguese || phrase(item.text), {
-    nested: true,
-  }).map((f) => ({ ...f, file })),
+  scanTexts(
+    join(ROOT, file),
+    // URLs ficam de fora (o ".com" engana o detector de portugues).
+    (_node, item) => !/^https?:/.test(item.text) && (item.portuguese || phrase(item.text)),
+    {
+      nested: true,
+    },
+  ).map((f) => ({ ...f, file })),
 );
-const known = new Set([...DATA_EN, ...MESSAGES_EN].map(([pt]) => pt));
+// O historico (eventos da atualizacao do YARA) tem o dicionario dele, que o tradutor tambem usa.
+const known = new Set([...DATA_EN, ...HISTORY_EN, ...MESSAGES_EN].map(([pt]) => pt));
 
 test('todo texto das análises tem tradução em data-en.ts', () => {
   const missing = found.filter(

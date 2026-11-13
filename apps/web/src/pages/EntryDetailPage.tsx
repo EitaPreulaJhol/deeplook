@@ -72,7 +72,7 @@ import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../comp
 import { UnpackSection } from '../components/UnpackSection';
 import { useWorkspaceTitle } from '../components/workspace';
 import { useYara, YaraSection } from '../components/YaraSection';
-import { intlLocale } from '../i18n';
+import { getLocale, intlLocale } from '../i18n';
 import { t as tr } from '../i18n/entry';
 
 function fmtDate(iso?: string | null): string {
@@ -475,7 +475,10 @@ export function EntryDetailPage() {
               label: tr('exportIocs', { name }),
               icon: IconDownload,
               separated: i === 0,
-              action: () => downloadUrl(`/api/entries/${entry.id}/iocs/export?format=${format}`),
+              action: () =>
+                downloadUrl(
+                  `/api/entries/${entry.id}/iocs/export?format=${format}&lang=${getLocale()}`,
+                ),
             })),
             // Acao destrutiva por ultimo, separada das demais.
             ...(isAdmin

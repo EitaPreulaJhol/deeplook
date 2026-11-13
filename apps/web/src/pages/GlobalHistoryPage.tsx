@@ -16,7 +16,7 @@ import { PageHeader } from '../components/PageHeader';
 import { priorityLabel, statusLabel, verdictLabel } from '../components/tags';
 import { useEntryListState } from '../components/useEntryListState';
 import { useTakeNext } from '../components/useTakeNext';
-import { intlLocale } from '../i18n';
+import { getLocale, intlLocale } from '../i18n';
 import { t } from '../i18n/entry';
 
 export function GlobalHistoryPage() {
@@ -75,7 +75,7 @@ export function GlobalHistoryPage() {
   const exportParams = new URLSearchParams(params);
   exportParams.delete('offset');
   exportParams.delete('limit');
-  const exportHref = `/api/entries/export.csv?${exportParams.toString()}`;
+  const exportHref = `/api/entries/export.csv?${exportParams.toString()}&lang=${getLocale()}`;
 
   const viewName = suggestViewName(t('history'), [
     status && statusLabel(status as EntryStatus),

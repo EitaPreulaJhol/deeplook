@@ -102,7 +102,7 @@ await page.screenshot({ path: `${OUT}/api-docs.png`, fullPage: true });
 
 // 4. Baixar a especificacao; nada chama a API pela pessoa.
 const dl = page.locator('a:has-text("Baixar a especificação")');
-expect('baixar a especificação', (await dl.getAttribute('href')) === '/api/openapi.json' && (await dl.getAttribute('download')) === 'deeplook-openapi.json');
+expect('baixar a especificação', (await dl.getAttribute('href')) === '/api/openapi.json?lang=pt-BR' && (await dl.getAttribute('download')) === 'deeplook-openapi.json');
 expect('sem "experimentar"', (await page.locator('.dl-apidoc__route button').count()) === 0 && sideEffects.length === 0, sideEffects.join(', '));
 
 // 5. Sem acesso liberado.

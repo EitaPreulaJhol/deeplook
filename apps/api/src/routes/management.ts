@@ -4,7 +4,9 @@ import { z } from 'zod';
 import type { Priority, Verdict } from '../generated/prisma/client';
 import { findTechnique } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
-import { toCsv } from '../lib/csv';
+import { csvSeparator, toCsv } from '../lib/csv';
+import { csvText } from '../lib/csv-en';
+import { requestLang } from '../lib/error-language';
 import { prisma } from '../lib/prisma';
 import { PRIORITIES } from '../lib/sla';
 import { sendValidationError } from '../lib/validation';
@@ -224,7 +226,9 @@ export async function managementRoutes(app: FastifyInstance) {
     };
     if (format === 'json') return reply.send(result);
 
-    // CSV (Excel em portugues): uma linha por indicador, agrupadas por secao.
+    // CSV: uma linha por indicador, agrupadas por secao, no idioma da interface (?lang=).
+    const lang = requestLang(req);
+    const tr = csvText(lang);
     const VERDICT: Record<Verdict, string> = {
       MALICIOUS: 'Malicioso',
       SUSPICIOUS: 'Suspeito',
@@ -295,8 +299,12 @@ export async function managementRoutes(app: FastifyInstance) {
             'Mediana (h)',
             'Relatórios',
             'Revisões',
-          ],
-          rows,
+          ].map(tr),
+          // Secao e item no idioma de quem baixa (plano pos-revisao, item 1.4).
+          rows.map((row) =>
+            row.map((cell, i) => (i < 2 && typeof cell === 'string' ? tr(cell) : cell)),
+          ),
+          csvSeparator(lang),
         ),
       );
   });

@@ -7,7 +7,7 @@ import { checkAuditChain } from '../lib/audit-check';
 import { AUDIT_LABELS } from '../lib/audit-labels';
 import { requireAdmin } from '../lib/auth';
 import { generateActivationCode, generateTemporaryPassword, hashPassword } from '../lib/crypto';
-import { toCsv } from '../lib/csv';
+import { csvSeparator, toCsv } from '../lib/csv';
 import { requestLang } from '../lib/error-language';
 import { localizeAudit } from '../lib/history-language';
 import { passwordState } from '../lib/password-policy';
@@ -174,6 +174,7 @@ export async function adminRoutes(app: FastifyInstance) {
         e.seq ?? '',
         e.hash ?? '',
       ]),
+      csvSeparator(lang),
     );
     const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     return reply

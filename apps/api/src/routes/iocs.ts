@@ -10,6 +10,9 @@ import {
   requireUser,
   visibleEntries,
 } from '../lib/auth';
+import { csvSeparator } from '../lib/csv';
+import { csvText } from '../lib/csv-en';
+import { requestLang } from '../lib/error-language';
 import type { CaseIoc, ExportIoc } from '../lib/ioc-export';
 import { iocsCsv, iocsMisp, iocsStix } from '../lib/ioc-export';
 import { urlKey } from '../lib/ioc-normalize';
@@ -422,7 +425,7 @@ export async function iocRoutes(app: FastifyInstance) {
         return reply
           .header('Content-Type', 'text/csv; charset=utf-8')
           .header('Content-Disposition', `attachment; filename="${base}.csv"`)
-          .send(iocsCsv(entry, items));
+          .send(iocsCsv(entry, items, csvText(requestLang(req)), csvSeparator(requestLang(req))));
       case 'stix':
         return reply
           .header('Content-Type', 'application/stix+json; charset=utf-8')

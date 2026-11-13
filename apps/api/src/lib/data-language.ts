@@ -8,7 +8,17 @@ import { MESSAGES_EN } from './messages-en';
  * messages-en.ts, porque o motivo de uma falha as vezes e uma mensagem de erro conhecida).
  * Sem `en`, tudo sai como foi gravado.
  */
-const toEnglish = createTranslator([...DATA_EN, ...MESSAGES_EN]);
+const whole = createTranslator([...DATA_EN, ...MESSAGES_EN]);
+
+/** A frase inteira; sem par, trecho a trecho quando ela foi montada com " · " (reputacao). */
+function toEnglish(text: string): string {
+  const full = whole(text);
+  if (full !== text || !text.includes(' · ')) return full;
+  return text
+    .split(' · ')
+    .map((part) => whole(part))
+    .join(' · ');
+}
 
 export function localizeText<T extends string | null | undefined>(text: T, lang: Lang): T {
   return (lang === 'en' && typeof text === 'string' ? toEnglish(text) : text) as T;
@@ -31,9 +41,13 @@ const TEXT_KEYS = new Map<string, string | null>([
   ['machine', null],
   ['subsystem', null],
   ['skipped', null],
+  ['lastError', null],
+  ['reason', null],
+  ['where', null],
+  ['summary', null],
 ]);
 /** Listas de textos para gente. */
-const LIST_KEYS = new Set(['alerts', 'suspicious', 'flags']);
+const LIST_KEYS = new Set(['alerts', 'suspicious', 'flags', 'reasons']);
 
 function walk(value: unknown, key: string | null, parent: string | null): unknown {
   if (typeof value === 'string') {
@@ -53,6 +67,9 @@ function walk(value: unknown, key: string | null, parent: string | null): unknow
   }
   return value;
 }
+
+/** O mesmo percurso, para outros dados das analises (reputacao, YARA, importacao). */
+export const localizeData = <T>(data: T, lang: Lang): T => localizeStaticInfo(data, lang);
 
 /**
  * A analise estatica (Entry.staticInfo) com os alertas, motivos e rotulos no idioma do pedido. So

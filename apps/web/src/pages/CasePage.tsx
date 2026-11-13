@@ -43,7 +43,7 @@ import { useSaveShortcut } from '../components/shortcuts';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { useUnsavedChanges } from '../components/useUnsavedChanges';
 import { useWorkspaceTitle } from '../components/workspace';
-import { intlLocale } from '../i18n';
+import { getLocale, intlLocale } from '../i18n';
 import { t as tr } from '../i18n/cases';
 
 function fmtDate(iso: string): string {
@@ -284,7 +284,8 @@ export function CasePage() {
               icon: IconDownload,
               separated: i === 0,
               disabled: iocs.length === 0,
-              action: () => downloadUrl(`/api/cases/${c.id}/iocs/export?format=${format}`),
+              action: () =>
+                downloadUrl(`/api/cases/${c.id}/iocs/export?format=${format}&lang=${getLocale()}`),
             })),
           ]}
         />

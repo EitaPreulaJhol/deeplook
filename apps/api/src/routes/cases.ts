@@ -4,7 +4,10 @@ import { z } from 'zod';
 import type { Prisma } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { CASE_IMPORT_MAX_URLS, casePackage, parseCaseBundle } from '../lib/case-stix';
+import { csvSeparator } from '../lib/csv';
+import { csvText } from '../lib/csv-en';
 import { createUrlEntry } from '../lib/entry-create';
+import { requestLang } from '../lib/error-language';
 import { recordEvent } from '../lib/events';
 import { caseIocsCsv, caseIocsMisp, caseIocsStix } from '../lib/ioc-export';
 import { ImportError } from '../lib/ioc-import';
@@ -507,7 +510,7 @@ export async function caseRoutes(app: FastifyInstance) {
         return reply
           .header('Content-Type', 'text/csv; charset=utf-8')
           .header('Content-Disposition', `attachment; filename="${base}.csv"`)
-          .send(caseIocsCsv(c, iocs));
+          .send(caseIocsCsv(c, iocs, csvText(requestLang(req)), csvSeparator(requestLang(req))));
       case 'stix':
         return reply
           .header('Content-Type', 'application/stix+json; charset=utf-8')

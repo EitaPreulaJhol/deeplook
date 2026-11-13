@@ -11,7 +11,7 @@ import type { ManagementData } from '../components/ManagementReport';
 import { ManagementReport, periodLabel } from '../components/ManagementReport';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
-import { localized } from '../i18n';
+import { getLocale, localized } from '../i18n';
 import { t } from '../i18n/mgmt';
 
 /** Data local AAAA-MM-DD. */
@@ -106,7 +106,7 @@ export function ManagementPage() {
           label={t('exportCsv')}
           icon={IconDownload}
           disabled={!query.data}
-          onClick={() => downloadUrl(`/api/management?${qs}&format=csv`)}
+          onClick={() => downloadUrl(`/api/management?${qs}&format=csv&lang=${getLocale()}`)}
         />
         <HpsmToolbarButton
           label={t('print')}

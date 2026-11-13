@@ -45,16 +45,23 @@ export function uuidV5(name: string, namespace = NAMESPACE): string {
 
 // ------------------------------------------------------------------ CSV
 
-export function iocsCsv(entry: ExportEntry, iocs: ExportIoc[]): string {
+/** `tr` traduz cabecalho e rotulos (csvText, no idioma de quem baixa). */
+export function iocsCsv(
+  entry: ExportEntry,
+  iocs: ExportIoc[],
+  tr: (text: string) => string = (text) => text,
+  separator: ';' | ',' = ';',
+): string {
   return toCsv(
-    ['Tipo', 'Valor', 'Origem', 'Amostra', 'ID da amostra'],
+    ['Tipo', 'Valor', 'Origem', 'Amostra', 'ID da amostra'].map(tr),
     iocs.map((ioc) => [
-      KIND_LABELS[ioc.kind],
+      tr(KIND_LABELS[ioc.kind]),
       ioc.value,
-      ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra',
+      tr(ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra'),
       entry.title,
       entry.id,
     ]),
+    separator,
   );
 }
 
@@ -200,17 +207,23 @@ export function worstVerdict(verdicts: Verdict[]): Verdict {
   return VERDICT_WEIGHT.find((v) => verdicts.includes(v)) ?? 'UNKNOWN';
 }
 
-export function caseIocsCsv(c: ExportCase, iocs: CaseIoc[]): string {
+export function caseIocsCsv(
+  c: ExportCase,
+  iocs: CaseIoc[],
+  tr: (text: string) => string = (text) => text,
+  separator: ';' | ',' = ';',
+): string {
   return toCsv(
-    ['Tipo', 'Valor', 'Origem', 'Amostras', 'IDs das amostras', 'Caso'],
+    ['Tipo', 'Valor', 'Origem', 'Amostras', 'IDs das amostras', 'Caso'].map(tr),
     iocs.map((ioc) => [
-      KIND_LABELS[ioc.kind],
+      tr(KIND_LABELS[ioc.kind]),
       ioc.value,
-      ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra',
+      tr(ioc.source === 'REPORT' ? 'Relatório publicado' : 'Própria amostra'),
       ioc.entries.map((e) => e.title).join(' | '),
       ioc.entries.map((e) => e.id).join(' | '),
       `${c.code} ${c.title}`,
     ]),
+    separator,
   );
 }
 
