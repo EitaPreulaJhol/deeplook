@@ -18,6 +18,7 @@ import { startOletoolsQueue } from './lib/oletools';
 import { failInterruptedCaptures } from './lib/page-capture';
 import { backfillPeAnalysis } from './lib/pe-backfill';
 import { prisma } from './lib/prisma';
+import { startQrQueue } from './lib/qr';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
@@ -124,6 +125,8 @@ async function main() {
   void startOletoolsQueue(app.log).catch((err) =>
     app.log.error({ err }, '[oletools] fila não subiu'),
   );
+  // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).
+  void startQrQueue(app.log).catch((err) => app.log.error({ err }, '[qr] fila não subiu'));
 
   // URL e IPv6 nos indicadores ja gravados (item 165), em segundo plano, uma vez.
   void reindexIocs(app.log);

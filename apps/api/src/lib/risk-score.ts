@@ -47,6 +47,8 @@ export type RiskInputs = {
   scriptRisk: string | null;
   documentRisk: string | null;
   pending: string[];
+  /** Enderecos de QR codes lidos na amostra (plano pos-revisao, item 2.2). */
+  qrUrls?: string[];
 };
 
 /** A partir destas notas a sugestao muda. */
@@ -159,6 +161,29 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   }
 
+  // QR code com link (plano pos-revisao, item 2.2): o link fica fora do texto, longe dos filtros.
+  const qrHosts = [
+    ...new Set(
+      (input.qrUrls ?? []).map((u) => {
+        try {
+          return new URL(u).hostname;
+        } catch {
+          return u;
+        }
+      }),
+    ),
+  ];
+  if (qrHosts.length) {
+    const n = input.qrUrls!.length;
+    add(
+      'QR code',
+      en
+        ? `${n} QR code(s) with a link: ${list(qrHosts, lang)}`
+        : `${n} QR code(s) com link: ${list(qrHosts, lang)}`,
+      15,
+    );
+  }
+
   if (facts.lookalikes.length) {
     add(
       tr('Domínio parecido', 'Lookalike domain'),
@@ -258,6 +283,10 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
   const loaded = await loadFacts(entryId);
   if (!loaded) return null;
   const { facts, entry } = loaded;
+  const qr = await prisma.qrScan.findUnique({ where: { entryId }, select: { codes: true } });
+  const qrUrls = ((qr?.codes ?? []) as { url?: string | null }[])
+    .map((c) => c.url)
+    .filter((u): u is string => Boolean(u));
   const reputation = await prisma.reputationResult.findMany({
     where: { entryId },
     select: { service: true, verdict: true, summary: true, status: true },
@@ -295,6 +324,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       scriptRisk: st.script?.risk ?? null,
       documentRisk: st.document?.risk ?? null,
       pending,
+      qrUrls,
     },
     lang,
   );

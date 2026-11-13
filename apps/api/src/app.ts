@@ -43,6 +43,7 @@ import { meRoutes } from './routes/me';
 import { notificationRoutes } from './routes/notifications';
 import { oletoolsRoutes } from './routes/oletools';
 import { openApiRoutes } from './routes/openapi';
+import { qrRoutes } from './routes/qr';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
@@ -113,6 +114,8 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   unpackRoutes,
   // Office e PDF mais fundo (item 7.14).
   oletoolsRoutes,
+  // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).
+  qrRoutes,
   // Relatorio gerencial (item 77).
   managementRoutes,
   // Importar indicadores (item 78).

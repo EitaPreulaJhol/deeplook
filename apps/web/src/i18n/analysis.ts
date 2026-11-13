@@ -767,6 +767,37 @@ export const messages = {
   hiddenIocsMap: ['+{n} indicador(es)', '+{n} indicator(s)'],
   stepSuggestion: ['Sugestão: {step}', 'Suggestion: {step}'],
   analyzing: ['Analisando...', 'Analyzing...'],
+  // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).
+  qrTitle: ['QR codes', 'QR codes'],
+  qrHelp: [
+    'Lidos na imagem, nas primeiras páginas do PDF ou no print da página capturada. Phishing por QR code (inclusive boleto) esconde o link fora do texto.',
+    'Read from the image, the first pages of the PDF or the captured page screenshot. QR code phishing (boleto included) hides the link outside the text.',
+  ],
+  qrOff: [
+    'Leitura de QR code desligada (OLETOOLS_URL / OLETOOLS_TOKEN).',
+    'QR code reading is off (OLETOOLS_URL / OLETOOLS_TOKEN).',
+  ],
+  qrNotYet: ['Ainda não lido.', 'Not read yet.'],
+  qrCaptureFirst: [
+    'O print da página é lido quando a captura terminar.',
+    'The page screenshot is read when the capture finishes.',
+  ],
+  qrReading: ['lendo…', 'reading…'],
+  qrFound: ['{n} código(s) encontrado(s)', '{n} code(s) found'],
+  qrNone: ['nenhum QR code', 'no QR code'],
+  qrCodesAria: ['QR codes lidos', 'QR codes read'],
+  qrContent: ['Conteúdo', 'Content'],
+  qrWhere: ['Onde', 'Where'],
+  qrTruncated: ['(cortado)', '(truncated)'],
+  qrFromImage: ['na imagem', 'in the image'],
+  qrFromPdfPage: ['na página {page} do PDF', 'on page {page} of the PDF'],
+  qrFromScreenshot: ['no print da página', 'in the page screenshot'],
+  qrAnalyzeLink: ['Analisar este link', 'Analyze this link'],
+  qrSending: ['enviando…', 'submitting…'],
+  qrLinkDescription: [
+    'Link lido de um QR code na amostra "{title}" ({id}).',
+    'Link read from a QR code in the sample "{title}" ({id}).',
+  ],
 } as const satisfies Pairs;
 
 export const t = define(messages);

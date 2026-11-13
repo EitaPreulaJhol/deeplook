@@ -3368,6 +3368,11 @@ li .dl-link {
   font-size: 0.8125rem;
 }
 
+/* QR codes (plano pos-revisao, item 2.2): enderecos longos quebram dentro da celula. */
+.dl-qr__text {
+  overflow-wrap: anywhere;
+}
+
 .dl-risk__reasons {
   inline-size: 100%;
   margin-block-start: 0.5rem;

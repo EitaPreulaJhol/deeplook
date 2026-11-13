@@ -262,3 +262,14 @@ test('em inglês (plano pós-revisão, item 1.4): mesma nota, motivos e listas n
   assert.equal(text(en, 'Signature'), 'digital signature that does not match');
   assert.ok(text(en, 'External reputation')?.startsWith('malicious on '));
 });
+
+test('QR code com link (plano pós-revisão, item 2.2): um motivo, com os domínios', () => {
+  const urls = ['https://boleto.example/a', 'https://boleto.example/b', 'http://outro.example/'];
+  const pt = scoreRisk(input({}, { qrUrls: urls }));
+  assert.equal(pt.score, 15);
+  assert.equal(pt.reasons[0].source, 'QR code');
+  assert.equal(pt.reasons[0].text, '3 QR code(s) com link: boleto.example, outro.example');
+  const en = scoreRisk(input({}, { qrUrls: urls }), 'en');
+  assert.equal(en.reasons[0].text, '3 QR code(s) with a link: boleto.example, outro.example');
+  assert.equal(scoreRisk(input({}, { qrUrls: [] })).score, 0);
+});

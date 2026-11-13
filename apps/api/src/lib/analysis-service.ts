@@ -62,7 +62,15 @@ export async function requestAnalysis(
     waitMs,
     retryEveryMs,
     query = '',
-  }: { waitMs: number; retryEveryMs: number; /** Ex.: "?unpack=0". */ query?: string },
+    path = '/analyze',
+  }: {
+    waitMs: number;
+    retryEveryMs: number;
+    /** Ex.: "?unpack=0". */
+    query?: string;
+    /** Outra rota do servico (ex.: "/qr" no oletools; plano pos-revisao, item 2.2). */
+    path?: string;
+  },
 ): Promise<Response> {
   const deadline = Date.now() + waitMs;
   const pause = () => new Promise((resolve) => setTimeout(resolve, retryEveryMs));
@@ -74,7 +82,7 @@ export async function requestAnalysis(
       continue;
     }
     try {
-      const res = await fetch(`${base(service.url)}/analyze${query}`, {
+      const res = await fetch(`${base(service.url)}${path}${query}`, {
         method: 'POST',
         headers: {
           'content-type': 'application/octet-stream',

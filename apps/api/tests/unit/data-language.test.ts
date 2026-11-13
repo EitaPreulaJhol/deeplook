@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { DATA_EN } from '../../src/lib/data-en';
-import { HISTORY_EN } from '../../src/lib/history-en';
 import { localizeAlerts, localizeStaticInfo, localizeText } from '../../src/lib/data-language';
+import { HISTORY_EN } from '../../src/lib/history-en';
 import { MESSAGES_EN } from '../../src/lib/messages-en';
 import { scanTexts } from './source-texts';
 
@@ -33,6 +33,7 @@ const FILES = [
   'reputation',
   'yara-update',
   'ioc-import',
+  'qr',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
@@ -98,8 +99,14 @@ test('todo texto das análises tem tradução em data-en.ts', () => {
 
 test('data-en.ts não tem pares que o código não usa mais', () => {
   const used = new Set(found.map((f) => f.text));
+  // Motivos de falha que vem do leitor de QR code (apps/oletools/qr.py, em Python): a varredura e
+  // so do TypeScript.
+  const fromService = new Set([
+    'imagem acima de {0} pixels',
+    'não foi possível ler o arquivo: {0}',
+  ]);
   assert.deepEqual(
-    DATA_EN.map(([pt]) => pt).filter((pt) => !used.has(pt)),
+    DATA_EN.map(([pt]) => pt).filter((pt) => !used.has(pt) && !fromService.has(pt)),
     [],
   );
 });

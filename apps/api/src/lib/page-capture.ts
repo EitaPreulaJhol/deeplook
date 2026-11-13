@@ -5,6 +5,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { recordEvent } from './events';
 import { phashIsFlat, validPhash } from './phash';
 import { prisma } from './prisma';
+import { enqueueQr, qrEnabled } from './qr';
 import { s3 } from './s3';
 
 /** Tempo maximo de uma captura (o servico tem 20 s de navegacao + print). */
@@ -190,6 +191,13 @@ export async function runCapture(
   } catch (err) {
     log.error({ err }, '[captura] falha ao guardar');
     await fail('falha ao guardar a captura');
+    return;
+  }
+  // QR code no print da pagina (plano pos-revisao, item 2.2): cada captura nova e lida de novo.
+  if (qrEnabled()) {
+    await enqueueQr(capture.entryId).catch((err: unknown) =>
+      log.error({ err }, '[qr] falha ao enfileirar o print'),
+    );
   }
 }
 

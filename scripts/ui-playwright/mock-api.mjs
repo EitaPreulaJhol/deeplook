@@ -1039,6 +1039,12 @@ export async function setupMock(context, state) {
         return json(route, 200, value ?? { enabled: true, eligible: false, maxMb: 32, analysis: null });
       }
       if (of && req.method() === 'POST') return json(route, 202, { ok: true });
+      // QR code (plano pos-revisao, item 2.2): o roteiro define o que cada GET devolve.
+      const qr = p.match(/^\/api\/entries\/(\w+)\/qr$/);
+      if (qr && req.method() === 'GET') {
+        return json(route, 200, state.qr?.[qr[1]] ?? { enabled: true, applicable: false, ready: false, scan: null });
+      }
+      if (qr && req.method() === 'POST') return json(route, 202, { ok: true });
       // Pontuacao de risco: sem roteiro, nota 0 (a secao aparece com "nenhum sinal").
       const rk = p.match(/^\/api\/entries\/(\w+)\/risk$/);
       if (rk && req.method() === 'GET') {

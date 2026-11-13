@@ -50,6 +50,7 @@ import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { OfficeSection } from '../components/OfficeSection';
 import { PageCaptureSection } from '../components/PageCaptureSection';
 import { PageHeader } from '../components/PageHeader';
+import { QrSection, qrUrls, useQr } from '../components/QrSection';
 import { RelationMap } from '../components/RelationMap';
 import {
   ReputationSection,
@@ -118,6 +119,7 @@ export function EntryDetailPage() {
   const antivirus = useAntivirus(id, true).data;
   // Analise de funcoes (item 7.2): as sugestoes do relatorio usam a mesma consulta da secao.
   const capa = useCapa(id, query.data?.entry.type === 'FILE').data;
+  const qr = useQr(id).data;
   // Casos da amostra (analistas; item 55).
   const entryCases = useQuery({
     queryKey: ['entry-cases', id],
@@ -292,6 +294,8 @@ export function EntryDetailPage() {
       // Strings que so o FLOSS ve (item 7.2).
       ...(capa?.analysis?.iocCandidates?.map((i) => i.value) ?? []),
       ...(entry.emailInfo?.links ?? []),
+      // Enderecos de QR codes (plano pos-revisao, item 2.2).
+      ...qrUrls(qr),
       ...[entry.emailInfo?.from, ...(entry.emailInfo?.replyTo ?? [])]
         .map((p) => p?.address?.split('@')[1]?.toLowerCase())
         .filter((d): d is string => Boolean(d)),
@@ -839,6 +843,8 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && <GhidraSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <OfficeSection entryId={entry.id} canTriage={canTriage} />}
+          {/* QR code na imagem, no PDF ou no print da pagina (plano pos-revisao, item 2.2). */}
+          <QrSection entry={entry} canTriage={canTriage} />
           {entry.type === 'FILE' && <ScriptSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <LnkSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && (

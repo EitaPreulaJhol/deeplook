@@ -578,6 +578,22 @@ documento que trave o parser derruba só aquele processo. **Nada do documento é
 Analistas pedem de novo pela seção. Defina `OLETOOLS_TOKEN` (16+ caracteres) no `.env`; com o
 valor padrão, a API não sobe em produção. `OLETOOLS_URL=` (vazio) desliga.
 
+### QR code
+
+Phishing por QR code (inclusive boleto) passa pelos filtros de e-mail porque o link não está no
+texto. O mesmo serviço lê QR codes (zxing-cpp, com o pdfium para as páginas do PDF), em segundo
+plano:
+
+- em toda **imagem** (PNG, JPEG, GIF) e todo **PDF** enviados, inclusive os anexos de um `.eml`, que
+  viram amostras;
+- no **print da página** de uma amostra de link, a cada captura.
+
+A ficha mostra a seção **QR codes**, com o conteúdo e de onde veio (a imagem, a página do PDF ou o
+print). Um endereço entra nos IOCs sugeridos, ganha o botão **Analisar este link** (uma amostra de
+link nova, que cita a de origem) e soma na **pontuação de risco**. Os tetos são explícitos: as 5
+primeiras páginas do PDF, 40 milhões de pixels por imagem ou página e 20 códigos por amostra. Nada
+é executado: o PDF só é renderizado, sem JavaScript.
+
 ## Identificar e desempacotar
 
 Todo executável que chega (Windows, Linux, macOS, APK e JAR, até `UNPACK_MAX_MB`) passa pelo
@@ -1101,7 +1117,7 @@ deeplook/
 │  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
 │  ├─ ghidra/         # Ghidra headless (Java 25), scripts de exportação e o servidor, sem rede
 │  ├─ unpack/         # Detect It Easy e os desempacotadores (um plugin por arquivo em unpackers/)
-│  ├─ oletools/       # olevba, MacroRaptor, msodde, oleid e rtfobj (analyze.py num processo filho)
+│  ├─ oletools/       # olevba, MacroRaptor, msodde, oleid e rtfobj; QR code (qr.py, zxing-cpp)
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)

@@ -20,7 +20,7 @@ ENV HOME=/tmp \
   PYTHONDONTWRITEBYTECODE=1 \
   PYTHONUNBUFFERED=1 \
   PORT=3500
-COPY server.py analyze.py /app/
+COPY server.py analyze.py qr.py /app/
 
 USER oletools
 EXPOSE 3500

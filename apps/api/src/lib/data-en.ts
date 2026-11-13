@@ -412,6 +412,10 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['linha acima de {0} caracteres', 'line over {0} characters'],
   ['pattern {0} não é lido', 'pattern {0} is not read'],
 
+  // ---- Leitor de QR code (apps/oletools/qr.py, plano pos-revisao 2.2): o motivo de uma falha ----
+  ['imagem acima de {0} pixels', 'image over {0} pixels'],
+  ['não foi possível ler o arquivo: {0}', 'could not read the file: {0}'],
+
   // Por ultimo: casaria com "empacotado com {0} (Detect It Easy): ..." (unpack) se viesse antes.
   ['empacotado com {0}', 'packed with {0}'],
 ];

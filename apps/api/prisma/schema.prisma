@@ -208,6 +208,8 @@ model Entry {
   /// Analise de funcoes (capa e FLOSS, item 7.2).
   capaAnalysis       CapaAnalysis?
   officeAnalysis     OfficeAnalysis?
+  /// QR code na imagem, no PDF ou no print da pagina (plano pos-revisao, item 2.2).
+  qrScan             QrScan?
   /// Analise com o Ghidra, sob demanda (item 7.3).
   ghidraAnalysis     GhidraAnalysis?
   /// Desempacotar e extrair (item 7.8).
@@ -613,6 +615,35 @@ model OfficeAnalysis {
   attempts      Int          @default(0)
   nextAttemptAt DateTime     @default(now())
   createdAt     DateTime     @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+}
+
+enum QrStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2): lido no servico
+/// oletools (POST /qr), em segundo plano, um por vez. Uma por amostra (a leitura mais recente).
+model QrScan {
+  id            String    @id @default(cuid())
+  entryId       String    @unique
+  entry         Entry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status        QrStatus  @default(PENDING)
+  /// O que foi lido: [{ text, truncated, source (image, pdf, screenshot), page, url }].
+  codes         Json?
+  /// Paginas do PDF (null numa imagem).
+  pages         Int?
+  error         String?
+  ms            Int?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
   startedAt     DateTime?
   finishedAt    DateTime?
 

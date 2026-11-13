@@ -666,4 +666,16 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'O armazenamento não informou o tamanho do arquivo.',
     'The storage did not report the file size.',
   ],
+  // Plano pos-revisao, item 2.2: QR code.
+  ['Somente analistas pedem a leitura de QR code.', 'Only analysts request QR code reading.'],
+  [
+    'A leitura de QR code está desligada (OLETOOLS_URL / OLETOOLS_TOKEN).',
+    'QR code reading is off (OLETOOLS_URL / OLETOOLS_TOKEN).',
+  ],
+  ['A página ainda não foi capturada.', 'The page has not been captured yet.'],
+  [
+    'Só imagens (PNG, JPEG, GIF), PDFs de até {0} MB e links capturados.',
+    'Only images (PNG, JPEG, GIF), PDFs up to {0} MB and captured links.',
+  ],
+  ['A leitura de QR code já está na fila.', 'QR code reading is already queued.'],
 ];

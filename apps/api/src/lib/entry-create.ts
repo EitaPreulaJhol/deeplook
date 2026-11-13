@@ -18,6 +18,7 @@ import { scanLookalikesQuietly } from './lookalike';
 import { enqueueOletoolsIfEligible } from './oletools';
 import { relationHashes } from './pe-analysis';
 import { prisma } from './prisma';
+import { enqueueQrIfEligible } from './qr';
 import { createWithinQuota, QuotaExceeded } from './quota';
 import { checkReputationInBackground } from './reputation';
 import { s3 } from './s3';
@@ -147,6 +148,8 @@ export async function createFileEntry(
   await enqueueCapaIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Documento do Office ou RTF (item 7.14): oletools, em segundo plano.
   await enqueueOletoolsIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
+  // Imagem ou PDF (plano pos-revisao, item 2.2): leitura de QR code, em segundo plano.
+  await enqueueQrIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Identificar (Detect It Easy, 7.9) e desempacotar (7.8): todo executavel vai para a fila, menos a
   // filha que o servico ja identificou e que nenhum desempacotador reconhece.
   if (input.identified && !input.identified.candidate) {

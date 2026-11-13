@@ -1,4 +1,5 @@
 """Office e PDF mais fundo (item 7.14 do plano; revisao de novembro, 3.2), num container sem rede.
+Tambem le QR codes de imagens e PDFs (POST /qr, qr.py; plano pos-revisao, item 2.2).
 
 Recebe POST /analyze (corpo = o documento, com o token da API) e devolve o que o oletools achou:
 macros VBA e XLM 4.0 (com o codigo e a desofuscacao do olevba), o veredito do MacroRaptor, campos
@@ -27,6 +28,9 @@ RECYCLE = os.environ.get("OLETOOLS_RECYCLE", "true") != "false"
 MAX_BYTES = int(os.environ.get("OLETOOLS_MAX_MB", "32")) * 1024 * 1024
 TIMEOUT = int(os.environ.get("OLETOOLS_TIMEOUT_S", "120"))
 ANALYZER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "analyze.py")
+# QR code em imagens e PDFs (plano pos-revisao, item 2.2): POST /qr, no mesmo esquema.
+QR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr.py")
+SCRIPTS = {"/analyze": ANALYZER, "/qr": QR}
 MIN_UPTIME_S = 10.5
 
 STARTED = time.monotonic()
@@ -50,15 +54,15 @@ def oletools_version():
 VERSION = oletools_version()
 
 
-def analyze(data, work):
-    """Roda o analyze.py num processo filho, com o tempo-limite; devolve o JSON dele."""
+def analyze(data, work, script=ANALYZER):
+    """Roda o script (analyze.py ou qr.py) num processo filho, com o tempo-limite; devolve o JSON."""
     sample = os.path.join(work, "documento")
     with open(sample, "wb") as f:
         f.write(data)
     started = time.monotonic()
     try:
         proc = subprocess.run(
-            [sys.executable, ANALYZER, sample],
+            [sys.executable, script, sample],
             capture_output=True,
             timeout=TIMEOUT,
             cwd=work,
@@ -129,7 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("content-length", "-1"))
         except ValueError:
             length = -1
-        if self.path != "/analyze":
+        script = SCRIPTS.get(self.path)
+        if script is None:
             self.refuse(404, "não encontrado", length)
             return
         auth = self.headers.get("authorization", "")
@@ -154,7 +159,7 @@ class Handler(BaseHTTPRequestHandler):
             if RECYCLE:
                 _retiring.set()
             try:
-                result = analyze(data, work)
+                result = analyze(data, work, script)
             except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
                 log(f"falha: {exc!r}")
                 result = {"ok": False, "error": "falha interna na análise", "version": VERSION}
