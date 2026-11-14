@@ -602,6 +602,10 @@ async function runEnvironment() {
   const sm = final?.sysmon;
   if (!sm) {
     check('4.1 Sysmon lido', 'O', false, '', 'nenhuma leitura do Sysmon (guest não é Windows?)');
+  } else if (!sm.available && /não instalado/.test(sm.reason)) {
+    // O Sysmon e opcional (docs/proxmox.pt-BR.md, 2.1): sem ele, a fase 4 nao se aplica. Ainda assim
+    // o comando rodou no Windows e achou a falta do canal, o que ja confere a leitura.
+    skip('4.1 Sysmon lido', 'O', `${sm.reason} (opcional; a leitura rodou e detectou a falta)`);
   } else if (!sm.available) {
     check('4.1 Sysmon lido', 'O', false, '', sm.reason);
   } else {
