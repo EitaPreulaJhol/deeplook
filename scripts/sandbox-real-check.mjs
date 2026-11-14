@@ -1,0 +1,788 @@
+#!/usr/bin/env node
+// Teste do sandbox contra o Proxmox (e o MikroTik CHR) de verdade: o roteiro
+// docs/teste-proxmox-real.pt-BR.md, na parte que nao precisa de mao na VM (plano pos-revisao, 5.5).
+//
+//   node scripts/sandbox-real-check.mjs               roteiro inteiro (abre e encerra um ambiente)
+//   node scripts/sandbox-real-check.mjs --read-only   so a fase 0: confere o PVE e o DeepLook, sem
+//                                                     criar nada
+//   node scripts/sandbox-real-check.mjs --keep        nao manda a amostra de teste para a lixeira
+//
+// Le o .env da raiz (variaveis do ambiente valem mais). O DeepLook e usado pela propria API, como um
+// analista (DEEPLOOK_BASE, padrao http://localhost:WEB_PORT; CHECK_EMAIL e CHECK_PASSWORD, padrao o
+// ADMIN_EMAIL e o ADMIN_PASSWORD). O Proxmox e lido direto so para conferir por fora; a unica
+// escrita nele e o agent/exec que roda a amostra na VM do teste.
+//
+// O TEMPLATE NUNCA E ALTERADO: qualquer escrita no PROXMOX_TEMPLATE_VMID (ou em VM que seja
+// template) e recusada aqui, e o fim confere que a configuracao dele ficou identica (digest).
+// Nenhum segredo vai para a saida.
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import https from 'node:https';
+import http from 'node:http';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const args = new Set(process.argv.slice(2));
+const READ_ONLY = args.has('--read-only');
+const KEEP = args.has('--keep');
+
+// ------------------------------------------------------------------ configuracao
+
+function loadDotEnv() {
+  const file = join(ROOT, '.env');
+  const out = {};
+  if (!existsSync(file)) return out;
+  for (const raw of readFileSync(file, 'utf8').replace(/^﻿/, '').split(/\r?\n/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(raw);
+    if (!m) continue;
+    let value = m[2].trim();
+    if (/^(["']).*\1$/.test(value)) value = value.slice(1, -1);
+    out[m[1]] = value;
+  }
+  return out;
+}
+const dotenv = loadDotEnv();
+function cfg(name, fallback = '') {
+  const file = process.env[`${name}_FILE`] ?? dotenv[`${name}_FILE`];
+  if (file && existsSync(file)) return readFileSync(file, 'utf8').replace(/\r?\n$/, '');
+  return process.env[name] ?? dotenv[name] ?? fallback;
+}
+
+const PVE = {
+  url: cfg('PROXMOX_API_URL').replace(/\/+$/, ''),
+  node: cfg('PROXMOX_NODE', 'pve'),
+  user: cfg('PROXMOX_USER'),
+  password: cfg('PROXMOX_PASSWORD'),
+  template: Number(cfg('PROXMOX_TEMPLATE_VMID', '0')),
+  isoStorage: cfg('PROXMOX_ISO_STORAGE', 'local'),
+  verifyTls: cfg('PROXMOX_VERIFY_TLS', 'false') === 'true',
+  tag: cfg('SANDBOX_TAG', 'deeplook-sandbox'),
+};
+const DL = {
+  base: (cfg('DEEPLOOK_BASE') || `http://localhost:${cfg('WEB_PORT', '8080')}`).replace(/\/+$/, ''),
+  email: cfg('CHECK_EMAIL') || cfg('ADMIN_EMAIL'),
+  password: cfg('CHECK_PASSWORD') || cfg('ADMIN_PASSWORD'),
+};
+const INTERVAL_S = Number(cfg('SANDBOX_ARTIFACT_INTERVAL_S', '60')) || 60;
+
+// ------------------------------------------------------------------ relatorio
+
+const results = [];
+const started = Date.now();
+const secs = (ms) => `${(ms / 1000).toFixed(1)} s`;
+function record(step, level, status, measure = '', note = '') {
+  results.push({ step, level, status, measure, note });
+  const mark = status === 'ok' ? 'ok    ' : status === 'pulado' ? 'pulado' : 'FALHA ';
+  console.log(`${mark} ${step} [${level}] ${measure ? `(${measure}) ` : ''}${note}`);
+}
+const check = (step, level, cond, measure = '', note = '') =>
+  record(step, level, cond ? 'ok' : 'falha', measure, note);
+const skip = (step, level, note) => record(step, level, 'pulado', '', note);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function until(fn, timeoutMs, everyMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await fn().catch(() => null);
+    if (value) return value;
+    if (Date.now() > deadline) return null;
+    await sleep(everyMs);
+  }
+}
+
+// ------------------------------------------------------------------ Proxmox (leitura + guarda)
+
+let ticket = null;
+let testVmid = null;
+
+/** A unica escrita permitida: o agent/exec na VM do teste. Nunca no template. */
+function guard(method, path) {
+  if (method === 'GET') return;
+  if (path === '/access/ticket') return;
+  const vm = /\/qemu\/(\d+)(\/[^?]*)?/.exec(path);
+  const vmid = vm ? Number(vm[1]) : null;
+  if (vmid === PVE.template) throw new Error(`guarda: escrita no template (${method} ${path})`);
+  const allowed =
+    vmid !== null && vmid === testVmid && /^\/agent\/exec$/.test(vm[2] ?? '') && method === 'POST';
+  if (!allowed) throw new Error(`guarda: escrita não prevista no PVE (${method} ${path})`);
+}
+
+function pveRequest(method, path, form) {
+  guard(method, path);
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${PVE.url}/api2/json${path}`);
+    const body = form ? new URLSearchParams(form).toString() : undefined;
+    const headers = { Accept: 'application/json' };
+    if (ticket) headers.Cookie = `PVEAuthCookie=${ticket.ticket}`;
+    if (ticket && method !== 'GET') headers.CSRFPreventionToken = ticket.csrf;
+    if (body !== undefined) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    const lib = url.protocol === 'https:' ? https : http;
+    const req = lib.request(
+      url,
+      { method, headers, rejectUnauthorized: PVE.verifyTls, timeout: 30_000 },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          let json = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            /* corpo que nao e JSON */
+          }
+          if (res.statusCode >= 400) {
+            const err = new Error(`PVE ${res.statusCode} em ${method} ${path}`);
+            err.status = res.statusCode;
+            reject(err);
+          } else resolve(json?.data ?? null);
+        });
+      },
+    );
+    req.on('timeout', () => req.destroy(new Error(`PVE sem resposta em ${method} ${path}`)));
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+const pveGet = (path) => pveRequest('GET', path);
+
+async function pveLogin() {
+  const data = await pveRequest('POST', '/access/ticket', {
+    username: PVE.user,
+    password: PVE.password,
+  });
+  ticket = { ticket: data.ticket, csrf: data.CSRFPreventionToken };
+}
+
+async function templateState() {
+  const config = await pveGet(`/nodes/${PVE.node}/qemu/${PVE.template}/config`);
+  return {
+    digest: config?.digest ?? null,
+    template: String(config?.template ?? '0') === '1',
+    config,
+  };
+}
+
+async function agentRun(vmid, command, timeoutMs = 120_000) {
+  // O PVE recebe o comando como `command` repetido no formulario (um item por argumento).
+  const params = new URLSearchParams();
+  for (const part of command) params.append('command', part);
+  const pid = await pveRawForm('POST', `/nodes/${PVE.node}/qemu/${vmid}/agent/exec`, params);
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const status = await pveGet(`/nodes/${PVE.node}/qemu/${vmid}/agent/exec-status?pid=${pid.pid}`);
+    if (status?.exited) return status;
+    if (Date.now() > deadline) throw new Error('a execução na VM não terminou a tempo');
+    await sleep(1000);
+  }
+}
+
+/** POST com formulario ja montado (para repetir `command`). */
+function pveRawForm(method, path, params) {
+  guard(method, path);
+  return new Promise((resolve, reject) => {
+    const url = new URL(`${PVE.url}/api2/json${path}`);
+    const body = params.toString();
+    const req = (url.protocol === 'https:' ? https : http).request(
+      url,
+      {
+        method,
+        headers: {
+          Accept: 'application/json',
+          Cookie: `PVEAuthCookie=${ticket.ticket}`,
+          CSRFPreventionToken: ticket.csrf,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        rejectUnauthorized: PVE.verifyTls,
+        timeout: 30_000,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          if (res.statusCode >= 400)
+            reject(new Error(`PVE ${res.statusCode} em ${method} ${path}`));
+          else resolve(JSON.parse(text).data);
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+// ------------------------------------------------------------------ DeepLook (como analista)
+
+let cookie = '';
+async function dl(method, path, body) {
+  const headers = { cookie, 'accept-language': 'pt-BR' };
+  let payload = body;
+  if (body && !(body instanceof FormData)) {
+    headers['content-type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
+  const res = await fetch(`${DL.base}/api${path}`, { method, headers, body: payload });
+  const set = res.headers.get('set-cookie');
+  if (set) cookie = set.split(';')[0];
+  const text = await res.text();
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    /* nao JSON */
+  }
+  return { status: res.status, json };
+}
+
+const SAMPLE = `# Amostra inofensiva do teste real do DeepLook (docs/teste-proxmox-real.pt-BR.md).
+nslookup deeplook-teste.invalid 2>$null | Out-Null
+Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
+try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 http://testmynids.org/uid/index.html | Out-Null } catch {}
+Set-Content -Path "$env:PUBLIC\\deeplook-teste.txt" -Value 'teste do DeepLook'
+New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name DeepLookTeste -Value 'notepad.exe' -Force | Out-Null
+Start-Process notepad.exe
+`;
+
+/** Acha a amostra no CD-ROM e a roda (o agente roda como SYSTEM). */
+const RUN_SAMPLE = [
+  'powershell.exe',
+  '-NoProfile',
+  '-NonInteractive',
+  '-ExecutionPolicy',
+  'Bypass',
+  '-Command',
+  "$f = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root 'deeplook-teste.ps1' } | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $f) { 'SEM_AMOSTRA'; exit 3 }; & $f; 'AMOSTRA_OK'",
+];
+
+// ------------------------------------------------------------------ roteiro
+
+let sessionId = null;
+let entryId = null;
+let templateBefore = null;
+let role = null;
+/** O ambiente chegou a rodar (so entao a VM, os artefatos e a limpeza dela sao cobrados). */
+let reachedRunning = false;
+/** VMID que o DeepLook reservou para o ambiente (mesmo se o clone falhou). */
+let reservedVmid = null;
+
+async function phase0() {
+  if (!PVE.url || !PVE.user || !PVE.password || !PVE.template) {
+    throw new Error(
+      'PROXMOX_API_URL, PROXMOX_USER, PROXMOX_PASSWORD e PROXMOX_TEMPLATE_VMID são necessários',
+    );
+  }
+  await pveLogin();
+  const version = await pveGet('/version');
+  check('0.1 PVE acessível', 'O', Boolean(version?.version), `PVE ${version?.version}`);
+
+  templateBefore = await templateState();
+  check(
+    '0.1 template existe e é template',
+    'O',
+    templateBefore.template,
+    `VM ${PVE.template}`,
+    `tags: ${templateBefore.config?.tags ?? '(nenhuma)'}`,
+  );
+  const disks = Object.keys(templateBefore.config ?? {}).filter((k) =>
+    /^(scsi|virtio|sata|ide)\d+$/.test(k),
+  );
+  const nets = Object.keys(templateBefore.config ?? {}).filter((k) => /^net\d+$/.test(k));
+  check(
+    '0.1 template com disco e placa de rede',
+    'O',
+    disks.length > 0 && nets.length > 0,
+    `${disks.join(',')} · ${nets.join(',')}`,
+  );
+  check(
+    '0.1 template com o agente ligado na configuração',
+    'O',
+    /(^|,)\s*(enabled=)?1/.test(String(templateBefore.config?.agent ?? '')),
+    `agent: ${templateBefore.config?.agent ?? '(ausente)'}`,
+  );
+
+  const perms = (await pveGet('/access/permissions?path=/vms').catch(() => null)) ?? {};
+  const vms = perms['/vms'] ?? {};
+  const agentPerm =
+    Number(String(version?.version).split('.')[0]) >= 9
+      ? 'VM.GuestAgent.Unrestricted'
+      : 'VM.Monitor';
+  const needed = [
+    'VM.Clone',
+    'VM.Allocate',
+    'VM.Config.CDROM',
+    'VM.PowerMgmt',
+    'VM.Console',
+    agentPerm,
+  ];
+  const missing = needed.filter((p) => !vms[p]);
+  check(
+    '0.2 permissões efetivas em /vms',
+    'O',
+    missing.length === 0,
+    '',
+    missing.length ? `faltam: ${missing.join(', ')}` : needed.join(', '),
+  );
+
+  const storage = await pveGet(`/nodes/${PVE.node}/storage/${PVE.isoStorage}/status`).catch(
+    () => null,
+  );
+  check(
+    '0.1 storage da ISO aceita iso',
+    'O',
+    String(storage?.content ?? '')
+      .split(',')
+      .includes('iso'),
+    PVE.isoStorage,
+  );
+
+  const list = (await pveGet(`/nodes/${PVE.node}/qemu`)) ?? [];
+  const tagged = list.filter(
+    (vm) =>
+      vm.vmid !== PVE.template &&
+      !vm.template &&
+      ((vm.tags ?? '').split(';').includes(PVE.tag) || (vm.name ?? '').startsWith(`${PVE.tag}-`)),
+  );
+  check(
+    '0.5 nenhuma VM com a etiqueta do sandbox (além do template)',
+    'D',
+    tagged.length === 0,
+    '',
+    tagged.length
+      ? `a limpeza da subida apagaria: ${tagged.map((v) => `${v.vmid} ${v.name}`).join('; ')}`
+      : '',
+  );
+  const isos = (
+    (await pveGet(`/nodes/${PVE.node}/storage/${PVE.isoStorage}/content?content=iso`).catch(
+      () => [],
+    )) ?? []
+  ).filter((i) => /\/deeplook-/.test(i.volid));
+  check(
+    '0.5 nenhuma ISO deeplook-* esquecida',
+    'D',
+    isos.length === 0,
+    '',
+    isos.map((i) => i.volid).join(', '),
+  );
+
+  // DeepLook.
+  const login = await dl('POST', '/auth/login', { email: DL.email, password: DL.password }).catch(
+    (e) => ({ status: 0, json: { error: String(e) } }),
+  );
+  const user = login.json?.user;
+  check(
+    '0.0 login no DeepLook',
+    'O',
+    login.status === 200 && user && !user.mustChangePassword,
+    DL.base,
+    login.status === 200
+      ? user?.mustChangePassword
+        ? 'a conta precisa trocar a senha'
+        : `papel ${user?.role}`
+      : `HTTP ${login.status}: ${login.json?.error ?? ''}`,
+  );
+  if (login.status !== 200 || !user || user.mustChangePassword) return false;
+  role = user.role;
+  if (user.role === 'ADMIN') {
+    const health = await dl('GET', '/sandbox/health');
+    const bad = (health.json?.checks ?? []).filter((c) => !c.ok && c.name !== 'modo-mock');
+    check(
+      '0.1 /api/sandbox/health',
+      'O',
+      health.status === 200 && bad.length === 0,
+      '',
+      bad.map((c) => `${c.name}: ${c.detail}`).join('; '),
+    );
+    const status = await dl('GET', '/admin/status');
+    // So o que o sandbox usa: os outros servicos (capa, Ghidra...) podem estar desligados.
+    const SANDBOX_CHECKS = ['api', 'database', 'storage', 'sandbox', 'netcap', 'suricata'];
+    const errors = (status.json?.checks ?? []).filter(
+      (c) => c.level === 'error' && SANDBOX_CHECKS.includes(c.id),
+    );
+    check(
+      '0.3 status do sistema sem erro',
+      'O',
+      status.status === 200 && errors.length === 0,
+      '',
+      errors.map((c) => `${c.name}: ${c.summary}`).join('; '),
+    );
+  } else {
+    skip('0.1 /api/sandbox/health', 'O', 'precisa de um admin (CHECK_EMAIL)');
+  }
+  return true;
+}
+
+async function runEnvironment() {
+  // Amostra de teste.
+  const form = new FormData();
+  form.append('file', new Blob([SAMPLE], { type: 'text/plain' }), 'deeplook-teste.ps1');
+  form.append('title', `Teste do sandbox real ${new Date().toISOString().slice(0, 16)}`);
+  form.append('tags', 'teste-sandbox');
+  const up = await dl('POST', '/entries/file', form);
+  entryId = up.json?.entry?.id;
+  check(
+    '1.0 amostra de teste enviada',
+    'O',
+    up.status === 201 && entryId,
+    '',
+    up.status === 201 ? '' : `HTTP ${up.status}: ${up.json?.error ?? ''}`,
+  );
+  if (!entryId) return;
+
+  // 1. Provisionamento.
+  const t0 = Date.now();
+  const open = await dl('POST', `/entries/${entryId}/sandbox`, {});
+  sessionId = open.json?.session?.id;
+  if (!sessionId) {
+    check('1.1 ambiente aberto', 'O', false, '', `HTTP ${open.status}: ${open.json?.error ?? ''}`);
+    return;
+  }
+  const phases = [];
+  const running = await until(
+    async () => {
+      const d = await dl('GET', `/sandbox/${sessionId}`);
+      const s = d.json?.session;
+      if (s?.phase && phases.at(-1) !== s.phase) phases.push(s.phase);
+      if (s?.status === 'FAILED') return { failed: s.lastError ?? 'falhou' };
+      return s?.status === 'RUNNING' ? s : null;
+    },
+    20 * 60_000,
+    2000,
+  );
+  check(
+    '1.1 ambiente em execução',
+    'O',
+    running && !running.failed,
+    secs(Date.now() - t0),
+    running?.failed ?? phases.join(' → '),
+  );
+  reservedVmid = (await dl('GET', `/sandbox/${sessionId}`)).json?.session?.vmid ?? null;
+  if (!running || running.failed) return;
+  testVmid = running.vmid;
+  reachedRunning = true;
+
+  const config = await pveGet(`/nodes/${PVE.node}/qemu/${testVmid}/config`);
+  const disk = Object.entries(config).find(([k]) => /^(scsi|virtio|sata)\d+$/.test(k));
+  check(
+    '1.3 linked clone',
+    'D',
+    disk && String(disk[1]).includes(`base-${PVE.template}-`),
+    String(disk?.[1] ?? '').split(',')[0],
+  );
+  check(
+    '1.4 ISO como CD-ROM',
+    'O',
+    /deeplook-.*\.iso.*media=cdrom/.test(String(config.ide2 ?? '')),
+    String(config.ide2 ?? '(sem ide2)'),
+  );
+  check(
+    '1.x a VM do teste não é o template',
+    'O',
+    testVmid !== PVE.template && String(config.template ?? '0') !== '1',
+    `VM ${testVmid}`,
+  );
+
+  const first = await dl('GET', `/sandbox/${sessionId}/artifacts`);
+  if (first.json?.captureEnabled) {
+    check(
+      '1.5 captura aberta antes de ligar',
+      'O',
+      first.json.network?.status === 'CAPTURING',
+      '',
+      first.json.network?.error ?? '',
+    );
+  } else skip('1.5 captura aberta antes de ligar', 'O', 'captura de rede não configurada');
+
+  // 2. Console.
+  const consoleRes = await dl('GET', `/sandbox/${sessionId}/console`);
+  if (consoleRes.status === 200) {
+    const ws = spawnSync(
+      process.execPath,
+      [
+        join(ROOT, 'scripts', 'ws-console-check.mjs'),
+        sessionId,
+        cookie.replace(/^dl_session=/, ''),
+      ],
+      {
+        env: { ...process.env, DEEPLOOK_BASE: DL.base },
+        encoding: 'utf8',
+        timeout: 60_000,
+      },
+    );
+    check(
+      '2.2 console: handshake RFB e senha VNC',
+      'D',
+      ws.status === 0,
+      '',
+      (ws.stdout || ws.stderr || '').trim().split('\n').at(-1),
+    );
+  } else skip('2.2 console', 'D', `HTTP ${consoleRes.status}: ${consoleRes.json?.error ?? ''}`);
+
+  // 2.3 / 3.1 Artefatos.
+  const t1 = Date.now();
+  const arts = await until(
+    async () => {
+      const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+      return a?.screenshots?.length && (a.processes || a.note) ? a : null;
+    },
+    (INTERVAL_S * 3 + 30) * 1000,
+    5000,
+  );
+  check(
+    '2.3 print da tela',
+    'O',
+    arts?.screenshots?.length > 0,
+    secs(Date.now() - t1),
+    `${arts?.screenshots?.length ?? 0} print(s)`,
+  );
+  check(
+    '3.1 lista de processos pelo agente',
+    'O',
+    Boolean(arts?.processes) && !arts?.note,
+    `${arts?.processes?.current?.length ?? 0} processo(s)`,
+    arts?.note ?? '',
+  );
+  if (!arts?.processes) return;
+
+  // 3.2 / 4. Amostra rodando (pelo agent/exec do PVE, como SYSTEM).
+  let ran = null;
+  try {
+    ran = await agentRun(testVmid, RUN_SAMPLE);
+  } catch (err) {
+    ran = { error: String(err.message ?? err) };
+  }
+  const out = Buffer.from(ran?.['out-data'] ?? '', 'utf8')
+    .toString()
+    .trim();
+  check(
+    '3.2a amostra executada na VM',
+    'O',
+    !ran?.error && out.includes('AMOSTRA_OK'),
+    '',
+    ran?.error ?? out.slice(-120),
+  );
+
+  const t2 = Date.now();
+  const after = await until(
+    async () => {
+      const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+      const appeared = (a?.processes?.appeared ?? []).map((p) => p.name.toLowerCase());
+      const sysmonReady = !a?.sysmon || !a.sysmon.available || a.sysmon.dns?.length;
+      return appeared.includes('notepad.exe') && sysmonReady ? a : null;
+    },
+    (INTERVAL_S * 4 + 30) * 1000,
+    5000,
+  );
+  check('3.2 notepad.exe em "processos que surgiram"', 'O', Boolean(after), secs(Date.now() - t2));
+  const final = after ?? (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+  const sm = final?.sysmon;
+  if (!sm) {
+    check('4.1 Sysmon lido', 'O', false, '', 'nenhuma leitura do Sysmon (guest não é Windows?)');
+  } else if (!sm.available) {
+    check('4.1 Sysmon lido', 'O', false, '', sm.reason);
+  } else {
+    check('4.1 Sysmon lido', 'O', true, `${sm.events} evento(s)`);
+    const ps = sm.processes.filter((p) => /powershell\.exe$/i.test(p.image));
+    const tree = sm.processes.some(
+      (p) => /notepad\.exe$/i.test(p.image) && ps.some((q) => q.pid === p.ppid),
+    );
+    check('4.2 árvore: powershell.exe → notepad.exe', 'O', tree);
+    const names = sm.dns.map((d) => d.query.toLowerCase());
+    check(
+      '4.3 DNS deeplook-teste.invalid',
+      'O',
+      names.includes('deeplook-teste.invalid'),
+      '',
+      names.slice(0, 8).join(', '),
+    );
+    check('4.3 DNS testmynids.org', 'D', names.includes('testmynids.org'));
+    check(
+      '4.4 conexão para o testmynids.org',
+      'D',
+      sm.network.some((c) => c.dstPort === 80 && /testmynids/i.test(c.dstHost ?? '')) ||
+        sm.network.some((c) => c.dstPort === 80),
+    );
+    check(
+      '4.4 arquivo criado',
+      'D',
+      sm.files.some((f) => /deeplook-teste\.txt$/i.test(f.path)),
+    );
+    check(
+      '4.4 chave Run',
+      'D',
+      sm.registry.some((r) => /\\Run\\DeepLookTeste$/i.test(r.key)),
+    );
+    const ind = (await dl('GET', `/entries/${entryId}/sandbox`)).json?.sysmonIndicators ?? [];
+    check('4.6 IOCs sugeridos do Sysmon', 'O', ind.length > 0, '', ind.slice(0, 6).join(', '));
+  }
+
+  // 5.1 Captura durante o ambiente.
+  if (final?.captureEnabled) {
+    const st = (await dl('GET', '/admin/status')).json?.checks?.find((c) => c.id === 'netcap');
+    check(
+      '5.1 captura recebendo pacotes',
+      'O',
+      st && st.level !== 'error',
+      '',
+      st?.summary ?? 'sem permissão de admin',
+    );
+  } else skip('5.1 captura recebendo pacotes', 'O', 'captura de rede não configurada');
+}
+
+async function closeEnvironment() {
+  if (!sessionId) return;
+  const t = Date.now();
+  await dl('DELETE', `/sandbox/${sessionId}`);
+  const stopped = await until(
+    async () => {
+      const s = (await dl('GET', `/sandbox/${sessionId}`)).json?.session;
+      return ['STOPPED', 'EXPIRED', 'FAILED'].includes(s?.status) ? s : null;
+    },
+    5 * 60_000,
+    3000,
+  );
+  check(
+    '6.0 ambiente encerrado',
+    'O',
+    reachedRunning ? stopped?.status === 'STOPPED' : Boolean(stopped),
+    secs(Date.now() - t),
+    stopped?.status ?? 'não encerrou',
+  );
+  if (!reachedRunning && reservedVmid && reservedVmid !== PVE.template) {
+    // Provisionamento com falha: a VM reservada nao pode ter ficado no PVE.
+    const leftover = await pveGet(`/nodes/${PVE.node}/qemu/${reservedVmid}/status/current`).then(
+      () => true,
+      () => false,
+    );
+    check('6.1 nenhuma VM sobrou do ambiente com falha', 'O', !leftover, `VM ${reservedVmid}`);
+  }
+  if (testVmid) {
+    const gone = await until(
+      () =>
+        pveGet(`/nodes/${PVE.node}/qemu/${testVmid}/status/current`).then(
+          () => null,
+          (e) => (e.status ? true : null),
+        ),
+      120_000,
+    );
+    check('6.1 VM do teste destruída', 'O', Boolean(gone), `VM ${testVmid}`);
+  }
+  const isos =
+    (await pveGet(`/nodes/${PVE.node}/storage/${PVE.isoStorage}/content?content=iso`).catch(
+      () => [],
+    )) ?? [];
+  check('6.1 ISO do ambiente removida', 'O', !isos.some((i) => i.volid.includes(sessionId)));
+  const arts = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+  if (reachedRunning) {
+    check(
+      '6.4 artefatos ficam depois do fim',
+      'O',
+      arts?.screenshots?.length > 0 && Boolean(arts?.processes),
+    );
+  } else skip('6.4 artefatos ficam depois do fim', 'O', 'o ambiente não chegou a rodar');
+
+  if (arts?.captureEnabled && reachedRunning) {
+    const net = await until(async () => {
+      const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+      return a?.network && a.network.status !== 'CAPTURING' ? a.network : null;
+    }, 120_000);
+    check(
+      '5.2 pcap guardado',
+      'O',
+      net?.status === 'STORED' && net.packets > 0,
+      `${net?.packets ?? 0} pacote(s)`,
+      net?.error ?? '',
+    );
+    const ids = await until(
+      async () => {
+        const n = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json?.network?.ids;
+        return n && ['DONE', 'FAILED'].includes(n.status) ? n : null;
+      },
+      15 * 60_000,
+      5000,
+    );
+    const sids = (ids?.result?.alerts ?? []).map((a) => a.sid);
+    check(
+      '5.4 Suricata: alerta da regra de teste',
+      'O',
+      ids?.status === 'DONE' && sids.includes(9900001),
+      ids?.ms ? secs(ids.ms) : '',
+      ids?.error ?? '',
+    );
+    check(
+      '5.4 Suricata: alerta ET do testmynids.org',
+      'D',
+      sids.some((s) => s !== 9900001),
+    );
+  } else {
+    skip('5.2 pcap guardado', 'O', 'captura de rede não configurada');
+    skip('6.2 sniffer sem o MAC', 'O', 'captura de rede não configurada');
+  }
+}
+
+async function finish() {
+  // O template ficou exatamente igual.
+  if (ticket && templateBefore) {
+    const now = await templateState().catch(() => null);
+    check(
+      '9.9 template intacto (mesmo digest da configuração)',
+      'O',
+      now && now.template && now.digest === templateBefore.digest,
+      `VM ${PVE.template}`,
+    );
+  }
+  if (entryId && !KEEP && role !== 'ADMIN') {
+    skip(
+      '9.0 amostra de teste para a lixeira',
+      'D',
+      'a lixeira é só de admin: mande a amostra "Teste do sandbox real" para a lixeira pela tela',
+    );
+  } else if (entryId && !KEEP) {
+    const trashed = await dl('POST', `/entries/${entryId}/trash`, {});
+    check(
+      '9.0 amostra de teste para a lixeira',
+      'D',
+      trashed.status < 300,
+      '',
+      trashed.status < 300 ? '' : `HTTP ${trashed.status}`,
+    );
+  }
+}
+
+// ------------------------------------------------------------------ principal
+
+let ok = false;
+try {
+  console.log(
+    `Teste do sandbox real · ${new Date().toISOString()} · ${READ_ONLY ? 'só leitura' : 'roteiro inteiro'}\n`,
+  );
+  ok = await phase0();
+  if (!READ_ONLY && ok) await runEnvironment();
+} catch (err) {
+  record('erro', 'O', 'falha', '', String(err?.message ?? err));
+} finally {
+  if (!READ_ONLY) {
+    try {
+      await closeEnvironment();
+    } catch (err) {
+      record('6.0 encerramento', 'O', 'falha', '', String(err?.message ?? err));
+    }
+  }
+  try {
+    await finish();
+  } catch (err) {
+    record('9.9 conferência final', 'O', 'falha', '', String(err?.message ?? err));
+  }
+}
+
+const failedRequired = results.filter((r) => r.level === 'O' && r.status === 'falha');
+console.log(`\n| Passo | O/D | Resultado | Tempo / medida | Observação |\n|---|---|---|---|---|`);
+for (const r of results) {
+  console.log(
+    `| ${r.step} | ${r.level} | ${r.status} | ${r.measure} | ${String(r.note).replace(/\|/g, '/')} |`,
+  );
+}
+console.log(
+  `\n${failedRequired.length ? `${failedRequired.length} passo(s) obrigatório(s) com falha` : 'obrigatórios ok'} · ${secs(Date.now() - started)}`,
+);
+process.exit(failedRequired.length ? 1 : 0);

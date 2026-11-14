@@ -214,10 +214,23 @@ e o commit do DeepLook no cabeçalho):
 | 0.2 | O | | | |
 | … | | | | |
 
-## 8. Automação (proposta)
+## 8. Automação
 
-Depois da primeira rodada manual, o script `scripts/sandbox-real-check.mjs` (item 5.5 do plano)
-pode repetir sozinho a parte que não depende de mão na VM: fases 0, 1, 2.2, 3.1, 5.1, 6 e 9.2, pela
+O `scripts/sandbox-real-check.mjs` roda sozinho as fases que não precisam de mão na VM:
+
+```
+node scripts/sandbox-real-check.mjs --read-only   # só a fase 0: confere o PVE e o DeepLook, sem criar nada
+node scripts/sandbox-real-check.mjs               # abre um ambiente, roda a amostra pelo agente e encerra
+```
+
+Ele lê o `.env` da raiz e entra no DeepLook como `CHECK_EMAIL`/`CHECK_PASSWORD` (padrão: o admin do
+`.env`; com um analista, as checagens de admin ficam como "pulado"). No Proxmox, só lê; a única
+escrita é o `agent/exec` que roda a amostra na VM do teste. **O template nunca é alterado**: a escrita
+nele é recusada no script e no próprio DeepLook, e o fim confere que o `digest` da configuração do
+template não mudou. Se algo falhar no meio, o script encerra o ambiente que abriu. Sai com erro se um
+passo obrigatório falhar e imprime a tabela da seção 7.
+
+A proposta original, para referência: o script repete sozinho a parte que não depende de mão na VM: fases 0, 1, 2.2, 3.1, 5.1, 6 e 9.2, pela
 API do DeepLook com um token de admin, com tempo-limite em cada passo e o relatório no formato da
 seção 7. A amostra rodando na VM (fases 3.2, 4 e 5.3 a 5.5) pode entrar também, pelo
 `agent/exec` do PVE, se a conta tiver a permissão do agente: o script roda a amostra da seção 2.3

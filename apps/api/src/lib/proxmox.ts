@@ -175,7 +175,13 @@ function errorMessage(
   const pve = typeof body?.message === 'string' ? body.message.trim() : '';
   const detail = pve || fallback.trim().slice(0, 200);
   const detailText = detail ? ` (${detail})` : '';
-  const hint = status === 403 ? permissionHint(path) : '';
+  // Opcao do template que so o root@pam aplica (o PVE responde 500): o clone nao passa sem ajuste.
+  const rootOnly = /only root can set '([\w.-]+)'/.exec(detail)?.[1];
+  const hint = rootOnly
+    ? `o template tem '${rootOnly}', que no PVE só o root@pam clona. Para hostpci: crie um mapeamento de recurso (Datacenter > Resource Mappings), use-o no template e dê Mapping.Use ao usuário do DeepLook. Para args e outras opções só de root: tire do template ou use outro template.`
+    : status === 403
+      ? permissionHint(path)
+      : '';
   const base = `Proxmox respondeu HTTP ${status} em ${method} ${path}${detailText}.`;
   // A dica depois de um rotulo fixo: o detalhe do PVE costuma ter ponto (ex.: VM.Clone), e a
   // traducao da mensagem (lib/error-language.ts) precisa achar onde a dica comeca.
