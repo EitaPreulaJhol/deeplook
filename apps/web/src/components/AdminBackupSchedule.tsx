@@ -328,7 +328,11 @@ export function AdminBackupSchedule() {
           </HpsmForm>
           {saved?.enabled && saved.nextRunAt && (
             <p className="dl-backup__counts">
-              {t('savedNext', { summary: data?.summary, next: fmt(new Date(saved.nextRunAt)) })}
+              {t('savedNext', {
+                // Descrito aqui, no idioma da tela: o resumo da API vem sempre em portugues.
+                summary: `${describeDraft(saved)} (${saved.timezone})`,
+                next: fmt(new Date(saved.nextRunAt)),
+              })}
             </p>
           )}
           {saved?.lastRunAt && (
