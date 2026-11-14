@@ -1657,3 +1657,15 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 - **Ícones:** os ícones da interface (`apps/web/public/icons`) tiveram origem nos ícones **Silk**, do
   [FamFamFam](http://www.famfamfam.com/lab/icons/silk/), de Mark James, licenciados sob
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Obrigado!
+- **Pacotes de regras YARA:** cada pacote em `apps/api/rules/` mantém a licença dos autores (`LICENSE`
+  na pasta do pacote; resumo na seção Regras YARA).
+
+## Licença
+
+O DeepLook é distribuído sob a [Licença MIT](LICENSE). Componentes de terceiros mantêm as próprias
+licenças: os pacotes de regras YARA e os ícones Silk acima.
+
+## Segurança
+
+Achou uma vulnerabilidade? Relate em sigilo, como descrito no [SECURITY.md](SECURITY.md), e não numa
+issue pública.

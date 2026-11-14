@@ -1639,3 +1639,15 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 - **Icons:** the interface icons (`apps/web/public/icons`) originated from the **Silk** icons, by Mark James,
   from [FamFamFam](http://www.famfamfam.com/lab/icons/silk/), licensed under
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Thank you!
+- **YARA rule packs:** each pack in `apps/api/rules/` keeps its authors' license (`LICENSE` in the
+  pack's folder; summary in the YARA rules section).
+
+## License
+
+DeepLook is licensed under the [MIT License](LICENSE). Third-party components keep their own
+licenses: the YARA rule packs and the Silk icons above.
+
+## Security
+
+Found a vulnerability? Report it privately, as described in [SECURITY.md](SECURITY.md), not in a
+public issue.
