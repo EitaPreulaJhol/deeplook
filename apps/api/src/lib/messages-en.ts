@@ -654,8 +654,8 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Reading the task requires it to be yours or Sys.Audit on the node.',
   ],
   [
-    "o template tem '{0}', que no PVE só o root@pam clona. Para hostpci: crie um mapeamento de recurso (Datacenter > Resource Mappings), use-o no template e dê Mapping.Use ao usuário do DeepLook. Para args e outras opções só de root: tire do template ou use outro template.",
-    "the template has '{0}', which only root@pam can clone in PVE. For hostpci: create a resource mapping (Datacenter > Resource Mappings), use it in the template and give Mapping.Use to the DeepLook user. For args and other root-only options: remove it from the template or use another template.",
+    "o template tem '{0}', que no PVE só o root@pam clona. Para hostpci: crie um mapeamento de recurso (Datacenter > Resource Mappings), use-o no template e dê Mapping.Use ao usuário do DeepLook. Para outras opções só de root: tire do template ou use outro template.",
+    "the template has '{0}', which only root@pam can clone in PVE. For hostpci: create a resource mapping (Datacenter > Resource Mappings), use it in the template and give Mapping.Use to the DeepLook user. For other root-only options: remove them from the template or use another template.",
   ],
   ['Timeout ao falar com o Proxmox.', 'Timeout talking to Proxmox.'],
   ['Proxmox nao retornou a task do upload do ISO.', 'Proxmox did not return the ISO upload task.'],

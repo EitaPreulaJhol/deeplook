@@ -178,7 +178,7 @@ function errorMessage(
   // Opcao do template que so o root@pam aplica (o PVE responde 500): o clone nao passa sem ajuste.
   const rootOnly = /only root can set '([\w.-]+)'/.exec(detail)?.[1];
   const hint = rootOnly
-    ? `o template tem '${rootOnly}', que no PVE só o root@pam clona. Para hostpci: crie um mapeamento de recurso (Datacenter > Resource Mappings), use-o no template e dê Mapping.Use ao usuário do DeepLook. Para args e outras opções só de root: tire do template ou use outro template.`
+    ? `o template tem '${rootOnly}', que no PVE só o root@pam clona. Para hostpci: crie um mapeamento de recurso (Datacenter > Resource Mappings), use-o no template e dê Mapping.Use ao usuário do DeepLook. Para outras opções só de root: tire do template ou use outro template.`
     : status === 403
       ? permissionHint(path)
       : '';
