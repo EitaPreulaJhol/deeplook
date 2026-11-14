@@ -110,6 +110,14 @@
   padding-block-end: 2.25rem;
 }
 
+/* Rotulos longos (troca de senha: "Senha atual ou temporaria:", em ingles "Current or temporary
+   password:") quebravam em duas linhas com 7,5rem: so este quadro cresce, com o campo do mesmo
+   tamanho (varredura visual, item 3). */
+.dl-public--wide-labels {
+  --dl-auth-width: 29rem;
+  --dl-auth-label-w: 11.75rem;
+}
+
 .dl-auth__subtitle {
   margin: 0 0 0.75rem;
   color: var(--dl-text-muted);

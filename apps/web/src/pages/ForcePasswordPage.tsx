@@ -69,6 +69,7 @@ export function ForcePasswordPage() {
   return (
     <AuthLayout
       hideBack
+      wideLabels
       title={t('setNewPassword')}
       subtitle={
         expired

@@ -7,6 +7,7 @@
 //
 //   sh run-all.sh sweep                      (no container do Playwright, como os cenarios)
 //   SWEEP_SIZES=1366x768 SWEEP_ONLY=admin    so uma resolucao / so as telas com "admin" no nome
+//   SWEEP_LANG=en                            a interface em ingles (prints em out/sweep/<LxA>-en)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
@@ -16,6 +17,8 @@ const SIZES = (process.env.SWEEP_SIZES || '1440x900,1366x768,1280x720,1024x768')
   .split(',')
   .map((s) => s.split('x').map(Number));
 const ONLY = process.env.SWEEP_ONLY || '';
+/** SWEEP_LANG=en: a interface em ingles (textos mais longos). */
+const LANG = process.env.SWEEP_LANG || '';
 
 // ------------------------------------------------------------------ dados de exemplo
 
@@ -219,7 +222,7 @@ function inspect() {
 const report = [];
 const browser = await chromium.launch();
 for (const [width, height] of SIZES) {
-  const dir = `${OUT}/sweep/${width}x${height}`;
+  const dir = `${OUT}/sweep/${width}x${height}${LANG ? `-${LANG}` : ''}`;
   mkdirSync(dir, { recursive: true });
   for (const screen of SCREENS) {
     const state = createState({ loggedIn: !screen.loggedOut });
@@ -227,6 +230,10 @@ for (const [width, height] of SIZES) {
     const original = users[0].mustChangePassword;
     if (screen.mustChange) users[0].mustChangePassword = true;
     const context = await browser.newContext({ viewport: { width, height } });
+    if (LANG) {
+      state.preferences.language = LANG;
+      await context.addInitScript((lang) => window.localStorage.setItem('dl-locale', lang), LANG);
+    }
     await setupMock(context, state);
     const page = await context.newPage();
     const errors = [];

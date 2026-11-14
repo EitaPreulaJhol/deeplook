@@ -11,6 +11,8 @@ interface AuthLayoutProps {
   altLink?: { to: string; label: string };
   /** Esconde "Voltar para o inicio" (telas de quem ja esta logado, ex.: troca obrigatoria). */
   hideBack?: boolean;
+  /** Rotulos longos (troca de senha): coluna de rotulos e caixa mais largas. */
+  wideLabels?: boolean;
   children: ReactNode;
 }
 
@@ -70,9 +72,16 @@ export function PublicLegal() {
  * Layout das telas de autenticacao no estilo da tela de login do HP Service
  * Manager: masthead azul e uma caixa centralizada com cabecalho proprio.
  */
-export function AuthLayout({ title, subtitle, altLink, hideBack, children }: AuthLayoutProps) {
+export function AuthLayout({
+  title,
+  subtitle,
+  altLink,
+  hideBack,
+  wideLabels,
+  children,
+}: AuthLayoutProps) {
   return (
-    <div className="dl-public">
+    <div className={`dl-public${wideLabels ? ' dl-public--wide-labels' : ''}`}>
       <PublicMasthead />
 
       <main className="dl-public__main">

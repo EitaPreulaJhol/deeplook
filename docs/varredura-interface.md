@@ -24,6 +24,7 @@ To repeat it (in the Playwright container, like the scenarios):
 ```
 node sweep.mjs                                    # every screen, in the 4 resolutions
 SWEEP_SIZES=1366x768 SWEEP_ONLY=admin node sweep.mjs
+SWEEP_LANG=en node sweep.mjs                      # in English (longer texts)
 SWEEP_VIEWPORT=1366x768 OUT_DIR=/work/out/1366 node management.mjs
 ```
 
@@ -35,6 +36,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 |---|---|---|---|---|
 | 1 | Sample lists (Global History, My Uploads, queues) | The Sample column was the first to shrink: the name broke mid-word ("instalador_suspei…", "relatorio_trimestral.d / ocm") and the date into two lines, while the short columns had room to spare. With that fixed, at 1280 and 1366 the full table didn't fit and Reports and Date went into a hidden horizontal scroll | 1366, 1280 | A minimum width for the title (`overflow-wrap: anywhere`, needed for huge names, let the column shrink to one character) and three re-measured tiers of secondary columns: at 1366 only Reports goes; at 1280, Type too; at 1024, also Assignee, Age and Date |
 | 2 | Mandatory password change (and any authentication box with an opening text) | The opening text came out at 16px, inherited from the paragraph, larger than the rest of the interface (12-13px) | all | The opening text uses the body font (12px, 1.5 line height) |
+| 3 | Mandatory password change | The "Senha atual ou temporária:" ("Current or temporary password:") label broke into two lines, with the asterisk out of line with the field | all, in both languages | Only in that box, the label column and the box get wider (the field keeps its size); login and sign-up, with short labels, don't change |
 
 ## Discarded (not problems)
 
