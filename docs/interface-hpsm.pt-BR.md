@@ -752,11 +752,3 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1 -Scripts 
 Requer o Docker em execução (imagem `mcr.microsoft.com/playwright:v1.64.1-noble`).
 O script sai com erro se alguma checagem falhar; screenshots ficam em
 `scripts/ui-playwright/out/` (ignorado pelo git).
-
----
-
-## 8. Próximas melhorias
-
-Ideias de UX/usabilidade priorizadas estão em [`docs/ux-backlog.pt-BR.md`](ux-backlog.pt-BR.md):
-a primeira leva (1–18) está implementada; a segunda (19–30, padrões do HPSM 9 como
-painel de detalhe, atualização em massa e Favoritos) está pendente.

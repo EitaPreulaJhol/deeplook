@@ -1157,7 +1157,7 @@ deeplook/
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox, revisao-2026-11, plano-2026-11
+├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox, interface-hpsm, varredura-interface
 ├─ icons/             # biblioteca de ícones (estilo HPSM)
 ├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
 ├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
@@ -1346,8 +1346,7 @@ dos controles vem do Carbon Design System; o visual vem dos tokens e do skin:
 
 Componentes, convenções (o que usar e o que evitar do Carbon), rotas, preferências do
 usuário e a verificação visual estão em
-**[`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md)**. Ideias de UX priorizadas:
-**[`docs/ux-backlog.pt-BR.md`](docs/ux-backlog.pt-BR.md)**.
+**[`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md)**.
 
 ### Minha Conta e preferências
 
@@ -1651,8 +1650,7 @@ Detalhes em [`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md#7-veri
 
 ## Roadmap (próximos passos)
 
-Melhorias de interface e usabilidade estão priorizadas em
-[`docs/ux-backlog.pt-BR.md`](docs/ux-backlog.pt-BR.md). Outros próximos passos:
+Próximos passos:
 
 - Notificações por e-mail (SMTP).
 

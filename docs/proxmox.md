@@ -407,8 +407,9 @@ replaced for every environment.
    captura de rede"** alert. It checks the whole path (sniffer, netcap, MinIO and Suricata) and does
    not add to the risk.
 
-The full script, with the console, the agent, Sysmon, two environments at once and induced
-failures, is in [`teste-proxmox-real.md`](teste-proxmox-real.md).
+The automatable part of the test against the real Proxmox (console, agent, processes, Sysmon,
+automatic run and cleanup) runs with `node scripts/sandbox-real-check.mjs`; the options are in the
+script's header.
 
 Common problems:
 

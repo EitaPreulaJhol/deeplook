@@ -753,11 +753,3 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1 -Scripts 
 Requires Docker running (image `mcr.microsoft.com/playwright:v1.64.1-noble`).
 The script exits with an error if any check fails; screenshots are kept in
 `scripts/ui-playwright/out/` (ignored by git).
-
----
-
-## 8. Next improvements
-
-Prioritized UX/usability ideas are in [`docs/ux-backlog.md`](ux-backlog.md):
-the first batch (1–18) is implemented; the second (19–30, HPSM 9 patterns such as the
-detail pane, bulk update and Favorites) is pending.

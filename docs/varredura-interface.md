@@ -4,8 +4,7 @@
 
 Every screen of the web interface was captured with Playwright, against the mocked API, in four
 resolutions: **1440x900** (reference), **1366x768**, **1280x720** and **1024x768**. Each finding
-below was fixed in its own commit. What was left for later is in
-[`varredura-interface-pendencias.md`](varredura-interface-pendencias.md).
+below was fixed in its own commit.
 
 ## How it was done
 
@@ -15,8 +14,8 @@ below was fixed in its own commit. What was left for later is in
   scroll, clipped text (with or without an ellipsis), button or tab with its text on more than one
   line, overlapping controls, element off screen, regular text larger than the interface standard,
   broken or distorted image, console errors and, in English, "por/em/às" hard-coded before a name or
-  date. After the sweep came text above body size, double inset and stacked label (see the
-  [follow-ups](varredura-interface-pendencias.md), item 10).
+  date. After the sweep came text above body size, double inset and stacked label, and the
+  `SWEEP_AXE=1` mode (axe-core, WCAG A/AA).
 - **Screens with their own data** (management, assignment, broadcasts, domains, triage rules,
   backup, API docs and page capture): the dedicated scenarios, with the resolution changed through
   `SWEEP_VIEWPORT=WxH`.
@@ -65,7 +64,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 24 | Static analysis (strings by category, PE, ELF, capa, Ghidra), document VBA macros, sample comparison, search, YARA retroscan samples | More blocks repeated the section body's side padding: headings, lists and columns started 10 to 12 px right of the fields and text of other sections (same cause as item 10) | all | No side padding of their own in these blocks (dialogs, with their own body, stay as they are) |
 | 25 | YARA rules > Rule packs: search in the open pack's rules | The field had a stacked Carbon label ("Search pack rule") and the "N set(s)" count loose below it, while the "New rule" section right above uses left labels | all | Left label ("Search rule:") and the count as the field's help |
 | 26 | Case (summary and Added column), KB article, allowed indicators, YARA retroscans (English interface) | "por" hard-coded before the name: in English it showed "10/24/2026, 9:00:00 AM por Ana Souza" | all, in English | Text from the dictionary ("by Ana Souza"); the English sweep now flags "por/em/às" before a name or date |
-| 27 | Dashboard and Management report: daily chart, verdicts and ATT&CK techniques | The chart and bar lists repeated the section body's inset: legend, "View as table" and the lists started 10 px right of the rest (found later, by the double inset check of the [follow-ups](varredura-interface-pendencias.md), item 10) | all | No side inset of their own on the chart and bar lists |
+| 27 | Dashboard and Management report: daily chart, verdicts and ATT&CK techniques | The chart and bar lists repeated the section body's inset: legend, "View as table" and the lists started 10 px right of the rest (found later, by the automatic double inset check) | all | No side inset of their own on the chart and bar lists |
 
 ## Discarded (not problems)
 
@@ -75,13 +74,13 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
   exist in the mocked API.
 - **Case tab title with an ellipsis** ("CASO-0001 · Campanha do bol…"): document tabs are at most
   14rem wide and show the full title in the tooltip.
-- **Administration tabs cut at 1024x768**: the strip scrolls horizontally; since the
-  [follow-ups](varredura-interface-pendencias.md) (item 3), with arrows at the ends.
+- **Administration tabs cut at 1024x768**: the strip scrolls horizontally, with arrows
+  at the ends that have a hidden tab.
 - **"API access" header on two lines at 1024x768**: below 1280 px the users table lets names and
   headers wrap so it fits (item 17).
 - **"Save" in the Change password footer, besides the bar**: the footer (`HpsmFormActions`)
-  complements the bar on a critical form; the full rule is in the UI guide since the
-  [follow-ups](varredura-interface-pendencias.md) (item 8).
+  complements the bar on a critical form; the full rule is in the
+  [UI guide](interface-hpsm.md) ("Where the save button goes").
 - **Sessions bar outside the section**: the guide allows a tab or a section bar; the actions apply
   to the whole list.
 - **Narrow one-column forms** (Preferences, Notifications, Password, 2FA, Create backup): the

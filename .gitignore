@@ -31,3 +31,6 @@ strix_runs/
 
 # entradas que quebraram o fuzzing (apps/api: npm run test:fuzz)
 apps/api/tests/fuzz/crashes/
+
+# Planos, roadmap e backlog do projeto: so locais, fora do Git.
+plans/

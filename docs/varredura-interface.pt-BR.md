@@ -4,8 +4,7 @@
 
 Todas as telas da interface web foram capturadas com o Playwright, contra a API simulada, em quatro
 resoluções: **1440x900** (referência), **1366x768**, **1280x720** e **1024x768**. Cada achado abaixo
-foi corrigido num commit próprio. O que ficou para depois está em
-[`varredura-interface-pendencias.pt-BR.md`](varredura-interface-pendencias.pt-BR.md).
+foi corrigido num commit próprio.
 
 ## Como foi feita
 
@@ -15,8 +14,8 @@ foi corrigido num commit próprio. O que ficou para depois está em
   (com ou sem reticências), botão ou aba com o texto em mais de uma linha, controles sobrepostos,
   elemento fora da tela, texto comum maior que o padrão da interface, imagem quebrada ou distorcida,
   erros do console e, em inglês, "por/em/às" fixos no código antes de nome ou data. Depois da
-  varredura entraram texto acima do corpo, recuo dobrado e rótulo empilhado (ver as
-  [pendências](varredura-interface-pendencias.pt-BR.md), item 10).
+  varredura entraram texto acima do corpo, recuo dobrado e rótulo empilhado, e o modo
+  `SWEEP_AXE=1` (axe-core, WCAG A/AA).
 - **Telas com dados próprios** (gerencial, atribuição, avisos, domínios, regras de triagem, backup,
   documentação da API e captura de página): os cenários dedicados, com a resolução trocada por
   `SWEEP_VIEWPORT=LxA`.
@@ -65,7 +64,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | 24 | Análise estática (strings por categoria, PE, ELF, capa, Ghidra), macros VBA do documento, comparar amostras, busca, amostras do retroscan YARA | Mais blocos repetiam o recuo lateral do corpo da seção: títulos, listas e colunas começavam 10 a 12 px à direita dos campos e do texto das outras seções (mesma causa do item 10) | todas | Sem recuo lateral próprio nesses blocos (os diálogos, com corpo próprio, continuam como estão) |
 | 25 | Regras YARA > Pacotes de regras: busca nas regras do pacote aberto | O campo tinha rótulo empilhado do Carbon ("Buscar regra do pacote"), e a contagem "N conjunto(s)" vinha solta embaixo, enquanto a seção "Nova regra" logo acima usa rótulo à esquerda | todas | Rótulo à esquerda ("Buscar regra:") e a contagem como ajuda do campo |
 | 26 | Caso (resumo e coluna Incluída), artigo da KB, indicadores permitidos, retroscans YARA (interface em inglês) | "por" fixo no código antes do nome: em inglês aparecia "10/24/2026, 9:00:00 AM por Ana Souza" | todas, em inglês | Texto pelo dicionário ("by Ana Souza"); a varredura em inglês passou a acusar "por/em/às" antes de nome ou data |
-| 27 | Painel e Relatório gerencial: gráfico diário, vereditos e técnicas ATT&CK | Gráfico e listas de barras repetiam o recuo do corpo da seção: legenda, "Ver em tabela" e as listas começavam 10 px à direita do resto (achado depois, pela checagem de recuo dobrado das [pendências](varredura-interface-pendencias.pt-BR.md), item 10) | todas | Sem recuo lateral próprio no gráfico e nas listas de barras |
+| 27 | Painel e Relatório gerencial: gráfico diário, vereditos e técnicas ATT&CK | Gráfico e listas de barras repetiam o recuo do corpo da seção: legenda, "Ver em tabela" e as listas começavam 10 px à direita do resto (achado depois, pela checagem automática de recuo dobrado) | todas | Sem recuo lateral próprio no gráfico e nas listas de barras |
 
 ## Descartados (não são problemas)
 
@@ -75,13 +74,13 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
   API simulada.
 - **Título da aba do caso com reticências** ("CASO-0001 · Campanha do bol…"): as abas de documento
   têm no máximo 14rem e mostram o título inteiro na dica.
-- **Abas da Administração cortadas em 1024x768**: a fileira rola na horizontal; desde as
-  [pendências](varredura-interface-pendencias.pt-BR.md) (item 3), com setas nas pontas.
+- **Abas da Administração cortadas em 1024x768**: a fileira rola na horizontal, com setas
+  nas pontas que têm aba escondida.
 - **Cabeçalho "Acesso por API" em duas linhas em 1024x768**: abaixo de 1280 px a tabela de usuários
   deixa nome e cabeçalhos quebrarem para caber (item 17).
 - **"Salvar" no rodapé da Alterar senha, além da barra**: o rodapé (`HpsmFormActions`) complementa a
-  barra em formulário crítico; a regra completa está no guia de interface desde as
-  [pendências](varredura-interface-pendencias.pt-BR.md) (item 8).
+  barra em formulário crítico; a regra completa está no
+  [guia de interface](interface-hpsm.pt-BR.md) ("Onde fica o botão de gravar").
 - **Barra de Sessões fora da seção**: o guia aceita barra de aba ou de seção; as ações valem para a
   lista inteira.
 - **Formulários de uma coluna estreitos** (Preferências, Notificações, Senha, 2FA, Gerar backup): a

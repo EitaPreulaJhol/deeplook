@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Teste do sandbox contra o Proxmox (e o MikroTik CHR) de verdade: o roteiro
-// docs/teste-proxmox-real.pt-BR.md, na parte que nao precisa de mao na VM (plano pos-revisao, 5.5).
+// Teste do sandbox contra o Proxmox (e o MikroTik CHR) de verdade, na parte que nao precisa de mao
+// na VM (plano pos-revisao, 5.5; o roteiro completo fica nos planos locais, fora do Git).
 //
 //   node scripts/sandbox-real-check.mjs               roteiro inteiro (abre e encerra um ambiente)
 //   node scripts/sandbox-real-check.mjs --read-only   so a fase 0: confere o PVE e o DeepLook, sem
@@ -244,7 +244,7 @@ async function dl(method, path, body) {
   return { status: res.status, json };
 }
 
-const SAMPLE = `# Amostra inofensiva do teste real do DeepLook (docs/teste-proxmox-real.pt-BR.md).
+const SAMPLE = `# Amostra inofensiva do teste real do DeepLook (scripts/sandbox-real-check.mjs).
 nslookup deeplook-teste.invalid 2>$null | Out-Null
 Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
 try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 http://testmynids.org/uid/index.html | Out-Null } catch {}

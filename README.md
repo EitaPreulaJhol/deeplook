@@ -1145,7 +1145,7 @@ deeplook/
 │     ├─ nginx.conf   # build server and /api proxy (the real configuration)
 │     ├─ vitest.config.ts # unit tests and coverage floor
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, interface-hpsm, ux-backlog, plano-melhorias, proxmox, revisao-2026-11, plano-2026-11
+├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox, interface-hpsm, varredura-interface
 ├─ icons/             # icon library (HPSM style)
 ├─ scripts/           # visual tests (ui-playwright/), Trivy (trivy.mjs) and Playwright check
 ├─ trivy.yaml         # severity, justified exceptions and what fails the image scan
@@ -1332,8 +1332,7 @@ controls comes from the Carbon Design System; the look comes from the tokens and
 | `src/styles/_carbon-theme.scss` | tokens of the light `g10` theme, emitted before the HPSM skin |
 
 Components, conventions (what to use and avoid from Carbon), routes, user preferences and visual
-verification are in **[`docs/interface-hpsm.md`](docs/interface-hpsm.md)**. Prioritized UX ideas:
-**[`docs/ux-backlog.md`](docs/ux-backlog.md)**.
+verification are in **[`docs/interface-hpsm.md`](docs/interface-hpsm.md)**.
 
 ### My Account and preferences
 
@@ -1632,8 +1631,7 @@ Details in [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-visual-verificati
 
 ## Roadmap (next steps)
 
-UI and usability improvements are prioritized in
-[`docs/ux-backlog.md`](docs/ux-backlog.md). Other next steps:
+Next steps:
 
 - Email notifications (SMTP).
 
