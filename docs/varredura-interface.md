@@ -50,6 +50,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 13 | Filter bars (Global History, queues, My Uploads, cases, KB and other lists) | The buttons (Clear, Save view, Share view, Export CSV) wrapped one by one: at 1366x768 "Export CSV" sat alone on the third row; and they were 1rem apart, the spacing between filters, against 0.5rem in toolbars | 1366x768 and smaller | The buttons sit in one block that wraps as a whole, 0.5rem apart |
 | 14 | Sample record, Reports tab: "Evidence" row | The caption field had a stacked label ("Caption (optional)") inside a left-label form: the "Evidence" label lined up with that caption, while field, button and help sat 20 px below | all | The caption became placeholder text in the field (the label stays for screen readers); field, button and help sit in one row centered with the label |
 | 15 | Case: "Add sample" and "New comment" | Both fields had a stacked Carbon label, while the rest of the screen (Case data) and the record's update field use left labels; "Add sample (ID or link)" repeated what the placeholder already shows | all | Left label ("Add sample:", "New comment:") with field and button beside it and the help below, as in the record |
+| 16 | Sample record, case, IOC and KB article: summary bar | The summary bar had 1.5rem below it (24 px plus the tabs' inset: 28 px to the tabs or first section), while header, toolbar and sections sit 8 px apart | all | 0.5rem below the bar, in its own rule, on the four screens |
 
 ## Discarded (not problems)
 

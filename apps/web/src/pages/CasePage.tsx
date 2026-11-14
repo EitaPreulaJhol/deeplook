@@ -308,7 +308,7 @@ export function CasePage() {
         </HpsmMessage>
       )}
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
-      <div className="dl-summary dl-mb-lg">
+      <div className="dl-summary">
         <span>
           <span className="dl-summary__label">{tr('sumStatus')}</span>{' '}
           <StatusText tone={CASE_STATUS[c.status].tone}>{CASE_STATUS[c.status].label}</StatusText>

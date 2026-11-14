@@ -159,7 +159,7 @@ export function IocPage() {
           })}
         </HpsmMessage>
       )}
-      <div className="dl-summary dl-mb-lg">
+      <div className="dl-summary">
         <span>
           <span className="dl-summary__label">{t('sumType')}</span> {IOC_KIND_LABELS[ioc.kind]}
         </span>

@@ -345,7 +345,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
       </HpsmToolbar>
       <PageHeader title={a.title} subtitle={a.summary} />
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
-      <div className="dl-summary dl-mb-lg">
+      <div className="dl-summary">
         <span>
           <span className="dl-summary__label">{tr('sumCategory')}</span>{' '}
           <StatusText tone="blue">{kbCategoryLabel(a.category)}</StatusText>

@@ -2963,11 +2963,14 @@ body:has(.dl-print) {
 }
 
 /* Linha de resumo do registro (Tipo / Status / Veredito / Tags). */
+/* Barra de resumo da ficha (amostra, caso, IOC, artigo): o mesmo 0,5rem abaixo que o cabecalho e
+   a barra de ferramentas (tinha 1,5rem: um vao de 28 px antes das abas; varredura visual, item 16). */
 .dl-summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem 1.5rem;
+  margin-block-end: 0.5rem;
   padding: 0.3rem 0.75rem;
   background: var(--dl-surface);
   border: 1px solid var(--dl-panel-border);

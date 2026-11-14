@@ -593,7 +593,7 @@ export function EntryDetailPage() {
       )}
 
       <PageHeader title={entry.title} />
-      <div className="dl-summary dl-mb-lg">
+      <div className="dl-summary">
         <span>
           <span className="dl-summary__label">{tr('sumType')}</span> <TypeTag type={entry.type} />
         </span>
