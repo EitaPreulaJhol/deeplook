@@ -324,7 +324,7 @@ export function AdminPage() {
               >
                 {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
                   <TableContainer>
-                    <Table {...getTableProps()} size="xs">
+                    <Table {...getTableProps()} size="xs" className="dl-users-table">
                       <TableHead>
                         <TableRow>
                           {headers.map((header) => (
@@ -387,7 +387,7 @@ export function AdminPage() {
                                 )}
                               </TableCell>
                               <TableCell>
-                                <div className="dl-row">
+                                <div className="dl-row dl-users-table__actions">
                                   <Select
                                     id={`role-${u.id}`}
                                     labelText={t('role')}

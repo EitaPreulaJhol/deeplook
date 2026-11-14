@@ -5306,3 +5306,24 @@ tr.is-off td {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Administracao > Usuarios (varredura visual, item 17): nome e cabecalhos numa linha so (de 1280 px
+   para cima; abaixo disso a tabela nao caberia) e a selecao de papel com a mesma largura em toda
+   linha (esticava conforme o espaco: cada linha quebrava os botoes num ponto diferente). */
+@media (min-width: 80rem) {
+  .dl-users-table th,
+  .dl-users-table td:first-child {
+    white-space: nowrap;
+  }
+}
+
+.dl-users-table__actions > .cds--form-item,
+.dl-users-table__actions .cds--select {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+}
+
+.dl-users-table__actions .cds--select-input__wrapper,
+.dl-users-table__actions .cds--select-input {
+  inline-size: 7.5rem;
+}
