@@ -36,6 +36,8 @@ export const INCLUDE = [
   'docs/implantacao.pt-BR.md',
   'docs/proxmox.md',
   'docs/proxmox.pt-BR.md',
+  'docs/template-windows.md',
+  'docs/template-windows.pt-BR.md',
   // Contextos de build de todos os servicos do compose.
   'apps',
   // Scripts que rodam no servidor ou contra ele depois de subir.

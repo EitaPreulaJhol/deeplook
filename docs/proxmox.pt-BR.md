@@ -84,7 +84,8 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
 
 1. Crie uma VM (Windows/Linux) com `qemu-guest-agent`, **rede isolada** (bridge
    sem rota para a LAN) e **sem credenciais corporativas**.
-2. Instale as ferramentas de análise que você usa.
+2. Instale as ferramentas de análise que você usa. Sugestões do que instalar, com os links
+   oficiais e as configurações do Windows, estão em [`template-windows.pt-BR.md`](template-windows.pt-BR.md).
    - **Sysmon (opcional, Windows):** com ele, os artefatos do ambiente trazem a árvore de
      processos, as conexões, os arquivos criados, o registro alterado e as consultas DNS. Baixe o
      Sysmon da Microsoft (Sysinternals) e uma configuração pronta: recomendamos a

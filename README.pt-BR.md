@@ -1168,7 +1168,7 @@ deeplook/
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox
+├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox, template-windows
 ├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
 ├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
 └─ data/              # volumes (git-ignored): pgdata/, minio/, clamav/

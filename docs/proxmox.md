@@ -79,7 +79,8 @@ server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}
 
 1. Create a VM (Windows/Linux) with `qemu-guest-agent`, an **isolated network** (bridge with no
    route to the LAN) and **no corporate credentials**.
-2. Install the analysis tools you use.
+2. Install the analysis tools you use. Suggestions for what to install, with the official links
+   and the Windows settings, are in [`template-windows.md`](template-windows.md).
    - **Sysmon (optional, Windows):** with it, the environment artifacts include the process tree,
      the connections, the files created, the registry changes and the DNS queries. Download Sysmon
      from Microsoft (Sysinternals) and a ready-made configuration: we recommend
