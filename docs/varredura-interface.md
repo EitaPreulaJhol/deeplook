@@ -64,6 +64,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 24 | Static analysis (strings by category, PE, ELF, capa, Ghidra), document VBA macros, sample comparison, search, YARA retroscan samples | More blocks repeated the section body's side padding: headings, lists and columns started 10 to 12 px right of the fields and text of other sections (same cause as item 10) | all | No side padding of their own in these blocks (dialogs, with their own body, stay as they are) |
 | 25 | YARA rules > Rule packs: search in the open pack's rules | The field had a stacked Carbon label ("Search pack rule") and the "N set(s)" count loose below it, while the "New rule" section right above uses left labels | all | Left label ("Search rule:") and the count as the field's help |
 | 26 | Case (summary and Added column), KB article, allowed indicators, YARA retroscans (English interface) | "por" hard-coded before the name: in English it showed "10/24/2026, 9:00:00 AM por Ana Souza" | all, in English | Text from the dictionary ("by Ana Souza"); the English sweep now flags "por/em/às" before a name or date |
+| 27 | Dashboard and Management report: daily chart, verdicts and ATT&CK techniques | The chart and bar lists repeated the section body's inset: legend, "View as table" and the lists started 10 px right of the rest (found later, by the double inset check of the [follow-ups](varredura-interface-pendencias.md), item 10) | all | No side inset of their own on the chart and bar lists |
 
 ## Discarded (not problems)
 
