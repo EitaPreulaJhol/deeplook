@@ -80,7 +80,9 @@ checks:
   `malware`, `analysis`, `test` or a tool's name.
 - **Plausible hardware**: 2 or more cores, 4 GB or more of memory, a 60 GB or larger disk and a
   common resolution (the wallpaper in `scripts/template-windows/wallpaper` comes in the usual
-  sizes). The template already has the fake SMBIOS (step 2.1 of the Proxmox guide).
+  sizes). Give the VM a common manufacturer and model in **Options › SMBIOS settings** (`smbios1`)
+  instead of QEMU's; avoid doing it through `args`, which the DeepLook user can't clone
+  (troubleshooting in the [Proxmox guide](proxmox.md#7-troubleshooting)).
 
 ## 5. Windows settings
 

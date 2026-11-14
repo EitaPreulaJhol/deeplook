@@ -15,7 +15,7 @@ real e abrir a **VM de análise** (sandbox) a partir de uma amostra.
 
 Uma amostra vira uma **VM isolada por amostra**: um clone do template é criado no
 Proxmox, recebe a amostra como **CD-ROM somente leitura** (uma ISO9660 gerada na
-hora) e é acessado pelo **console noVNC** embutido na página da amostra. Ao
+hora) e é acessado pelo **console noVNC**, numa janela própria aberta pela página da amostra. Ao
 encerrar — ou quando o prazo vence — a VM é destruída e a ISO é apagada.
 
 ```
@@ -37,6 +37,9 @@ Componentes envolvidos (nenhum precisa ser alterado):
 | Pipeline de provisionamento + reaper/limpeza | `apps/api/src/lib/sandbox.ts` |
 | Rotas REST + WebSocket do console | `apps/api/src/routes/sandbox.ts` |
 | Simulador (sem PVE) | `apps/api/src/lib/proxmox-mock.ts` |
+| Artefatos do ambiente: prints, processos, Sysmon | `apps/api/src/lib/sandbox-artifacts.ts`, `vnc-snapshot.ts`, `sysmon.ts` |
+| Execução automática da amostra (guest agent) | `apps/api/src/lib/sandbox-autorun.ts` |
+| Captura de rede (seção 9): sniffer do CHR, pcap e Suricata | `apps/api/src/lib/mikrotik.ts`, `suricata.ts`; `apps/netcap`, `apps/suricata` |
 | Proxy do WebSocket do console | `apps/web/nginx.conf` (`location /api/sandbox`) |
 | `genisoimage` na imagem da API | `apps/api/Dockerfile` |
 | Variáveis injetadas no container | `docker-compose.yml` |
@@ -186,14 +189,18 @@ Chamadas que a API faz ao PVE (referência das permissões acima):
 - `GET /nodes/{node}/qemu` e `GET /nodes/{node}/qemu/{vmid}/status/current`
 - `GET /cluster/nextid`
 - `POST /nodes/{node}/qemu/{tpl}/clone`
-- `PUT /nodes/{node}/qemu/{vmid}/config`
-- `POST /nodes/{node}/qemu/{vmid}/status/start` (e `shutdown`)
+- `GET/PUT /nodes/{node}/qemu/{vmid}/config`
+- `POST /nodes/{node}/qemu/{vmid}/status/start` (e `shutdown`, `stop`)
+- `GET /nodes/{node}/tasks/{upid}/status`
 - `DELETE /nodes/{node}/qemu/{vmid}`
 - `POST /nodes/{node}/storage/{storage}/upload`
 - `GET/DELETE /nodes/{node}/storage/{storage}/content`
 - `GET /nodes/{node}/storage/{storage}/status`
 - `POST /nodes/{node}/qemu/{vmid}/vncproxy` + `vncwebsocket`
-- `POST /nodes/{node}/qemu/{vmid}/screenshot` *(removido no PVE 9 — a captura no painel passou a ser feita no navegador)*
+- `POST /nodes/{node}/qemu/{vmid}/screenshot` *(removido no PVE 9: o painel captura no navegador, e
+  os artefatos pedem um quadro ao console VNC)*
+- `GET /nodes/{node}/qemu/{vmid}/agent/get-osinfo`, `POST .../agent/exec` e `GET .../agent/exec-status`
+  (artefatos, Sysmon e execução automática)
 
 ### 2.3 Storage com `content iso`
 
@@ -257,13 +264,13 @@ O container `api` roda na bridge `deeplook` e precisa alcançar `https://<pve>:8
 
 ## 5. Subindo e validando
 
-```powershell
+```bash
 docker compose up -d --build api web
 docker compose logs -f api
 ```
 
 Nos logs deve aparecer algo como:
-`[sandbox] habilitado (node pve, template 9000, ttl 60min)`.
+`[sandbox] habilitado (node pve, template 9000, ttl 60min); limpeza inicial em andamento`.
 
 Validação:
 
@@ -298,6 +305,7 @@ Validação:
 | `SANDBOX_TTL_MINUTES` | Tempo de vida do ambiente antes do descarte automático | `60` |
 | `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` | Limite de ambientes ativos (total / por analista) | `4` / `2` |
 | `SANDBOX_MOCK_VNC_URL` | (modo mock) VNC de teste para validar o console | — |
+| `SANDBOX_ARTIFACT_INTERVAL_S` / `SANDBOX_ARTIFACT_MAX_SHOTS` | de quantos em quantos segundos coletar o print e a lista de processos (`0` desliga) e quantos prints guardar por ambiente | `60` / `60` |
 
 ---
 

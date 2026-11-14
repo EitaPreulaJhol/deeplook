@@ -14,7 +14,7 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
 ## 0. Antes de começar
 
 - [ ] **Host Linux com Docker 28 ou mais novo.** O isolamento completo da rede da captura
-  (`inhibit_ipv4`, item 6.19) depende disso; num Docker anterior, a rede continua interna, mas o
+  (`inhibit_ipv4`) depende disso; num Docker anterior, a rede continua interna, mas o
   próprio host pode seguir alcançável pela bridge.
   ```bash
   docker version --format '{{.Server.Version}}'   # 28.x ou mais
@@ -23,8 +23,10 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
 - [ ] **Memória:** uns 10 GB livres. O ClamAV usa de 1,5 a 3 GB (a base de assinaturas fica na
   memória), a API tem teto de 4 GB (`API_MEM_LIMIT`), a análise de funções (capa e FLOSS), de
   3 GB (`CAPA_MEM_LIMIT`; só gasta isso durante uma análise), o Ghidra, de 6 GB
-  (`GHIDRA_MEM_LIMIT`; só quando um analista pede) e a captura, de 1 GB. Disco: as imagens somam uns
-  3,5 GB (o Ghidra sozinho, 1,45 GB).
+  (`GHIDRA_MEM_LIMIT`; só quando um analista pede), o desempacotamento, de 2 GB, o oletools, de 1 GB,
+  e a captura, de 1 GB; com o perfil `netcap`, mais 2 GB do Suricata. Tirando o ClamAV e a API, cada
+  um só ocupa memória enquanto trabalha (um contêiner novo por trabalho). Disco: as imagens somam
+  uns 8 GB (o navegador da captura, uns 2 GB; o Ghidra, 1,4 GB; a API, 1,2 GB).
 - [ ] **Disco:** o dos dados (`./data`) e um **disco externo** (ou NAS) para o backup.
 - [ ] **User namespaces liberados** (o sandbox do Chromium da captura precisa):
   ```bash
@@ -70,7 +72,8 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
     UNPACK_TOKEN OLETOOLS_TOKEN MINIO_ROOT_PASSWORD; do
     echo "$v=$(openssl rand -hex 32)"; done
   ```
-  `S3_SECRET_KEY` tem de ser **igual** ao `MINIO_ROOT_PASSWORD`. Defina também `ADMIN_EMAIL` e
+  Com a captura de rede (perfil `netcap`, seção 9 do [proxmox.pt-BR.md](proxmox.pt-BR.md)),
+  acrescente `NETCAP_TOKEN` e `SURICATA_TOKEN` à lista. `S3_SECRET_KEY` tem de ser **igual** ao `MINIO_ROOT_PASSWORD`. Defina também `ADMIN_EMAIL` e
   um `ADMIN_PASSWORD` próprio: as senhas padrão publicadas são recusadas em produção.
   O mesmo vale para a senha do banco e a do MinIO: com o valor do compose ou do `.env.example`,
   a API **não sobe** e diz qual variável trocar.
@@ -85,8 +88,7 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   ```
   A do MinIO não precisa disso: ele lê `MINIO_ROOT_PASSWORD` a cada subida; basta trocar as duas
   variáveis (`MINIO_ROOT_PASSWORD` e `S3_SECRET_KEY`) juntas e subir de novo.
-- [ ] **Permissões:** se os arquivos vieram de uma cópia do Windows, tire a escrita de "outros"
-  (item 6.21):
+- [ ] **Permissões:** se os arquivos vieram de uma cópia do Windows, tire a escrita de "outros":
   ```bash
   find . \( -type f -o -type d \) -perm -o+w -user "$(id -un)" -exec chmod o-w {} +
   ```
@@ -144,7 +146,8 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 ## 4. Sandbox (Proxmox): desligado no piloto
 
 - [ ] **`SANDBOX_ENABLED=false`**, a menos que as VMs de análise estejam numa **VLAN sem rota
-  para a sua LAN** e com saída controlada. Detalhe em [docs/proxmox.pt-BR.md](proxmox.pt-BR.md).
+  para a sua LAN** e com saída controlada. Detalhe em [docs/proxmox.pt-BR.md](proxmox.pt-BR.md); o
+  que instalar no template da VM, em [docs/template-windows.pt-BR.md](template-windows.pt-BR.md).
 - [ ] **Se for ligar o sandbox**, prepare o usuário dedicado no PVE **antes** de subir a API. Troque
   `<template>`, `<bridge>`, `<iso-storage>` e `<disco-storage>` pelos valores do
   `qm config <template>` (`net0`; `sata0`/`scsi0`/`efidisk0`/`tpmstate0`):
@@ -197,7 +200,7 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 - [ ] Suba e espere tudo saudável:
   ```bash
   docker compose up -d --build
-  docker compose ps        # api, web e egress "healthy"; db, minio, clamav e capture "running"
+  docker compose ps        # api, web, egress e db "healthy"; os outros "running"
   curl -fsS http://127.0.0.1:8080/api/health/ready && echo pronto
   ```
   O ClamAV leva alguns minutos na primeira vez (baixa a base de assinaturas).
@@ -219,7 +222,8 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 - [ ] **Uptime Kuma** (ou Zabbix): monitor HTTP em
   `https://deeplook.seu-dominio.com/api/status?strict=1`, com o `Authorization: Bearer` do
   token e os cabeçalhos do service token do Access (passo 2). O `strict=1` responde **503**
-  quando algo está em erro: banco, MinIO, antivírus, **backup agendado que falhou ou atrasou**.
+  quando algo está em erro: banco, MinIO, antivírus, um serviço de análise ligado que não responde,
+  **backup agendado que falhou ou atrasou**.
 
 ## 9. Conferência final
 
@@ -239,7 +243,7 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
 
 - [ ] **Atualizar:**
   ```bash
-  git pull
+  git pull                # ou, com o pacote, o rsync do passo 1
   docker compose down && docker compose up -d --build   # o down recria as redes quando mudam
   ```
   As migrações do banco rodam sozinhas na subida da API; os dados ficam em `./data`.
@@ -247,7 +251,7 @@ dono da página vê esse IP, e o seu provedor pode receber denúncia de abuso.
   `node scripts/chromium-unsafe-ports.mjs` confere a lista de portas do `egress`.
 - [ ] **No GitHub:** acompanhe o CI de cada push, o **Trivy semanal** (*Security scan*) e os PRs
   do **Dependabot**. Uma CVE nova numa imagem base aparece ali.
-- [ ] **Logs:** `docker compose logs -f api` (rotação de 10 MB × 3 por serviço, item 6.6).
+- [ ] **Logs:** `docker compose logs -f api` (rotação de 10 MB × 3 por serviço, `LOG_MAX_SIZE` e `LOG_MAX_FILE`).
 
 ## 11. Combinado com quem vai testar
 

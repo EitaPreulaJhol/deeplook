@@ -79,7 +79,9 @@ dessas checagens:
   `analysis`, `test` ou o nome de uma ferramenta.
 - **Hardware plausível**: 2 núcleos ou mais, 4 GB de memória ou mais, disco de 60 GB ou mais e uma
   resolução comum (o papel de parede em `scripts/template-windows/wallpaper` tem os tamanhos usuais).
-  O SMBIOS falso o template já tem (passo 2.1 do guia do Proxmox).
+  Dê à VM um fabricante e um modelo comuns em **Opções › Configurações SMBIOS** (`smbios1`), no lugar
+  dos do QEMU; evite fazer isso por `args`, que o usuário do DeepLook não consegue clonar (solução de
+  problemas no [guia do Proxmox](proxmox.pt-BR.md#7-solução-de-problemas)).
 
 ## 5. Configurações do Windows
 

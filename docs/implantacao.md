@@ -14,7 +14,7 @@ Each step says **what to do**, **how to check it** and, when one already exists,
 ## 0. Before you start
 
 - [ ] **Linux host with Docker 28 or newer.** The full network isolation of the capture
-  (`inhibit_ipv4`, item 6.19) depends on this; on an older Docker, the network remains internal, but
+  (`inhibit_ipv4`) depends on this; on an older Docker, the network remains internal, but
   the host itself may still be reachable through the bridge.
   ```bash
   docker version --format '{{.Server.Version}}'   # 28.x or newer
@@ -23,7 +23,10 @@ Each step says **what to do**, **how to check it** and, when one already exists,
 - [ ] **Memory:** about 10 GB free. ClamAV uses 1.5 to 3 GB (the signature database is kept in
   memory), the API has a 4 GB ceiling (`API_MEM_LIMIT`), function analysis (capa and FLOSS) 3 GB
   (`CAPA_MEM_LIMIT`; it only uses that during an analysis), Ghidra 6 GB (`GHIDRA_MEM_LIMIT`; only when
-  an analyst asks) and the capture 1 GB. Disk: the images add up to about 3.5 GB (Ghidra alone, 1.45 GB).
+  an analyst asks), unpacking 2 GB, oletools 1 GB and the capture 1 GB; with the `netcap` profile,
+  Suricata 2 GB more. Except for ClamAV and the API, each one only takes memory while it works (a new
+  container per job). Disk: the images add up to about 8 GB (the capture browser about 2 GB, Ghidra
+  1.4 GB, the API 1.2 GB).
 - [ ] **Disk:** the one for the data (`./data`) and an **external disk** (or NAS) for the backup.
 - [ ] **User namespaces enabled** (the Chromium sandbox of the capture needs them):
   ```bash
@@ -69,7 +72,8 @@ Each step says **what to do**, **how to check it** and, when one already exists,
     UNPACK_TOKEN OLETOOLS_TOKEN MINIO_ROOT_PASSWORD; do
     echo "$v=$(openssl rand -hex 32)"; done
   ```
-  `S3_SECRET_KEY` must be **equal** to `MINIO_ROOT_PASSWORD`. Also set `ADMIN_EMAIL` and your own
+  With the network capture (`netcap` profile, [proxmox.md](proxmox.md) section 9), add
+  `NETCAP_TOKEN` and `SURICATA_TOKEN` to the list. `S3_SECRET_KEY` must be **equal** to `MINIO_ROOT_PASSWORD`. Also set `ADMIN_EMAIL` and your own
   `ADMIN_PASSWORD`: the published default passwords are refused in production.
   The same goes for the database and MinIO passwords: with the value from compose or `.env.example`,
   the API **will not start** and says which variable to change.
@@ -84,8 +88,7 @@ Each step says **what to do**, **how to check it** and, when one already exists,
   ```
   MinIO does not need this: it reads `MINIO_ROOT_PASSWORD` on every start; just change both
   variables (`MINIO_ROOT_PASSWORD` and `S3_SECRET_KEY`) together and start again.
-- [ ] **Permissions:** if the files came from a Windows copy, remove write access for "others"
-  (item 6.21):
+- [ ] **Permissions:** if the files came from a Windows copy, remove write access for "others":
   ```bash
   find . \( -type f -o -type d \) -perm -o+w -user "$(id -un)" -exec chmod o-w {} +
   ```
@@ -142,7 +145,8 @@ owner of the page sees that IP, and your ISP may receive an abuse complaint.
 ## 4. Sandbox (Proxmox): off in the pilot
 
 - [ ] **`SANDBOX_ENABLED=false`**, unless the analysis VMs are on a **VLAN with no route to
-  your LAN** and with controlled outbound access. Details in [docs/proxmox.md](proxmox.md).
+  your LAN** and with controlled outbound access. Details in [docs/proxmox.md](proxmox.md); what
+  to install on the VM template, in [docs/template-windows.md](template-windows.md).
 - [ ] **If you are going to enable the sandbox**, prepare the dedicated user in PVE **before**
   starting the API. Replace `<template>`, `<bridge>`, `<iso-storage>` and `<disk-storage>` with the
   values from `qm config <template>` (`net0`; `sata0`/`scsi0`/`efidisk0`/`tpmstate0`):
@@ -194,7 +198,7 @@ owner of the page sees that IP, and your ISP may receive an abuse complaint.
 - [ ] Start and wait for everything to be healthy:
   ```bash
   docker compose up -d --build
-  docker compose ps        # api, web and egress "healthy"; db, minio, clamav and capture "running"
+  docker compose ps        # api, web, egress and db "healthy"; the others "running"
   curl -fsS http://127.0.0.1:8080/api/health/ready && echo ready
   ```
   ClamAV takes a few minutes the first time (it downloads the signature database).
@@ -216,7 +220,8 @@ owner of the page sees that IP, and your ISP may receive an abuse complaint.
 - [ ] **Uptime Kuma** (or Zabbix): HTTP monitor at
   `https://deeplook.seu-dominio.com/api/status?strict=1`, with the `Authorization: Bearer` of the
   token and the Access service token headers (step 2). `strict=1` responds **503**
-  when something is in error: database, MinIO, antivirus, **scheduled backup that failed or fell behind**.
+  when something is in error: database, MinIO, antivirus, an analysis service that is on but does not
+  answer, **scheduled backup that failed or fell behind**.
 
 ## 9. Final check
 
@@ -236,7 +241,7 @@ owner of the page sees that IP, and your ISP may receive an abuse complaint.
 
 - [ ] **Update:**
   ```bash
-  git pull
+  git pull                # or, with the package, the rsync from step 1
   docker compose down && docker compose up -d --build   # down recreates the networks when they change
   ```
   Database migrations run by themselves when the API starts; the data stays in `./data`.
@@ -244,7 +249,7 @@ owner of the page sees that IP, and your ISP may receive an abuse complaint.
   `node scripts/chromium-unsafe-ports.mjs` checks the `egress` port list.
 - [ ] **On GitHub:** follow the CI of each push, the **weekly Trivy** (*Security scan*) and the
   **Dependabot** PRs. A new CVE in a base image shows up there.
-- [ ] **Logs:** `docker compose logs -f api` (rotation of 10 MB × 3 per service, item 6.6).
+- [ ] **Logs:** `docker compose logs -f api` (rotation of 10 MB × 3 per service, `LOG_MAX_SIZE` and `LOG_MAX_FILE`).
 
 ## 11. Agreed with the testers
 
