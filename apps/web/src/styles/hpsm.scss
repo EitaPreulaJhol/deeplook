@@ -4036,13 +4036,21 @@ table.dl-compare td {
   font-size: 0.6875rem;
 }
 
-/* Casos (/casos, item 55): incluir amostra, relatorios e linha do tempo. */
+/* Casos (/casos, item 55): incluir amostra, relatorios e linha do tempo. Incluir amostra e novo
+   comentario usam rotulo a esquerda, como a atualizacao da ficha (varredura visual, item 15). */
+.dl-case-form {
+  padding-block-start: 0.75rem;
+}
+
 .dl-case-add,
 .dl-case-comment {
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
-  padding-block-start: 0.75rem;
+}
+
+.dl-case-add {
+  align-items: center;
 }
 
 .dl-case-add > :first-child,

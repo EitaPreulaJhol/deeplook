@@ -55,7 +55,7 @@ export const messages = {
     'The case needs at least one sample (close the case to undo it)',
   ],
   removeEllipsis: ['Retirar…', 'Remove…'],
-  addSample: ['Incluir amostra (ID ou link)', 'Add sample (ID or link)'],
+  addSample: ['Incluir amostra', 'Add sample'],
   addSamplePlaceholder: [
     'Ex.: cm3x9... ou https://.../entries/cm3x9...',
     'E.g.: cm3x9... or https://.../entries/cm3x9...',

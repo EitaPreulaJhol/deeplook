@@ -446,29 +446,36 @@ export function CasePage() {
             </TableBody>
           </Table>
         </TableContainer>
-        <div className="dl-case-add">
-          <TextInput
-            id="case-add-entry"
-            labelText={tr('addSample')}
-            size="sm"
-            placeholder={tr('addSamplePlaceholder')}
-            value={addId}
-            onChange={(e) => setAddId(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void addEntry();
-              }
-            }}
-          />
-          <Button
-            kind="tertiary"
-            size="sm"
-            disabled={busy || !addId.trim()}
-            onClick={() => void addEntry()}
-          >
-            {tr('add')}
-          </Button>
+        <div className="dl-case-form">
+          <HpsmForm>
+            <HpsmField label={tr('addSample')} htmlFor="case-add-entry" wide>
+              <div className="dl-case-add">
+                <TextInput
+                  id="case-add-entry"
+                  labelText={tr('addSample')}
+                  hideLabel
+                  size="sm"
+                  placeholder={tr('addSamplePlaceholder')}
+                  value={addId}
+                  onChange={(e) => setAddId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void addEntry();
+                    }
+                  }}
+                />
+                <Button
+                  kind="tertiary"
+                  size="sm"
+                  disabled={busy || !addId.trim()}
+                  onClick={() => void addEntry()}
+                >
+                  {tr('add')}
+                </Button>
+              </div>
+            </HpsmField>
+          </HpsmForm>
         </div>
       </HpsmSection>
 
@@ -559,29 +566,41 @@ export function CasePage() {
             </li>
           ))}
         </ol>
-        <div className="dl-case-comment">
-          <MentionTextArea
-            id="case-comment"
-            labelText={tr('newComment')}
-            helperText={tr('commentHelp')}
-            rows={3}
-            value={comment}
-            onChange={setComment}
-            analystsOnly
-            onMention={(m) =>
-              setMentions((current) =>
-                current.some((x) => x.id === m.id) ? current : [...current, m],
-              )
-            }
-          />
-          <Button
-            kind="tertiary"
-            size="sm"
-            disabled={busy || !comment.trim()}
-            onClick={() => void sendComment()}
-          >
-            {tr('comment')}
-          </Button>
+        <div className="dl-case-form">
+          <HpsmForm>
+            <HpsmField
+              label={tr('newComment')}
+              htmlFor="case-comment"
+              wide
+              top
+              help={tr('commentHelp')}
+            >
+              <div className="dl-case-comment">
+                <MentionTextArea
+                  id="case-comment"
+                  labelText={tr('newComment')}
+                  hideLabel
+                  rows={3}
+                  value={comment}
+                  onChange={setComment}
+                  analystsOnly
+                  onMention={(m) =>
+                    setMentions((current) =>
+                      current.some((x) => x.id === m.id) ? current : [...current, m],
+                    )
+                  }
+                />
+                <Button
+                  kind="tertiary"
+                  size="sm"
+                  disabled={busy || !comment.trim()}
+                  onClick={() => void sendComment()}
+                >
+                  {tr('comment')}
+                </Button>
+              </div>
+            </HpsmField>
+          </HpsmForm>
         </div>
       </HpsmSection>
     </>

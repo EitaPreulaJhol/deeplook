@@ -40,7 +40,7 @@ await settle();
 await page.keyboard.press('Enter');
 await settle(200);
 expect('insere "@Nome"', (await box.inputValue()) === 'Olhem isto @Bruno Lima ', await box.inputValue());
-expect('ajuda fala do aviso ao responsável', (await page.locator('.dl-case-comment').innerText()).includes('o responsável do caso é avisado'));
+expect('ajuda fala do aviso ao responsável', (await page.locator('.hpsm-field', { has: page.locator('#case-comment') }).innerText()).includes('o responsável do caso é avisado'));
 await box.pressSequentially('e confirmem.');
 await page.click('.dl-case-comment button:has-text("Comentar")');
 await settle();
