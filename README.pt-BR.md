@@ -1648,19 +1648,6 @@ Detalhes em [`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md#7-veri
 
 ---
 
-## Roadmap (próximos passos)
-
-Próximos passos:
-
-- Notificações por e-mail (SMTP).
-
-Já entregues a partir desta lista: ClamAV e reputação externa (VirusTotal e outros),
-envio em lote, exportação de relatórios (Markdown; PDF pela ficha impressa), 2FA
-opcional, política de senha, a pasta de backup fora do disco (`BACKUP_DIR`) e o backup
-agendado.
-
----
-
 ## Créditos
 
 - **Ícones:** a pasta [`icons/`](icons/) teve origem nos ícones **Silk**, do

@@ -1629,18 +1629,6 @@ Details in [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-visual-verificati
 
 ---
 
-## Roadmap (next steps)
-
-Next steps:
-
-- Email notifications (SMTP).
-
-Already delivered from this list: ClamAV and external reputation (VirusTotal and others),
-bulk submission, report export (Markdown; PDF via the printed card), optional 2FA,
-password policy, the backup folder outside the disk (`BACKUP_DIR`) and scheduled backup.
-
----
-
 ## Credits
 
 - **Icons:** the [`icons/`](icons/) folder originated from the **Silk** icons, by Mark James,
