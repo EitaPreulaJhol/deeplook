@@ -4,6 +4,7 @@
 //
 //   node scripts/package-deploy.mjs                 pacote do HEAD em release/
 //   node scripts/package-deploy.mjs --ref v1.2      de um commit, tag ou branch
+//   node scripts/package-deploy.mjs --ref v1.2 --version v1.2   nome deeplook-v1.2.zip (Release)
 //   node scripts/package-deploy.mjs --out /tmp/rel  em outra pasta
 //   node scripts/package-deploy.mjs --list          so lista o que entraria, sem gerar
 //
@@ -124,6 +125,12 @@ function option(name, fallback) {
 }
 
 const ref = option('--ref', 'HEAD');
+// Nome da versao no arquivo (a action de release passa a tag); sem ele, data e commit.
+const version = option('--version', null);
+if (version !== null && !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(version)) {
+  console.error(`Versao invalida para nome de arquivo: ${version}`);
+  process.exit(1);
+}
 const outDir = resolve(ROOT, option('--out', 'release'));
 const commit = git('rev-parse', '--verify', `${ref}^{commit}`);
 const short = commit.slice(0, 10);
@@ -155,7 +162,7 @@ if (ref === 'HEAD' && git('status', '--porcelain', '--untracked-files=no')) {
 }
 
 mkdirSync(outDir, { recursive: true });
-const name = `deeplook-${date}-${short}`;
+const name = version ? `deeplook-${version}` : `deeplook-${date}-${short}`;
 const zip = join(outDir, `${name}.zip`);
 // --prefix: tudo dentro de uma pasta, para o unzip nao espalhar arquivos onde for aberto.
 git('archive', '--format=zip', `--prefix=${name}/`, '-o', zip, commit, '--', ...pathspec());

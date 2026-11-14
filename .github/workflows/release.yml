@@ -1,0 +1,109 @@
+# Release com o pacote de implantacao.
+#
+# Ao subir uma tag de versao (v1.2.0, v1.2.0-rc1), gera o .zip com scripts/package-deploy.mjs (o
+# mesmo da maquina de desenvolvimento: so o que o `docker compose up -d --build` precisa) e publica
+# uma Release do GitHub com o .zip e o .sha256. Quem implanta baixa o .zip da Release e segue o
+# docs/implantacao, passo 1; nao precisa de Git nem de Node no servidor.
+#
+#   git tag -a v1.2.0 -m "DeepLook 1.2.0" && git push origin v1.2.0
+#
+# Pela aba Actions (workflow_dispatch) da para refazer o pacote de uma tag que ja existe: a Release
+# e criada se faltar, ou tem os arquivos substituidos. Tag com hifen (v1.2.0-rc1) sai como
+# pre-release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag que ja existe no repositorio (ex.: v1.2.0)'
+        required: true
+
+# Duas rodadas da mesma tag nao publicam ao mesmo tempo.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # A mesma versao do CI e das imagens: Node 26 LTS.
+  NODE_VERSION: '26'
+
+jobs:
+  release:
+    name: Pacote e Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # criar a Release e subir os arquivos
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Tag no formato de versao
+        run: |
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::Tag '$TAG' fora do formato vX.Y.Z (ou vX.Y.Z-rc1)."
+            exit 1
+          fi
+
+      # Historico e tags completos: o RELEASE.txt do pacote usa o `git describe` da tag.
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Gerar o pacote
+        run: node scripts/package-deploy.mjs --ref "refs/tags/$TAG" --version "$TAG"
+
+      # O pacote extraido numa pasta vazia tem o que o compose pede (arquivos, contextos de build,
+      # seccomp). O build completo das imagens fica com o CI, que roda a cada push.
+      - name: Conferir o pacote extraido
+        run: |
+          commit=$(git rev-list -n1 "refs/tags/$TAG")
+          cd release && sha256sum -c "deeplook-$TAG.zip.sha256"
+          mkdir /tmp/pacote && unzip -q "deeplook-$TAG.zip" -d /tmp/pacote
+          cd "/tmp/pacote/deeplook-$TAG"
+          grep -q "^Commit: $commit$" RELEASE.txt
+          cp .env.example .env
+          docker compose config -q
+          docker compose --profile netcap config -q
+
+      - name: Publicar a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(cut -d' ' -f1 "release/deeplook-$TAG.zip.sha256")
+          cat > notes.md <<EOF
+          ## Instalação
+
+          Baixe \`deeplook-$TAG.zip\` e \`deeplook-$TAG.zip.sha256\` abaixo e, no servidor:
+
+          \`\`\`bash
+          sha256sum -c deeplook-$TAG.zip.sha256
+          unzip deeplook-$TAG.zip && cd deeplook-$TAG
+          cp .env.example .env && chmod 600 .env    # edite o .env antes de subir
+          docker compose up -d --build
+          \`\`\`
+
+          Para atualizar uma instalação que já existe, sem perder \`./data\` e o \`.env\`, siga o
+          passo 1 de \`docs/implantacao.pt-BR.md\` (dentro do pacote). O \`RELEASE.txt\` do pacote diz
+          de qual commit ele saiu.
+
+          SHA-256 do pacote: \`$SHA\`
+          EOF
+          files=("release/deeplook-$TAG.zip" "release/deeplook-$TAG.zip.sha256")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            pre=()
+            case "$TAG" in *-*) pre=(--prerelease) ;; esac
+            gh release create "$TAG" "${files[@]}" --verify-tag --title "DeepLook $TAG" \
+              --notes-file notes.md --generate-notes "${pre[@]}"
+          fi
