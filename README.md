@@ -143,11 +143,6 @@ Access: **http://localhost:8080**
 > Tip: run in the background with `docker compose up -d` and view the logs with
 > `docker compose logs -f`.
 
-> **Updating an installation made before the trusted network:** the `deeplook` network gained a
-> fixed subnet, and Docker does not change a network that already exists. Run `docker compose down`
-> before `docker compose up -d --build` (the data stays in `./data`, nothing is lost). The migration
-> swaps the session ids for hashes without logging anyone out.
-
 ---
 
 ## First access

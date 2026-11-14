@@ -143,11 +143,6 @@ Acesse: **http://localhost:8080**
 > Dica: rode em segundo plano com `docker compose up -d` e veja os logs com
 > `docker compose logs -f`.
 
-> **Atualizando uma instalação anterior à rede confiável:** a rede `deeplook` ganhou uma
-> sub-rede fixa, e o Docker não altera uma rede que já existe. Rode `docker compose down` antes
-> do `docker compose up -d --build` (os dados ficam em `./data`, nada se perde). A migração
-> troca o id das sessões pelo hash sem derrubar ninguém.
-
 ---
 
 ## Primeiro acesso
