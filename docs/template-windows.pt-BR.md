@@ -79,12 +79,14 @@ dessas checagens:
   `analysis`, `test` ou o nome de uma ferramenta.
 - **Hardware plausível**: 2 núcleos ou mais, 4 GB de memória ou mais, disco de 60 GB ou mais e uma
   resolução comum (o papel de parede em `scripts/template-windows/wallpaper` tem os tamanhos usuais).
-  Troque o SMBIOS do QEMU pelo de um fabricante real com o `args` do template (como root no host do
-  PVE; os linked clones herdam), cobrindo a BIOS (tipo 0) e o sistema (tipo 1), que é onde as amostras
-  procuram "QEMU", "SeaBIOS" ou "Proxmox". Por exemplo:
-  ```bash
-  qm set <template> --args "-smbios type=0,vendor='Dell Inc.',version=2.18.0,date=03/15/2024 -smbios type=1,manufacturer='Dell Inc.',product='OptiPlex 7090',serial=4F2KJ53"
+  Troque o SMBIOS do QEMU pelo de um fabricante real com uma linha `args:` no arquivo de configuração
+  do template, cobrindo a BIOS (tipo 0) e o sistema (tipo 1), que é onde as amostras procuram "QEMU",
+  "SeaBIOS" ou "Proxmox". Como root no host do PVE, edite `/etc/pve/qemu-server/<template>.conf` e
+  acrescente a linha, por exemplo:
   ```
+  args: -smbios type=0,vendor='Dell Inc.',version=2.18.0,date=03/15/2024 -smbios type=1,manufacturer='Dell Inc.',product='OptiPlex 7090',serial=4F2KJ53
+  ```
+  Os linked clones herdam.
   A opção `smbios1` (Opções › Configurações SMBIOS) dispensa o root, mas só cobre o tipo 1.
 
 ## 5. Configurações do Windows

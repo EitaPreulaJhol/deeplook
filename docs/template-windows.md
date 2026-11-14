@@ -80,12 +80,14 @@ checks:
   `malware`, `analysis`, `test` or a tool's name.
 - **Plausible hardware**: 2 or more cores, 4 GB or more of memory, a 60 GB or larger disk and a
   common resolution (the wallpaper in `scripts/template-windows/wallpaper` comes in the usual
-  sizes). Replace QEMU's SMBIOS with a real manufacturer's through the template's `args` (as root on
-  the PVE host; the linked clones inherit it), covering the BIOS (type 0) and the system (type 1),
-  which is where samples look for "QEMU", "SeaBIOS" or "Proxmox", for example:
-  ```bash
-  qm set <template> --args "-smbios type=0,vendor='Dell Inc.',version=2.18.0,date=03/15/2024 -smbios type=1,manufacturer='Dell Inc.',product='OptiPlex 7090',serial=4F2KJ53"
+  sizes). Replace QEMU's SMBIOS with a real manufacturer's through an `args:` line in the template's
+  configuration file, covering the BIOS (type 0) and the system (type 1), which is where samples look
+  for "QEMU", "SeaBIOS" or "Proxmox". As root on the PVE host, edit
+  `/etc/pve/qemu-server/<template>.conf` and add the line, for example:
   ```
+  args: -smbios type=0,vendor='Dell Inc.',version=2.18.0,date=03/15/2024 -smbios type=1,manufacturer='Dell Inc.',product='OptiPlex 7090',serial=4F2KJ53
+  ```
+  The linked clones inherit it.
   The `smbios1` option (Options › SMBIOS settings) does not need root, but only covers type 1.
 
 ## 5. Windows settings
