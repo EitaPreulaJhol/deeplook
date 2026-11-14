@@ -3879,7 +3879,6 @@ table.dl-compare td {
 
 .dl-kb-body {
   max-inline-size: 60rem;
-  padding: 0.5rem 0.75rem;
 }
 
 .dl-kb-picker__cat {
@@ -4001,7 +4000,7 @@ table.dl-compare td {
 
 .dl-email-attachments {
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: 0;
   list-style: none;
 }
 
@@ -4020,7 +4019,7 @@ table.dl-compare td {
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
-  padding: 0.5rem 0.6rem;
+  padding-block-start: 0.75rem;
 }
 
 .dl-case-add > :first-child,
@@ -4028,10 +4027,12 @@ table.dl-compare td {
   flex: 1;
 }
 
+/* Sem recuo proprio: o corpo da secao ja recua (o dobro deslocava o texto 12 px; varredura visual,
+   item 10). O mesmo no artigo da KB e nos anexos do e-mail. */
 .dl-case-reports,
 .dl-case-timeline {
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: 0;
   list-style: none;
 }
 
