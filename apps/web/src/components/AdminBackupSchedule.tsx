@@ -188,7 +188,7 @@ export function AdminBackupSchedule() {
   const data = query.data;
 
   return (
-    <HpsmSection title={t('scheduledBackup')} className="dl-mt-lg">
+    <HpsmSection title={t('scheduledBackup')}>
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}

@@ -154,7 +154,7 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
         </HpsmSection>
       </div>
 
-      <HpsmSection title={tr('topAttackShort')} className="dl-mt-lg">
+      <HpsmSection title={tr('topAttackShort')}>
         {d.techniques.length === 0 ? (
           <p className="dl-static-empty">{tr('noAttackPeriod')}</p>
         ) : (
@@ -177,7 +177,7 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
         )}
       </HpsmSection>
 
-      <HpsmSection title={tr('workload')} className="dl-mt-lg">
+      <HpsmSection title={tr('workload')}>
         <TableContainer>
           <Table size="xs" aria-label={tr('workloadPeriodAria')}>
             <TableHead>

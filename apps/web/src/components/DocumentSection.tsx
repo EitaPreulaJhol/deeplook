@@ -45,7 +45,7 @@ export function DocumentSection({ info }: { info?: StaticInfo | null }) {
   if (!doc) return null;
   const office = doc.office;
   return (
-    <HpsmSection title={t('docTitle', { format: FORMAT[doc.format] })} className="dl-mt-lg">
+    <HpsmSection title={t('docTitle', { format: FORMAT[doc.format] })}>
       <HpsmForm columns={2}>
         <HpsmField label={t('risk')}>
           <HpsmReadonly>

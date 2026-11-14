@@ -322,7 +322,7 @@ export function TriageRulesPage() {
         )}
       </HpsmSection>
 
-      <HpsmSection title={tr('newRule')} className="dl-mt-lg">
+      <HpsmSection title={tr('newRule')}>
         <HpsmForm columns={2}>
           <HpsmField
             label={tr('name')}

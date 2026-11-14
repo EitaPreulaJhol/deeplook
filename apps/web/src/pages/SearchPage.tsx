@@ -218,7 +218,7 @@ export function SearchPage() {
       )}
 
       {groups.entries && groups.entries.total > 0 && (
-        <HpsmSection title={t('samplesN', { n: groups.entries.total })} className="dl-mt-lg">
+        <HpsmSection title={t('samplesN', { n: groups.entries.total })}>
           <ul className="dl-search-list">
             {groups.entries.items.map((e) => (
               <li key={e.id}>
@@ -237,7 +237,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.reports && groups.reports.total > 0 && (
-        <HpsmSection title={t('reportsN', { n: groups.reports.total })} className="dl-mt-lg">
+        <HpsmSection title={t('reportsN', { n: groups.reports.total })}>
           <ul className="dl-search-list">
             {groups.reports.items.map((r) => (
               <li key={r.id}>
@@ -259,7 +259,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.comments && groups.comments.total > 0 && (
-        <HpsmSection title={t('commentsN', { n: groups.comments.total })} className="dl-mt-lg">
+        <HpsmSection title={t('commentsN', { n: groups.comments.total })}>
           <ul className="dl-search-list">
             {groups.comments.items.map((c) => (
               <li key={c.id}>
@@ -280,7 +280,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.kb && groups.kb.total > 0 && (
-        <HpsmSection title={t('kbN', { n: groups.kb.total })} className="dl-mt-lg">
+        <HpsmSection title={t('kbN', { n: groups.kb.total })}>
           <ul className="dl-search-list">
             {groups.kb.items.map((k) => (
               <li key={k.id}>
@@ -298,7 +298,7 @@ export function SearchPage() {
         </HpsmSection>
       )}
       {groups.cases && groups.cases.total > 0 && (
-        <HpsmSection title={t('casesN', { n: groups.cases.total })} className="dl-mt-lg">
+        <HpsmSection title={t('casesN', { n: groups.cases.total })}>
           <ul className="dl-search-list">
             {groups.cases.items.map((c) => (
               <li key={c.id}>

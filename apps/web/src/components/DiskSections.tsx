@@ -52,7 +52,7 @@ export function LnkSection({ info }: { info?: StaticInfo | null }) {
   if (!lnk) return null;
   const command = [lnk.target, lnk.arguments].filter(Boolean).join(' ');
   return (
-    <HpsmSection title={t('lnkTitle')} className="dl-mt-lg">
+    <HpsmSection title={t('lnkTitle')}>
       <HpsmForm columns={2}>
         <HpsmField label={t('target')} wide>
           <HpsmReadonly
@@ -197,7 +197,7 @@ export function DiskImageSection({
   };
 
   return (
-    <HpsmSection title={t('diskImage', { format: FORMAT[image.format] })} className="dl-mt-lg">
+    <HpsmSection title={t('diskImage', { format: FORMAT[image.format] })}>
       {canTriage && image.files.length > 0 && children.length === 0 && (
         <HpsmToolbar label={t('imageActions')}>
           <HpsmToolbarButton

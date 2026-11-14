@@ -227,7 +227,7 @@ export function AdminBackupTab() {
 
       <AdminBackupSchedule />
 
-      <HpsmSection title={t('backupsN', { n: items.length })} className="dl-mt-lg">
+      <HpsmSection title={t('backupsN', { n: items.length })}>
         {query.isLoading && <HpsmLoading text={t('loadingBackups')} />}
         {!query.isLoading && items.length === 0 ? (
           <p className="dl-static-empty">{t('noBackups')}</p>

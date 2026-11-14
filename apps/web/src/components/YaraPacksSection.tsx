@@ -109,7 +109,7 @@ export function YaraPacksSection({
 
   const packs = packsQuery.data?.packs ?? [];
   return (
-    <HpsmSection title={t('packsTitle')} className="dl-mt-lg">
+    <HpsmSection title={t('packsTitle')}>
       {packsQuery.isLoading && <HpsmLoading text={t('loadingPacks')} />}
       <TableContainer>
         <Table size="xs" aria-label={t('packsAria')}>

@@ -110,7 +110,7 @@ export function AdminSettingsTab() {
         </HpsmSection>
       )}
       {packsQuery.data && (
-        <HpsmSection title={t('yaraPacks')} className="dl-form-col dl-mt-lg">
+        <HpsmSection title={t('yaraPacks')} className="dl-form-col">
           <HpsmForm>
             {packsQuery.data.packs.map((pack) => (
               <div key={pack.id}>

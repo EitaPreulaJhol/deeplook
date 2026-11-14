@@ -346,7 +346,7 @@ export function AssignmentPage() {
             )}
           </HpsmSection>
 
-          <HpsmSection title={t('groupsN', { n: data.groups.length })} className="dl-mt-lg">
+          <HpsmSection title={t('groupsN', { n: data.groups.length })}>
             {data.groups.length > 0 && (
               <TableContainer>
                 <Table size="xs" aria-label={t('groupsAria')}>
@@ -481,7 +481,7 @@ export function AssignmentPage() {
             </HpsmForm>
           </HpsmSection>
 
-          <HpsmSection title={t('availability')} className="dl-mt-lg">
+          <HpsmSection title={t('availability')}>
             <p className="dl-static-empty">
               {t('awayHint')} {isAdmin ? t('awayAdmin') : t('awaySelf')}
             </p>

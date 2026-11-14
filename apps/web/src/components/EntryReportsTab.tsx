@@ -425,7 +425,7 @@ export function EntryReportsTab({
       })}
 
       {recognized.length > 0 && (
-        <HpsmSection title={tr('recognizedIocs', { n: recognized.length })} className="dl-mt-lg">
+        <HpsmSection title={tr('recognizedIocs', { n: recognized.length })}>
           <p className="dl-related-hint">{tr('recognizedHelp')}</p>
           <ul className="dl-ioc-list">
             {recognized.map((ioc) => (
@@ -444,7 +444,7 @@ export function EntryReportsTab({
       )}
 
       {canTriage && (
-        <HpsmSection title={tr('newReport')} className="dl-mt-lg">
+        <HpsmSection title={tr('newReport')}>
           <HpsmToolbar label={tr('reportActions')}>
             <HpsmToolbarButton
               label={saving ? tr('saving') : tr('saveReport')}

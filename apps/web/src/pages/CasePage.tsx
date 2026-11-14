@@ -392,7 +392,7 @@ export function CasePage() {
         </HpsmForm>
       </HpsmSection>
 
-      <HpsmSection title={tr('samplesN', { n: c.entries.length })} className="dl-mt-lg">
+      <HpsmSection title={tr('samplesN', { n: c.entries.length })}>
         <TableContainer>
           <Table size="xs" aria-label={tr('caseSamplesAria')}>
             <TableHead>
@@ -472,7 +472,7 @@ export function CasePage() {
         </div>
       </HpsmSection>
 
-      <HpsmSection title={tr('reportsN', { n: reports.length })} className="dl-mt-lg">
+      <HpsmSection title={tr('reportsN', { n: reports.length })}>
         {reports.length === 0 ? (
           <p className="dl-static-empty">{tr('noReports')}</p>
         ) : (
@@ -496,7 +496,7 @@ export function CasePage() {
         )}
       </HpsmSection>
 
-      <HpsmSection title={tr('iocsN', { n: iocs.length })} className="dl-mt-lg">
+      <HpsmSection title={tr('iocsN', { n: iocs.length })}>
         {iocsQuery.isLoading ? (
           <HpsmLoading text={tr('gatheringIocs')} />
         ) : iocs.length === 0 ? (
@@ -543,11 +543,11 @@ export function CasePage() {
       </HpsmSection>
 
       {/* Mapa de relacoes (item 91): amostras do caso e indicadores em comum. */}
-      <HpsmSection title={tr('relationMap')} className="dl-mt-lg">
+      <HpsmSection title={tr('relationMap')}>
         <RelationMap source="case" id={c.id} />
       </HpsmSection>
 
-      <HpsmSection title={tr('timeline')} className="dl-mt-lg">
+      <HpsmSection title={tr('timeline')}>
         <ol className="dl-case-timeline">
           {c.events.map((e) => (
             <li key={e.id}>

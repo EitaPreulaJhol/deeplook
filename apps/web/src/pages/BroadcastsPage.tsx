@@ -206,7 +206,7 @@ export function BroadcastsPage() {
         )}
       </HpsmSection>
 
-      <HpsmSection title={t('broadcastsN', { n: items.length })} className="dl-mt-lg">
+      <HpsmSection title={t('broadcastsN', { n: items.length })}>
         {query.isLoading && <HpsmLoading text={t('loadingBroadcasts')} />}
         {items.length === 0 && !query.isLoading ? (
           <p className="dl-static-empty">{t('noBroadcasts')}</p>

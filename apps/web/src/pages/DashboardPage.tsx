@@ -221,7 +221,7 @@ export function DashboardPage() {
           </div>
 
           {canTriage && (
-            <HpsmSection title={tr('topAttack')} className="dl-mt-lg">
+            <HpsmSection title={tr('topAttack')}>
               {(d.techniques ?? []).length === 0 ? (
                 <p className="dl-static-empty">{tr('noAttack', { since: sinceLabel })}</p>
               ) : (
@@ -252,7 +252,7 @@ export function DashboardPage() {
           )}
 
           {!mine && d.workload.length > 0 && (
-            <HpsmSection title={tr('workload')} className="dl-mt-lg">
+            <HpsmSection title={tr('workload')}>
               <TableContainer>
                 <Table size="xs" aria-label={tr('workload')}>
                   <TableHead>

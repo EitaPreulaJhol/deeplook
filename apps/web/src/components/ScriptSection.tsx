@@ -61,10 +61,7 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
   const decode = useDecoder();
   if (!script) return null;
   return (
-    <HpsmSection
-      title={t('scriptTitle', { language: LANGUAGE[script.language] })}
-      className="dl-mt-lg"
-    >
+    <HpsmSection title={t('scriptTitle', { language: LANGUAGE[script.language] })}>
       <HpsmForm columns={2}>
         <HpsmField label={t('risk')}>
           <HpsmReadonly>

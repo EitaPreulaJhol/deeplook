@@ -144,7 +144,7 @@ export function AdminYaraUpdates() {
   const nameOf = (id: string) => data.packs.find((p) => p.id === id)?.name ?? id;
 
   return (
-    <HpsmSection title={t('packUpdates')} className="dl-form-col dl-mt-lg">
+    <HpsmSection title={t('packUpdates')} className="dl-form-col">
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}

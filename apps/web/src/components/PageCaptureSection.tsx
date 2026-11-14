@@ -85,7 +85,7 @@ export function PageCaptureSection({
   };
 
   return (
-    <HpsmSection title={t('captureTitle')} className="dl-mt-lg">
+    <HpsmSection title={t('captureTitle')}>
       {canTriage && enabled && (
         <HpsmToolbar label={t('captureActions')}>
           <HpsmToolbarButton

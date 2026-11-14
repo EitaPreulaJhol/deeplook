@@ -114,7 +114,7 @@ export function YaraRetroscans({
   if (!items.length) return null;
   const d = detail.data?.retroscan;
   return (
-    <HpsmSection title={t('retroTitle')} className="dl-mt-lg">
+    <HpsmSection title={t('retroTitle')}>
       <TableContainer>
         <Table size="xs" aria-label={t('retroTitle')}>
           <TableHead>

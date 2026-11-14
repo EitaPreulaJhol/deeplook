@@ -369,7 +369,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
           <Markdown source={a.body} />
         </div>
       </HpsmSection>
-      <HpsmSection title={tr('citedIn', { n: a.reports.length })} className="dl-mt-lg">
+      <HpsmSection title={tr('citedIn', { n: a.reports.length })}>
         {a.reports.length === 0 ? (
           <p className="dl-static-empty">{tr('notCited')}</p>
         ) : (
@@ -404,7 +404,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
         )}
       </HpsmSection>
       {a.revisions.length > 0 && (
-        <HpsmSection title={tr('changes')} className="dl-mt-lg">
+        <HpsmSection title={tr('changes')}>
           <HpsmForm>
             <HpsmField label={tr('lastEdits')} wide top>
               <HpsmReadonly multiline>

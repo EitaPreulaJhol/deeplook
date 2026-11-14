@@ -318,11 +318,7 @@ export function ComparePage() {
               </div>
             );
             return (
-              <HpsmSection
-                key={key}
-                title={t('inCommon', { title, n: l.common.length })}
-                className="dl-mt-lg"
-              >
+              <HpsmSection key={key} title={t('inCommon', { title, n: l.common.length })}>
                 <div className="dl-compare-list" data-list={key}>
                   {column(t('onlyA'), l.onlyA, 'a')}
                   {column(t('common'), l.common, 'common')}

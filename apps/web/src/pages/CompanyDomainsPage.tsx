@@ -189,7 +189,7 @@ export function CompanyDomainsPage() {
         )}
       </HpsmSection>
 
-      <HpsmSection title={t('seenN', { n: data?.seen.length ?? 0 })} className="dl-mt-lg">
+      <HpsmSection title={t('seenN', { n: data?.seen.length ?? 0 })}>
         {data && data.seen.length === 0 ? (
           <p className="dl-static-empty">{t('noneSeen')}</p>
         ) : (

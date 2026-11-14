@@ -130,7 +130,7 @@ export function EmailSection({ info }: { info: EmailInfo }) {
         </HpsmForm>
       </HpsmSection>
       {info.attachments.length > 0 && (
-        <HpsmSection title={t('attachments', { n: info.attachments.length })} className="dl-mt-lg">
+        <HpsmSection title={t('attachments', { n: info.attachments.length })}>
           <ul className="dl-email-attachments">
             {info.attachments.map((a, i) => (
               <li key={`${a.filename}-${i}`}>

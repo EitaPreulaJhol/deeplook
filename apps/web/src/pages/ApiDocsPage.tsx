@@ -169,13 +169,13 @@ export function ApiDocsPage() {
         </p>
       </HpsmSection>
 
-      <HpsmSection title={t('examples')} className="dl-mt-lg">
+      <HpsmSection title={t('examples')}>
         {examples.map((e) => (
           <Example key={e.title} {...e} />
         ))}
       </HpsmSection>
 
-      <HpsmSection title={t('routes')} className="dl-mt-lg">
+      <HpsmSection title={t('routes')}>
         {query.isLoading && <HpsmLoading text={t('loadingSpec')} />}
         {query.isError && <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>}
         {query.data &&
