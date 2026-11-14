@@ -248,6 +248,8 @@ export const messages = {
   delete: ['Excluir', 'Delete'],
   backupDeleted: ['Backup excluído.', 'Backup deleted.'],
   createBackup: ['Gerar backup', 'Create backup'],
+  backupActions: ['Ações do backup', 'Backup actions'],
+  protection: ['Proteção', 'Protection'],
   backupIntro: [
     'Um ZIP com o banco (pg_dump), as evidências e capturas do MinIO e um manifesto com o SHA-256 de cada parte. Fica disponível por {days} dias. A restauração está no LEIA-ME dentro do ZIP e no README.',
     "A ZIP with the database (pg_dump), the MinIO evidence and captures and a manifest with each part's SHA-256. It stays available for {days} days. The restore steps are in the LEIA-ME inside the ZIP and in the README.",
@@ -331,6 +333,8 @@ export const messages = {
   browserTime: ['Horário deste navegador ({tz}).', "This browser's time ({tz})."],
   timeInvalid: ['Use o formato HH:MM.', 'Use the HH:MM format.'],
   saveSchedule: ['Salvar agendamento', 'Save schedule'],
+  scheduleActions: ['Ações do agendamento', 'Schedule actions'],
+  schedule: ['Agendamento', 'Schedule'],
   savedNext: ['Salvo: {summary}. Próximo: {next}.', 'Saved: {summary}. Next: {next}.'],
   lastScheduled: ['Último agendado: {date}.', 'Last scheduled: {date}.'],
   upcoming: ['Próximas execuções', 'Next runs'],

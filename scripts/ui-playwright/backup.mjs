@@ -88,7 +88,7 @@ expect('falha com o motivo', (await rowText(1)).includes('Falhou') && (await row
 expect('vencido apagado e marcado malware', (await rows().nth(2).getAttribute('class')).includes('is-off') && (await rowText(2)).includes('com as amostras (malware)'));
 
 // 3. Senha do ZIP: obrigatoria, salvo a opcao de exportar sem ela.
-const generate = 'button.dl-btn:has-text("Gerar backup")';
+const generate = '.hpsm-toolbar button:has-text("Gerar backup")';
 await page.click(generate);
 await settle(200);
 expect('sem senha não gera', !calls.some((c) => c.method === 'POST') && (await msgs()).includes('12 caracteres'), await msgs());
@@ -123,14 +123,14 @@ expect('aviso de início', (await msgs()).includes('Backup iniciado'), await msg
 expect('campos limpos depois de gerar', (await page.inputValue('#backup-password')) === '');
 
 // 4. Progresso ate ficar pronto; um por vez.
-expect('botão travado enquanto gera', await page.locator('button.dl-btn:has-text("Gerar backup")').isDisabled());
+expect('botão travado enquanto gera', await page.locator('.hpsm-toolbar button:has-text("Gerar backup")').isDisabled());
 await page.waitForFunction(() => document.querySelector('.dl-backup__running')?.textContent?.includes('Copiando os arquivos (3 de 9)'), null, { timeout: 8000 });
 expect('mostra a etapa e o percentual', (await page.locator('.dl-backup__running').innerText()).includes('47%'));
 await page.screenshot({ path: `${OUT}/backup-gerando.png`, fullPage: true });
 await page.waitForFunction(() => !document.querySelector('.dl-backup__running'), null, { timeout: 10000 });
 const fresh = await rowText(0);
 expect('fica pronto sozinho', fresh.includes('Pronto') && fresh.includes('com as amostras (malware)') && fresh.includes('2.0 MB'), fresh);
-expect('botão liberado de novo', !(await page.locator('button.dl-btn:has-text("Gerar backup")').isDisabled()));
+expect('botão liberado de novo', !(await page.locator('.hpsm-toolbar button:has-text("Gerar backup")').isDisabled()));
 await page.screenshot({ path: `${OUT}/backup-lista.png`, fullPage: true });
 
 // 5. Excluir com confirmacao.

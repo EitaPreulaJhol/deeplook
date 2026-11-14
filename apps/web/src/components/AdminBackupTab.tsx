@@ -19,7 +19,9 @@ import { t } from '../i18n/admin';
 import { AdminBackupSchedule } from './AdminBackupSchedule';
 import { useConfirm } from './HpsmConfirm';
 import { formatFileSize } from './HpsmFileDrop';
-import { HpsmSection } from './HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection } from './HpsmForm';
+import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
+import { IconAdd } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { StatusText } from './tags';
 
@@ -158,7 +160,15 @@ export function AdminBackupTab() {
           {notice.text}
         </HpsmMessage>
       )}
-      <HpsmSection title={t('createBackup')}>
+      <HpsmSection title={t('createBackup')} className="dl-form-col">
+        <HpsmToolbar label={t('backupActions')}>
+          <HpsmToolbarButton
+            label={t('createBackup')}
+            icon={IconAdd}
+            disabled={busy || Boolean(running)}
+            onClick={() => void generate()}
+          />
+        </HpsmToolbar>
         <p className="dl-backup__intro">
           {t('backupIntro', { days: query.data?.retentionDays ?? 7 })}
         </p>
@@ -168,51 +178,59 @@ export function AdminBackupTab() {
         {query.data?.destinationProblem && (
           <HpsmMessage kind="error">{query.data.destinationProblem}</HpsmMessage>
         )}
-        <Checkbox
-          id="backup-samples"
-          labelText={t('includeSamples')}
-          checked={withSamples}
-          disabled={Boolean(running)}
-          onChange={(_, { checked }) => setWithSamples(checked)}
-        />
-        <Checkbox
-          id="backup-no-password"
-          labelText={t('noPassword')}
-          checked={noPassword}
-          disabled={Boolean(running)}
-          onChange={(_, { checked }) => setNoPassword(checked)}
-        />
-        {!noPassword && (
-          <div className="dl-backup__password">
-            <TextInput
-              id="backup-password"
-              type="password"
-              labelText={t('zipPwd')}
-              autoComplete="new-password"
-              helperText={t('zipPwdHelp')}
-              value={password}
+        <HpsmForm>
+          <HpsmField label={t('content')}>
+            <Checkbox
+              id="backup-samples"
+              labelText={t('includeSamples')}
+              checked={withSamples}
               disabled={Boolean(running)}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(_, { checked }) => setWithSamples(checked)}
             />
-            <TextInput
-              id="backup-password-again"
-              type="password"
-              labelText={t('repeatPwd')}
-              autoComplete="new-password"
-              value={again}
+          </HpsmField>
+          <HpsmField label={t('protection')}>
+            <Checkbox
+              id="backup-no-password"
+              labelText={t('noPassword')}
+              checked={noPassword}
               disabled={Boolean(running)}
-              onChange={(e) => setAgain(e.target.value)}
+              onChange={(_, { checked }) => setNoPassword(checked)}
             />
-          </div>
-        )}
-        <button
-          type="button"
-          className="dl-btn dl-btn--primary"
-          disabled={busy || Boolean(running)}
-          onClick={() => void generate()}
-        >
-          {t('createBackup')}
-        </button>
+          </HpsmField>
+          {!noPassword && (
+            <>
+              <HpsmField
+                label={t('zipPwd')}
+                htmlFor="backup-password"
+                required
+                help={t('zipPwdHelp')}
+              >
+                <TextInput
+                  id="backup-password"
+                  type="password"
+                  labelText={t('zipPwd')}
+                  hideLabel
+                  autoComplete="new-password"
+                  value={password}
+                  disabled={Boolean(running)}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </HpsmField>
+              <HpsmField label={t('repeatPwd')} htmlFor="backup-password-again" required>
+                <TextInput
+                  id="backup-password-again"
+                  type="password"
+                  labelText={t('repeatPwd')}
+                  hideLabel
+                  autoComplete="new-password"
+                  value={again}
+                  disabled={Boolean(running)}
+                  onChange={(e) => setAgain(e.target.value)}
+                />
+              </HpsmField>
+            </>
+          )}
+        </HpsmForm>
         {running && (
           <div className="dl-backup__running" role="status">
             <ProgressBar
@@ -282,7 +300,7 @@ export function AdminBackupTab() {
                     <TableCell>
                       {b.status === 'READY' && (
                         <a
-                          className="dl-link"
+                          className="dl-link-button"
                           href={`/api/admin/backups/${b.id}/download`}
                           download
                         >

@@ -14,7 +14,9 @@ import {
   validTime,
   WEEKDAY_LABELS,
 } from './backupSchedule';
-import { HpsmSection } from './HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection } from './HpsmForm';
+import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
+import { IconSettings } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 
 interface ScheduleView {
@@ -184,11 +186,26 @@ export function AdminBackupSchedule() {
     }
   };
 
-  if (query.isLoading) return <HpsmLoading text={t('loadingSchedule')} />;
+  // Carregando: o aviso fica dentro da secao (solto, ficava entre as secoes da aba).
+  if (query.isLoading) {
+    return (
+      <HpsmSection title={t('scheduledBackup')}>
+        <HpsmLoading text={t('loadingSchedule')} />
+      </HpsmSection>
+    );
+  }
   const data = query.data;
 
   return (
     <HpsmSection title={t('scheduledBackup')}>
+      <HpsmToolbar label={t('scheduleActions')}>
+        <HpsmToolbarButton
+          label={t('saveSchedule')}
+          icon={IconSettings}
+          disabled={busy}
+          onClick={() => void save()}
+        />
+      </HpsmToolbar>
       {notice && (
         <HpsmMessage key={notice.text} kind={notice.ok ? 'success' : 'error'}>
           {notice.text}
@@ -212,82 +229,97 @@ export function AdminBackupSchedule() {
       </p>
       <div className="dl-backup-schedule">
         <div className="dl-backup-schedule__form">
-          <Checkbox
-            id="schedule-enabled"
-            labelText={t('autoBackup')}
-            checked={draft.enabled}
-            disabled={busy || (!data?.passwordConfigured && !draft.enabled)}
-            onChange={(_, { checked }) => setDraft((d) => ({ ...d, enabled: checked }))}
-          />
-          <Select
-            id="schedule-mode"
-            labelText={t('repeat')}
-            value={draft.mode}
-            disabled={busy}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, mode: e.target.value as ScheduleDraft['mode'] }))
-            }
-          >
-            <SelectItem value="weekly" text={t('onWeekdays')} />
-            <SelectItem value="monthly" text={t('monthly')} />
-          </Select>
-          {draft.mode === 'weekly' ? (
-            <fieldset className="dl-backup-schedule__days">
-              <legend className="cds--label">{t('weekdays')}</legend>
-              <div className="dl-backup-schedule__day-grid">
-                {WEEKDAY_LABELS.map((label, day) => (
-                  <Checkbox
-                    key={label}
-                    id={`schedule-day-${day}`}
-                    labelText={label}
-                    checked={draft.days.includes(day)}
-                    disabled={busy}
-                    onChange={(_, { checked }) => toggleDay(day, checked)}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className="dl-link-button"
+          <HpsmForm>
+            <HpsmField label={t('schedule')}>
+              <Checkbox
+                id="schedule-enabled"
+                labelText={t('autoBackup')}
+                checked={draft.enabled}
+                disabled={busy || (!data?.passwordConfigured && !draft.enabled)}
+                onChange={(_, { checked }) => setDraft((d) => ({ ...d, enabled: checked }))}
+              />
+            </HpsmField>
+            <HpsmField label={t('repeat')} htmlFor="schedule-mode">
+              <Select
+                id="schedule-mode"
+                labelText={t('repeat')}
+                hideLabel
+                size="sm"
+                value={draft.mode}
+                disabled={busy}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, mode: e.target.value as ScheduleDraft['mode'] }))
+                }
+              >
+                <SelectItem value="weekly" text={t('onWeekdays')} />
+                <SelectItem value="monthly" text={t('monthly')} />
+              </Select>
+            </HpsmField>
+            {draft.mode === 'weekly' ? (
+              <HpsmField label={t('weekdays')} top>
+                <fieldset className="dl-backup-schedule__days">
+                  <legend className="cds--visually-hidden">{t('weekdays')}</legend>
+                  <div className="dl-backup-schedule__day-grid">
+                    {WEEKDAY_LABELS.map((label, day) => (
+                      <Checkbox
+                        key={label}
+                        id={`schedule-day-${day}`}
+                        labelText={label}
+                        checked={draft.days.includes(day)}
+                        disabled={busy}
+                        onChange={(_, { checked }) => toggleDay(day, checked)}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      className="dl-link-button"
+                      disabled={busy}
+                      onClick={() => setDraft((d) => ({ ...d, days: [0, 1, 2, 3, 4, 5, 6] }))}
+                    >
+                      {t('everyDay')}
+                    </button>
+                  </div>
+                </fieldset>
+              </HpsmField>
+            ) : (
+              <HpsmField
+                label={t('dayOfMonth')}
+                htmlFor="schedule-day-of-month"
+                help={t('dayOfMonthHelp')}
+              >
+                <Select
+                  id="schedule-day-of-month"
+                  labelText={t('dayOfMonth')}
+                  hideLabel
+                  size="sm"
+                  value={String(draft.dayOfMonth)}
                   disabled={busy}
-                  onClick={() => setDraft((d) => ({ ...d, days: [0, 1, 2, 3, 4, 5, 6] }))}
+                  onChange={(e) => setDraft((d) => ({ ...d, dayOfMonth: Number(e.target.value) }))}
                 >
-                  {t('everyDay')}
-                </button>
-              </div>
-            </fieldset>
-          ) : (
-            <Select
-              id="schedule-day-of-month"
-              labelText={t('dayOfMonth')}
-              helperText={t('dayOfMonthHelp')}
-              value={String(draft.dayOfMonth)}
-              disabled={busy}
-              onChange={(e) => setDraft((d) => ({ ...d, dayOfMonth: Number(e.target.value) }))}
+                  {Array.from({ length: 28 }, (_, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)} text={t('dayN', { n: i + 1 })} />
+                  ))}
+                </Select>
+              </HpsmField>
+            )}
+            <HpsmField
+              label={t('time')}
+              htmlFor="schedule-time"
+              invalid={!validTime(draft.time)}
+              help={validTime(draft.time) ? t('browserTime', { tz: timezone }) : t('timeInvalid')}
             >
-              {Array.from({ length: 28 }, (_, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)} text={t('dayN', { n: i + 1 })} />
-              ))}
-            </Select>
-          )}
-          <TextInput
-            id="schedule-time"
-            type="time"
-            labelText={t('time')}
-            helperText={t('browserTime', { tz: timezone })}
-            value={draft.time}
-            disabled={busy}
-            invalid={!validTime(draft.time)}
-            invalidText={t('timeInvalid')}
-            onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
-          />
-          <button
-            type="button"
-            className="dl-btn dl-btn--primary"
-            disabled={busy}
-            onClick={() => void save()}
-          >
-            {t('saveSchedule')}
-          </button>
+              <TextInput
+                id="schedule-time"
+                type="time"
+                labelText={t('time')}
+                hideLabel
+                size="sm"
+                value={draft.time}
+                disabled={busy}
+                onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
+              />
+            </HpsmField>
+          </HpsmForm>
           {saved?.enabled && saved.nextRunAt && (
             <p className="dl-backup__counts">
               {t('savedNext', { summary: data?.summary, next: fmt(new Date(saved.nextRunAt)) })}
