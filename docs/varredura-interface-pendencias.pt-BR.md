@@ -16,7 +16,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 
 | # | Pendência | Prioridade | Esforço | Área | Status |
 |---|---|---|---|---|---|
-| 1 | Datas e horas no formato do navegador | 🔴 | P–M | Gerencial / Backup | ⬜ |
+| 1 | Datas e horas no formato do navegador | 🔴 | P–M | Gerencial / Backup | ✅ |
 | 2 | Ações da tabela de usuários num menu | 🟡 | P–M | Administração | ⬜ |
 | 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ⬜ |
 | 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ⬜ |
@@ -40,6 +40,19 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
   texto com máscara (dd/mm/aaaa, 24 h), validado como hoje.
 - **Pronto quando:** em português as datas aparecem dd/mm/aaaa e a hora em 24 h; em inglês, o formato
   americano.
+
+**Implementado.** O `lang` não resolve (o Chromium usa o idioma do navegador no campo nativo), então:
+
+- **Datas:** componente `HpsmDateInput` (`components/HpsmDateInput.tsx`), um campo de texto no
+  formato do idioma do app, com a ordem de dia, mês e ano tirada do `Intl` (`components/dateField.ts`,
+  com testes). Aceita `/`, `-` ou `.`, recusa data fora do calendário (31/02) e fora de min/max; com
+  texto inválido o campo fica marcado, não consulta nada, e volta para a data em vigor ao sair. O
+  botão de calendário ao lado abre o seletor do navegador (`showPicker`) por um campo nativo escondido.
+- **Hora do backup agendado:** campo de texto HH:MM (24 h), validado como antes.
+
+**Conferido** no cenário `management.mjs`, num navegador em inglês com o app em português: a data
+aparece dd/mm/aaaa, a digitada vira o período, a inválida fica marcada sem consulta e volta ao sair,
+e o dia escolhido no calendário também muda o período.
 
 ### 2. Ações da tabela de usuários num menu
 

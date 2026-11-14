@@ -16,7 +16,7 @@ analysts see the most day to day; the rest in table order.
 
 | # | Follow-up | Priority | Effort | Area | Status |
 |---|---|---|---|---|---|
-| 1 | Dates and times in the browser's format | 🔴 | S–M | Management / Backup | ⬜ |
+| 1 | Dates and times in the browser's format | 🔴 | S–M | Management / Backup | ✅ |
 | 2 | Users table actions in a menu | 🟡 | S–M | Administration | ⬜ |
 | 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ⬜ |
 | 4 | Announcement banner with no margin | ⚪ | S | Global | ⬜ |
@@ -39,6 +39,21 @@ analysts see the most day to day; the rest in table order.
 - **Proposal:** the app language's `lang` on those fields; if Chromium still ignores it, a masked text
   field (dd/mm/yyyy, 24 h), validated as today.
 - **Done when:** in Portuguese dates show dd/mm/yyyy and the time in 24 h; in English, the US format.
+
+**Implemented.** `lang` doesn't solve it (Chromium uses the browser's language in the native field),
+so:
+
+- **Dates:** an `HpsmDateInput` component (`components/HpsmDateInput.tsx`), a text field in the app
+  language's format, with the day, month and year order taken from `Intl` (`components/dateField.ts`,
+  with tests). It accepts `/`, `-` or `.`, refuses dates outside the calendar (31/02) and outside
+  min/max; with invalid text the field is marked, queries nothing, and goes back to the current date
+  on leaving. The calendar button next to it opens the browser's picker (`showPicker`) through a
+  hidden native field.
+- **Scheduled backup time:** an HH:MM (24 h) text field, validated as before.
+
+**Checked** in the `management.mjs` scenario, in an English browser with the app in Portuguese: the
+date shows dd/mm/yyyy, the typed one becomes the period, the invalid one is marked without a query
+and goes back on leaving, and the day picked in the calendar changes the period too.
 
 ### 2. Users table actions in a menu
 

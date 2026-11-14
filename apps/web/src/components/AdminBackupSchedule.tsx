@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { intlLocale, localized } from '../i18n';
 import { t } from '../i18n/admin';
+import { t as ts } from '../i18n/shell';
 import {
   describeDraft,
   monthGrid,
@@ -310,7 +311,12 @@ export function AdminBackupSchedule() {
             >
               <TextInput
                 id="schedule-time"
-                type="time"
+                // Texto HH:MM, e nao type="time": o nativo segue o idioma do navegador ("02:00 AM"
+                // com a interface em portugues; pendencias da varredura visual, item 1).
+                inputMode="numeric"
+                maxLength={5}
+                autoComplete="off"
+                placeholder={ts('timePlaceholder')}
                 labelText={t('time')}
                 hideLabel
                 size="sm"

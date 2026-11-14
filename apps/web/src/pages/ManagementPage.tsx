@@ -1,9 +1,10 @@
-import { Select, SelectItem, TextInput } from '@carbon/react';
+import { Select, SelectItem } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import { downloadUrl } from '../components/entryExport';
+import { HpsmDateInput } from '../components/HpsmDateInput';
 import { HpsmFilterBar, HpsmFilterItem } from '../components/HpsmFilterBar';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconDownload, IconPrint, IconRefresh } from '../components/icons';
@@ -139,27 +140,21 @@ export function ManagementPage() {
           </Select>
         </HpsmFilterItem>
         <HpsmFilterItem label={t('from')} htmlFor="mgmt-from">
-          <TextInput
+          <HpsmDateInput
             id="mgmt-from"
-            type="date"
             labelText={t('from')}
-            hideLabel
-            size="sm"
             value={from}
             max={to}
-            onChange={(e) => DATE.test(e.target.value) && set({ from: e.target.value, to })}
+            onChange={(iso) => set({ from: iso, to })}
           />
         </HpsmFilterItem>
         <HpsmFilterItem label={t('to')} htmlFor="mgmt-to">
-          <TextInput
+          <HpsmDateInput
             id="mgmt-to"
-            type="date"
             labelText={t('to')}
-            hideLabel
-            size="sm"
             value={to}
             min={from}
-            onChange={(e) => DATE.test(e.target.value) && set({ from, to: e.target.value })}
+            onChange={(iso) => set({ from, to: iso })}
           />
         </HpsmFilterItem>
       </HpsmFilterBar>

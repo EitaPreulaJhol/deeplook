@@ -35,6 +35,7 @@ function createIcon(src: string): IconComponent {
 
 export const IconFolder = createIcon('/icons/folder.svg');
 export const IconHistory = createIcon('/icons/history.svg');
+export const IconCalendar = createIcon('/icons/calendar.svg');
 export const IconSettings = createIcon('/icons/settings.svg');
 export const IconMenu = createIcon('/icons/menu.svg');
 export const IconAdd = createIcon('/icons/add.svg');

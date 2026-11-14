@@ -82,9 +82,27 @@ await settle();
 const lm = { from: ymd(new Date(today.getFullYear(), today.getMonth() - 1, 1)), to: ymd(new Date(today.getFullYear(), today.getMonth(), 0)) };
 const u = new URL(page.url()).searchParams;
 expect('mês anterior na URL e na API', u.get('de') === lm.from && u.get('ate') === lm.to && asked.at(-1)?.from === lm.from && asked.at(-1)?.to === lm.to, `${u} ${JSON.stringify(asked.at(-1))}`);
-await page.fill('#mgmt-from', `${lm.from.slice(0, 8)}05`);
+// Datas no formato do idioma do app, nao no do navegador (este contexto e en-US): pendencias da
+// varredura visual, item 1.
+const toBr = (iso) => iso.split('-').reverse().join('/');
+expect('data no formato do app (dd/mm/aaaa), não no do navegador', (await page.inputValue('#mgmt-to')) === toBr(lm.to), await page.inputValue('#mgmt-to'));
+expect('botão do calendário', (await page.locator('.dl-date-input__button[aria-label="Abrir o calendário"]').count()) === 2);
+await page.fill('#mgmt-from', toBr(`${lm.from.slice(0, 8)}05`));
 await settle();
 expect('data livre = Personalizado', (await page.inputValue('#mgmt-preset')) === '' && asked.at(-1)?.from === `${lm.from.slice(0, 8)}05`, JSON.stringify(asked.at(-1)));
+const before = asked.length;
+await page.fill('#mgmt-to', '31/02/2026');
+await settle();
+expect('data inválida marcada, sem consulta', (await page.locator('#mgmt-to[data-invalid="true"]').count()) === 1 && asked.length === before, `${asked.length - before} consulta(s)`);
+await page.locator('#mgmt-to').blur();
+await settle();
+expect('ao sair, volta para a data em vigor', (await page.inputValue('#mgmt-to')) === toBr(lm.to), await page.inputValue('#mgmt-to'));
+// O calendario do navegador escreve no campo nativo escondido; o periodo segue.
+await page.locator('.dl-date-input__picker').first().fill(`${lm.from.slice(0, 8)}07`, { force: true });
+await settle();
+expect('dia escolhido no calendário', asked.at(-1)?.from === `${lm.from.slice(0, 8)}07` && (await page.inputValue('#mgmt-from')) === toBr(`${lm.from.slice(0, 8)}07`), JSON.stringify(asked.at(-1)));
+await page.fill('#mgmt-from', toBr(`${lm.from.slice(0, 8)}05`));
+await settle();
 
 // 4. CSV.
 const [csv] = await Promise.all([page.waitForEvent('download'), page.click('.hpsm-toolbar__action:has-text("Exportar CSV")')]);

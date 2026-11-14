@@ -5353,3 +5353,54 @@ tr.is-off td {
     white-space: nowrap;
   }
 }
+
+/* Campo de data no formato do idioma do app (HpsmDateInput; pendencias da varredura visual, item 1):
+   o texto, o botao do calendario e, escondido embaixo dele, o campo nativo que so abre o seletor. */
+.dl-date-input {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.dl-date-input .cds--text-input__field-wrapper,
+.dl-date-input .cds--text-input-wrapper,
+.hpsm-filterbar .dl-date-input .cds--text-input__field-wrapper,
+.hpsm-filterbar .dl-date-input .cds--text-input-wrapper {
+  min-inline-size: 0;
+}
+
+.dl-date-input .cds--text-input {
+  inline-size: 6.5rem;
+}
+
+.dl-date-input__button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--dl-control-h);
+  block-size: var(--dl-control-h);
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dl-date-input__button:hover,
+.dl-date-input__button:focus-visible {
+  border-color: var(--dl-field-border);
+  background: var(--dl-surface);
+}
+
+.dl-date-input__picker {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
