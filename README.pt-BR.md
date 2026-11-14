@@ -105,6 +105,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 
 - Docker + Docker Compose (plugin `docker compose`).
 - (Opcional, para expor) `cloudflared` instalado **no host**.
+- (Opcional, para o [sandbox de análise](#sandbox-de-análise-proxmox-ve)) um servidor Proxmox VE 8 ou 9
+  e, para a captura de rede, um MikroTik CHR nele.
 
 ---
 
@@ -115,7 +117,7 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 cp .env.example .env
 # edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
 # GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e
-# S3_SECRET_KEY
+# S3_SECRET_KEY (com o perfil netcap, também NETCAP_TOKEN e SURICATA_TOKEN)
 # (com SESSION_SECRET, um dos tokens ou a senha do banco ou do MinIO no valor padrão, a API não sobe)
 
 # 2) Suba tudo
@@ -1104,23 +1106,33 @@ COOKIE_SECURE=true
 | `UNPACK_TOKEN` | token compartilhado entre a API e o serviço `unpack` (16+ caracteres) | — |
 | `UNPACK_MAX_MB` | executáveis maiores não vão para o desempacotador | `64` |
 | `UNPACK_TIMEOUT_S` | tempo máximo de um desempacotador, no serviço | `180` |
+| `UNPACK_REQUEST_TIMEOUT_S` | quanto a API espera por um trabalho (acima do `UNPACK_TIMEOUT_S`) | `400` |
 | `UNPACK_MAX_FILES` / `UNPACK_MAX_TOTAL_MB` | quantos arquivos (de 1 a 100, o máximo que a API aceita numa resposta; fora disso o serviço ajusta e avisa no log) e quantos MB somados saem de uma amostra | `50` / `256` |
 | `UNPACK_MEM_LIMIT` / `UNPACK_RECYCLE` | memória do contêiner; um container novo a cada trabalho | `2g` / `true` |
 | `OLETOOLS_URL` | serviço de análise de documentos (oletools); vazio desliga | `http://oletools:3500` |
-| `MIKROTIK_URL` / `MIKROTIK_USER` / `MIKROTIK_PASSWORD` | API REST do RouterOS 7 do CHR, para o sniffer da captura de rede do sandbox; vazio desliga a captura | — |
-| `NETCAP_URL` / `NETCAP_TOKEN` / `NETCAP_STREAM_TARGET` | serviço netcap (perfil `netcap` do compose) e o `IP:porta` deste host como o CHR o vê | — |
-| `SURICATA_URL` / `SURICATA_TOKEN` | Suricata sobre o pcap (ET Open); vazio: fica só o pcap | — |
 | `OLETOOLS_TOKEN` | token compartilhado entre a API e o serviço `oletools` (16+ caracteres) | — |
 | `OLETOOLS_MAX_MB` | documentos maiores não vão para o oletools | `32` |
 | `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | teto de uma análise e memória do contêiner | `120` / `1g` |
+| `OLETOOLS_RECYCLE` | um contêiner novo para cada análise; `false` = processo duradouro | `true` |
+| `COMPOSE_PROFILES` | `netcap` sobe os serviços `netcap` e `suricata` (captura de rede do sandbox) | — |
+| `MIKROTIK_URL` / `MIKROTIK_USER` / `MIKROTIK_PASSWORD` | API REST do RouterOS 7 do CHR, para o sniffer da captura de rede do sandbox; vazio desliga a captura | — |
+| `MIKROTIK_VERIFY_TLS` · `MIKROTIK_SNIFFER_INTERFACE` | `true` só se o certificado do CHR for confiável; interface em que o sniffer escuta (vazio: todas) | `false` · — |
+| `NETCAP_URL` / `NETCAP_TOKEN` / `NETCAP_STREAM_TARGET` | serviço netcap (perfil `netcap` do compose) e o `IP:porta` deste host como o CHR o vê | — |
+| `NETCAP_TZSP_PORT` · `NETCAP_TZSP_BIND` · `NETCAP_TZSP_SOURCES` | porta UDP publicada no host, endereço do host onde ela é publicada (o voltado ao CHR) e os IPs de quem aceitar o TZSP (o do CHR; vazio aceita de todos) | `37008` · `0.0.0.0` · — |
+| `NETCAP_MAX_MB` / `NETCAP_TMPFS` | teto do pcap por ambiente e a pasta em memória do serviço | `200` / `1g` |
+| `SURICATA_URL` / `SURICATA_TOKEN` | Suricata sobre o pcap (ET Open); vazio: fica só o pcap | — |
+| `SURICATA_MAX_MB` / `SURICATA_TIMEOUT_S` | maior pcap lido e teto de uma leitura | `256` / `600` |
+| `SURICATA_UPDATE_HOURS` | de quanto em quanto tempo as regras ET Open são baixadas de novo (pelo `egress`) | `24` |
+| `SURICATA_MEM_LIMIT` / `SURICATA_RECYCLE` | memória do contêiner; um contêiner novo para cada leitura | `2g` / `true` |
 | `CAPTURE_RECYCLE` | um container novo a cada captura; `false` volta ao processo de longa vida, que atende capturas em fila sem trocar | `true` |
 | `CAPTURE_CHROMIUM_SANDBOX` | sandbox do próprio Chromium na captura; `false` só como saída de emergência num host sem user namespaces | `true` |
 | `CLAMAV_IMAGE` | imagem do contêiner do ClamAV, fixada por tag e digest (como a do Postgres; `node scripts/pin-images.mjs` confere e `--write` atualiza) | `clamav/clamav:1.5@sha256:…` |
 | `COOKIE_SECURE` | `true` quando servir somente via HTTPS; o cookie da sessão passa a ser `__Host-dl_session` (quem estava logado entra de novo uma vez) | `false` |
 | `CAPTURE_EGRESS_SUBNET` | Sub-rede fixa da rede de saída da captura (`capture-egress`), para o host mandá-la por uma VPN com roteamento por origem (`docs/implantacao.pt-BR.md`, passo 3). Mudar exige `docker compose down` antes do `up` | `172.31.252.0/24` |
+| `REAL_IP_FROM` | endereço em que o nginx confia para o IP do cliente (`X-Forwarded-For`): o gateway da `DEEPLOOK_SUBNET`, que é como o cloudflared do host chega. Troque junto com a `DEEPLOOK_SUBNET`, ou ponha o endereço de um cloudflared em contêiner | `172.31.250.1` |
 | `DEEPLOOK_SUBNET` | Sub-rede fixa da rede interna `deeplook`, a única de onde a API aceita conexão e o IP do cliente (vira o `TRUSTED_NETWORK` da API). Troque só se colidir com outra rede do host, e rode `docker compose down` antes do `up` para recriar a rede | `172.31.250.0/24` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Admin semeado no primeiro boot; troca a senha no primeiro acesso. Com a senha padrão, o login dele é recusado em produção | — |
-| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN`/`OLETOOLS_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
+| `ALLOW_INSECURE_DEFAULTS` | `true`: sobe mesmo com `SESSION_SECRET`/`CAPTURE_TOKEN`/`CAPA_TOKEN`/`GHIDRA_TOKEN`/`UNPACK_TOKEN`/`OLETOOLS_TOKEN`/`NETCAP_TOKEN`/`SURICATA_TOKEN` padrão, com a senha padrão do banco ou do MinIO, e aceita o login com a senha padrão do admin (só para demonstração local) | `false` |
 | `MAX_UPLOAD_MB` | Tamanho máximo de upload | `200` |
 | `MAX_UPLOAD_MEMORY_MB` | soma dos envios em análise na memória. O envio vai para o disco enquanto chega e só entra na memória depois de inteiro; sem espaço, espera a vez por até 30 s e então responde 503 "tente de novo em instantes" | `600` |
 | `MAX_UPLOAD_SPOOL_MB` | soma dos envios que estão chegando, em disco (`/tmp` da API); acima, 503. Cada pessoa ocupa no máximo metade (além disso, 429) | `2048` |
@@ -1129,9 +1141,11 @@ COOKIE_SECURE=true
 | `WEB_MEM_LIMIT` | limite de memória do container do web (nginx) | `256m` |
 | `LOG_MAX_SIZE` · `LOG_MAX_FILE` | rotação dos logs do Docker, em todos os serviços: tamanho de cada arquivo e quantos ficam | `10m` · `3` |
 | `UPLOAD_DAILY_LIMIT` | Envios por usuário comum nas últimas 24 horas (arquivo, link, cada arquivo de um `.zip`); analistas e admins sem limite; `0` desliga | `20` |
+| `MINIO_IMAGE` | imagem compatível com o MinIO, fixada por digest (o `.env.example` lista as alternativas) | `pgsty/silo@sha256:…` |
 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | Credenciais do MinIO | `deeplook` |
 | `MINIO_CONSOLE_PORT` | Porta (loopback) do console do MinIO no host | `9001` |
 | `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` | Bucket usado pela API | `http://minio:9000` |
+| `S3_FORCE_PATH_STYLE` | bucket no caminho, e não no nome do host (o que o MinIO espera) | `true` |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Credenciais S3 da API | = MinIO root |
 | `WEB_PORT` | Porta publicada no host | `8080` |
 | `SANDBOX_ENABLED` | Liga o sandbox (VM isolada no Proxmox) | `false` |
@@ -1147,6 +1161,7 @@ COOKIE_SECURE=true
 | `SANDBOX_TTL_MINUTES` | Tempo de vida do ambiente antes do descarte automático | `60` |
 | `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` | Limite de ambientes ativos (total / por analista) | `4` / `2` |
 | `SANDBOX_MOCK_VNC_URL` | (modo mock) VNC de teste para validar o console | — |
+| `SANDBOX_ARTIFACT_INTERVAL_S` / `SANDBOX_ARTIFACT_MAX_SHOTS` | de quantos em quantos segundos coletar o print e a lista de processos (`0` desliga) e quantos prints guardar por ambiente | `60` / `60` |
 
 Console do MinIO (administração, apenas no loopback): http://localhost:9001
 
@@ -1190,26 +1205,34 @@ deeplook/
 ├─ .env.example
 ├─ README.md          # English (principal)
 ├─ README.pt-BR.md    # Português (pt-BR)
-├─ .github/           # CI (ci.yml), varredura de CVE das imagens (security-scan.yml) e Dependabot
+├─ LICENSE            # MIT
+├─ SECURITY.md        # como relatar uma vulnerabilidade
+├─ RELEASE.txt        # versão e commit, preenchidos pelo git archive no pacote de implantação
+├─ .github/           # CI (ci.yml), varredura de CVE das imagens (security-scan.yml), releases
+│                     # (release.yml), Dependabot e as capturas de tela do README
 ├─ apps/
 │  ├─ api/            # Fastify + Prisma + S3 (MinIO)
 │  │  ├─ prisma/      # schema, migrações, seed (configuração em prisma.config.ts)
 │  │  ├─ rules/       # pacotes de regras YARA de fábrica
-│  │  ├─ tests/       # integração (Postgres, MinIO e OpenLDAP reais)
+│  │  ├─ tests/       # unitários, fuzzing e integração (Postgres, MinIO e OpenLDAP reais)
 │  │  └─ src/         # env, lib, routes (generated/prisma: cliente gerado, fora do git)
 │  ├─ capa/           # capa e FLOSS (Python) para a análise de funções, sem rede
 │  ├─ ghidra/         # Ghidra headless (Java 25), scripts de exportação e o servidor, sem rede
 │  ├─ unpack/         # Detect It Easy e os desempacotadores (um plugin por arquivo em unpackers/)
 │  ├─ oletools/       # olevba, MacroRaptor, msodde, oleid e rtfobj; QR code (qr.py, zxing-cpp)
 │  ├─ capture/        # navegador isolado que captura a página de um link, e o egress
+│  ├─ netcap/         # recebe o TZSP do CHR e grava um pcap por ambiente do sandbox
+│  ├─ suricata/       # Suricata sobre o pcap, com as regras ET Open
 │  └─ web/            # React + Vite + @carbon/react
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
 ├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox, template-windows
-├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
+├─ scripts/           # pacote de implantação (package-deploy.mjs), restore.sh, smoke tests, testes de
+│                     # tela e visuais (ui-playwright/, ui-visual/), conferências do CI (check-*.mjs,
+│                     # trivy.mjs) e os arquivos do template Windows (template-windows/)
 ├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
-└─ data/              # volumes (git-ignored): pgdata/, minio/, clamav/
+└─ data/              # volumes (git-ignored): pgdata/, minio/, clamav/, backups/, alerts/
 ```
 
 ---
@@ -1267,8 +1290,10 @@ arquivo é aberto em modo de acréscimo a cada linha, então o `logrotate` (com 
 
 ## Segurança e avisos
 
-- ⚠️ O DeepLook **não executa** as amostras. É armazenamento/triagem, não sandbox.
-  Manuseie arquivos baixados em ambiente isolado.
+- ⚠️ O servidor do DeepLook **nunca executa** as amostras: os serviços de análise só as leem, sem
+  rede. Uma amostra só roda dentro do [sandbox de análise](#sandbox-de-análise-proxmox-ve), uma VM
+  descartável do Proxmox numa rede isolada, quando um analista o abre. Manuseie arquivos baixados
+  em ambiente isolado também.
 - Os objetos ficam em bucket **privado** no MinIO; o download só ocorre por
   endpoint autenticado da API.
 - **"Baixar amostra" entrega um ZIP com a senha `infected`** (cifra ZipCrypto, que o Explorer do
@@ -1292,7 +1317,7 @@ arquivo é aberto em modo de acréscimo a cada linha, então o `logrotate` (com 
   LAN, ao host nem a um endereço interno, porque não há rota fora do proxy.
 - Os logs da API e do nginx guardam o caminho sem a query string, porque a busca e a ficha do
   indicador levam URLs de vítima, com token ou e-mail.
-- O `web`, a API, o capture e o egress rodam **sem root e sem capacidades**, com o sistema de
+- O `web`, a API, o capture, o egress e os serviços de análise rodam **sem root e sem capacidades**, com o sistema de
   arquivos **somente leitura** e limite de processos. A API grava só no `/tmp`, que é um volume
   em disco (`api-tmp`) e não memória, porque sem `BACKUP_DIR` o ZIP inteiro do backup é montado
   ali. As sobras de um backup ou ISO interrompido são apagadas na subida. A telemetria do Prisma
@@ -1559,7 +1584,7 @@ histórico da amostra registra a execução e quem a pediu.
 |---|---|---|
 | GET | `/api/sandbox/health` | Diagnóstico da integração (admin) |
 | GET | `/api/entries/:id/sandbox` | Sessão ativa da amostra (usada no painel) |
-| POST | `/api/entries/:id/sandbox` | Abre o ambiente (analista) |
+| POST | `/api/entries/:id/sandbox` | Abre o ambiente (analista); `{"autoRun":true}` executa a amostra sozinho |
 | GET | `/api/sandbox` | Lista ambientes (`?active=true`, `?scope=all` p/ admin) |
 | GET | `/api/sandbox/:id` | Detalhe + estado atual da VM (polling do painel) |
 | POST | `/api/sandbox/:id/extend` | Estende o prazo |
@@ -1569,6 +1594,9 @@ histórico da amostra registra a execução e quem a pediu.
 | GET | `/api/sandbox/:id/console/credentials` | Senha efêmera do console (auth VNC no handshake) |
 | GET | `/api/sandbox/:id/console/ws` | WebSocket (proxy autenticado para o PVE) |
 | GET | `/api/sandbox/:id/screenshot` | Captura de tela (PNG) — removido no PVE 9; o painel captura no navegador |
+| GET | `/api/sandbox/:id/artifacts` | Artefatos do ambiente: prints, processos, Sysmon, tráfego de rede e Suricata |
+| GET | `/api/sandbox/:id/artifacts/:artifactId` | Um print guardado (PNG) |
+| GET | `/api/sandbox/:id/pcap` | Baixa o pcap do ambiente (registrado na auditoria) |
 
 ---
 
@@ -1589,6 +1617,9 @@ npm run test:smoke                  # navegador real contra as imagens do web e 
 cd ../web
 npm run test:unit                   # Vitest: lógica pura, hooks e componentes (jsdom)
 npm run test:coverage               # o mesmo, com o piso de cobertura do vitest.config.ts
+
+cd ../netcap
+npm test                            # decodificação do TZSP, gravação do pcap e as rotas do serviço
 
 # da raiz do repositório
 node scripts/check-playwright-version.mjs   # pacote, imagem e testes na mesma versão do Playwright
@@ -1620,7 +1651,7 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
 - **Teste rápido** (`test:smoke`): com Postgres e MinIO reais, faz o caminho principal (primeiro
   acesso, envio, triagem em massa, usuário comum) e abre as telas. Erro inesperado da API, no
   console ou da CSP reprova. Pega o que a API simulada das telas esconde.
-- **Telas** (`scripts/ui-playwright/run.ps1`): cenários no navegador com a API simulada. Roda
+- **Telas** (`scripts/ui-playwright/run-all.sh`, no Windows `run.ps1`): cenários no navegador com a API simulada. Roda
   todos e lista os que falharam.
 - **Suíte visual** (`scripts/ui-visual`): compara as telas de layout crítico com capturas
   versionadas. Não olha o comportamento (isso é dos cenários acima), e sim o que a tela
@@ -1646,10 +1677,10 @@ sh scripts/ui-visual/run.sh --update-snapshots   # regrava as baselines de prop�
   `ErrorBoundary`. O piso de cobertura vale só para os módulos que já têm teste; ao ganhar
   teste, o módulo entra na lista do `vitest.config.ts`.
 - **CI** (`.github/workflows`): `ci.yml` roda lint, formatação, build e testes do web e da API,
-  os testes do capture (com a conferência do Playwright), a integração, os testes das imagens
-  (`images`, em todo PR) e o teste rápido com navegador (`smoke`, fora de PR); o `audit` barra
-  vulnerabilidade alta. `security-scan.yml` roda toda segunda o **Trivy** nas três imagens do
-  projeto, nas de terceiros do compose e nos Dockerfiles. Reprova em severidade alta ou
+  os testes do capture (com a conferência do Playwright), os do netcap, a integração, os testes das
+  imagens (`images`, em todo PR), a suíte visual (`visual`) e o teste rápido com navegador (`smoke`,
+  fora de PR); o `audit` barra vulnerabilidade alta. `security-scan.yml` roda toda segunda o
+  **Trivy** nas dez imagens do projeto, nas de terceiros do compose e nos Dockerfiles. Reprova em severidade alta ou
   crítica **com correção disponível**; exceção se justifica em `trivy.yaml`.
 
 ## Smoke test (com a stack no ar)
