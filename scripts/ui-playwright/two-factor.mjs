@@ -121,7 +121,8 @@ expect('sem aviso de validação depois de desativar', !(await messages()).inclu
 await page.goto(ORIGIN + '/admin', { waitUntil: 'networkidle' });
 const bruno = page.locator('tbody tr:has-text("Bruno Lima")');
 expect('coluna 2FA', (await page.locator('thead th').allInnerTexts()).map((t) => t.trim()).includes('2FA') && (await bruno.locator('td').nth(5).innerText()).trim() === 'Ativo');
-await bruno.locator('button:has-text("Desativar 2FA")').click();
+await bruno.locator('button[aria-haspopup="menu"]').click();
+await page.locator('.hpsm-ctxmenu [role=menuitem]', { hasText: 'Desativar 2FA' }).click();
 await page.locator('[role=alertdialog] button.dl-btn--danger').click();
 await settle();
 expect('admin desativa', state.calls.includes('POST /api/admin/users/u2/disable-2fa') && (await bruno.locator('td').nth(5).innerText()).trim() === '—');

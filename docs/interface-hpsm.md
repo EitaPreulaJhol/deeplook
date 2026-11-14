@@ -269,7 +269,7 @@ const name = await prompt({ title: 'Save view', label: 'Name', defaultValue: sug
 
 ### Context menu — `components/HpsmContextMenu.tsx`
 
-`<HpsmContextMenu x y label items={[{ label, icon?, action, disabled?, separated? }]}
+`<HpsmContextMenu x y label items={[{ label, icon?, action, disabled?, separated?, hint?, danger? }]}
 onClose={(restoreFocus) => ...} />` — floating menu drawn like the user menu
 (portal on `body`, does not leave the window). Arrows skip disabled items, Esc/Tab close it
 returning the focus to whoever opened it, clicking outside closes it. Open it from `onContextMenu` (mouse
@@ -280,6 +280,15 @@ position) and with Shift+F10 / the Menu key (element position).
 `<HpsmToolbarMenu label="More" items={[{ label, icon?, action, disabled?, separated? }]} />`
 — "More ▾" button that opens the `HpsmContextMenu` right below it (keyboard: Enter, Space
 or ↓ open it; Esc closes and returns to the button). Use it for less frequent record actions.
+
+### Actions menu on a table row — `HpsmMenuButton` in `components/HpsmToolbar.tsx`
+
+`<HpsmMenuButton label="Actions" menuLabel="Actions for Ana" className="cds--btn cds--btn--tertiary
+cds--btn--sm dl-menu-button" caretClassName="dl-menu-button__caret" items={...} />` — the same menu
+button as "More ▾", looking like the grid's small buttons. Use it when a row's actions don't fit on
+one line (Administration > Users). On an item, `hint` becomes the tooltip (including why it is
+disabled) and `danger` paints the text red, like the dangerous button it replaces; the
+confirmation stays with whoever runs the action.
 
 ### Print card — `pages/EntryPrintPage.tsx`
 

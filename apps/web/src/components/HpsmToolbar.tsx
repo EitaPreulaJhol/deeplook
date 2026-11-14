@@ -71,11 +71,23 @@ export function HpsmToolbarButton({
 }
 
 /**
- * Botao "Mais ▾" da toolbar (More Actions do HPSM): abre um menu com as acoes
- * menos usadas. Clique, Enter, Espaco ou seta para baixo abrem; Esc fecha e
- * devolve o foco ao botao.
+ * Botao que abre um menu de acoes (More Actions do HPSM). Clique, Enter, Espaco ou seta para baixo
+ * abrem; Esc fecha e devolve o foco ao botao. `className` da a aparencia (item de toolbar, botao de
+ * linha de tabela...); `menuLabel` e o nome do menu e do botao para leitor de tela.
  */
-export function HpsmToolbarMenu({ label, items }: { label: string; items: ContextMenuItem[] }) {
+export function HpsmMenuButton({
+  label,
+  items,
+  className,
+  caretClassName = 'hpsm-toolbar__caret',
+  menuLabel = label,
+}: {
+  label: string;
+  items: ContextMenuItem[];
+  className: string;
+  caretClassName?: string;
+  menuLabel?: string;
+}) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -100,16 +112,17 @@ export function HpsmToolbarMenu({ label, items }: { label: string; items: Contex
       <button
         ref={buttonRef}
         type="button"
-        className="hpsm-toolbar__action"
+        className={className}
         aria-haspopup="menu"
         aria-expanded={position !== null}
+        aria-label={menuLabel === label ? undefined : menuLabel}
         // O menu fecha com mousedown fora dele; aqui o proprio botao alterna.
         onMouseDown={(event) => event.stopPropagation()}
         onClick={() => (position ? close(false) : open())}
         onKeyDown={onKeyDown}
       >
         <span>{label}</span>
-        <span className="hpsm-toolbar__caret" aria-hidden="true">
+        <span className={caretClassName} aria-hidden="true">
           ▾
         </span>
       </button>
@@ -117,11 +130,16 @@ export function HpsmToolbarMenu({ label, items }: { label: string; items: Contex
         <HpsmContextMenu
           x={position.x}
           y={position.y}
-          label={label}
+          label={menuLabel}
           items={items}
           onClose={close}
         />
       )}
     </>
   );
+}
+
+/** Botao "Mais ▾" da toolbar: as acoes menos usadas da tela. */
+export function HpsmToolbarMenu({ label, items }: { label: string; items: ContextMenuItem[] }) {
+  return <HpsmMenuButton label={label} items={items} className="hpsm-toolbar__action" />;
 }

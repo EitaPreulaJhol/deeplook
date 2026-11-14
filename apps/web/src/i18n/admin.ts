@@ -86,6 +86,7 @@ export const messages = {
   adPwdHint: ['Conta do AD: a senha é redefinida no AD', 'AD account: the password is reset in AD'],
   removeApi: ['Retirar API', 'Remove API'],
   grantApi: ['Liberar API', 'Grant API'],
+  userActionsFor: ['Ações de {name}', 'Actions for {name}'],
   keyCreated: ['Chave criada:', 'Key created:'],
   newKey: ['Gerar nova chave', 'Create new key'],
   keyActions: ['Ações da chave', 'Key actions'],

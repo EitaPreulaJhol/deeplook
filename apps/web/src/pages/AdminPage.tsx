@@ -30,7 +30,7 @@ import { CopyButton } from '../components/CopyButton';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
 import { HpsmTabs } from '../components/HpsmTabs';
-import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
+import { HpsmMenuButton, HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconKey } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
@@ -402,44 +402,47 @@ export function AdminPage() {
                                     <SelectItem value="ANALYST" text={t('roleAnalyst')} />
                                     <SelectItem value="ADMIN" text="Admin" />
                                   </Select>
-                                  <Button
-                                    size="sm"
-                                    kind={u.status === 'ACTIVE' ? 'danger--tertiary' : 'tertiary'}
-                                    onClick={() => toggleStatus(u)}
-                                  >
-                                    {u.status === 'ACTIVE' ? t('suspend') : t('reactivate')}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    kind="tertiary"
-                                    disabled={u.id === currentUser?.id || u.authSource === 'LDAP'}
-                                    title={
-                                      u.id === currentUser?.id
-                                        ? t('useMyAccount')
-                                        : u.authSource === 'LDAP'
-                                          ? t('adPwdHint')
-                                          : undefined
-                                    }
-                                    onClick={() => resetPassword(u)}
-                                  >
-                                    {t('resetPassword')}
-                                  </Button>
-                                  {u.twoFactorEnabledAt && (
-                                    <Button
-                                      size="sm"
-                                      kind="danger--tertiary"
-                                      onClick={() => disableTwoFactor(u)}
-                                    >
-                                      {t('disableTfa')}
-                                    </Button>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    kind={u.apiAccess ? 'danger--tertiary' : 'tertiary'}
-                                    onClick={() => toggleApi(u)}
-                                  >
-                                    {u.apiAccess ? t('removeApi') : t('grantApi')}
-                                  </Button>
+                                  <HpsmMenuButton
+                                    label={t('actions')}
+                                    menuLabel={t('userActionsFor', { name: u.displayName })}
+                                    className="cds--btn cds--btn--tertiary cds--btn--sm dl-menu-button"
+                                    caretClassName="dl-menu-button__caret"
+                                    items={[
+                                      {
+                                        label:
+                                          u.status === 'ACTIVE' ? t('suspend') : t('reactivate'),
+                                        danger: u.status === 'ACTIVE',
+                                        action: () => void toggleStatus(u),
+                                      },
+                                      {
+                                        label: t('resetPassword'),
+                                        disabled:
+                                          u.id === currentUser?.id || u.authSource === 'LDAP',
+                                        hint:
+                                          u.id === currentUser?.id
+                                            ? t('useMyAccount')
+                                            : u.authSource === 'LDAP'
+                                              ? t('adPwdHint')
+                                              : undefined,
+                                        action: () => void resetPassword(u),
+                                      },
+                                      ...(u.twoFactorEnabledAt
+                                        ? [
+                                            {
+                                              label: t('disableTfa'),
+                                              danger: true,
+                                              action: () => void disableTwoFactor(u),
+                                            },
+                                          ]
+                                        : []),
+                                      {
+                                        label: u.apiAccess ? t('removeApi') : t('grantApi'),
+                                        danger: u.apiAccess,
+                                        separated: true,
+                                        action: () => void toggleApi(u),
+                                      },
+                                    ]}
+                                  />
                                 </div>
                               </TableCell>
                             </TableRow>

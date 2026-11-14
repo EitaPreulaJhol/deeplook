@@ -17,7 +17,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | # | Pendência | Prioridade | Esforço | Área | Status |
 |---|---|---|---|---|---|
 | 1 | Datas e horas no formato do navegador | 🔴 | P–M | Gerencial / Backup | ✅ |
-| 2 | Ações da tabela de usuários num menu | 🟡 | P–M | Administração | ⬜ |
+| 2 | Ações da tabela de usuários num menu | 🟡 | P–M | Administração | ✅ |
 | 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ⬜ |
 | 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ⬜ |
 | 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ⬜ |
@@ -62,6 +62,13 @@ e o dia escolhido no calendário também muda o período.
 - **Proposta:** manter a seleção de papel na linha e levar as ações para um menu "Ações ▾", como no
   HPSM; as perigosas continuam com confirmação.
 - **Pronto quando:** uma linha por usuário em 1366x768 e em 1280x800.
+
+**Implementado.** Na linha ficam a seleção de papel e o botão "Ações ▾" (`HpsmMenuButton`, extraído
+do "Mais ▾" da barra). O menu traz Suspender/Reativar, Redefinir senha, Desativar 2FA (quando ativo) e
+Liberar/Retirar API; as perigosas em vermelho, todas com a mesma confirmação de antes. O motivo de
+"Redefinir senha" estar desativado (a própria conta, conta do AD) virou a dica do item. Uma linha por
+usuário de 1280 px para cima; abaixo, o menu desce para baixo da seleção, sem ser cortado pela
+grade. Os cenários `actions`, `two-factor`, `api-tokens` e `ldap-login` passaram a usar o menu.
 
 ### 3. Abas da Administração sem indicação de rolagem
 

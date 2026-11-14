@@ -269,7 +269,7 @@ const nome = await prompt({ title: 'Salvar visão', label: 'Nome', defaultValue:
 
 ### Menu de contexto — `components/HpsmContextMenu.tsx`
 
-`<HpsmContextMenu x y label items={[{ label, icon?, action, disabled?, separated? }]}
+`<HpsmContextMenu x y label items={[{ label, icon?, action, disabled?, separated?, hint?, danger? }]}
 onClose={(restaurarFoco) => ...} />` — menu flutuante no desenho do menu do usuário
 (portal no `body`, não sai da janela). Setas pulam itens desabilitados, Esc/Tab fecham
 devolvendo o foco a quem abriu, clique fora fecha. Abra pelo `onContextMenu` (posição
@@ -280,6 +280,15 @@ do mouse) e por Shift+F10 / tecla Menu (posição do elemento).
 `<HpsmToolbarMenu label="Mais" items={[{ label, icon?, action, disabled?, separated? }]} />`
 — botão "Mais ▾" que abre o `HpsmContextMenu` logo abaixo dele (teclado: Enter, Espaço
 ou ↓ abrem; Esc fecha e volta ao botão). Use para ações menos frequentes do registro.
+
+### Menu de ações numa linha de tabela — `HpsmMenuButton` em `components/HpsmToolbar.tsx`
+
+`<HpsmMenuButton label="Ações" menuLabel="Ações de Ana" className="cds--btn cds--btn--tertiary
+cds--btn--sm dl-menu-button" caretClassName="dl-menu-button__caret" items={...} />` — o mesmo
+botão de menu do "Mais ▾", com a aparência dos botões pequenos da grade. Use quando as ações de uma
+linha não cabem numa linha só (Administração > Usuários). No item, `hint` vira a dica (inclusive o
+motivo de estar desativado) e `danger` pinta o texto de vermelho, como o botão perigoso que ele
+substitui; a confirmação continua com quem executa a ação.
 
 ### Ficha para impressão — `pages/EntryPrintPage.tsx`
 

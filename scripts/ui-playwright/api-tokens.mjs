@@ -38,13 +38,16 @@ expect('?tab=tokens cai em Dados', (await page.locator('[role=tab][aria-selected
 await page.goto(ORIGIN + '/admin', { waitUntil: 'networkidle' });
 expect('coluna "Acesso por API"', (await page.locator('thead th').allInnerTexts()).map((t) => t.trim()).includes('Acesso por API'));
 expect('sem acesso: travessão', (await rowOf('Ana Souza').locator('td').nth(6).innerText()).trim() === '—');
-await rowOf('Ana Souza').locator('button:has-text("Liberar API")').click();
+await rowOf('Ana Souza').locator('button[aria-haspopup="menu"]').click();
+await page.locator('.hpsm-ctxmenu [role=menuitem]', { hasText: 'Liberar API' }).click();
 expect('liberar pede confirmação', (await confirmDialog.innerText()).includes('A pessoa poderá gerar tokens em Minha Conta'));
 await confirmDialog.locator('button:has-text("Liberar")').click();
 await settle();
 expect('PATCH apiAccess', state.calls.includes('PATCH /api/admin/users/u1') && users[0].apiAccess === true);
 expect('coluna mostra liberado', (await rowOf('Ana Souza').locator('td').nth(6).innerText()).trim() === 'Liberado · 0 tokens ativos', await rowOf('Ana Souza').locator('td').nth(6).innerText());
-expect('botão vira "Retirar API"', (await rowOf('Ana Souza').locator('button:has-text("Retirar API")').count()) === 1);
+await rowOf('Ana Souza').locator('button[aria-haspopup="menu"]').click();
+expect('item vira "Retirar API"', (await page.locator('.hpsm-ctxmenu [role=menuitem]', { hasText: 'Retirar API' }).count()) === 1);
+await page.keyboard.press('Escape');
 
 // 3. Minha Conta: gerar e revogar.
 await page.goto(ORIGIN + '/user', { waitUntil: 'networkidle' });
@@ -123,7 +126,8 @@ expect('aviso', (await messages()).includes('Token "Coletor SIEM" de Bruno Lima 
 // 5. Retirar acesso.
 users[0]._count.apiTokens = 2;
 await page.goto(ORIGIN + '/admin', { waitUntil: 'networkidle' });
-await rowOf('Ana Souza').locator('button:has-text("Retirar API")').click();
+await rowOf('Ana Souza').locator('button[aria-haspopup="menu"]').click();
+await page.locator('.hpsm-ctxmenu [role=menuitem]', { hasText: 'Retirar API' }).click();
 expect('retirar avisa a revogação', (await confirmDialog.innerText()).includes('Todos os tokens ativos dessa pessoa (2) serão revogados imediatamente.'));
 await confirmDialog.locator('button.dl-btn--danger').click();
 await settle();

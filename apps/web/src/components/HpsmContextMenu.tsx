@@ -11,6 +11,10 @@ export interface ContextMenuItem {
   disabled?: boolean;
   /** Separador antes do item. */
   separated?: boolean;
+  /** Dica do item (inclusive o motivo de estar desativado). */
+  hint?: string;
+  /** Acao perigosa (suspender, retirar acesso): texto em vermelho, como o botao que ela substitui. */
+  danger?: boolean;
 }
 
 interface HpsmContextMenuProps {
@@ -107,7 +111,8 @@ export function HpsmContextMenu({ x, y, label, items, onClose }: HpsmContextMenu
       onContextMenu={(event) => event.preventDefault()}
     >
       {items.map((item, index) => (
-        <div key={item.label} role="none">
+        // A dica fica no invólucro: botao desativado nao mostra o title em todo navegador.
+        <div key={item.label} role="none" title={item.hint}>
           {item.separated && <div className="hpsm-usermenu__sep" role="separator" />}
           <button
             ref={(el) => {
@@ -115,7 +120,7 @@ export function HpsmContextMenu({ x, y, label, items, onClose }: HpsmContextMenu
             }}
             type="button"
             role="menuitem"
-            className="hpsm-usermenu__item"
+            className={`hpsm-usermenu__item${item.danger ? ' hpsm-ctxmenu__item--danger' : ''}`}
             disabled={item.disabled}
             onClick={() => {
               onClose(false);

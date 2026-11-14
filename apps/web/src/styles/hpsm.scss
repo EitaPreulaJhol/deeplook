@@ -5334,6 +5334,14 @@ tr.is-off td {
   }
 }
 
+/* Papel e o menu "Acoes" numa linha so de 1280 px para cima (item 2 das pendencias); abaixo, o menu
+   desce para baixo da selecao, senao a grade corta o botao. */
+@media (min-width: 80rem) {
+  .dl-users-table__actions {
+    flex-wrap: nowrap;
+  }
+}
+
 .dl-users-table__actions > .cds--form-item,
 .dl-users-table__actions .cds--select {
   flex: 0 0 auto;
@@ -5403,4 +5411,19 @@ tr.is-off td {
   border: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+/* Botao de menu numa linha de tabela ("Acoes ▾"; pendencias da varredura visual, item 2): o mesmo
+   botao pequeno das outras acoes da grade, com a seta do menu. */
+.dl-menu-button {
+  gap: 0.35rem;
+}
+
+.dl-menu-button__caret {
+  font-size: 0.625rem;
+}
+
+/* Acao perigosa no menu (suspender, retirar acesso): vermelho, como o botao que ela substituiu. */
+.hpsm-ctxmenu .hpsm-ctxmenu__item--danger:not(:disabled) {
+  color: var(--dl-status-red);
 }

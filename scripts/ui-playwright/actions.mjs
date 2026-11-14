@@ -40,9 +40,17 @@ await dialog.locator('button:has-text("Revogar")').click();
 await page.waitForTimeout(400);
 expect('"Revogar" chama a API', called('DELETE /api/admin/activation-keys/k1'));
 
+// Acoes da linha de usuario ficam no menu "Acoes" (pendencias da varredura visual, item 2).
+const userAction = async (row, label) => {
+  await row.locator('button[aria-haspopup="menu"]').click();
+  return page.locator('.hpsm-ctxmenu [role=menuitem]', { hasText: label });
+};
+
 // 2. Suspender usuario tambem pede confirmacao.
 await page.goto(ORIGIN + '/admin', { waitUntil: 'networkidle' });
-await page.locator('tbody tr').nth(1).locator('button:has-text("Suspender")').click();
+const suspend = await userAction(page.locator('tbody tr').nth(1), 'Suspender');
+expect('Suspender em vermelho no menu', (await suspend.getAttribute('class')).includes('hpsm-ctxmenu__item--danger'));
+await suspend.click();
 expect('Suspender abre o diálogo', await dialog.isVisible());
 await dialog.locator('button:has-text("Suspender")').click();
 await page.waitForTimeout(400);
@@ -51,9 +59,10 @@ expect('Suspender confirmado chama a API', called('PATCH /api/admin/users/u2'));
 // 3. Redefinir senha: confirma e mostra a senha temporaria uma vez.
 expect(
   '"Redefinir senha" desabilitado para o próprio admin',
-  await page.locator('tbody tr').first().locator('button:has-text("Redefinir senha")').isDisabled(),
+  await (await userAction(page.locator('tbody tr').first(), 'Redefinir senha')).isDisabled(),
 );
-await page.locator('tbody tr').nth(1).locator('button:has-text("Redefinir senha")').click();
+await page.keyboard.press('Escape');
+await (await userAction(page.locator('tbody tr').nth(1), 'Redefinir senha')).click();
 await dialog.locator('button:has-text("Redefinir")').click();
 await page.waitForTimeout(400);
 const resetMsg = (await messages()).join(' ');

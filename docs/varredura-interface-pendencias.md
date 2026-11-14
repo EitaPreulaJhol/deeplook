@@ -17,7 +17,7 @@ analysts see the most day to day; the rest in table order.
 | # | Follow-up | Priority | Effort | Area | Status |
 |---|---|---|---|---|---|
 | 1 | Dates and times in the browser's format | 🔴 | S–M | Management / Backup | ✅ |
-| 2 | Users table actions in a menu | 🟡 | S–M | Administration | ⬜ |
+| 2 | Users table actions in a menu | 🟡 | S–M | Administration | ✅ |
 | 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ⬜ |
 | 4 | Announcement banner with no margin | ⚪ | S | Global | ⬜ |
 | 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ⬜ |
@@ -63,6 +63,13 @@ and goes back on leaving, and the day picked in the calendar changes the period 
 - **Proposal:** keep the role select in the row and move the actions into an "Actions ▾" menu, as in
   HPSM; the dangerous ones keep their confirmation.
 - **Done when:** one line per user at 1366x768 and at 1280x800.
+
+**Implemented.** The row keeps the role select and an "Actions ▾" button (`HpsmMenuButton`, extracted
+from the bar's "More ▾"). The menu holds Suspend/Reactivate, Reset password, Turn off 2FA (when on)
+and Grant/Remove API; the dangerous ones in red, all with the same confirmation as before. Why "Reset
+password" is disabled (own account, AD account) became the item's tooltip. One line per user from
+1280 px up; below that, the menu drops under the select instead of being cut by the grid. The
+`actions`, `two-factor`, `api-tokens` and `ldap-login` scenarios now use the menu.
 
 ### 3. Administration tabs with no scroll cue
 

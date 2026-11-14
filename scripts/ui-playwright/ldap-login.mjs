@@ -55,8 +55,11 @@ users[1].authSource = 'LDAP';
 await page.goto(ORIGIN + '/admin', { waitUntil: 'networkidle' });
 const row = page.locator('tbody tr', { hasText: users[1].displayName }).first();
 expect('marcação AD', (await row.locator('.dl-dup-tag').innerText()).trim() === 'AD');
-const reset = row.locator('button:has-text("Redefinir senha")');
-expect('sem redefinir a senha do AD', (await reset.isDisabled()) && (await reset.getAttribute('title')) === 'Conta do AD: a senha é redefinida no AD');
+await row.locator('button[aria-haspopup="menu"]').click();
+const reset = page.locator('.hpsm-ctxmenu [role=menuitem]', { hasText: 'Redefinir senha' });
+// A dica fica no involucro do item (botao desativado nao mostra title em todo navegador).
+expect('sem redefinir a senha do AD', (await reset.isDisabled()) && (await reset.locator('xpath=..').getAttribute('title')) === 'Conta do AD: a senha é redefinida no AD');
+await page.keyboard.press('Escape');
 expect('papel do AD não se edita na tela', await row.locator('select').first().isDisabled());
 const other = page.locator('tbody tr', { hasText: users[2].displayName }).first();
 expect('conta local sem marcação', (await other.locator('.dl-dup-tag').count()) === 0);
