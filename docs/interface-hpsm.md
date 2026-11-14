@@ -104,7 +104,8 @@ buttons in the middle of the content. A tab's or section's toolbar goes inside i
 </HpsmToolbar>
 ```
 
-Inside an `HpsmSection`, the toolbar sits at the top of the section body.
+Inside an `HpsmSection`, the toolbar sits at the top of the section body. A dangerous action (discard,
+delete) takes `danger` on `HpsmToolbarButton`: red text, after an `HpsmToolbarDivider`.
 
 ### Forms — `components/HpsmForm.tsx`
 

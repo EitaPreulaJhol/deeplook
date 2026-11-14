@@ -855,6 +855,11 @@ h6 {
   border: 1px solid var(--dl-panel-border);
 }
 
+/* Acao perigosa na barra (descartar, excluir): texto em vermelho. */
+.hpsm-toolbar__action--danger:not(:disabled) {
+  color: var(--dl-status-red);
+}
+
 .hpsm-toolbar__action {
   display: inline-flex;
   align-items: center;

@@ -41,6 +41,7 @@ export const messages = {
   openConsole: ['Abrir console (nova janela)', 'Open console (new window)'],
   extendTime: ['Estender prazo', 'Extend time'],
   discardEnv: ['Descartar ambiente', 'Discard environment'],
+  consoleActions: ['Ações do ambiente', 'Environment actions'],
   discardConfirm: [
     'Deseja realmente descartar o ambiente? A VM e a ISO da amostra serão destruídas e o console será desconectado.',
     'Do you really want to discard the environment? The VM and the sample ISO will be destroyed and the console will be disconnected.',

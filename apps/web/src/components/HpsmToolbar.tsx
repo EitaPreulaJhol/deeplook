@@ -29,6 +29,8 @@ interface HpsmToolbarButtonProps {
   title?: string;
   /** Botao liga/desliga (ex.: Fixar): aparece afundado quando ativo. */
   pressed?: boolean;
+  /** Acao perigosa (descartar, excluir): texto em vermelho. */
+  danger?: boolean;
 }
 
 /** Botao pequeno da toolbar: icone 16px + texto, sem moldura ate o hover. */
@@ -40,7 +42,9 @@ export function HpsmToolbarButton({
   disabled,
   title,
   pressed,
+  danger,
 }: HpsmToolbarButtonProps) {
+  const className = `hpsm-toolbar__action${danger ? ' hpsm-toolbar__action--danger' : ''}`;
   const content = (
     <>
       {Icon && <Icon size={16} />}
@@ -50,7 +54,7 @@ export function HpsmToolbarButton({
 
   if (href && !disabled) {
     return (
-      <a className="hpsm-toolbar__action" href={href} title={title}>
+      <a className={className} href={href} title={title}>
         {content}
       </a>
     );
@@ -59,7 +63,7 @@ export function HpsmToolbarButton({
   return (
     <button
       type="button"
-      className="hpsm-toolbar__action"
+      className={className}
       onClick={onClick}
       disabled={disabled}
       title={title}

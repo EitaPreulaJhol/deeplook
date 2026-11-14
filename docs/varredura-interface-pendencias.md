@@ -20,7 +20,7 @@ analysts see the most day to day; the rest in table order.
 | 2 | Users table actions in a menu | 🟡 | S–M | Administration | ✅ |
 | 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ✅ |
 | 4 | Announcement banner with no margin | ⚪ | S | Global | ✅ |
-| 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ⬜ |
+| 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ✅ |
 | 6 | API docs field tables | ⚪ | S | API docs | ⬜ |
 | 7 | Leftover 13 px text | ⚪ | S | Global | ⬜ |
 | 8 | Form button rule in the guide | ⚪ | S | UI guide | ⬜ |
@@ -102,6 +102,11 @@ with the content.
 - **Problem:** "Extend deadline / Capture screen / Discard environment" sit in a white box, unlike the
   gradient bar (`HpsmToolbar`) of the rest of the app.
 - **Proposal:** use the standard bar, keeping the window's own layout.
+
+**Implemented.** The three actions moved to an `HpsmToolbar` at the top of the window, above the
+title, as on the app's screens: "Extend deadline" and "Capture screen", a divider and "Discard
+environment". To keep the dangerous action cue, `HpsmToolbarButton` gained `danger` (red text). The
+discard confirmation is unchanged.
 
 ### 6. API docs field tables
 

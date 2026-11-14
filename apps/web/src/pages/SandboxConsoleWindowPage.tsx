@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { SandboxSession, SandboxStatus } from '../api/types';
 import { useConfirm } from '../components/HpsmConfirm';
+import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../components/HpsmToolbar';
 import { IconRefresh, IconScreen, IconTrash } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { SandboxConsole, type SandboxConsoleHandle } from '../components/SandboxConsole';
@@ -139,9 +140,51 @@ export function SandboxConsoleWindowPage() {
     );
   };
 
+  const discard = async () => {
+    if (!session) return;
+    if (
+      !(await confirm({
+        title: t('discardEnv'),
+        message: t('discardConfirm'),
+        confirmLabel: t('discard'),
+        danger: true,
+      }))
+    )
+      return;
+    void run('dispose', async () => {
+      await api.del(`/sandbox/${session.id}`);
+      window.setTimeout(() => window.close(), 1500);
+    });
+  };
+
   return (
     <Theme theme="g10">
       <div className="dl-console-window">
+        {/* Barra no topo, como nas telas do app (pendencias da varredura visual, item 5). */}
+        {session && isSandboxActive(session.status) && (
+          <HpsmToolbar label={t('consoleActions')}>
+            <HpsmToolbarButton
+              label={t('extendTime')}
+              icon={IconRefresh}
+              disabled={busy !== null}
+              onClick={() => void run('extend', () => api.post(`/sandbox/${session.id}/extend`))}
+            />
+            <HpsmToolbarButton
+              label={t('captureScreen')}
+              icon={IconScreen}
+              disabled={busy !== null || !running}
+              onClick={() => void capture()}
+            />
+            <HpsmToolbarDivider />
+            <HpsmToolbarButton
+              label={t('discardEnv')}
+              icon={IconTrash}
+              danger
+              disabled={busy !== null}
+              onClick={() => void discard()}
+            />
+          </HpsmToolbar>
+        )}
         <div className="dl-console-window__head">
           <div>
             <h2 className="dl-console-window__title">{session?.entry?.title ?? t('title')}</h2>
@@ -159,52 +202,6 @@ export function SandboxConsoleWindowPage() {
               {countdown && <StatusText>{t('expiresIn', { time: countdown })}</StatusText>}
             </div>
           </div>
-
-          {session && isSandboxActive(session.status) && (
-            <div className="dl-toolbar">
-              <Button
-                size="sm"
-                kind="ghost"
-                renderIcon={IconRefresh}
-                disabled={busy !== null}
-                onClick={() => run('extend', () => api.post(`/sandbox/${session.id}/extend`))}
-              >
-                {t('extendTime')}
-              </Button>
-              <Button
-                size="sm"
-                kind="ghost"
-                renderIcon={IconScreen}
-                disabled={busy !== null || !running}
-                onClick={capture}
-              >
-                {t('captureScreen')}
-              </Button>
-              <Button
-                size="sm"
-                kind="danger--ghost"
-                renderIcon={IconTrash}
-                disabled={busy !== null}
-                onClick={async () => {
-                  if (
-                    !(await confirm({
-                      title: t('discardEnv'),
-                      message: t('discardConfirm'),
-                      confirmLabel: t('discard'),
-                      danger: true,
-                    }))
-                  )
-                    return;
-                  void run('dispose', async () => {
-                    await api.del(`/sandbox/${session.id}`);
-                    window.setTimeout(() => window.close(), 1500);
-                  });
-                }}
-              >
-                {t('discardEnv')}
-              </Button>
-            </div>
-          )}
         </div>
 
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}

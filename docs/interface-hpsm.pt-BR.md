@@ -103,7 +103,8 @@ cabeçalho da página (`PageHeader`), em todas as telas, com botões pequenos de
 </HpsmToolbar>
 ```
 
-Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção.
+Dentro de uma `HpsmSection`, a toolbar encosta no topo do corpo da seção. Ação perigosa (descartar,
+excluir) leva `danger` no `HpsmToolbarButton`: texto em vermelho, depois de um `HpsmToolbarDivider`.
 
 ### Formulários — `components/HpsmForm.tsx`
 

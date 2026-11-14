@@ -20,7 +20,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 2 | Ações da tabela de usuários num menu | 🟡 | P–M | Administração | ✅ |
 | 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ✅ |
 | 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ✅ |
-| 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ⬜ |
+| 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ✅ |
 | 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ⬜ |
 | 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ⬜ |
 | 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ⬜ |
@@ -100,6 +100,11 @@ logo abaixo e com o conteúdo.
 - **Problema:** "Estender prazo / Capturar tela / Descartar ambiente" ficam num quadro branco,
   diferente da barra em degradê (`HpsmToolbar`) do resto do app.
 - **Proposta:** usar a barra padrão, mantendo o layout próprio da janela.
+
+**Implementado.** As três ações foram para um `HpsmToolbar` no topo da janela, acima do título, como
+nas telas do app: "Estender prazo" e "Capturar tela", um separador e "Descartar ambiente". Para
+manter o aviso de ação perigosa, o `HpsmToolbarButton` ganhou `danger` (texto em vermelho). A
+confirmação ao descartar continua a mesma.
 
 ### 6. Tabelas de campos da documentação da API
 
