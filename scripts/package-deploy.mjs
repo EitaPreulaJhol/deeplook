@@ -71,10 +71,49 @@ const FORBIDDEN = [
   /(^|\/)__pycache__\//,
 ];
 
-const pathspec = () => [
-  ...INCLUDE,
-  ...EXCLUDE.map((p) => `:(exclude,glob)${p.includes('*') ? p : `${p}/**`}`),
-];
+/** Pasta sem curinga vale com tudo dentro dela. */
+const excludeGlob = (p) => (p.includes('*') ? p : `${p}/**`);
+
+/** Pathspec do git archive (o ls-tree nao aceita exclusao; ali o filtro e o `excluded`). */
+const pathspec = () => [...INCLUDE, ...EXCLUDE.map((p) => `:(exclude,glob)${excludeGlob(p)}`)];
+
+/** O glob do git em expressao regular: `**` cruza pastas, `*` nao. */
+const globToRegex = (glob) =>
+  new RegExp(
+    `^${glob
+      .split('**/')
+      .map((part) =>
+        part
+          .split('**')
+          .map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '[^/]*'))
+          .join('.*'),
+      )
+      .join('(?:.*/)?')}$`,
+  );
+const EXCLUDE_RE = EXCLUDE.map((p) => globToRegex(excludeGlob(p)));
+const excluded = (file) => EXCLUDE_RE.some((re) => re.test(file));
+
+/**
+ * Nomes dos arquivos dentro do .zip, lidos do diretorio central (sem dependencia): a conferencia
+ * final e sobre o arquivo gerado, nao sobre a lista.
+ */
+function zipEntries(path) {
+  const buf = readFileSync(path);
+  const end = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (end < 0) throw new Error('zip sem diretorio central');
+  const count = buf.readUInt16LE(end + 10);
+  let at = buf.readUInt32LE(end + 16);
+  const names = [];
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(at) !== 0x02014b50) throw new Error('diretorio central invalido');
+    const nameLen = buf.readUInt16LE(at + 28);
+    const extraLen = buf.readUInt16LE(at + 30);
+    const commentLen = buf.readUInt16LE(at + 32);
+    names.push(buf.toString('utf8', at + 46, at + 46 + nameLen));
+    at += 46 + nameLen + extraLen + commentLen;
+  }
+  return names;
+}
 
 const git = (...args) =>
   execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }).trim();
@@ -89,9 +128,9 @@ const outDir = resolve(ROOT, option('--out', 'release'));
 const commit = git('rev-parse', '--verify', `${ref}^{commit}`);
 const short = commit.slice(0, 10);
 const date = git('show', '-s', '--format=%cs', commit).replaceAll('-', '');
-const files = git('ls-tree', '-r', '--name-only', commit, '--', ...pathspec())
+const files = git('ls-tree', '-r', '--name-only', commit, '--', ...INCLUDE)
   .split('\n')
-  .filter(Boolean);
+  .filter((f) => f && !excluded(f));
 
 const bad = files.filter((f) => FORBIDDEN.some((re) => re.test(f)));
 if (bad.length) {
@@ -120,6 +159,20 @@ const name = `deeplook-${date}-${short}`;
 const zip = join(outDir, `${name}.zip`);
 // --prefix: tudo dentro de uma pasta, para o unzip nao espalhar arquivos onde for aberto.
 git('archive', '--format=zip', `--prefix=${name}/`, '-o', zip, commit, '--', ...pathspec());
+
+// Conferencia no arquivo gerado: exatamente a lista esperada, nada proibido.
+const inZip = zipEntries(zip)
+  .filter((e) => !e.endsWith('/'))
+  .map((e) => e.slice(name.length + 1));
+const expected = new Set(files);
+const extra = inZip.filter((f) => !expected.has(f) || FORBIDDEN.some((re) => re.test(f)));
+const missing = files.filter((f) => !inZip.includes(f));
+if (extra.length || missing.length) {
+  console.error(
+    `O .zip nao bate com a lista:\n  a mais: ${extra.join(', ') || '-'}\n  faltando: ${missing.join(', ') || '-'}`,
+  );
+  process.exit(1);
+}
 
 const sha = createHash('sha256').update(readFileSync(zip)).digest('hex');
 writeFileSync(`${zip}.sha256`, `${sha}  ${name}.zip\n`);
