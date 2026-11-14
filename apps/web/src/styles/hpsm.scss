@@ -3427,6 +3427,9 @@ li .dl-link {
 
   li {
     padding-block: 0.125rem;
+    /* Nome e linha de comando legiveis (com entrelinha ~1 a linha de comando encostava no nome;
+       varredura visual, item 20). */
+    line-height: 1.5;
   }
 }
 
