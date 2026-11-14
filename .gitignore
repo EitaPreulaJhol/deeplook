@@ -37,3 +37,6 @@ plans/
 
 # Pacotes de implantacao gerados por scripts/package-deploy.mjs.
 release/
+
+# Arquivos diversos
+.claude
