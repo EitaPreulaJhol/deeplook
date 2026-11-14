@@ -222,7 +222,8 @@ export function publicName(value: string | null | undefined): string | null {
 export function sysmonIndicators(summary: SysmonSummary): string[] {
   if (!summary.available) return [];
   const privateIp =
-    /^(10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|::1$|fe80:|fc|fd)/i;
+    // Privados, loopback, link-local, multicast (IPv4 224-239, IPv6 ff00::/8) e broadcast.
+    /^(10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|22[4-9]\.|23\d\.|24\d\.|25[0-5]\.|::1$|fe80:|fc|fd|ff[0-9a-f]{2}:)/i;
   const out = new Set<string>();
   for (const q of summary.dns) {
     const name = publicName(q.query);

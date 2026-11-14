@@ -75,6 +75,10 @@ test('IP privado e loopback não viram indicador', () => {
       { id: 3, data: { Image: 'a', DestinationIp: '127.0.0.1' } },
       { id: 3, data: { Image: 'a', DestinationIp: '192.168.1.1' } },
       { id: 3, data: { Image: 'a', DestinationIp: '8.8.8.8' } },
+      // Multicast e broadcast (o DHCPv6 do Windows aparecia nos IOCs no teste real).
+      { id: 3, data: { Image: 'a', DestinationIp: 'ff02:0:0:0:0:0:1:2' } },
+      { id: 3, data: { Image: 'a', DestinationIp: '239.255.255.250' } },
+      { id: 3, data: { Image: 'a', DestinationIp: '255.255.255.255' } },
     ]),
   );
   assert.deepEqual(sysmonIndicators(s), ['8.8.8.8']);

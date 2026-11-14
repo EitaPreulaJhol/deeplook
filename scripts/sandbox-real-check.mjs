@@ -251,7 +251,29 @@ New-ItemProperty -Path $run -Name DeepLookTeste -Value 'notepad.exe' -Force | Ou
 Start-Process notepad.exe
 `;
 
-/** Acha a amostra no CD-ROM e a roda (o agente roda como SYSTEM). */
+/**
+ * Acha a amostra no CD-ROM e a roda NA SESSAO DO USUARIO LOGADO, para ela aparecer na tela (e nos
+ * prints), como quando o analista a roda pelo console. O agente executa como SYSTEM, na sessao 0,
+ * sem area de trabalho: dali, uma tarefa agendada interativa (LogonType Interactive, sem senha)
+ * leva a execucao para a sessao do usuario do console. Sem usuario logado, roda como SYSTEM.
+ */
+const RUN_SAMPLE_SCRIPT = [
+  "$f = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root 'deeplook-teste.ps1' } | Where-Object { Test-Path $_ } | Select-Object -First 1",
+  "if (-not $f) { 'SEM_AMOSTRA'; exit 3 }",
+  '$user = (Get-CimInstance Win32_ComputerSystem).UserName',
+  "if (-not $user) { & $f; 'AMOSTRA_OK como SYSTEM (nenhum usuario logado)'; exit 0 }",
+  "$name = 'DeepLookAmostraTeste'",
+  "$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File \"' + $f + '\"')",
+  '$principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited',
+  'Register-ScheduledTask -TaskName $name -Action $action -Principal $principal -Force | Out-Null',
+  'Start-ScheduledTask -TaskName $name',
+  'Start-Sleep -Seconds 3',
+  "for ($i = 0; $i -lt 60 -and (Get-ScheduledTask -TaskName $name).State -eq 'Running'; $i++) { Start-Sleep -Seconds 1 }",
+  '$result = (Get-ScheduledTaskInfo -TaskName $name).LastTaskResult',
+  'Unregister-ScheduledTask -TaskName $name -Confirm:$false',
+  "if ($result -ne 0) { 'AMOSTRA_FALHOU na sessao de ' + $user + ' (codigo ' + $result + ')'; exit 4 }",
+  "'AMOSTRA_OK na sessao de ' + $user",
+].join('; ');
 const RUN_SAMPLE = [
   'powershell.exe',
   '-NoProfile',
@@ -259,7 +281,7 @@ const RUN_SAMPLE = [
   '-ExecutionPolicy',
   'Bypass',
   '-Command',
-  "$f = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root 'deeplook-teste.ps1' } | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $f) { 'SEM_AMOSTRA'; exit 3 }; & $f; 'AMOSTRA_OK'",
+  RUN_SAMPLE_SCRIPT,
 ];
 
 // ------------------------------------------------------------------ roteiro

@@ -238,6 +238,7 @@ async function pruneShots(sessionId: string): Promise<void> {
 /** Uma coleta: print e processos. Nunca lanca; o motivo de falha do agente fica na sessao. */
 export async function collectArtifacts(
   sessionId: string,
+  { final = false }: { final?: boolean } = {},
 ): Promise<{ shot: boolean; processes: boolean; sysmon: boolean }> {
   const result = { shot: false, processes: false, sysmon: false };
   const session = await prisma.sandboxSession.findUnique({
@@ -310,6 +311,16 @@ export async function collectArtifacts(
       }),
     ]);
     result.sysmon = sysmon.available;
+  }
+  // A ultima coleta (ao encerrar) e de cortesia: o agente as vezes nao responde com a VM ja
+  // desligando (visto no teste real, 5.5). Se o ambiente ja tem listas de processos, a falha dela
+  // fica no log da API e nao vira aviso na tela de uma sessao que correu bem.
+  if (final && note && !result.processes) {
+    const earlier = await prisma.sandboxArtifact.count({ where: { sessionId, kind: 'PROCESSES' } });
+    if (earlier > 0) {
+      log.warn(`[sandbox] última coleta do ambiente ${sessionId} sem o agente: ${note}`);
+      return result;
+    }
   }
   if (note !== session.artifactsNote) {
     await prisma.sandboxSession.update({ where: { id: sessionId }, data: { artifactsNote: note } });

@@ -449,7 +449,7 @@ export async function dispose(
 
   if (vmid && session.status === 'RUNNING') {
     // 0. Ultima coleta de artefatos (revisao 3.7): o estado da tela e dos processos no fim.
-    await collectArtifacts(sessionId).catch(() => undefined);
+    await collectArtifacts(sessionId, { final: true }).catch(() => undefined);
   }
 
   if (vmid) {

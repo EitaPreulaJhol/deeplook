@@ -64,7 +64,7 @@ Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
 #    returned root"): o testmynids.org existe para testar IDS.
 try { Invoke-WebRequest -UseBasicParsing http://testmynids.org/uid/index.html | Out-Null } catch {}
 # 3. Um arquivo e uma chave de inicializacao (Sysmon 11 e 13). A VM e descartada no fim. A chave
-#    Run nao existe no perfil do SYSTEM (o agente roda como ele): cria so se faltar.
+#    Run pode nao existir no perfil de quem roda (no do SYSTEM, nao existe): cria so se faltar.
 Set-Content -Path "$env:PUBLIC\deeplook-teste.txt" -Value 'teste do DeepLook'
 $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 if (-not (Test-Path $run)) { New-Item -Path $run -Force | Out-Null }
@@ -230,7 +230,12 @@ Ele lê o `.env` da raiz e entra no DeepLook como `CHECK_EMAIL`/`CHECK_PASSWORD`
 `.env`; com um analista, as checagens de admin ficam como "pulado"). `CHECK_BOOT_WAIT_S` (padrão 480)
 é quanto esperar o boot do Windows até o agente responder; se ele não responder, o script pergunta
 ao PVE (`agent/info`) e registra a mensagem crua. No Proxmox, só lê; a única
-escrita é o `agent/exec` que roda a amostra na VM do teste. **O template nunca é alterado**: a escrita
+escrita é o `agent/exec` que roda a amostra na VM do teste. O agente executa como SYSTEM, numa sessão
+sem tela; por isso o script leva a amostra para a **sessão do usuário logado** (uma tarefa agendada
+interativa, criada e apagada na hora), e ela aparece na tela da VM e nos prints, como quando o
+analista a roda pelo console. Para isso o template precisa entrar sozinho num usuário (login
+automático); sem usuário logado, a amostra roda como SYSTEM e o resto do teste vale igual.
+**O template nunca é alterado**: a escrita
 nele é recusada no script e no próprio DeepLook, e o fim confere que o `digest` da configuração do
 template não mudou. Se algo falhar no meio, o script encerra o ambiente que abriu. Sai com erro se um
 passo obrigatório falhar e imprime a tabela da seção 7.

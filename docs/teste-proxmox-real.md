@@ -65,7 +65,7 @@ Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
 #    returned root"): o testmynids.org existe para testar IDS.
 try { Invoke-WebRequest -UseBasicParsing http://testmynids.org/uid/index.html | Out-Null } catch {}
 # 3. Um arquivo e uma chave de inicializacao (Sysmon 11 e 13). A VM e descartada no fim. A chave
-#    Run nao existe no perfil do SYSTEM (o agente roda como ele): cria so se faltar.
+#    Run pode nao existir no perfil de quem roda (no do SYSTEM, nao existe): cria so se faltar.
 Set-Content -Path "$env:PUBLIC\deeplook-teste.txt" -Value 'teste do DeepLook'
 $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 if (-not (Test-Path $run)) { New-Item -Path $run -Force | Out-Null }
@@ -234,7 +234,12 @@ It reads the root `.env` and logs into DeepLook as `CHECK_EMAIL`/`CHECK_PASSWORD
 `.env` admin; with an analyst, the admin checks are "skipped"). `CHECK_BOOT_WAIT_S` (default 480)
 is how long to wait for Windows to boot until the agent answers; if it doesn't, the script asks PVE
 (`agent/info`) and records the raw message. In Proxmox it only reads; the only
-write is the `agent/exec` that runs the sample in the test VM. **The template is never changed**:
+write is the `agent/exec` that runs the sample in the test VM. The agent runs as SYSTEM, in a session
+with no screen; so the script moves the sample to the **logged-in user's session** (an interactive
+scheduled task, created and deleted on the spot), and it shows on the VM screen and in the
+screenshots, as when the analyst runs it from the console. For that the template must log a user
+in on its own (automatic logon); with no user logged in, the sample runs as SYSTEM and the rest of
+the test still holds. **The template is never changed**:
 writing to it is refused by the script and by DeepLook itself, and the end checks that the
 template's configuration `digest` didn't change. If something fails halfway, the script closes the
 environment it opened. It exits with an error if a required step fails and prints the section 7

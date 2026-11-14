@@ -238,6 +238,34 @@ async function main() {
     { q, note: qa.note },
   );
 
+  // ---- 4b. Coleta final (ao encerrar) sem o agente: com processos ja coletados, nao vira aviso.
+  const ended9999 = await prisma.sandboxSession.create({
+    data: {
+      entryId: entry.id,
+      analystId: ana.id,
+      node: 'pve',
+      vmid: 9999,
+      name: 'y',
+      status: 'RUNNING',
+      expiresAt: new Date(Date.now() + 3600_000),
+    },
+  });
+  await prisma.sandboxArtifact.create({
+    data: { sessionId: ended9999.id, kind: 'PROCESSES', processes: [] },
+  });
+  await collectArtifacts(ended9999.id, { final: true });
+  const finalNote = (await prisma.sandboxSession.findUnique({ where: { id: ended9999.id } }))
+    ?.artifactsNote;
+  ok(
+    'coleta final sem o agente não vira aviso (já havia processos)',
+    finalNote === null,
+    finalNote,
+  );
+  await collectArtifacts(ended9999.id);
+  const midNote = (await prisma.sandboxSession.findUnique({ where: { id: ended9999.id } }))
+    ?.artifactsNote;
+  ok('coleta comum sem o agente continua avisando', Boolean(midNote), midNote);
+
   // ---- 5. Ao encerrar: uma ultima coleta antes de desligar.
   const before = await prisma.sandboxArtifact.count({
     where: { sessionId: session.id, kind: 'PROCESSES' },
@@ -257,7 +285,7 @@ async function main() {
   const keys = await artifactKeysOf(entry.id);
   ok(
     'chaves dos prints da amostra (os dois ambientes)',
-    keys.length === 5 && keys.every((k: string) => k.startsWith(`sandbox/${entry.id}/`)),
+    keys.length === 7 && keys.every((k: string) => k.startsWith(`sandbox/${entry.id}/`)),
     keys,
   );
 
