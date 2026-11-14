@@ -3873,7 +3873,9 @@ table.dl-compare td {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.75rem;
-  padding: 0 0.6rem 0.6rem;
+  /* Sem recuo lateral proprio (o corpo da secao ja recua) e com o espaco entre linhas do formulario:
+     rotulo, editor e pre-visualizacao alinham com os campos de cima (varredura visual, item 12). */
+  margin-block-start: 0.3rem;
 }
 
 .dl-kb-preview {
