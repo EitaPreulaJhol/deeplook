@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { LookalikeHit, Verdict } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { isSubmitEnter } from '../components/enterKey';
 import { useConfirm } from '../components/HpsmConfirm';
 import {
   HpsmField,
@@ -171,7 +172,10 @@ export function CompanyDomainsPage() {
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') add();
+                  if (isSubmitEnter(e)) {
+                    e.preventDefault();
+                    add();
+                  }
                 }}
               />
             </HpsmField>

@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/account';
 import { CopyButton } from './CopyButton';
+import { isSubmitEnter } from './enterKey';
 import { downloadText } from './entryExport';
 import { useConfirm } from './HpsmConfirm';
 import {
@@ -299,7 +300,10 @@ export function TwoFactorTab() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void enable();
+                  if (isSubmitEnter(e)) {
+                    e.preventDefault();
+                    void enable();
+                  }
                 }}
               />
             </HpsmField>

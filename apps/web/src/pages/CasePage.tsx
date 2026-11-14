@@ -23,6 +23,7 @@ import { caseMarkdown } from '../components/caseExport';
 import type { CaseDetail, CaseIoc } from '../components/cases';
 import { CASE_STATUS, caseEventText } from '../components/cases';
 import { CaseStixImportDialog } from '../components/CaseStixImportDialog';
+import { isSubmitEnter } from '../components/enterKey';
 import { downloadText, downloadUrl } from '../components/entryExport';
 import { useConfirm } from '../components/HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
@@ -459,7 +460,7 @@ export function CasePage() {
                   value={addId}
                   onChange={(e) => setAddId(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (isSubmitEnter(e)) {
                       e.preventDefault();
                       void addEntry();
                     }
