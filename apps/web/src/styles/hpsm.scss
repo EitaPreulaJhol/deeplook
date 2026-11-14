@@ -3037,6 +3037,13 @@ body:has(.dl-print) {
   word-break: break-all;
 }
 
+/* Nome curto (dominio) numa tabela: so quebra se nao couber. Com break-all a grade espremia a coluna
+   e partia "empresa.com.b / r" com espaco sobrando (varredura visual, item 23). */
+.dl-mono--word {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
 /* Lista de etiquetas dentro de celulas/linhas. */
 .dl-taglist {
   display: flex;

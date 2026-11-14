@@ -57,6 +57,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 20 | Sample record, isolated environment: Sysmon process tree | Tree items had a ~1 line height: the monospace command line touched the process name above it | all | 1.5 line height on tree items |
 | 21 | Automatic assignment (add rule, new group) and other sections with a table followed by a form | The form's first field touched the table right above it (2 px), without the spacing that separates grid and fields on the case screen | all | 0.75rem between the table and the form right after it |
 | 22 | Announcements: announcement list | At 1366x768, "Dismissed by" wrapped onto two lines, as did "Bruno / Lima" and the "Valid until" dates, while the announcement text column had room to spare | 1366x768 | Only the announcement text wraps; name, dates and headers on one line from 1280 px up |
+| 23 | Company domains: variations seen | Domains ("ernpresa.com.b / r") broke mid-name with room to spare in other columns: the monospace class breaks at any character, so the grid squeezed the column to its minimum | all | Domain columns break only when they don't fit (long hashes still break anywhere) |
 
 ## Discarded (not problems)
 

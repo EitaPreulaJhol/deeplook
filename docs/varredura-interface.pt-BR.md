@@ -57,6 +57,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | 20 | Ficha da amostra, ambiente isolado: árvore de processos do Sysmon | Os itens da árvore tinham entrelinha ~1: a linha de comando em monoespaçado encostava no nome do processo acima | todas | Entrelinha 1,5 nos itens da árvore |
 | 21 | Atribuição automática (incluir regra, novo grupo) e outras seções com tabela seguida de formulário | O primeiro campo do formulário encostava na tabela logo acima (2 px), sem o espaço que separa a grade dos campos no caso | todas | 0,75rem entre a tabela e o formulário que vem logo depois dela |
 | 22 | Avisos gerais: lista de avisos | Em 1366x768, "Dispensado por" quebrava em duas linhas, assim como "Bruno / Lima" e as datas de "Vale até", enquanto a coluna do texto do aviso sobrava larga | 1366x768 | Só o texto do aviso quebra; nome, datas e cabeçalhos numa linha de 1280 px para cima |
+| 23 | Domínios da empresa: variações vistas | Os domínios ("ernpresa.com.b / r") quebravam no meio, com espaço sobrando em outras colunas: a fonte monoespaçada quebra em qualquer caractere, e a grade espremia a coluna até o mínimo | todas | Nas colunas de domínio, quebra só se não couber (hashes longos continuam quebrando em qualquer ponto) |
 
 ## Descartados (não são problemas)
 

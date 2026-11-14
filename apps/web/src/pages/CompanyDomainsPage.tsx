@@ -207,8 +207,8 @@ export function CompanyDomainsPage() {
               <TableBody>
                 {(data?.seen ?? []).map((s) => (
                   <TableRow key={s.domain}>
-                    <TableCell className="dl-mono">{s.domain}</TableCell>
-                    <TableCell className="dl-mono">{s.companyDomain}</TableCell>
+                    <TableCell className="dl-mono dl-mono--word">{s.domain}</TableCell>
+                    <TableCell className="dl-mono dl-mono--word">{s.companyDomain}</TableCell>
                     <TableCell>{lookalikeWhy(s)}</TableCell>
                     <TableCell>
                       {s.sources.map((x) => LOOKALIKE_SOURCE[x] ?? x).join(', ')}
