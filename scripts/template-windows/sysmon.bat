@@ -32,12 +32,23 @@ if not exist "%CONFIG%" (
 )
 
 sc query Sysmon64 >nul 2>&1
-if errorlevel 1 (
-  echo installing Sysmon >> "%LOG%"
-  "%SYSMON%" -accepteula -i "%CONFIG%" >> "%LOG%" 2>&1
-) else (
-  echo reapplying the configuration >> "%LOG%"
-  "%SYSMON%" -c "%CONFIG%" >> "%LOG%" 2>&1
+if errorlevel 1 goto install
+echo reapplying the configuration >> "%LOG%"
+"%SYSMON%" -c "%CONFIG%" >> "%LOG%" 2>&1
+set "RC=%errorlevel%"
+goto applied
+
+:install
+echo installing Sysmon >> "%LOG%"
+"%SYSMON%" -accepteula -i "%CONFIG%" >> "%LOG%" 2>&1
+set "RC=%errorlevel%"
+
+:applied
+echo Sysmon exit code: %RC% >> "%LOG%"
+if not "%RC%"=="0" (
+  echo ERROR: Sysmon refused the configuration or the install. Run it by hand in an administrator prompt to see the message: >> "%LOG%"
+  echo   "%SYSMON%" -accepteula -i "%CONFIG%" >> "%LOG%"
+  exit /b 1
 )
 
 wevtutil sl "%CHANNEL%" /ms:%LOGSIZE% >> "%LOG%" 2>&1
