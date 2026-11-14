@@ -212,7 +212,7 @@ export function BroadcastsPage() {
           <p className="dl-static-empty">{t('noBroadcasts')}</p>
         ) : (
           <TableContainer>
-            <Table size="xs" aria-label={t('broadcastsTitle')}>
+            <Table size="xs" aria-label={t('broadcastsTitle')} className="dl-broadcasts-table">
               <TableHead>
                 <TableRow>
                   <TableHeader scope="col">{t('notice')}</TableHeader>

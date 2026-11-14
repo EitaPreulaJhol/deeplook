@@ -56,6 +56,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | 19 | Artigo e editor da KB, relatórios em Markdown, pontuação de risco, análise estática (DIE, desempacotamento, imports, macros), artefatos do ambiente isolado e Sysmon, mapa, cadeia da auditoria, documentação da API | O texto corrido desses blocos usava 13 px (0,8125rem) ou 12,8 px (0,8rem), contra 12 px no resto da tela: no artigo da KB, o corpo do artigo ficava maior que a seção "Citado em" logo abaixo | todas | Texto corrido e listas no tamanho do corpo (`--dl-font-size`); títulos continuam maiores. Saiu a regra do título do painel do ambiente isolado, sem uso desde o item 9 |
 | 20 | Ficha da amostra, ambiente isolado: árvore de processos do Sysmon | Os itens da árvore tinham entrelinha ~1: a linha de comando em monoespaçado encostava no nome do processo acima | todas | Entrelinha 1,5 nos itens da árvore |
 | 21 | Atribuição automática (incluir regra, novo grupo) e outras seções com tabela seguida de formulário | O primeiro campo do formulário encostava na tabela logo acima (2 px), sem o espaço que separa a grade dos campos no caso | todas | 0,75rem entre a tabela e o formulário que vem logo depois dela |
+| 22 | Avisos gerais: lista de avisos | Em 1366x768, "Dispensado por" quebrava em duas linhas, assim como "Bruno / Lima" e as datas de "Vale até", enquanto a coluna do texto do aviso sobrava larga | 1366x768 | Só o texto do aviso quebra; nome, datas e cabeçalhos numa linha de 1280 px para cima |
 
 ## Descartados (não são problemas)
 

@@ -5330,3 +5330,12 @@ tr.is-off td {
 .dl-users-table__actions .cds--select-input {
   inline-size: 7.5rem;
 }
+
+/* Avisos gerais (varredura visual, item 22): so o texto do aviso quebra; nome, datas e cabecalhos
+   ficam numa linha ("Bruno / Lima" e a data partida em duas linhas, com a coluna do texto sobrando). */
+@media (min-width: 80rem) {
+  .dl-broadcasts-table th,
+  .dl-broadcasts-table td:not(:first-child) {
+    white-space: nowrap;
+  }
+}

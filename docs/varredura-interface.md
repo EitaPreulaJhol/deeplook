@@ -56,6 +56,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 19 | KB article and editor, Markdown reports, risk score, static analysis (DIE, unpacking, imports, macros), isolated environment artifacts and Sysmon, map, audit chain, API docs | Running text in these blocks used 13 px (0.8125rem) or 12.8 px (0.8rem), against 12 px on the rest of the screen: in the KB article, the article body was larger than the "Cited in" section right below | all | Running text and lists at body size (`--dl-font-size`); headings stay larger. The isolated environment panel title rule, unused since item 9, is gone |
 | 20 | Sample record, isolated environment: Sysmon process tree | Tree items had a ~1 line height: the monospace command line touched the process name above it | all | 1.5 line height on tree items |
 | 21 | Automatic assignment (add rule, new group) and other sections with a table followed by a form | The form's first field touched the table right above it (2 px), without the spacing that separates grid and fields on the case screen | all | 0.75rem between the table and the form right after it |
+| 22 | Announcements: announcement list | At 1366x768, "Dismissed by" wrapped onto two lines, as did "Bruno / Lima" and the "Valid until" dates, while the announcement text column had room to spare | 1366x768 | Only the announcement text wraps; name, dates and headers on one line from 1280 px up |
 
 ## Discarded (not problems)
 
