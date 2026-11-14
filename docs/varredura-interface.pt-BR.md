@@ -1,0 +1,43 @@
+# 🔍 Varredura visual da interface (novembro de 2026)
+
+> 🇬🇧 [Read in English](varredura-interface.md)
+
+Todas as telas da interface web foram capturadas com o Playwright, contra a API simulada, em quatro
+resoluções: **1440x900** (referência), **1366x768**, **1280x720** e **1024x768**. Cada achado abaixo
+foi corrigido num commit próprio.
+
+## Como foi feita
+
+- **Captura:** `scripts/ui-playwright/sweep.mjs` passa por todas as rotas e abas internas (57 telas:
+  as rotas da aplicação, as 6 abas da ficha da amostra, as 8 da conta e as 9 da administração),
+  tira o print de página inteira e roda checagens no navegador: rolagem horizontal, texto cortado
+  (com ou sem reticências), botão ou aba com o texto em mais de uma linha, controles sobrepostos,
+  elemento fora da tela, imagem quebrada ou distorcida e erros do console.
+- **Telas com dados próprios** (gerencial, atribuição, avisos, domínios, regras de triagem, backup,
+  documentação da API e captura de página): os cenários dedicados, com a resolução trocada por
+  `SWEEP_VIEWPORT=LxA`.
+- **Revisão visual** de cada print, atrás do que as checagens não pegam: espaçamento, alinhamento e
+  consistência entre telas.
+
+Para repetir (no container do Playwright, como os cenários):
+
+```
+node sweep.mjs                                    # todas as telas, nas 4 resoluções
+SWEEP_SIZES=1366x768 SWEEP_ONLY=admin node sweep.mjs
+SWEEP_VIEWPORT=1366x768 OUT_DIR=/work/out/1366 node management.mjs
+```
+
+Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/report.json`.
+
+## Achados e correções
+
+| # | Tela | Problema | Resoluções | Correção |
+|---|---|---|---|---|
+| 1 | Listas de amostras (Histórico Global, Meus Uploads, filas) | A coluna Amostra era a primeira a encolher: o nome quebrava no meio ("instalador_suspei…", "relatorio_trimestral.d / ocm") e a data, em duas linhas, enquanto as colunas curtas sobravam. Corrigido isso, em 1280 e 1366 a tabela completa não cabia e Relatórios e Data iam para uma rolagem horizontal escondida | 1366, 1280 | Largura mínima para o título (o `overflow-wrap: anywhere`, necessário para nomes enormes, deixava a coluna encolher até um caractere) e três níveis de colunas secundárias, remedidos: em 1366 sai só Relatórios; em 1280, Tipo também; em 1024, ainda Responsável, Idade e Data |
+
+## Descartados (não são problemas)
+
+- **Rótulos só para leitor de tela** (`cds--visually-hidden`), cortados de propósito.
+- **Botão "mostrar senha" dentro do campo de senha**, sobreposto de propósito.
+- **Erros 401 no login e no cadastro** (sem sessão) e o **WebSocket do console**, que não existe na
+  API simulada.

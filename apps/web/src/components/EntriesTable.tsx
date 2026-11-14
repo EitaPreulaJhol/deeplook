@@ -161,13 +161,13 @@ export function EntriesTable({
 
   // Colunas secundarias somem quando a tabela fica estreita (tela de 1024 px, painel de detalhe;
   // plano pos-revisao, item 1.6): o veredito, que importa na triagem, nao sai mais do quadro.
-  // Nivel 2 sai primeiro; o 1, so na largura menor (styles/hpsm.scss, .dl-entries).
+  // Nivel 3 sai primeiro, depois o 2 e, so na largura menor, o 1 (styles/hpsm.scss, .dl-entries).
   const minor: Partial<Record<EntrySortKey, string>> = {
-    type: 'dl-col--minor1',
+    reports: 'dl-col--minor3',
+    type: 'dl-col--minor2',
     assignee: 'dl-col--minor1',
     age: 'dl-col--minor1',
-    reports: 'dl-col--minor2',
-    createdAt: 'dl-col--minor2',
+    createdAt: 'dl-col--minor1',
   };
 
   const headers: { key: EntrySortKey; header: string }[] = [

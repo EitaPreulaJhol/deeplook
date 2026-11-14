@@ -1044,6 +1044,9 @@ h6 {
 .dl-cell-text {
   display: -webkit-box;
   overflow: hidden;
+  /* Sem o minimo, o "anywhere" deixa a coluna encolher ate um caractere: a tabela tirava largura
+     do titulo (que quebrava no meio do nome) e sobrava nas colunas curtas (varredura 1280/1366). */
+  min-inline-size: 11rem;
   max-inline-size: 28rem;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -1408,20 +1411,28 @@ h6 {
 }
 
 /* Lista de amostras em largura curta (plano pos-revisao, item 1.6): a tabela e o container, e as
-   colunas secundarias somem antes de o veredito sair do quadro. Vale na tela de 1024 px e com o
-   painel de detalhe aberto. O resto continua na ficha. Limites medidos com a lista de exemplo: a
-   tabela inteira precisa de ~1020 px; sem Relatorios e Data, de ~830 px. */
+   colunas secundarias somem antes de o veredito sair do quadro. Vale nas telas de 1366, 1280 e
+   1024 px e com o painel de detalhe aberto. O resto continua na ficha. Limites medidos com a lista
+   de exemplo e o titulo com largura minima (varredura visual): a tabela inteira precisa de
+   ~1145 px; sem Relatorios, de ~1045; sem Tipo tambem, de ~970. Em 1366 sai so Relatorios; em
+   1280, Tipo tambem; em 1024, ainda Responsavel, Idade e Data. */
 .dl-entries .cds--data-table-content {
   container-type: inline-size;
 }
 
-@container (max-width: 1020px) {
+@container (max-width: 1150px) {
+  .dl-col--minor3 {
+    display: none;
+  }
+}
+
+@container (max-width: 1050px) {
   .dl-col--minor2 {
     display: none;
   }
 }
 
-@container (max-width: 860px) {
+@container (max-width: 975px) {
   .dl-col--minor1 {
     display: none;
   }

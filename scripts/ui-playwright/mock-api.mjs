@@ -302,6 +302,11 @@ const json = (route, status, body) =>
 
 /** Instala o servidor do dist + API simulada no contexto do navegador. */
 export async function setupMock(context, state) {
+  // Varredura visual (sweep.mjs): os cenarios rodam em outra resolucao com SWEEP_VIEWPORT=LxA.
+  if (process.env.SWEEP_VIEWPORT) {
+    const [width, height] = process.env.SWEEP_VIEWPORT.split('x').map(Number);
+    context.on('page', (page) => void page.setViewportSize({ width, height }).catch(() => undefined));
+  }
   context.on('console', (msg) => {
     if (msg.type() === 'error' && /Content Security Policy/i.test(msg.text())) {
       cspViolations += 1;
