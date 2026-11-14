@@ -110,9 +110,12 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
      O que fez fica em `sysmon.log`, na mesma pasta (em inglês, como o resto do arquivo).
      1. Ponha numa pasta do template, sem espaços nem parênteses no caminho (ex.:
         `C:\Tools\Sysmon\`): o `Sysmon64.exe`, o `sysmonconfig.xml` e o `sysmon.bat`.
-     2. Num prompt como administrador, registre a tarefa que roda na inicialização, como SYSTEM:
+     2. Num prompt como administrador, registre a tarefa que roda na inicialização, como SYSTEM.
+        O `/delay` e a espera dentro do `.bat` existem porque, no boot, a tarefa pode rodar antes
+        do serviço Log de Eventos do Windows, de que o Sysmon precisa para registrar o canal (sem
+        ele, a instalação falha com o código 13):
         ```bat
-        schtasks /create /tn "DeepLook\Sysmon" /tr "\"C:\Tools\Sysmon\sysmon.bat\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
+        schtasks /create /tn "DeepLook\Sysmon" /tr "\"C:\Tools\Sysmon\sysmon.bat\"" /sc onstart /delay 0000:30 /ru SYSTEM /rl HIGHEST /f
         ```
      3. Rode uma vez para conferir (`schtasks /run /tn "DeepLook\Sysmon"`), veja o
         `sysmon.log` terminar em "Sysmon running, log cleared" e reinicie a VM para conferir

@@ -105,9 +105,12 @@ server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}
      service is running. What it did goes to `sysmon.log`, in the same folder.
      1. Put in a template folder with no spaces or parentheses in the path (e.g.
         `C:\Tools\Sysmon\`): `Sysmon64.exe`, `sysmonconfig.xml` and `sysmon.bat`.
-     2. In an administrator prompt, register the task that runs at startup, as SYSTEM:
+     2. In an administrator prompt, register the task that runs at startup, as SYSTEM. The
+        `/delay` and the wait inside the `.bat` exist because, at boot, the task can run before the
+        Windows Event Log service, which Sysmon needs to register its channel (without it, the
+        install fails with code 13):
         ```bat
-        schtasks /create /tn "DeepLook\Sysmon" /tr "\"C:\Tools\Sysmon\sysmon.bat\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
+        schtasks /create /tn "DeepLook\Sysmon" /tr "\"C:\Tools\Sysmon\sysmon.bat\"" /sc onstart /delay 0000:30 /ru SYSTEM /rl HIGHEST /f
         ```
      3. Run it once to check (`schtasks /run /tn "DeepLook\Sysmon"`), see
         `sysmon.log` end with "Sysmon running, log cleared" and restart the VM to check that it
