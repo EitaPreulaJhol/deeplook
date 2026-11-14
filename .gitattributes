@@ -3,3 +3,6 @@ apps/api/rules/** -text
 
 # Scripts do template Windows do sandbox: CRLF, como o cmd.exe espera.
 scripts/template-windows/*.bat text eol=crlf
+
+# Pacote de implantacao (scripts/package-deploy.mjs): o git archive troca os marcadores pelo commit.
+RELEASE.txt export-subst

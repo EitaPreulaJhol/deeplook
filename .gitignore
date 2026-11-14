@@ -34,3 +34,6 @@ apps/api/tests/fuzz/crashes/
 
 # Planos, roadmap e backlog do projeto: so locais, fora do Git.
 plans/
+
+# Pacotes de implantacao gerados por scripts/package-deploy.mjs.
+release/

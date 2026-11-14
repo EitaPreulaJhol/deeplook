@@ -1,0 +1,6 @@
+DeepLook - pacote de implantacao (scripts/package-deploy.mjs)
+Commit: $Format:%H$
+Data do commit: $Format:%cI$
+
+No repositorio este arquivo mostra os marcadores; no pacote (git archive) eles viram o commit e a
+data de onde o pacote saiu. Confira com o .sha256 que acompanha o .zip.
