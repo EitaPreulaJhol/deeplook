@@ -29,6 +29,7 @@ Para repetir (no container do Playwright, como os cenários):
 node sweep.mjs                                    # todas as telas, nas 4 resoluções
 SWEEP_SIZES=1366x768 SWEEP_ONLY=admin node sweep.mjs
 SWEEP_LANG=en node sweep.mjs                      # em inglês (textos mais longos)
+SWEEP_AXE=1 node sweep.mjs                        # com axe-core (npm i axe-core@4.10.3 antes)
 SWEEP_VIEWPORT=1366x768 OUT_DIR=/work/out/1366 node management.mjs
 ```
 

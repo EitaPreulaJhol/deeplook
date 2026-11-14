@@ -26,7 +26,7 @@ analysts see the most day to day; the rest in table order.
 | 8 | Form button rule in the guide | ⚪ | S | UI guide | ✅ |
 | 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
 | 10 | Manual findings become sweep checks | 🔴 | M | Tests | ✅ |
-| 11 | Accessibility (axe-core) in the sweep | 🟡 | M | Tests / Global | ⬜ |
+| 11 | Accessibility (axe-core) in the sweep | 🟡 | M | Tests / Global | ✅ |
 | 12 | Portuguese text outside the dictionaries | 🟡 | S–M | i18n | ⬜ |
 
 ## Problems left
@@ -208,6 +208,23 @@ fixed right after.
 - **Problem:** contrast of the 11 px gray help text, visible focus and accessible names were never
   measured.
 - **Proposal:** run axe-core on every sweep screen and fix what is real.
+
+**Implemented.** `SWEEP_AXE=1` runs axe-core 4.10.3 (WCAG 2.0/2.1, A and AA) on every sweep screen;
+the new `a11y-states.mjs` scenario runs it on states the sweep doesn't see (actions menu open, "More
+▾" open, confirmation dialog, shortcuts box, form with an invalid field). axe goes in through the
+browser protocol, outside the app's CSP. Both need the package in the container
+(`npm i --no-save --no-package-lock axe-core@4.10.3`).
+
+The contrast of the 11 px gray help text and the accessible names passed. Fixed what it flagged:
+
+- **Backup calendar:** past days used the placeholder tone, below 4.5:1; now the muted text gray.
+- **Case link in Announcements and in the top banner:** mid-text, only color set it apart; now it is
+  underlined (`.dl-link--inline`, the same rule as links inside paragraphs).
+- **Dangerous menu and bar item** (created in items 2 and 5): the status red was below 4.5:1 on the
+  blue focus background; now it is the dark red of error messages.
+
+Result: no violation on the 58 screens (Portuguese at 1366x768, English at 1024x768) or in the five
+states.
 
 ### 12. Portuguese text outside the dictionaries
 

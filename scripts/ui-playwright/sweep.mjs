@@ -8,9 +8,11 @@
 //
 //   sh run-all.sh sweep                      (no container do Playwright, como os cenarios)
 //   SWEEP_SIZES=1366x768 SWEEP_ONLY=admin    so uma resolucao / so as telas com "admin" no nome
+//   SWEEP_AXE=1                              tambem o axe-core (acessibilidade, WCAG A/AA)
 //   SWEEP_LANG=en                            a interface em ingles (prints em out/sweep/<LxA>-en); acusa
 //                                            "por/em/às" antes de nome ou data (texto fixo no codigo)
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 
 import { createState, ORIGIN, OUT, setupMock, users } from './mock-api.mjs';
@@ -22,6 +24,15 @@ const SIZES = (process.env.SWEEP_SIZES || '1440x900,1366x768,1280x720,1024x768')
 const ONLY = process.env.SWEEP_ONLY || '';
 /** SWEEP_LANG=en: a interface em ingles (textos mais longos). */
 const LANG = process.env.SWEEP_LANG || '';
+/**
+ * SWEEP_AXE=1: roda tambem o axe-core (WCAG 2.0/2.1, niveis A e AA) em cada tela (pendencias da
+ * varredura visual, item 11). Precisa do pacote no container:
+ *   npm i --no-save --no-package-lock axe-core@4.10.3
+ * O codigo entra pelo page.evaluate (protocolo do navegador), que a CSP do app nao bloqueia.
+ */
+const AXE = process.env.SWEEP_AXE === '1'
+  ? readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8')
+  : null;
 
 // ------------------------------------------------------------------ dados de exemplo
 // Caso, artigo, ambiente isolado e as telas com dados proprios: screen-data.mjs (o mesmo da
@@ -292,6 +303,22 @@ for (const [width, height] of SIZES) {
       await page.evaluate(() => document.fonts.ready);
       await page.waitForTimeout(400);
       const issues = await page.evaluate(inspect);
+      if (AXE) {
+        await page.evaluate(AXE);
+        const violations = await page.evaluate(async () => {
+          // eslint-disable-next-line no-undef
+          const r = await axe.run(document, {
+            runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+            resultTypes: ['violations'],
+          });
+          return r.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, targets: v.nodes.map((n) => n.target.join(' ')) }));
+        });
+        for (const v of violations) {
+          for (const target of v.targets.slice(0, 3)) {
+            issues.push({ type: `axe-${v.id}`, el: target, detail: `${v.impact}: ${v.help} (${v.targets.length} elemento(s) na tela)` });
+          }
+        }
+      }
       // Em ingles: conectivo portugues antes de nome ou data ("10/24/2026 por Ana") = texto fixo no codigo.
       if (LANG === 'en') {
         const pt = await page.evaluate(() =>

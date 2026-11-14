@@ -855,9 +855,10 @@ h6 {
   border: 1px solid var(--dl-panel-border);
 }
 
-/* Acao perigosa na barra (descartar, excluir): texto em vermelho. */
+/* Acao perigosa na barra (descartar, excluir): texto em vermelho escuro, com contraste tambem sobre
+   o fundo azul do hover. */
 .hpsm-toolbar__action--danger:not(:disabled) {
-  color: var(--dl-status-red);
+  color: var(--dl-error-text);
 }
 
 .hpsm-toolbar__action {
@@ -3118,10 +3119,13 @@ body:has(.dl-print) {
   text-decoration: none;
 }
 
-/* No meio do texto, a cor sozinha nao distingue o link (item 134). */
+/* No meio do texto, a cor sozinha nao distingue o link (item 134). `.dl-link--inline` vale para o
+   link no meio de texto fora de paragrafo, como numa celula ou na faixa de aviso (axe-core,
+   pendencias da varredura visual, item 11). */
 .hpsm-msg__text .dl-link,
 p .dl-link,
-li .dl-link {
+li .dl-link,
+.dl-link--inline {
   text-decoration: underline;
 }
 
@@ -5258,8 +5262,10 @@ tr.is-off td {
     border: 1px solid var(--dl-table-border);
   }
 
+  /* Dia passado: apagado, mas com contraste de texto (o tom de placeholder ficava abaixo de 4,5:1;
+     axe-core, item 11 das pendencias). */
   td.is-past {
-    color: var(--dl-placeholder);
+    color: var(--dl-text-muted);
   }
 
   td.is-today {
@@ -5486,7 +5492,9 @@ tr.is-off td {
   font-size: 0.625rem;
 }
 
-/* Acao perigosa no menu (suspender, retirar acesso): vermelho, como o botao que ela substituiu. */
+/* Acao perigosa no menu (suspender, retirar acesso): vermelho, como o botao que ela substituiu. O
+   vermelho escuro das mensagens de erro: o de status ficava abaixo de 4,5:1 sobre o fundo azul do
+   item em foco (axe-core, item 11 das pendencias). */
 .hpsm-ctxmenu .hpsm-ctxmenu__item--danger:not(:disabled) {
-  color: var(--dl-status-red);
+  color: var(--dl-error-text);
 }

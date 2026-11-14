@@ -26,7 +26,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ✅ |
 | 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
 | 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ✅ |
-| 11 | Acessibilidade (axe-core) na varredura | 🟡 | M | Testes / Global | ⬜ |
+| 11 | Acessibilidade (axe-core) na varredura | 🟡 | M | Testes / Global | ✅ |
 | 12 | Textos em português fora dos dicionários | 🟡 | P–M | i18n | ⬜ |
 
 ## Problemas que ficaram
@@ -205,6 +205,24 @@ manual não tinha visto, corrigido em seguida.
 - **Problema:** contraste do texto de ajuda cinza em 11 px, foco visível e nomes acessíveis nunca
   foram medidos.
 - **Proposta:** rodar o axe-core em cada tela da varredura e corrigir o que for real.
+
+**Implementado.** `SWEEP_AXE=1` roda o axe-core 4.10.3 (WCAG 2.0/2.1, A e AA) em cada tela da
+varredura; o cenário novo `a11y-states.mjs` roda nos estados que a varredura não vê (menu de ações
+aberto, "Mais ▾" aberto, diálogo de confirmação, caixa de atalhos, formulário com campo inválido). O
+axe entra pelo protocolo do navegador, fora da CSP do app. Os dois precisam do pacote no container
+(`npm i --no-save --no-package-lock axe-core@4.10.3`).
+
+O contraste do texto de ajuda cinza em 11 px e os nomes acessíveis passaram. Corrigido o que acusou:
+
+- **Calendário do backup:** os dias passados usavam o tom de placeholder, abaixo de 4,5:1; agora o
+  cinza do texto apagado.
+- **Link do caso em Avisos gerais e na faixa do topo:** no meio do texto, só a cor o distinguia;
+  agora é sublinhado (`.dl-link--inline`, a mesma regra dos links dentro de parágrafo).
+- **Item perigoso do menu e da barra** (criados nos itens 2 e 5): o vermelho de status ficava abaixo
+  de 4,5:1 sobre o fundo azul do foco; agora é o vermelho escuro das mensagens de erro.
+
+Resultado: nenhuma violação nas 58 telas (português em 1366x768, inglês em 1024x768) nem nos cinco
+estados.
 
 ### 12. Textos em português fora dos dicionários
 

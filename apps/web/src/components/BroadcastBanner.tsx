@@ -69,7 +69,7 @@ export function BroadcastBanner() {
             {b.case && (
               <>
                 {' '}
-                <Link className="dl-link" to={`/casos/${b.case.id}`}>
+                <Link className="dl-link dl-link--inline" to={`/casos/${b.case.id}`}>
                   ({b.case.code})
                 </Link>
               </>
