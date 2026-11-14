@@ -2,16 +2,7 @@
 // sobe sem root e sem capacidades (migra, cria o admin, recebe amostra, gera e
 // baixa backup com o pg_dump), e a captura abre pagina e bloqueia rede interna.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import {
-  chmodSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -544,13 +535,27 @@ async function apiImage() {
     );
     if (zips.length === 1) {
       const file = join(backupDir, zips[0]);
-      const sha = createHash('sha256').update(readFileSync(file)).digest('hex');
+      // O ZIP e o .sha256 sao do uid da API com modo 600: quem le e o proprio container. Pelo
+      // host so funcionaria quando o usuario do host tambem e o uid 1000 (no runner do GitHub,
+      // o usuario e o 1001 e a leitura da EACCES).
+      const readInApi = (script) => inApi('node', '-e', script, `/backups/${zips[0]}`);
+      const hashed = readInApi(
+        "process.stdout.write(require('crypto').createHash('sha256').update(require('fs').readFileSync(process.argv[1])).digest('hex'))",
+      );
+      const sidecar = readInApi(
+        "process.stdout.write(require('fs').readFileSync(process.argv[1] + '.sha256', 'utf8'))",
+      );
       ok(
         'pasta de backup: .sha256 confere, só o uid da API lê',
-        readFileSync(`${file}.sha256`, 'utf8') === `${sha}  ${zips[0]}\n` &&
+        hashed.status === 0 &&
+          sidecar.stdout === `${hashed.stdout}  ${zips[0]}\n` &&
           (statSync(file).mode & 0o777) === 0o600 &&
           statSync(file).uid === 1000,
-        { mode: (statSync(file).mode & 0o777).toString(8), uid: statSync(file).uid },
+        {
+          mode: (statSync(file).mode & 0o777).toString(8),
+          uid: statSync(file).uid,
+          erro: hashed.stderr || sidecar.stderr,
+        },
       );
       const dl = await call(`/admin/backups/${inDir.id}/download`);
       ok(
