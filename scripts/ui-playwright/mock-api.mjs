@@ -1197,6 +1197,12 @@ export async function setupMock(context, state) {
         return json(route, 200, { counts, mine, late, reviews });
       }
       let m = p.match(/^\/api\/entries\/(\w+)\/sandbox$/);
+      // Abrir o ambiente: guarda o pedido (o roteiro confere a execucao automatica) e ja o poe no ar.
+      if (m && req.method() === 'POST') {
+        (state.sandboxOpens ??= []).push({ entryId: m[1], body });
+        state.sandboxes[m[1]] = { ...runningSandbox(m[1], 60), autoRun: body.autoRun ? 'PENDING' : null };
+        return json(route, 201, { session: state.sandboxes[m[1]] });
+      }
       if (m) {
         return json(route, 200, {
           enabled: true,

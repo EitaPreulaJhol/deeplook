@@ -422,7 +422,7 @@ model SandboxSession {
   node          String
   vmid          Int?
   name          String
-  status        SandboxStatus     @default(REQUESTED)
+  status        SandboxStatus         @default(REQUESTED)
   /// Etapa atual do provisionamento (texto curto mostrado na UI).
   phase         String?
   /// Volume do ISO gerado com a amostra (para limpar depois).
@@ -436,6 +436,15 @@ model SandboxSession {
   artifacts     SandboxArtifact[]
   /// Captura de rede pelo MikroTik (plano pos-revisao, item 5.4).
   capture       NetworkCapture?
+  /// Execucao automatica da amostra (pedida ao abrir): depois do boot e do Sysmon, na sessao do
+  /// usuario logado. Null = nao pedida.
+  autoRun       SandboxAutoRunStatus?
+  autoRunAt     DateTime?
+  /// Em que conta rodou (DOMINIO\usuario, ou SYSTEM sem usuario logado).
+  autoRunUser   String?
+  /// O Sysmon estava no ar quando a amostra rodou.
+  autoRunSysmon Boolean?
+  autoRunError  String?
 
   expiresAt DateTime
   startedAt DateTime?
@@ -446,6 +455,15 @@ model SandboxSession {
   @@index([status, expiresAt])
   @@index([entryId])
   @@index([analystId])
+}
+
+/// Execucao automatica da amostra no ambiente isolado.
+enum SandboxAutoRunStatus {
+  /// Esperando o agente da VM e o Sysmon.
+  PENDING
+  RUNNING
+  DONE
+  FAILED
 }
 
 enum SandboxArtifactKind {
@@ -488,6 +506,8 @@ enum EntryEventType {
   SANDBOX_OPENED
   SANDBOX_CLOSED
   SANDBOX_FAILED
+  /// A amostra rodou sozinha no ambiente (execucao automatica pedida ao abrir).
+  SANDBOX_AUTORUN
   /// Atualizacao/comentario livre (texto puro no `detail`).
   COMMENT
   /// Marcada como duplicata (fromValue: situacao anterior em JSON; detail: id da principal).

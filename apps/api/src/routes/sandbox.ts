@@ -9,7 +9,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { isAnalyst, loadUser, requireUser } from '../lib/auth';
 import { localizeText } from '../lib/data-language';
-import { requestLang } from '../lib/error-language';
+import { type Lang, requestLang } from '../lib/error-language';
 import { recordEvent } from '../lib/events';
 import { attachMockVnc } from '../lib/mock-vnc';
 import { networkCaptureEnabled } from '../lib/network-capture';
@@ -107,6 +107,13 @@ async function liveVmStatus(session: {
   } catch {
     return null;
   }
+}
+
+/** O motivo de falha da execucao automatica sai no idioma de quem pede. */
+function localizeSession<T extends { autoRunError?: string | null }>(session: T, lang: Lang): T {
+  return session.autoRunError
+    ? { ...session, autoRunError: localizeText(session.autoRunError, lang) }
+    : session;
 }
 
 export async function sandboxRoutes(app: FastifyInstance) {
@@ -212,7 +219,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     return reply.send({
       enabled: sandboxEnabled,
       consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
-      session: session ?? null,
+      session: session ? localizeSession(session, requestLang(req)) : null,
       sysmonIndicators: [
         ...new Set(sysmon.flatMap((a) => sysmonIndicators(a.sysmon as unknown as SysmonSummary))),
       ],
@@ -243,7 +250,9 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const entry = await prisma.entry.findUnique({ where: { id } });
     if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
-    const result = await createSession(entry, user.id);
+    // Execucao automatica da amostra (caixa no painel): depois do boot e do Sysmon.
+    const autoRun = (req.body as { autoRun?: unknown } | null)?.autoRun === true;
+    const result = await createSession(entry, user.id, { autoRun });
     if (!result.ok) return reply.code(result.code).send({ error: result.error });
     await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'SANDBOX_OPENED' });
 
@@ -275,7 +284,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     if (!session) return;
 
     const vmStatus = session.status === 'RUNNING' ? await liveVmStatus(session) : null;
-    return reply.send({ session, vmStatus });
+    return reply.send({ session: localizeSession(session, requestLang(req)), vmStatus });
   });
 
   // ---- Estende o tempo de vida ----

@@ -1481,6 +1481,23 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
   Sem elas, o sandbox segue igual. O pcap tem o tráfego da amostra, inclusive o que ela baixou: o
   backup com os arquivos o leva junto.
 
+### Execução automática da amostra
+
+Ao abrir o ambiente, a caixa **"Executar a amostra automaticamente"** (lembrada no navegador) pede
+que o DeepLook rode a amostra sozinho, para uma análise rápida: abrir, esperar e ler os artefatos.
+Depois que o Windows sobe e o Sysmon está no ar, a API, pelo `qemu-guest-agent`, copia a amostra do
+CD para a pasta temporária do usuário logado e a abre **na sessão dele**, por uma tarefa agendada
+interativa: ela aparece no console e nos prints, como se o analista a tivesse aberto. A amostra é
+aberta pela associação do Windows; o `.ps1` roda pelo PowerShell e o `.msi` pelo `msiexec`. O painel
+mostra o estado (aguardando, executada às HH:MM na sessão de quem, ou a falha com o motivo), e o
+histórico da amostra registra a execução e quem a pediu.
+
+- Sem o Sysmon no template, a amostra roda depois de 3 minutos de espera, e o painel avisa que a
+  árvore de processos, a rede e o DNS não foram registrados.
+- Sem usuário logado na VM, ela roda como SYSTEM e não aparece no console. Para vê-la, configure o
+  login automático no template ([guia do Proxmox](docs/proxmox.pt-BR.md#21-template-da-vm-de-análise)).
+- Só em VMs Windows. Sem o agente respondendo em 10 minutos, desiste com o motivo.
+
 ### Limites, TTL e limpeza
 
 - `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limitam quantos ambientes existem.

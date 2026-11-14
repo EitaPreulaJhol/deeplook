@@ -445,6 +445,28 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['o arquivo não é um pcap', 'the file is not a pcap'],
   ['suricata-update falhou: {0}', 'suricata-update failed: {0}'],
 
+  // ---- Execucao automatica da amostra (sandbox-autorun.ts) ----
+  [
+    'o agente da VM não respondeu a tempo; a amostra não foi executada',
+    'the VM agent did not answer in time; the sample was not run',
+  ],
+  ['a execução automática é só para VMs Windows', 'automatic run is only for Windows VMs'],
+  ['a amostra não foi encontrada no CD da VM', 'the sample was not found on the VM CD'],
+  [
+    'a tarefa que abre a amostra terminou com o código {0}',
+    'the task that opens the sample ended with code {0}',
+  ],
+  [
+    'resposta inesperada da VM ao executar a amostra',
+    'unexpected VM answer when running the sample',
+  ],
+  [
+    'a API reiniciou durante a execução; confira no console se a amostra rodou',
+    'the API restarted during the run; check in the console whether the sample ran',
+  ],
+  ['a conferência do Sysmon', 'the Sysmon check'],
+  ['a execução da amostra', 'the sample run'],
+
   // Por ultimo: casaria com "empacotado com {0} (Detect It Easy): ..." (unpack) se viesse antes.
   ['empacotado com {0}', 'packed with {0}'],
 ];

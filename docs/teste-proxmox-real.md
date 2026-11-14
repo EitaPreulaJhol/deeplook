@@ -228,6 +228,7 @@ DeepLook commit in the header):
 ```
 node scripts/sandbox-real-check.mjs --read-only   # phase 0 only: checks PVE and DeepLook, creates nothing
 node scripts/sandbox-real-check.mjs               # opens an environment, runs the sample through the agent and closes it
+node scripts/sandbox-real-check.mjs --auto-run    # same, but the sample runs through DeepLook's automatic run
 ```
 
 It reads the root `.env` and logs into DeepLook as `CHECK_EMAIL`/`CHECK_PASSWORD` (default: the

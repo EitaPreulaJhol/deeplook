@@ -224,6 +224,7 @@ O `scripts/sandbox-real-check.mjs` roda sozinho as fases que não precisam de m�
 ```
 node scripts/sandbox-real-check.mjs --read-only   # só a fase 0: confere o PVE e o DeepLook, sem criar nada
 node scripts/sandbox-real-check.mjs               # abre um ambiente, roda a amostra pelo agente e encerra
+node scripts/sandbox-real-check.mjs --auto-run    # idem, mas a amostra roda pela execução automática do DeepLook
 ```
 
 Ele lê o `.env` da raiz e entra no DeepLook como `CHECK_EMAIL`/`CHECK_PASSWORD` (padrão: o admin do

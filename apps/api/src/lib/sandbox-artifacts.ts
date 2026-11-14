@@ -152,7 +152,7 @@ export async function guestIsWindows(node: string, vmid: number): Promise<boolea
 }
 
 /** Roda um comando no guest pelo agente e devolve a saida padrao. */
-async function guestRun(
+export async function guestRun(
   node: string,
   vmid: number,
   command: string[],

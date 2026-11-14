@@ -6,6 +6,8 @@
 //   node scripts/sandbox-real-check.mjs --read-only   so a fase 0: confere o PVE e o DeepLook, sem
 //                                                     criar nada
 //   node scripts/sandbox-real-check.mjs --keep        nao manda a amostra de teste para a lixeira
+//   node scripts/sandbox-real-check.mjs --auto-run    a amostra roda pela execucao automatica do
+//                                                     DeepLook (a caixa do painel), nao pelo script
 //   CHECK_BOOT_WAIT_S=180 node scripts/...            quanto esperar o boot ate o agente responder
 //                                                     (padrao 480 s)
 //
@@ -28,6 +30,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = new Set(process.argv.slice(2));
 const READ_ONLY = args.has('--read-only');
 const KEEP = args.has('--keep');
+/** A amostra roda pela execucao automatica do DeepLook (a caixa do painel), nao pelo script. */
+const AUTO_RUN = args.has('--auto-run');
 
 // ------------------------------------------------------------------ configuracao
 
@@ -462,7 +466,7 @@ async function runEnvironment() {
 
   // 1. Provisionamento.
   const t0 = Date.now();
-  const open = await dl('POST', `/entries/${entryId}/sandbox`, {});
+  const open = await dl('POST', `/entries/${entryId}/sandbox`, { autoRun: AUTO_RUN });
   sessionId = open.json?.session?.id;
   if (!sessionId) {
     check('1.1 ambiente aberto', 'O', false, '', `HTTP ${open.status}: ${open.json?.error ?? ''}`);
@@ -608,22 +612,51 @@ async function runEnvironment() {
   else skip('4.0 Sysmon no ar antes da amostra', 'D', 'o Sysmon não apareceu em três coletas');
 
   // 3.2 / 4. Amostra rodando (pelo agent/exec do PVE, como SYSTEM).
-  let ran = null;
-  try {
-    ran = await agentRun(testVmid, RUN_SAMPLE);
-  } catch (err) {
-    ran = { error: String(err.message ?? err) };
+  if (AUTO_RUN) {
+    // O DeepLook roda a amostra sozinho (depois do agente e do Sysmon): o script so espera.
+    const t4 = Date.now();
+    const done = await until(
+      async () => {
+        const s = (await dl('GET', `/sandbox/${sessionId}`)).json?.session;
+        return ['DONE', 'FAILED'].includes(s?.autoRun) ? s : null;
+      },
+      BOOT_WAIT_MS + 4 * 60_000,
+      5000,
+    );
+    check(
+      '3.2a amostra executada automaticamente pelo DeepLook',
+      'O',
+      done?.autoRun === 'DONE',
+      secs(Date.now() - t4),
+      done?.autoRun === 'DONE'
+        ? `na sessão de ${done.autoRunUser}, Sysmon ${done.autoRunSysmon ? 'no ar' : 'fora'}`
+        : (done?.autoRunError ?? 'não terminou a tempo'),
+    );
+    check(
+      '3.2b na sessão do usuário (visível no console)',
+      'D',
+      done?.autoRunUser && done.autoRunUser !== 'SYSTEM',
+      '',
+      done?.autoRunUser ?? '',
+    );
+  } else {
+    let ran = null;
+    try {
+      ran = await agentRun(testVmid, RUN_SAMPLE);
+    } catch (err) {
+      ran = { error: String(err.message ?? err) };
+    }
+    const out = Buffer.from(ran?.['out-data'] ?? '', 'utf8')
+      .toString()
+      .trim();
+    check(
+      '3.2a amostra executada na VM',
+      'O',
+      !ran?.error && out.includes('AMOSTRA_OK'),
+      '',
+      ran?.error ?? out.slice(-120),
+    );
   }
-  const out = Buffer.from(ran?.['out-data'] ?? '', 'utf8')
-    .toString()
-    .trim();
-  check(
-    '3.2a amostra executada na VM',
-    'O',
-    !ran?.error && out.includes('AMOSTRA_OK'),
-    '',
-    ran?.error ?? out.slice(-120),
-  );
 
   const t2 = Date.now();
   const after = await until(

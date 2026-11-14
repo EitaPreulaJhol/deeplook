@@ -125,6 +125,11 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
         leitura do Sysmon num ambiente de verdade (fase 4).
 
      A limpeza é só para começar do zero: o DeepLook lê os eventos desde o início de cada ambiente.
+   - **Login automático (recomendado):** com o template entrando sozinho num usuário comum (sem
+     privilégio de administrador), a execução automática da amostra roda na sessão dele e aparece no
+     console. Configure com o `netplwiz` ou com o
+     [Autologon](https://learn.microsoft.com/sysinternals/downloads/autologon) da Sysinternals. Sem
+     usuário logado, a amostra roda como SYSTEM, fora da tela.
 3. **Crie um snapshot** (o linked clone usa esse estado como base; sem snapshot o
    DeepLook cai automaticamente para uma cópia cheia, mais lenta).
 4. Converta em template: `qm template <vmid>`. Anote o `<vmid>`.

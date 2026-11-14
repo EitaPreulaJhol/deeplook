@@ -428,6 +428,14 @@ export const messages = {
     'Falha ao preparar o ambiente isolado',
     'Failed to prepare the isolated environment',
   ],
+  evSandboxAutoRun: [
+    'Amostra executada automaticamente no ambiente isolado, na sessão de {user}',
+    'Sample run automatically in the isolated environment, in the session of {user}',
+  ],
+  evSandboxAutoRunNoSysmon: [
+    'Amostra executada automaticamente no ambiente isolado, na sessão de {user} (sem o Sysmon)',
+    'Sample run automatically in the isolated environment, in the session of {user} (without Sysmon)',
+  ],
   evSandboxFailedDetail: [
     'Falha ao preparar o ambiente isolado: {detail}',
     'Failed to prepare the isolated environment: {detail}',

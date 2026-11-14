@@ -1182,6 +1182,13 @@ export interface SandboxSession {
   updatedAt: string;
   analyst?: { id: string; displayName: string };
   entry?: SandboxEntryRef;
+  /** Execucao automatica da amostra (pedida ao abrir); null = nao pedida. */
+  autoRun?: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | null;
+  autoRunAt?: string | null;
+  /** Em que conta rodou (DOMINIO\usuario, ou SYSTEM sem usuario logado). */
+  autoRunUser?: string | null;
+  autoRunSysmon?: boolean | null;
+  autoRunError?: string | null;
 }
 
 export interface SandboxHealth {
@@ -1208,6 +1215,7 @@ export type EntryEventType =
   | 'SANDBOX_OPENED'
   | 'SANDBOX_CLOSED'
   | 'SANDBOX_FAILED'
+  | 'SANDBOX_AUTORUN'
   | 'COMMENT'
   | 'MARKED_DUPLICATE'
   | 'UNMARKED_DUPLICATE'

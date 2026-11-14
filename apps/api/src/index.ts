@@ -22,6 +22,7 @@ import { startQrQueue } from './lib/qr';
 import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
+import { startAutoRun } from './lib/sandbox-autorun';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { startStatusAlerts } from './lib/status';
 import { startSuricataQueue } from './lib/suricata';
@@ -149,6 +150,8 @@ async function main() {
       `[sandbox] habilitado (node ${env.PROXMOX_NODE}, template ${env.PROXMOX_TEMPLATE_VMID}, ttl ${env.SANDBOX_TTL_MINUTES}min${env.PROXMOX_MOCK === 'true' ? ', MOCK' : ''}); limpeza inicial em andamento`,
     );
     void initSandbox(app.log);
+    // Execucao automatica da amostra nos ambientes que a pediram.
+    void startAutoRun().catch((err) => app.log.error({ err }, '[sandbox] execução automática'));
   }
 }
 

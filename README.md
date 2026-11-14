@@ -1463,6 +1463,24 @@ command line (the sample running, the PowerShell it opened).
   Without them, the sandbox stays the same. The pcap holds the sample traffic, including what it
   downloaded: the backup with the files takes it along.
 
+### Automatic sample run
+
+When opening the environment, the **"Run the sample automatically"** box (remembered in the browser)
+asks DeepLook to run the sample on its own, for a quick analysis: open, wait and read the artifacts.
+After Windows starts and Sysmon is running, the API, through the `qemu-guest-agent`, copies the
+sample from the CD to the logged-in user's temporary folder and opens it **in that user's session**,
+through an interactive scheduled task: it shows in the console and in the screenshots, as if the
+analyst had opened it. The sample is opened by its Windows association; `.ps1` runs through
+PowerShell and `.msi` through `msiexec`. The panel shows the state (waiting, run at HH:MM in whose
+session, or the failure with the reason), and the sample history records the run and who asked for
+it.
+
+- Without Sysmon in the template, the sample runs after a 3-minute wait, and the panel warns that the
+  process tree, network and DNS were not recorded.
+- With no user logged in to the VM, it runs as SYSTEM and does not show in the console. To see it,
+  set up automatic logon in the template ([Proxmox guide](docs/proxmox.md#21-analysis-vm-template)).
+- Windows VMs only. If the agent doesn't answer within 10 minutes, it gives up with the reason.
+
 ### Limits, TTL and cleanup
 
 - `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limit how many environments exist.

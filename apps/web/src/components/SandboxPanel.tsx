@@ -1,9 +1,10 @@
-import { Button, Tile } from '@carbon/react';
+import { Button, Checkbox, Tile } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { api } from '../api/client';
 import type { SandboxSession } from '../api/types';
+import { intlLocale } from '../i18n';
 import { t } from '../i18n/sandbox';
 import { useConfirm } from './HpsmConfirm';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
@@ -31,6 +32,61 @@ interface Props {
   entryId: string;
 }
 
+/** A escolha da caixa de execucao automatica fica lembrada neste navegador. */
+const AUTO_RUN_KEY = 'dl.sandbox.autoRun';
+function readAutoRun(): boolean {
+  try {
+    return window.localStorage.getItem(AUTO_RUN_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+function saveAutoRun(value: boolean): void {
+  try {
+    window.localStorage.setItem(AUTO_RUN_KEY, String(value));
+  } catch {
+    /* sem armazenamento: so nao lembra */
+  }
+}
+
+/**
+ * Estado da execucao automatica da amostra no ambiente (nada se nao foi pedida). Fica no proprio
+ * painel, junto do ambiente: o HpsmMessage iria para a barra do topo da pagina.
+ */
+function AutoRunStatus({ session }: { session: SandboxSession }) {
+  const line = (text: string, tone?: 'warn' | 'error') => (
+    <p
+      className={`dl-sandbox__autorun${tone ? ` dl-sandbox__autorun--${tone}` : ''}`}
+      role={tone ? 'alert' : 'status'}
+    >
+      {text}
+    </p>
+  );
+  switch (session.autoRun) {
+    case 'PENDING':
+      return line(t('autoRunPending'));
+    case 'RUNNING':
+      return line(t('autoRunRunning'));
+    case 'DONE': {
+      const time = session.autoRunAt
+        ? new Date(session.autoRunAt).toLocaleTimeString(intlLocale())
+        : '—';
+      const user = session.autoRunUser ?? '?';
+      return (
+        <>
+          {line(t('autoRunDone', { time, user }))}
+          {user === 'SYSTEM' && line(t('autoRunSystem'), 'warn')}
+          {session.autoRunSysmon === false && line(t('autoRunNoSysmon'), 'warn')}
+        </>
+      );
+    }
+    case 'FAILED':
+      return line(t('autoRunFailed', { error: session.autoRunError ?? '?' }), 'error');
+    default:
+      return null;
+  }
+}
+
 /**
  * Painel do ambiente isolado no Proxmox: abre o clone do template com a
  * amostra dentro (ISO read-only). O console noVNC roda numa janela dedicada
@@ -42,6 +98,7 @@ export function SandboxPanel({ entryId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
+  const [autoRun, setAutoRun] = useState(readAutoRun);
 
   const query = useQuery({
     queryKey: ['sandbox', 'entry', entryId],
@@ -49,7 +106,14 @@ export function SandboxPanel({ entryId }: Props) {
       api.get<{ enabled: boolean; consoleEnabled: boolean; session: SandboxSession | null }>(
         `/entries/${entryId}/sandbox`,
       ),
-    refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2500 : false),
+    refetchInterval: (q) => {
+      const s = q.state.data?.session;
+      if (isSandboxWorking(s?.status)) return 2500;
+      // Execucao automatica em andamento: acompanha ate rodar (ou falhar).
+      return s?.status === 'RUNNING' && (s.autoRun === 'PENDING' || s.autoRun === 'RUNNING')
+        ? 5000
+        : false;
+    },
     // A janela do console tem cache proprio: ao voltar o foco para esta aba, o
     // painel revalida (ex.: ambiente descartado na outra janela).
     refetchOnWindowFocus: true,
@@ -90,10 +154,27 @@ export function SandboxPanel({ entryId }: Props) {
     setPopupBlocked(false);
     const opened = openConsoleWindow(entryId);
     void run('open', async () => {
-      await api.post(`/entries/${entryId}/sandbox`);
+      await api.post(`/entries/${entryId}/sandbox`, { autoRun });
       if (!opened) setPopupBlocked(true);
     });
   };
+
+  /** A caixa da execucao automatica, nos dois lugares de onde se abre um ambiente. */
+  const autoRunBox = (
+    <div className="dl-sandbox__autorun-box">
+      <Checkbox
+        id={`sandbox-autorun-${entryId}`}
+        labelText={t('autoRunLabel')}
+        helperText={t('autoRunHelp')}
+        checked={autoRun}
+        disabled={busy !== null}
+        onChange={(_, { checked }) => {
+          setAutoRun(checked);
+          saveAutoRun(checked);
+        }}
+      />
+    </div>
+  );
 
   if (query.isLoading) return <HpsmLoading text={t('consultingEnv')} />;
 
@@ -119,6 +200,7 @@ export function SandboxPanel({ entryId }: Props) {
         <p className="dl-page-subtitle">{t('intro')}</p>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {popupBlocked && <HpsmMessage kind="warning">{t('popupBlocked')}</HpsmMessage>}
+        {autoRunBox}
         <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
           {busy === 'open' ? t('opening') : t('openEnv')}
         </Button>
@@ -184,6 +266,7 @@ export function SandboxPanel({ entryId }: Props) {
           </div>
         </div>
         <p className="dl-page-subtitle">{t('runningHelp')}</p>
+        <AutoRunStatus session={session} />
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {popupBlocked && <HpsmMessage kind="warning">{t('popupBlockedConsole')}</HpsmMessage>}
         <div className="dl-toolbar dl-mb-md">
@@ -247,10 +330,12 @@ export function SandboxPanel({ entryId }: Props) {
       <p className="dl-page-subtitle">
         {session.status === 'EXPIRED' ? t('envExpired') : t('envClosed')}
       </p>
+      {!failed && <AutoRunStatus session={session} />}
+      {autoRunBox}
       <Button
         renderIcon={IconScreen}
         disabled={busy !== null}
-        onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
+        onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`, { autoRun }))}
       >
         {t('openNewEnv')}
       </Button>

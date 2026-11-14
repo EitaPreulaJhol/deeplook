@@ -112,6 +112,10 @@ export function describeEvent(event: EntryEvent): string {
       const reason = key ? t(key) : detail;
       return t('evSandboxClosed') + (reason ? ` (${reason})` : '');
     }
+    case 'SANDBOX_AUTORUN':
+      return t(to === 'no-sysmon' ? 'evSandboxAutoRunNoSysmon' : 'evSandboxAutoRun', {
+        user: detail ?? '?',
+      });
     case 'SANDBOX_FAILED':
       return detail ? t('evSandboxFailedDetail', { detail }) : t('evSandboxFailed');
     case 'COMMENT':

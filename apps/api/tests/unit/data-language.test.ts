@@ -39,10 +39,15 @@ const FILES = [
   'network-capture',
   'suricata',
   'mikrotik',
+  'sandbox-autorun',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
 const SAME = new Set([
+  // Comando do PowerShell da execucao automatica (sandbox-autorun.ts).
+  'Start-Sleep -Seconds 2',
+  'no-sysmon',
+  "if (Get-WinEvent -ListLog {0} -ErrorAction SilentlyContinue) { 'SYSMON_OK' } else { 'SYSMON_AUSENTE' }",
   // Cabecalhos HTTP (plano pos-revisao, 5.4).
   'Bearer {0}',
   'Basic {0}',

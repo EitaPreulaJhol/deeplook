@@ -188,6 +188,30 @@ export const messages = {
   sevHigh: ['alta', 'high'],
   sevMedium: ['média', 'medium'],
   sevLow: ['baixa', 'low'],
+  // Execucao automatica da amostra (caixa ao abrir o ambiente).
+  autoRunLabel: ['Executar a amostra automaticamente', 'Run the sample automatically'],
+  autoRunHelp: [
+    'Depois que o Windows subir e o Sysmon estiver no ar, a amostra roda sozinha na sessão do usuário da VM, e você a vê no console.',
+    "After Windows starts and Sysmon is running, the sample runs on its own in the VM user's session, and you see it in the console.",
+  ],
+  autoRunPending: [
+    'Execução automática: aguardando o Windows e o Sysmon…',
+    'Automatic run: waiting for Windows and Sysmon…',
+  ],
+  autoRunRunning: ['Execução automática: abrindo a amostra…', 'Automatic run: opening the sample…'],
+  autoRunDone: [
+    'Amostra executada automaticamente às {time}, na sessão de {user}.',
+    'Sample run automatically at {time}, in the session of {user}.',
+  ],
+  autoRunNoSysmon: [
+    'O Sysmon não estava no ar: a árvore de processos, a rede e o DNS dessa execução não foram registrados.',
+    'Sysmon was not running: the process tree, network and DNS of this run were not recorded.',
+  ],
+  autoRunSystem: [
+    'Nenhum usuário estava logado na VM: a amostra rodou como SYSTEM e não aparece no console.',
+    'No user was logged in to the VM: the sample ran as SYSTEM and does not show in the console.',
+  ],
+  autoRunFailed: ['A execução automática falhou: {error}.', 'The automatic run failed: {error}.'],
   stRequested: ['solicitado', 'requested'],
   stProvisioning: ['provisionando', 'provisioning'],
   stRunning: ['em execução', 'running'],

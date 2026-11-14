@@ -55,7 +55,7 @@ function isoTarget(sessionId: string): { filename: string; volume: string } {
 }
 
 /** Nome seguro para o arquivo dentro do ISO (mantem a extensao). */
-function sampleFileName(entry: Entry): string {
+export function sampleFileName(entry: Pick<Entry, 'originalFilename'>): string {
   const raw = entry.originalFilename || 'amostra.bin';
   const cleaned = raw
     .replace(/[^\w.\- ]+/g, '_')
@@ -121,7 +121,11 @@ export type CreateSessionResult =
   { ok: true; session: SandboxSession } | { ok: false; code: number; error: string };
 
 /** Cria a sessao de sandbox e dispara o provisionamento em background. */
-export async function createSession(entry: Entry, analystId: string): Promise<CreateSessionResult> {
+export async function createSession(
+  entry: Entry,
+  analystId: string,
+  { autoRun = false }: { autoRun?: boolean } = {},
+): Promise<CreateSessionResult> {
   if (entry.type === 'FILE' && entry.filePurgedAt) {
     return {
       ok: false,
@@ -164,6 +168,7 @@ export async function createSession(entry: Entry, analystId: string): Promise<Cr
       status: 'REQUESTED',
       phase: 'na-fila',
       expiresAt: new Date(Date.now() + env.SANDBOX_TTL_MINUTES * 60_000),
+      ...(autoRun ? { autoRun: 'PENDING' as const } : {}),
     },
   });
 

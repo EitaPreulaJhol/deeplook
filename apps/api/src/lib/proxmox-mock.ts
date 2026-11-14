@@ -36,7 +36,9 @@ const STOP_MS = 600;
 /** Quantas listagens de processos o agente simulado ja fez. */
 let agentRuns = 0;
 /** O que cada execucao do agente pediu (pid -> tipo), para o exec-status responder certo. */
-const agentJobs = new Map<number, 'processes' | 'sysmon'>();
+const agentJobs = new Map<number, 'processes' | 'sysmon' | 'probe' | 'autorun'>();
+/** Execucoes automaticas da amostra que o agente simulado recebeu (os testes conferem). */
+export const mockAutoRuns: { vmid: number; script: string }[] = [];
 let agentPid = 1000;
 
 /**
@@ -110,6 +112,7 @@ export function mockMac(vmid: number): string {
 export function pveMockReset(): void {
   agentRuns = 0;
   agentJobs.clear();
+  mockAutoRuns.length = 0;
   agentPid = 1000;
   vms.clear();
   tasks.clear();
@@ -280,7 +283,18 @@ export async function pveMock(
     }
     if (rest === '/agent/exec' && method === 'POST') {
       const command = (body?.command ?? []) as string[];
-      const kind = command.includes('-EncodedCommand') ? 'sysmon' : 'processes';
+      // PowerShell em Base64: o marcador diz qual comando e (execucao automatica, conferencia do
+      // Sysmon ou a leitura dele).
+      const encoded = command.includes('-EncodedCommand') ? command.at(-1) : null;
+      const script = encoded ? Buffer.from(encoded, 'base64').toString('utf16le') : '';
+      const kind = !encoded
+        ? 'processes'
+        : script.includes('DEEPLOOK_AUTORUN')
+          ? 'autorun'
+          : script.includes('DEEPLOOK_SYSMON_PROBE')
+            ? 'probe'
+            : 'sysmon';
+      if (kind === 'autorun') mockAutoRuns.push({ vmid, script });
       if (kind === 'processes') agentRuns += 1;
       agentPid += 1;
       agentJobs.set(agentPid, kind);
@@ -288,6 +302,12 @@ export async function pveMock(
     }
     // VM 9998: Windows sem o Sysmon no template (plano pos-revisao, item 5.3).
     const execPid = Number(/pid=(\d+)/.exec(path)?.[1] ?? 0);
+    if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'probe') {
+      return { exited: 1, exitcode: 0, 'out-data': vmid === 9998 ? 'SYSMON_AUSENTE' : 'SYSMON_OK' };
+    }
+    if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'autorun') {
+      return { exited: 1, exitcode: 0, 'out-data': 'AUTORUN_OK|SANDBOX\\analista\r\n' };
+    }
     if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'sysmon') {
       const out = vmid === 9998 ? 'DEEPLOOK_SEM_SYSMON' : JSON.stringify(MOCK_SYSMON_EVENTS);
       return { exited: 1, exitcode: 0, 'out-data': out };

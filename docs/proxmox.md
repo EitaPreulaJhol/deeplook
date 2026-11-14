@@ -121,6 +121,11 @@ server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}
 
      The clearing is only to start from scratch: DeepLook reads the events since each environment
      started.
+   - **Automatic logon (recommended):** with the template logging in to a regular user (no
+     administrator privilege) on its own, the automatic sample run happens in that user's session
+     and shows in the console. Set it up with `netplwiz` or with Sysinternals
+     [Autologon](https://learn.microsoft.com/sysinternals/downloads/autologon). With no user logged
+     in, the sample runs as SYSTEM, off screen.
 3. **Create a snapshot** (the linked clone uses this state as its base; without a snapshot DeepLook
    automatically falls back to a full copy, which is slower).
 4. Convert it to a template: `qm template <vmid>`. Note the `<vmid>`.
