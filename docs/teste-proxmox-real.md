@@ -31,7 +31,8 @@ script you can follow in an afternoon. Each step's result goes in the
 ### 2.1 Infrastructure
 
 - [ ] PVE 8 or 9 with the template ready (`docs/proxmox.md`, section 2): Windows 10 or 11,
-      `qemu-guest-agent` running, Sysmon with `sysmon-modular`, a snapshot and `qm template`.
+      `qemu-guest-agent` running, Sysmon with `sysmon-modular` and the `sysmon-sessao.bat` task, a
+      snapshot and `qm template`.
 - [ ] The VMs' isolated network behind the MikroTik CHR (RouterOS 7), with internet access only
       through it.
 - [ ] CHR with `www-ssl` and the `deeplook` user set up (`docs/proxmox.md`, section 9.1).

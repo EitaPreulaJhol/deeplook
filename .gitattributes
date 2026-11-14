@@ -1,2 +1,5 @@
 # Pacotes de regras YARA: copiados sem alterar, nem no fim de linha.
 apps/api/rules/** -text
+
+# Scripts do template Windows do sandbox: CRLF, como o cmd.exe espera.
+scripts/template-windows/*.bat text eol=crlf

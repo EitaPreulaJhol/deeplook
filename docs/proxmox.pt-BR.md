@@ -100,6 +100,27 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
      Aumente o tamanho do log se a amostra for barulhenta
      (`wevtutil sl Microsoft-Windows-Sysmon/Operational /ms:67108864`). O DeepLook não instala nada
      na VM: sem o Sysmon, ficam os prints e a lista de processos.
+   - **Sysmon a cada sessão (recomendado):** instalado com `-i`, o Sysmon já é um serviço que sobe
+     em todo boot, mas o log guarda o que aconteceu enquanto o template era preparado, e um serviço
+     parado passaria despercebido. O
+     [`scripts/template-windows/sysmon-sessao.bat`](../scripts/template-windows/sysmon-sessao.bat)
+     roda a cada boot de cada ambiente e: instala o Sysmon se o serviço não existir (ou só reaplica
+     a configuração, então trocar o XML não exige refazer a instalação), aumenta o log para 64 MB,
+     limpa o log, para o ambiente começar sem eventos antigos, e confere que o serviço está rodando.
+     O que fez fica em `sysmon-sessao.log`, na mesma pasta.
+     1. Ponha numa pasta do template, sem espaços nem parênteses no caminho (ex.:
+        `C:\Tools\Sysmon\`): o `Sysmon64.exe`, o `sysmonconfig.xml` e o `sysmon-sessao.bat`.
+     2. Num prompt como administrador, registre a tarefa que roda na inicialização, como SYSTEM:
+        ```bat
+        schtasks /create /tn "DeepLook\Sysmon a cada sessao" /tr "\"C:\Tools\Sysmon\sysmon-sessao.bat\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
+        ```
+     3. Rode uma vez para conferir (`schtasks /run /tn "DeepLook\Sysmon a cada sessao"`), veja o
+        `sysmon-sessao.log` terminar em "Sysmon rodando, log limpo" e reinicie a VM para conferir
+        que ele roda sozinho no boot.
+     4. Desligue a VM e converta em template. O `node scripts/sandbox-real-check.mjs` confere a
+        leitura do Sysmon num ambiente de verdade (fase 4).
+
+     A limpeza é só para começar do zero: o DeepLook lê os eventos desde o início de cada ambiente.
 3. **Crie um snapshot** (o linked clone usa esse estado como base; sem snapshot o
    DeepLook cai automaticamente para uma cópia cheia, mais lenta).
 4. Converta em template: `qm template <vmid>`. Anote o `<vmid>`.

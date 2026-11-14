@@ -31,7 +31,8 @@ roteiro que dá para seguir em uma tarde. O resultado de cada passo vai na
 ### 2.1 Infraestrutura
 
 - [ ] PVE 8 ou 9 com o template pronto (`docs/proxmox.pt-BR.md`, seção 2): Windows 10 ou 11,
-      `qemu-guest-agent` rodando, Sysmon com a `sysmon-modular`, snapshot criado e `qm template`.
+      `qemu-guest-agent` rodando, Sysmon com a `sysmon-modular` e a tarefa do `sysmon-sessao.bat`,
+      snapshot criado e `qm template`.
 - [ ] Rede isolada das VMs atrás do MikroTik CHR (RouterOS 7), com saída para a internet só por ele.
 - [ ] CHR com o `www-ssl` e o usuário `deeplook` configurados (`docs/proxmox.pt-BR.md`, seção 9.1).
 - [ ] Host do DeepLook com `COMPOSE_PROFILES=netcap` e as variáveis `MIKROTIK_*`, `NETCAP_*` e

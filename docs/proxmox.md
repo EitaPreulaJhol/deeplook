@@ -95,6 +95,28 @@ server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}
      the log size if the sample is noisy
      (`wevtutil sl Microsoft-Windows-Sysmon/Operational /ms:67108864`). DeepLook installs nothing in
      the VM: without Sysmon, the screenshots and the process list remain.
+   - **Sysmon on every session (recommended):** installed with `-i`, Sysmon is already a service
+     that starts on every boot, but the log keeps what happened while the template was being
+     prepared, and a stopped service would go unnoticed.
+     [`scripts/template-windows/sysmon-sessao.bat`](../scripts/template-windows/sysmon-sessao.bat)
+     runs on every boot of every environment and: installs Sysmon if the service doesn't exist (or
+     just reapplies the configuration, so changing the XML doesn't require reinstalling), raises the
+     log to 64 MB, clears the log, so the environment starts with no old events, and checks that the
+     service is running. What it did goes to `sysmon-sessao.log`, in the same folder.
+     1. Put in a template folder with no spaces or parentheses in the path (e.g.
+        `C:\Tools\Sysmon\`): `Sysmon64.exe`, `sysmonconfig.xml` and `sysmon-sessao.bat`.
+     2. In an administrator prompt, register the task that runs at startup, as SYSTEM:
+        ```bat
+        schtasks /create /tn "DeepLook\Sysmon a cada sessao" /tr "\"C:\Tools\Sysmon\sysmon-sessao.bat\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
+        ```
+     3. Run it once to check (`schtasks /run /tn "DeepLook\Sysmon a cada sessao"`), see
+        `sysmon-sessao.log` end with "Sysmon rodando, log limpo" and restart the VM to check that it
+        runs on its own at boot.
+     4. Shut the VM down and convert it to a template. `node scripts/sandbox-real-check.mjs` checks
+        the Sysmon read in a real environment (phase 4).
+
+     The clearing is only to start from scratch: DeepLook reads the events since each environment
+     started.
 3. **Create a snapshot** (the linked clone uses this state as its base; without a snapshot DeepLook
    automatically falls back to a full copy, which is slower).
 4. Convert it to a template: `qm template <vmid>`. Note the `<vmid>`.
