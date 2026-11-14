@@ -376,7 +376,7 @@ export const messages = {
   offM: ['Desligado', 'Off'],
   closeRules: ['Fechar regras', 'Close rules'],
   viewRules: ['Ver regras', 'View rules'],
-  searchPackRule: ['Buscar regra do pacote', 'Search pack rule'],
+  searchPackRule: ['Buscar regra', 'Search rule'],
   searchPackPlaceholder: ['Nome do arquivo, ex.: ransomware', 'File name, e.g.: ransomware'],
   showingNofTotal: [
     'Mostrando {n} de {total}. Busque para achar as demais.',

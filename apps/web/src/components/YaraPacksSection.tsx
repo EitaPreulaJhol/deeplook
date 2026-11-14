@@ -17,7 +17,7 @@ import type { YaraPack, YaraRule } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { t } from '../i18n/detection';
 import { useConfirm } from './HpsmConfirm';
-import { HpsmSection } from './HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmLoading } from './messages';
 import {
   EffectivenessCells,
@@ -172,24 +172,31 @@ export function YaraPacksSection({
 
       {openPack && (
         <>
-          <TextInput
-            id="yara-pack-search"
-            labelText={t('searchPackRule')}
-            size="sm"
-            placeholder={t('searchPackPlaceholder')}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          {rulesQuery.data && (
-            <p className="dl-static-empty">
-              {rulesQuery.data.total > rulesQuery.data.rules.length
-                ? t('showingNofTotal', {
-                    n: rulesQuery.data.rules.length,
-                    total: rulesQuery.data.total,
-                  })
-                : t('setsN', { n: rulesQuery.data.total })}
-            </p>
-          )}
+          <HpsmForm>
+            <HpsmField
+              label={t('searchPackRule')}
+              htmlFor="yara-pack-search"
+              help={
+                rulesQuery.data &&
+                (rulesQuery.data.total > rulesQuery.data.rules.length
+                  ? t('showingNofTotal', {
+                      n: rulesQuery.data.rules.length,
+                      total: rulesQuery.data.total,
+                    })
+                  : t('setsN', { n: rulesQuery.data.total }))
+              }
+            >
+              <TextInput
+                id="yara-pack-search"
+                labelText={t('searchPackRule')}
+                hideLabel
+                size="sm"
+                placeholder={t('searchPackPlaceholder')}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </HpsmField>
+          </HpsmForm>
           <NeverFiredFilter
             id="yara-pack-never-fired"
             days={days}

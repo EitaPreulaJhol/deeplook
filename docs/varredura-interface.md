@@ -59,6 +59,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 22 | Announcements: announcement list | At 1366x768, "Dismissed by" wrapped onto two lines, as did "Bruno / Lima" and the "Valid until" dates, while the announcement text column had room to spare | 1366x768 | Only the announcement text wraps; name, dates and headers on one line from 1280 px up |
 | 23 | Company domains: variations seen | Domains ("ernpresa.com.b / r") broke mid-name with room to spare in other columns: the monospace class breaks at any character, so the grid squeezed the column to its minimum | all | Domain columns break only when they don't fit (long hashes still break anywhere) |
 | 24 | Static analysis (strings by category, PE, ELF, capa, Ghidra), document VBA macros, sample comparison, search, YARA retroscan samples | More blocks repeated the section body's side padding: headings, lists and columns started 10 to 12 px right of the fields and text of other sections (same cause as item 10) | all | No side padding of their own in these blocks (dialogs, with their own body, stay as they are) |
+| 25 | YARA rules > Rule packs: search in the open pack's rules | The field had a stacked Carbon label ("Search pack rule") and the "N set(s)" count loose below it, while the "New rule" section right above uses left labels | all | Left label ("Search rule:") and the count as the field's help |
 
 ## Discarded (not problems)
 

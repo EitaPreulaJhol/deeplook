@@ -59,6 +59,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | 22 | Avisos gerais: lista de avisos | Em 1366x768, "Dispensado por" quebrava em duas linhas, assim como "Bruno / Lima" e as datas de "Vale até", enquanto a coluna do texto do aviso sobrava larga | 1366x768 | Só o texto do aviso quebra; nome, datas e cabeçalhos numa linha de 1280 px para cima |
 | 23 | Domínios da empresa: variações vistas | Os domínios ("ernpresa.com.b / r") quebravam no meio, com espaço sobrando em outras colunas: a fonte monoespaçada quebra em qualquer caractere, e a grade espremia a coluna até o mínimo | todas | Nas colunas de domínio, quebra só se não couber (hashes longos continuam quebrando em qualquer ponto) |
 | 24 | Análise estática (strings por categoria, PE, ELF, capa, Ghidra), macros VBA do documento, comparar amostras, busca, amostras do retroscan YARA | Mais blocos repetiam o recuo lateral do corpo da seção: títulos, listas e colunas começavam 10 a 12 px à direita dos campos e do texto das outras seções (mesma causa do item 10) | todas | Sem recuo lateral próprio nesses blocos (os diálogos, com corpo próprio, continuam como estão) |
+| 25 | Regras YARA > Pacotes de regras: busca nas regras do pacote aberto | O campo tinha rótulo empilhado do Carbon ("Buscar regra do pacote"), e a contagem "N conjunto(s)" vinha solta embaixo, enquanto a seção "Nova regra" logo acima usa rótulo à esquerda | todas | Rótulo à esquerda ("Buscar regra:") e a contagem como ajuda do campo |
 
 ## Descartados (não são problemas)
 
