@@ -1324,6 +1324,13 @@ log.
 - `Cross-Origin-Opener-Policy` only applies to a trusted origin (HTTPS or `localhost`), which are the two access paths
   (the Tunnel and the port on `127.0.0.1`). Over HTTP under another name the browser ignores it and writes a warning to the
   console, with no functional effect.
+- The **CSP** only runs scripts from DeepLook itself (no inline script, no `eval`) and turns on **Trusted
+  Types** (`require-trusted-types-for 'script'; trusted-types 'none'`): `innerHTML`, `document.write` and
+  the like refuse any string, and no policy can be created to get around it. The interface never writes
+  HTML from a string (React builds the elements), so a script injected into one of those places is
+  blocked by the browser. Browsers without Trusted Types (Firefox before 148, Safari before 26) ignore
+  the two directives and keep the rest of the CSP. The screen scenarios and the visual suite run with the
+  production CSP and fail on any violation.
 - HSTS `includeSubDomains` applies to the subdomains of the address that serves DeepLook: use a dedicated name
   (for example, `deeplook.exemplo`), and not the root domain, if other subdomains are still served over HTTP.
 

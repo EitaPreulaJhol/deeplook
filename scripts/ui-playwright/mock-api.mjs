@@ -308,7 +308,8 @@ export async function setupMock(context, state) {
     context.on('page', (page) => void page.setViewportSize({ width, height }).catch(() => undefined));
   }
   context.on('console', (msg) => {
-    if (msg.type() === 'error' && /Content Security Policy/i.test(msg.text())) {
+    // Trusted Types recusado aparece como "requires 'TrustedHTML' assignment", sem citar a CSP.
+    if (msg.type() === 'error' && /Content Security Policy|Trusted(HTML|Script|ScriptURL)/i.test(msg.text())) {
       cspViolations += 1;
       console.log(`FALHA CSP: ${msg.text().slice(0, 300)}`);
     }

@@ -1337,6 +1337,13 @@ arquivo é aberto em modo de acréscimo a cada linha, então o `logrotate` (com 
 - O `Cross-Origin-Opener-Policy` só vale em origem confiável (HTTPS ou `localhost`), que são os
   dois caminhos de acesso (o Tunnel e a porta em `127.0.0.1`). Por HTTP em outro nome o navegador
   o ignora e escreve um aviso no console, sem efeito funcional.
+- A **CSP** só executa script do próprio DeepLook (sem script inline, sem `eval`) e liga o **Trusted
+  Types** (`require-trusted-types-for 'script'; trusted-types 'none'`): `innerHTML`, `document.write` e
+  afins recusam qualquer string, e nenhuma política pode ser criada para contornar. A interface nunca
+  escreve HTML a partir de string (o React monta os elementos), então um script injetado num desses
+  pontos é barrado pelo navegador. Navegador sem Trusted Types (Firefox antes do 148, Safari antes do 26)
+  ignora as duas diretivas e mantém o resto da CSP. Os cenários de tela e a suíte visual rodam com a CSP
+  de produção e reprovam qualquer violação.
 - O `includeSubDomains` do HSTS vale para os subdomínios do endereço que serve o DeepLook: use
   um nome dedicado (por exemplo, `deeplook.exemplo`), e não o domínio raiz, se outros
   subdomínios ainda atendem por HTTP.

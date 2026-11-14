@@ -110,7 +110,8 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
       } catch {
         /* ja desconectado */
       }
-      holder.innerHTML = '';
+      // Sem innerHTML: com Trusted Types na CSP, ate a string vazia e recusada.
+      holder.replaceChildren();
     };
   }, [wsPath, sessionId, nonce]);
 
