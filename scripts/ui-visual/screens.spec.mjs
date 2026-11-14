@@ -70,7 +70,7 @@ test.describe('telas', () => {
 });
 
 /**
- * As telas corrigidas na varredura visual (docs/varredura-interface.pt-BR.md): a volta de qualquer
+ * As telas corrigidas na varredura visual de novembro de 2026: a volta de qualquer
  * correcao quebra uma destas capturas. O numero entre parenteses e o item da varredura.
  */
 test.describe('varredura visual', () => {

@@ -1156,7 +1156,7 @@ deeplook/
 │     ├─ nginx.conf   # build server and /api proxy (the real configuration)
 │     ├─ vitest.config.ts # unit tests and coverage floor
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox, interface-hpsm, varredura-interface
+├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox
 ├─ icons/             # icon library (HPSM style)
 ├─ scripts/           # visual tests (ui-playwright/), Trivy (trivy.mjs) and Playwright check
 ├─ trivy.yaml         # severity, justified exceptions and what fails the image scan
@@ -1341,9 +1341,6 @@ controls comes from the Carbon Design System; the look comes from the tokens and
 | `src/styles/auth.scss` | public pages (home, login, sign-up) |
 | `src/styles/app.scss` | styles entry point + shell layout; lists the Carbon modules in use (selective CSS) |
 | `src/styles/_carbon-theme.scss` | tokens of the light `g10` theme, emitted before the HPSM skin |
-
-Components, conventions (what to use and avoid from Carbon), routes, user preferences and visual
-verification are in **[`docs/interface-hpsm.md`](docs/interface-hpsm.md)**.
 
 ### My Account and preferences
 
@@ -1574,7 +1571,7 @@ node scripts/trivy.mjs image deeplook-api   # CVE in an image (the same command 
 - **Visual suite** (`scripts/ui-visual`): compares the critical-layout screens with versioned
   screenshots. It does not check behavior (that belongs to the scenarios above), but what the screen
   *looks like*: spacing, alignment, table, typography, density. 23 screens on desktop (among them
-  the ones fixed in the [visual sweep](docs/varredura-interface.md)), four of them also at 1024 px
+  the ones fixed in the November 2026 visual sweep), four of them also at 1024 px
   and six at 1366x768. It runs in the Playwright image, the same one that generated the baselines, with a
   frozen clock, no animation and no cursor: the result does not depend on the machine.
 
@@ -1635,8 +1632,6 @@ screenshots of all screens and checks of the filters and the My Account flow.
 cd apps/web; npm run build; cd ../..
 powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 ```
-
-Details in [`docs/interface-hpsm.md`](docs/interface-hpsm.md#7-visual-verification-playwright).
 
 ---
 

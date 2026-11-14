@@ -1168,7 +1168,7 @@ deeplook/
 │     ├─ nginx.conf   # servidor do build e proxy de /api (a configuração real)
 │     ├─ vitest.config.ts # testes unitários e piso de cobertura
 │     └─ src/         # api, auth, components, pages, styles
-├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox, interface-hpsm, varredura-interface
+├─ docs/              # guias (EN: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox
 ├─ icons/             # biblioteca de ícones (estilo HPSM)
 ├─ scripts/           # testes visuais (ui-playwright/), Trivy (trivy.mjs) e conferência do Playwright
 ├─ trivy.yaml         # severidade, exceções justificadas e o que reprova o scan de imagens
@@ -1354,10 +1354,6 @@ dos controles vem do Carbon Design System; o visual vem dos tokens e do skin:
 | `src/styles/auth.scss` | páginas públicas (home, login, cadastro) |
 | `src/styles/app.scss` | entrada dos estilos + layout da casca; lista os módulos do Carbon usados (CSS seletivo) |
 | `src/styles/_carbon-theme.scss` | tokens do tema claro `g10`, emitidos antes do skin do HPSM |
-
-Componentes, convenções (o que usar e o que evitar do Carbon), rotas, preferências do
-usuário e a verificação visual estão em
-**[`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md)**.
 
 ### Minha Conta e preferências
 
@@ -1592,7 +1588,7 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
 - **Suíte visual** (`scripts/ui-visual`): compara as telas de layout crítico com capturas
   versionadas. Não olha o comportamento (isso é dos cenários acima), e sim o que a tela
   *parece*: espaço, alinhamento, tabela, tipografia, densidade. 23 telas no desktop (entre elas as
-  corrigidas na [varredura visual](docs/varredura-interface.pt-BR.md)), quatro delas também em
+  corrigidas na varredura visual de novembro de 2026), quatro delas também em
   1024 px e seis em 1366x768. Roda na imagem do Playwright, a mesma que gerou as baselines, com
   relógio congelado, sem animação e sem cursor: o resultado não depende da máquina.
 
@@ -1654,8 +1650,6 @@ screenshots de todas as telas e checagens dos filtros e do fluxo de Minha Conta.
 cd apps/web; npm run build; cd ../..
 powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 ```
-
-Detalhes em [`docs/interface-hpsm.pt-BR.md`](docs/interface-hpsm.pt-BR.md#7-verificação-visual-playwright).
 
 ---
 
