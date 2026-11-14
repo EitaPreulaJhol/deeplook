@@ -103,19 +103,19 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
    - **Sysmon a cada sessão (recomendado):** instalado com `-i`, o Sysmon já é um serviço que sobe
      em todo boot, mas o log guarda o que aconteceu enquanto o template era preparado, e um serviço
      parado passaria despercebido. O
-     [`scripts/template-windows/sysmon-sessao.bat`](../scripts/template-windows/sysmon-sessao.bat)
+     [`scripts/template-windows/sysmon.bat`](../scripts/template-windows/sysmon.bat)
      roda a cada boot de cada ambiente e: instala o Sysmon se o serviço não existir (ou só reaplica
      a configuração, então trocar o XML não exige refazer a instalação), aumenta o log para 64 MB,
      limpa o log, para o ambiente começar sem eventos antigos, e confere que o serviço está rodando.
-     O que fez fica em `sysmon-sessao.log`, na mesma pasta.
+     O que fez fica em `sysmon.log`, na mesma pasta (em inglês, como o resto do arquivo).
      1. Ponha numa pasta do template, sem espaços nem parênteses no caminho (ex.:
-        `C:\Tools\Sysmon\`): o `Sysmon64.exe`, o `sysmonconfig.xml` e o `sysmon-sessao.bat`.
+        `C:\Tools\Sysmon\`): o `Sysmon64.exe`, o `sysmonconfig.xml` e o `sysmon.bat`.
      2. Num prompt como administrador, registre a tarefa que roda na inicialização, como SYSTEM:
         ```bat
-        schtasks /create /tn "DeepLook\Sysmon a cada sessao" /tr "\"C:\Tools\Sysmon\sysmon-sessao.bat\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
+        schtasks /create /tn "DeepLook\Sysmon" /tr "\"C:\Tools\Sysmon\sysmon.bat\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
         ```
-     3. Rode uma vez para conferir (`schtasks /run /tn "DeepLook\Sysmon a cada sessao"`), veja o
-        `sysmon-sessao.log` terminar em "Sysmon rodando, log limpo" e reinicie a VM para conferir
+     3. Rode uma vez para conferir (`schtasks /run /tn "DeepLook\Sysmon"`), veja o
+        `sysmon.log` terminar em "Sysmon running, log cleared" e reinicie a VM para conferir
         que ele roda sozinho no boot.
      4. Desligue a VM e converta em template. O `node scripts/sandbox-real-check.mjs` confere a
         leitura do Sysmon num ambiente de verdade (fase 4).
