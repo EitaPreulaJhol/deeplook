@@ -34,6 +34,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | # | Tela | Problema | Resoluções | Correção |
 |---|---|---|---|---|
 | 1 | Listas de amostras (Histórico Global, Meus Uploads, filas) | A coluna Amostra era a primeira a encolher: o nome quebrava no meio ("instalador_suspei…", "relatorio_trimestral.d / ocm") e a data, em duas linhas, enquanto as colunas curtas sobravam. Corrigido isso, em 1280 e 1366 a tabela completa não cabia e Relatórios e Data iam para uma rolagem horizontal escondida | 1366, 1280 | Largura mínima para o título (o `overflow-wrap: anywhere`, necessário para nomes enormes, deixava a coluna encolher até um caractere) e três níveis de colunas secundárias, remedidos: em 1366 sai só Relatórios; em 1280, Tipo também; em 1024, ainda Responsável, Idade e Data |
+| 2 | Troca de senha obrigatória (e qualquer quadro de autenticação com texto de abertura) | O texto de abertura saía em 16px, herdado do parágrafo, maior que todo o resto da interface (12-13px) | todas | O texto de abertura usa a fonte do corpo (12px, linha 1.5) |
 
 ## Descartados (não são problemas)
 

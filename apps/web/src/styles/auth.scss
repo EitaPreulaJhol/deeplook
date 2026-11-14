@@ -113,6 +113,9 @@
 .dl-auth__subtitle {
   margin: 0 0 0.75rem;
   color: var(--dl-text-muted);
+  /* Sem isto herdava os 16px do paragrafo, maior que todo o resto (varredura visual, item 2). */
+  font-size: var(--dl-font-size);
+  line-height: 1.5;
 }
 
 .dl-auth__form {
