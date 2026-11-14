@@ -2544,6 +2544,9 @@ body:has(.dl-print) {
 /* Bloco de indicador no desenho das secoes do HPSM: borda azul-clara, sem sombra. */
 .dl-kpi {
   display: grid;
+  /* Sem isto as linhas esticavam ate a altura do cartao mais alto, e o rotulo descia nos cartoes
+     sem dica: os rotulos ficavam em alturas diferentes (varredura visual, item 4). */
+  align-content: start;
   gap: 0.1rem;
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--dl-panel-border);
