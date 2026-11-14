@@ -4773,17 +4773,19 @@ tr.is-off td {
 }
 
 /* ---- Avisos gerais (item 88) ---- */
+/* Faixa de avisos gerais: o mesmo recuo da barra de mensagens logo abaixo (encostava nas bordas da
+   area de trabalho; pendencias da varredura visual, item 4). */
 .dl-broadcasts {
   display: grid;
   gap: 0.25rem;
-  margin-block-end: 0.4rem;
+  padding: 0.4rem 0.5rem 0;
 }
 
 .dl-broadcast {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  padding: 0.3rem 0.6rem;
+  padding: 0.25rem 0.4rem;
   border: 1px solid var(--dl-info-border, var(--dl-panel-border));
   background: var(--dl-info-bg);
 }

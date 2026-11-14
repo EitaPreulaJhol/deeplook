@@ -19,7 +19,7 @@ analysts see the most day to day; the rest in table order.
 | 1 | Dates and times in the browser's format | 🔴 | S–M | Management / Backup | ✅ |
 | 2 | Users table actions in a menu | 🟡 | S–M | Administration | ✅ |
 | 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ✅ |
-| 4 | Announcement banner with no margin | ⚪ | S | Global | ⬜ |
+| 4 | Announcement banner with no margin | ⚪ | S | Global | ✅ |
 | 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ⬜ |
 | 6 | API docs field tables | ⚪ | S | API docs | ⬜ |
 | 7 | Leftover 13 px text | ⚪ | S | Global | ⬜ |
@@ -91,6 +91,10 @@ view. The active or focused tab stops 1.5rem from the end so it isn't under the 
 - **Problem:** the banner touches the work area's edges; the message bar right below has an 8 px
   margin.
 - **Proposal:** the same margin as the message bar.
+
+**Implemented.** The banner block has the message bar's inset (0.4rem on top, 0.5rem on the sides),
+and each banner a message's inner padding: edges and icons line up with the message right below and
+with the content.
 
 ### 5. Console window bar off the pattern
 

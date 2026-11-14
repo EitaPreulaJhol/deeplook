@@ -19,7 +19,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 1 | Datas e horas no formato do navegador | 🔴 | P–M | Gerencial / Backup | ✅ |
 | 2 | Ações da tabela de usuários num menu | 🟡 | P–M | Administração | ✅ |
 | 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ✅ |
-| 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ⬜ |
+| 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ✅ |
 | 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ⬜ |
 | 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ⬜ |
 | 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ⬜ |
@@ -89,6 +89,10 @@ focada para a 1,5rem da ponta, para não ficar embaixo da seta. Cenário novo: `
 - **Problema:** a faixa encosta nas bordas da área de trabalho; a barra de mensagens logo abaixo tem
   8 px de margem.
 - **Proposta:** a mesma margem da barra de mensagens.
+
+**Implementado.** O bloco das faixas tem o recuo da barra de mensagens (0,4rem em cima, 0,5rem nas
+laterais), e cada faixa o mesmo recuo interno de uma mensagem: bordas e ícones alinham com a mensagem
+logo abaixo e com o conteúdo.
 
 ### 5. Barra da janela do console fora do padrão
 
