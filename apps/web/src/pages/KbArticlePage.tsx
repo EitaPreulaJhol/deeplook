@@ -361,7 +361,7 @@ export function KbArticlePage({ mode }: { mode: 'view' | 'new' | 'edit' }) {
         </span>
         <span>
           <span className="dl-summary__label">{tr('updated')}</span> {fmtDate(a.updatedAt)}
-          {a.updatedBy ? ` por ${a.updatedBy.displayName}` : ''}
+          {a.updatedBy ? ` ${tr('byName', { name: a.updatedBy.displayName })}` : ''}
         </span>
       </div>
       <HpsmSection title={tr('article')}>

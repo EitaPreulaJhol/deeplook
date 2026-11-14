@@ -8,12 +8,13 @@ below was fixed in its own commit.
 
 ## How it was done
 
-- **Capture:** `scripts/ui-playwright/sweep.mjs` goes through every route and inner tab (57
+- **Capture:** `scripts/ui-playwright/sweep.mjs` goes through every route and inner tab (58
   screens: the application routes, the 6 tabs of the sample record, the 8 of the account and the 9
   of the administration), takes a full-page screenshot and runs checks in the browser: horizontal
   scroll, clipped text (with or without an ellipsis), button or tab with its text on more than one
-  line, overlapping controls, element off screen, regular text larger than the interface standard, broken or distorted image
-  and console errors.
+  line, overlapping controls, element off screen, regular text larger than the interface standard,
+  broken or distorted image, console errors and, in English, "por/em/às" hard-coded before a name or
+  date.
 - **Screens with their own data** (management, assignment, broadcasts, domains, triage rules,
   backup, API docs and page capture): the dedicated scenarios, with the resolution changed through
   `SWEEP_VIEWPORT=WxH`.
@@ -60,6 +61,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 23 | Company domains: variations seen | Domains ("ernpresa.com.b / r") broke mid-name with room to spare in other columns: the monospace class breaks at any character, so the grid squeezed the column to its minimum | all | Domain columns break only when they don't fit (long hashes still break anywhere) |
 | 24 | Static analysis (strings by category, PE, ELF, capa, Ghidra), document VBA macros, sample comparison, search, YARA retroscan samples | More blocks repeated the section body's side padding: headings, lists and columns started 10 to 12 px right of the fields and text of other sections (same cause as item 10) | all | No side padding of their own in these blocks (dialogs, with their own body, stay as they are) |
 | 25 | YARA rules > Rule packs: search in the open pack's rules | The field had a stacked Carbon label ("Search pack rule") and the "N set(s)" count loose below it, while the "New rule" section right above uses left labels | all | Left label ("Search rule:") and the count as the field's help |
+| 26 | Case (summary and Added column), KB article, allowed indicators, YARA retroscans (English interface) | "por" hard-coded before the name: in English it showed "10/24/2026, 9:00:00 AM por Ana Souza" | all, in English | Text from the dictionary ("by Ana Souza"); the English sweep now flags "por/em/às" before a name or date |
 
 ## Discarded (not problems)
 
@@ -67,3 +69,20 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 - **"Show password" button inside the password field**, overlapping on purpose.
 - **401 errors on login and sign-up** (no session) and the **console WebSocket**, which doesn't
   exist in the mocked API.
+- **Case tab title with an ellipsis** ("CASO-0001 · Campanha do bol…"): document tabs are at most
+  14rem wide and show the full title in the tooltip.
+- **Administration tabs cut at 1024x768**: the strip scrolls horizontally (with a thin bar in a real
+  browser); from 1280 px up they all fit.
+- **"API access" header on two lines at 1024x768**: below 1280 px the users table lets names and
+  headers wrap so it fits (item 17).
+- **"Save" in the Change password footer, besides the bar**: the footer (`HpsmFormActions`)
+  complements the section bar, as the UI guide says; add forms (triage rules, assignment, domains,
+  announcements) use only the footer.
+- **Sessions bar outside the section**: the guide allows a tab or a section bar; the actions apply
+  to the whole list.
+- **Narrow one-column forms** (Preferences, Notifications, Password, 2FA, Create backup): the
+  `dl-form-col` column is intentional; two-column forms use the full width.
+- **Stacked labels in dialogs** (import indicators, decoder): the modal pattern.
+- **Sweep 404 errors** (backup, assignment, announcements, domains, management, triage rules,
+  captures, OpenAPI): routes the sweep's mock API lacks; those screens were checked by the dedicated
+  scenarios (`backup.mjs`, `assignment.mjs`, `broadcasts.mjs` and others).

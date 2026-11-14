@@ -8,12 +8,12 @@ foi corrigido num commit próprio.
 
 ## Como foi feita
 
-- **Captura:** `scripts/ui-playwright/sweep.mjs` passa por todas as rotas e abas internas (57 telas:
+- **Captura:** `scripts/ui-playwright/sweep.mjs` passa por todas as rotas e abas internas (58 telas:
   as rotas da aplicação, as 6 abas da ficha da amostra, as 8 da conta e as 9 da administração),
   tira o print de página inteira e roda checagens no navegador: rolagem horizontal, texto cortado
   (com ou sem reticências), botão ou aba com o texto em mais de uma linha, controles sobrepostos,
-  elemento fora da tela, texto comum maior que o padrão da interface, imagem quebrada ou distorcida e
-  erros do console.
+  elemento fora da tela, texto comum maior que o padrão da interface, imagem quebrada ou distorcida,
+  erros do console e, em inglês, "por/em/às" fixos no código antes de nome ou data.
 - **Telas com dados próprios** (gerencial, atribuição, avisos, domínios, regras de triagem, backup,
   documentação da API e captura de página): os cenários dedicados, com a resolução trocada por
   `SWEEP_VIEWPORT=LxA`.
@@ -60,6 +60,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | 23 | Domínios da empresa: variações vistas | Os domínios ("ernpresa.com.b / r") quebravam no meio, com espaço sobrando em outras colunas: a fonte monoespaçada quebra em qualquer caractere, e a grade espremia a coluna até o mínimo | todas | Nas colunas de domínio, quebra só se não couber (hashes longos continuam quebrando em qualquer ponto) |
 | 24 | Análise estática (strings por categoria, PE, ELF, capa, Ghidra), macros VBA do documento, comparar amostras, busca, amostras do retroscan YARA | Mais blocos repetiam o recuo lateral do corpo da seção: títulos, listas e colunas começavam 10 a 12 px à direita dos campos e do texto das outras seções (mesma causa do item 10) | todas | Sem recuo lateral próprio nesses blocos (os diálogos, com corpo próprio, continuam como estão) |
 | 25 | Regras YARA > Pacotes de regras: busca nas regras do pacote aberto | O campo tinha rótulo empilhado do Carbon ("Buscar regra do pacote"), e a contagem "N conjunto(s)" vinha solta embaixo, enquanto a seção "Nova regra" logo acima usa rótulo à esquerda | todas | Rótulo à esquerda ("Buscar regra:") e a contagem como ajuda do campo |
+| 26 | Caso (resumo e coluna Incluída), artigo da KB, indicadores permitidos, retroscans YARA (interface em inglês) | "por" fixo no código antes do nome: em inglês aparecia "10/24/2026, 9:00:00 AM por Ana Souza" | todas, em inglês | Texto pelo dicionário ("by Ana Souza"); a varredura em inglês passou a acusar "por/em/às" antes de nome ou data |
 
 ## Descartados (não são problemas)
 
@@ -67,3 +68,20 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 - **Botão "mostrar senha" dentro do campo de senha**, sobreposto de propósito.
 - **Erros 401 no login e no cadastro** (sem sessão) e o **WebSocket do console**, que não existe na
   API simulada.
+- **Título da aba do caso com reticências** ("CASO-0001 · Campanha do bol…"): as abas de documento
+  têm no máximo 14rem e mostram o título inteiro na dica.
+- **Abas da Administração cortadas em 1024x768**: a fileira rola na horizontal (com barra fina num
+  navegador de verdade); de 1280 px para cima cabem todas.
+- **Cabeçalho "Acesso por API" em duas linhas em 1024x768**: abaixo de 1280 px a tabela de usuários
+  deixa nome e cabeçalhos quebrarem para caber (item 17).
+- **"Salvar" no rodapé da Alterar senha, além da barra**: o rodapé (`HpsmFormActions`) complementa a
+  barra da seção, como diz o guia de interface; os formulários de inclusão (regras de triagem,
+  atribuição, domínios, avisos) usam só o rodapé.
+- **Barra de Sessões fora da seção**: o guia aceita barra de aba ou de seção; as ações valem para a
+  lista inteira.
+- **Formulários de uma coluna estreitos** (Preferências, Notificações, Senha, 2FA, Gerar backup): a
+  coluna `dl-form-col` é proposital; os de duas colunas usam a largura toda.
+- **Rótulos empilhados nos diálogos** (importar indicadores, decodificador): é o padrão dos modais.
+- **Erros 404 da varredura** (backup, atribuição, avisos, domínios, gerencial, regras de triagem,
+  capturas, OpenAPI): rotas que a API simulada da varredura não tem; essas telas foram conferidas
+  pelos cenários dedicados (`backup.mjs`, `assignment.mjs`, `broadcasts.mjs` e outros).

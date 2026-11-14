@@ -142,6 +142,7 @@ export const messages = {
   close: ['Fechar', 'Close'],
   brand: ['DeepLook — Caso', 'DeepLook — Case'],
   printedBy: ['Impresso por {name}', 'Printed by {name}'],
+  byName: ['por {name}', 'by {name}'],
   printedOn: ['em {date}', 'on {date}'],
   printWarning: [
     'Atenção: as amostras deste caso podem ser maliciosas. Manuseie arquivos e links apenas em ambiente isolado.',

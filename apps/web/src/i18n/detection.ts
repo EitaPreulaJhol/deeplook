@@ -234,6 +234,7 @@ export const messages = {
   loadingDots: ['Carregando...', 'Loading...'],
   domainsN: ['Domínios ({n})', 'Domains ({n})'],
   byOn: ['por {name} em {date}', 'by {name} on {date}'],
+  byName: ['por {name}', 'by {name}'],
   newDomain: ['Novo domínio', 'New domain'],
   newDomainHelp: [
     'O domínio registrado (ex.: empresa.com.br); os subdomínios valem junto.',

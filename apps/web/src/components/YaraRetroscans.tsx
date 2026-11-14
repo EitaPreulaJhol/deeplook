@@ -147,7 +147,7 @@ export function YaraRetroscans({
                 <TableCell>{fmt(r.matched)}</TableCell>
                 <TableCell>
                   {fmtDate(r.startedAt)}
-                  {r.startedBy ? ` por ${r.startedBy.displayName}` : ''}
+                  {r.startedBy ? ` ${t('byName', { name: r.startedBy.displayName })}` : ''}
                 </TableCell>
                 <TableCell>
                   <button

@@ -322,7 +322,7 @@ export function CasePage() {
         </span>
         <span>
           <span className="dl-summary__label">{tr('sumCreated')}</span> {fmtDate(c.createdAt)}
-          {c.createdBy ? ` por ${c.createdBy.displayName}` : ''}
+          {c.createdBy ? ` ${tr('byName', { name: c.createdBy.displayName })}` : ''}
         </span>
         {c.closedAt && (
           <span>
@@ -428,7 +428,7 @@ export function CasePage() {
                   </TableCell>
                   <TableCell>
                     {fmtDate(addedAt)}
-                    {addedBy ? ` por ${addedBy.displayName}` : ''}
+                    {addedBy ? ` ${tr('byName', { name: addedBy.displayName })}` : ''}
                   </TableCell>
                   <TableCell>
                     <button

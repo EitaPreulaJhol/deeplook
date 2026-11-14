@@ -7,7 +7,8 @@
 //
 //   sh run-all.sh sweep                      (no container do Playwright, como os cenarios)
 //   SWEEP_SIZES=1366x768 SWEEP_ONLY=admin    so uma resolucao / so as telas com "admin" no nome
-//   SWEEP_LANG=en                            a interface em ingles (prints em out/sweep/<LxA>-en)
+//   SWEEP_LANG=en                            a interface em ingles (prints em out/sweep/<LxA>-en); acusa
+//                                            "por/em/às" antes de nome ou data (texto fixo no codigo)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
@@ -258,6 +259,15 @@ for (const [width, height] of SIZES) {
       await page.evaluate(() => document.fonts.ready);
       await page.waitForTimeout(400);
       const issues = await page.evaluate(inspect);
+      // Em ingles: conectivo portugues antes de nome ou data ("10/24/2026 por Ana") = texto fixo no codigo.
+      if (LANG === 'en') {
+        const pt = await page.evaluate(() =>
+          [...document.body.innerText.matchAll(/(?:^|\s)(por|em|às) (?=[A-ZÀ-Ú0-9])/g)].map((m) =>
+            document.body.innerText.slice(Math.max(0, m.index - 25), m.index + 25).replace(/\s+/g, ' '),
+          ),
+        );
+        for (const text of pt) issues.push({ type: 'texto-pt', el: `"${text}"`, detail: 'conectivo em português na tela em inglês' });
+      }
       await page.screenshot({ path: `${dir}/${screen.name}.png`, fullPage: true });
       report.push({ size: `${width}x${height}`, screen: screen.name, path: screen.path, issues, errors });
     } catch (err) {

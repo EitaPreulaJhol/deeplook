@@ -245,7 +245,7 @@ export function AllowlistPage() {
                   <TableCell>{item.reason}</TableCell>
                   <TableCell>
                     {new Date(item.createdAt).toLocaleDateString(intlLocale())}
-                    {item.createdBy ? ` por ${item.createdBy.displayName}` : ''}
+                    {item.createdBy ? ` ${t('byName', { name: item.createdBy.displayName })}` : ''}
                   </TableCell>
                   <TableCell>
                     <Button
