@@ -21,7 +21,7 @@ analysts see the most day to day; the rest in table order.
 | 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ✅ |
 | 4 | Announcement banner with no margin | ⚪ | S | Global | ✅ |
 | 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ✅ |
-| 6 | API docs field tables | ⚪ | S | API docs | ⬜ |
+| 6 | API docs field tables | ⚪ | S | API docs | ✅ |
 | 7 | Leftover 13 px text | ⚪ | S | Global | ⬜ |
 | 8 | Form button rule in the guide | ⚪ | S | UI guide | ⬜ |
 | 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
@@ -113,6 +113,9 @@ discard confirmation is unchanged.
 - **Where:** API docs, the "Field / In / Type / Description" table of each route.
 - **Problem:** a lighter header and rows without the striping of the other grids.
 - **Proposal:** the app's grid style.
+
+**Implemented.** `.dl-apidoc__fields` now uses the grid design: a gradient header with dividers and
+bold text, striped rows, the cells' 1rem inset and the same border colors.
 
 ### 7. Leftover 13 px text
 

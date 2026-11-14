@@ -5129,22 +5129,44 @@ tr.is-off td {
   background: var(--dl-status-green);
 }
 
+/* Tabela de campos de cada rota: o desenho das grades do app (cabecalho em degrade com divisorias,
+   linhas em zebra), em vez do cabecalho claro proprio (pendencias da varredura visual, item 6). */
 .dl-apidoc__fields {
   width: 100%;
   margin: 0.3rem 0;
+  border: 1px solid var(--dl-panel-border);
   border-collapse: collapse;
+  background: var(--dl-surface);
   font-size: var(--dl-font-size);
 
   th,
   td {
-    padding: 0.2rem 0.4rem;
-    border: 1px solid var(--dl-panel-border);
+    padding: 0.25rem 1rem;
     text-align: left;
     vertical-align: top;
   }
 
   th {
-    background: var(--dl-surface-alt);
+    border-block-end: 1px solid var(--dl-grid-head-border);
+    border-inline-end: 1px solid var(--dl-grid-head-border);
+    background: linear-gradient(180deg, var(--dl-grid-head-1) 0%, var(--dl-grid-head-2) 100%);
+    color: var(--dl-grid-text);
+    font-weight: 700;
+  }
+
+  td {
+    border-block-end: 1px solid var(--dl-table-border);
+    border-inline-end: 1px solid var(--dl-grid-line);
+    color: var(--dl-text);
+  }
+
+  th:last-child,
+  td:last-child {
+    border-inline-end: 0;
+  }
+
+  tbody tr:nth-child(even) td {
+    background-color: var(--dl-table-row-alt);
   }
 }
 

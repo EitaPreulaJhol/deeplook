@@ -21,7 +21,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ✅ |
 | 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ✅ |
 | 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ✅ |
-| 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ⬜ |
+| 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ✅ |
 | 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ⬜ |
 | 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ⬜ |
 | 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
@@ -111,6 +111,9 @@ confirmação ao descartar continua a mesma.
 - **Onde:** Documentação da API, tabelas "Campo / Onde / Tipo / Descrição" de cada rota.
 - **Problema:** cabeçalho mais claro e linhas sem a zebra das outras grades.
 - **Proposta:** o estilo das grades do app.
+
+**Implementado.** A `.dl-apidoc__fields` passou a usar o desenho das grades: cabeçalho em degradê com
+divisórias e texto em negrito, linhas em zebra, o recuo de 1rem das células e as mesmas cores de borda.
 
 ### 7. Texto em 13 px que sobrou
 
