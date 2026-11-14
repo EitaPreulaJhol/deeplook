@@ -65,7 +65,7 @@ Do not use loose colors or measures in components: create or reuse a token.
 
 | Group | Main tokens | Value / use |
 |---|---|---|
-| Typography | `--dl-font-sans`, `--dl-font-size` | Tahoma/Arial, **12px** across the whole app |
+| Typography | `--dl-font-sans`, `--dl-font-size` | Tahoma/Arial, **12px** across the whole app, including card titles and subtitles inside a section (bold); small help text at 11px. Larger only the page title, Markdown, API route and print headings, indicator numbers and the highlighted resolution text |
 | Controls | `--dl-control-h` | **24px** height for fields, selects and buttons |
 | Grid (tables) | `--dl-grid-head-1/2`, `--dl-grid-head-border`, `--dl-grid-line` | gray gradient header, vertical dividers |
 | Sections | `--dl-section-head-1/2`, `--dl-section-title`, `--dl-section-toggle-border` | light-blue header with title `#15428b` and a +/− box |

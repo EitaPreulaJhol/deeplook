@@ -22,7 +22,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ✅ |
 | 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ✅ |
 | 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ✅ |
-| 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ⬜ |
+| 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ✅ |
 | 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ⬜ |
 | 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
 | 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ✅ |
@@ -121,6 +121,14 @@ divisórias e texto em negrito, linhas em zebra, o recuo de 1rem das células e 
 - **Problema:** depois do item 19 da varredura, esses são os únicos textos em 0,8125rem (13 px).
 - **Proposta:** decidir se 13 px é um degrau da escala (título de card, por exemplo) e registrar no
   guia, ou levar para o tamanho do corpo.
+
+**Implementado.** 13 px não é degrau da escala: o guia já dizia "12px no app inteiro". Foram para o
+corpo o título do card da KB, as mensagens e o campo de colar do console, o seletor de idioma do
+login, o título da resolução e os subtítulos dos artefatos do ambiente isolado ("Sysmon da VM" estava
+em 14 px, contra 12 px de "Strings por categoria"). A tabela de tipografia do guia agora diz o que
+pode ser maior: título da página, títulos de Markdown, de rota da API e da impressão, números dos
+indicadores e o texto da resolução em destaque. A checagem `fonte-acima-do-corpo` deixou de abrir
+exceção para a janela do console e não acusa nada na interface.
 
 ### 8. Regra dos botões de formulário no guia
 

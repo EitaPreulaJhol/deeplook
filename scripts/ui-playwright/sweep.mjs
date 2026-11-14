@@ -133,11 +133,11 @@ function inspect() {
   }
 
   // 1c. Texto corrido acima do corpo da interface (--dl-font-size): blocos em 13 px no meio do corpo de
-  //     12 px (varredura visual, item 19). Titulos, numeros grandes e a janela do console a parte.
+  //     12 px (varredura visual, item 19). Titulos, numeros grandes e o destaque da resolucao a parte.
   const rem = parseFloat(getComputedStyle(root).fontSize);
   const token = getComputedStyle(root).getPropertyValue('--dl-font-size').trim();
   const body = token.endsWith('rem') ? parseFloat(token) * rem : parseFloat(token) || 12;
-  const headings = `${big}, h4, legend, .dl-page-header *, .hpsm-section__head *, .dl-print__title, .dl-print h2, .dl-markdown h4, .dl-resolution__text, .dl-console-window, .dl-console-window *`;
+  const headings = `${big}, h4, legend, .dl-page-header *, .hpsm-section__head *, .dl-print__title, .dl-print h2, .dl-markdown h4, .dl-resolution__text, .dl-console-window__title`;
   for (const el of document.querySelectorAll('.dl-content *, .dl-public *')) {
     if (!ownText(el) || !shown(el) || el.closest(headings)) continue;
     // Simbolo solto ("×" de fechar, seta): icone em forma de caractere, nao texto corrido.

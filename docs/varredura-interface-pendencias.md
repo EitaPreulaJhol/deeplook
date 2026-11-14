@@ -22,7 +22,7 @@ analysts see the most day to day; the rest in table order.
 | 4 | Announcement banner with no margin | ⚪ | S | Global | ✅ |
 | 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ✅ |
 | 6 | API docs field tables | ⚪ | S | API docs | ✅ |
-| 7 | Leftover 13 px text | ⚪ | S | Global | ⬜ |
+| 7 | Leftover 13 px text | ⚪ | S | Global | ✅ |
 | 8 | Form button rule in the guide | ⚪ | S | UI guide | ⬜ |
 | 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
 | 10 | Manual findings become sweep checks | 🔴 | M | Tests | ✅ |
@@ -123,6 +123,14 @@ bold text, striped rows, the cells' 1rem inset and the same border colors.
 - **Problem:** after the sweep's item 19, these are the only texts at 0.8125rem (13 px).
 - **Proposal:** decide whether 13 px is a step of the scale (card title, for instance) and record it
   in the guide, or bring them to body size.
+
+**Implemented.** 13 px is not a step of the scale: the guide already said "12px across the whole
+app". The KB card title, the console's messages and paste field, the login language select, the
+resolution title and the isolated environment artifacts' subtitles ("Sysmon da VM" was 14 px, against
+12 px for "Strings by category") went to body size. The guide's typography table now says what may be
+larger: page title, Markdown, API route and print headings, indicator numbers and the highlighted
+resolution text. The `fonte-acima-do-corpo` check no longer exempts the console window and flags
+nothing on the interface.
 
 ### 8. Form button rule in the guide
 

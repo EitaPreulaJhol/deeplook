@@ -3320,7 +3320,7 @@ li .dl-link {
   background: #ffffff;
   color: var(--dl-text);
   font-family: var(--dl-font-sans);
-  font-size: 0.8125rem;
+  font-size: var(--dl-font-size);
 }
 
 .dl-sandbox-console__paste::placeholder {
@@ -3336,7 +3336,7 @@ li .dl-link {
   padding: 0.35rem 0.6rem;
   background: var(--dl-surface-alt);
   color: var(--dl-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--dl-font-size);
 }
 
 .dl-sandbox-console__screen {
@@ -3412,7 +3412,7 @@ li .dl-link {
   border: 1px solid rgb(255 255 255 / 40%);
   background: transparent;
   color: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--dl-font-size);
 
   option {
     color: #161616;
@@ -3425,7 +3425,7 @@ li .dl-link {
 
   h4 {
     margin: 0 0 0.5rem;
-    font-size: 0.875rem;
+    font-size: var(--dl-font-size);
   }
 }
 
@@ -3917,8 +3917,11 @@ table.dl-compare td {
   gap: 0.75rem;
 }
 
+/* Escala de texto (pendencias da varredura visual, item 7): 12 px no app inteiro, inclusive titulo de
+   card, subtitulo dentro de secao e as mensagens do console. Maiores so os titulos de pagina, de
+   Markdown, de rota da API e da impressao, os numeros dos indicadores e o texto da resolucao. */
 .dl-kb-card__title {
-  font-size: 0.8125rem;
+  font-size: var(--dl-font-size);
   font-weight: 600;
 }
 
@@ -4859,7 +4862,7 @@ tr.is-off td {
 
 .dl-resolution__title {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: var(--dl-font-size);
 }
 
 .dl-resolution__text {

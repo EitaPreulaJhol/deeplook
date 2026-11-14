@@ -64,7 +64,7 @@ Não use cores ou medidas soltas nos componentes: crie ou reaproveite um token.
 
 | Grupo | Tokens principais | Valor / uso |
 |---|---|---|
-| Tipografia | `--dl-font-sans`, `--dl-font-size` | Tahoma/Arial, **12px** no app inteiro |
+| Tipografia | `--dl-font-sans`, `--dl-font-size` | Tahoma/Arial, **12px** no app inteiro, inclusive título de card e subtítulo dentro de seção (em negrito); texto miúdo de ajuda em 11px. Maiores só o título da página, títulos de Markdown, de rota da API e da impressão, números dos indicadores e o texto da resolução em destaque |
 | Controles | `--dl-control-h` | **24px** de altura para campos, selects e botões |
 | Grade (tabelas) | `--dl-grid-head-1/2`, `--dl-grid-head-border`, `--dl-grid-line` | cabeçalho em gradiente cinza, divisórias verticais |
 | Seções | `--dl-section-head-1/2`, `--dl-section-title`, `--dl-section-toggle-border` | cabeçalho azul-claro com título `#15428b` e caixinha +/− |
