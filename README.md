@@ -90,6 +90,12 @@ Access: **http://localhost:8080**
 > (and the `.sha256`) from a commit, with only what `docker compose up -d --build` needs: no
 > `node_modules`, `dist`, data, `.env` or tests. `--list` shows what would go in and `--ref` picks
 > the commit. Installing and updating with it is in the [checklist](docs/implantacao.md), step 1.
+>
+> **Versions on GitHub:** pushing a `vX.Y.Z` tag (`git tag -a v1.2.0 -m "DeepLook 1.2.0" && git push
+> origin v1.2.0`) makes the [`release.yml`](.github/workflows/release.yml) action build the same
+> package, check the extracted `.zip` and publish a Release with `deeplook-v1.2.0.zip`, its `.sha256`,
+> the install steps and the change notes. A hyphenated tag (`v1.2.0-rc1`) is a pre-release; the
+> Actions tab can rebuild the package of an existing tag.
 
 > Tip: run in the background with `docker compose up -d` and view the logs with
 > `docker compose logs -f`.

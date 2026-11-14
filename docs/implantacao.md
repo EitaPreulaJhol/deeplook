@@ -39,8 +39,9 @@ Each step says **what to do**, **how to check it** and, when one already exists,
   cd /srv && git clone git@github.com:<you>/deeplook.git && cd deeplook
   cp .env.example .env && chmod 600 .env
   ```
-  **Without Git on the server:** build the package on the development machine and take only the
-  `.zip`. It comes from a commit and holds only what `docker compose up -d --build` uses (compose,
+  **Without Git on the server:** download `deeplook-vX.Y.Z.zip` and its `.sha256` from the
+  repository's **Releases** page on GitHub (built automatically for each version), or build the
+  package on the development machine and take only the `.zip`. It comes from a commit and holds only what `docker compose up -d --build` uses (compose,
   `.env.example`, each service's code, these guides and the server scripts), with no
   `node_modules`, `dist`, data, `.env` or tests. The `RELEASE.txt` inside says which commit it came
   from.

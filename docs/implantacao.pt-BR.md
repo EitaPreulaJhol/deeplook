@@ -40,7 +40,9 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   cd /srv && git clone git@github.com:<voce>/deeplook.git && cd deeplook
   cp .env.example .env && chmod 600 .env
   ```
-  **Sem Git no servidor:** gere o pacote na máquina de desenvolvimento e leve só o `.zip`. Ele sai
+  **Sem Git no servidor:** baixe o `deeplook-vX.Y.Z.zip` e o `.sha256` da página **Releases** do
+  repositório no GitHub (gerados sozinhos a cada versão), ou gere o pacote na máquina de
+  desenvolvimento e leve só o `.zip`. Ele sai
   de um commit e traz só o que o `docker compose up -d --build` usa (compose, `.env.example`, o
   código de cada serviço, estes guias e os scripts do servidor), sem `node_modules`, `dist`, dados,
   `.env` nem testes. O `RELEASE.txt` dentro dele diz de qual commit saiu.
