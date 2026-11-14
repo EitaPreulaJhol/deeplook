@@ -1,7 +1,7 @@
 // Verifica o console do sandbox de ponta a ponta: navegador -> nginx -> API -> PVE.
 // Faz o handshake RFB completo + auth VNC, buscando a senha do console em
 // /api/sandbox/<id>/console/credentials (igual ao noVNC no painel).
-// Uso: node scripts/ws-console-check.mjs <sessionId> <cookie dl_session>
+// Uso: node scripts/ws-console-check.mjs <sessionId> <valor do dl_session | nome=valor>
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -13,7 +13,18 @@ const require = createRequire(resolve(here, '..', 'apps', 'api', 'package.json')
 const WebSocket = require('ws');
 const { DESECBCipher } = await import(
   pathToFileURL(
-    resolve(here, '..', 'apps', 'web', 'node_modules', '@novnc', 'novnc', 'core', 'crypto', 'des.js'),
+    resolve(
+      here,
+      '..',
+      'apps',
+      'web',
+      'node_modules',
+      '@novnc',
+      'novnc',
+      'core',
+      'crypto',
+      'des.js',
+    ),
   ).href
 );
 
@@ -23,10 +34,15 @@ if (!sessionId || !cookie) {
   process.exit(2);
 }
 
+// O valor do cookie, ou o cookie inteiro (nome=valor): sob HTTPS (COOKIE_SECURE) ele se chama
+// __Host-dl_session.
+const cookieHeader = cookie.includes('=') ? cookie : `dl_session=${cookie}`;
 const httpBase = (process.env.DEEPLOOK_BASE ?? 'http://localhost:8080').replace(/\/+$/, '');
-const ws = new WebSocket(`${httpBase.replace('http', 'ws')}/api/sandbox/${sessionId}/console/ws`, [
-  'binary',
-], { headers: { Cookie: `dl_session=${cookie}` } });
+const ws = new WebSocket(
+  `${httpBase.replace('http', 'ws')}/api/sandbox/${sessionId}/console/ws`,
+  ['binary'],
+  { headers: { Cookie: cookieHeader } },
+);
 
 let finished = false;
 const fail = (msg) => {
@@ -61,7 +77,9 @@ ws.on('message', async (data) => {
 
   if (step === 0) {
     if (!buf.toString('latin1').startsWith('RFB ')) return;
-    console.log(`OK: handshake RFB ("${buf.subarray(0, 12).toString('latin1').replace(/\n/g, '\\n')}")`);
+    console.log(
+      `OK: handshake RFB ("${buf.subarray(0, 12).toString('latin1').replace(/\n/g, '\\n')}")`,
+    );
     ws.send(Buffer.from('RFB 003.008\n'), { binary: true });
     step = 1;
     return;
@@ -77,7 +95,7 @@ ws.on('message', async (data) => {
   if (step === 2) {
     // Desafio do VNC: pega a senha efemera no backend, como o painel faz.
     const res = await fetch(`${httpBase}/api/sandbox/${sessionId}/console/credentials`, {
-      headers: { Cookie: `dl_session=${cookie}` },
+      headers: { Cookie: cookieHeader },
     });
     if (!res.ok) return fail(`/console/credentials respondeu HTTP ${res.status}.`);
     const { password } = await res.json();
@@ -123,4 +141,3 @@ ws.on('message', async (data) => {
 
 ws.on('error', (err) => fail(err.message));
 ws.on('close', (code) => fail(`WS fechado com ${code} antes de completar o console.`));
-

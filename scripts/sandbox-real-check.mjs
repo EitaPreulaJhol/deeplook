@@ -6,6 +6,8 @@
 //   node scripts/sandbox-real-check.mjs --read-only   so a fase 0: confere o PVE e o DeepLook, sem
 //                                                     criar nada
 //   node scripts/sandbox-real-check.mjs --keep        nao manda a amostra de teste para a lixeira
+//   CHECK_BOOT_WAIT_S=180 node scripts/...            quanto esperar o boot ate o agente responder
+//                                                     (padrao 480 s)
 //
 // Le o .env da raiz (variaveis do ambiente valem mais). O DeepLook e usado pela propria API, como um
 // analista (DEEPLOOK_BASE, padrao http://localhost:WEB_PORT; CHECK_EMAIL e CHECK_PASSWORD, padrao o
@@ -65,6 +67,8 @@ const DL = {
   password: cfg('CHECK_PASSWORD') || cfg('ADMIN_PASSWORD'),
 };
 const INTERVAL_S = Number(cfg('SANDBOX_ARTIFACT_INTERVAL_S', '60')) || 60;
+/** Boot do Windows ate o qemu-guest-agent responder (mais uma coleta de folga). */
+const BOOT_WAIT_MS = (Number(cfg('CHECK_BOOT_WAIT_S', '480')) + INTERVAL_S) * 1000;
 
 // ------------------------------------------------------------------ relatorio
 
@@ -134,6 +138,7 @@ function pveRequest(method, path, form) {
           if (res.statusCode >= 400) {
             const err = new Error(`PVE ${res.statusCode} em ${method} ${path}`);
             err.status = res.statusCode;
+            err.pveMessage = `PVE ${res.statusCode}: ${json?.message ?? text.slice(0, 200)}`.trim();
             reject(err);
           } else resolve(json?.data ?? null);
         });
@@ -265,6 +270,8 @@ let role = null;
 let reachedRunning = false;
 /** VMID que o DeepLook reservou para o ambiente (mesmo se o clone falhou). */
 let reservedVmid = null;
+/** A lista de processos chegou a ser coletada (o 6.4 so a cobra entao). */
+let gotProcesses = false;
 
 async function phase0() {
   if (!PVE.url || !PVE.user || !PVE.password || !PVE.template) {
@@ -498,11 +505,7 @@ async function runEnvironment() {
   if (consoleRes.status === 200) {
     const ws = spawnSync(
       process.execPath,
-      [
-        join(ROOT, 'scripts', 'ws-console-check.mjs'),
-        sessionId,
-        cookie.replace(/^dl_session=/, ''),
-      ],
+      [join(ROOT, 'scripts', 'ws-console-check.mjs'), sessionId, cookie],
       {
         env: { ...process.env, DEEPLOOK_BASE: DL.base },
         encoding: 'utf8',
@@ -514,7 +517,13 @@ async function runEnvironment() {
       'D',
       ws.status === 0,
       '',
-      (ws.stdout || ws.stderr || '').trim().split('\n').at(-1),
+      `${ws.stdout ?? ''}\n${ws.stderr ?? ''}`
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .slice(-3)
+        .join(' / ')
+        .slice(0, 400),
     );
   } else skip('2.2 console', 'D', `HTTP ${consoleRes.status}: ${consoleRes.json?.error ?? ''}`);
 
@@ -523,24 +532,39 @@ async function runEnvironment() {
   const arts = await until(
     async () => {
       const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
-      return a?.screenshots?.length && (a.processes || a.note) ? a : null;
+      // O agente so responde depois do boot do Windows: espera a lista de processos (o aviso do
+      // agente durante o boot nao e falha).
+      return a?.screenshots?.length && a.processes ? a : null;
     },
-    (INTERVAL_S * 3 + 30) * 1000,
+    BOOT_WAIT_MS,
     5000,
   );
+  gotProcesses = Boolean(arts?.processes);
+  // Sem o agente ate o fim da espera: o print e o motivo vem do estado atual.
+  const current = arts ?? (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+  if (!arts) {
+    // O que o proprio PVE diz do agente (so leitura): a mensagem crua, sem o resumo do DeepLook.
+    for (const probe of ['agent/info', 'agent/get-osinfo']) {
+      const answer = await pveGet(`/nodes/${PVE.node}/qemu/${testVmid}/${probe}`).then(
+        (d) => `ok: ${JSON.stringify(d).slice(0, 160)}`,
+        (e) => String(e.pveMessage ?? e.message).slice(0, 240),
+      );
+      record(`3.0 diagnóstico ${probe}`, 'D', 'pulado', '', answer);
+    }
+  }
   check(
     '2.3 print da tela',
     'O',
-    arts?.screenshots?.length > 0,
+    current?.screenshots?.length > 0,
     secs(Date.now() - t1),
-    `${arts?.screenshots?.length ?? 0} print(s)`,
+    `${current?.screenshots?.length ?? 0} print(s)`,
   );
   check(
     '3.1 lista de processos pelo agente',
     'O',
-    Boolean(arts?.processes) && !arts?.note,
-    `${arts?.processes?.current?.length ?? 0} processo(s)`,
-    arts?.note ?? '',
+    Boolean(arts?.processes),
+    `${current?.processes?.current?.length ?? 0} processo(s)`,
+    arts ? '' : (current?.note ?? 'o agente não respondeu na espera do boot'),
   );
   if (!arts?.processes) return;
 
@@ -677,7 +701,9 @@ async function closeEnvironment() {
     check(
       '6.4 artefatos ficam depois do fim',
       'O',
-      arts?.screenshots?.length > 0 && Boolean(arts?.processes),
+      arts?.screenshots?.length > 0 && (!gotProcesses || Boolean(arts?.processes)),
+      '',
+      gotProcesses ? 'prints e processos' : 'só os prints (o agente não respondeu)',
     );
   } else skip('6.4 artefatos ficam depois do fim', 'O', 'o ambiente não chegou a rodar');
 

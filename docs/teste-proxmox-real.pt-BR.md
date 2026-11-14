@@ -224,7 +224,9 @@ node scripts/sandbox-real-check.mjs               # abre um ambiente, roda a amo
 ```
 
 Ele lê o `.env` da raiz e entra no DeepLook como `CHECK_EMAIL`/`CHECK_PASSWORD` (padrão: o admin do
-`.env`; com um analista, as checagens de admin ficam como "pulado"). No Proxmox, só lê; a única
+`.env`; com um analista, as checagens de admin ficam como "pulado"). `CHECK_BOOT_WAIT_S` (padrão 480)
+é quanto esperar o boot do Windows até o agente responder; se ele não responder, o script pergunta
+ao PVE (`agent/info`) e registra a mensagem crua. No Proxmox, só lê; a única
 escrita é o `agent/exec` que roda a amostra na VM do teste. **O template nunca é alterado**: a escrita
 nele é recusada no script e no próprio DeepLook, e o fim confere que o `digest` da configuração do
 template não mudou. Se algo falhar no meio, o script encerra o ambiente que abriu. Sai com erro se um

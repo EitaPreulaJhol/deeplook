@@ -135,7 +135,9 @@ function agentProblem(err: unknown): string {
   if (status === 403 || /permission/i.test(text)) {
     return 'sem permissão para usar o agente da VM no Proxmox (VM.GuestAgent.Unrestricted no PVE 9, VM.Monitor no 8)';
   }
-  if (/not running|no qemu guest agent|agent/i.test(text)) {
+  // So o "agente nao esta rodando" vira o aviso generico; o resto (ex.: erro do guest-exec) mostra
+  // o detalhe do PVE, que e o que diz o que corrigir.
+  if (/not running|no qemu guest agent/i.test(text)) {
     return 'o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)';
   }
   return `o agente da VM falhou: ${text.slice(0, 160)}`;
