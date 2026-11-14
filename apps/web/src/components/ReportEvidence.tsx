@@ -276,6 +276,8 @@ export function ReportEvidence({
             <TextInput
               id={`evidence-caption-${reportId}`}
               labelText={t('captionOptional')}
+              hideLabel
+              placeholder={t('captionOptional')}
               size="sm"
               maxLength={300}
               value={newCaption}

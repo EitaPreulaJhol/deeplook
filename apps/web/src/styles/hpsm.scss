@@ -4384,10 +4384,13 @@ table.dl-compare td {
   font-size: 0.6875rem;
 }
 
+/* Legenda, botao e ajuda numa linha so, alinhada ao rotulo "Evidencias" como os outros campos
+   (a legenda era um rotulo empilhado no meio do formulario de rotulos a esquerda; varredura
+   visual, item 14). */
 .dl-evidence__add {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.5rem;
 }
 
