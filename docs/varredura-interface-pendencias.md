@@ -18,7 +18,7 @@ analysts see the most day to day; the rest in table order.
 |---|---|---|---|---|---|
 | 1 | Dates and times in the browser's format | 🔴 | S–M | Management / Backup | ✅ |
 | 2 | Users table actions in a menu | 🟡 | S–M | Administration | ✅ |
-| 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ⬜ |
+| 3 | Administration tabs with no scroll cue | 🟡 | S | Administration | ✅ |
 | 4 | Announcement banner with no margin | ⚪ | S | Global | ⬜ |
 | 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ⬜ |
 | 6 | API docs field tables | ⚪ | S | API docs | ⬜ |
@@ -78,6 +78,12 @@ password" is disabled (own account, AD account) became the item's tooltip. One l
   there are more tabs: "Settings" shows cut off.
 - **Proposal:** arrows at the ends when a tab is hidden, or a "More ▾" with the tabs that don't fit.
 - **Done when:** at 1024x768 every tab can be seen and reached without scrolling blind.
+
+**Implemented** in `HpsmTabs`, so it applies to every tab strip (record, account, administration):
+‹ › arrows over the ends, only on the side with a hidden tab, that scroll the strip. The arrows are
+mouse-only (out of Tab order and screen readers); with the keyboard, the focused tab scrolls into
+view. The active or focused tab stops 1.5rem from the end so it isn't under the arrow. New scenario:
+`tab-arrows.mjs`.
 
 ### 4. Announcement banner with no margin
 

@@ -74,8 +74,8 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
   exist in the mocked API.
 - **Case tab title with an ellipsis** ("CASO-0001 · Campanha do bol…"): document tabs are at most
   14rem wide and show the full title in the tooltip.
-- **Administration tabs cut at 1024x768**: the strip scrolls horizontally (with a thin bar in a real
-  browser); from 1280 px up they all fit.
+- **Administration tabs cut at 1024x768**: the strip scrolls horizontally; since the
+  [follow-ups](varredura-interface-pendencias.md) (item 3), with arrows at the ends.
 - **"API access" header on two lines at 1024x768**: below 1280 px the users table lets names and
   headers wrap so it fits (item 17).
 - **"Save" in the Change password footer, besides the bar**: the footer (`HpsmFormActions`)

@@ -745,6 +745,43 @@ h6 {
 }
 
 /* --- 5. Abas no estilo HPSM (usadas pelas paginas) ---------------------- */
+/* Faixa com setas nas pontas que tem aba escondida (pendencias da varredura visual, item 3). */
+.hpsm-tabstrip {
+  position: relative;
+}
+
+.hpsm-tabstrip__arrow {
+  position: absolute;
+  z-index: 1;
+  inset-block: 0.3rem 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.25rem;
+  padding: 0;
+  border: 1px solid var(--dl-btn-border);
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, var(--dl-btn-1) 0%, var(--dl-btn-2) 100%);
+  color: var(--dl-grid-text);
+  font-family: var(--dl-font-sans);
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpsm-tabstrip__arrow:hover {
+  border-color: var(--dl-btn-hover-border);
+  background: linear-gradient(180deg, var(--dl-btn-hover-1) 0%, var(--dl-btn-hover-2) 100%);
+}
+
+.hpsm-tabstrip__arrow--before {
+  inset-inline-start: 0;
+}
+
+.hpsm-tabstrip__arrow--after {
+  inset-inline-end: 0;
+}
+
 .hpsm-tabbar {
   display: flex;
   align-items: flex-end;

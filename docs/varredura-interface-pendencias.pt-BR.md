@@ -18,7 +18,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 |---|---|---|---|---|---|
 | 1 | Datas e horas no formato do navegador | 🔴 | P–M | Gerencial / Backup | ✅ |
 | 2 | Ações da tabela de usuários num menu | 🟡 | P–M | Administração | ✅ |
-| 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ⬜ |
+| 3 | Abas da Administração sem indicação de rolagem | 🟡 | P | Administração | ✅ |
 | 4 | Faixa de avisos gerais sem margem | ⚪ | P | Global | ⬜ |
 | 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ⬜ |
 | 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ⬜ |
@@ -77,6 +77,11 @@ grade. Os cenários `actions`, `two-factor`, `api-tokens` e `ldap-login` passara
   vê que existem mais abas: "Configurações" aparece cortada.
 - **Proposta:** setas nas pontas quando há aba escondida, ou um "Mais ▾" com as abas que não cabem.
 - **Pronto quando:** em 1024x768 dá para ver e alcançar todas as abas sem rolar no escuro.
+
+**Implementado** no `HpsmTabs`, então vale para toda faixa de abas (ficha, conta, administração):
+setas ‹ › sobre as pontas, só do lado que tem aba escondida, que rolam a faixa. As setas são só do
+mouse (fora do Tab e do leitor de tela); pelo teclado, a aba focada rola para a vista. A aba ativa ou
+focada para a 1,5rem da ponta, para não ficar embaixo da seta. Cenário novo: `tab-arrows.mjs`.
 
 ### 4. Faixa de avisos gerais sem margem
 

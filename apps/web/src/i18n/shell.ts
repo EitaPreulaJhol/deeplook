@@ -265,6 +265,8 @@ export const messages = {
   skipToContent: ['Pular para o conteúdo', 'Skip to content'],
   backToStart: ['← Voltar para o início', '← Back to the start'],
   openCalendar: ['Abrir o calendário', 'Open the calendar'],
+  tabsBefore: ['Abas anteriores', 'Previous tabs'],
+  tabsAfter: ['Mais abas', 'More tabs'],
   /** Letras do texto de exemplo da data: dia, mes, ano ("dd/mm/aaaa"). */
   dateLetters: ['d m a', 'd m y'],
   dateInvalid: ['Data inválida: use {pattern}.', 'Invalid date: use {pattern}.'],

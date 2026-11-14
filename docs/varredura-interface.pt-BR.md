@@ -74,8 +74,8 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
   API simulada.
 - **Título da aba do caso com reticências** ("CASO-0001 · Campanha do bol…"): as abas de documento
   têm no máximo 14rem e mostram o título inteiro na dica.
-- **Abas da Administração cortadas em 1024x768**: a fileira rola na horizontal (com barra fina num
-  navegador de verdade); de 1280 px para cima cabem todas.
+- **Abas da Administração cortadas em 1024x768**: a fileira rola na horizontal; desde as
+  [pendências](varredura-interface-pendencias.pt-BR.md) (item 3), com setas nas pontas.
 - **Cabeçalho "Acesso por API" em duas linhas em 1024x768**: abaixo de 1280 px a tabela de usuários
   deixa nome e cabeçalhos quebrarem para caber (item 17).
 - **"Salvar" no rodapé da Alterar senha, além da barra**: o rodapé (`HpsmFormActions`) complementa a
