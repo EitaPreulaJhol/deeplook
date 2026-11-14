@@ -29,6 +29,7 @@ export const INCLUDE = [
   'docker-compose.yml',
   '.env.example',
   'RELEASE.txt',
+  'LICENSE', // a MIT pede o aviso junto de cada copia distribuida
   'README.md',
   'README.pt-BR.md',
   // Guias de implantacao e do Proxmox (os outros documentos sao de desenvolvimento).
