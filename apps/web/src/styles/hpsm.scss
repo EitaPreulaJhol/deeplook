@@ -173,6 +173,20 @@ h6 {
   line-height: 1.4;
 }
 
+/* Recuo do texto igual em todo controle (0,4rem, o da area de texto). O Carbon tira o recuo lateral
+   do campo de um token de densidade que o app nao define: o texto encostava na borda, enquanto a
+   selecao recuava 16 px (varredura visual, item 11). A selecao guarda o espaco da seta a direita. */
+.dl-shell .cds--text-input,
+.dl-shell .cds--number input[type='number'],
+.dl-console-window .cds--text-input {
+  padding-inline: 0.4rem;
+}
+
+.dl-shell .cds--select-input,
+.dl-console-window .cds--select-input {
+  padding-inline-start: 0.4rem;
+}
+
 .dl-shell .cds--checkbox-label,
 .dl-shell .cds--checkbox-label-text {
   font-size: var(--dl-font-size);
