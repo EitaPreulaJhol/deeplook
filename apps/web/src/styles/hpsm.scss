@@ -954,6 +954,12 @@ h6 {
   gap: 0.3rem 1.5rem;
 }
 
+/* Formulario logo abaixo de uma tabela na mesma secao (incluir regra, novo grupo...): o mesmo espaco
+   do caso; sem ele, o primeiro campo encostava na grade (varredura visual, item 21). */
+.cds--data-table-container + .hpsm-form {
+  margin-block-start: 0.75rem;
+}
+
 @media (min-width: 64rem) {
   .hpsm-form--2col {
     grid-template-columns: repeat(2, minmax(0, 1fr));
