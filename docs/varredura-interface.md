@@ -79,8 +79,8 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 - **"API access" header on two lines at 1024x768**: below 1280 px the users table lets names and
   headers wrap so it fits (item 17).
 - **"Save" in the Change password footer, besides the bar**: the footer (`HpsmFormActions`)
-  complements the section bar, as the UI guide says; add forms (triage rules, assignment, domains,
-  announcements) use only the footer.
+  complements the bar on a critical form; the full rule is in the UI guide since the
+  [follow-ups](varredura-interface-pendencias.md) (item 8).
 - **Sessions bar outside the section**: the guide allows a tab or a section bar; the actions apply
   to the whole list.
 - **Narrow one-column forms** (Preferences, Notifications, Password, 2FA, Create backup): the

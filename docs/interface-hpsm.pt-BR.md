@@ -129,6 +129,20 @@ excluir) leva `danger` no `HpsmToolbarButton`: texto em vermelho, depois de um `
 </HpsmSection>
 ```
 
+**Onde fica o botão de gravar:**
+
+1. **Na barra.** A da página, quando o formulário é a tela (editor da KB, caso, nova regra YARA); a
+   da seção, quando ele é uma seção própria (Preferências, Nova chave, Novo modelo, Gerar backup,
+   Nova regra de triagem, Novo aviso, Resolução, Novo relatório).
+2. **Só no rodapé** (`HpsmFormActions`): o formulário de inclusão que mora na mesma seção de uma
+   lista, onde a barra (se houver) é das ações da lista (Domínios da empresa, regras da Atribuição).
+3. **Na barra e no rodapé:** só formulário crítico, em que o rodapé repete a ação para quem não
+   repara na barra (Alterar senha), e as etapas de um assistente, uma ação por etapa (2FA).
+4. **Colado ao campo:** campo único de inclusão (Incluir amostra e Novo comentário no caso, Novo
+   grupo na Atribuição).
+
+Contador de caracteres vai na ajuda do campo (`help`), e não ao lado do botão.
+
 **Validação:** `const check = useRequiredFields([{ id: 'report-summary', label: 'Resumo',
 ok: resumo.length >= 3 }])`; no salvar, `if (!check.check()) return;`, mostre
 `check.message` com `HpsmMessage` e passe `invalid={check.isInvalid('report-summary')}`

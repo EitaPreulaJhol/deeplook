@@ -23,7 +23,7 @@ analysts see the most day to day; the rest in table order.
 | 5 | Console window bar off the pattern | ⚪ | S | Isolated environment | ✅ |
 | 6 | API docs field tables | ⚪ | S | API docs | ✅ |
 | 7 | Leftover 13 px text | ⚪ | S | Global | ✅ |
-| 8 | Form button rule in the guide | ⚪ | S | UI guide | ⬜ |
+| 8 | Form button rule in the guide | ⚪ | S | UI guide | ✅ |
 | 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
 | 10 | Manual findings become sweep checks | 🔴 | M | Tests | ✅ |
 | 11 | Accessibility (axe-core) in the sweep | 🟡 | M | Tests / Global | ⬜ |
@@ -139,6 +139,13 @@ nothing on the interface.
   footer button, edit forms use the section bar and the password change uses both. The rule isn't
   written down.
 - **Proposal:** write the rule in the guide and align whatever strays from it.
+
+**Implemented.** The rule is in the guide ("Where the save button goes"): on the bar (the page's or
+the section's); footer only when the form lives in a list's section; bar and footer only for a
+critical form or a wizard; next to the field for a single-field add. Three forms with their own
+section and a footer-only button strayed from it: New triage rule, New notice and Resolution for the
+submitter. All three now have the action on the section bar, and the resolution counter moved to the
+field's help, as in the History tab's update.
 
 ## So it doesn't regress
 

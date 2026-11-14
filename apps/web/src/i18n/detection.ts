@@ -76,6 +76,7 @@ export const messages = {
   turnOff: ['Desligar', 'Turn off'],
   turnOn: ['Ligar', 'Turn on'],
   newRule: ['Nova regra', 'New rule'],
+  newRuleActions: ['Ações da nova regra', 'New rule actions'],
   namePlaceholder: ['ex.: Documento com macro', 'e.g.: Document with macro'],
   addTags: ['Incluir tags', 'Add tags'],
   addTagsHelp: [

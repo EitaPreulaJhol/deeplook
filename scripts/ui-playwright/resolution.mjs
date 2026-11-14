@@ -36,7 +36,8 @@ await page.selectOption('#resolution-template', T1);
 await page.selectOption('#resolution-template', T2);
 expect('modelos se somam', (await text.inputValue()) === `${T1} ${T2}`, await text.inputValue());
 expect('seletor volta ao início', (await page.locator('#resolution-template').inputValue()) === '');
-expect('contador', (await page.locator('.dl-resolution__count').innerText()) === `${T1.length + T2.length + 1}/500`);
+// O contador fica na ajuda do campo, como na atualizacao da aba Historico.
+expect('contador', (await page.locator('.hpsm-field', { has: page.locator('#resolution-text') }).locator('.hpsm-field__help').innerText()).endsWith(`(${T1.length + T2.length + 1}/500)`));
 
 // 3. Alteracao nao salva pede confirmacao ao trocar de aba.
 await page.click('.hpsm-tab:has-text("Histórico")');

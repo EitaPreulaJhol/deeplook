@@ -18,13 +18,9 @@ import { api } from '../api/client';
 import type { Broadcast } from '../components/BroadcastBanner';
 import type { CaseSummary } from '../components/cases';
 import { useConfirm } from '../components/HpsmConfirm';
-import {
-  HpsmField,
-  HpsmForm,
-  HpsmFormActions,
-  HpsmSection,
-  useRequiredFields,
-} from '../components/HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
+import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
+import { IconAdd } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import { StatusText } from '../components/tags';
@@ -130,6 +126,16 @@ export function BroadcastsPage() {
       {check.message && <HpsmMessage kind="error">{check.message}</HpsmMessage>}
 
       <HpsmSection title={t('newBroadcast')}>
+        {active.length < 3 && (
+          <HpsmToolbar label={t('newBroadcastActions')}>
+            <HpsmToolbarButton
+              label={t('publishBroadcast')}
+              icon={IconAdd}
+              disabled={busy}
+              onClick={() => void publish()}
+            />
+          </HpsmToolbar>
+        )}
         {active.length >= 3 ? (
           <p className="dl-static-empty">{t('maxActive')}</p>
         ) : (
@@ -192,16 +198,6 @@ export function BroadcastsPage() {
                 ))}
               </Select>
             </HpsmField>
-            <HpsmFormActions>
-              <button
-                type="button"
-                className="dl-btn dl-btn--primary"
-                disabled={busy}
-                onClick={publish}
-              >
-                {t('publishBroadcast')}
-              </button>
-            </HpsmFormActions>
           </HpsmForm>
         )}
       </HpsmSection>

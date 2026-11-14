@@ -130,6 +130,20 @@ delete) takes `danger` on `HpsmToolbarButton`: red text, after an `HpsmToolbarDi
 </HpsmSection>
 ```
 
+**Where the save button goes:**
+
+1. **On the bar.** The page's, when the form is the screen (KB editor, case, new YARA rule); the
+   section's, when it is a section of its own (Preferences, New key, New template, Create backup,
+   New triage rule, New notice, Resolution, New report).
+2. **Footer only** (`HpsmFormActions`): an add form living in the same section as a list, where the
+   bar (if any) holds the list's actions (Company domains, Assignment rules).
+3. **Bar and footer:** only a critical form, where the footer repeats the action for whoever misses
+   the bar (Change password), and the steps of a wizard, one action per step (2FA).
+4. **Next to the field:** a single-field add (Add sample and New comment on the case, New group on
+   Assignment).
+
+A character counter goes in the field's help (`help`), not next to the button.
+
 **Validation:** `const check = useRequiredFields([{ id: 'report-summary', label: 'Summary',
 ok: summary.length >= 3 }])`; on save, `if (!check.check()) return;`, show
 `check.message` with `HpsmMessage` and pass `invalid={check.isInvalid('report-summary')}`

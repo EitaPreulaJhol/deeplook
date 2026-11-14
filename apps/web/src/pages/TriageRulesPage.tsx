@@ -16,13 +16,9 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { Priority } from '../api/types';
 import { useConfirm } from '../components/HpsmConfirm';
-import {
-  HpsmField,
-  HpsmForm,
-  HpsmFormActions,
-  HpsmSection,
-  useRequiredFields,
-} from '../components/HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection, useRequiredFields } from '../components/HpsmForm';
+import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
+import { IconAdd } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { PageHeader } from '../components/PageHeader';
 import {
@@ -323,6 +319,14 @@ export function TriageRulesPage() {
       </HpsmSection>
 
       <HpsmSection title={tr('newRule')}>
+        <HpsmToolbar label={tr('newRuleActions')}>
+          <HpsmToolbarButton
+            label={tr('addRule')}
+            icon={IconAdd}
+            disabled={busy}
+            onClick={() => void add()}
+          />
+        </HpsmToolbar>
         <HpsmForm columns={2}>
           <HpsmField
             label={tr('name')}
@@ -402,11 +406,6 @@ export function TriageRulesPage() {
               <SelectItem value="P3" text={tr('p3')} />
             </Select>
           </HpsmField>
-          <HpsmFormActions>
-            <button type="button" className="dl-btn dl-btn--primary" disabled={busy} onClick={add}>
-              {tr('addRule')}
-            </button>
-          </HpsmFormActions>
         </HpsmForm>
       </HpsmSection>
     </>

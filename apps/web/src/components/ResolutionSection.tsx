@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import type { EntryStatus, Verdict } from '../api/types';
 import { localized } from '../i18n';
 import { t as tr } from '../i18n/entry';
-import { HpsmField, HpsmForm, HpsmFormActions, HpsmSection } from './HpsmForm';
+import { HpsmField, HpsmForm, HpsmSection } from './HpsmForm';
+import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
+import { IconAdd } from './icons';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
 /** Mesmo limite da API (routes/entries.ts). */
@@ -124,6 +126,14 @@ export function ResolutionForm({
 
   return (
     <HpsmSection title={tr('resolutionTitle')}>
+      <HpsmToolbar label={tr('resolutionActions')}>
+        <HpsmToolbarButton
+          label={tr('saveResolution')}
+          icon={IconAdd}
+          disabled={busy || !dirty}
+          onClick={() => void save()}
+        />
+      </HpsmToolbar>
       <HpsmForm columns={1}>
         <HpsmField label={tr('insertTemplate')} htmlFor="resolution-template">
           <Select
@@ -143,7 +153,8 @@ export function ResolutionForm({
           label={tr('resolution')}
           htmlFor="resolution-text"
           top
-          help={tr('resolutionHelpLong')}
+          // O contador fica na ajuda, como na atualizacao da aba Historico.
+          help={`${tr('resolutionHelpLong')} (${draft.length}/${RESOLUTION_MAX})`}
         >
           <TextArea
             id="resolution-text"
@@ -156,19 +167,6 @@ export function ResolutionForm({
             onChange={(e) => setDraft(e.target.value)}
           />
         </HpsmField>
-        <HpsmFormActions>
-          <span className="dl-resolution__count">
-            {draft.length}/{RESOLUTION_MAX}
-          </span>
-          <button
-            type="button"
-            className="dl-btn dl-btn--primary"
-            disabled={busy || !dirty}
-            onClick={() => void save()}
-          >
-            {tr('saveResolution')}
-          </button>
-        </HpsmFormActions>
       </HpsmForm>
     </HpsmSection>
   );

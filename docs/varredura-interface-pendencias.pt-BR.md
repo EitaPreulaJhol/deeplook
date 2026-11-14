@@ -23,7 +23,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 5 | Barra da janela do console fora do padrão | ⚪ | P | Ambiente isolado | ✅ |
 | 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ✅ |
 | 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ✅ |
-| 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ⬜ |
+| 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ✅ |
 | 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
 | 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ✅ |
 | 11 | Acessibilidade (axe-core) na varredura | 🟡 | M | Testes / Global | ⬜ |
@@ -137,6 +137,13 @@ exceção para a janela do console e não acusa nada na interface.
   usam só o botão de rodapé, os de edição usam a barra da seção e a troca de senha usa os dois. A
   regra não está escrita.
 - **Proposta:** escrever a regra no guia e alinhar quem fugir dela.
+
+**Implementado.** A regra está no guia ("Onde fica o botão de gravar"): na barra (da página ou da
+seção); só no rodapé quando o formulário mora na seção de uma lista; barra e rodapé só em formulário
+crítico ou assistente; colado ao campo na inclusão de campo único. Fugiam dela três formulários com
+seção própria e botão só no rodapé: Nova regra de triagem, Novo aviso e Resolução para quem enviou.
+Os três passaram a ter a ação na barra da seção, e o contador da resolução foi para a ajuda do campo,
+como na atualização da aba Histórico.
 
 ## Para não regredir
 

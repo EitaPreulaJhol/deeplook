@@ -243,6 +243,7 @@ export const messages = {
     'Team notices for all users, in a banner at the top and on the Home page, until they expire or the person dismisses them. At most 3 active.',
   ],
   newBroadcast: ['Novo aviso', 'New notice'],
+  newBroadcastActions: ['Ações do novo aviso', 'New notice actions'],
   maxActive: [
     'Já há 3 avisos ativos. Encerre um para publicar outro.',
     'There are already 3 active notices. End one to publish another.',

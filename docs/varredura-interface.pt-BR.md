@@ -79,8 +79,8 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 - **Cabeçalho "Acesso por API" em duas linhas em 1024x768**: abaixo de 1280 px a tabela de usuários
   deixa nome e cabeçalhos quebrarem para caber (item 17).
 - **"Salvar" no rodapé da Alterar senha, além da barra**: o rodapé (`HpsmFormActions`) complementa a
-  barra da seção, como diz o guia de interface; os formulários de inclusão (regras de triagem,
-  atribuição, domínios, avisos) usam só o rodapé.
+  barra em formulário crítico; a regra completa está no guia de interface desde as
+  [pendências](varredura-interface-pendencias.pt-BR.md) (item 8).
 - **Barra de Sessões fora da seção**: o guia aceita barra de aba ou de seção; as ações valem para a
   lista inteira.
 - **Formulários de uma coluna estreitos** (Preferências, Notificações, Senha, 2FA, Gerar backup): a

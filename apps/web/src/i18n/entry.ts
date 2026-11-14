@@ -593,6 +593,7 @@ export const messages = {
     "e.g.: It's a scam: do not click the links and delete the message.",
   ],
   saveResolution: ['Salvar resolução', 'Save resolution'],
+  resolutionActions: ['Ações da resolução', 'Resolution actions'],
   tplScam: [
     'É golpe: não clique nos links, não abra os anexos e apague a mensagem.',
     "It's a scam: do not click the links, do not open the attachments and delete the message.",
