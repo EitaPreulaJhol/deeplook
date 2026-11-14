@@ -15,7 +15,8 @@ below was fixed in its own commit. What was left for later is in
   scroll, clipped text (with or without an ellipsis), button or tab with its text on more than one
   line, overlapping controls, element off screen, regular text larger than the interface standard,
   broken or distorted image, console errors and, in English, "por/em/às" hard-coded before a name or
-  date.
+  date. After the sweep came text above body size, double inset and stacked label (see the
+  [follow-ups](varredura-interface-pendencias.md), item 10).
 - **Screens with their own data** (management, assignment, broadcasts, domains, triage rules,
   backup, API docs and page capture): the dedicated scenarios, with the resolution changed through
   `SWEEP_VIEWPORT=WxH`.

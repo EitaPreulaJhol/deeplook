@@ -1,8 +1,9 @@
 // Varredura visual da interface: todas as telas (rotas e abas internas) em varias resolucoes, com
 // a API simulada. Para cada tela: o print de pagina inteira e checagens automaticas no navegador:
 // rolagem horizontal, texto cortado (com e sem reticencias), botao/aba com o texto quebrado em mais
-// de uma linha, controles sobrepostos, elemento vazando do conteiner, imagem quebrada ou distorcida
-// e erros do console. Nao reprova: gera out/sweep/<largura>x<altura>/<tela>.png e o relatorio
+// de uma linha, controles sobrepostos, elemento vazando do conteiner, imagem quebrada ou distorcida,
+// erros do console e, desde as pendencias da varredura (item 10), texto corrido acima do corpo,
+// recuo dobrado dentro de secao e rotulo empilhado fora de dialogo. Nao reprova: gera out/sweep/<largura>x<altura>/<tela>.png e o relatorio
 // out/sweep/report.json (o resumo vai para a saida).
 //
 //   sh run-all.sh sweep                      (no container do Playwright, como os cenarios)
@@ -131,6 +132,60 @@ function inspect() {
     if (size > 15) add('fonte-grande', label(el), `${size}px`);
   }
 
+  // 1c. Texto corrido acima do corpo da interface (--dl-font-size): blocos em 13 px no meio do corpo de
+  //     12 px (varredura visual, item 19). Titulos, numeros grandes e a janela do console a parte.
+  const rem = parseFloat(getComputedStyle(root).fontSize);
+  const token = getComputedStyle(root).getPropertyValue('--dl-font-size').trim();
+  const body = token.endsWith('rem') ? parseFloat(token) * rem : parseFloat(token) || 12;
+  const headings = `${big}, h4, legend, .dl-page-header *, .hpsm-section__head *, .dl-print__title, .dl-print h2, .dl-markdown h4, .dl-resolution__text, .dl-console-window, .dl-console-window *`;
+  for (const el of document.querySelectorAll('.dl-content *, .dl-public *')) {
+    if (!ownText(el) || !shown(el) || el.closest(headings)) continue;
+    // Simbolo solto ("×" de fechar, seta): icone em forma de caractere, nao texto corrido.
+    if ((el.innerText || '').trim().length <= 2) continue;
+    const size = parseFloat(getComputedStyle(el).fontSize);
+    if (size > body + 0.5 && size <= 15) {
+      // Agrupa pela regra: o primeiro elemento com classe propria (o texto muda, o bloco nao).
+      const owner = el.closest('[class]') ?? el;
+      add('fonte-acima-do-corpo', label(owner).replace(/ ".*$/, ''), `${size}px (corpo ${body}px)`);
+    }
+  }
+
+  // 1d. Recuo dobrado: bloco que repete o recuo do corpo da secao (o texto comeca 10-12 px a direita
+  //     do resto; varredura visual, itens 10 e 24). Soma padding, margem e borda do caminho entre o
+  //     corpo da secao e o texto. Recuo legitimo: quadro com borda ou fundo proprios, lista com
+  //     marcador, celula de tabela, controle de formulario, ou a coluna dos campos (rotulo + 0,5rem).
+  const px = (v) => parseFloat(v) || 0;
+  const fieldColumn = px(getComputedStyle(root).getPropertyValue('--dl-field-label-w').trim()) * rem + 0.5 * rem;
+  const framed = (el) => {
+    const cs = getComputedStyle(el);
+    const bg = cs.backgroundColor;
+    return px(cs.borderLeftWidth) > 0 && cs.borderLeftStyle !== 'none'
+      || (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent')
+      || cs.backgroundImage !== 'none';
+  };
+  const legit = 'td, th, input, select, textarea, button, summary, pre, code, svg, .hpsm-field, .cds--form-item, .cds--checkbox-wrapper, .cds--data-table-container, [role=dialog], [role=alertdialog]';
+  for (const section of document.querySelectorAll('.hpsm-section__body')) {
+    for (const el of section.querySelectorAll('*')) {
+      if (!ownText(el) || !shown(el) || getComputedStyle(el).display === 'inline') continue;
+      if (el.closest(legit)) continue;
+      let inset = 0;
+      let culprit = null;
+      let skip = false;
+      for (let a = el; a && a !== section; a = a.parentElement) {
+        const cs = getComputedStyle(a);
+        if (framed(a) || (['UL', 'OL'].includes(a.tagName) && cs.listStyleType !== 'none')) {
+          skip = true;
+          break;
+        }
+        const own = px(cs.paddingLeft) + px(cs.marginLeft) + px(cs.borderLeftWidth);
+        if (own > 0) culprit = a;
+        inset += own;
+      }
+      if (skip || inset < 6 || Math.abs(inset - fieldColumn) < 3) continue;
+      add('recuo-dobrado', label(culprit ?? el).replace(/ ".*$/, ''), `${Math.round(inset)}px além do corpo da seção`);
+    }
+  }
+
   // 2. Botao, aba, item de barra e etiqueta com o texto em mais de uma linha.
   const singleLine = 'button, .cds--btn, [role=tab], .hpsm-tab, .hpsm-toolbar__action, .cds--tag, .hpsm-tree__leaf, label.cds--label, .dl-summary span';
   for (const el of document.querySelectorAll(singleLine)) {
@@ -140,6 +195,13 @@ function inspect() {
   }
   for (const el of document.querySelectorAll('th')) {
     if (shown(el) && lines(el) > 1) add('cabecalho-quebrado', label(el), `${lines(el)} linhas`);
+  }
+
+  // 2b. Rotulo empilhado do Carbon fora de dialogo: as telas usam rotulo a esquerda (HpsmField;
+  //     varredura visual, itens 14, 15, 18 e 25). Os dialogos usam o rotulo empilhado de proposito.
+  for (const el of document.querySelectorAll('label.cds--label, legend.cds--label')) {
+    if (!shown(el) || el.closest('[role=dialog], [role=alertdialog], .hpsm-modal, .cds--modal')) continue;
+    add('rotulo-empilhado', label(el), 'rótulo acima do campo, fora de diálogo');
   }
 
   // 3. Controles sobrepostos (entre irmaos).

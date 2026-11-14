@@ -25,7 +25,7 @@ analysts see the most day to day; the rest in table order.
 | 7 | Leftover 13 px text | ⚪ | S | Global | ⬜ |
 | 8 | Form button rule in the guide | ⚪ | S | UI guide | ⬜ |
 | 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
-| 10 | Manual findings become sweep checks | 🔴 | M | Tests | ⬜ |
+| 10 | Manual findings become sweep checks | 🔴 | M | Tests | ✅ |
 | 11 | Accessibility (axe-core) in the sweep | 🟡 | M | Tests / Global | ⬜ |
 | 12 | Portuguese text outside the dictionaries | 🟡 | S–M | i18n | ⬜ |
 
@@ -130,6 +130,23 @@ which the English sweep flags).
   - **stacked label:** a visible Carbon label outside a dialog.
 - **Done when:** the checks flag the sweep's cases (checked against the previous code) and flag
   nothing in today's interface.
+
+**Implemented.** Three new checks in `sweep.mjs`'s `inspect()`:
+
+- **`fonte-acima-do-corpo`:** running text larger than `--dl-font-size` (up to 15 px; above that the
+  existing `fonte-grande` applies). Headings, the page and section headers, the console window, the
+  resolution highlight and loose symbols ("×" to close) are left out.
+- **`recuo-dobrado`:** inside a section body, adds up padding, margin and border along the path to
+  each text and flags from 6 px. Legitimate inset: a box with a border or background, a list with
+  markers, a table cell, a form control, a dialog, or the field column (label + 0.5rem). The finding
+  is reported by the block that causes the inset.
+- **`rotulo-empilhado`:** a visible Carbon label (`label` or `legend`) outside a dialog.
+
+**Checked** against the pre-sweep web (`0605267`), at 1366x768: it flags the backup text, the risk
+note, the API examples, the case lists, comparison, the KB article, the scheduled backup and the
+labels of backup, evidence and case. On today's interface two remain: the KB card title (item 7,
+still pending) and the Dashboard and Management charts, a double inset the manual review had missed,
+fixed right after.
 
 ### 11. Accessibility (axe-core) in the sweep
 

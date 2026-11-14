@@ -25,7 +25,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ⬜ |
 | 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ⬜ |
 | 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
-| 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ⬜ |
+| 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ✅ |
 | 11 | Acessibilidade (axe-core) na varredura | 🟡 | M | Testes / Global | ⬜ |
 | 12 | Textos em português fora dos dicionários | 🟡 | P–M | i18n | ⬜ |
 
@@ -130,6 +130,23 @@ em inglês acusa).
   - **rótulo empilhado:** rótulo visível do Carbon fora de diálogo.
 - **Pronto quando:** as checagens acusam os casos da varredura (conferido contra o código anterior)
   e não acusam nada na interface de hoje.
+
+**Implementado.** Três checagens novas na `inspect()` do `sweep.mjs`:
+
+- **`fonte-acima-do-corpo`:** texto corrido maior que `--dl-font-size` (até 15 px; acima disso já
+  havia a `fonte-grande`). Ficam de fora títulos, cabeçalho da página e das seções, a janela do
+  console, o destaque da resolução e símbolos soltos ("×" de fechar).
+- **`recuo-dobrado`:** dentro do corpo de uma seção, soma padding, margem e borda do caminho até cada
+  texto e acusa a partir de 6 px. Recuo legítimo: quadro com borda ou fundo, lista com marcador,
+  célula de tabela, controle de formulário, diálogo, ou a coluna dos campos (rótulo + 0,5rem). O
+  achado sai pelo bloco que causa o recuo.
+- **`rotulo-empilhado`:** rótulo visível do Carbon (`label` ou `legend`) fora de diálogo.
+
+**Conferido** com o web de antes da varredura (`0605267`), em 1366x768: acusa o texto do backup, a
+nota de risco, os exemplos da API, as listas do caso, comparar, o artigo da KB, o backup agendado e
+os rótulos do backup, das evidências e do caso. Na interface de hoje sobram dois: o título do card da
+KB (item 7, ainda pendente) e os gráficos do Painel e do Gerencial, um recuo dobrado que a revisão
+manual não tinha visto, corrigido em seguida.
 
 ### 11. Acessibilidade (axe-core) na varredura
 

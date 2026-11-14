@@ -14,7 +14,9 @@ foi corrigido num commit próprio. O que ficou para depois está em
   tira o print de página inteira e roda checagens no navegador: rolagem horizontal, texto cortado
   (com ou sem reticências), botão ou aba com o texto em mais de uma linha, controles sobrepostos,
   elemento fora da tela, texto comum maior que o padrão da interface, imagem quebrada ou distorcida,
-  erros do console e, em inglês, "por/em/às" fixos no código antes de nome ou data.
+  erros do console e, em inglês, "por/em/às" fixos no código antes de nome ou data. Depois da
+  varredura entraram texto acima do corpo, recuo dobrado e rótulo empilhado (ver as
+  [pendências](varredura-interface-pendencias.pt-BR.md), item 10).
 - **Telas com dados próprios** (gerencial, atribuição, avisos, domínios, regras de triagem, backup,
   documentação da API e captura de página): os cenários dedicados, com a resolução trocada por
   `SWEEP_VIEWPORT=LxA`.
