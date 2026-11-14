@@ -2787,8 +2787,10 @@ body:has(.dl-print) {
 }
 
 /* --- 12o. Analise estatica --------------------------------------------- */
+/* Sem recuo lateral proprio: o corpo da secao ja recua (titulos e listas ficavam 12 px a direita dos
+   campos; varredura visual, item 24). */
 .dl-static-block {
-  padding: 0 0.75rem 0.6rem;
+  padding: 0 0 0.6rem;
 }
 
 .dl-static-title {
@@ -3810,7 +3812,7 @@ table.dl-compare td {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
-  padding: 0.5rem 0.6rem;
+  padding-block: 0.25rem;
 }
 
 .dl-compare-list__head {
@@ -4150,7 +4152,7 @@ table.dl-compare td {
 }
 
 .dl-retro-hits {
-  padding: 0.5rem 0.75rem;
+  padding-block: 0.5rem;
 }
 
 .dl-retro-hits__head {
@@ -4175,9 +4177,11 @@ table.dl-compare td {
 }
 
 /* Busca avancada (/busca, item 68): resultados com o trecho destacado. */
+/* Busca, comparar, retroscan YARA e macros do documento: sem recuo lateral proprio, o corpo da secao
+   ja recua (o texto ficava 10 a 12 px a direita do resto; varredura visual, item 24). */
 .dl-search-list {
   margin: 0;
-  padding: 0.25rem 0.75rem;
+  padding: 0;
   list-style: none;
 }
 
@@ -4228,7 +4232,7 @@ table.dl-compare td {
 }
 
 .dl-doc-macros {
-  padding: 0.25rem 0.75rem 0.6rem;
+  padding: 0.25rem 0 0.6rem;
 }
 
 .dl-doc-macros__head {
