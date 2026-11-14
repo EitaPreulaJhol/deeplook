@@ -1157,7 +1157,6 @@ deeplook/
 │     ├─ vitest.config.ts # unit tests and coverage floor
 │     └─ src/         # api, auth, components, pages, styles
 ├─ docs/              # guides (English: *.md; pt-BR: *.pt-BR.md): implantacao, proxmox
-├─ icons/             # icon library (HPSM style)
 ├─ scripts/           # visual tests (ui-playwright/), Trivy (trivy.mjs) and Playwright check
 ├─ trivy.yaml         # severity, justified exceptions and what fails the image scan
 └─ data/              # volumes (git-ignored): pgdata/, minio/, clamav/
@@ -1637,6 +1636,6 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
 
 ## Credits
 
-- **Icons:** the [`icons/`](icons/) folder originated from the **Silk** icons, by Mark James,
+- **Icons:** the interface icons (`apps/web/public/icons`) originated from the **Silk** icons, by Mark James,
   from [FamFamFam](http://www.famfamfam.com/lab/icons/silk/), licensed under
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Thank you!

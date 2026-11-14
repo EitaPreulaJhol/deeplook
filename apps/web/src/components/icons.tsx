@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 /**
- * Icones da pasta `apps/web/public/icons` (origem: pasta `/icons` do projeto).
+ * Icones da pasta `apps/web/public/icons` (origem: os icones Silk, de Mark James; creditos no README).
  * Sao SVGs coloridos 16x16 no lugar dos antigos icones do Carbon.
  */
 export interface IconProps {

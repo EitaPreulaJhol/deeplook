@@ -45,9 +45,8 @@ export const INCLUDE = [
   'scripts/smoke-sandbox.ps1',
   'scripts/ws-console-check.mjs',
   'scripts/sandbox-real-check.mjs',
-  // Template Windows do sandbox: o .bat do Sysmon e os papeis de parede da VM.
+  // Template Windows do sandbox: o .bat do Sysmon e os papeis de parede da VM (wallpaper/).
   'scripts/template-windows',
-  'icons/vmwallpaper',
 ];
 
 /** O que sai de dentro do INCLUDE: so serve para desenvolver e testar. */

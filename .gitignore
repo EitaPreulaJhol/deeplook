@@ -40,3 +40,6 @@ release/
 
 # Arquivos diversos
 .claude
+
+# Biblioteca de icones Silk (origem dos de apps/web/public/icons): so local, fora do Git.
+icons/
