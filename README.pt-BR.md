@@ -11,6 +11,16 @@ Expõe-se à internet via **Cloudflare Tunnel rodando no host (fora do Docker)**
 Créditos especiais ao [Dudu](https://github.com/lluiseduardo-silva) na qual forneceu
 meios de validar a aplicação com o Strix. Obrigado ❤️.
 
+## Capturas de tela
+
+<table>
+<tr><td width="50%"><img src=".github/screenshots/pt-BR/history.png" alt="Histórico Global: todas as amostras enviadas, com filtros, visões salvas e exportação em CSV"><br><sub>Histórico Global: todas as amostras enviadas, com filtros, visões salvas e exportação em CSV</sub></td><td width="50%"><img src=".github/screenshots/pt-BR/sample-reports.png" alt="Ficha da amostra: o relatório do analista, o veredito e os indicadores reconhecidos"><br><sub>Ficha da amostra: o relatório do analista, o veredito e os indicadores reconhecidos</sub></td></tr>
+<tr><td width="50%"><img src=".github/screenshots/pt-BR/sandbox-artifacts.png" alt="Ambiente isolado: processos novos, eventos do Sysmon e a captura de rede com os alertas do Suricata"><br><sub>Ambiente isolado: processos novos, eventos do Sysmon e a captura de rede com os alertas do Suricata</sub></td><td width="50%"><img src=".github/screenshots/pt-BR/case.png" alt="Caso: amostras da mesma campanha, com os relatórios e indicadores delas"><br><sub>Caso: amostras da mesma campanha, com os relatórios e indicadores delas</sub></td></tr>
+<tr><td width="50%"><img src=".github/screenshots/pt-BR/management.png" alt="Relatório gerencial: entrada, tempo até concluir, vereditos, técnicas ATT&amp;CK e carga por analista"><br><sub>Relatório gerencial: entrada, tempo até concluir, vereditos, técnicas ATT&amp;CK e carga por analista</sub></td><td width="50%"><img src=".github/screenshots/pt-BR/compare.png" alt="Comparação de amostras: o que duas amostras têm em comum e o que as diferencia"><br><sub>Comparação de amostras: o que duas amostras têm em comum e o que as diferencia</sub></td></tr>
+</table>
+
+<sub>Capturas com dados de exemplo, geradas pelo <code>scripts/ui-playwright/readme-shots.mjs</code>.</sub>
+
 ---
 
 ## Arquitetura
