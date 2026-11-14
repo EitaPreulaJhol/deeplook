@@ -950,7 +950,10 @@ h6 {
 .hpsm-field {
   display: grid;
   grid-template-columns: var(--dl-field-label-w) minmax(0, 1fr);
-  align-items: center;
+  /* Pelo topo, e nao pelo centro: com texto de ajuda embaixo do campo, o centro descia o rotulo e,
+     numa linha de duas colunas, desalinhava o campo vizinho (varredura visual, item 8). O rotulo
+     se centraliza no controle (24 px) pelo recuo abaixo. */
+  align-items: start;
   column-gap: 0.5rem;
 }
 
@@ -976,11 +979,10 @@ h6 {
   align-items: start;
 }
 
-.hpsm-field--top .hpsm-field__label {
-  padding-block-start: 0.25rem;
-}
-
 .hpsm-field__label {
+  /* (24 px do controle - 12 px do rotulo) / 2: centralizado no campo, na primeira linha da area de
+     texto e acima do texto de ajuda. */
+  padding-block-start: 0.375rem;
   color: var(--dl-text);
   font-size: var(--dl-font-size);
   text-align: end;
