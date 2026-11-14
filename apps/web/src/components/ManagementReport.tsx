@@ -96,7 +96,7 @@ export function ManagementReport({ data: d }: { data: ManagementData }) {
         <Kpi
           value={fmtHours(d.timeToComplete.all.avgHours)}
           label={tr('avgTime')}
-          hint={`mediana ${fmtHours(d.timeToComplete.all.medianHours)}`}
+          hint={tr('medianHint', { value: fmtHours(d.timeToComplete.all.medianHours) })}
         />
         <Kpi value={d.cases.opened} label={tr('casesOpened')} tone="orange" />
         <Kpi value={d.cases.closed} label={tr('casesClosed')} tone="blue" />

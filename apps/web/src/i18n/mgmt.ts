@@ -185,6 +185,7 @@ export const messages = {
   timeByPriority: ['Tempo até concluir por prioridade', 'Time to complete per priority'],
   avgTimeShort: ['Tempo médio', 'Average time'],
   median: ['Mediana', 'Median'],
+  medianHint: ['mediana {value}', 'median {value}'],
   verdictsOfDone: ['Vereditos das concluídas ({n})', 'Verdicts of the completed ones ({n})'],
   topAttackShort: ['Técnicas ATT&CK mais vistas', 'Most seen ATT&CK techniques'],
   noAttackPeriod: [
