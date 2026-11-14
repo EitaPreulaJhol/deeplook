@@ -152,6 +152,14 @@ function inspect() {
     }
   }
 
+  // 1b. Texto comum acima do tamanho da interface (12-13px): titulos e numeros grandes a parte.
+  const big = 'h1, h2, h3, .dl-kpi__value, .hpsm-topbar *, .dl-public__brand, .dl-markdown h2, .dl-markdown h3, .cds--modal-header__heading';
+  for (const el of document.querySelectorAll('body *')) {
+    if (!ownText(el) || !shown(el) || el.closest(big)) continue;
+    const size = parseFloat(getComputedStyle(el).fontSize);
+    if (size > 15) add('fonte-grande', label(el), `${size}px`);
+  }
+
   // 2. Botao, aba, item de barra e etiqueta com o texto em mais de uma linha.
   const singleLine = 'button, .cds--btn, [role=tab], .hpsm-tab, .hpsm-toolbar__action, .cds--tag, .hpsm-tree__leaf, label.cds--label, .dl-summary span';
   for (const el of document.querySelectorAll(singleLine)) {

@@ -12,7 +12,8 @@ below was fixed in its own commit.
   screens: the application routes, the 6 tabs of the sample record, the 8 of the account and the 9
   of the administration), takes a full-page screenshot and runs checks in the browser: horizontal
   scroll, clipped text (with or without an ellipsis), button or tab with its text on more than one
-  line, overlapping controls, element off screen, broken or distorted image and console errors.
+  line, overlapping controls, element off screen, regular text larger than the interface standard, broken or distorted image
+  and console errors.
 - **Screens with their own data** (management, assignment, broadcasts, domains, triage rules,
   backup, API docs and page capture): the dedicated scenarios, with the resolution changed through
   `SWEEP_VIEWPORT=WxH`.
@@ -39,6 +40,7 @@ The screenshots go to `out/sweep/<resolution>/` and the report to `out/sweep/rep
 | 3 | Mandatory password change | The "Senha atual ou temporária:" ("Current or temporary password:") label broke into two lines, with the asterisk out of line with the field | all, in both languages | Only in that box, the label column and the box get wider (the field keeps its size); login and sign-up, with short labels, don't change |
 | 4 | Dashboard | In the indicator cards, the label dropped in cards without a supporting line (the grid rows stretched to the tallest card's height): "Pendentes" and "Em análise" sat lower than their neighbors | all | The card content stays at the top: labels at the same height |
 | 5 | 23 screens and components (Dashboard, Case, Compare, Search, YARA, KB article, API docs, management, triage rules, broadcasts, assignment, domains, settings, backup, sample record sections: document, script, disk, e-mail, capture, reports) | The space between sections varied between 8 px and 32 px: 36 sections had an extra 24 px margin (`dl-mt-lg`), the others didn't. On the Dashboard, "ATT&CK techniques" sat 32 px below the chart; in the record, sections were 8 px apart | all | Neighboring sections always 8 px apart (the default `.hpsm-section` margin); the extra margin left the sections (it stays only on tables and non-section blocks) |
+| 6 | Knowledge base articles and cards, reports on the Case screen, API docs, isolated environment hint | 16px paragraphs amid 12-13px text: Carbon gives every `<p>` the `body-02` size. In the article, paragraphs and quotes came out larger than the list items of the same text | all | In the theme base, the paragraph inherits the context size (the line height stays Carbon's). The sweep gained the off-standard font check |
 
 ## Discarded (not problems)
 

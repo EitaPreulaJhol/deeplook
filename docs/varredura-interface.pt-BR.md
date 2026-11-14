@@ -12,7 +12,8 @@ foi corrigido num commit próprio.
   as rotas da aplicação, as 6 abas da ficha da amostra, as 8 da conta e as 9 da administração),
   tira o print de página inteira e roda checagens no navegador: rolagem horizontal, texto cortado
   (com ou sem reticências), botão ou aba com o texto em mais de uma linha, controles sobrepostos,
-  elemento fora da tela, imagem quebrada ou distorcida e erros do console.
+  elemento fora da tela, texto comum maior que o padrão da interface, imagem quebrada ou distorcida e
+  erros do console.
 - **Telas com dados próprios** (gerencial, atribuição, avisos, domínios, regras de triagem, backup,
   documentação da API e captura de página): os cenários dedicados, com a resolução trocada por
   `SWEEP_VIEWPORT=LxA`.
@@ -39,6 +40,7 @@ Os prints ficam em `out/sweep/<resolução>/` e o relatório em `out/sweep/repor
 | 3 | Troca de senha obrigatória | O rótulo "Senha atual ou temporária:" ("Current or temporary password:") quebrava em duas linhas, com o asterisco desalinhado do campo | todas, nos dois idiomas | Só nesse quadro, a coluna de rótulos e a caixa ficam mais largas (o campo mantém o tamanho); login e cadastro, de rótulos curtos, não mudam |
 | 4 | Painel | Nos cartões de indicadores, o rótulo descia nos cartões sem linha de apoio (as linhas da grade esticavam até a altura do cartão mais alto): "Pendentes" e "Em análise" ficavam mais baixos que os vizinhos | todas | O conteúdo do cartão fica no topo: rótulos na mesma altura |
 | 5 | 23 telas e componentes (Painel, Caso, Comparar, Busca, YARA, artigo da KB, documentação da API, gerencial, regras de triagem, avisos, atribuição, domínios, configurações, backup, seções da ficha da amostra: documento, script, disco, e-mail, captura, relatórios) | O espaço entre seções variava entre 8 px e 32 px: 36 seções tinham uma margem extra de 24 px (`dl-mt-lg`), as demais não. No Painel, "Técnicas ATT&CK" ficava a 32 px do gráfico; na ficha, as seções a 8 px | todas | Seções vizinhas sempre a 8 px (a margem padrão de `.hpsm-section`); a margem extra saiu das seções (fica só em tabelas e blocos que não são seção) |
+| 6 | Artigos e cartões da base de conhecimento, relatórios na tela do Caso, documentação da API, dica do ambiente isolado | Parágrafos em 16px no meio de texto em 12-13px: o Carbon dá a todo `<p>` o tamanho `body-02`. No artigo, os parágrafos e a citação saíam maiores que os itens de lista do mesmo texto | todas | Na base do tema, o parágrafo herda o tamanho do contexto (a altura de linha continua a do Carbon). A varredura ganhou a checagem de fonte fora do padrão |
 
 ## Descartados (não são problemas)
 

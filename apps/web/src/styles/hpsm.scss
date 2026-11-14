@@ -83,6 +83,14 @@
 }
 
 /* --- 2. Base ------------------------------------------------------------- */
+/* O Carbon da a todo <p> o tamanho body-02 (16px); aqui o paragrafo herda o tamanho do contexto
+   (12-13px). Sem isto, o texto dos artigos e relatorios, as dicas e o resumo dos cartoes saiam
+   maiores que o resto da tela (varredura visual, item 6). A altura de linha (1.5, relativa ao
+   tamanho) fica a do Carbon. */
+p {
+  font-size: inherit;
+}
+
 body,
 input,
 button,
