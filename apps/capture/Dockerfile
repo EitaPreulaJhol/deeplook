@@ -1,6 +1,6 @@
 # Navegador isolado (item 80): a mesma imagem do Playwright dos testes visuais,
 # com o Chromium e as dependencias do sistema ja instalados.
-FROM mcr.microsoft.com/playwright:v1.64.1-noble
+FROM mcr.microsoft.com/playwright:v1.65.1-noble
 
 WORKDIR /app
 # As correcoes de seguranca que o Ubuntu ja publicou e a imagem do Playwright ainda nao tem (o apt
