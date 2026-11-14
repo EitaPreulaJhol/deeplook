@@ -24,7 +24,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 6 | Tabelas de campos da documentação da API | ⚪ | P | Documentação da API | ⬜ |
 | 7 | Texto em 13 px que sobrou | ⚪ | P | Global | ⬜ |
 | 8 | Regra dos botões de formulário no guia | ⚪ | P | Guia de interface | ⬜ |
-| 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ⬜ |
+| 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
 | 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ⬜ |
 | 11 | Acessibilidade (axe-core) na varredura | 🟡 | M | Testes / Global | ⬜ |
 | 12 | Textos em português fora dos dicionários | 🟡 | P–M | i18n | ⬜ |
@@ -102,6 +102,22 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
   usuários, caso, artigo e editor da KB, avisos gerais, atribuição, aba Relatórios.
 - **Proposta:** referências dessas telas no tamanho de mesa e no compacto.
 - **Pronto quando:** a volta de qualquer correção da varredura quebra a suíte.
+
+**Implementado.** 13 telas novas na suíte (`scripts/ui-visual/screens.spec.mjs`, bloco "varredura
+visual"): caso, ficha nas abas Análise (com ambiente isolado) e Relatórios, artigo e editor da KB,
+usuários, backup, avisos gerais, atribuição, domínios, comparar, busca e regras YARA com um pacote
+aberto. Um projeto novo, `notebook` (1366x768), roda as marcadas com `@notebook`: histórico, caso,
+relatórios, usuários, avisos e domínios. São 33 capturas ao todo.
+
+Os dados vêm de `scripts/ui-playwright/screen-data.mjs`, que a varredura também passou a usar: caso,
+artigo, ambiente isolado e listas da comparação no estado do mock, e rotas só de leitura de backup,
+atribuição, avisos e domínios (antes eram 404 na varredura). O prazo do ambiente isolado conta do
+relógio congelado, e a varredura passou a rodar no fuso `America/Sao_Paulo`, o mesmo da suíte.
+
+**Conferido:** com o `hpsm.scss` de antes da varredura, 25 das 33 capturas quebram, e cada tela nova
+quebra em pelo menos uma resolução. Ficam fora da suíte: a árvore do Sysmon (item 20, só nos dados do
+cenário `sandbox-artifacts`), a troca de senha (item 3) e o texto em inglês (item 26, que a varredura
+em inglês acusa).
 
 ### 10. Achados manuais viram checagens da varredura
 

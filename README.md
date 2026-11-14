@@ -1561,8 +1561,9 @@ node scripts/trivy.mjs image deeplook-api   # CVE in an image (the same command 
   all of them and lists the ones that failed.
 - **Visual suite** (`scripts/ui-visual`): compares the critical-layout screens with versioned
   screenshots. It does not check behavior (that belongs to the scenarios above), but what the screen
-  *looks like*: spacing, alignment, table, typography, density. Ten screens on desktop and four
-  of them also at 1024 px. It runs in the Playwright image, the same one that generated the baselines, with a
+  *looks like*: spacing, alignment, table, typography, density. 23 screens on desktop (among them
+  the ones fixed in the [visual sweep](docs/varredura-interface.md)), four of them also at 1024 px
+  and six at 1366x768. It runs in the Playwright image, the same one that generated the baselines, with a
   frozen clock, no animation and no cursor: the result does not depend on the machine.
 
 ```bash

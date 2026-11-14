@@ -24,7 +24,7 @@ analysts see the most day to day; the rest in table order.
 | 6 | API docs field tables | ⚪ | S | API docs | ⬜ |
 | 7 | Leftover 13 px text | ⚪ | S | Global | ⬜ |
 | 8 | Form button rule in the guide | ⚪ | S | UI guide | ⬜ |
-| 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ⬜ |
+| 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
 | 10 | Manual findings become sweep checks | 🔴 | M | Tests | ⬜ |
 | 11 | Accessibility (axe-core) in the sweep | 🟡 | M | Tests / Global | ⬜ |
 | 12 | Portuguese text outside the dictionaries | 🟡 | S–M | i18n | ⬜ |
@@ -101,6 +101,23 @@ analysts see the most day to day; the rest in table order.
   article and editor, announcements, assignment, Reports tab.
 - **Proposal:** references of those screens at desktop and compact size.
 - **Done when:** undoing any sweep fix breaks the suite.
+
+**Implemented.** 13 new screens in the suite (`scripts/ui-visual/screens.spec.mjs`, "varredura
+visual" block): case, record on the Analysis (with an isolated environment) and Reports tabs, KB
+article and editor, users, backup, announcements, assignment, domains, comparison, search and YARA
+rules with an open pack. A new project, `notebook` (1366x768), runs the ones tagged `@notebook`:
+history, case, reports, users, announcements and domains. 33 screenshots in all.
+
+The data comes from `scripts/ui-playwright/screen-data.mjs`, which the sweep now uses too: case,
+article, isolated environment and comparison lists in the mock state, and read-only routes for
+backup, assignment, announcements and domains (404s in the sweep before). The isolated environment
+deadline counts from the frozen clock, and the sweep now runs in the `America/Sao_Paulo` time zone,
+the suite's.
+
+**Checked:** with the pre-sweep `hpsm.scss`, 25 of the 33 screenshots break, and every new screen
+breaks in at least one resolution. Left out of the suite: the Sysmon tree (item 20, only in the
+`sandbox-artifacts` scenario data), the password change (item 3) and the English text (item 26,
+which the English sweep flags).
 
 ### 10. Manual findings become sweep checks
 

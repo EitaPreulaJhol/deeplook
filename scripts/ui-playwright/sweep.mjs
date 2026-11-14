@@ -12,7 +12,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
-import { createState, entries, ORIGIN, OUT, runningSandbox, setupMock, users } from './mock-api.mjs';
+import { createState, ORIGIN, OUT, setupMock, users } from './mock-api.mjs';
+import { installScreenRoutes, seedRecords } from './screen-data.mjs';
 
 const SIZES = (process.env.SWEEP_SIZES || '1440x900,1366x768,1280x720,1024x768')
   .split(',')
@@ -22,40 +23,8 @@ const ONLY = process.env.SWEEP_ONLY || '';
 const LANG = process.env.SWEEP_LANG || '';
 
 // ------------------------------------------------------------------ dados de exemplo
-
-function seed(state) {
-  const at = '2026-10-24T09:00:00.000Z';
-  const ana = { id: 'u1', displayName: 'Ana Souza' };
-  const e1 = entries.find((e) => e.id === 'e1');
-  const e2 = entries.find((e) => e.id === 'e2');
-  const ce = (e, reports = []) => ({
-    addedAt: at,
-    addedBy: ana,
-    entry: { id: e.id, title: e.title, type: e.type, status: e.status, verdict: e.verdict, priority: 'P3', createdAt: e.createdAt, sha256: e.sha256 ?? null, url: e.url ?? null, reports },
-  });
-  const event = (id, type, extra = {}) => ({ id, type, detail: null, fromValue: null, toValue: null, createdAt: at, actor: ana, entry: null, ...extra });
-  state.cases = [
-    {
-      id: 'cs1', number: 1, code: 'CASO-0001', title: 'Campanha do boleto', description: 'Phishing com instalador.', status: 'IN_PROGRESS',
-      createdAt: at, updatedAt: at, closedAt: null, assignee: ana, createdBy: ana,
-      entries: [
-        ce(e1, [{ id: 'r1', summary: 'Baixa o segundo estágio.', findings: 'Persiste via chave Run.', iocs: 'updater-cdn.example\n185.0.2.10', verdict: 'MALICIOUS', updatedAt: at, analyst: { id: 'u2', displayName: 'Bruno Lima' }, attackTechniques: ['T1059.001'], evidence: [] }]),
-        ce(e2),
-      ],
-      events: [event('ev1', 'CREATED', { detail: 'Campanha do boleto' }), event('ev3', 'COMMENT', { detail: 'Mesmo remetente nas duas.' })],
-    },
-  ];
-  state.caseIocs.cs1 = [
-    { kind: 'SHA256', value: e1.sha256, source: 'SAMPLE', entries: [{ id: 'e1', title: e1.title, verdict: e1.verdict }] },
-    { kind: 'IPV4', value: '185.0.2.10', source: 'REPORT', entries: [{ id: 'e1', title: e1.title, verdict: e1.verdict }] },
-  ];
-  state.kbArticles.push({
-    id: 'kb2', title: 'Golpe do falso boleto', summary: 'Boleto adulterado.', category: 'SCAM', tags: ['boleto'], body: 'Confira o beneficiário.',
-    createdAt: '2026-10-20T10:00:00.000Z', updatedAt: '2026-10-20T10:00:00.000Z', createdBy: { id: 'u2', displayName: 'Bruno Lima' }, updatedBy: { id: 'u2', displayName: 'Bruno Lima' },
-    canDelete: false, revisions: [], reports: [], citations: 1,
-  });
-  state.sandboxes.e1 = runningSandbox('e1', 40);
-}
+// Caso, artigo, ambiente isolado e as telas com dados proprios: screen-data.mjs (o mesmo da
+// suite visual).
 
 // ------------------------------------------------------------------ telas
 
@@ -75,7 +44,7 @@ const SCREENS = [
   { name: 'busca', path: '/busca?q=boleto' },
   { name: 'painel', path: '/painel' },
   { name: 'revisoes', path: '/revisoes' },
-  { name: 'comparar', path: '/comparar?a=e1&b=e4' },
+  { name: 'comparar', path: '/comparar?a=e1&b=e3' },
   { name: 'indicadores-permitidos', path: '/permitidos' },
   { name: 'atribuicao', path: '/atribuicao' },
   { name: 'gerencial', path: '/gerencial' },
@@ -236,15 +205,17 @@ for (const [width, height] of SIZES) {
   mkdirSync(dir, { recursive: true });
   for (const screen of SCREENS) {
     const state = createState({ loggedIn: !screen.loggedOut });
-    seed(state);
+    seedRecords(state);
     const original = users[0].mustChangePassword;
     if (screen.mustChange) users[0].mustChangePassword = true;
-    const context = await browser.newContext({ viewport: { width, height } });
+    // O fuso da suite visual e do agendamento de backup salvo (screen-data.mjs).
+    const context = await browser.newContext({ viewport: { width, height }, timezoneId: 'America/Sao_Paulo' });
     if (LANG) {
       state.preferences.language = LANG;
       await context.addInitScript((lang) => window.localStorage.setItem('dl-locale', lang), LANG);
     }
     await setupMock(context, state);
+    await installScreenRoutes(context);
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (err) => errors.push(`pageerror: ${err.message.slice(0, 160)}`));

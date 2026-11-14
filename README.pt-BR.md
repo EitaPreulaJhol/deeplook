@@ -1579,8 +1579,9 @@ node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando d
   todos e lista os que falharam.
 - **Suíte visual** (`scripts/ui-visual`): compara as telas de layout crítico com capturas
   versionadas. Não olha o comportamento (isso é dos cenários acima), e sim o que a tela
-  *parece*: espaço, alinhamento, tabela, tipografia, densidade. Dez telas no desktop e quatro
-  delas também em 1024 px. Roda na imagem do Playwright, a mesma que gerou as baselines, com
+  *parece*: espaço, alinhamento, tabela, tipografia, densidade. 23 telas no desktop (entre elas as
+  corrigidas na [varredura visual](docs/varredura-interface.pt-BR.md)), quatro delas também em
+  1024 px e seis em 1366x768. Roda na imagem do Playwright, a mesma que gerou as baselines, com
   relógio congelado, sem animação e sem cursor: o resultado não depende da máquina.
 
 ```bash

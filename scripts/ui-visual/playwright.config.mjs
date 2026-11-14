@@ -52,6 +52,8 @@ export default defineConfig({
     // Telas de lista e de ficha tambem no tamanho em que o layout aperta. As demais ficam
     // so no desktop: cada baseline a mais e mais manutencao.
     { name: 'compacto', use: { viewport: { width: 1024, height: 700 } }, grep: /@compacto/ },
+    // 1366x768: o notebook comum, onde a varredura visual achou as quebras de nome, data e botao.
+    { name: 'notebook', use: { viewport: { width: 1366, height: 768 } }, grep: /@notebook/ },
   ],
   metadata: { frozenTime: NOW },
 });
