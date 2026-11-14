@@ -686,4 +686,13 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['sem conexão com o RouterOS: {0}', 'no connection to RouterOS: {0}'],
   ['o RouterOS não aceitou o pedido ({0}): {1}', 'RouterOS did not accept the request ({0}): {1}'],
   ['o serviço netcap não respondeu ({0})', 'the netcap service did not answer ({0})'],
+  // ---- Protecao do template do sandbox ----
+  [
+    'recusado: o template (VM {0}) é protegido; só leitura e clone',
+    'refused: the template (VM {0}) is protected; read and clone only',
+  ],
+  [
+    'recusado: a VM {0} é um template e não é apagada',
+    'refused: VM {0} is a template and is not deleted',
+  ],
 ];

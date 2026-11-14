@@ -595,10 +595,12 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
   let isos = 0;
 
   try {
-    const list = await pve<{ vmid: number; name?: string; tags?: string }[]>(
+    const list = await pve<{ vmid: number; name?: string; tags?: string; template?: number }[]>(
       `/nodes/${pveNode()}/qemu`,
     );
     for (const vm of list ?? []) {
+      // O template (e qualquer outro template do node) nunca e orfao: o clone herda a etiqueta.
+      if (vm.vmid === env.PROXMOX_TEMPLATE_VMID || vm.template) continue;
       const ours =
         (vm.tags ?? '').split(';').includes(env.SANDBOX_TAG) ||
         (vm.name ?? '').startsWith(`${env.SANDBOX_TAG}-`);

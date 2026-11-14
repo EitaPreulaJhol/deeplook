@@ -229,8 +229,50 @@ function httpRequest(
 }
 
 /** Chama a API do PVE e devolve o campo `data`. */
+/**
+ * Protecao do template (pedido do dono): nada que mude o estado do template sai daqui. No template
+ * so se faz GET e o clone; apagar, ligar, desligar, reconfigurar ou migrar e recusado antes de
+ * chegar ao PVE. A checagem e pelo PROXMOX_TEMPLATE_VMID; o apagar de qualquer VM ainda confere,
+ * no proprio PVE, se ela nao e um template (outro template no node tambem fica protegido).
+ */
+export class TemplateProtectedError extends ProxmoxError {}
+
+function vmTarget(path: string): { vmid: number; rest: string } | null {
+  const m = /\/qemu\/(\d+)(\/[^?]*)?(?:\?.*)?$/.exec(path);
+  return m ? { vmid: Number(m[1]), rest: m[2] ?? '' } : null;
+}
+
+function guardTemplate(path: string, method: PveMethod): void {
+  if (method === 'GET') return;
+  const target = vmTarget(path);
+  if (!target || !env.PROXMOX_TEMPLATE_VMID || target.vmid !== env.PROXMOX_TEMPLATE_VMID) return;
+  if (method === 'POST' && target.rest === '/clone') return;
+  throw new TemplateProtectedError(
+    `recusado: o template (VM ${target.vmid}) é protegido; só leitura e clone`,
+    409,
+  );
+}
+
+/** Antes de apagar uma VM: ela nao pode ser um template (flag `template` na configuracao). */
+async function guardDelete(path: string, method: PveMethod): Promise<void> {
+  const target = vmTarget(path);
+  if (method !== 'DELETE' || !target || target.rest !== '') return;
+  const node = /\/nodes\/([^/]+)\//.exec(path)?.[1] ?? pveNode();
+  const config = await pve<{ template?: number | string }>(
+    `/nodes/${node}/qemu/${target.vmid}/config`,
+  );
+  if (config?.template && String(config.template) !== '0') {
+    throw new TemplateProtectedError(
+      `recusado: a VM ${target.vmid} é um template e não é apagada`,
+      409,
+    );
+  }
+}
+
 export async function pve<T>(path: string, opts: PveRequestOptions = {}): Promise<T> {
   const method = opts.method ?? 'GET';
+  guardTemplate(path, method);
+  await guardDelete(path, method);
 
   if (proxmoxMock) return (await pveMock(path, method, opts.body)) as T;
 
@@ -278,11 +320,13 @@ export async function pveRaw(
   path: string,
   opts: PveRequestOptions = {},
 ): Promise<{ status: number; body: Buffer; contentType: string }> {
+  const method = opts.method ?? 'GET';
+  guardTemplate(path, method);
+  await guardDelete(path, method);
   if (proxmoxMock) {
     return { status: 200, body: pveMockScreenshot(), contentType: 'image/png' };
   }
 
-  const method = opts.method ?? 'GET';
   const ticket = await getTicket();
   const headers: Record<string, string> = { Cookie: ticket.cookie };
   // CSRF obrigatorio em POST/PUT/DELETE, mesmo sem corpo (senao o PVE responde 401).

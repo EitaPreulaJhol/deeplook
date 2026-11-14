@@ -183,7 +183,13 @@ export async function pveMock(
 
   // ---- lista de VMs do node (reconciliacao) ----
   if (clean.endsWith('/qemu') && method === 'GET') {
-    return [...vms.values()].map((vm) => ({ vmid: vm.vmid, name: vm.name, status: vm.status }));
+    return [...vms.values()].map((vm) => ({
+      vmid: vm.vmid,
+      name: vm.name,
+      status: vm.status,
+      tags: vm.tags,
+      template: vm.config.template ? 1 : undefined,
+    }));
   }
 
   const vmMatch = clean.match(/\/qemu\/(\d+)(\/.*)?$/);
@@ -224,7 +230,10 @@ export async function pveMock(
           vmid,
           name: `${env.SANDBOX_TAG}-template`,
           status: 'stopped',
-          config: {},
+          // Como no PVE: o template tem a flag e, de proposito, a etiqueta do sandbox (o clone a
+          // herda); a protecao do template nao pode depender de nenhuma das duas faltar.
+          tags: env.SANDBOX_TAG,
+          config: { template: 1, tags: env.SANDBOX_TAG },
         });
       }
       const vm = vms.get(vmid);
