@@ -175,6 +175,8 @@ services:
       OLETOOLS_URL: ${OLETOOLS_URL-http://oletools:3500}
       OLETOOLS_TOKEN: ${OLETOOLS_TOKEN:-troque-este-token-do-oletools}
       OLETOOLS_MAX_MB: ${OLETOOLS_MAX_MB:-32}
+      # Acima do OLETOOLS_TIMEOUT_S do servico.
+      OLETOOLS_REQUEST_TIMEOUT_S: ${OLETOOLS_REQUEST_TIMEOUT_S:-300}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
@@ -226,6 +228,8 @@ services:
       SURICATA_URL: ${SURICATA_URL:-}
       SURICATA_TOKEN: ${SURICATA_TOKEN:-}
       SURICATA_MAX_MB: ${SURICATA_MAX_MB:-256}
+      # Acima do SURICATA_TIMEOUT_S do servico.
+      SURICATA_REQUEST_TIMEOUT_S: ${SURICATA_REQUEST_TIMEOUT_S:-660}
     # Sem BACKUP_DIR a pasta montada nao e usada (a API nem a recebe acima).
     volumes:
       - ${BACKUP_DIR:-./data/backups}:/backups

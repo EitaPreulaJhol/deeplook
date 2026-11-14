@@ -1101,6 +1101,7 @@ COOKIE_SECURE=true
 | `OLETOOLS_TOKEN` | token shared between the API and the `oletools` service (16+ characters) | — |
 | `OLETOOLS_MAX_MB` | larger documents do not go to oletools | `32` |
 | `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | ceiling of one analysis and container memory | `120` / `1g` |
+| `OLETOOLS_REQUEST_TIMEOUT_S` | how long the API waits for an analysis (above `OLETOOLS_TIMEOUT_S`) | `300` |
 | `OLETOOLS_RECYCLE` | a new container for each analysis; `false` = long-lived process | `true` |
 | `COMPOSE_PROFILES` | `netcap` brings up the `netcap` and `suricata` services (sandbox network capture) | — |
 | `MIKROTIK_URL` / `MIKROTIK_USER` / `MIKROTIK_PASSWORD` | RouterOS 7 REST API of the CHR, for the sandbox network capture sniffer; empty turns the capture off | — |
@@ -1110,6 +1111,7 @@ COOKIE_SECURE=true
 | `NETCAP_MAX_MB` / `NETCAP_TMPFS` | pcap ceiling per environment and the service's in-memory folder | `200` / `1g` |
 | `SURICATA_URL` / `SURICATA_TOKEN` | Suricata over the pcap (ET Open); empty: only the pcap | — |
 | `SURICATA_MAX_MB` / `SURICATA_TIMEOUT_S` | largest pcap read and ceiling of one reading | `256` / `600` |
+| `SURICATA_REQUEST_TIMEOUT_S` | how long the API waits for a reading (above `SURICATA_TIMEOUT_S`) | `660` |
 | `SURICATA_UPDATE_HOURS` | how often the ET Open rules are downloaded again (through `egress`) | `24` |
 | `SURICATA_MEM_LIMIT` / `SURICATA_RECYCLE` | container memory; a new container for each reading | `2g` / `true` |
 | `CAPTURE_RECYCLE` | a new container for each capture; `false` goes back to the long-lived process, which serves queued captures without swapping | `true` |
