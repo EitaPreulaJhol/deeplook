@@ -116,8 +116,6 @@ export function GlobalHistoryPage() {
 
   return (
     <>
-      <PageHeader title={t('history')} subtitle={t('historySubtitle')} />
-
       {/* Analistas: "Pegar a proxima" em todas as filas (Next in queue do HPSM). */}
       {canTriage && (
         <HpsmToolbar label={t('queueActions')}>
@@ -130,12 +128,12 @@ export function GlobalHistoryPage() {
           />
         </HpsmToolbar>
       )}
+      <PageHeader title={t('history')} subtitle={t('historySubtitle')} />
       {next.notice && (
         <HpsmMessage key={next.notice.text} kind={next.notice.kind}>
           {next.notice.text}
         </HpsmMessage>
       )}
-
       <HpsmFilterBar onClear={list.clear} exportHref={exportHref} viewName={viewName} chips={chips}>
         <HpsmFilterItem label={t('search')} htmlFor="q">
           <TextInput
@@ -250,7 +248,6 @@ export function GlobalHistoryPage() {
           </HpsmFilterItem>
         )}
       </HpsmFilterBar>
-
       {query.isLoading && <HpsmLoading text={t('loadingSamples')} />}
       {query.isError && (
         <HpsmMessage kind="error">

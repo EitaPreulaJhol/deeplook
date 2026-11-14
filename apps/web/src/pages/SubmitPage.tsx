@@ -435,8 +435,6 @@ export function SubmitPage() {
 
   return (
     <>
-      <PageHeader title={t('pageTitle')} subtitle={t('pageSubtitle')} />
-
       <HpsmToolbar label={t('submitActions')}>
         <HpsmToolbarButton
           label={
@@ -477,6 +475,7 @@ export function SubmitPage() {
         )}
       </HpsmToolbar>
 
+      <PageHeader title={t('pageTitle')} subtitle={t('pageSubtitle')} />
       {quotaFull && quota && (
         <HpsmMessage kind="warning">
           {t('quotaFull', {

@@ -90,8 +90,9 @@ Arquivos de estilo:
 
 ### Toolbar do registro — `components/HpsmToolbar.tsx`
 
-Ações da tela (Voltar, Salvar, Cancelar…) ficam numa toolbar logo abaixo do título,
-com botões pequenos de ícone + texto. **Não** use botões grandes no meio do conteúdo.
+Ações da tela (Voltar, Salvar, Cancelar…) ficam numa toolbar no topo da tela, **acima** do
+cabeçalho da página (`PageHeader`), em todas as telas, com botões pequenos de ícone + texto.
+**Não** use botões grandes no meio do conteúdo. Toolbar de uma aba ou seção fica dentro dela.
 
 ```tsx
 <HpsmToolbar label="Ações da amostra">

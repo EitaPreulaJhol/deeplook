@@ -91,8 +91,9 @@ Style files:
 
 ### Record toolbar — `components/HpsmToolbar.tsx`
 
-The screen actions (Back, Save, Cancel…) go in a toolbar just below the title,
-with small icon + text buttons. **Do not** use large buttons in the middle of the content.
+The screen actions (Back, Save, Cancel…) go in a toolbar at the top of the screen, **above** the
+page header (`PageHeader`), on every screen, with small icon + text buttons. **Do not** use large
+buttons in the middle of the content. A tab's or section's toolbar goes inside it.
 
 ```tsx
 <HpsmToolbar label="Sample actions">
