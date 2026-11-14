@@ -1,11 +1,11 @@
 # Office e PDF mais fundo (item 7.14; revisao de novembro, 3.2): oletools (BSD-2), de Philippe Lagadec.
 # Sem rede, sem root e com a raiz somente leitura no compose; um container por analise (server.py).
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 COPY requirements.txt /tmp/
 # Wheels de tudo, conferidos pelo hash do lockfile.
 RUN pip wheel --no-cache-dir --require-hashes --wheel-dir /wheels -r /tmp/requirements.txt
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 # As correcoes de seguranca que o Debian ja publicou e a imagem do Python ainda nao tem.
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
