@@ -76,6 +76,15 @@ await settle();
 expect('código errado', (await messages()).includes('Código inválido.') && !state.loggedIn);
 await page.click('.dl-auth__actions a:has-text("Voltar")');
 expect('Voltar volta à senha', (await text('#dl-auth-title')) === 'Entrar' && (await page.inputValue('#password')) === '');
+// Desafio vencido, com a mensagem ja em ingles: volta para a senha pelo codigo do erro, nao pelo
+// texto (pendencias da varredura visual, item 12).
+state.tfaExpired = 'en';
+await login();
+await page.fill('#tfa-login-code', '123456');
+await page.click('button:has-text("Verificar")');
+await settle();
+expect('desafio vencido volta à senha (mensagem em inglês)', (await text('#dl-auth-title')) === 'Entrar' && (await messages()).includes('The verification expired. Sign in again.'), await text('#dl-auth-title'));
+state.tfaExpired = null;
 await login();
 await page.fill('#tfa-login-code', '123456');
 await page.click('button:has-text("Verificar")');

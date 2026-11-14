@@ -239,6 +239,24 @@ async function main() {
     payload: { challenge, code: hotp(base32Decode(totp2), currentStep()) },
   });
   ok('desafio de antes da troca é recusado', second.statusCode === 401, second.json());
+  ok(
+    'desafio vencido traz o código TFA_EXPIRED',
+    second.json().code === 'TFA_EXPIRED',
+    second.json(),
+  );
+  // Em ingles a mensagem muda, o codigo nao: o front decide pelo codigo.
+  const secondEn = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login/2fa',
+    headers: { 'accept-language': 'en' },
+    payload: { challenge, code: hotp(base32Decode(totp2), currentStep()) },
+  });
+  ok(
+    'em inglês: mensagem traduzida, mesmo código',
+    secondEn.json().error === 'The verification expired. Sign in again.' &&
+      secondEn.json().code === 'TFA_EXPIRED',
+    secondEn.json(),
+  );
 
   // 8. Senha acima de 72 bytes (o bcrypt ignora o resto) e recusada.
   await mkUser('longa@x.io');

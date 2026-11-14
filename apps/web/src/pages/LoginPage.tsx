@@ -87,7 +87,14 @@ export function LoginPage() {
     } catch (err) {
       const message = (err as Error).message || t('login.tfaFailed');
       setError(message);
-      if (message.startsWith('A verificação expirou')) setChallenge(null);
+      // Desafio vencido: volta para a etapa da senha. Pelo codigo, nao pelo texto, que vem no idioma
+      // da pessoa (em ingles a comparacao com o portugues falhava).
+      if (
+        err instanceof ApiError &&
+        (err.data as { code?: string } | null)?.code === 'TFA_EXPIRED'
+      ) {
+        setChallenge(null);
+      }
     } finally {
       setLoading(false);
     }

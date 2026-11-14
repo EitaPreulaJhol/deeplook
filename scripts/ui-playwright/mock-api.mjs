@@ -365,7 +365,11 @@ export async function setupMock(context, state) {
       // 2FA: codigo do aplicativo 123456; codigo de recuperacao abcd-efgh.
       if (p === '/api/auth/login/2fa') {
         state.twoFactorCalls.push(body);
-        if (body.challenge !== 'desafio-1') return json(route, 401, { error: 'A verificação expirou. Entre novamente.' });
+        // state.tfaExpired: o desafio venceu; 'en' simula a mensagem ja traduzida pela API.
+        if (body.challenge !== 'desafio-1' || state.tfaExpired) {
+          const error = state.tfaExpired === 'en' ? 'The verification expired. Sign in again.' : 'A verificação expirou. Entre novamente.';
+          return json(route, 401, { error, code: 'TFA_EXPIRED' });
+        }
         if (body.code !== '123456' && body.code !== 'abcd-efgh') return json(route, 401, { error: 'Código inválido.' });
         state.loggedIn = true;
         await renewSession();

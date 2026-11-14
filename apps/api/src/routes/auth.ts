@@ -462,12 +462,16 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
+  // Desafio vencido: o `code` diz ao front para voltar a etapa da senha. A mensagem e traduzida
+  // conforme o idioma (lib/error-language.ts), entao o front nao pode decidir pelo texto.
+  const TFA_EXPIRED = { error: 'A verificação expirou. Entre novamente.', code: 'TFA_EXPIRED' };
+
   app.post('/api/auth/login/2fa', { config: twoFactorLimit }, async (req, reply) => {
     const parsed = TwoFactorSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Dados inválidos.' });
     const challenge = readChallenge(parsed.data.challenge);
     if (!challenge) {
-      return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
+      return reply.code(401).send(TFA_EXPIRED);
     }
     const user = await prisma.user.findUnique({ where: { id: challenge.userId } });
     // Senha trocada depois do desafio: a etapa da senha precisa ser refeita.
@@ -477,7 +481,7 @@ export async function authRoutes(app: FastifyInstance) {
       !user.twoFactorEnabledAt ||
       credentialMark(user.passwordHash) !== challenge.mark
     ) {
-      return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
+      return reply.code(401).send(TFA_EXPIRED);
     }
     const factor = await checkSecondFactor(prisma, user.id, parsed.data.code);
     if (!factor.ok) {
@@ -505,7 +509,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
     if (!(await createSession(reply, user, req))) {
-      return reply.code(401).send({ error: 'A verificação expirou. Entre novamente.' });
+      return reply.code(401).send(TFA_EXPIRED);
     }
     rememberDevice(reply, user.id);
     return reply.send({ user: publicUser(user), recoveryRemaining: factor.remaining ?? null });
