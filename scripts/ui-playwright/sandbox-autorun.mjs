@@ -22,7 +22,7 @@ const expect = (label, ok, detail = '') => {
   if (!ok) failures += 1;
   console.log(`${ok ? 'ok  ' : 'FALHA'} ${label}${detail ? ` (${detail})` : ''}`);
 };
-const panel = page.locator('.cds--tile:has(h3:text-is("Ambiente isolado"))');
+const panel = page.locator('.hpsm-section:has(.hpsm-section__head:has-text("Ambiente isolado"))');
 const box = () => page.locator('#sandbox-autorun-e1');
 const panelText = async () => (await panel.innerText()).replace(/\s+/g, ' ');
 

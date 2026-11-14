@@ -1,4 +1,4 @@
-import { Button, Checkbox, Tile } from '@carbon/react';
+import { Button, Checkbox } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -7,6 +7,7 @@ import type { SandboxSession } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/sandbox';
 import { useConfirm } from './HpsmConfirm';
+import { HpsmSection } from './HpsmForm';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { SandboxArtifacts } from './SandboxArtifacts';
@@ -180,10 +181,9 @@ export function SandboxPanel({ entryId }: Props) {
 
   if (!enabled) {
     return (
-      <Tile className="dl-mb-lg">
-        <h3 className="dl-mb-md">{t('title')}</h3>
+      <HpsmSection title={t('title')}>
         <p className="dl-page-subtitle">{t('disabled')}</p>
-      </Tile>
+      </HpsmSection>
     );
   }
 
@@ -192,9 +192,8 @@ export function SandboxPanel({ entryId }: Props) {
   // ---- Sem ambiente ativo: convite para abrir ----
   if (!session) {
     return (
-      <Tile className="dl-mb-lg">
+      <HpsmSection title={t('title')}>
         <div className="dl-sandbox__head">
-          <h3>{t('title')}</h3>
           <StatusText>{t('noActive')}</StatusText>
         </div>
         <p className="dl-page-subtitle">{t('intro')}</p>
@@ -204,20 +203,19 @@ export function SandboxPanel({ entryId }: Props) {
         <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
           {busy === 'open' ? t('opening') : t('openEnv')}
         </Button>
-      </Tile>
+      </HpsmSection>
     );
   }
 
   // ---- Encerrando ----
   if (session.status === 'STOPPING') {
     return (
-      <Tile className="dl-mb-lg">
+      <HpsmSection title={t('title')}>
         <div className="dl-sandbox__head">
-          <h3>{t('title')}</h3>
           <StatusText tone="gray">{SANDBOX_STATUS_LABELS.STOPPING}</StatusText>
         </div>
         <HpsmLoading text={t('shuttingDown')} />
-      </Tile>
+      </HpsmSection>
     );
   }
 
@@ -227,9 +225,8 @@ export function SandboxPanel({ entryId }: Props) {
     const current = steps.indexOf(session.phase ?? '');
 
     return (
-      <Tile className="dl-mb-lg">
+      <HpsmSection title={t('title')}>
         <div className="dl-sandbox__head">
-          <h3>{t('title')}</h3>
           <StatusText tone="blue">{SANDBOX_STATUS_LABELS[session.status]}</StatusText>
         </div>
         <p className="dl-page-subtitle">
@@ -247,16 +244,15 @@ export function SandboxPanel({ entryId }: Props) {
         </ol>
         <HpsmLoading text={t('takesMoment')} />
         {session.status === 'REQUESTED' && <p className="dl-page-subtitle">{t('waitingQueue')}</p>}
-      </Tile>
+      </HpsmSection>
     );
   }
 
   // ---- Ambiente pronto: console + ações ----
   if (session.status === 'RUNNING') {
     return (
-      <Tile className="dl-mb-lg">
+      <HpsmSection title={t('title')}>
         <div className="dl-sandbox__head">
-          <h3>{t('title')}</h3>
           <div className="dl-taglist">
             <StatusText tone="green">{SANDBOX_STATUS_LABELS.RUNNING}</StatusText>
             <StatusText>
@@ -308,7 +304,7 @@ export function SandboxPanel({ entryId }: Props) {
           </Button>
         </div>
         <SandboxArtifacts sessionId={session.id} running />
-      </Tile>
+      </HpsmSection>
     );
   }
 
@@ -316,9 +312,8 @@ export function SandboxPanel({ entryId }: Props) {
   const failed = session.status === 'FAILED';
 
   return (
-    <Tile className="dl-mb-lg">
+    <HpsmSection title={t('title')}>
       <div className="dl-sandbox__head">
-        <h3>{t('title')}</h3>
         <StatusText tone={failed ? 'red' : 'gray'}>
           {SANDBOX_STATUS_LABELS[session.status]}
         </StatusText>
@@ -340,6 +335,6 @@ export function SandboxPanel({ entryId }: Props) {
         {t('openNewEnv')}
       </Button>
       {!failed && <SandboxArtifacts sessionId={session.id} running={false} />}
-    </Tile>
+    </HpsmSection>
   );
 }

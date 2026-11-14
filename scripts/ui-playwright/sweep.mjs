@@ -94,6 +94,7 @@ const SCREENS = [
   { name: 'api-docs', path: '/user/api' },
   ...entryTabs.map((tab) => ({ name: `amostra-arquivo-${tab}`, path: `/entries/e1?tab=${tab}` })),
   ...entryTabs.slice(0, 3).map((tab) => ({ name: `amostra-link-${tab}`, path: `/entries/e2?tab=${tab}` })),
+  { name: 'amostra-sem-ambiente', path: '/entries/e4?tab=analise' },
   { name: 'amostra-impressao', path: '/entries/e1/imprimir' },
   { name: 'console-sandbox', path: '/sandbox/entry/e1/console' },
   ...userTabs.map((tab) => ({ name: `conta-${tab}`, path: `/user?tab=${tab}` })),

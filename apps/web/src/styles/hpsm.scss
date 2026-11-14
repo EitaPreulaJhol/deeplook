@@ -2978,8 +2978,9 @@ body:has(.dl-print) {
   margin-block-end: 0.25rem;
 }
 
-/* Dentro de um card a barra perde a moldura (o card ja tem). */
-.cds--tile .dl-toolbar {
+/* Dentro de um card ou de uma secao a barra perde a moldura (o quadro ja tem). */
+.cds--tile .dl-toolbar,
+.hpsm-section__body .dl-toolbar {
   margin-bottom: 0.75rem;
   padding: 0;
   background: transparent;
