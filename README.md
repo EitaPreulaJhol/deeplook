@@ -86,6 +86,11 @@ Access: **http://localhost:8080**
 > [deployment checklist](docs/implantacao.md), which covers Cloudflare Access, the capture VPN,
 > the backup kept outside the restored disk, and monitoring.
 
+> **Package for the server:** `node scripts/package-deploy.mjs` builds `release/deeplook-<date>-<commit>.zip`
+> (and the `.sha256`) from a commit, with only what `docker compose up -d --build` needs: no
+> `node_modules`, `dist`, data, `.env` or tests. `--list` shows what would go in and `--ref` picks
+> the commit. Installing and updating with it is in the [checklist](docs/implantacao.md), step 1.
+
 > Tip: run in the background with `docker compose up -d` and view the logs with
 > `docker compose logs -f`.
 

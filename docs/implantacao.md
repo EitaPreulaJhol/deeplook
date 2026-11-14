@@ -39,6 +39,26 @@ Each step says **what to do**, **how to check it** and, when one already exists,
   cd /srv && git clone git@github.com:<you>/deeplook.git && cd deeplook
   cp .env.example .env && chmod 600 .env
   ```
+  **Without Git on the server:** build the package on the development machine and take only the
+  `.zip`. It comes from a commit and holds only what `docker compose up -d --build` uses (compose,
+  `.env.example`, each service's code, these guides and the server scripts), with no
+  `node_modules`, `dist`, data, `.env` or tests. The `RELEASE.txt` inside says which commit it came
+  from.
+  ```bash
+  node scripts/package-deploy.mjs          # release/deeplook-<date>-<commit>.zip and .zip.sha256
+  # on the server, with both files copied over:
+  sha256sum -c deeplook-*.zip.sha256
+  cd /srv && unzip ~/deeplook-<date>-<commit>.zip && mv deeplook-<date>-<commit> deeplook && cd deeplook
+  cp .env.example .env && chmod 600 .env
+  ```
+  To **update** with a new package, extract it elsewhere and sync it over the usual folder: the
+  data lives in `./data` (database, MinIO, backups and alerts) with `.env` next to it, and a new
+  folder per version would leave them behind.
+  ```bash
+  unzip -q deeplook-<date>-<commit>.zip -d /tmp/dl-new
+  rsync -a --delete --exclude=/data/ --exclude=/.env /tmp/dl-new/deeplook-<date>-<commit>/ /srv/deeplook/
+  cd /srv/deeplook && docker compose up -d --build
+  ```
   Edit `.env` as UTF-8 **without a BOM**: with a BOM, the shell's `. ./.env` misreads the first
   line (old Windows Notepad saves with a BOM). Copies such as `.env.bak` stay out of Git (`.env.*`
   in `.gitignore`), but keep them outside the project folder, with `chmod 600`.

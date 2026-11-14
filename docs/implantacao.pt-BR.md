@@ -40,6 +40,25 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   cd /srv && git clone git@github.com:<voce>/deeplook.git && cd deeplook
   cp .env.example .env && chmod 600 .env
   ```
+  **Sem Git no servidor:** gere o pacote na máquina de desenvolvimento e leve só o `.zip`. Ele sai
+  de um commit e traz só o que o `docker compose up -d --build` usa (compose, `.env.example`, o
+  código de cada serviço, estes guias e os scripts do servidor), sem `node_modules`, `dist`, dados,
+  `.env` nem testes. O `RELEASE.txt` dentro dele diz de qual commit saiu.
+  ```bash
+  node scripts/package-deploy.mjs          # release/deeplook-<data>-<commit>.zip e .zip.sha256
+  # no servidor, com os dois arquivos copiados:
+  sha256sum -c deeplook-*.zip.sha256
+  cd /srv && unzip ~/deeplook-<data>-<commit>.zip && mv deeplook-<data>-<commit> deeplook && cd deeplook
+  cp .env.example .env && chmod 600 .env
+  ```
+  Para **atualizar** com um pacote novo, extraia fora e sincronize por cima da pasta de sempre:
+  os dados ficam em `./data` (banco, MinIO, backups e alertas) e o `.env` ao lado, e uma pasta nova
+  a cada versão os deixaria para trás.
+  ```bash
+  unzip -q deeplook-<data>-<commit>.zip -d /tmp/dl-novo
+  rsync -a --delete --exclude=/data/ --exclude=/.env /tmp/dl-novo/deeplook-<data>-<commit>/ /srv/deeplook/
+  cd /srv/deeplook && docker compose up -d --build
+  ```
   Edite o `.env` como UTF-8 **sem BOM**: com o BOM, o `. ./.env` do shell lê errado a primeira
   linha (o Bloco de Notas antigo do Windows grava com BOM). Cópias como `.env.bak` ficam fora do
   Git (`.env.*` no `.gitignore`), mas guarde-as fora da pasta do projeto, com `chmod 600`.

@@ -86,6 +86,11 @@ Acesse: **http://localhost:8080**
 > [checklist de implantação](docs/implantacao.pt-BR.md), que cobre Cloudflare Access, a VPN da captura,
 > o backup fora do disco restaurado uma vez e o monitoramento.
 
+> **Pacote para o servidor:** `node scripts/package-deploy.mjs` gera `release/deeplook-<data>-<commit>.zip`
+> (e o `.sha256`) a partir de um commit, só com o que o `docker compose up -d --build` precisa: sem
+> `node_modules`, `dist`, dados, `.env` nem testes. `--list` mostra o que entraria e `--ref` escolhe
+> o commit. Como instalar e atualizar com ele está no [checklist](docs/implantacao.pt-BR.md), passo 1.
+
 > Dica: rode em segundo plano com `docker compose up -d` e veja os logs com
 > `docker compose logs -f`.
 
