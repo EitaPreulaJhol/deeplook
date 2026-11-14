@@ -26,25 +26,43 @@ validate the application with Strix. Thank you ❤️.
 ## Architecture
 
 ```
-                 Internet
-                    │
-        ┌───────────▼────────────┐
-        │ Cloudflare Tunnel      │  (OUTSIDE Docker, on the host)
-        │ cloudflared            │  points to http://localhost:8080
-        └───────────┬────────────┘
-                    │ 127.0.0.1:8080 (published only on the loopback)
-   ┌────────────────▼──────────────────────────────────────────┐
-   │                     docker compose                        │
-   │  ┌────────┐  /api   ┌────────┐   SQL   ┌──────────────┐   │
-   │  │ web    │────────▶│ api    │────────▶│ db (postgres)│   │
-   │  │ nginx  │         │ Fastify│         └──────────────┘   │
-   │  │ +React │         │ Prisma │   S3    ┌──────────────┐   │
-   │  │ Carbon │         └───┬────┘────────▶│ minio        │   │
-   │  └────────┘             │              └──────────────┘   │
-   │                         │  clamd :3310 ┌──────────────┐   │
-   │                         └─────────────▶│ clamav       │   │
-   │                                        └──────────────┘   │
-   └───────────────────────────────────────────────────────────┘
+                                       Internet
+                                          │
+                           ┌──────────────▼──────────────┐
+                           │ Cloudflare Tunnel (host)    │  outside Docker, to localhost:8080
+                           └──────────────┬──────────────┘
+                                          │ 127.0.0.1:8080 (loopback only)
+┌─────────────────────────────────────────▼──────────────────────────── docker compose ──┐
+│                                                                                        │
+│  ┌─────────┐ /api   ┌───────────────┐  SQL    ┌──────────┐                             │
+│  │ web     │───────▶│ api           │────────▶│ db       │  PostgreSQL 16              │
+│  │ nginx   │        │ Fastify       │  S3     ├──────────┤                             │
+│  │ React   │        │ Prisma        │────────▶│ minio    │  files and backups          │
+│  │         │        │               │ clamd   ├──────────┤                             │
+│  └─────────┘        │               │────────▶│ clamav   │  antivirus                  │
+│                     └┬──────┬──────┬┘         └──────────┘                             │
+│                      │      │      │                                                   │
+│  ┌───────────────────▼┐     │   ┌──▼────────────────────────────────────────────────┐  │
+│  │ capture            │     │   │ analysis services (internal, no internet)         │  │
+│  │ headless browser   │     │   │ capa · ghidra · unpack · oletools                 │  │
+│  └─────────┬──────────┘     │   │ netcap · suricata (netcap profile)                │  │
+│            │                │   └───────────────────────────────────▲───────────────┘  │
+│  ┌─────────▼──────────┐     │                                       │                  │
+│  │ egress             │     │                                       │                  │
+│  │ filtered proxy     │     │                                       │                  │
+│  │ to the Internet    │     │                                       │                  │
+│  └────────────────────┘     │                                       │                  │
+│                             │                                       │                  │
+└─────────────────────────────┼───────────────────────────────────────┼──────────────────┘
+    PVE API: clones, console, │                                       │ TZSP over UDP 37008
+    guest agent               │                                       │ (copy of the traffic)
+┌─────────────────────────────┼───────────────────────────────────────┼──── Proxmox VE ──┐
+│  ┌──────────────────────────▼───────┐             ┌─────────────────┴───────────────┐  │
+│  │ analysis VM                      │  isolated   │ MikroTik CHR (optional)         │  │
+│  │ linked clone of the template,    │────────────▶│ routes the VMs' network;        │  │
+│  │ sample on a CD-ROM, guest agent  │  bridge     │ the api starts its sniffer      │  │
+│  └──────────────────────────────────┘             └─────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **web**: nginx serving the build (React + Carbon) and proxying `/api` to the API. It runs
@@ -64,7 +82,22 @@ validate the application with Strix. Thank you ❤️.
   PyInstaller), with the same isolation. See [Identify and unpack](#identify-and-unpack).
 - **oletools**: VBA and XLM 4.0 macros, DDE and RTF objects in Office documents, with the same
   isolation. See [Office documents (oletools)](#office-documents-oletools).
-- Port published on the host: **`127.0.0.1:8080`** (consumed by the Cloudflare Tunnel).
+- **capture**: isolated browser that captures a link's page, on an internal network with only the
+  API and `egress`. See [Link page capture](#link-page-capture).
+- **egress**: the only way out to the Internet for the capture (and for downloading the Suricata
+  rules): it resolves the name once, refuses internal networks, loopback and cloud metadata, and
+  connects to the checked IP.
+- **netcap** and **suricata** (optional, `netcap` profile): `netcap` receives over UDP the copy of
+  the analysis VM's traffic that the MikroTik CHR sniffer sends (TZSP) and writes one pcap per
+  environment; `suricata` reads that pcap with the ET Open rules, without network.
+- **Proxmox VE** (outside Docker): for each analysis, the API makes a linked clone of the template,
+  puts the sample on a CD-ROM, opens the VM console through its own WebSocket and talks to the
+  guest agent. The **MikroTik CHR**, a VM on the same Proxmox, routes the isolated network of the
+  analysis VMs. See [Analysis sandbox (Proxmox VE)](#analysis-sandbox-proxmox-ve) and the
+  [Proxmox guide](docs/proxmox.md).
+- Ports published on the host: **`127.0.0.1:8080`** (web, consumed by the Cloudflare Tunnel),
+  **`127.0.0.1:9001`** (MinIO console) and, with the `netcap` profile, **UDP 37008** (allow only the
+  CHR's IP in the firewall).
 
 ---
 
