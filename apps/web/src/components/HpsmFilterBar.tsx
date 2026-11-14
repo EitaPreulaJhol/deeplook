@@ -99,34 +99,37 @@ export function HpsmFilterBar({
           </button>
         </span>
       ))}
-      <Button kind="secondary" size="sm" onClick={onClear}>
-        {t('clear')}
-      </Button>
-      {viewName !== undefined && (
-        <Button
-          kind="secondary"
-          size="sm"
-          onClick={() => void saveView()}
-          title={t('saveViewTitle')}
-        >
-          {t('saveView')}
+      {/* Botoes num bloco so: quebram de linha juntos e ficam mais proximos entre si que os filtros. */}
+      <span className="hpsm-filterbar__actions">
+        <Button kind="secondary" size="sm" onClick={onClear}>
+          {t('clear')}
         </Button>
-      )}
-      {viewName !== undefined && canShare && (
-        <Button
-          kind="secondary"
-          size="sm"
-          onClick={() => void shareView()}
-          title={t('shareViewTitle')}
-        >
-          {t('shareView')}
-        </Button>
-      )}
-      {exportHref && (
-        <Button kind="secondary" size="sm" href={exportHref} title={t('exportCsvTitle')}>
-          {t('exportCsv')}
-        </Button>
-      )}
+        {viewName !== undefined && (
+          <Button
+            kind="secondary"
+            size="sm"
+            onClick={() => void saveView()}
+            title={t('saveViewTitle')}
+          >
+            {t('saveView')}
+          </Button>
+        )}
+        {viewName !== undefined && canShare && (
+          <Button
+            kind="secondary"
+            size="sm"
+            onClick={() => void shareView()}
+            title={t('shareViewTitle')}
+          >
+            {t('shareView')}
+          </Button>
+        )}
+        {exportHref && (
+          <Button kind="secondary" size="sm" href={exportHref} title={t('exportCsvTitle')}>
+            {t('exportCsv')}
+          </Button>
+        )}
+      </span>
     </div>
   );
 }

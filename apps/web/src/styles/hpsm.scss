@@ -1807,6 +1807,13 @@ h6 {
   white-space: nowrap;
 }
 
+/* Botoes da barra (Limpar, visoes, CSV) quebram de linha juntos (varredura visual, item 13). */
+.hpsm-filterbar__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.5rem;
+}
+
 .hpsm-filterbar .cds--text-input__field-wrapper,
 .hpsm-filterbar .cds--text-input-wrapper {
   min-inline-size: 14rem;
