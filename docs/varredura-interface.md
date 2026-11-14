@@ -4,7 +4,8 @@
 
 Every screen of the web interface was captured with Playwright, against the mocked API, in four
 resolutions: **1440x900** (reference), **1366x768**, **1280x720** and **1024x768**. Each finding
-below was fixed in its own commit.
+below was fixed in its own commit. What was left for later is in
+[`varredura-interface-pendencias.md`](varredura-interface-pendencias.md).
 
 ## How it was done
 

@@ -4,7 +4,8 @@
 
 Todas as telas da interface web foram capturadas com o Playwright, contra a API simulada, em quatro
 resoluções: **1440x900** (referência), **1366x768**, **1280x720** e **1024x768**. Cada achado abaixo
-foi corrigido num commit próprio.
+foi corrigido num commit próprio. O que ficou para depois está em
+[`varredura-interface-pendencias.pt-BR.md`](varredura-interface-pendencias.pt-BR.md).
 
 ## Como foi feita
 
