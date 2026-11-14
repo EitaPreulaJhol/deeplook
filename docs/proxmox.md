@@ -99,8 +99,9 @@ server-side screenshot endpoint** (on PVE 9 the route `/nodes/{node}/qemu/{vmid}
      that starts on every boot, but the log keeps what happened while the template was being
      prepared, and a stopped service would go unnoticed.
      [`scripts/template-windows/sysmon.bat`](../scripts/template-windows/sysmon.bat)
-     runs on every boot of every environment and: installs Sysmon if the service doesn't exist (or
-     just reapplies the configuration, so changing the XML doesn't require reinstalling), raises the
+     runs on every boot of every environment and: installs Sysmon if the service doesn't exist (up to
+     3 attempts, undoing the failed one), or just reapplies the configuration (changing the XML
+     doesn't require reinstalling), raises the
      log to 64 MB, clears the log, so the environment starts with no old events, and checks that the
      service is running. What it did goes to `sysmon.log`, in the same folder.
      1. Put in a template folder with no spaces or parentheses in the path (e.g.

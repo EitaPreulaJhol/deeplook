@@ -7,6 +7,9 @@ rem SYSTEM on every boot through a scheduled task:
 rem
 rem   schtasks /create /tn "DeepLook\Sysmon" /tr "\"C:\Tools\Sysmon\sysmon.bat\"" /sc onstart /delay 0000:30 /ru SYSTEM /rl HIGHEST /f
 rem
+rem Run by the task, as SYSTEM: the script moves to its own folder (the task starts in
+rem C:\Windows\System32) and retries a failed install up to 3 times, undoing it in between.
+rem
 rem At boot the task can start before the Windows Event Log service, which Sysmon needs to register
 rem its channel (wevtutil): the script waits for that service first (up to 120 s), and the task
 rem starts 30 s after boot.
@@ -18,6 +21,8 @@ rem to sysmon.log, in the same folder.
 rem ---------------------------------------------------------------------------------------------
 setlocal
 set "DIR=%~dp0"
+rem As SYSTEM the task starts in C:\Windows\System32: run from this folder, as by hand.
+cd /d "%DIR%"
 set "SYSMON=%DIR%Sysmon64.exe"
 set "CONFIG=%DIR%sysmonconfig.xml"
 set "LOG=%DIR%sysmon.log"
@@ -26,6 +31,7 @@ rem Sysmon log size: 64 MB.
 set "LOGSIZE=67108864"
 
 echo [%date% %time%] start > "%LOG%"
+for /f "delims=" %%U in ('whoami') do echo running as %%U in %CD% >> "%LOG%"
 
 rem Wait for the Windows Event Log service. ping is the sleep: timeout fails without a console.
 set /a WAITED=0
@@ -58,9 +64,19 @@ set "RC=%errorlevel%"
 goto applied
 
 :install
-echo installing Sysmon >> "%LOG%"
+rem Up to 3 attempts: a failed install is undone (-u force) before trying again 15 s later.
+set /a TRY=0
+:installtry
+set /a TRY+=1
+echo installing Sysmon, attempt %TRY% of 3 >> "%LOG%"
 "%SYSMON%" -accepteula -i "%CONFIG%" >> "%LOG%" 2>&1
 set "RC=%errorlevel%"
+if "%RC%"=="0" goto applied
+if %TRY% geq 3 goto applied
+echo install failed with code %RC%: undoing it and trying again in 15 s >> "%LOG%"
+"%SYSMON%" -u force >> "%LOG%" 2>&1
+ping -n 16 127.0.0.1 >nul
+goto installtry
 
 :applied
 echo Sysmon exit code: %RC% >> "%LOG%"

@@ -104,8 +104,9 @@ captura client-side funciona em qualquer versão do PVE. (O endpoint
      em todo boot, mas o log guarda o que aconteceu enquanto o template era preparado, e um serviço
      parado passaria despercebido. O
      [`scripts/template-windows/sysmon.bat`](../scripts/template-windows/sysmon.bat)
-     roda a cada boot de cada ambiente e: instala o Sysmon se o serviço não existir (ou só reaplica
-     a configuração, então trocar o XML não exige refazer a instalação), aumenta o log para 64 MB,
+     roda a cada boot de cada ambiente e: instala o Sysmon se o serviço não existir (com até 3
+     tentativas, desfazendo a que falhou), ou só reaplica
+     a configuração (trocar o XML não exige refazer a instalação), aumenta o log para 64 MB,
      limpa o log, para o ambiente começar sem eventos antigos, e confere que o serviço está rodando.
      O que fez fica em `sysmon.log`, na mesma pasta (em inglês, como o resto do arquivo).
      1. Ponha numa pasta do template, sem espaços nem parênteses no caminho (ex.:
