@@ -64,10 +64,12 @@ Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
 # 2. Pedido HTTP que dispara uma regra ET Open conhecida ("GPL ATTACK_RESPONSE id check
 #    returned root"): o testmynids.org existe para testar IDS.
 try { Invoke-WebRequest -UseBasicParsing http://testmynids.org/uid/index.html | Out-Null } catch {}
-# 3. Um arquivo e uma chave de inicializacao (Sysmon 11 e 13). A VM e descartada no fim.
+# 3. Um arquivo e uma chave de inicializacao (Sysmon 11 e 13). A VM e descartada no fim. A chave
+#    Run nao existe no perfil do SYSTEM (o agente roda como ele): cria so se faltar.
 Set-Content -Path "$env:PUBLIC\deeplook-teste.txt" -Value 'teste do DeepLook'
-New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' `
-  -Name DeepLookTeste -Value 'notepad.exe' -Force | Out-Null
+$run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+if (-not (Test-Path $run)) { New-Item -Path $run -Force | Out-Null }
+New-ItemProperty -Path $run -Name DeepLookTeste -Value 'notepad.exe' -Force | Out-Null
 # 4. Um processo filho (arvore de processos).
 Start-Process notepad.exe
 ```

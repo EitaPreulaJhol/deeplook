@@ -205,14 +205,32 @@ export function parseSysmon(output: string): SysmonSummary {
  * Indicadores do que a VM fez: os nomes consultados no DNS, os destinos das conexoes (nome ou IP,
  * fora das faixas privadas e do loopback). Vao para os IOCs sugeridos da amostra.
  */
+/** Sufixos que nunca sao indicador: redes locais, reverso e o dominio de teste (RFC 2606/6761). */
+const LOCAL_SUFFIXES = /\.(invalid|local|localhost|localdomain|internal|lan|arpa|test)$/;
+
+/**
+ * Nome que pode virar IOC: com um ponto no meio (sem `wpad` ou nome NetBIOS da propria rede), sem o
+ * marcador `..localmachine` do Sysmon e fora dos sufixos locais. Visto no teste contra o Windows
+ * real (plano pos-revisao, 5.5): sem este filtro, o ruido do proprio Windows ia para o relatorio.
+ */
+export function publicName(value: string | null | undefined): string | null {
+  const name = (value ?? '').trim().toLowerCase().replace(/\.$/, '');
+  if (!/^[a-z0-9_-]+(\.[a-z0-9_-]+)+$/.test(name)) return null;
+  return LOCAL_SUFFIXES.test(name) ? null : name;
+}
+
 export function sysmonIndicators(summary: SysmonSummary): string[] {
   if (!summary.available) return [];
   const privateIp =
-    /^(10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|::1$|fe80:|fc|fd)/i;
+    /^(10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|::1$|fe80:|fc|fd)/i;
   const out = new Set<string>();
-  for (const q of summary.dns) out.add(q.query.toLowerCase());
+  for (const q of summary.dns) {
+    const name = publicName(q.query);
+    if (name) out.add(name);
+  }
   for (const c of summary.network) {
-    if (c.dstHost) out.add(c.dstHost.toLowerCase());
+    const host = publicName(c.dstHost);
+    if (host) out.add(host);
     else if (c.dstIp && !privateIp.test(c.dstIp)) out.add(c.dstIp);
   }
   return [...out];

@@ -79,3 +79,32 @@ test('IP privado e loopback não viram indicador', () => {
   );
   assert.deepEqual(sysmonIndicators(s), ['8.8.8.8']);
 });
+
+test('IOCs: sem o ruído do Windows (visto no teste real)', () => {
+  const s = parseSysmon(
+    JSON.stringify([
+      ...[
+        'wpad',
+        '..localmachine',
+        'deeplook-teste.invalid',
+        'impressora.local',
+        'x.lan',
+        '1.0.168.192.in-addr.arpa',
+        'Testmynids.org.',
+      ].map((q) => ({ id: 22, data: { Image: 'a', QueryName: q } })),
+      {
+        id: 3,
+        data: { Image: 'a', DestinationHostname: 'DESKTOP-1', DestinationIp: '203.0.113.9' },
+      },
+      {
+        id: 3,
+        data: {
+          Image: 'a',
+          DestinationHostname: 'cdn.evil.example',
+          DestinationIp: '203.0.113.10',
+        },
+      },
+    ]),
+  );
+  assert.deepEqual(sysmonIndicators(s), ['testmynids.org', '203.0.113.9', 'cdn.evil.example']);
+});

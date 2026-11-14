@@ -245,7 +245,9 @@ nslookup deeplook-teste.invalid 2>$null | Out-Null
 Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
 try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 http://testmynids.org/uid/index.html | Out-Null } catch {}
 Set-Content -Path "$env:PUBLIC\\deeplook-teste.txt" -Value 'teste do DeepLook'
-New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name DeepLookTeste -Value 'notepad.exe' -Force | Out-Null
+$run = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+if (-not (Test-Path $run)) { New-Item -Path $run -Force | Out-Null }
+New-ItemProperty -Path $run -Name DeepLookTeste -Value 'notepad.exe' -Force | Out-Null
 Start-Process notepad.exe
 `;
 
@@ -568,6 +570,21 @@ async function runEnvironment() {
   );
   if (!arts?.processes) return;
 
+  // 4.0 O Sysmon no ar antes da amostra: no template ele e instalado a cada boot por uma tarefa
+  // agendada (scripts/template-windows/sysmon.bat, 30 s depois do boot), e o que a amostra fizer
+  // antes disso nao fica no log. Ausente depois de tres coletas: o template nao tem o Sysmon.
+  const t3 = Date.now();
+  const sysmonUp = await until(
+    async () => {
+      const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+      return a?.sysmon?.available ? a : null;
+    },
+    (INTERVAL_S * 3 + 30) * 1000,
+    5000,
+  );
+  if (sysmonUp) record('4.0 Sysmon no ar antes da amostra', 'D', 'ok', secs(Date.now() - t3));
+  else skip('4.0 Sysmon no ar antes da amostra', 'D', 'o Sysmon não apareceu em três coletas');
+
   // 3.2 / 4. Amostra rodando (pelo agent/exec do PVE, como SYSTEM).
   let ran = null;
   try {
@@ -591,7 +608,11 @@ async function runEnvironment() {
     async () => {
       const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
       const appeared = (a?.processes?.appeared ?? []).map((p) => p.name.toLowerCase());
-      const sysmonReady = !a?.sysmon || !a.sysmon.available || a.sysmon.dns?.length;
+      // Com o Sysmon no ar, espera a leitura que ja traz a consulta da amostra.
+      const sysmonReady =
+        !sysmonUp ||
+        (a?.sysmon?.available &&
+          a.sysmon.dns?.some((d) => d.query.toLowerCase() === 'deeplook-teste.invalid'));
       return appeared.includes('notepad.exe') && sysmonReady ? a : null;
     },
     (INTERVAL_S * 4 + 30) * 1000,
