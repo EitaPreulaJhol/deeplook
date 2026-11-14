@@ -83,6 +83,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 
 export function useConfirm(): ConfirmFn {
   const ctx = useContext(ConfirmContext);
+  // i18n-ok: erro de programacao (provider faltando), so para quem desenvolve
   if (!ctx) throw new Error('useConfirm precisa estar dentro de <ConfirmProvider>.');
   return ctx;
 }
@@ -93,6 +94,7 @@ export function useConfirm(): ConfirmFn {
  */
 export function usePrompt(): PromptFn {
   const ctx = useContext(PromptContext);
+  // i18n-ok: erro de programacao (provider faltando), so para quem desenvolve
   if (!ctx) throw new Error('usePrompt precisa estar dentro de <ConfirmProvider>.');
   return ctx;
 }

@@ -1309,9 +1309,11 @@ the language (`13/11/2026` or `11/13/2026`).
   and the OpenAPI specification comes out in the requester's language.
 - **Still in Portuguese:** what people write (comments, resolutions, titles) and the STIX and MISP
   exports.
-- `node scripts/check-i18n.mjs` counts the Portuguese text still loose in the code and rejects `t()` at
-  module top level or inside `useMemo` without `locale` in the dependencies (the text would not follow
-  a language change). Label tables at module top level use `localized()`.
+- `node scripts/check-i18n.mjs` counts the Portuguese text loose in the code (`--texts` lists each one)
+  and rejects `t()` at module top level or inside `useMemo` without `locale` in the dependencies (the
+  text would not follow a language change). Label tables at module top level use `localized()`. CI
+  runs it with `--max 0`: text that isn't interface (an error only for developers, a value stored by
+  the API) takes an `i18n-ok` comment with the reason, on the line or the one before.
 
 ## Interface (HP Service Manager 9 style)
 

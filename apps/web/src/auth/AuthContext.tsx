@@ -235,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
+  // i18n-ok: erro de programacao (provider faltando), so para quem desenvolve
   if (!ctx) throw new Error('useAuth deve ser usado dentro de <AuthProvider>');
   return ctx;
 }

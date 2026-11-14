@@ -27,7 +27,7 @@ analysts see the most day to day; the rest in table order.
 | 9 | Visual suite covering the fixed screens | 🔴 | M | Tests | ✅ |
 | 10 | Manual findings become sweep checks | 🔴 | M | Tests | ✅ |
 | 11 | Accessibility (axe-core) in the sweep | 🟡 | M | Tests / Global | ✅ |
-| 12 | Portuguese text outside the dictionaries | 🟡 | S–M | i18n | ⬜ |
+| 12 | Portuguese text outside the dictionaries | 🟡 | S–M | i18n | ✅ |
 
 ## Problems left
 
@@ -231,3 +231,23 @@ states.
 - **Where:** `scripts/check-i18n.mjs` (16 texts in 12 files).
 - **Proposal:** review them one by one; what shows on screen goes to the dictionary, the rest
   (comments, sample data) goes into the script's exception list.
+
+**Implemented.** The script gained `--texts` (each text, with its line) and the `i18n-ok` marker: a
+comment on the line or the one before, with the reason, for text that isn't interface. The heuristic
+no longer reads the code of `${...}` interpolations as text (TypeScript's `as Verdict` matched the
+article "as"). Of the 16:
+
+- **Shown on screen:** "310 de 310" in the YARA packs and the values in the API docs' `curl`
+  examples (title, tags, link). They went to the dictionary.
+- **Not interface** (`i18n-ok`): six programming errors ("must be inside `<Provider>`"), the
+  ErrorBoundary's `console.error` and three values stored by the API that the front end only
+  compares.
+- **Bug:** the login compared the start of the error message with "A verificação expirou" to go back
+  to the password step; the API translates messages, so in English the code screen got stuck. The
+  API now sends `code: 'TFA_EXPIRED'` and the front end decides by it (integration test and
+  `two-factor` scenario).
+
+The English sweep found one more: the scheduled backup's "Saved: ..." line showed the API's summary,
+always in Portuguese; the screen now describes the schedule in its own language.
+
+Total: 0 texts outside the dictionaries. CI now runs `check-i18n --max 0`.

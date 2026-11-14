@@ -88,11 +88,13 @@ jobs:
         run: node scripts/check-pe-ordinals.mjs
 
       # Idioma da interface (revisao 2.5): t() no topo do modulo ou em useMemo sem `locale` nas
-      # dependencias nao acompanharia a troca de idioma.
+      # dependencias nao acompanharia a troca de idioma. Desde as pendencias da varredura visual
+      # (item 12), nenhum texto em portugues fora dos dicionarios: o que nao e de interface leva
+      # `i18n-ok` com o motivo.
       - name: Traducoes acompanham a troca de idioma
         if: matrix.app == 'web'
         working-directory: .
-        run: node scripts/check-i18n.mjs
+        run: node scripts/check-i18n.mjs --max 0
 
       # CSS seletivo do Carbon (item 6.10): o app.scss declara so os componentes usados; este
       # passo reprova se um import novo ficou sem o modulo de Sass (ficaria sem estilo, em

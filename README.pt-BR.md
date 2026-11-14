@@ -1322,9 +1322,11 @@ navegador em inglês. Datas e números seguem o idioma (`13/11/2026` ou `11/13/2
   inglês para o Excel), e a especificação OpenAPI sai no idioma de quem pede.
 - **Continua em português:** o que as pessoas escrevem (comentários, resoluções, títulos) e as
   exportações STIX e MISP.
-- `node scripts/check-i18n.mjs` conta o texto em português que ainda está solto no código e reprova
-  `t()` no topo do módulo ou dentro de `useMemo` sem `locale` nas dependências (o texto não
-  acompanharia a troca de idioma). Tabelas de rótulos no topo do módulo usam `localized()`.
+- `node scripts/check-i18n.mjs` conta o texto em português solto no código (`--texts` lista cada um)
+  e reprova `t()` no topo do módulo ou dentro de `useMemo` sem `locale` nas dependências (o texto não
+  acompanharia a troca de idioma). Tabelas de rótulos no topo do módulo usam `localized()`. O CI roda
+  com `--max 0`: texto que não é de interface (erro só para quem desenvolve, valor gravado pela API)
+  leva um comentário `i18n-ok` com o motivo, na linha ou na anterior.
 
 ## Interface (estilo HP Service Manager 9)
 

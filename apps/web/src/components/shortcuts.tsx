@@ -113,6 +113,7 @@ export function ShortcutsProvider({ children }: { children: ReactNode }) {
 /** Abre a caixa "Atalhos de teclado" (ex.: pelo menu do usuario). */
 export function useShortcutsHelp(): () => void {
   const open = useContext(HelpContext);
+  // i18n-ok: erro de programacao (provider faltando), so para quem desenvolve
   if (!open) throw new Error('useShortcutsHelp precisa estar dentro de <ShortcutsProvider>.');
   return open;
 }
@@ -120,6 +121,7 @@ export function useShortcutsHelp(): () => void {
 /** Abre o Decodificador (item 85) com o texto (sem texto: o selecionado na tela). */
 export function useDecoder(): (text?: string) => void {
   const open = useContext(DecoderContext);
+  // i18n-ok: erro de programacao (provider faltando), so para quem desenvolve
   if (!open) throw new Error('useDecoder precisa estar dentro de <ShortcutsProvider>.');
   return open;
 }

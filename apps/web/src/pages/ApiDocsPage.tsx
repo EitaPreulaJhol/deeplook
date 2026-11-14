@@ -118,11 +118,11 @@ export function ApiDocsPage() {
   const examples = [
     {
       title: t('exSendFile'),
-      code: `curl ${auth} \\\n  -F file=@fatura.pdf -F "title=Fatura recebida por e-mail" -F "tags=financeiro" \\\n  "${origin}/api/entries/file"`,
+      code: `curl ${auth} \\\n  -F file=@${t('exFileName')} -F "title=${t('exFileTitle')}" -F "tags=${t('exFileTags')}" \\\n  "${origin}/api/entries/file"`,
     },
     {
       title: t('exSendLink'),
-      code: `curl ${auth} -H "Content-Type: application/json" \\\n  -d '{"url":"https://exemplo.top/login","title":"Link do SMS"}' \\\n  "${origin}/api/entries/url"`,
+      code: `curl ${auth} -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ url: t('exLinkUrl'), title: t('exLinkTitle') })}' \\\n  "${origin}/api/entries/url"`,
     },
     {
       title: t('exQuery'),

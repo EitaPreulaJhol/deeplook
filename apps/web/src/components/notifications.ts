@@ -144,6 +144,7 @@ export function notificationHref(n: AppNotification): string {
       ? '?tab=historico'
       : n.type === 'REPORT_APPROVED' ||
           n.type === 'REPORT_RETURNED' ||
+          // i18n-ok: valor que a API grava no aviso, comparado aqui; nao aparece como texto
           (n.type === 'IOC_SEEN' && n.detail?.endsWith('relatório publicado'))
         ? '?tab=relatorios'
         : '';

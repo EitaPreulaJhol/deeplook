@@ -96,7 +96,7 @@ export async function installScreenRoutes(context, { now = Date.now() } = {}) {
   const tomorrow = iso(now + 24 * 3600_000);
   const broadcasts = [
     { id: 'b1', text: 'Campanha do boleto vencido em andamento. Não abra anexos de cobrança.', level: 'WARNING', startsAt: '2026-10-19T08:00:00.000Z', expiresAt: tomorrow, createdAt: '2026-10-19T08:00:00.000Z', createdBy: bruno, case: { id: 'cs1', number: 1, title: 'Campanha do boleto', code: 'CASO-0001' }, active: true, _count: { dismissals: 3 } },
-    { id: 'b2', text: 'Manutenção do e-mail às 22h.', level: 'INFO', startsAt: '2026-10-19T09:00:00.000Z', expiresAt: tomorrow, createdAt: '2026-10-19T09:00:00.000Z', createdBy: ana, case: null, active: true, _count: { dismissals: 0 } },
+    { id: 'b2', text: 'Manutenção do e-mail hoje à noite.', level: 'INFO', startsAt: '2026-10-19T09:00:00.000Z', expiresAt: tomorrow, createdAt: '2026-10-19T09:00:00.000Z', createdBy: ana, case: null, active: true, _count: { dismissals: 0 } },
   ];
   await context.route((url) => url.pathname.startsWith('/api/broadcasts'), readOnly((route, path) =>
     json(route, { items: path === '/api/broadcasts/active' ? [] : broadcasts }),

@@ -47,6 +47,12 @@ export const messages = {
   theExample: ['o exemplo "{title}"', 'the example "{title}"'],
   exSendFile: ['Enviar um arquivo', 'Submit a file'],
   exSendLink: ['Enviar um link', 'Submit a link'],
+  /** Dados de exemplo dos comandos curl, no idioma da tela. */
+  exFileName: ['fatura.pdf', 'invoice.pdf'],
+  exFileTitle: ['Fatura recebida por e-mail', 'Invoice received by e-mail'],
+  exFileTags: ['financeiro', 'finance'],
+  exLinkUrl: ['https://exemplo.top/login', 'https://example.top/login'],
+  exLinkTitle: ['Link do SMS', 'Link from a text message'],
   exQuery: [
     'Consultar o resultado (status, veredito e o que fazer)',
     'Query the result (status, verdict and what to do)',

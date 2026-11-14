@@ -261,6 +261,7 @@ export function RelationMap({ source, id }: { source: 'entry' | 'case'; id: stri
             const a = pos.get(e.from);
             const b = pos.get(e.to);
             if (!a || !b) return null;
+            // i18n-ok: rotulos de aresta que a API manda, comparados aqui
             const showLabel = e.label !== 'indicador' && e.label !== 'no caso';
             return (
               <g key={`${e.from}|${e.to}`} className="dl-map__edge">

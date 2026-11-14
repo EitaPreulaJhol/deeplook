@@ -8,6 +8,10 @@
 //
 //   node scripts/check-i18n.mjs            os 25 arquivos com mais texto e o total
 //   node scripts/check-i18n.mjs --all      todos os arquivos
+//   node scripts/check-i18n.mjs --texts    cada texto, com a linha
+//
+// Texto que nao e de interface (dado de exemplo, mensagem so para o console) leva `i18n-ok` num
+// comentario na mesma linha ou na anterior, com o motivo.
 //   node scripts/check-i18n.mjs --max N    sai com erro se o total passar de N (para travar no CI)
 //
 // Antes da contagem, uma checagem que reprova (sai com erro): t() chamado no topo do modulo (o
@@ -36,6 +40,21 @@ function withoutComments(source) {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
     .replace(/(^|[^:'"`\\])\/\/[^\n]*/g, (m, lead) => lead + ' '.repeat(m.length - lead.length));
+}
+
+/** Tira as interpolacoes `${...}` de um template (codigo, nao texto: `as Verdict` nao e o artigo). */
+function withoutInterpolations(text) {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '$' && text[i + 1] === '{') {
+      let depth = 0;
+      for (i += 1; i < text.length; i++) {
+        if (text[i] === '{') depth += 1;
+        else if (text[i] === '}' && --depth === 0) break;
+      }
+    } else out += text[i];
+  }
+  return out;
 }
 
 const looksPortuguese = (text) => {
@@ -98,19 +117,29 @@ if (frozen.length) {
 
 const report = files(ROOT)
   .map((path) => {
-    const source = withoutComments(readFileSync(path, 'utf8'));
+    const original = readFileSync(path, 'utf8');
+    const lines = original.split('\n');
+    const source = withoutComments(original);
+    const lineOf = (index) => source.slice(0, index).split('\n').length;
+    // `i18n-ok` num comentario na linha (ou na anterior): texto que nao e de interface (dado de
+    // exemplo, mensagem so para o console), com o motivo ao lado (pendencias da varredura, item 12).
+    const allowed = (line) => /i18n-ok/.test(lines[line - 1] ?? '') || /i18n-ok/.test(lines[line - 2] ?? '');
     const found = [
-      ...[...source.matchAll(/'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`([^`]*)`/g)].map((m) => m[1] ?? m[2] ?? m[3]),
-      ...[...source.matchAll(/>([^<>{}\n]+)</g)].map((m) => m[1]),
-    ].filter((text) => text && !/^\s*import\b/.test(text) && looksPortuguese(text));
-    return { file: relative(ROOT, path), count: found.length };
+      ...[...source.matchAll(/'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`([^`]*)`/g)].map((m) => ({ text: m[1] ?? m[2] ?? (m[3] === undefined ? undefined : withoutInterpolations(m[3])), line: lineOf(m.index) })),
+      ...[...source.matchAll(/>([^<>{}\n]+)</g)].map((m) => ({ text: m[1], line: lineOf(m.index) })),
+    ].filter(({ text, line }) => text && !/^\s*import\b/.test(text) && looksPortuguese(text) && !allowed(line));
+    return { file: relative(ROOT, path), count: found.length, found };
   })
   .filter((r) => r.count > 0)
   .sort((a, b) => b.count - a.count);
 
 const total = report.reduce((sum, r) => sum + r.count, 0);
 const all = process.argv.includes('--all');
-for (const r of all ? report : report.slice(0, 25)) console.log(`${String(r.count).padStart(5)}  ${r.file}`);
+const texts = process.argv.includes('--texts');
+for (const r of all || texts ? report : report.slice(0, 25)) {
+  console.log(`${String(r.count).padStart(5)}  ${r.file}`);
+  if (texts) for (const f of r.found) console.log(`         ${r.file}:${f.line}  ${f.text.trim().replace(/\s+/g, ' ').slice(0, 90)}`);
+}
 if (!all && report.length > 25) console.log(`  ... e mais ${report.length - 25} arquivo(s)`);
 console.log(`\n${total} texto(s) em portugues fora dos dicionarios, em ${report.length} arquivo(s).`);
 const max = process.argv.indexOf('--max');

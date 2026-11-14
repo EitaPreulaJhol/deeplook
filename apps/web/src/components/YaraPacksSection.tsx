@@ -130,7 +130,9 @@ export function YaraPacksSection({
                 <TableCell>{pack.author}</TableCell>
                 <TableCell>{pack.license}</TableCell>
                 <TableCell>
-                  {pack.installed ? `${pack.rulesActive} de ${pack.rulesTotal}` : '—'}
+                  {pack.installed
+                    ? t('setsActiveOf', { n: pack.rulesActive, total: pack.rulesTotal })
+                    : '—'}
                 </TableCell>
                 <TableCell>
                   <StatusText tone={pack.enabled ? 'green' : 'gray'}>

@@ -72,7 +72,8 @@ export function describeEvent(event: EntryEvent): string {
         t('evPriority', { from: prio(from), to: prio(to) }) +
         (detail === 'escalonamento'
           ? ` ${t('evEscalation')}`
-          : detail === 'regra de triagem'
+          : // i18n-ok: valor que a API grava no evento, comparado aqui; a tela mostra evByTriageRule
+            detail === 'regra de triagem'
             ? ` ${t('evByTriageRule')}`
             : '')
       );

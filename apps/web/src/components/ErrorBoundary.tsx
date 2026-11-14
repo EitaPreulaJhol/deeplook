@@ -45,6 +45,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.setState({ componentStack: info.componentStack ?? null });
     // O smoke test reprova erro inesperado no console, entao este log so sai
     // quando a tela realmente quebrou — que e exatamente o que ele deve pegar.
+    // i18n-ok: so no console do navegador; a tela mostra o painel traduzido
     console.error('[deeplook] erro ao desenhar a tela', error, info.componentStack);
   }
 

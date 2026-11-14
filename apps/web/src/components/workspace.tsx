@@ -261,6 +261,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
 export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
+  // i18n-ok: erro de programacao (provider faltando), so para quem desenvolve
   if (!ctx) throw new Error('useWorkspace precisa estar dentro de <WorkspaceProvider>.');
   return ctx;
 }

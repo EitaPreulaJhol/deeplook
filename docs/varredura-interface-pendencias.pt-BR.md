@@ -27,7 +27,7 @@ que o analista mais vê no dia a dia; o resto na ordem da tabela.
 | 9 | Suíte visual cobrindo as telas corrigidas | 🔴 | M | Testes | ✅ |
 | 10 | Achados manuais viram checagens da varredura | 🔴 | M | Testes | ✅ |
 | 11 | Acessibilidade (axe-core) na varredura | 🟡 | M | Testes / Global | ✅ |
-| 12 | Textos em português fora dos dicionários | 🟡 | P–M | i18n | ⬜ |
+| 12 | Textos em português fora dos dicionários | 🟡 | P–M | i18n | ✅ |
 
 ## Problemas que ficaram
 
@@ -229,3 +229,22 @@ estados.
 - **Onde:** `scripts/check-i18n.mjs` (16 textos em 12 arquivos).
 - **Proposta:** revisar um por um; o que aparece na tela vai para o dicionário, e o resto (comentário,
   dado de exemplo) entra na lista de exceções do script.
+
+**Implementado.** O script ganhou `--texts` (cada texto, com a linha) e a marca `i18n-ok`: um
+comentário na linha ou na anterior, com o motivo, para texto que não é de interface. A heurística
+deixou de ler o código das interpolações `${...}` como texto (o `as Verdict` do TypeScript casava
+com o artigo "as"). Dos 16:
+
+- **Iam para a tela:** "310 de 310" dos pacotes YARA e os valores dos exemplos `curl` da
+  documentação da API (título, tags, link). Foram para o dicionário.
+- **Não são interface** (`i18n-ok`): seis erros de programação ("precisa estar dentro de
+  `<Provider>`"), o `console.error` do ErrorBoundary e três valores gravados pela API que o front só
+  compara.
+- **Bug:** o login comparava o começo da mensagem de erro com "A verificação expirou" para voltar à
+  etapa da senha; a API traduz as mensagens, e em inglês a tela do código ficava presa. A API agora
+  manda `code: 'TFA_EXPIRED'` e o front decide por ele (teste de integração e cenário `two-factor`).
+
+A varredura em inglês achou mais um: a linha "Salvo: ..." do backup agendado mostrava o resumo da
+API, sempre em português; agora a tela descreve o agendamento no idioma dela.
+
+Total: 0 texto fora dos dicionários. O CI passou a rodar `check-i18n --max 0`.
