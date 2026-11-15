@@ -2933,6 +2933,256 @@ body:has(.dl-print) {
   margin: 0.25rem 0;
 }
 
+.dl-ghidra-all {
+  margin: 0.25rem 0 0.5rem;
+}
+
+/* Janela com o pseudo-C de todas as funcoes (plans/ghidra-pseudo-c): <dialog> nativo em modal. */
+.dl-ghidra-code {
+  inline-size: min(76rem, 100vw - 2rem);
+  block-size: min(90vh, 52rem);
+  max-inline-size: none;
+  max-block-size: none;
+  padding: 0;
+  border: 1px solid var(--dl-panel-border);
+  background: var(--dl-surface);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+  color: var(--dl-text);
+  font-family: var(--dl-font-sans);
+  font-size: var(--dl-font-size);
+}
+
+/* So aberto: display no <dialog> fechado o mostraria. */
+.dl-ghidra-code[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A rolagem dentro da janela e sobre o fundo nao passa para a pagina. */
+.dl-ghidra-code:modal {
+  overscroll-behavior: contain;
+}
+
+.dl-ghidra-code::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(40, 50, 60, 0.35);
+}
+
+.dl-ghidra-code__body {
+  display: grid;
+  grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+  flex: 1;
+  min-block-size: 0;
+}
+
+.dl-ghidra-code__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-block-size: 0;
+  padding: 0.6rem;
+  border-inline-end: 1px solid var(--dl-panel-border);
+}
+
+/* Os campos do Carbon crescem (flex: 1 1 auto) numa coluna flex: aqui, so a lista cresce. */
+.dl-ghidra-code__list > * {
+  flex: 0 0 auto;
+}
+
+.dl-ghidra-code__list > .dl-ghidra-code__items {
+  flex: 1 1 auto;
+}
+
+.dl-ghidra-code__count {
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.dl-ghidra-code__items {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--dl-field-border);
+  list-style: none;
+}
+
+.dl-ghidra-code__item {
+  display: block;
+  inline-size: 100%;
+  padding: 0.2rem 0.4rem;
+  border: 0;
+  border-block-end: 1px solid var(--dl-grid-line);
+  background: transparent;
+  color: var(--dl-text);
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--dl-surface-hover);
+  }
+
+  &.is-active {
+    background: var(--dl-surface-active);
+  }
+}
+
+.dl-ghidra-code__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-ghidra-code__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.dl-ghidra-code__view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding: 0.6rem;
+}
+
+.dl-ghidra-code__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dl-ghidra-code__name {
+  margin: 0;
+  font-size: var(--dl-font-size);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+
+  code {
+    font-weight: 700;
+  }
+}
+
+.dl-ghidra-code__meta p,
+.dl-ghidra-code__links {
+  margin: 0.1rem 0;
+  overflow-wrap: anywhere;
+}
+
+.dl-ghidra-code__apis {
+  color: var(--dl-text-muted);
+  font-size: 0.75rem;
+}
+
+.dl-ghidra-code__links-label {
+  font-weight: 600;
+}
+
+/* Numeros de linha e codigo rolam juntos; os numeros ficam presos a esquerda. */
+.dl-ghidra-code__code {
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-readonly-bg);
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.dl-ghidra-code__gutter,
+.dl-ghidra-code__src {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  white-space: pre;
+  font: inherit;
+}
+
+.dl-ghidra-code__gutter {
+  position: sticky;
+  inset-inline-start: 0;
+  flex: 0 0 auto;
+  border-inline-end: 1px solid var(--dl-field-border);
+  background: var(--dl-readonly-bg);
+  color: var(--dl-text-muted);
+  text-align: end;
+  user-select: none;
+}
+
+.dl-ghidra-code__src {
+  flex: 1 0 auto;
+}
+
+.dl-ghidra-code__link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dl-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dl-c-keyword {
+  color: var(--dl-code-keyword);
+  font-weight: 600;
+}
+
+.dl-c-type {
+  color: var(--dl-code-type);
+}
+
+.dl-c-number {
+  color: var(--dl-code-number);
+}
+
+.dl-c-string {
+  color: var(--dl-code-string);
+}
+
+.dl-c-comment {
+  color: var(--dl-code-comment);
+  font-style: italic;
+}
+
+.dl-ghidra-code__download {
+  margin-inline-end: auto;
+  align-self: center;
+}
+
+/* Tela estreita: a lista em cima, menor, e o codigo embaixo. */
+@media (max-width: 48rem) {
+  .dl-ghidra-code {
+    inline-size: calc(100vw - 1rem);
+    block-size: calc(100dvh - 1rem);
+  }
+
+  .dl-ghidra-code__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+  }
+
+  .dl-ghidra-code__list {
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--dl-panel-border);
+  }
+}
+
 /* Analise de funcoes (item 7.2): MBC abaixo da capacidade e tecnicas lado a lado. */
 .dl-capa-mbc {
   margin-top: 0.125rem;

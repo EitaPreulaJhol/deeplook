@@ -531,6 +531,11 @@ headless (12.2) in the background, one at a time, and the card shows:
   with who calls each one. Ordinal import from ws2_32 becomes the name, using the same `pefile` table that
   imphash uses;
 - the **largest functions**, with complexity and the APIs they call;
+- the **pseudo-C of every function**, in a window opened by **See all functions**: the list on the
+  left, with search by name or address, "only callers of sensitive APIs", "hide library functions" and
+  sort order; on the right, the code with line numbers and highlighting, the APIs the function calls
+  and who calls it. The name of a called function in the code leads to it, with back and forward. Each
+  pseudo-C block on the card has **Open in window**;
 - the **`.gzf` project**, to open in a local Ghidra already analyzed.
 
 Details:
@@ -539,6 +544,16 @@ Details:
   decompile intermediate code (IL), and the result would be just the CLR stub.
 - **Time:** 12 to 20 s on the test executables (Java starts up on every analysis). On a large executable,
   the automatic analysis stops at 70% of `GHIDRA_TIMEOUT_S` and the summary still comes out, partial.
+- **Pseudo-C of every function:** it comes out of the same pass, in parallel (the entry point and the
+  callers of sensitive APIs first, library functions last), with a deadline of `GHIDRA_TIMEOUT_S` minus
+  90 s. Whatever misses the deadline, or goes over `GHIDRA_MAX_PSEUDO_MB` of code in total, shows up in the
+  list without code and with the reason; the list stops at 20,000 functions, and each one at 256,000
+  characters. Measured on Ghidra 12.2: `bash` (2041 functions) comes out whole in 70 s, at 750 KB. The text
+  lives in MinIO **outside `samples/`** (it has none of the sample's bytes): it stays after retention, goes
+  into the backup without samples and is removed by permanent deletion or by analyzing again. Viewing and
+  browsing: whoever sees the sample, like the summary (API tokens can also read the list and each function).
+  **Download all (.c)**: only the submitter and analysts, logged in the Audit log, like the `.gzf`. Older
+  analyses show "analyze again to see every function".
 - **The `.gzf` contains the bytes of the sample.** Downloading it follows the rule for downloading the sample
   (whoever submitted it and the analysts) and is logged in the Audit log. It lives in MinIO alongside the
   samples: a backup without samples leaves it out, and retention and permanent deletion remove it along with the file.
@@ -549,7 +564,7 @@ Details:
   ships with has a high CVE; the build replaces it with 33.7.2, checked by hash. When upgrading Ghidra, change the
   URL, the hash and `GHIDRA_VERSION` in the `Dockerfile`, and check whether the guava replacement is still needed.
 - **Memory:** the container has a 6 GB ceiling, but it only uses it during an analysis (700 MB on the test
-  executables).
+  executables; 1.1 to 1.5 GB on 1 to 4 MB executables, with the pseudo-C of every function).
 - **Turn off:** `GHIDRA_URL=` (empty) in `.env`; the `ghidra` service can be removed from compose.
 
 ## YARA rules
@@ -1090,6 +1105,7 @@ COOKIE_SECURE=true
 | `GHIDRA_REQUEST_TIMEOUT_S` | how long the API waits for an analysis | `1300` |
 | `GHIDRA_HEADLESS_MAXMEM` / `GHIDRA_MEM_LIMIT` | Java heap and container memory | `3G` / `6g` |
 | `GHIDRA_RECYCLE` | a new container for each analysis; `false` = long-lived process | `true` |
+| `GHIDRA_MAX_PSEUDO_MB` | ceiling of the pseudo-C of every function (code in total), in the service and the API | `32` |
 | `UNPACK_URL` | unpacking service; empty turns it off | `http://unpack:3400` |
 | `UNPACK_TOKEN` | token shared between the API and the `unpack` service (16+ characters) | — |
 | `UNPACK_MAX_MB` | executables larger than this do not go to the unpacker | `64` |

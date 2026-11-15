@@ -89,6 +89,13 @@
   --dl-readonly-bg: #f0f0f0;
   --dl-readonly-border: #c9c9c9;
 
+  /* --- realce do pseudo-C do Ghidra (janela de funcoes) --- */
+  --dl-code-keyword: #8b1a8b;
+  --dl-code-type: #1a5d8b;
+  --dl-code-number: #a3560a;
+  --dl-code-string: #2e7d32;
+  --dl-code-comment: #6a737d;
+
   /* --- botoes pequenos (paginador) --- */
   --dl-btn-border: #b5b8c8;
   --dl-btn-primary-border: #7f9db9; /* acao padrao do form */

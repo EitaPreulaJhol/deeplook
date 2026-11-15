@@ -129,6 +129,63 @@ export interface GhidraFunction {
   error?: string | null;
 }
 
+/** Por que uma funcao do pseudo-C completo ficou sem codigo: o prazo ou o teto do servico. */
+export type GhidraSkipped = 'deadline' | 'cap';
+
+/** Linha de GET /api/entries/:id/ghidra/functions (plans/ghidra-pseudo-c). */
+export interface GhidraFunctionRow {
+  entry: string;
+  name: string;
+  size: number;
+  complexity: number;
+  isEntryPoint: boolean;
+  library: boolean;
+  sensitive: string[];
+  hasCode: boolean;
+  truncated: boolean;
+  skipped: GhidraSkipped | null;
+  error: string | null;
+}
+
+export interface GhidraFunctionPage {
+  /** Funcoes do programa (a lista pode ter menos: teto de 20 000). */
+  total: number | null;
+  listed: number;
+  deadlineHit: boolean;
+  capHit: boolean;
+  /** Quantas passam no filtro. */
+  matching: number;
+  page: number;
+  pageSize: number;
+  functions: GhidraFunctionRow[];
+}
+
+/** Chamador ou chamada; sem nome quando ficou fora da lista. */
+export interface GhidraFunctionLink {
+  entry: string;
+  name: string | null;
+}
+
+/** GET /api/entries/:id/ghidra/functions/:entry. */
+export interface GhidraFunctionDetail {
+  entry: string;
+  name: string;
+  size: number;
+  complexity: number;
+  isEntryPoint: boolean;
+  library: boolean;
+  sensitive: string[];
+  apis: string[];
+  callers: GhidraFunctionLink[];
+  callerCount: number;
+  callees: GhidraFunctionLink[];
+  calleeCount: number;
+  c: string | null;
+  truncated: boolean;
+  skipped: GhidraSkipped | null;
+  error: string | null;
+}
+
 /** GET /api/entries/:id/ghidra (item 7.3). */
 export interface GhidraInfo {
   enabled: boolean;
@@ -164,6 +221,13 @@ export interface GhidraInfo {
     hasProject: boolean;
     gzfSize: number | null;
     gzfError: string | null;
+    /** Pseudo-C de todas as funcoes (plans/ghidra-pseudo-c): a janela abre por ele. */
+    hasPseudo: boolean;
+    pseudoFunctions: number;
+    pseudoTotal: number | null;
+    pseudoDeadlineHit: boolean;
+    pseudoCapHit: boolean;
+    pseudoError: string | null;
     error: string | null;
     version: string | null;
     ms: number | null;

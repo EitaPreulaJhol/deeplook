@@ -15,6 +15,7 @@ import type { GhidraFunction, GhidraInfo } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/analysis';
 import { CopyButton } from './CopyButton';
+import { GhidraCodeDialog } from './GhidraCodeDialog';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection } from './HpsmForm';
 import { HpsmMessage } from './messages';
@@ -54,7 +55,7 @@ function situation(a: NonNullable<GhidraInfo['analysis']>): { tone: StatusTone; 
   return { tone: 'green', text: t('doneAt', { date: fmtDate(a.finishedAt) }) };
 }
 
-function DecompiledFunction({ fn }: { fn: GhidraFunction }) {
+function DecompiledFunction({ fn, onOpen }: { fn: GhidraFunction; onOpen?: () => void }) {
   const label = [
     fn.isEntryPoint ? t('entryPointLower') : null,
     fn.sensitive.length ? t('calls', { apis: fn.sensitive.join(', ') }) : null,
@@ -74,6 +75,16 @@ function DecompiledFunction({ fn }: { fn: GhidraFunction }) {
         <>
           <div className="dl-ghidra-fn__tools">
             <CopyButton value={fn.c} label={t('pseudoCOf', { name: fn.name })} />
+            {onOpen && (
+              <button
+                type="button"
+                className="dl-link-button"
+                aria-label={t('openInWindowOf', { name: fn.name })}
+                onClick={onOpen}
+              >
+                {t('openInWindow')}
+              </button>
+            )}
             {fn.truncated && <span className="dl-hint-muted"> {t('cut20k')}</span>}
           </div>
           <pre className="dl-doc-macros__code" aria-label={t('pseudoCOfCap', { name: fn.name })}>
@@ -99,6 +110,8 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
   const query = useGhidra(entryId, true);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
+  // Janela do pseudo-C completo: undefined = fechada; null = aberta na primeira funcao.
+  const [windowAt, setWindowAt] = useState<string | null | undefined>(undefined);
   const info = query.data;
   if (!info || (!info.applicable && !info.analysis)) return null;
   const a = info.analysis;
@@ -203,9 +216,32 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
         <div className="dl-static-block">
           <h4 className="dl-static-title">{t('pseudoC', { n: s.decompiled.length })}</h4>
           <p className="dl-related-hint">{t('pseudoCHelp')}</p>
+          <p className="dl-ghidra-all">
+            {a.hasPseudo ? (
+              <button type="button" className="dl-link-button" onClick={() => setWindowAt(null)}>
+                {t('allFunctions', { n: a.pseudoFunctions })}
+              </button>
+            ) : a.pseudoError ? (
+              t('pseudoMissing', { error: a.pseudoError })
+            ) : (
+              t('pseudoOld')
+            )}
+          </p>
           {s.decompiled.map((fn) => (
-            <DecompiledFunction key={fn.entry} fn={fn} />
+            <DecompiledFunction
+              key={fn.entry}
+              fn={fn}
+              onOpen={a.hasPseudo ? () => setWindowAt(fn.entry) : undefined}
+            />
           ))}
+          {windowAt !== undefined && (
+            <GhidraCodeDialog
+              entryId={entryId}
+              initialEntry={windowAt}
+              canDownload={info.canDownload}
+              onClose={() => setWindowAt(undefined)}
+            />
+          )}
         </div>
       )}
 

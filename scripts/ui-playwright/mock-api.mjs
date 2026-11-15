@@ -226,6 +226,13 @@ export function createState({ loggedIn = false } = {}) {
     /** Analise com o Ghidra por amostra (GET; lista = sequencia) e os pedidos feitos (POST). */
     ghidra: {},
     ghidraPosts: [],
+    /**
+     * Pseudo-C de todas as funcoes (plans/ghidra-pseudo-c) por amostra: { total, deadlineHit,
+     * capHit, functions: [detalhe de cada uma] }; a lista filtra e pagina aqui. As consultas feitas
+     * ficam em ghidraFnQueries.
+     */
+    ghidraFns: {},
+    ghidraFnQueries: [],
     /** Desempacotamento por amostra (GET; lista = sequencia) e os pedidos feitos (POST). */
     unpack: {},
     unpackPosts: [],
@@ -878,6 +885,49 @@ export async function setupMock(context, state) {
       if (ghidra && req.method() === 'POST') {
         state.ghidraPosts.push(ghidra[1]);
         return json(route, 202, { ok: true });
+      }
+      const ghidraFns = p.match(/^\/api\/entries\/(\w+)\/ghidra\/functions(?:\/([\w.:-]+))?$/);
+      if (ghidraFns && req.method() === 'GET') {
+        const data = state.ghidraFns[ghidraFns[1]];
+        if (!data) return json(route, 404, { error: 'O pseudo-C completo desta análise não está disponível.' });
+        if (ghidraFns[2]) {
+          const fn = data.functions.find((f) => f.entry === ghidraFns[2]);
+          return fn ? json(route, 200, fn) : json(route, 404, { error: 'Função não encontrada.' });
+        }
+        const params = url.searchParams;
+        state.ghidraFnQueries.push(params.toString());
+        const q = (params.get('q') || '').toLowerCase();
+        const pageSize = Number(params.get('pageSize') || 100);
+        const page = Number(params.get('page') || 1);
+        const matching = data.functions.filter(
+          (f) =>
+            (!q || f.name.toLowerCase().includes(q) || f.entry.includes(q)) &&
+            (params.get('sensitive') !== 'true' || f.sensitive.length > 0) &&
+            (params.get('hideLibrary') !== 'true' || !f.library),
+        );
+        if (params.get('sort') === 'name') matching.sort((x, y) => x.name.localeCompare(y.name));
+        return json(route, 200, {
+          total: data.total,
+          listed: data.functions.length,
+          deadlineHit: data.deadlineHit,
+          capHit: data.capHit,
+          matching: matching.length,
+          page,
+          pageSize,
+          functions: matching.slice((page - 1) * pageSize, page * pageSize).map((f) => ({
+            entry: f.entry,
+            name: f.name,
+            size: f.size,
+            complexity: f.complexity,
+            isEntryPoint: f.isEntryPoint,
+            library: f.library,
+            sensitive: f.sensitive,
+            hasCode: f.c !== null,
+            truncated: f.truncated,
+            skipped: f.skipped,
+            error: f.error,
+          })),
+        });
       }
       // Desempacotamento (item 7.8): mesma ideia; sem estado, a secao nao se aplica.
       const unpack = p.match(/^\/api\/entries\/(\w+)\/unpack$/);

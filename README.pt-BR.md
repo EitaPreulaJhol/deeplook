@@ -534,6 +534,11 @@ headless (12.2) em segundo plano, um por vez, e a ficha mostra:
   com quem chama cada uma. Importação por ordinal do ws2_32 vira o nome, pela mesma tabela do
   `pefile` que o imphash usa;
 - as **maiores funções**, com complexidade e as APIs que chamam;
+- o **pseudo-C de todas as funções**, numa janela aberta por **Ver todas as funções**: a lista à
+  esquerda, com busca por nome ou endereço, "só as que chamam APIs sensíveis", "esconder as de
+  biblioteca" e ordem; à direita, o código com números de linha e realce, as APIs que a função chama
+  e quem a chama. O nome de uma função chamada no código leva a ela, com voltar e avançar. Cada bloco
+  do pseudo-C da ficha tem **Abrir na janela**;
 - o **projeto `.gzf`**, para abrir no Ghidra local já analisado.
 
 Detalhes:
@@ -542,6 +547,16 @@ Detalhes:
   descompila o código intermediário (IL), e o resultado seria só o stub do CLR.
 - **Tempo:** de 12 a 20 s nos executáveis de teste (o Java sobe a cada análise). Num executável
   grande, a análise automática para em 70% de `GHIDRA_TIMEOUT_S` e o resumo ainda sai, parcial.
+- **Pseudo-C de todas as funções:** sai na mesma passada, em paralelo (o ponto de entrada e as que
+  chamam APIs sensíveis primeiro, as de biblioteca por último), com prazo de `GHIDRA_TIMEOUT_S` menos
+  90 s. O que não couber no prazo, ou passar de `GHIDRA_MAX_PSEUDO_MB` de código somado, aparece na
+  lista sem código e com o motivo; a lista para em 20 000 funções, e cada uma em 256 mil caracteres.
+  Medido no Ghidra 12.2: o `bash` (2041 funções) sai inteiro em 70 s, com 750 KB. O texto mora no
+  MinIO **fora de `samples/`** (não tem os bytes da amostra): fica depois da retenção, entra no
+  backup sem amostras e sai na exclusão definitiva ou ao analisar de novo. Ver e navegar: quem vê a
+  amostra, como o resumo (a API de tokens também lê a lista e cada função). **Baixar tudo (.c)**: só
+  quem enviou e os analistas, na Auditoria, como o `.gzf`. Análises anteriores mostram "analise de
+  novo para ver todas as funções".
 - **O `.gzf` tem os bytes da amostra.** Baixá-lo segue a regra de baixar a amostra (quem enviou e os
   analistas) e fica na Auditoria. Ele mora no MinIO junto das amostras: o backup sem amostras o
   deixa de fora, e a retenção e a exclusão definitiva o apagam com o arquivo.
@@ -552,7 +567,8 @@ Detalhes:
   traz tem CVE alta; o build o troca pelo 33.7.2, conferido pelo hash. Ao subir o Ghidra, troque no
   `Dockerfile` a URL, o hash e `GHIDRA_VERSION`, e veja se a troca do guava ainda é necessária.
 - **Memória:** o contêiner tem teto de 6 GB, mas só gasta durante uma análise (700 MB nos
-  executáveis de teste).
+  executáveis de teste; de 1,1 a 1,5 GB em executáveis de 1 a 4 MB, com o pseudo-C de todas as
+  funções).
 - **Desligar:** `GHIDRA_URL=` (vazio) no `.env`; o serviço `ghidra` pode sair do compose.
 
 ## Regras YARA
@@ -1102,6 +1118,7 @@ COOKIE_SECURE=true
 | `GHIDRA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise | `1300` |
 | `GHIDRA_HEADLESS_MAXMEM` / `GHIDRA_MEM_LIMIT` | heap do Java e memória do contêiner | `3G` / `6g` |
 | `GHIDRA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
+| `GHIDRA_MAX_PSEUDO_MB` | teto do pseudo-C de todas as funções (código somado), no serviço e na API | `32` |
 | `UNPACK_URL` | serviço de desempacotamento; vazio desliga | `http://unpack:3400` |
 | `UNPACK_TOKEN` | token compartilhado entre a API e o serviço `unpack` (16+ caracteres) | — |
 | `UNPACK_MAX_MB` | executáveis maiores não vão para o desempacotador | `64` |
