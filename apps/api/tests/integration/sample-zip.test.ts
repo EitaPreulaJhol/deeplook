@@ -94,10 +94,24 @@ async function main() {
       ok(`${label}: nome`, entry.name === (names[label] ?? 'amostra.exe'), entry.name);
       const back = extractZipEntry(zip, entry, SAMPLE_ZIP_PASSWORD, 10 * 1024 * 1024);
       ok(`${label}: conteúdo volta igual`, Buffer.compare(back, data) === 0);
-      ok(
-        `${label}: senha errada recusada`,
-        await throws(async () => extractZipEntry(zip, entry, 'errada', 10 * 1024 * 1024)),
-      );
+      if (data.length === 0) {
+        // ZipCrypto confere a senha por 1 byte do cabecalho (aleatorio a cada ZIP) e depois pelo
+        // CRC; sem conteudo o CRC e sempre 0, entao 1 em 256 senhas erradas passa. O teste fixo
+        // de "recusada" falhava 1 vez a cada 256 rodadas. O que importa e nao sair nada: ou
+        // recusa, ou devolve os mesmos 0 bytes.
+        let leaked = false;
+        try {
+          leaked = extractZipEntry(zip, entry, 'errada', 10 * 1024 * 1024).length !== 0;
+        } catch {
+          /* recusada */
+        }
+        ok(`${label}: senha errada não devolve nada`, !leaked);
+      } else {
+        ok(
+          `${label}: senha errada recusada`,
+          await throws(async () => extractZipEntry(zip, entry, 'errada', 10 * 1024 * 1024)),
+        );
+      }
     }
   }
 
