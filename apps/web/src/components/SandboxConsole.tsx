@@ -3,6 +3,12 @@ import RFB from '@novnc/novnc';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { t } from '../i18n/sandbox';
+import { keepLocalCursor } from './consoleCursor';
+
+// Cursor transparente da VM: o noVNC trocaria pelo "ponto" (showDotCursor); com o ponto vazio, ele
+// cai no `cursor: none`, que keepLocalCursor troca pelo cursor do sistema. Assim o cursor do
+// sistema aparece tanto sem cursor da VM quanto com um invisivel.
+RFB.cursors.dot = RFB.cursors.none;
 
 type ConsoleStatus = 'connecting' | 'connected' | 'closed' | 'error';
 
@@ -55,6 +61,7 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
     setMessage(null);
 
     let rfb: RFB | null = null;
+    let stopCursor: (() => void) | null = null;
     try {
       rfb = new RFB(holder, wsUrl(wsPath), { wsProtocols: ['binary'], shared: true });
       rfb.scaleViewport = true;
@@ -62,6 +69,10 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
       rfb.clipViewport = false;
       rfb.focusOnClick = true;
       rfb.background = '#161616';
+      rfb.showDotCursor = true;
+      // O canvas do noVNC ja existe ao sair do construtor.
+      const canvas = holder.querySelector('canvas');
+      if (canvas) stopCursor = keepLocalCursor(canvas);
 
       rfb.addEventListener('connect', () => {
         setStatus('connected');
@@ -104,6 +115,7 @@ export const SandboxConsole = forwardRef<SandboxConsoleHandle, Props>(function S
     }
 
     return () => {
+      stopCursor?.();
       rfbRef.current = null;
       try {
         rfb?.disconnect();

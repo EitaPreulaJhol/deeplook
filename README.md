@@ -1504,6 +1504,11 @@ says how to allow it.
 **noVNC canvas** in the browser itself and opens the PNG in a new tab — PVE removed the
 server-side screenshot endpoint in PVE 9, which now responds `501`.
 
+**Cursor:** as in the Proxmox console, the system cursor stays visible over the VM screen when
+the VM sends no cursor of its own, or a transparent one (Windows with the standard VGA video draws
+the cursor into the image, which only moves at the frame rate). When the VM sends a visible cursor,
+that one shows instead, with its shape.
+
 ### Preparing the template in Proxmox
 
 1. Create a VM (Windows/Linux) with `qemu-guest-agent`, **isolated network** (bridge with no

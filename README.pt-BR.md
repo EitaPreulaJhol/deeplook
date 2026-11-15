@@ -1520,6 +1520,11 @@ como liberar.
 **canvas do noVNC** no próprio navegador e abre o PNG numa nova aba — o PVE removeu o
 endpoint server-side de screenshot no PVE 9, que agora responde `501`.
 
+**Cursor:** como no console do Proxmox, o cursor do sistema fica visível sobre a tela da VM
+quando ela não manda um cursor próprio, ou manda um transparente (o Windows com o vídeo VGA
+padrão desenha o cursor na imagem, que só anda no ritmo dos quadros). Quando a VM manda um
+cursor visível, ele aparece no lugar, com o formato dela.
+
 ### Preparando o template no Proxmox
 
 1. Crie uma VM (Windows/Linux) com `qemu-guest-agent`, **rede isolada** (bridge sem

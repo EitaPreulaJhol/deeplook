@@ -1,6 +1,18 @@
 declare module '@novnc/novnc' {
   /** Tipagem minima do RFB (noVNC 1.7) para o que usamos no console. */
+  /** Imagem de cursor como o noVNC guarda (RGBA). */
+  interface CursorImage {
+    rgbaPixels: Uint8Array;
+    w: number;
+    h: number;
+    hotx: number;
+    hoty: number;
+  }
+
   export default class RFB {
+    /** Cursores prontos do noVNC: o vazio e o ponto do showDotCursor. */
+    static cursors: { none: CursorImage; dot: CursorImage };
+
     constructor(target: HTMLElement, url: string, options?: Record<string, unknown>);
 
     viewOnly: boolean;
