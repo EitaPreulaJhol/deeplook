@@ -12,7 +12,7 @@ RUN npm run build
 # variante -slim nao traz os modulos xslt, image-filter e geoip (nem as bibliotecas que
 # eles puxam: libxml2, libtiff, libpng...), que um SPA com proxy nao usa. O Trivy contou 62
 # achados de severidade alta ou critica, com correcao, na nginx:1.27-alpine, e 8 nesta.
-FROM nginxinc/nginx-unprivileged:1.29-alpine-slim
+FROM nginxinc/nginx-unprivileged:1.31-alpine-slim
 
 # As imagens do nginx demoram a ser refeitas depois de uma correcao do Alpine: atualiza os
 # pacotes na montagem (com isso o Trivy fecha em zero; o scan semanal avisa se algo escapar).
