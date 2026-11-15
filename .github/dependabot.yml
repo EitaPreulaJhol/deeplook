@@ -23,6 +23,10 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: prisma
         update-types: [version-update:semver-major]
+      # O TypeScript 7 (o compilador nativo) ainda nao tem suporte no typescript-eslint, e o
+      # npm install falha (ERESOLVE). Liberar quando o typescript-eslint aceitar o 7.
+      - dependency-name: typescript
+        versions: ['>= 7']
 
   - package-ecosystem: npm
     directory: /apps/web
@@ -33,6 +37,11 @@ updates:
     groups:
       patches:
         update-types: [minor, patch]
+    ignore:
+      # O TypeScript 7 (o compilador nativo) ainda nao tem suporte no typescript-eslint, e o
+      # npm install falha (ERESOLVE). Liberar quando o typescript-eslint aceitar o 7.
+      - dependency-name: typescript
+        versions: ['>= 7']
 
   - package-ecosystem: npm
     directory: /apps/capture
@@ -99,13 +108,20 @@ updates:
       # entao o patch vem a cada rebuild; o Trivy semanal avisa de base velha.
       - dependency-name: node
         update-types: ['version-update:semver-major']
-      # Sobe junto com o pacote npm, a mao (item 6.2).
+      # Sobe junto com o pacote npm, a mao (item 6.2). O Dependabot chama a imagem so de
+      # "playwright" (foi assim que ele abriu o PR da 1.65.1), entao vale ignorar os dois nomes.
       - dependency-name: mcr.microsoft.com/playwright
+      - dependency-name: playwright
+      # Python 3.15: o python-flirt do capa usa o PyO3, que so vai ate o 3.14, e o pillow e o
+      # zxing-cpp do oletools nao tem wheel para o 3.15 (o build compila e falha). O 3.13 e o
+      # 3.14 continuam chegando; liberar o 3.15 quando essas dependencias o suportarem.
+      - dependency-name: python
+        versions: ['>= 3.15']
 
-  # As acoes usadas no ci.yml (checkout, setup-node).
   # As imagens de terceiros do docker-compose.yml (Postgres e ClamAV), fixadas por tag e digest:
-  # o Dependabot abre o PR quando a tag ganha uma imagem nova. Sem remoto, o mesmo se faz a mao
-  # com node scripts/pin-images.mjs --write.
+  # o Dependabot abre o PR quando a tag ganha uma imagem nova; a mao, node scripts/pin-images.mjs
+  # --write faz o mesmo. O MinIO (pgsty/silo) fica fora: o compose o le de ${MINIO_IMAGE:-...},
+  # que o Dependabot nao entende, e o digest sobe a mao (o Trivy semanal avisa).
   - package-ecosystem: docker-compose
     directory: /
     schedule:
@@ -116,6 +132,7 @@ updates:
       - dependency-name: postgres
         update-types: ['version-update:semver-major']
 
+  # As acoes usadas nos workflows (checkout, setup-node, upload-artifact).
   - package-ecosystem: github-actions
     directory: /
     schedule:
