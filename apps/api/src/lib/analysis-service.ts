@@ -1,3 +1,7 @@
+import http from 'node:http';
+import https from 'node:https';
+import { Readable } from 'node:stream';
+
 /**
  * Cliente dos servicos de analise que trocam de container a cada trabalho: o capa (item 7.2) e o
  * Ghidra (7.3). Os dois tem o mesmo contrato: GET /health diz o estado (livre, analisando,
@@ -28,7 +32,60 @@ function notConnected(err: unknown): boolean {
   if (!(err instanceof Error) || err.name === 'TimeoutError' || err.name === 'AbortError') {
     return false;
   }
-  return NOT_CONNECTED.includes((err.cause as { code?: string } | undefined)?.code ?? '');
+  const code =
+    (err as NodeJS.ErrnoException).code ?? (err.cause as { code?: string } | undefined)?.code;
+  return NOT_CONNECTED.includes(code ?? '');
+}
+
+/**
+ * POST do arquivo pelo node:http, nao pelo fetch: o fetch do Node (undici) desiste de qualquer
+ * resposta cujos cabecalhos nao cheguem em 300 s (headersTimeout), por cima do AbortSignal. Os
+ * servicos so respondem ao fim da analise, entao toda analise acima de 5 min "caia" na API (o
+ * container seguia analisando), virava tentativa e recomecava do zero: com o capa, a fila inteira
+ * parava atras de um executavel grande. Aqui o unico prazo e o do servico (`timeoutMs`).
+ */
+function postFile(
+  url: string,
+  headers: Record<string, string>,
+  data: Uint8Array,
+  timeoutMs: number,
+): Promise<Response> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const req = (target.protocol === 'https:' ? https : http).request(
+      target,
+      {
+        method: 'POST',
+        headers: { ...headers, 'content-length': String(data.byteLength) },
+        signal,
+      },
+      (res) => {
+        const status = res.statusCode ?? 502;
+        const out = new Headers();
+        for (const [name, value] of Object.entries(res.headers)) {
+          if (value !== undefined) out.set(name, Array.isArray(value) ? value.join(', ') : value);
+        }
+        const empty = status === 204 || status === 304;
+        if (empty) res.resume();
+        resolve(
+          new Response(empty ? null : (Readable.toWeb(res) as ReadableStream<Uint8Array>), {
+            status,
+            headers: out,
+          }),
+        );
+      },
+    );
+    req.on('error', (err) => {
+      // Mesmo erro que o fetch dava no prazo esgotado (requestFailure: "sem resposta em N s").
+      if (signal.aborted) {
+        const timeout = new Error(`sem resposta em ${Math.round(timeoutMs / 1000)} s`);
+        timeout.name = 'TimeoutError';
+        reject(timeout);
+      } else reject(err);
+    });
+    req.end(data);
+  });
 }
 
 const base = (url: string) => url.replace(/\/$/, '');
@@ -82,15 +139,15 @@ export async function requestAnalysis(
       continue;
     }
     try {
-      const res = await fetch(`${base(service.url)}${path}${query}`, {
-        method: 'POST',
-        headers: {
+      const res = await postFile(
+        `${base(service.url)}${path}${query}`,
+        {
           'content-type': 'application/octet-stream',
           authorization: `Bearer ${service.token}`,
         },
-        body: data,
-        signal: AbortSignal.timeout(service.timeoutS * 1000),
-      });
+        data,
+        service.timeoutS * 1000,
+      );
       if (res.status !== 503) return res;
       await res.body?.cancel();
       if (Date.now() >= deadline) {
