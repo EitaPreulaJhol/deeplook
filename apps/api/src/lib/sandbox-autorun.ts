@@ -32,6 +32,8 @@ export const autoRunTiming = {
 };
 
 const SYSMON_CHANNEL = 'Microsoft-Windows-Sysmon/Operational';
+/** "Host de Console do Windows" nas opcoes de terminal padrao (DelegationConsole/Terminal). */
+export const CONHOST = '{B23D10C0-E52E-411E-9D5B-C09FDF709C7D}';
 
 /** PowerShell em Base64 (UTF-16LE), como o -EncodedCommand pede: sem aspas a escapar. */
 const encode = (script: string) => Buffer.from(script, 'utf16le').toString('base64');
@@ -99,6 +101,16 @@ export function autoRunCommand(fileName: string): string[] {
       `  Start-Process powershell.exe -ArgumentList ${psQuote(args)} -WindowStyle Hidden`,
       "  'AUTORUN_OK|SYSTEM'; exit 0",
       '}',
+      // Console classico (conhost) para o usuario, so nesta VM descartavel: no Windows 11 o console
+      // de um programa vai para o Windows Terminal ("terminal padrao"), e a entrega logo depois da
+      // do lancador as vezes se perde. A amostra ficava parada antes da primeira instrucao, sem
+      // nada no Sysmon (visto no teste contra o Windows real). Melhor esforco: falhando, segue.
+      'try {',
+      '  $sid = ([Security.Principal.NTAccount]$user).Translate([Security.Principal.SecurityIdentifier]).Value',
+      `  $console = "Registry::HKEY_USERS\\$sid\\Console\\%%Startup"`,
+      '  New-Item -Path $console -Force | Out-Null',
+      `  foreach ($n in 'DelegationConsole', 'DelegationTerminal') { Set-ItemProperty -Path $console -Name $n -Value '${CONHOST}' }`,
+      '} catch {}',
       "$task = 'DeepLookAutoRun'",
       `$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ${psQuote(args)}`,
       '$principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited',

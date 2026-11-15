@@ -30,10 +30,10 @@ import {
 } from '../lib/proxmox';
 import { s3 } from '../lib/s3';
 import {
-  activeSessionForEntry,
   createSession,
   dispose,
   getSession,
+  latestSessionForEntry,
   listSessions,
   sandboxReady,
 } from '../lib/sandbox';
@@ -198,8 +198,10 @@ export async function sandboxRoutes(app: FastifyInstance) {
     if (!user) return;
 
     const { id } = req.params as { id: string };
-    // No, VM, IP e analista sao para quem opera: o painel so existe para analistas.
-    const session = isAnalyst(user) ? await activeSessionForEntry(id) : null;
+    // No, VM, IP e analista sao para quem opera: o painel so existe para analistas. A sessao mais
+    // recente, mesmo encerrada: so a ativa deixava os artefatos (prints, processos, Sysmon,
+    // captura) sem lugar na tela assim que o ambiente acabava.
+    const session = isAnalyst(user) ? await latestSessionForEntry(id) : null;
     // Sysmon (plano pos-revisao, item 5.3): dominios e IPs que a VM procurou ou contatou, em
     // qualquer ambiente da amostra, vao para os IOCs sugeridos do relatorio.
     const sysmon = isAnalyst(user)

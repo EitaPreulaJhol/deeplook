@@ -256,6 +256,27 @@ Start-Process notepad.exe
 `;
 
 /**
+ * Estado do Microsoft Defender na VM e as deteccoes (eventos 1116 e 1117 do log dele) da ultima
+ * hora, em JSON. So leitura.
+ */
+const DEFENDER_COMMAND = [
+  'powershell.exe',
+  '-NoProfile',
+  '-NonInteractive',
+  '-EncodedCommand',
+  Buffer.from(
+    [
+      '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
+      '$s = Get-MpComputerStatus -ErrorAction SilentlyContinue',
+      "$e = Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-Windows Defender/Operational'; Id = 1116,1117; StartTime = (Get-Date).AddHours(-1) } -MaxEvents 10 -ErrorAction SilentlyContinue",
+      '$d = @(foreach ($x in $e) { [pscustomobject]@{ id = $x.Id; text = (($x.Message -split "`n" | Where-Object { $_ -match "Nome:|Name:|Caminho:|Path:|Ação|Action:" }) -join " ").Trim() } })',
+      'ConvertTo-Json -Compress -Depth 3 -InputObject ([pscustomobject]@{ realTime = $(if ($s) { $s.RealTimeProtectionEnabled } else { $null }); signatures = $(if ($s -and $s.AntivirusSignatureLastUpdated) { $s.AntivirusSignatureLastUpdated.ToString("yyyy-MM-dd HH:mm") } else { $null }); detections = $d })',
+    ].join('\n'),
+    'utf16le',
+  ).toString('base64'),
+];
+
+/**
  * Acha a amostra no CD-ROM e a roda NA SESSAO DO USUARIO LOGADO, para ela aparecer na tela (e nos
  * prints), como quando o analista a roda pelo console. O agente executa como SYSTEM, na sessao 0,
  * sem area de trabalho: dali, uma tarefa agendada interativa (LogonType Interactive, sem senha)
@@ -718,6 +739,28 @@ async function runEnvironment() {
     );
     const ind = (await dl('GET', `/entries/${entryId}/sandbox`)).json?.sysmonIndicators ?? [];
     check('4.6 IOCs sugeridos do Sysmon', 'O', ind.length > 0, '', ind.slice(0, 6).join(', '));
+  }
+
+  // 4.7 Antivirus da VM (diagnostico, so leitura pelo agente): o Defender ligado no template barra
+  // a amostra (o script abre e morre, sem nenhum efeito no Sysmon) e, com malware de verdade, a
+  // analise inteira. Mostra o estado e as deteccoes do log do Defender desde o inicio do ambiente.
+  try {
+    const out = await agentRun(testVmid, DEFENDER_COMMAND);
+    const info = JSON.parse(String(out['out-data'] ?? '').trim() || '{}');
+    const found = (info.detections ?? []).map((d) => `${d.id} ${d.text}`);
+    check(
+      '4.7 antivírus da VM não barrou a amostra',
+      'D',
+      !found.length,
+      info.realTime === true ? 'Defender ligado' : info.realTime === false ? 'Defender desligado' : 'Defender ausente',
+      found.length
+        ? found.join(' | ').slice(0, 400)
+        : typeof info.signatures === 'string'
+          ? `assinaturas de ${info.signatures}`
+          : '',
+    );
+  } catch (err) {
+    skip('4.7 antivírus da VM não barrou a amostra', 'D', `leitura falhou: ${err.message}`);
   }
 
   // 5.1 Captura durante o ambiente.

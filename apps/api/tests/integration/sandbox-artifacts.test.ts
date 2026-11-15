@@ -18,7 +18,7 @@ async function main() {
   const { ensureBucket, s3 } = await import('../../src/lib/s3');
   const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
   const { pve } = await import('../../src/lib/proxmox');
-  const { pveMockReset } = await import('../../src/lib/proxmox-mock');
+  const { mockSysmon, pveMockReset } = await import('../../src/lib/proxmox-mock');
   const { artifactKeysOf, collectArtifacts, collectRunning } =
     await import('../../src/lib/sandbox-artifacts');
   const { dispose } = await import('../../src/lib/sandbox');
@@ -120,6 +120,16 @@ async function main() {
       sm.registry.length === 1 &&
       sm.dns[0].query === 'c2.evil.example',
     sm,
+  );
+  // A ultima coleta (VM ja desligando) com a leitura falhando nao apaga a boa.
+  mockSysmon.broken = true;
+  const lastTry = await collectArtifacts(session.id, { final: true });
+  mockSysmon.broken = false;
+  const keptSysmon = (await get(`/api/sandbox/${session.id}/artifacts`, cAna)).json().sysmon;
+  ok(
+    'Sysmon: leitura que falha não apaga a anterior',
+    lastTry.sysmon === false && keptSysmon?.available === true && keptSysmon.events === sm.events,
+    { lastTry, kept: keptSysmon?.available },
   );
   const indicators = (await get(`/api/entries/${entry.id}/sandbox`, cAna)).json().sysmonIndicators;
   ok(
@@ -279,6 +289,25 @@ async function main() {
     'encerrar faz a última coleta e os artefatos ficam',
     after === before + 1 && ended.status === 'STOPPED' && ended.screenshots.length === 3,
     { before, after, status: ended.status },
+  );
+  // O painel da amostra recebe a sessao mais recente mesmo encerrada (era so a ativa: os artefatos
+  // sumiam da tela quando o ambiente acabava). O teste abriu outras na mesma amostra: todas acabam.
+  await prisma.sandboxSession.updateMany({
+    where: { entryId: entry.id },
+    data: { status: 'STOPPED' },
+  });
+  const latest = await prisma.sandboxSession.findFirst({
+    where: { entryId: entry.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  const panel = (await get(`/api/entries/${entry.id}/sandbox`, cAna)).json();
+  ok(
+    'painel da amostra: a sessão encerrada vem (os artefatos têm onde aparecer); usuário comum não',
+    panel.session?.id === latest?.id &&
+      panel.session.status === 'STOPPED' &&
+      ended.sysmon?.available === true &&
+      (await get(`/api/entries/${entry.id}/sandbox`, cUser)).json().session === null,
+    { session: panel.session?.status, sysmon: ended.sysmon?.available },
   );
 
   // ---- 6. A lixeira leva os prints junto.

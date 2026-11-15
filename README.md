@@ -1589,6 +1589,12 @@ it.
 - With no user logged in to the VM, it runs as SYSTEM and does not show in the console. To see it,
   set up automatic logon in the template ([Proxmox guide](docs/proxmox.md#21-analysis-vm-template)).
 - Windows VMs only. If the agent doesn't answer within 10 minutes, it gives up with the reason.
+- Before opening the sample, the user's console becomes the classic one (`conhost`) in that disposable
+  VM (the template does not change). On Windows 11, a program's console goes to Windows Terminal, and
+  the handoff right after the launcher's sometimes got lost: the sample stalled before its first
+  instruction, and Sysmon only showed Windows noise (seen in the test against the real Proxmox).
+- The artifacts (screenshots, processes, Sysmon, capture) stay in the environment section after it
+  ends, also when the file was purged by retention or the sandbox is turned off.
 
 ### Limits, TTL and cleanup
 

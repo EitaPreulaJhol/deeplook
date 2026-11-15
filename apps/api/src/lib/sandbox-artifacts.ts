@@ -41,6 +41,11 @@ export type GuestProcess = { pid: number; ppid: number | null; name: string; cmd
 
 const MAX_PROCESSES = 500;
 const EXEC_WAIT_MS = 20_000;
+/**
+ * Espera da leitura do Sysmon: ate 2000 eventos convertidos um a um pelo PowerShell 5.1, numa VM
+ * que a amostra pode estar ocupando. Os 20 s dos outros comandos nao bastavam.
+ */
+const SYSMON_WAIT_MS = 90_000;
 const POLL_MS = 500;
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
@@ -157,10 +162,11 @@ export async function guestRun(
   vmid: number,
   command: string[],
   what: string,
+  waitMs = EXEC_WAIT_MS,
 ): Promise<string> {
   const base = agentBase(node, vmid);
   const started = await pve<{ pid: number }>(`${base}/exec`, { method: 'POST', body: { command } });
-  const deadline = Date.now() + EXEC_WAIT_MS;
+  const deadline = Date.now() + waitMs;
   for (;;) {
     const status = await pve<{ exited?: number | boolean; 'out-data'?: string; exitcode?: number }>(
       `${base}/exec-status?pid=${started.pid}`,
@@ -189,7 +195,9 @@ export async function guestProcesses(
 
 /** O Sysmon do guest Windows desde `since` (plano pos-revisao, item 5.3). */
 export async function guestSysmon(node: string, vmid: number, since: Date): Promise<SysmonSummary> {
-  return parseSysmon(await guestRun(node, vmid, sysmonCommand(since), 'a leitura do Sysmon'));
+  return parseSysmon(
+    await guestRun(node, vmid, sysmonCommand(since), 'a leitura do Sysmon', SYSMON_WAIT_MS),
+  );
 }
 
 /** O endpoint de screenshot do PVE existe? (o PVE 9 o tirou: responde 501). Lembrado no processo. */
@@ -304,12 +312,24 @@ export async function collectArtifacts(
     } catch (err) {
       sysmon = { available: false, reason: agentProblem(err) };
     }
-    await prisma.$transaction([
-      prisma.sandboxArtifact.deleteMany({ where: { sessionId, kind: 'SYSMON' } }),
-      prisma.sandboxArtifact.create({
-        data: { sessionId, kind: 'SYSMON', sysmon: sysmon as unknown as Prisma.InputJsonValue },
-      }),
-    ]);
+    // Uma leitura que falhou nunca apaga uma boa: a ultima coleta (com a VM ja desligando) ou uma
+    // leitura lenta tirava da amostra todos os eventos lidos durante a sessao.
+    const kept = sysmon.available
+      ? null
+      : await prisma.sandboxArtifact.findFirst({
+          where: { sessionId, kind: 'SYSMON', sysmon: { path: ['available'], equals: true } },
+          select: { id: true },
+        });
+    if (kept && !sysmon.available) {
+      log.warn(`[sandbox] leitura do Sysmon do ambiente ${sessionId} falhou: ${sysmon.reason}`);
+    } else {
+      await prisma.$transaction([
+        prisma.sandboxArtifact.deleteMany({ where: { sessionId, kind: 'SYSMON' } }),
+        prisma.sandboxArtifact.create({
+          data: { sessionId, kind: 'SYSMON', sysmon: sysmon as unknown as Prisma.InputJsonValue },
+        }),
+      ]);
+    }
     result.sysmon = sysmon.available;
   }
   // A ultima coleta (ao encerrar) e de cortesia: o agente as vezes nao responde com a VM ja

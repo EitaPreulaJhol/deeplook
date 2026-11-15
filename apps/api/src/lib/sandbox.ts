@@ -103,6 +103,21 @@ export async function activeSessionForEntry(entryId: string) {
   });
 }
 
+/**
+ * A sessao mais recente da amostra, ativa ou nao: o painel mostra o ambiente em andamento e, depois
+ * que ele encerra, os artefatos dele (prints, processos, Sysmon, captura), que ficam com a amostra.
+ */
+export async function latestSessionForEntry(entryId: string) {
+  return prisma.sandboxSession.findFirst({
+    where: { entryId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      analyst: { select: { id: true, displayName: true } },
+      entry: { select: { id: true, title: true } },
+    },
+  });
+}
+
 export async function countActive(): Promise<{
   total: number;
   perAnalyst: (id: string) => Promise<number>;

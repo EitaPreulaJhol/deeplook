@@ -17,7 +17,7 @@ async function main() {
   const { prisma } = await import('../../src/lib/prisma');
   const { pve } = await import('../../src/lib/proxmox');
   const { mockAutoRuns, pveMockReset } = await import('../../src/lib/proxmox-mock');
-  const { autoRunTick, autoRunTiming, startAutoRun } =
+  const { autoRunTick, autoRunTiming, CONHOST, startAutoRun } =
     await import('../../src/lib/sandbox-autorun');
   const { buildApp } = await import('../../src/app');
   const { initSandbox } = await import('../../src/lib/sandbox');
@@ -117,6 +117,14 @@ async function main() {
       launcherText.includes('$env:TEMP') &&
       launcherText.includes('Start-Process -FilePath $dst'),
     { sent: sent.slice(0, 200), launcherText: launcherText.slice(0, 200) },
+  );
+  ok(
+    'console clássico para o usuário antes da tarefa (sem a entrega ao Windows Terminal)',
+    sent.includes('Console\\%%Startup') &&
+      sent.includes('DelegationConsole') &&
+      sent.includes('DelegationTerminal') &&
+      sent.includes(CONHOST) &&
+      sent.indexOf('DelegationTerminal') < sent.indexOf('Register-ScheduledTask'),
   );
   await autoRunTick();
   ok(

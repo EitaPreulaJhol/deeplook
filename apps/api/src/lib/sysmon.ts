@@ -17,20 +17,35 @@ const MAX_TEXT = 1000;
 
 /** Marca na saida: o canal do Sysmon nao existe (nao instalado). */
 const MISSING = 'DEEPLOOK_SEM_SYSMON';
+/**
+ * Folga da janela de leitura, alem do tempo desde o inicio da sessao. O log ja comeca limpo a cada
+ * boot (scripts/template-windows/sysmon.bat): a folga so cobre a diferenca entre o inicio gravado
+ * pela API e o boot da VM.
+ */
+const WINDOW_MARGIN_S = 300;
+
+/** Segundos que a leitura cobre: desde o inicio da sessao, com a folga. */
+export function sysmonWindowS(since: Date, now = Date.now()): number {
+  return Math.max(0, Math.ceil((now - since.getTime()) / 1000)) + WINDOW_MARGIN_S;
+}
 
 /**
  * O comando do agente: um PowerShell em Base64 (UTF-16LE, como o -EncodedCommand pede), sem aspas
  * a escapar. Le os eventos desde `since`, do mais antigo para o mais novo (no teto, o comeco da
  * execucao fica, que e o que mais conta), e devolve JSON compacto (uma lista, mesmo com um evento).
+ *
+ * A janela e contada no relogio da propria VM (agora menos o tempo da sessao), nunca pela hora da
+ * API: a VM isolada nao sincroniza a hora, e um relogio atrasado em relacao ao host deixava todos
+ * os eventos antes do "inicio" e a leitura vazia.
  */
-export function sysmonCommand(since: Date): string[] {
+export function sysmonCommand(since: Date, now = Date.now()): string[] {
   const script = [
     // Caminhos com acento: a saida do agente em UTF-8, nao na pagina de codigo do console.
     '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
     "$log = 'Microsoft-Windows-Sysmon/Operational'",
     `if (-not (Get-WinEvent -ListLog $log -ErrorAction SilentlyContinue)) { '${MISSING}'; exit 0 }`,
-    `$since = [datetime]::Parse('${since.toISOString()}').ToUniversalTime()`,
-    `$events = Get-WinEvent -FilterHashtable @{ LogName = $log; StartTime = $since.ToLocalTime(); Id = ${EVENT_IDS.join(',')} } -MaxEvents ${SYSMON_MAX_EVENTS} -Oldest -ErrorAction SilentlyContinue`,
+    `$since = (Get-Date).AddSeconds(-${sysmonWindowS(since, now)})`,
+    `$events = Get-WinEvent -FilterHashtable @{ LogName = $log; StartTime = $since; Id = ${EVENT_IDS.join(',')} } -MaxEvents ${SYSMON_MAX_EVENTS} -Oldest -ErrorAction SilentlyContinue`,
     // foreach sobre $null nao itera (sem eventos: lista vazia, "[]").
     '$list = @(foreach ($e in $events) {',
     '  $d = @{}',

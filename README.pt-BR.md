@@ -1606,6 +1606,12 @@ histórico da amostra registra a execução e quem a pediu.
 - Sem usuário logado na VM, ela roda como SYSTEM e não aparece no console. Para vê-la, configure o
   login automático no template ([guia do Proxmox](docs/proxmox.pt-BR.md#21-template-da-vm-de-análise)).
 - Só em VMs Windows. Sem o agente respondendo em 10 minutos, desiste com o motivo.
+- Antes de abrir a amostra, o console do usuário vira o clássico (`conhost`) naquela VM descartável
+  (o template não muda). No Windows 11, o console de um programa vai para o Windows Terminal, e a
+  entrega logo depois da do lançador às vezes se perdia: a amostra ficava parada antes da primeira
+  instrução, e o Sysmon só mostrava o ruído do Windows (visto no teste contra o Proxmox real).
+- Os artefatos (prints, processos, Sysmon, captura) ficam na seção do ambiente depois que ele
+  acaba, também com o arquivo expurgado pela retenção ou com o sandbox desligado.
 
 ### Limites, TTL e limpeza
 

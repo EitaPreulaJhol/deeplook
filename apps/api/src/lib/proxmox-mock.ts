@@ -39,6 +39,8 @@ let agentRuns = 0;
 const agentJobs = new Map<number, 'processes' | 'sysmon' | 'probe' | 'autorun'>();
 /** Execucoes automaticas da amostra que o agente simulado recebeu (os testes conferem). */
 export const mockAutoRuns: { vmid: number; script: string }[] = [];
+/** Leitura do Sysmon que volta ilegivel (os testes ligam; como um agente que falha no meio). */
+export const mockSysmon = { broken: false };
 let agentPid = 1000;
 
 /**
@@ -309,7 +311,12 @@ export async function pveMock(
       return { exited: 1, exitcode: 0, 'out-data': 'AUTORUN_OK|SANDBOX\\analista\r\n' };
     }
     if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'sysmon') {
-      const out = vmid === 9998 ? 'DEEPLOOK_SEM_SYSMON' : JSON.stringify(MOCK_SYSMON_EVENTS);
+      const out =
+        vmid === 9998
+          ? 'DEEPLOOK_SEM_SYSMON'
+          : mockSysmon.broken
+            ? 'saida cortada'
+            : JSON.stringify(MOCK_SYSMON_EVENTS);
       return { exited: 1, exitcode: 0, 'out-data': out };
     }
     if (rest.startsWith('/agent/exec-status')) {

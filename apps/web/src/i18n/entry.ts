@@ -324,7 +324,6 @@ export const messages = {
     'Prazo: alerta acima de {warn} h e atraso acima de {late} h no status.',
     'Deadline: warning above {warn} h and late above {late} h in the status.',
   ],
-  sandboxTitle: ['Ambiente isolado', 'Isolated environment'],
   sandboxPurged: [
     'Indisponível: o arquivo desta amostra foi expurgado pela política de retenção.',
     "Unavailable: this sample's file was purged by the retention policy.",

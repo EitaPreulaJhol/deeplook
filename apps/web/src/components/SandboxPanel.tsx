@@ -12,6 +12,7 @@ import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { SandboxArtifacts } from './SandboxArtifacts';
 import {
+  isSandboxActive,
   isSandboxWorking,
   SANDBOX_PHASE_LABELS,
   SANDBOX_STATUS_LABELS,
@@ -31,6 +32,11 @@ function openConsoleWindow(entryId: string): boolean {
 
 interface Props {
   entryId: string;
+  /**
+   * Arquivo expurgado pela retencao: nao da para abrir ambiente, mas os artefatos do ultimo (que
+   * ficam com a amostra) continuam na tela, com este aviso.
+   */
+  purgedNote?: string;
 }
 
 /** A escolha da caixa de execucao automatica fica lembrada neste navegador. */
@@ -93,7 +99,7 @@ function AutoRunStatus({ session }: { session: SandboxSession }) {
  * amostra dentro (ISO read-only). O console noVNC roda numa janela dedicada
  * (com a toolbar de controle da VM), nao mais embutido na pagina.
  */
-export function SandboxPanel({ entryId }: Props) {
+export function SandboxPanel({ entryId, purgedNote }: Props) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
@@ -179,10 +185,16 @@ export function SandboxPanel({ entryId }: Props) {
 
   if (query.isLoading) return <HpsmLoading text={t('consultingEnv')} />;
 
-  if (!enabled) {
+  // Sem como abrir ambiente (sandbox desligado ou arquivo expurgado): o motivo e, se houve um
+  // ambiente que ja acabou, os artefatos dele.
+  if (!enabled || purgedNote) {
+    const past = session && !isSandboxActive(session.status) && session.status !== 'FAILED';
     return (
       <HpsmSection title={t('title')}>
-        <p className="dl-page-subtitle">{t('disabled')}</p>
+        <p className={purgedNote ? 'dl-static-empty' : 'dl-page-subtitle'}>
+          {purgedNote ?? t('disabled')}
+        </p>
+        {past && <SandboxArtifacts sessionId={session.id} running={false} />}
       </HpsmSection>
     );
   }

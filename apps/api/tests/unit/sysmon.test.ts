@@ -7,7 +7,8 @@ import { parseSysmon, sysmonCommand, sysmonIndicators } from '../../src/lib/sysm
 // Sysmon no template (plano pos-revisao, item 5.3): comando do agente e leitura dos eventos.
 
 test('comando: PowerShell em Base64 (UTF-16LE), lendo o canal desde o início da sessão', () => {
-  const command = sysmonCommand(new Date('2026-11-13T12:00:00.000Z'));
+  const now = Date.parse('2026-11-13T12:10:00.000Z');
+  const command = sysmonCommand(new Date('2026-11-13T12:00:00.000Z'), now);
   assert.deepEqual(command.slice(0, 4), [
     'powershell.exe',
     '-NoProfile',
@@ -16,7 +17,9 @@ test('comando: PowerShell em Base64 (UTF-16LE), lendo o canal desde o início da
   ]);
   const script = Buffer.from(command[4], 'base64').toString('utf16le');
   assert.ok(script.includes('Microsoft-Windows-Sysmon/Operational'));
-  assert.ok(script.includes("'2026-11-13T12:00:00.000Z'"));
+  // Janela no relogio da VM: os 600 s da sessao mais a folga de 300 s, sem a hora da API.
+  assert.ok(script.includes('$since = (Get-Date).AddSeconds(-900)'), script);
+  assert.ok(!script.includes('2026-11-13'));
   assert.ok(script.includes('Id = 1,3,11,12,13,14,22'));
   assert.ok(script.includes('-MaxEvents 2000 -Oldest'));
 });

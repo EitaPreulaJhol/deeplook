@@ -6,7 +6,7 @@
 // o pcap para baixar, o que o Suricata achou e o motivo quando a captura falha.
 import { chromium } from 'playwright';
 
-import { createState, ORIGIN, OUT, runningSandbox, setupMock, watchErrors } from './mock-api.mjs';
+import { createState, entries, ORIGIN, OUT, runningSandbox, setupMock, watchErrors } from './mock-api.mjs';
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -146,6 +146,18 @@ state.sandboxes.e1 = { ...runningSandbox('e1', 40), status: 'STOPPED' };
 await page.goto(ORIGIN + '/entries/e1?tab=analise', { waitUntil: 'networkidle' });
 await block.waitFor();
 expect('encerrado: artefatos continuam visíveis', (await block.locator('.dl-sandbox-artifacts__shots li').count()) === 8);
+
+// 4. Arquivo expurgado pela retencao: nao abre ambiente, mas os artefatos do ultimo continuam.
+Object.assign(entries.find((e) => e.id === 'e1'), { storageKey: null, filePurgedAt: '2026-10-01T12:00:00.000Z' });
+await page.goto(ORIGIN + '/entries/e1?tab=analise', { waitUntil: 'networkidle' });
+await block.waitFor();
+const sandboxSection = page.locator('.hpsm-section:has(.hpsm-section__head:has-text("Ambiente isolado"))');
+expect(
+  'expurgado: o aviso, sem abrir ambiente, e os artefatos do último',
+  (await sandboxSection.innerText()).includes('expurgado') &&
+    (await sandboxSection.locator('button', { hasText: /Abrir/ }).count()) === 0 &&
+    (await block.locator('.dl-sandbox-artifacts__shots li').count()) === 8,
+);
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nartefatos do sandbox: tudo ok');

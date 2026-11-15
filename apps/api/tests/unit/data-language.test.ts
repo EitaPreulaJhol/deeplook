@@ -46,6 +46,7 @@ const FILES = [
 const SAME = new Set([
   // Comando do PowerShell da execucao automatica (sandbox-autorun.ts).
   'Start-Sleep -Seconds 2',
+  'try {',
   'no-sysmon',
   "if (Get-WinEvent -ListLog {0} -ErrorAction SilentlyContinue) { 'SYSMON_OK' } else { 'SYSMON_AUSENTE' }",
   // Cabecalhos HTTP (plano pos-revisao, 5.4).

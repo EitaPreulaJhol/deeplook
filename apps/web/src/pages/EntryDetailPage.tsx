@@ -983,14 +983,12 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && (
             <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />
           )}
-          {entry.type === 'FILE' &&
-            (entry.filePurgedAt ? (
-              <HpsmSection title={tr('sandboxTitle')}>
-                <p className="dl-static-empty">{tr('sandboxPurged')}</p>
-              </HpsmSection>
-            ) : (
-              <SandboxPanel entryId={entry.id} />
-            ))}
+          {entry.type === 'FILE' && (
+            <SandboxPanel
+              entryId={entry.id}
+              purgedNote={entry.filePurgedAt ? tr('sandboxPurged') : undefined}
+            />
+          )}
         </div>
       )}
 
