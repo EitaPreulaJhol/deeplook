@@ -24,7 +24,12 @@ export function block(title: string, text?: string | null): string[] {
  * relatorios): cabecalho com os dados da amostra e um bloco por relatorio.
  * Rascunhos ficam de fora.
  */
-export function entryReportsMarkdown(entry: Entry, exportedBy: string): string {
+export function entryReportsMarkdown(
+  entry: Entry,
+  exportedBy: string,
+  /** O resumo da ultima execucao no ambiente isolado (sandboxSummary), so para analistas. */
+  sandboxRun: string[] = [],
+): string {
   const published = (entry.reports ?? []).filter((r) => r.status === 'PUBLISHED');
   const lines = [
     `# ${entry.title}`,
@@ -66,6 +71,7 @@ export function entryReportsMarkdown(entry: Entry, exportedBy: string): string {
       ...block('IOCs', report.iocs),
     );
   }
+  lines.push(...sandboxRun);
   return lines.join('\n');
 }
 

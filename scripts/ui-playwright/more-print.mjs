@@ -2,7 +2,8 @@
 // mouse e teclado, Esc devolve o foco, copiar link, abrir em nova janela, exportar
 // relatorios em Markdown (desabilitado sem relatorio publicado) e a ficha impressa
 // (dados, relatorios, historico, "Impresso por / em", impressao automatica, sem
-// dados do sandbox, toolbar oculta no papel, PDF em A4).
+// dados do sandbox, toolbar oculta no papel, PDF em A4). Com uma execucao no
+// ambiente isolado, o resumo dela na ficha e no Markdown (ajustes, item 6).
 import { readFileSync } from 'node:fs';
 
 import { chromium } from 'playwright';
@@ -124,6 +125,61 @@ const manual = await context.newPage();
 await manual.goto(ORIGIN + '/entries/e1/imprimir', { waitUntil: 'networkidle' });
 await manual.waitForTimeout(600);
 expect('sem ?auto=1 não imprime sozinha', (await manual.evaluate(() => window.__printed)) === 0);
+
+// 6. Com uma execucao no ambiente isolado (plans/ajustes-usabilidade, item 6): o resumo
+// na ficha e no Markdown; console e credenciais continuam de fora.
+state.sandboxRuns = {
+  e1: [
+    { id: 'sb-run2', status: 'STOPPED', createdAt: '2026-11-12T15:00:00.000Z', startedAt: '2026-11-12T15:01:00.000Z', stoppedAt: '2026-11-12T15:30:00.000Z', autoRun: 'DONE', autoRunAt: '2026-11-12T15:02:00.000Z', autoRunUser: 'analista', autoRunSysmon: true, autoRunError: null, analyst: { id: 'u1', displayName: 'Ana Souza' } },
+  ],
+};
+state.sandboxSummaries = {
+  'sb-run2': {
+    session: { id: 'sb-run2', status: 'STOPPED', createdAt: '2026-11-12T15:00:00.000Z', startedAt: '2026-11-12T15:01:00.000Z', stoppedAt: '2026-11-12T15:30:00.000Z', analyst: 'Ana Souza', autoRun: 'DONE', autoRunAt: '2026-11-12T15:02:00.000Z', autoRunUser: 'analista', autoRunSysmon: true },
+    sample: { name: 'instalador_suspeito.exe', found: true, processes: 2 },
+    sysmon: { available: true, reason: null, events: 214 },
+    processes: [
+      { time: '2026-11-12T15:02:01.000Z', image: 'C:\\Users\\analista\\Desktop\\instalador_suspeito.exe', pid: 4410, ppid: 900, cmd: '"C:\\Users\\analista\\Desktop\\instalador_suspeito.exe"' },
+      { time: '2026-11-12T15:02:03.000Z', image: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', pid: 4512, ppid: 4410, cmd: 'powershell -enc SQBFAFgA' },
+    ],
+    dns: [{ query: 'c2.evil.example', results: '203.0.113.7;' }],
+    network: [{ destination: '203.0.113.7:443', protocol: 'tcp' }],
+    files: ['C:\\Users\\Public\\stage2.dll'],
+    registry: [{ key: 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\upd', action: 'SetValue', details: 'C:\\Users\\Public\\stage2.dll' }],
+    appeared: [],
+    screenshots: 3,
+  },
+};
+const withRun = await context.newPage();
+await withRun.goto(ORIGIN + '/entries/e1/imprimir', { waitUntil: 'networkidle' });
+const runSections = await withRun.locator('.dl-print h2').allTextContents();
+expect('ficha: a execução entre os relatórios e o histórico', runSections.join('|') === 'Dados da amostra|Relatórios publicados (1)|Ambiente isolado: última execução|Histórico (1)', runSections.join('|'));
+const runText = await withRun.locator('.dl-print__section:has(h2:text-is("Ambiente isolado: última execução"))').innerText();
+expect(
+  'ficha: Sysmon, execução automática, processos, DNS, conexões, arquivos e registro',
+  runText.includes('214 evento(s)') &&
+    runText.includes('na sessão de analista') &&
+    runText.includes('powershell.exe (PID 4512) — powershell -enc SQBFAFgA') &&
+    runText.includes('c2.evil.example → 203.0.113.7') &&
+    runText.includes('tcp 203.0.113.7:443') &&
+    runText.includes('C:\\Users\\Public\\stage2.dll') &&
+    runText.includes('SetValue HKCU\\Software'),
+  runText,
+);
+expect('ficha: nada de console nem credenciais', !/console|vnc|senha/i.test(runText));
+await withRun.screenshot({ path: `${OUT}/ficha-execucao.png`, fullPage: true });
+await withRun.close();
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+await more.click();
+const [runDownload] = await Promise.all([page.waitForEvent('download'), item('Exportar relatórios (Markdown)').click()]);
+const runMd = readFileSync(await runDownload.path(), 'utf8');
+expect(
+  'Markdown: a execução depois dos relatórios, em bloco de código',
+  runMd.indexOf('## Ambiente isolado: última execução') > runMd.indexOf('## Relatórios publicados (1)') &&
+    runMd.includes('| Sysmon | 214 evento(s) |') &&
+    runMd.includes('**Consultas DNS**\n\n```\nc2.evil.example → 203.0.113.7\n```'),
+  runMd.slice(runMd.indexOf('## Ambiente')),
+);
 
 await browser.close();
 console.log(failures ? `\n${failures} falha(s)` : '\nmais/imprimir: tudo ok');

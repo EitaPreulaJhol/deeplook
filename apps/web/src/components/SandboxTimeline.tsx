@@ -145,6 +145,11 @@ function TimelineBody({ sessionId, running }: { sessionId: string; running: bool
     setKinds(next);
     setPage(1);
   };
+  // A exportacao leva os filtros da tela, sem a paginacao (plans/ajustes-usabilidade, item 6).
+  const exportParams = new URLSearchParams({ scope: data.scope });
+  if (kinds.length < KINDS.length) exportParams.set('kinds', kinds.join(','));
+  const exportUrl = (format: 'csv' | 'json') =>
+    `/api/sandbox/${sessionId}/timeline/export?${exportParams}&format=${format}`;
   let note: ReactNode = null;
   if (!data.sample.found)
     note = <p className="dl-hint-muted">{t('timelineNoSample', { name: data.sample.name })}</p>;
@@ -183,9 +188,22 @@ function TimelineBody({ sessionId, running }: { sessionId: string; running: bool
         </fieldset>
       </div>
       {note}
-      <p className="dl-timeline__total" aria-live="polite">
-        {t('timelineTotal', { n: data.total })}
-      </p>
+      <div className="dl-timeline__head">
+        <p className="dl-timeline__total" aria-live="polite">
+          {t('timelineTotal', { n: data.total })}
+        </p>
+        {data.total > 0 && (
+          <>
+            {/* Anexo (Content-Disposition): baixa sem sair da pagina. */}
+            <a className="dl-btn" href={exportUrl('csv')}>
+              {t('exportCsv')}
+            </a>
+            <a className="dl-btn" href={exportUrl('json')}>
+              {t('exportJson')}
+            </a>
+          </>
+        )}
+      </div>
       {data.events.length === 0 ? (
         <p className="dl-hint-muted">{t('timelineEmpty')}</p>
       ) : (

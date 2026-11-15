@@ -2277,6 +2277,12 @@ body:has(.dl-print) {
   text-transform: uppercase;
 }
 
+.dl-print__list {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
 .dl-print__kv,
 .dl-print__grid {
   inline-size: 100%;
@@ -3870,8 +3876,16 @@ li .dl-link,
   }
 }
 
+.dl-timeline__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .dl-timeline__total {
   margin: 0.25rem 0;
+  margin-inline-end: auto;
   color: var(--dl-text-muted);
 }
 

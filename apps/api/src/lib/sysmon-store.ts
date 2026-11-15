@@ -252,3 +252,105 @@ export async function sampleStart(sessionId: string, tree: Set<string>): Promise
   });
   return first ? apiTime(first.time, await sysmonOffset(sessionId)) : null;
 }
+
+// ------------------------------------------------------- resumo e exportacao (ajustes, item 6)
+
+/** O evento numa linha de texto (exportacao): a linha de comando, o destino, a consulta... */
+export function describeEvent(e: TimelineEvent): string {
+  const d = e.detail;
+  switch (e.kind) {
+    case 'process':
+      return String(d.cmd ?? e.image ?? '');
+    case 'network':
+      return `${d.protocol ?? ''} ${d.host ?? d.ip ?? '?'}${d.port !== null ? `:${d.port}` : ''}`.trim();
+    case 'dns':
+      return d.results
+        ? `${d.query} -> ${String(d.results).replace(/;$/, '')}`
+        : String(d.query ?? '');
+    case 'file':
+      return String(d.path ?? '');
+    case 'registry':
+      return `${d.action ?? ''} ${d.key ?? ''}${d.details ? ` = ${d.details}` : ''}`.trim();
+  }
+}
+
+/** Todos os eventos da linha do tempo com os filtros (exportacao), ate o teto do ambiente. */
+export async function sysmonTimelineAll(
+  sessionId: string,
+  opts: { tree: Set<string>; sampleOnly: boolean; kinds: TimelineKind[] },
+): Promise<TimelineEvent[]> {
+  const all: TimelineEvent[] = [];
+  for (let page = 1; ; page++) {
+    const { events } = await sysmonTimeline(sessionId, { ...opts, page });
+    all.push(...events);
+    if (events.length < TIMELINE_PAGE) return all;
+  }
+}
+
+/** Itens de cada lista do resumo da execucao. */
+const SUMMARY_ITEMS = 100;
+
+export interface RunSummaryLists {
+  processes: {
+    time: string;
+    image: string | null;
+    pid: number | null;
+    ppid: number | null;
+    cmd: string | null;
+  }[];
+  dns: { query: string; results: string | null }[];
+  network: { destination: string; protocol: string | null }[];
+  files: string[];
+  registry: { key: string; action: string | null; details: string | null }[];
+}
+
+/**
+ * O que a amostra fez numa execucao (ficha impressa, Markdown): os processos da arvore dela e, sem
+ * repetir, as consultas DNS, os destinos, os arquivos e as chaves desses processos.
+ */
+export async function sampleRunLists(
+  sessionId: string,
+  tree: Set<string>,
+): Promise<RunSummaryLists> {
+  const lists: RunSummaryLists = { processes: [], dns: [], network: [], files: [], registry: [] };
+  if (!tree.size) return lists;
+  const events = await sysmonTimelineAll(sessionId, {
+    tree,
+    sampleOnly: true,
+    kinds: [...TIMELINE_KINDS],
+  });
+  const seen = new Set<string>();
+  const once = (key: string) => (seen.has(key) ? false : (seen.add(key), true));
+  for (const e of events) {
+    const d = e.detail;
+    if (e.kind === 'process' && lists.processes.length < SUMMARY_ITEMS) {
+      lists.processes.push({
+        time: e.time,
+        image: e.image,
+        pid: e.pid,
+        ppid: typeof d.ppid === 'number' ? d.ppid : null,
+        cmd: (d.cmd as string | null) ?? null,
+      });
+    } else if (e.kind === 'dns' && d.query && lists.dns.length < SUMMARY_ITEMS) {
+      if (once(`dns:${d.query}`)) {
+        lists.dns.push({ query: String(d.query), results: (d.results as string | null) ?? null });
+      }
+    } else if (e.kind === 'network' && lists.network.length < SUMMARY_ITEMS) {
+      const destination = `${d.host ?? d.ip ?? '?'}${d.port !== null ? `:${d.port}` : ''}`;
+      if (once(`net:${destination}`)) {
+        lists.network.push({ destination, protocol: (d.protocol as string | null) ?? null });
+      }
+    } else if (e.kind === 'file' && d.path && lists.files.length < SUMMARY_ITEMS) {
+      if (once(`file:${d.path}`)) lists.files.push(String(d.path));
+    } else if (e.kind === 'registry' && d.key && lists.registry.length < SUMMARY_ITEMS) {
+      if (once(`reg:${d.key}`)) {
+        lists.registry.push({
+          key: String(d.key),
+          action: (d.action as string | null) ?? null,
+          details: (d.details as string | null) ?? null,
+        });
+      }
+    }
+  }
+  return lists;
+}

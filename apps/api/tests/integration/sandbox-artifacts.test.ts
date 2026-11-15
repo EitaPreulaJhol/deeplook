@@ -304,6 +304,74 @@ async function main() {
     'histórico: usuário comum não vê',
     (await get(`/api/entries/${entry.id}/sandbox/sessions`, cUser)).statusCode === 403,
   );
+
+  // ---- 1e. Resumo da execucao e exportacao da linha do tempo (ajustes-usabilidade, item 6).
+  // Um filho da amostra com uma linha de comando que viraria formula numa planilha.
+  mockSysmon.extra = [
+    {
+      id: 1,
+      rec: 400,
+      time: '2026-11-13T12:00:07.0000000Z',
+      data: {
+        ProcessId: '4600',
+        ParentProcessId: '4512',
+        ProcessGuid: '{d0000000-0000-0000-0000-000000004600}',
+        ParentProcessGuid: '{b0000000-0000-0000-0000-000000004512}',
+        Image: 'C:\\Windows\\System32\\cmd.exe',
+        CommandLine: '=HYPERLINK("http://evil.example","x")',
+      },
+    },
+  ];
+  await collectArtifacts(session.id);
+  mockSysmon.extra = [];
+  const summary = (await get(`/api/sandbox/${session.id}/summary`, cAna)).json();
+  ok(
+    'resumo da execução: os processos da amostra e, sem repetir, DNS, destinos, arquivos e chaves',
+    summary.sample?.found &&
+      summary.session?.analyst === 'ana@x.io' &&
+      summary.sysmon?.available === true &&
+      summary.processes.map((p: { pid: number }) => p.pid).join() === '4410,4512,4600' &&
+      summary.dns.map((d: { query: string }) => d.query).join() ===
+        'c2.evil.example,late.evil.example' &&
+      summary.network.map((n: { destination: string }) => n.destination).join() ===
+        '203.0.113.7:443' &&
+      summary.files.join() === 'C:\\Users\\Public\\stage2.dll' &&
+      summary.registry.length === 1 &&
+      Array.isArray(summary.appeared),
+    summary,
+  );
+  ok(
+    'resumo: usuário comum não vê',
+    (await get(`/api/sandbox/${session.id}/summary`, cUser)).statusCode === 403,
+  );
+  const csv = await get(`/api/sandbox/${session.id}/timeline/export`, cAna);
+  const csvLines = csv.body
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .split(/\r\n/);
+  ok(
+    'exportação CSV: anexo, cabeçalho, uma linha por evento da amostra, sem fórmula',
+    csv.statusCode === 200 &&
+      String(csv.headers['content-type']).startsWith('text/csv') &&
+      String(csv.headers['content-disposition']).includes('linha-do-tempo.csv') &&
+      csv.body.startsWith('\uFEFF') &&
+      csvLines[0] === 'time,kind,process,pid,sample,detail' &&
+      csvLines.length === 1 + 8 &&
+      csvLines.some((l: string) => l.includes(`"'=HYPERLINK(""http://evil.example"",""x"")"`)) &&
+      !csvLines.some((l: string) => /(^|,)=/.test(l)),
+    csvLines,
+  );
+  const json = await get(`/api/sandbox/${session.id}/timeline/export?format=json&scope=all`, cAna);
+  ok(
+    'exportação JSON com o escopo pedido (tudo)',
+    json.statusCode === 200 && json.json().scope === 'all' && json.json().events.length === 10,
+    { status: json.statusCode, n: json.json().events?.length },
+  );
+  ok(
+    'exportação: formato inválido dá 400; usuário comum, 403',
+    (await get(`/api/sandbox/${session.id}/timeline/export?format=xlsx`, cAna)).statusCode ===
+      400 && (await get(`/api/sandbox/${session.id}/timeline/export`, cUser)).statusCode === 403,
+  );
   // Sessao anterior a leitura incremental: o resumo inteiro guardado no registro continua valendo.
   const legacySession = await prisma.sandboxSession.create({
     data: {

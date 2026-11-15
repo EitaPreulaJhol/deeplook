@@ -92,6 +92,8 @@ export interface CapaInfo {
       libraryFunctions?: number | null;
       rules: CapaRule[];
       truncated: boolean;
+      /** So as regras do nivel do arquivo: a analise de funcoes nao terminou (capaError). */
+      fileOnly?: boolean;
     } | null;
     floss: {
       stack: FlossString[];
@@ -1318,6 +1320,37 @@ export interface SandboxTimeline {
   total: number;
   events: SandboxTimelineEvent[];
   markers: SandboxTimelineMarker[];
+}
+
+/** GET /api/sandbox/:id/summary: o que a amostra fez numa execucao (ficha impressa, Markdown). */
+export interface SandboxRunSummary {
+  session: {
+    id: string;
+    status: SandboxStatus;
+    createdAt: string;
+    startedAt: string | null;
+    stoppedAt: string | null;
+    analyst: string | null;
+    autoRun: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | null;
+    autoRunAt: string | null;
+    autoRunUser: string | null;
+    autoRunSysmon: boolean | null;
+  };
+  sample: { name: string; found: boolean; processes: number };
+  sysmon: { available: boolean; reason: string | null; events: number | null } | null;
+  processes: {
+    time: string;
+    image: string | null;
+    pid: number | null;
+    ppid: number | null;
+    cmd: string | null;
+  }[];
+  dns: { query: string; results: string | null }[];
+  network: { destination: string; protocol: string | null }[];
+  files: string[];
+  registry: { key: string; action: string | null; details: string | null }[];
+  appeared: { pid: number; ppid: number | null; name: string; cmd: string | null }[];
+  screenshots: number;
 }
 
 /** Uma execucao (sessao) da amostra no historico: GET /api/entries/:id/sandbox/sessions. */

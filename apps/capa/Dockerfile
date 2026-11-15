@@ -49,7 +49,7 @@ ENV HOME=/tmp \
 RUN mkdir /opt/capa/cache \
   && python -c "from pathlib import Path; from capa.rules.cache import generate_rule_cache; assert generate_rule_cache(Path('/opt/capa/rules'), Path('/opt/capa/cache'))" \
   && chmod -R a+rX,go-w /opt/capa
-COPY server.py /app/server.py
+COPY server.py capa_file.py /app/
 
 USER capa
 EXPOSE 3200

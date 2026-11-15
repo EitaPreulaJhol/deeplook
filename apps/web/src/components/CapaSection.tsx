@@ -222,11 +222,15 @@ export function CapaSection({
         <HpsmField label={t('executable')}>
           <HpsmReadonly>
             {a.capa
-              ? t('capaExecutable', {
-                  info: [a.capa.format, a.capa.arch, a.capa.os].filter(Boolean).join(' · '),
-                  functions: a.capa.functions ?? '?',
-                  library: a.capa.libraryFunctions ?? 0,
-                })
+              ? a.capa.fileOnly
+                ? t('capaExecutableFileOnly', {
+                    info: [a.capa.format, a.capa.arch, a.capa.os].filter(Boolean).join(' · '),
+                  })
+                : t('capaExecutable', {
+                    info: [a.capa.format, a.capa.arch, a.capa.os].filter(Boolean).join(' · '),
+                    functions: a.capa.functions ?? '?',
+                    library: a.capa.libraryFunctions ?? 0,
+                  })
               : '—'}
           </HpsmReadonly>
         </HpsmField>
@@ -254,12 +258,18 @@ export function CapaSection({
           </HpsmField>
         )}
       </HpsmForm>
+      {/* Analise de funcoes que estoura o teto (item 3 de plans/ajustes-usabilidade): por que. */}
+      {(a.status === 'FAILED' || a.capa?.fileOnly) &&
+        /esgotad|timed out|out of memory/i.test(`${a.error ?? ''} ${a.capaError ?? ''}`) && (
+          <p className="dl-related-hint">{t('capaTooHeavy')}</p>
+        )}
 
       {a.capa && (
         <div className="dl-static-block">
           <h4 className="dl-static-title">
             {t('capabilities', { n: `${rules.length}${a.capa.truncated ? '+' : ''}` })}
           </h4>
+          {a.capa.fileOnly && <p className="dl-related-hint">{t('capaFileOnlyNote')}</p>}
           {rules.length ? (
             <TableContainer>
               <Table size="xs" aria-label={t('capabilitiesAria')}>

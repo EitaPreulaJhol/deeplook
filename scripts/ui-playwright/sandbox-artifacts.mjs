@@ -165,6 +165,14 @@ expect(
 await timeline.getByLabel('processo').uncheck({ force: true });
 await page.waitForFunction(() => document.querySelectorAll('details.dl-timeline .dl-timeline__list > li').length === 9);
 expect('filtro por tipo vai ao servidor', state.timelineQueries.at(-1).includes('kinds=network%2Cdns%2Cfile%2Cregistry'), state.timelineQueries.at(-1));
+// Exportacao (plans/ajustes-usabilidade, item 6): os filtros da tela, sem a pagina.
+const exportLinks = await timeline.locator('.dl-timeline__head a').evaluateAll((as) => as.map((a) => `${a.textContent}=${a.getAttribute('href')}`));
+expect(
+  'exportar CSV e JSON com o escopo e os tipos da tela',
+  exportLinks.join(' | ') ===
+    'Exportar CSV=/api/sandbox/sb-e1/timeline/export?scope=all&kinds=network%2Cdns%2Cfile%2Cregistry&format=csv | Exportar JSON=/api/sandbox/sb-e1/timeline/export?scope=all&kinds=network%2Cdns%2Cfile%2Cregistry&format=json',
+  exportLinks.join(' | '),
+);
 await timeline.screenshot({ path: `${OUT}/sandbox-linha-do-tempo.png` });
 await timeline.getByLabel('processo').check({ force: true });
 

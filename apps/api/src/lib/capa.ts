@@ -95,6 +95,8 @@ const capaSchema = z.object({
   libraryFunctions: z.number().int().nonnegative().nullish(),
   rules: z.array(ruleSchema).max(500),
   truncated: z.boolean(),
+  /** So as regras do nivel do arquivo: a analise de funcoes nao terminou (capaError diz por que). */
+  fileOnly: z.boolean().optional(),
 });
 const flossString = z.object({ string: text(400), function: text(24).nullable() });
 const flossSchema = z.object({

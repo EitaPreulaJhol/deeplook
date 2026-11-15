@@ -157,8 +157,8 @@ services:
       CAPA_URL: ${CAPA_URL-http://capa:3200}
       CAPA_TOKEN: ${CAPA_TOKEN:-troque-este-token-do-capa}
       CAPA_MAX_MB: ${CAPA_MAX_MB:-32}
-      # Espera da API por uma analise: acima de CAPA_TIMEOUT_S + FLOSS_TIMEOUT_S do servico.
-      CAPA_REQUEST_TIMEOUT_S: ${CAPA_REQUEST_TIMEOUT_S:-1000}
+      # Espera da API por uma analise: acima de CAPA_TIMEOUT_S + CAPA_FILE_TIMEOUT_S + FLOSS_TIMEOUT_S.
+      CAPA_REQUEST_TIMEOUT_S: ${CAPA_REQUEST_TIMEOUT_S:-1100}
       # Analises do capa ao mesmo tempo: o mesmo numero de replicas do servico capa abaixo.
       CAPA_WORKERS: ${CAPA_WORKERS:-2}
       # Analise com o Ghidra (item 7.3), sob demanda: o servico ghidra abaixo; GHIDRA_URL= desliga.
@@ -337,6 +337,9 @@ services:
       # O FLOSS reaproveita a analise do capa em executaveis do Windows ate este tamanho (MB): mesmo
       # resultado, mais rapido. A analise salva fica no /tmp abaixo (7 a 11 vezes o executavel).
       CAPA_REUSE_MAX_MB: ${CAPA_REUSE_MAX_MB:-8}
+      # Executavel do Windows cuja analise de funcoes nao terminou: as regras so do nivel do arquivo,
+      # com este teto (s). 0 desliga.
+      CAPA_FILE_TIMEOUT_S: ${CAPA_FILE_TIMEOUT_S:-60}
       # Um container por analise (como a captura, item 6.17). false = processo de longa vida.
       CAPA_RECYCLE: ${CAPA_RECYCLE:-true}
     # O unico lugar gravavel e o /tmp em memoria, sem executaveis: a amostra e o JSON das

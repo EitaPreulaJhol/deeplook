@@ -267,6 +267,18 @@ export const messages = {
   failed: ['Falhou: {error}', 'Failed: {error}'],
   unknownErr: ['erro desconhecido', 'unknown error'],
   doneAt: ['Concluída em {date}', 'Finished on {date}'],
+  capaExecutableFileOnly: [
+    '{info} · só o nível do arquivo (a análise de funções não terminou)',
+    '{info} · file level only (the function analysis did not finish)',
+  ],
+  capaFileOnlyNote: [
+    'A análise das funções não terminou (tempo ou memória): estas são só as regras do nível do arquivo, pelas importações, strings e seções, sem os endereços das funções.',
+    'The function analysis did not finish (time or memory): these are only the file-level rules, from the imports, strings and sections, without function addresses.',
+  ],
+  capaTooHeavy: [
+    'Executáveis grandes ou em Go costumam passar do teto da análise de funções (CAPA_TIMEOUT_S). Nos do Windows, o DeepLook ainda tira as regras do nível do arquivo; nos do Linux, não há essa alternativa.',
+    'Large or Go executables often go over the function analysis cap (CAPA_TIMEOUT_S). For Windows ones, DeepLook still gets the file-level rules; for Linux ones, there is no such fallback.',
+  ],
   capaExecutable: [
     '{info} · {functions} função(ões), {library} de biblioteca',
     '{info} · {functions} function(s), {library} from libraries',

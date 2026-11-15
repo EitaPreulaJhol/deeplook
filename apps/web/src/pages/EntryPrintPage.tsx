@@ -1,7 +1,7 @@
 import { Theme } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
@@ -13,9 +13,11 @@ import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
 import { IconPrint } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { evidenceUrl } from '../components/ReportEvidence';
+import { latestRunSummary, runFacts, runNote, runSections } from '../components/sandboxSummary';
 import { StatusTag, TypeTag, VerdictTag } from '../components/tags';
 import { intlLocale } from '../i18n';
 import { t as tr } from '../i18n/misc';
+import { t as ts } from '../i18n/sandbox';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
@@ -34,8 +36,9 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 /**
  * Ficha para impressao da amostra (menu "Mais" > Imprimir ficha), fora da casca:
  * dados, relatorios publicados e historico de uma vez, com "Impresso por / em".
- * Nada do ambiente isolado (console, credenciais) entra na ficha. Com `?auto=1`
- * abre a caixa de impressao assim que carrega.
+ * Para analistas, o resumo da ultima execucao no ambiente isolado (o que a amostra
+ * fez); console e credenciais nunca entram. Com `?auto=1` abre a caixa de
+ * impressao assim que carrega.
  */
 export function EntryPrintPage() {
   const { id = '' } = useParams();
@@ -52,9 +55,19 @@ export function EntryPrintPage() {
     queryFn: () => api.get<{ events: EntryEvent[] }>(`/entries/${id}/events`),
   });
 
+  const canTriage = user?.role === 'ANALYST' || user?.role === 'ADMIN';
+  const runQuery = useQuery({
+    queryKey: ['entry', id, 'sandbox', 'run-summary'],
+    queryFn: () => latestRunSummary(id),
+    enabled: canTriage,
+    // Sem o resumo, a ficha sai sem a secao (nao trava a impressao).
+    retry: false,
+  });
+
   const entry = entryQuery.data?.entry;
   const events = eventsQuery.data?.events;
-  const ready = Boolean(entry && events);
+  const run = runQuery.data ?? null;
+  const ready = Boolean(entry && events) && (!canTriage || !runQuery.isPending);
 
   useEffect(() => {
     if (entry) document.title = tr('printEntryTitle', { title: entry.title });
@@ -70,7 +83,7 @@ export function EntryPrintPage() {
   }, [ready, searchParams]);
 
   let body: ReactNode;
-  if (entryQuery.isLoading || eventsQuery.isLoading) {
+  if (entryQuery.isLoading || eventsQuery.isLoading || (canTriage && runQuery.isPending)) {
     body = <HpsmLoading text={tr('preparingRecord')} />;
   } else if (!entry || !events) {
     body = <HpsmMessage kind="error">{tr('sampleNotFound')}</HpsmMessage>;
@@ -186,6 +199,32 @@ export function EntryPrintPage() {
             </article>
           ))}
         </section>
+
+        {run && (
+          <section className="dl-print__section">
+            <h2>{ts('runTitle')}</h2>
+            <table className="dl-print__kv">
+              <tbody>
+                {runFacts(run).map(([label, value]) => (
+                  <Row key={label} label={label}>
+                    {value}
+                  </Row>
+                ))}
+              </tbody>
+            </table>
+            {runNote(run) && <p>{runNote(run)}</p>}
+            {runSections(run).map(({ title, items }) => (
+              <Fragment key={title}>
+                <h4>{title}</h4>
+                <ul className="dl-print__list dl-print__mono">
+                  {items.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </Fragment>
+            ))}
+          </section>
+        )}
 
         <section className="dl-print__section">
           <h2>{tr('historyN', { n: events.length })}</h2>

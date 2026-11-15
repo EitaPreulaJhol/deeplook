@@ -343,6 +343,22 @@ async function main() {
   };
   const reply = (res: http.ServerResponse, status: number, body: unknown) =>
     res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+  // A analise de funcoes nao terminou: o servico manda so as regras do nivel do arquivo
+  // (plans/ajustes-usabilidade, item 3), com o motivo da completa.
+  await hostile(
+    'só o nível do arquivo: concluída, com as regras, as técnicas e o motivo',
+    (_q, res) =>
+      reply(res, 200, {
+        ...VALID,
+        capa: { ...VALID.capa, functions: null, libraryFunctions: null, fileOnly: true },
+        capaError: 'tempo esgotado (600 s)',
+      }),
+    (r) =>
+      r?.status === 'DONE' &&
+      r.capa?.fileOnly === true &&
+      r.capaError === 'tempo esgotado (600 s)' &&
+      r.attack.includes('T1055.003'),
+  );
   await hostile(
     'nome de regra gigante: formato inesperado',
     (_q, res) =>

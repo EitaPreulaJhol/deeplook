@@ -511,6 +511,12 @@ whole queue. Nothing is executed: the two Mandiant tools read and emulate the co
   "timed out". On Windows executables up to `CAPA_REUSE_MAX_MB`, FLOSS loads the analysis capa has
   just made instead of redoing it: the same result, about 15% faster on common ones, and on a 2 MB Go
   executable FLOSS went from 299 s (it hit the cap) to 191 s.
+- **File level only:** if a Windows executable's function analysis does not finish (time or memory),
+  the service still runs the file-level rules (capa's `pefile` backend: imports, strings, sections),
+  in seconds and capped by `CAPA_FILE_TIMEOUT_S`. The card shows "file level only", the reason for the
+  full one and the capabilities without function addresses. On an 8.7 MB Go binary that spent the
+  600 s and came out empty, it found 5 rules in 11 s. Linux executables have no such fallback; the card
+  explains why the analysis did not finish.
 - **Isolation:** a container with no network at all (internal `analysis` network, only with the API), non-root,
   no capabilities, read-only root and `/tmp` in memory without execution. Like the capture, a **new container for
   each analysis**: the API waits for the new one to be free before sending the next file. Service down: the
@@ -1104,7 +1110,8 @@ COOKIE_SECURE=true
 | `CAPA_TOKEN` | token shared between the API and the `capa` service (16+ characters) | — |
 | `CAPA_MAX_MB` | executables larger than this do not go to capa (the service has the same ceiling) | `32` |
 | `CAPA_TIMEOUT_S` / `FLOSS_TIMEOUT_S` | maximum time of each tool, in the service | `600` / `300` |
-| `CAPA_REQUEST_TIMEOUT_S` | how long the API waits for an analysis (above the sum of the two) | `1000` |
+| `CAPA_FILE_TIMEOUT_S` | Windows executable whose function analysis did not finish: cap of the file-level-only rules; `0` turns it off | `60` |
+| `CAPA_REQUEST_TIMEOUT_S` | how long the API waits for an analysis (above the sum of the three) | `1100` |
 | `CAPA_MEM_LIMIT` | memory of each `capa` container | `3g` |
 | `CAPA_WORKERS` | capa analyses at a time (`capa` containers; each one with up to `CAPA_MEM_LIMIT`) | `2` |
 | `CAPA_REUSE_MAX_MB` | Windows executables up to this size: FLOSS reuses capa's analysis instead of redoing it (same result, faster); `0` turns it off | `8` |
@@ -1572,6 +1579,11 @@ command line (the sample running, the PowerShell it opened).
   and the reason shows on screen.
 - **Previous runs:** every environment the sample had stays in the section, collapsed, with its own
   screenshots, processes, Sysmon, timeline and capture (running again does not hide the previous one).
+- **Off screen:** the timeline exports as **CSV** or **JSON** with the screen's filters (the CSV opens
+  in Excel with accents, and anything that would become a formula gets an apostrophe). For analysts,
+  the **printed record** and the **reports' Markdown** carry the latest run's summary: when, who, the
+  automatic run, Sysmon, the sample's processes and, without repeats, DNS, connections, files and
+  registry. Console and credentials never go in.
 - **Network traffic (optional):** with the VM traffic going through a MikroTik CHR, its sniffer sends
   each VM's packets (filtered by MAC) to the `netcap` service, which records one pcap per environment.
   On closing, the pcap goes to MinIO and **Suricata** reads it with the **ET Open** rules (downloaded
@@ -1651,6 +1663,8 @@ it.
 | GET | `/api/sandbox/:id/screenshot` | Screen capture (PNG) — removed in PVE 9; the panel captures in the browser |
 | GET | `/api/sandbox/:id/artifacts` | Environment artifacts: screenshots, processes, Sysmon, network traffic and Suricata |
 | GET | `/api/sandbox/:id/timeline` | Sysmon timeline (`scope=sample\|all`, `kinds`, `page`) and the environment markers |
+| GET | `/api/sandbox/:id/timeline/export` | The whole timeline as a download (`format=csv\|json`, `scope`, `kinds`) |
+| GET | `/api/sandbox/:id/summary` | Run summary: the sample's processes, DNS, connections, files and registry |
 | GET | `/api/entries/:id/sandbox/sessions` | The sample's runs (environments), newest first |
 | GET | `/api/sandbox/:id/artifacts/:artifactId` | One stored screenshot (PNG) |
 | GET | `/api/sandbox/:id/pcap` | Downloads the environment's pcap (recorded in the audit log) |

@@ -1325,6 +1325,12 @@ export async function setupMock(context, state) {
           : [];
         return json(route, 200, { sessions: state.sandboxRuns?.[m[1]] ?? fallback });
       }
+      // Resumo de uma execucao (ficha impressa e Markdown; plans/ajustes-usabilidade, item 6).
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/summary$/);
+      if (m) {
+        const summary = state.sandboxSummaries?.[m[1]];
+        return summary ? json(route, 200, summary) : json(route, 404, { error: 'Ambiente não encontrado.' });
+      }
       // Linha do tempo (fase 3): o roteiro da todos os eventos; aqui o escopo, os tipos e a pagina.
       m = p.match(/^\/api\/sandbox\/([\w-]+)\/timeline$/);
       if (m) {

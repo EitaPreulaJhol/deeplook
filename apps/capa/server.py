@@ -42,6 +42,10 @@ FLOSS_TIMEOUT = int(os.environ.get("FLOSS_TIMEOUT_S", "300"))
 # (estourava o teto) para 191 s. So ate este tamanho: a analise salva fica de 7 a 11 vezes maior
 # que o executavel e mora no /tmp em memoria (conta no limite do container). 0 desliga.
 REUSE_MAX = int(os.environ.get("CAPA_REUSE_MAX_MB", "8")) * 1024 * 1024
+# A analise de funcoes nao terminou (tempo ou memoria) num executavel do Windows: as regras do nivel
+# do arquivo (capa_file.py, o backend pefile) saem em segundos. Um Go de 8,7 MB que gastava os 600 s
+# e saia sem nada da 5 regras em 11 s. Este e o teto dessa segunda passada.
+FILE_TIMEOUT = int(os.environ.get("CAPA_FILE_TIMEOUT_S", "60"))
 RULES = os.environ.get("CAPA_RULES", "/opt/capa/rules")
 SIGS = os.environ.get("CAPA_SIGS", "/opt/capa/sigs")
 RULES_VERSION = os.environ.get("CAPA_RULES_VERSION", "")
@@ -222,11 +226,21 @@ def analyze(data):
             CAPA_TIMEOUT,
             {"CAPA_SAVE_WORKSPACE": "1"} if reuse else None,
         )
+        capa_summary = summarize_capa(capa_doc) if capa_doc else None
+        if capa_summary is None and kind == "pe" and FILE_TIMEOUT > 0:
+            # O motivo da analise completa (capaError) continua: a tela mostra os dois.
+            capa_summary, file_error = run(
+                [sys.executable, "/app/capa_file.py", path], FILE_TIMEOUT
+            )
+            if capa_summary is None:
+                log(f"capa so do arquivo tambem falhou: {file_error}")
+            else:
+                log("capa: so as regras do arquivo (a analise de funcoes nao terminou)")
         result = {
             "ok": True,
             "kind": kind,
             "versions": VERSIONS,
-            "capa": summarize_capa(capa_doc) if capa_doc else None,
+            "capa": capa_summary,
             "capaError": capa_error,
             "floss": None,
             "flossError": None,

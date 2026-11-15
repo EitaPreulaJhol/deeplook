@@ -181,8 +181,11 @@ const EnvSchema = z
       .default(''),
     /** Executaveis maiores que isto nao vao para o capa (o servico tem o mesmo teto). */
     CAPA_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
-    /** Espera por uma analise: acima da soma dos tetos do capa e do FLOSS no servico. */
-    CAPA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1000),
+    /**
+     * Espera por uma analise: acima da soma dos tetos do servico (capa, as regras so do arquivo
+     * quando a analise de funcoes nao termina, e FLOSS: 600 + 60 + 300).
+     */
+    CAPA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1100),
     /**
      * Analises do capa ao mesmo tempo: uma por container do servico (o compose sobe este numero
      * de replicas). Um executavel grande prende o seu por ate 15 min; os outros seguem a fila.

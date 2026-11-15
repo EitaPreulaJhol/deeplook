@@ -515,6 +515,12 @@ o código.
   "tempo esgotado". Em executáveis do Windows de até `CAPA_REUSE_MAX_MB`, o FLOSS carrega a análise
   que o capa acabou de fazer em vez de refazê-la: o mesmo resultado, uns 15% mais rápido nos
   comuns, e num executável em Go de 2 MB o FLOSS caiu de 299 s (estourava o teto) para 191 s.
+- **Só o nível do arquivo:** se a análise de funções de um executável do Windows não termina (tempo
+  ou memória), o serviço ainda roda as regras do nível do arquivo (o backend `pefile` do capa:
+  importações, strings, seções), em segundos e com teto `CAPA_FILE_TIMEOUT_S`. A ficha mostra
+  "só o nível do arquivo", o motivo da completa e as capacidades sem endereços de função. Num Go de
+  8,7 MB que gastava os 600 s e saía vazio, vieram 5 regras em 11 s. Nos executáveis do Linux não há
+  essa alternativa; a ficha explica por que a análise não terminou.
 - **Isolamento:** contêiner sem rede nenhuma (rede interna `analysis`, só com a API), sem root,
   sem capacidades, raiz somente leitura e `/tmp` em memória sem execução. Como a captura, um
   **contêiner novo a cada análise**: a API espera o novo estar livre antes de mandar o próximo
@@ -1117,7 +1123,8 @@ COOKIE_SECURE=true
 | `CAPA_TOKEN` | token compartilhado entre a API e o serviço `capa` (16+ caracteres) | — |
 | `CAPA_MAX_MB` | executáveis maiores não vão para o capa (o serviço tem o mesmo teto) | `32` |
 | `CAPA_TIMEOUT_S` / `FLOSS_TIMEOUT_S` | tempo máximo de cada ferramenta, no serviço | `600` / `300` |
-| `CAPA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise (acima da soma dos dois) | `1000` |
+| `CAPA_FILE_TIMEOUT_S` | executável do Windows cuja análise de funções não terminou: teto das regras só do nível do arquivo; `0` desliga | `60` |
+| `CAPA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise (acima da soma dos três) | `1100` |
 | `CAPA_MEM_LIMIT` | memória de cada contêiner `capa` | `3g` |
 | `CAPA_WORKERS` | análises do capa ao mesmo tempo (contêineres `capa`; cada um com até `CAPA_MEM_LIMIT`) | `2` |
 | `CAPA_REUSE_MAX_MB` | executáveis do Windows até este tamanho: o FLOSS reaproveita a análise do capa em vez de refazê-la (mesmo resultado, mais rápido); `0` desliga | `8` |
@@ -1590,6 +1597,11 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
   Linux, nada muda, e o motivo aparece na tela.
 - **Execuções anteriores:** cada ambiente que a amostra já teve fica na seção, recolhido, com os
   próprios prints, processos, Sysmon, linha do tempo e captura (rodar de novo não esconde a anterior).
+- **Fora da tela:** a linha do tempo sai em **CSV** ou **JSON** com os filtros da tela (o CSV abre
+  no Excel com acentos, e o que viraria fórmula ganha um apóstrofo). Para analistas, a **ficha
+  impressa** e o **Markdown dos relatórios** trazem o resumo da última execução: quando, quem, a
+  execução automática, o Sysmon, os processos da amostra e, sem repetir, DNS, conexões, arquivos e
+  registro. Console e credenciais nunca entram.
 - **Tráfego de rede (opcional):** com o tráfego das VMs passando por um MikroTik CHR, o sniffer
   dele manda os pacotes de cada VM (filtrados pelo MAC) ao serviço `netcap`, que grava um pcap por
   ambiente. Ao encerrar, o pcap vai para o MinIO e o **Suricata** o lê com as regras **ET Open**
@@ -1667,6 +1679,8 @@ histórico da amostra registra a execução e quem a pediu.
 | GET | `/api/sandbox/:id/artifacts` | Artefatos do ambiente: prints, processos, Sysmon, tráfego de rede e Suricata |
 | GET | `/api/sandbox/:id/artifacts/:artifactId` | Um print guardado (PNG) |
 | GET | `/api/sandbox/:id/timeline` | Linha do tempo do Sysmon (`scope=sample\|all`, `kinds`, `page`) e as marcas do ambiente |
+| GET | `/api/sandbox/:id/timeline/export` | A linha do tempo inteira para baixar (`format=csv\|json`, `scope`, `kinds`) |
+| GET | `/api/sandbox/:id/summary` | Resumo da execução: processos da amostra, DNS, conexões, arquivos e registro |
 | GET | `/api/entries/:id/sandbox/sessions` | Execuções (ambientes) da amostra, a mais recente primeiro |
 | GET | `/api/sandbox/:id/pcap` | Baixa o pcap do ambiente (registrado na auditoria) |
 

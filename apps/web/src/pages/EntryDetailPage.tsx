@@ -67,6 +67,7 @@ import { SandboxLaunchDialog } from '../components/SandboxLaunchDialog';
 import { openConsoleWindow } from '../components/sandboxOpen';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
+import { latestRunSummary, runSummaryMarkdown } from '../components/sandboxSummary';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
 import { useDecoder } from '../components/shortcuts';
 import { AgeText } from '../components/sla';
@@ -518,11 +519,18 @@ export function EntryDetailPage() {
               label: tr('exportReportsMd'),
               icon: IconDownload,
               disabled: !reports.some((r) => r.status === 'PUBLISHED'),
-              action: () =>
+              action: async () => {
+                // Analistas levam junto o resumo da ultima execucao no ambiente isolado.
+                const run = canTriage ? await latestRunSummary(entry.id).catch(() => null) : null;
                 downloadText(
                   `deeplook-${entry.id}-relatorios.md`,
-                  entryReportsMarkdown(entry, user?.displayName ?? '—'),
-                ),
+                  entryReportsMarkdown(
+                    entry,
+                    user?.displayName ?? '—',
+                    run ? runSummaryMarkdown(run) : [],
+                  ),
+                );
+              },
             },
             // IOCs dos relatorios publicados + o proprio arquivo/URL, gerados na API.
             ...(

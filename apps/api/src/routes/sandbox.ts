@@ -42,10 +42,13 @@ import {
 import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
 import { suricataIndicators, type SuricataResult } from '../lib/suricata';
 import {
+  describeEvent,
   entrySysmonIndicators,
+  sampleRunLists,
   sampleStart,
   sampleTree,
   sysmonTimeline,
+  sysmonTimelineAll,
   sysmonView,
   TIMELINE_KINDS,
   TIMELINE_PAGE,
@@ -126,6 +129,19 @@ function localizeSession<T extends { autoRunError?: string | null }>(session: T,
   return session.autoRunError
     ? { ...session, autoRunError: localizeText(session.autoRunError, lang) }
     : session;
+}
+
+/** Formato da exportacao da linha do tempo (plans/ajustes-usabilidade, item 6). */
+const ExportFormat = z.object({ format: z.enum(['csv', 'json']).default('csv') });
+
+/**
+ * Celula de CSV. O texto vem da amostra (linhas de comando, chaves, nomes): o que comecaria uma
+ * formula na planilha (=, +, -, @, tab, CR) ganha um apostrofo na frente.
+ */
+function csvCell(value: unknown): string {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 /** Filtros da linha do tempo de uma execucao (plans/sandbox-execucoes, fase 3). */
@@ -609,6 +625,107 @@ export async function sandboxRoutes(app: FastifyInstance) {
       total,
       events,
       markers,
+    });
+  });
+
+  /** O nome do arquivo da amostra e a arvore de processos dela no Sysmon de uma execucao. */
+  const sampleOf = async (sessionId: string) => {
+    const row = await prisma.sandboxSession.findUnique({
+      where: { id: sessionId },
+      select: { entryId: true, entry: { select: { originalFilename: true } } },
+    });
+    const name = sampleFileName({ originalFilename: row?.entry.originalFilename ?? null });
+    return { name, entryId: row?.entryId ?? '', tree: await sampleTree(sessionId, name) };
+  };
+
+  // ---- Linha do tempo inteira para baixar (plans/ajustes-usabilidade, item 6) ----
+  app.get('/api/sandbox/:id/timeline/export', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const parsed = TimelineQuery.merge(ExportFormat).safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
+    const { name, entryId, tree } = await sampleOf(session.id);
+    const scope = parsed.data.scope ?? (tree.size ? 'sample' : 'all');
+    const events = await sysmonTimelineAll(session.id, {
+      tree,
+      sampleOnly: scope === 'sample',
+      kinds: parsed.data.kinds as TimelineKind[],
+    });
+    const file = `deeplook-${entryId}-${session.id}-linha-do-tempo.${parsed.data.format}`;
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Content-Disposition', `attachment; filename="${file}"`);
+    if (parsed.data.format === 'json') {
+      reply.header('Content-Type', 'application/json; charset=utf-8');
+      return reply.send(
+        JSON.stringify({ sample: { name, found: tree.size > 0 }, scope, events }, null, 2),
+      );
+    }
+    const header = ['time', 'kind', 'process', 'pid', 'sample', 'detail'];
+    const rows = events.map((e) =>
+      [e.time, e.kind, e.image, e.pid, e.sample, describeEvent(e)].map(csvCell).join(','),
+    );
+    reply.header('Content-Type', 'text/csv; charset=utf-8');
+    // BOM: o Excel le o UTF-8 (caminhos com acento) sem pedir a codificacao.
+    return reply.send(`\uFEFF${[header.join(','), ...rows].join('\r\n')}\r\n`);
+  });
+
+  // ---- Resumo de uma execucao (ficha impressa e Markdown; ajustes, item 6) ----
+  app.get('/api/sandbox/:id/summary', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const lang = requestLang(req);
+    const [{ name, tree }, row, statusRow, lists, shots] = await Promise.all([
+      sampleOf(session.id),
+      prisma.sandboxSession.findUnique({
+        where: { id: session.id },
+        select: {
+          createdAt: true,
+          autoRun: true,
+          autoRunAt: true,
+          autoRunUser: true,
+          autoRunSysmon: true,
+          analyst: { select: { displayName: true } },
+        },
+      }),
+      prisma.sandboxArtifact.findFirst({
+        where: { sessionId: session.id, kind: 'SYSMON' },
+        select: { sysmon: true },
+      }),
+      prisma.sandboxArtifact.findMany({
+        where: { sessionId: session.id, kind: 'PROCESSES' },
+        orderBy: { createdAt: 'asc' },
+        select: { processes: true },
+      }),
+      prisma.sandboxArtifact.count({ where: { sessionId: session.id, kind: 'SCREENSHOT' } }),
+    ]);
+    const sysmon = statusRow?.sysmon as
+      { available: boolean; reason?: string; events?: number } | null | undefined;
+    const first = (lists[0]?.processes ?? []) as GuestProcess[];
+    const last = (lists.at(-1)?.processes ?? []) as GuestProcess[];
+    return reply.send({
+      session: {
+        id: session.id,
+        status: session.status,
+        createdAt: row?.createdAt,
+        startedAt: session.startedAt,
+        stoppedAt: session.stoppedAt,
+        analyst: row?.analyst.displayName ?? null,
+        autoRun: row?.autoRun ?? null,
+        autoRunAt: row?.autoRunAt ?? null,
+        autoRunUser: row?.autoRunUser ?? null,
+        autoRunSysmon: row?.autoRunSysmon ?? null,
+      },
+      sample: { name, found: tree.size > 0, processes: tree.size },
+      sysmon: sysmon
+        ? {
+            available: sysmon.available,
+            reason: localizeText(sysmon.reason ?? null, lang),
+            events: sysmon.events ?? null,
+          }
+        : null,
+      ...(await sampleRunLists(session.id, tree)),
+      appeared: lists.length > 1 ? newProcesses(first, last) : [],
+      screenshots: shots,
     });
   });
 

@@ -167,9 +167,34 @@ state.capa.e3 = { ...DONE, analysis: { ...DONE.analysis, ...bare, status: 'FAILE
 await open('e3');
 expect('falha em laranja com o motivo', (await field('Situação').locator('.hpsm-status--orange').innerText()) === 'Falhou: tempo esgotado (600 s)');
 expect('falha: sem tabela de capacidades', (await section.locator('table').count()) === 0);
+expect('falha por tempo: a dica de executável grande', (await section.innerText()).includes('Executáveis grandes ou em Go costumam passar do teto da análise de funções'));
 await section.locator('button:has-text("Analisar de novo")').click();
 await page.waitForTimeout(300);
 expect('pedido enviado', state.capaPosts.includes('e3'), state.capaPosts.join(','));
+
+// 4b. Analise de funcoes que nao terminou num executavel do Windows: so as regras do nivel do
+// arquivo (plans/ajustes-usabilidade, item 3), com a explicacao e o motivo.
+state.capa.e1 = {
+  ...DONE,
+  analysis: {
+    ...DONE.analysis,
+    capa: { ...DONE.analysis.capa, functions: null, libraryFunctions: null, fileOnly: true },
+    capaError: 'tempo esgotado (600 s)',
+  },
+};
+await open('e1');
+expect('só o arquivo: o executável diz que a análise de funções não terminou', (await field('Executável').innerText()) === 'pe · amd64 · windows · só o nível do arquivo (a análise de funções não terminou)', await field('Executável').innerText());
+const fileOnlyText = await section.innerText();
+expect(
+  'só o arquivo: a explicação, a dica e o motivo, com as capacidades',
+  fileOnlyText.includes('estas são só as regras do nível do arquivo') &&
+    fileOnlyText.includes('Executáveis grandes ou em Go') &&
+    fileOnlyText.includes('capa: tempo esgotado (600 s)') &&
+    (await rows.count()) === 5,
+  fileOnlyText.slice(0, 400),
+);
+await section.screenshot({ path: `${OUT}/capa-so-arquivo.png` });
+state.capa.e1 = DONE;
 
 // 5. Usuario comum: ve, mas nao pede.
 state.role = 'USER';
