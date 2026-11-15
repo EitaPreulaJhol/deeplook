@@ -1621,8 +1621,11 @@ histórico da amostra registra a execução e quem a pediu.
 - `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limitam quantos ambientes existem.
 - `SANDBOX_TTL_MINUTES` define o prazo; o **reaper** roda a cada minuto e encerra o
   que venceu.
-- No boot a API marca provisionamentos interrompidos como falha, remove VMs com a
-  etiqueta `SANDBOX_TAG` sem sessão ativa e ISOs `deeplook-*` órfãos.
+- No boot a API marca provisionamentos interrompidos como falha e remove as VMs e ISOs órfãs **que
+  ela criou**: cada instalação guarda no banco um identificador, que vai na etiqueta `dl-<id>` das
+  VMs (além da `SANDBOX_TAG`) e no nome das ISOs (`deeplook-<id>-*`). Duas instalações no mesmo
+  Proxmox não apagam mais os ambientes uma da outra; o que é de outra (ou de antes da marca) fica
+  e aparece no log. Um backup restaurado em outro servidor leva o identificador junto.
 - `GET /api/sandbox/health` (admin) mostra o diagnóstico: PVE acessível, template,
   storage com `content iso`, usuário do console e limites configurados.
 

@@ -15,8 +15,8 @@ async function main() {
   process.env.PROXMOX_TEMPLATE_VMID = '100';
   const { prisma } = await import('../../src/lib/prisma');
   const { pve, TemplateProtectedError } = await import('../../src/lib/proxmox');
-  const { pveMockReset } = await import('../../src/lib/proxmox-mock');
-  const { reconcileOrphans } = await import('../../src/lib/sandbox');
+  const { pveMockReset, pveMockUploadIso } = await import('../../src/lib/proxmox-mock');
+  const { reconcileOrphans, sandboxInstance } = await import('../../src/lib/sandbox');
   pveMockReset();
 
   const refused = async (label: string, call: () => Promise<unknown>) => {
@@ -65,13 +65,44 @@ async function main() {
     pve('/nodes/pve/qemu/9002', { method: 'DELETE' }),
   );
 
-  // Limpeza da subida: apaga a orfa com a etiqueta, nunca o template (que tambem tem a etiqueta).
+  // Limpeza da subida: apaga a orfa com a marca desta instancia, nunca o template (que tambem tem a
+  // etiqueta), nem o que e de outra instancia no mesmo Proxmox ou de antes da marca.
+  const own = await sandboxInstance();
+  ok('identidade da instância guardada no banco', /^[a-f0-9]{8}$/.test(own), own);
   await pve('/nodes/pve/qemu/9001/config', {
     method: 'PUT',
-    body: { tags: 'deeplook-sandbox' },
+    body: { tags: `deeplook-sandbox;dl-${own}` },
   });
+  for (const [vmid, tags] of [
+    [9003, 'deeplook-sandbox;dl-0badc0de'],
+    [9004, 'deeplook-sandbox'],
+  ] as const) {
+    await pve('/nodes/pve/qemu/100/clone', {
+      method: 'POST',
+      body: { newid: vmid, name: `deeplook-sandbox-${vmid}` },
+    });
+    await pve(`/nodes/pve/qemu/${vmid}/config`, { method: 'PUT', body: { tags } });
+  }
+  await pveMockUploadIso(`deeplook-${own}-orfa.iso`, 1);
+  await pveMockUploadIso('deeplook-0badc0de-de-outra.iso', 1);
+  await pveMockUploadIso('deeplook-antiga.iso', 1);
   const result = await reconcileOrphans();
-  ok('limpeza da subida apaga a VM órfã', result.vms === 1 && !(await exists(9001)), result);
+  const isos = ((await pve('/nodes/pve/storage/local/content?content=iso')) as { volid: string }[])
+    .map((i) => i.volid)
+    .sort();
+  ok(
+    'limpeza da subida apaga só a VM e a ISO órfãs desta instância',
+    result.vms === 1 && result.isos === 1 && !(await exists(9001)),
+    result,
+  );
+  ok(
+    'mantém as de outra instância no mesmo Proxmox e as de antes da marca',
+    (await exists(9003)) &&
+      (await exists(9004)) &&
+      JSON.stringify(isos) ===
+        JSON.stringify(['iso/deeplook-0badc0de-de-outra.iso', 'iso/deeplook-antiga.iso']),
+    isos,
+  );
   ok('limpeza da subida não toca no template', await exists(100));
   ok('nem no outro template', await exists(9002));
 

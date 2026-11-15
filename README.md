@@ -1604,8 +1604,12 @@ it.
 - `SANDBOX_MAX_ACTIVE` / `SANDBOX_MAX_PER_USER` limit how many environments exist.
 - `SANDBOX_TTL_MINUTES` sets the deadline; the **reaper** runs every minute and ends
   whatever has expired.
-- On boot the API marks interrupted provisionings as failed, removes VMs with the
-  `SANDBOX_TAG` label that have no active session, and orphan `deeplook-*` ISOs.
+- On boot the API marks interrupted provisionings as failed and removes the orphan VMs and ISOs **it
+  created**: each installation keeps an identifier in its database, which goes into the `dl-<id>` tag
+  of the VMs (besides `SANDBOX_TAG`) and into the ISO names (`deeplook-<id>-*`). Two installations on
+  the same Proxmox no longer delete each other's environments; what belongs to another one (or
+  predates the mark) stays and shows in the log. A backup restored on another server takes the
+  identifier along.
 - `GET /api/sandbox/health` (admin) shows the diagnostics: PVE reachable, template,
   storage with `content iso`, console user and configured limits.
 

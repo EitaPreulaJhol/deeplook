@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -24,6 +25,40 @@ const execFileAsync = promisify(execFile);
 /** Prefixo dos volumes ISO criados pelo DeepLook (usado na limpeza). */
 const ISO_PREFIX = 'deeplook-';
 
+/**
+ * Identidade desta instancia do DeepLook no Proxmox: guardada no proprio banco (o .env pode ser o
+ * mesmo em duas instalacoes), vai numa etiqueta das VMs e no nome das ISOs que ela cria. A limpeza
+ * so apaga o que tem a marca dela: duas instancias no mesmo Proxmox, com a mesma SANDBOX_TAG,
+ * apagavam uma as VMs desligadas e as ISOs da outra a cada subida da API (visto no teste real: a
+ * ISO de um ambiente ligado de outra instancia sumiu).
+ */
+const INSTANCE_KEY = 'sandboxInstance';
+let instance: string | null = null;
+
+export async function sandboxInstance(): Promise<string> {
+  if (instance) return instance;
+  const read = async () => {
+    const row = await prisma.systemSetting.findUnique({ where: { key: INSTANCE_KEY } });
+    return typeof row?.value === 'string' && /^[a-f0-9]{8}$/.test(row.value) ? row.value : null;
+  };
+  let value = await read();
+  if (!value) {
+    const fresh = randomBytes(4).toString('hex');
+    // Duas chamadas ao mesmo tempo: fica a que gravou primeiro.
+    await prisma.systemSetting
+      .create({ data: { key: INSTANCE_KEY, value: fresh } })
+      .catch(() => undefined);
+    value = (await read()) ?? fresh;
+  }
+  instance = value;
+  return value;
+}
+
+/** Etiqueta das VMs desta instancia (o PVE aceita letras minusculas, digitos e hifen). */
+const instanceTag = (id: string) => `dl-${id}`;
+/** Prefixo das ISOs desta instancia. */
+const instanceIsoPrefix = (id: string) => `${ISO_PREFIX}${id}-`;
+
 /** Sessoes com provisionamento em andamento neste processo (trava simples). */
 const provisioning = new Set<string>();
 
@@ -48,9 +83,9 @@ function vmName(entry: Entry): string {
   return `${env.SANDBOX_TAG}-${stamp}-${rand}`;
 }
 
-/** Nome do arquivo ISO no storage (unico por sessao). */
-function isoTarget(sessionId: string): { filename: string; volume: string } {
-  const filename = `${ISO_PREFIX}${sessionId}.iso`;
+/** Nome do arquivo ISO no storage (unico por sessao, com a marca desta instancia). */
+function isoTarget(sessionId: string, id: string): { filename: string; volume: string } {
+  const filename = `${instanceIsoPrefix(id)}${sessionId}.iso`;
   return { filename, volume: `${env.PROXMOX_ISO_STORAGE}:iso/${filename}` };
 }
 
@@ -359,7 +394,7 @@ export async function provision(sessionId: string): Promise<void> {
 
     // 2. Sobe a ISO para o storage do PVE.
     await setPhase(sessionId, 'enviando-iso');
-    const { filename, volume } = isoTarget(sessionId);
+    const { filename, volume } = isoTarget(sessionId, await sandboxInstance());
     const uploadUpid = await pveUploadIso(filename, createReadStream(iso.path), iso.size);
     await prisma.sandboxSession.update({
       where: { id: sessionId },
@@ -383,7 +418,8 @@ export async function provision(sessionId: string): Promise<void> {
       body: {
         name: session.name,
         description: `DeepLook sandbox | amostra ${entry.id} | sha256 ${entry.sha256 ?? '-'} | sessao ${session.id}`,
-        tags: env.SANDBOX_TAG,
+        // A etiqueta de sempre e a desta instancia (a limpeza so apaga o que tem a dela).
+        tags: `${env.SANDBOX_TAG};${instanceTag(await sandboxInstance())}`,
         // media=cdrom ja cria um CD-ROM somente leitura no QEMU. O barramento IDE
         // (ide2) NAO aceita o sub-campo ro=1 (so o SCSI aceita); manda-lo faz o PVE
         // responder "ide2.ro: property is not defined in schema".
@@ -611,8 +647,12 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
       .map(baseName),
   );
 
+  const own = await sandboxInstance();
   let vms = 0;
   let isos = 0;
+  // Com a etiqueta do sandbox mas sem a marca desta instancia: de outra instalacao no mesmo
+  // Proxmox, ou anterior a marca. Ficam, e so vao para o log.
+  let foreign = 0;
 
   try {
     const list = await pve<{ vmid: number; name?: string; tags?: string; template?: number }[]>(
@@ -621,10 +661,14 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
     for (const vm of list ?? []) {
       // O template (e qualquer outro template do node) nunca e orfao: o clone herda a etiqueta.
       if (vm.vmid === env.PROXMOX_TEMPLATE_VMID || vm.template) continue;
-      const ours =
-        (vm.tags ?? '').split(';').includes(env.SANDBOX_TAG) ||
-        (vm.name ?? '').startsWith(`${env.SANDBOX_TAG}-`);
-      if (!ours || activeVmids.has(vm.vmid)) continue;
+      const tags = (vm.tags ?? '').split(';');
+      const sandbox =
+        tags.includes(env.SANDBOX_TAG) || (vm.name ?? '').startsWith(`${env.SANDBOX_TAG}-`);
+      if (!sandbox || activeVmids.has(vm.vmid)) continue;
+      if (!tags.includes(instanceTag(own))) {
+        foreign += 1;
+        continue;
+      }
       try {
         await pve(`/nodes/${pveNode()}/qemu/${vm.vmid}`, {
           method: 'DELETE',
@@ -646,6 +690,10 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
     for (const item of list ?? []) {
       const name = baseName(item.volid);
       if (!name.startsWith(ISO_PREFIX) || activeIsos.has(name)) continue;
+      if (!name.startsWith(instanceIsoPrefix(own))) {
+        foreign += 1;
+        continue;
+      }
       await deleteIso(item.volid);
       isos += 1;
     }
@@ -655,6 +703,11 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
 
   if (vms || isos) {
     log.info(`[sandbox] reconciliacao removeu ${vms} VM(s) e ${isos} ISO(s) orfaos.`);
+  }
+  if (foreign) {
+    log.info(
+      `[sandbox] reconciliacao manteve ${foreign} VM(s)/ISO(s) do sandbox sem a marca desta instancia (${instanceTag(own)}).`,
+    );
   }
   return { vms, isos };
 }

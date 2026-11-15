@@ -404,8 +404,10 @@ async function phase0() {
     'D',
     tagged.length === 0,
     '',
+    // A limpeza da subida so apaga as que tem a marca da instancia (etiqueta dl-<id>); as de outra
+    // instancia no mesmo Proxmox podem ser um ambiente dela em uso.
     tagged.length
-      ? `a limpeza da subida apagaria: ${tagged.map((v) => `${v.vmid} ${v.name}`).join('; ')}`
+      ? `já no Proxmox (de alguma instância): ${tagged.map((v) => `${v.vmid} ${v.name} [${v.tags ?? ''}]`).join('; ')}`
       : '',
   );
   const isos = (
@@ -530,6 +532,13 @@ async function runEnvironment() {
     'O',
     /deeplook-.*\.iso.*media=cdrom/.test(String(config.ide2 ?? '')),
     String(config.ide2 ?? '(sem ide2)'),
+  );
+  check(
+    '1.5a VM com a etiqueta desta instância (a limpeza só apaga as dela)',
+    'O',
+    /(^|;)dl-[a-f0-9]{8}(;|$)/.test(String(config.tags ?? '')) &&
+      /deeplook-[a-f0-9]{8}-/.test(String(config.ide2 ?? '')),
+    String(config.tags ?? '(sem etiquetas)'),
   );
   check(
     '1.x a VM do teste não é o template',
