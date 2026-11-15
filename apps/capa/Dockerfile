@@ -1,6 +1,6 @@
 # Analise de funcoes (item 7.2): capa e FLOSS, da Mandiant (Apache 2.0). Sem rede, sem root e com
 # a raiz somente leitura no compose; um container por analise (server.py).
-FROM python:3.12-slim AS build
+FROM python:3.14-slim AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential \
   && rm -rf /var/lib/apt/lists/*
@@ -22,7 +22,7 @@ RUN mkdir -p /opt/capa \
   && tar xzf /tmp/capa.tar.gz -C /tmp capa-10.0.0/sigs \
   && mv /tmp/capa-10.0.0/sigs /opt/capa/sigs
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 # As correcoes de seguranca que o Debian ja publicou e a imagem do Python ainda nao tem.
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
