@@ -512,7 +512,9 @@ o código.
   token de API: `GET /api/entries/:id/capa`.
 - **Tempo:** de segundos a minutos. Cada ferramenta tem um teto (`CAPA_TIMEOUT_S`,
   `FLOSS_TIMEOUT_S`); um executável com milhares de funções pode estourar, e a falha diz
-  "tempo esgotado".
+  "tempo esgotado". Em executáveis do Windows de até `CAPA_REUSE_MAX_MB`, o FLOSS carrega a análise
+  que o capa acabou de fazer em vez de refazê-la: o mesmo resultado, uns 15% mais rápido nos
+  comuns, e num executável em Go de 2 MB o FLOSS caiu de 299 s (estourava o teto) para 191 s.
 - **Isolamento:** contêiner sem rede nenhuma (rede interna `analysis`, só com a API), sem root,
   sem capacidades, raiz somente leitura e `/tmp` em memória sem execução. Como a captura, um
   **contêiner novo a cada análise**: a API espera o novo estar livre antes de mandar o próximo
@@ -1118,6 +1120,7 @@ COOKIE_SECURE=true
 | `CAPA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise (acima da soma dos dois) | `1000` |
 | `CAPA_MEM_LIMIT` | memória de cada contêiner `capa` | `3g` |
 | `CAPA_WORKERS` | análises do capa ao mesmo tempo (contêineres `capa`; cada um com até `CAPA_MEM_LIMIT`) | `2` |
+| `CAPA_REUSE_MAX_MB` | executáveis do Windows até este tamanho: o FLOSS reaproveita a análise do capa em vez de refazê-la (mesmo resultado, mais rápido); `0` desliga | `8` |
 | `CAPA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
 | `GHIDRA_URL` | serviço do Ghidra (sob demanda); vazio desliga | `http://ghidra:3300` |
 | `GHIDRA_TOKEN` | token compartilhado entre a API e o serviço `ghidra` (16+ caracteres) | — |

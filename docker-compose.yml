@@ -334,6 +334,9 @@ services:
       # Tetos de cada ferramenta: um PE com milhares de funcoes passa de 15 min no capa.
       CAPA_TIMEOUT_S: ${CAPA_TIMEOUT_S:-600}
       FLOSS_TIMEOUT_S: ${FLOSS_TIMEOUT_S:-300}
+      # O FLOSS reaproveita a analise do capa em executaveis do Windows ate este tamanho (MB): mesmo
+      # resultado, mais rapido. A analise salva fica no /tmp abaixo (7 a 11 vezes o executavel).
+      CAPA_REUSE_MAX_MB: ${CAPA_REUSE_MAX_MB:-8}
       # Um container por analise (como a captura, item 6.17). false = processo de longa vida.
       CAPA_RECYCLE: ${CAPA_RECYCLE:-true}
     # O unico lugar gravavel e o /tmp em memoria, sem executaveis: a amostra e o JSON das

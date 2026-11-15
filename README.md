@@ -508,7 +508,9 @@ whole queue. Nothing is executed: the two Mandiant tools read and emulate the co
   token: `GET /api/entries/:id/capa`.
 - **Time:** from seconds to minutes. Each tool has a ceiling (`CAPA_TIMEOUT_S`,
   `FLOSS_TIMEOUT_S`); an executable with thousands of functions may hit it, and the failure says
-  "timed out".
+  "timed out". On Windows executables up to `CAPA_REUSE_MAX_MB`, FLOSS loads the analysis capa has
+  just made instead of redoing it: the same result, about 15% faster on common ones, and on a 2 MB Go
+  executable FLOSS went from 299 s (it hit the cap) to 191 s.
 - **Isolation:** a container with no network at all (internal `analysis` network, only with the API), non-root,
   no capabilities, read-only root and `/tmp` in memory without execution. Like the capture, a **new container for
   each analysis**: the API waits for the new one to be free before sending the next file. Service down: the
@@ -1105,6 +1107,7 @@ COOKIE_SECURE=true
 | `CAPA_REQUEST_TIMEOUT_S` | how long the API waits for an analysis (above the sum of the two) | `1000` |
 | `CAPA_MEM_LIMIT` | memory of each `capa` container | `3g` |
 | `CAPA_WORKERS` | capa analyses at a time (`capa` containers; each one with up to `CAPA_MEM_LIMIT`) | `2` |
+| `CAPA_REUSE_MAX_MB` | Windows executables up to this size: FLOSS reuses capa's analysis instead of redoing it (same result, faster); `0` turns it off | `8` |
 | `CAPA_RECYCLE` | a new container for each analysis; `false` = long-lived process | `true` |
 | `GHIDRA_URL` | Ghidra service (on demand); empty turns it off | `http://ghidra:3300` |
 | `GHIDRA_TOKEN` | token shared between the API and the `ghidra` service (16+ characters) | — |

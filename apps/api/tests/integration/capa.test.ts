@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -33,6 +33,11 @@ const DIR = join(process.env.TEST_TMP!, 'pe');
 const file = (name: string) => readFileSync(join(DIR, name));
 const docker = (...args: string[]) => execFileSync('docker', args, { encoding: 'utf8' }).trim();
 const restarts = () => Number(docker('inspect', '-f', '{{.RestartCount}}', 'dl-capa'));
+/** O log do servico (o server.py escreve no stderr). */
+const serviceLog = () => {
+  const r = spawnSync('docker', ['logs', 'dl-capa'], { encoding: 'utf8' });
+  return `${r.stdout}${r.stderr}`;
+};
 const REAL = 'http://localhost:53200';
 const log = { info: () => undefined, error: () => undefined };
 
@@ -205,6 +210,10 @@ async function main() {
     o?.floss?.decoded.some((s: any) => s.string === 'http://xor.evil.test/painel' && s.function) &&
       o?.floss?.stack.some((s: any) => s.string === 'stack.evil.test'),
     o?.floss,
+  );
+  ok(
+    'o FLOSS reaproveitou a análise do capa (o mesmo resultado acima, sem refazê-la)',
+    serviceLog().includes('FLOSS reaproveitou a análise do capa'),
   );
   const iocs = (o?.iocCandidates ?? []).map((i: any) => `${i.kind}:${i.value}`);
   ok(

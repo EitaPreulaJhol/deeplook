@@ -37,6 +37,11 @@ RECYCLE = os.environ.get("CAPA_RECYCLE", "true") != "false"
 MAX_BYTES = int(os.environ.get("CAPA_MAX_MB", "32")) * 1024 * 1024
 CAPA_TIMEOUT = int(os.environ.get("CAPA_TIMEOUT_S", "600"))
 FLOSS_TIMEOUT = int(os.environ.get("FLOSS_TIMEOUT_S", "300"))
+# O FLOSS reaproveita a analise do vivisect que o capa acabou de fazer (o arquivo <amostra>.viv),
+# em vez de refaze-la: mesmo resultado, e o FLOSS de um executavel em Go de 2 MB cai de 299 s
+# (estourava o teto) para 191 s. So ate este tamanho: a analise salva fica de 7 a 11 vezes maior
+# que o executavel e mora no /tmp em memoria (conta no limite do container). 0 desliga.
+REUSE_MAX = int(os.environ.get("CAPA_REUSE_MAX_MB", "8")) * 1024 * 1024
 RULES = os.environ.get("CAPA_RULES", "/opt/capa/rules")
 SIGS = os.environ.get("CAPA_SIGS", "/opt/capa/sigs")
 RULES_VERSION = os.environ.get("CAPA_RULES_VERSION", "")
@@ -69,10 +74,11 @@ def tool_version(cmd):
 VERSIONS = {"capa": tool_version("capa"), "floss": tool_version("floss"), "rules": RULES_VERSION}
 
 
-def run(cmd, timeout):
+def run(cmd, timeout, extra_env=None):
     """Roda a ferramenta num grupo de processos proprio; no tempo esgotado, mata o grupo inteiro."""
+    env = {**os.environ, **extra_env} if extra_env else None
     proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, env=env
     )
     try:
         out, err = proc.communicate(timeout=timeout)
@@ -174,6 +180,33 @@ def kind_of(head):
     return None
 
 
+def run_floss(path, reuse):
+    """
+    O FLOSS, carregando a analise que o capa salvou quando ela existe e o capa terminou bem (o
+    arquivo e nosso, gerado agora neste container: o FLOSS so o carrega com a opcao explicita,
+    porque o formato usa pickle). Capa morto no meio pode deixar o arquivo pela metade: sem
+    reaproveitar, ele sai. Se o FLOSS falhar com ele (sem ser por tempo), roda de novo sem ele, no
+    que sobrou do prazo: o total nunca passa de FLOSS_TIMEOUT.
+    """
+    cmd = ["floss", "-q", "-j", "--no", "static", "--", path]
+    viv = f"{path}.viv"
+    if not (reuse and os.path.exists(viv)):
+        if os.path.exists(viv):
+            os.remove(viv)
+        return run(cmd, FLOSS_TIMEOUT)
+    started = time.monotonic()
+    doc, error = run(cmd, FLOSS_TIMEOUT, {"FLOSS_LOAD_VIV_WORKSPACE": "1"})
+    if doc is not None:
+        log("FLOSS reaproveitou a análise do capa")
+        return doc, error
+    left = int(FLOSS_TIMEOUT - (time.monotonic() - started))
+    if error.startswith("tempo esgotado") or left < 5:
+        return doc, error
+    log(f"FLOSS falhou com a análise do capa ({error}); de novo sem ela")
+    os.remove(viv)
+    return run(cmd, left)
+
+
 def analyze(data):
     started = time.monotonic()
     work = tempfile.mkdtemp(prefix="amostra-", dir="/tmp")
@@ -182,7 +215,13 @@ def analyze(data):
         with open(path, "wb") as f:
             f.write(data)
         kind = kind_of(data[:4])
-        capa_doc, capa_error = run(["capa", "-q", "-j", "-r", RULES, "-s", SIGS, path], CAPA_TIMEOUT)
+        # So o FLOSS (executavel do Windows) usa a analise salva.
+        reuse = kind == "pe" and 0 < len(data) <= REUSE_MAX
+        capa_doc, capa_error = run(
+            ["capa", "-q", "-j", "-r", RULES, "-s", SIGS, path],
+            CAPA_TIMEOUT,
+            {"CAPA_SAVE_WORKSPACE": "1"} if reuse else None,
+        )
         result = {
             "ok": True,
             "kind": kind,
@@ -194,9 +233,7 @@ def analyze(data):
         }
         # O FLOSS so decifra executavel do Windows.
         if kind == "pe":
-            floss_doc, floss_error = run(
-                ["floss", "-q", "-j", "--no", "static", "--", path], FLOSS_TIMEOUT
-            )
+            floss_doc, floss_error = run_floss(path, reuse and capa_doc is not None)
             result["floss"] = summarize_floss(floss_doc) if floss_doc else None
             result["flossError"] = floss_error
         result["ms"] = int((time.monotonic() - started) * 1000)
