@@ -5,7 +5,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { recordEvent } from '../lib/events';
-import { deleteGhidraProject } from '../lib/ghidra';
+import { deleteGhidraProject, deleteGhidraPseudo } from '../lib/ghidra';
 import { captureKeysOf } from '../lib/network-capture';
 import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
@@ -140,8 +140,10 @@ export async function trashRoutes(app: FastifyInstance) {
     // Arquivos primeiro: se o MinIO falhar, a ficha continua na lixeira para tentar de novo.
     try {
       await deleteStoredFile(entry);
-      // O projeto do Ghidra (item 7.3) tem os bytes da amostra.
+      // O projeto do Ghidra (item 7.3) tem os bytes da amostra; o pseudo-C completo
+      // (plans/ghidra-pseudo-c) fica fora de samples/ e so sai aqui.
       await deleteGhidraProject(id);
+      await deleteGhidraPseudo(id);
       await deleteEvidenceObjects([
         ...evidence.map((e) => e.storageKey),
         // Prints do sandbox (revisao 3.7) e o pcap da captura de rede (plano pos-revisao, 5.4).

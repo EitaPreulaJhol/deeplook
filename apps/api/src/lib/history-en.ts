@@ -28,6 +28,7 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['regra de triagem', 'triage rule'],
   ['arquivo original', 'original file'],
   ['projeto do Ghidra (.gzf)', 'Ghidra project (.gzf)'],
+  ['pseudo-C do Ghidra (.c)', 'Ghidra pseudo-C (.c)'],
   ['sessões encerradas', 'sessions closed'],
   ['troca obrigatória no próximo login', 'change required at the next sign-in'],
   ['troca obrigatória (senha expirada)', 'change required (password expired)'],

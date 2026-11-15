@@ -428,6 +428,19 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Only the submitter and analysts download the Ghidra project.',
   ],
   ['Projeto do Ghidra não encontrado.', 'Ghidra project not found.'],
+  [
+    'O pseudo-C completo desta análise não está disponível.',
+    'The full pseudo-C of this analysis is not available.',
+  ],
+  ['Função não encontrada.', 'Function not found.'],
+  [
+    'Não foi possível ler o pseudo-C no armazenamento.',
+    'Could not read the pseudo-C from storage.',
+  ],
+  [
+    'Somente quem enviou e os analistas baixam o pseudo-C do Ghidra.',
+    'Only the submitter and analysts download the Ghidra pseudo-C.',
+  ],
   ['mesmo domínio {0}', 'same domain {0}'],
   ['indicador em comum', 'shared indicator'],
   ['mesmas importações', 'same imports'],

@@ -686,31 +686,77 @@ enum GhidraStatus {
 /// Analise com o Ghidra (item 7.3): sob demanda (analistas pedem), no servico ghidra, um por vez.
 /// Uma por amostra (a mais recente).
 model GhidraAnalysis {
-  id            String       @id @default(cuid())
-  entryId       String       @unique
-  entry         Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  requestedById String?
-  requestedBy   User?        @relation(fields: [requestedById], references: [id], onDelete: SetNull)
-  status        GhidraStatus @default(PENDING)
+  id                String           @id @default(cuid())
+  entryId           String           @unique
+  entry             Entry            @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  requestedById     String?
+  requestedBy       User?            @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  status            GhidraStatus     @default(PENDING)
   /// Resumo (apps/ghidra/scripts/ExportDeepLook.java): programa, maiores funcoes, quem chama APIs
   /// sensiveis e o pseudo-C dessas funcoes e do ponto de entrada.
-  summary       Json?
+  summary           Json?
   /// Projeto .gzf no MinIO, sob samples/ (tem os bytes da amostra: o backup sem amostras o deixa
   /// de fora, e a retencao e a lixeira o apagam junto com o arquivo).
-  gzfKey        String?
-  gzfSize       Int?
-  gzfError      String?
-  error         String?
+  gzfKey            String?
+  gzfSize           Int?
+  gzfError          String?
+  /// Pseudo-C de todas as funcoes (plans/ghidra-pseudo-c): um texto so no MinIO, FORA de samples/
+  /// (e derivado, como o resumo: fica depois do expurgo da retencao e entra no backup sem
+  /// amostras), e o indice em GhidraFunction com o deslocamento de cada funcao nele.
+  pseudoKey         String?
+  pseudoSize        Int?
+  pseudoError       String?
+  /// Funcoes do programa (as da lista podem ser menos: teto de 20 000) e se o prazo ou o teto do
+  /// servico deixaram funcoes sem codigo.
+  pseudoTotal       Int?
+  pseudoDeadlineHit Boolean          @default(false)
+  pseudoCapHit      Boolean          @default(false)
+  functions         GhidraFunction[]
+  error             String?
   /// Versao do Ghidra que fez a analise.
-  version       String?
-  ms            Int?
-  attempts      Int          @default(0)
-  nextAttemptAt DateTime     @default(now())
-  createdAt     DateTime     @default(now())
-  startedAt     DateTime?
-  finishedAt    DateTime?
+  version           String?
+  ms                Int?
+  attempts          Int              @default(0)
+  nextAttemptAt     DateTime         @default(now())
+  createdAt         DateTime         @default(now())
+  startedAt         DateTime?
+  finishedAt        DateTime?
 
   @@index([status, nextAttemptAt])
+}
+
+/// Uma funcao do pseudo-C completo do Ghidra (plans/ghidra-pseudo-c). O codigo fica no texto do
+/// MinIO (GhidraAnalysis.pseudoKey), lido por Range com cOffset e cLength (bytes UTF-8).
+model GhidraFunction {
+  id           String         @id @default(cuid())
+  analysisId   String
+  analysis     GhidraAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  /// Posicao na ordem de prioridade do servico (0 = a primeira: as do resumo, as que chamam APIs
+  /// sensiveis, as demais por tamanho, as de biblioteca por ultimo).
+  rank         Int
+  entry        String
+  name         String
+  size         Int
+  complexity   Int
+  isEntryPoint Boolean
+  /// Reconhecida pelo FunctionID (CRT, bibliotecas do Visual Studio).
+  library      Boolean
+  sensitive    String[]
+  apis         String[]
+  /// Enderecos de quem a chama e de quem ela chama (funcoes internas, ate 50 de cada), e os totais.
+  callers      String[]
+  callerCount  Int
+  callees      String[]
+  calleeCount  Int
+  /// Sem codigo: cOffset e cLength nulos, com o motivo em skipped ("deadline" ou "cap") ou error.
+  cOffset      Int?
+  cLength      Int?
+  truncated    Boolean        @default(false)
+  skipped      String?
+  error        String?
+
+  @@unique([analysisId, entry])
+  @@index([analysisId, rank])
 }
 
 enum UnpackStatus {

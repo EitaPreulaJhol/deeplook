@@ -125,6 +125,9 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
     'o Suricata falhou: {0}',
     'o arquivo não é um pcap',
     'suricata-update falhou: {0}',
+    // Do Ghidra, sobre o pseudo-C completo (apps/ghidra/server.py; plans/ghidra-pseudo-c).
+    'o pseudo-C completo não foi gerado',
+    'pseudo-C completo acima de {0} MB',
   ]);
   assert.deepEqual(
     DATA_EN.map(([pt]) => pt).filter((pt) => !used.has(pt) && !fromService.has(pt)),

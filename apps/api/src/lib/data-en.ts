@@ -299,6 +299,16 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'Executável .NET: o Ghidra não descompila o código intermediário (IL).',
     '.NET executable: Ghidra does not decompile the intermediate code (IL).',
   ],
+  // Ghidra: por que o pseudo-C completo (plans/ghidra-pseudo-c) ou uma funcao dele faltou.
+  ['o pseudo-C completo não foi gerado', 'the full pseudo-C was not generated'],
+  ['pseudo-C completo acima de {0} MB', 'full pseudo-C above {0} MB'],
+  ['pseudo-C completo acima do limite', 'full pseudo-C above the limit'],
+  ['pseudo-C completo em formato inesperado', 'full pseudo-C in an unexpected format'],
+  [
+    'não foi possível gravar o pseudo-C no armazenamento',
+    'could not write the pseudo-C to storage',
+  ],
+  ['sem resultado', 'no result'],
 
   // ---- Tipo do arquivo (file-type.ts) ----
   ['Executável do Windows (PE)', 'Windows executable (PE)'],

@@ -79,6 +79,28 @@ export const OPENAPI_EN: readonly (readonly [pt: string, en: string])[] = [
     'Requested by an analyst. Program summary, the largest functions, who calls sensitive APIs and the pseudo-C of those functions and of the entry point. `analysis` is null until someone asks.',
   ],
   ['Situação e resultado da análise.', 'Analysis status and result.'],
+  ['Funções do pseudo-C completo (Ghidra)', 'Functions of the full pseudo-C (Ghidra)'],
+  [
+    'Lista paginada de todas as funções da análise com o Ghidra, na ordem de prioridade (ponto de entrada, as que chamam APIs sensíveis, as demais por tamanho, as de biblioteca por último). `hasCode` falso: a função ficou sem pseudo-C (`skipped` diz se foi o prazo ou o teto; `error`, a falha do descompilador).',
+    'Paginated list of every function of the Ghidra analysis, in priority order (entry point, callers of sensitive APIs, the rest by size, library functions last). `hasCode` false: the function has no pseudo-C (`skipped` says whether the deadline or the cap cut it; `error`, the decompiler failure).',
+  ],
+  ['Parte do nome ou do endereço.', 'Part of the name or the address.'],
+  ['`true`: só as que chamam APIs sensíveis.', '`true`: only callers of sensitive APIs.'],
+  ['`true`: sem as funções de biblioteca.', '`true`: without library functions.'],
+  [
+    'Ordem: a de prioridade (padrão), nome, endereço, tamanho ou complexidade.',
+    'Order: priority (default), name, address, size or complexity.',
+  ],
+  ['Página, a partir de 1.', 'Page, starting at 1.'],
+  ['Funções por página (até 500).', 'Functions per page (up to 500).'],
+  ['Funções da página e os totais.', 'The page of functions and the totals.'],
+  ['Pseudo-C de uma função (Ghidra)', 'Pseudo-C of a function (Ghidra)'],
+  [
+    'A função pelo endereço (`0x...`, como na lista): o pseudo-C, as APIs que chama e os chamadores e chamadas, com o nome quando estão na lista.',
+    'The function by address (`0x...`, as in the list): its pseudo-C, the APIs it calls and its callers and callees, with the name when they are in the list.',
+  ],
+  ['Endereço da função.', 'Function address.'],
+  ['A função e o pseudo-C dela.', 'The function and its pseudo-C.'],
   ['Análise de funções (capa e FLOSS)', 'Function analysis (capa and FLOSS)'],
   [
     'O que as funções do executável fazem (regras do capa, com ATT&CK e MBC) e as strings que só aparecem na execução (FLOSS). `analysis` é null enquanto não houver análise.',

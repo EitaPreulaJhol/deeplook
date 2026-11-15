@@ -196,6 +196,11 @@ const EnvSchema = z
     /** Espera por uma analise: acima do teto do servico (GHIDRA_TIMEOUT_S) mais o empacotamento. */
     GHIDRA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1300),
     /**
+     * Pseudo-C de todas as funcoes (plans/ghidra-pseudo-c): o mesmo teto do servico. A API
+     * descomprime ate 2 x este valor + 64 MB (metadados e escape do JSON), como o servico.
+     */
+    GHIDRA_MAX_PSEUDO_MB: z.coerce.number().int().min(1).max(256).default(32),
+    /**
      * Desempacotar e extrair (item 7.8): servico unpack (upx, 7-Zip, innoextract,
      * pyinstxtractor; sem rede) e o token compartilhado. Vazio = desligado.
      */

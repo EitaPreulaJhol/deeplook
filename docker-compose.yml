@@ -165,6 +165,8 @@ services:
       GHIDRA_MAX_MB: ${GHIDRA_MAX_MB:-32}
       # Acima do GHIDRA_TIMEOUT_S do servico, com folga para o empacotamento do projeto.
       GHIDRA_REQUEST_TIMEOUT_S: ${GHIDRA_REQUEST_TIMEOUT_S:-1300}
+      # Pseudo-C de todas as funcoes: o mesmo teto do servico ghidra.
+      GHIDRA_MAX_PSEUDO_MB: ${GHIDRA_MAX_PSEUDO_MB:-32}
       # Identificar e desempacotar (itens 7.8 e 7.9): o servico unpack abaixo; UNPACK_URL= desliga.
       UNPACK_URL: ${UNPACK_URL-http://unpack:3400}
       UNPACK_TOKEN: ${UNPACK_TOKEN:-troque-este-token-do-unpack}

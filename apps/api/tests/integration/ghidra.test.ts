@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 
@@ -13,6 +14,7 @@ import {
   ghidraIdle,
   ghidraIneligible,
   ghidraProjectKey,
+  ghidraPseudoKey,
   ghidraTiming,
   startGhidraQueue,
   stopGhidraQueue,
@@ -20,6 +22,7 @@ import {
 import { prisma } from '../../src/lib/prisma';
 import { purgeExpiredFiles } from '../../src/lib/retention';
 import { ensureBucket, s3 } from '../../src/lib/s3';
+import { setOwnSamplesOnly } from '../../src/lib/settings';
 
 // Analise com o Ghidra (item 7.3) contra o servico de verdade (tests/run.mjs o sobe com o
 // endurecimento do compose e o restart que troca o container a cada analise), e contra um
@@ -184,6 +187,26 @@ async function main() {
   const project = (c: string, id: string) =>
     app.inject({ method: 'GET', url: `/api/entries/${id}/ghidra/project`, headers: { cookie: c } });
   const row = (entryId: string) => prisma.ghidraAnalysis.findUnique({ where: { entryId } });
+  // Pseudo-C de todas as funcoes (plans/ghidra-pseudo-c).
+  const fnList = (c: string, id: string, qs = '') =>
+    app.inject({
+      method: 'GET',
+      url: `/api/entries/${id}/ghidra/functions${qs}`,
+      headers: { cookie: c },
+    });
+  const fnGet = (c: string, id: string, entry: string) =>
+    app.inject({
+      method: 'GET',
+      url: `/api/entries/${id}/ghidra/functions/${entry}`,
+      headers: { cookie: c },
+    });
+  const pseudoDl = (c: string, id: string) =>
+    app.inject({
+      method: 'GET',
+      url: `/api/entries/${id}/ghidra/pseudo-c`,
+      headers: { cookie: c },
+    });
+  const fnCount = (analysisId: string) => prisma.ghidraFunction.count({ where: { analysisId } });
 
   const inj = await upload(bob, 'fatura.exe', file('prog64.exe'));
   const before = (await get(bob, inj)).json();
@@ -241,6 +264,116 @@ async function main() {
       r?.version === '12.2',
   );
 
+  // ------------------------------------------------ pseudo-C de todas as funcoes (servico real)
+  const info = (await get(bob, inj)).json().analysis;
+  ok(
+    'pseudo-C completo: todas as funções, num texto fora de samples/',
+    info.hasPseudo &&
+      info.pseudoFunctions === s.functions &&
+      r?.pseudoTotal === s.functions &&
+      r.pseudoKey === ghidraPseudoKey(inj) &&
+      !r.pseudoKey.startsWith('samples/') &&
+      (await exists(r.pseudoKey)) &&
+      !r.pseudoDeadlineHit &&
+      !r.pseudoCapHit &&
+      info.pseudoError === null,
+    { info, pseudoKey: r?.pseudoKey, pseudoError: r?.pseudoError },
+  );
+  const all = (await fnList(bob, inj, '?pageSize=500')).json();
+  ok(
+    'lista: ponto de entrada e as do resumo primeiro, todas com código',
+    all.listed === s.functions &&
+      all.matching === s.functions &&
+      all.total === s.functions &&
+      all.functions[0].isEntryPoint &&
+      all.functions
+        .slice(0, s.decompiled.length)
+        .map((f: any) => f.entry)
+        .join() === s.decompiled.map((d: any) => d.entry).join() &&
+      all.functions.every((f: any) => f.hasCode && f.skipped === null && f.error === null),
+    all.functions?.slice(0, 5),
+  );
+  // Cada funcao por Range, e o download inteiro tem de ser exatamente elas, na ordem.
+  const each: any[] = [];
+  for (const f of all.functions) each.push((await fnGet(bob, inj, f.entry)).json());
+  const fromSummary = s.decompiled.filter((d: any) => {
+    const one = each.find((e) => e.entry === d.entry);
+    return one && one.c === d.c;
+  });
+  ok(
+    'cada função lida por Range: as do resumo idênticas ao resumo',
+    fromSummary.length === s.decompiled.length,
+    { iguais: fromSummary.length, resumo: s.decompiled.length },
+  );
+  const injection = each.find((e) => e.entry === main?.entry);
+  ok(
+    'função de injeção: APIs sensíveis, chamadores e chamadas com nome',
+    injection?.sensitive.includes('CreateRemoteThread') &&
+      injection.apis.includes('CreateRemoteThread') &&
+      injection.callerCount === injection.callers.length &&
+      [...injection.callers, ...injection.callees].every((l: any) => typeof l.name === 'string') &&
+      injection.callers.length + injection.callees.length > 0,
+    injection && { callers: injection.callers, callees: injection.callees },
+  );
+  const sensitiveOnly = (await fnList(bob, inj, '?sensitive=true')).json();
+  const byName = (await fnList(bob, inj, `?q=${main?.name.toUpperCase()}`)).json();
+  const byAddress = (await fnList(bob, inj, `?q=${main?.entry.slice(-5)}`)).json();
+  const bySize = (await fnList(bob, inj, '?sort=size&pageSize=500')).json();
+  const page2 = (await fnList(bob, inj, '?pageSize=5&page=2')).json();
+  ok(
+    'filtros: sensíveis, nome sem caixa, endereço, ordem por tamanho e páginas',
+    sensitiveOnly.matching === s.sensitiveFunctions &&
+      sensitiveOnly.functions.every((f: any) => f.sensitive.length > 0) &&
+      byName.functions.some((f: any) => f.entry === main?.entry) &&
+      byAddress.functions.some((f: any) => f.entry === main?.entry) &&
+      bySize.functions.every((f: any, i: number, a: any[]) => i === 0 || a[i - 1].size >= f.size) &&
+      page2.functions.map((f: any) => f.entry).join() ===
+        all.functions
+          .slice(5, 10)
+          .map((f: any) => f.entry)
+          .join(),
+    { sensitive: sensitiveOnly.matching, byName: byName.matching, byAddress: byAddress.matching },
+  );
+  ok(
+    'parâmetros inválidos: 400; endereço desconhecido: 404',
+    (await fnList(bob, inj, '?sort=tamanho')).statusCode === 400 &&
+      (await fnList(bob, inj, '?pageSize=0')).statusCode === 400 &&
+      (await fnGet(bob, inj, '0xdeadbeef')).statusCode === 404,
+  );
+  // Quem ve a amostra ve a lista, como o resumo: por padrao todos; com "so as proprias", nao.
+  const openList = await fnList(carol, inj);
+  await setOwnSamplesOnly(true);
+  const closedList = await fnList(carol, inj);
+  const closedFn = await fnGet(carol, inj, all.functions[0].entry);
+  await setOwnSamplesOnly(false);
+  ok(
+    'lista e função: quem vê a amostra; com "só as próprias", o outro usuário não',
+    openList.statusCode === 200 && closedList.statusCode === 404 && closedFn.statusCode === 404,
+    [openList.statusCode, closedList.statusCode, closedFn.statusCode],
+  );
+  const ownerC = await pseudoDl(bob, inj);
+  const expected = each.map((e) => `/* ${e.name} @ ${e.entry} */\n${e.c}\n\n`).join('');
+  ok(
+    'quem enviou baixa o .c: texto, anexo, e exatamente as funções lidas por Range',
+    ownerC.statusCode === 200 &&
+      String(ownerC.headers['content-type']).startsWith('text/plain') &&
+      String(ownerC.headers['content-disposition']).includes('fatura.exe.c') &&
+      ownerC.body === expected &&
+      Buffer.byteLength(expected) === r?.pseudoSize,
+    { status: ownerC.statusCode, size: ownerC.body.length, expected: expected.length },
+  );
+  ok('analista baixa o .c', (await pseudoDl(ana, inj)).statusCode === 200);
+  const otherC = await pseudoDl(carol, inj);
+  ok(
+    'outro usuário comum não baixa o .c',
+    otherC.statusCode === 403 || otherC.statusCode === 404,
+    otherC.statusCode,
+  );
+  const auditsC = await prisma.auditEvent.count({
+    where: { action: 'ENTRY_DOWNLOADED', detail: 'pseudo-C do Ghidra (.c)' },
+  });
+  ok('downloads do .c na Auditoria (2, a recusa não)', auditsC === 2, auditsC);
+
   // Baixar o projeto: como a amostra (quem enviou e os analistas), na Auditoria.
   const ownerDl = await project(bob, inj);
   ok(
@@ -272,8 +405,30 @@ async function main() {
     e?.status === 'DONE' && /ELF/.test(e.summary.format) && e.summary.functions > 5,
     { status: e?.status, error: e?.error },
   );
-  for (let i = 0; i < 30 && restarts() < restartsBefore + 2; i++) await sleep(1000);
-  ok('um container novo a cada análise', restarts() >= restartsBefore + 2, {
+  // Analisar de novo: o pseudo-C anterior sai na hora do pedido, e o novo entra no lugar.
+  const elfRow = (await row(elf))!;
+  const elfKey0 = elfRow.pseudoKey;
+  const elfFns = await fnCount(elfRow.id);
+  ok('analisar de novo: pedido aceito', (await ask(ana, elf)).statusCode === 202);
+  const cleared = (await row(elf))!;
+  const clearedOk =
+    cleared.pseudoKey === null &&
+    !(elfKey0 && (await exists(elfKey0))) &&
+    (await fnCount(cleared.id)) === 0;
+  await ghidraIdle();
+  const again = (await row(elf))!;
+  ok(
+    'analisar de novo: apaga o pseudo-C antigo e grava o novo',
+    Boolean(elfKey0) &&
+      elfFns > 0 &&
+      clearedOk &&
+      again.status === 'DONE' &&
+      again.pseudoKey === elfKey0 &&
+      (await fnCount(again.id)) === elfFns,
+    { elfKey0, elfFns, clearedOk, status: again.status },
+  );
+  for (let i = 0; i < 30 && restarts() < restartsBefore + 3; i++) await sleep(1000);
+  ok('um container novo a cada análise', restarts() >= restartsBefore + 3, {
     before: restartsBefore,
     after: restarts(),
   });
@@ -317,11 +472,21 @@ async function main() {
       purged.summary !== null,
     purged?.gzfKey,
   );
+  ok(
+    'retenção mantém o pseudo-C completo: lista, função e download seguem',
+    purged?.pseudoKey === ghidraPseudoKey(inj) &&
+      (await exists(ghidraPseudoKey(inj))) &&
+      (await fnList(bob, inj)).json().listed === s.functions &&
+      (await fnGet(bob, inj, main.entry)).json().c === main.c &&
+      (await pseudoDl(bob, inj)).statusCode === 200,
+    purged?.pseudoKey,
+  );
   env.RETENTION_DAYS = 0;
 
   // Lixeira: excluir de vez apaga o .gzf.
   const elfKey = ghidraProjectKey(elf);
   const hadProject = await exists(elfKey);
+  const hadPseudo = await exists(ghidraPseudoKey(elf));
   await prisma.entry.update({ where: { id: elf }, data: { deletedAt: new Date() } });
   const del = await app.inject({
     method: 'DELETE',
@@ -329,9 +494,14 @@ async function main() {
     headers: { cookie: root },
   });
   ok(
-    'excluir da lixeira apaga o .gzf e a análise',
-    hadProject && del.statusCode === 200 && !(await exists(elfKey)) && !(await row(elf)),
-    { hadProject, status: del.statusCode },
+    'excluir da lixeira apaga o .gzf, o pseudo-C completo e a análise',
+    hadProject &&
+      hadPseudo &&
+      del.statusCode === 200 &&
+      !(await exists(elfKey)) &&
+      !(await exists(ghidraPseudoKey(elf))) &&
+      !(await row(elf)),
+    { hadProject, hadPseudo, status: del.statusCode },
   );
 
   // Desligado.
@@ -399,6 +569,164 @@ async function main() {
       x.gzfError === 'projeto acima de 64 MB' &&
       x.summary.decompiled[0].name === 'ab',
   );
+
+  // Pseudo-C completo hostil: o resumo vale sempre; o pseudo-C sai com o motivo.
+  const pseudoFn = (entry: string, extra: object = {}) => ({
+    name: `FUN_${entry}`,
+    entry,
+    size: 10,
+    complexity: 1,
+    isEntryPoint: false,
+    library: false,
+    sensitive: [],
+    apis: [],
+    callers: [],
+    callerCount: 0,
+    callees: [],
+    calleeCount: 0,
+    ...extra,
+  });
+  const withPseudo =
+    (pseudo: unknown, raw = false) =>
+    (res: http.ServerResponse) =>
+      reply(res, {
+        ok: true,
+        kind: 'pe',
+        version: '12.2',
+        summary: SUMMARY,
+        gzf: null,
+        gzfError: null,
+        pseudo: raw ? pseudo : gzipSync(Buffer.from(JSON.stringify(pseudo))).toString('base64'),
+        pseudoError: null,
+        ms: 1,
+      });
+  const lost = (x: any) =>
+    x?.status === 'DONE' && x.summary?.decompiled?.length === 1 && x.pseudoKey === null;
+  // Caracteres de varios bytes e NUL antes da funcao lida: o deslocamento e em bytes.
+  const tricky = 'int f(void) { /* ação 🎯 ünïcödé */ return 0; }\u0000';
+  const plain = 'int g(void)\n{\n  return f();\n}\n';
+  await hostile(
+    'pseudo-C com acentos, emoji, NUL, função pulada e erro: concluída',
+    withPseudo({
+      total: 5,
+      deadlineHit: true,
+      capHit: false,
+      functions: [
+        pseudoFn('0x10', { name: 'f\u0000ação', c: tricky, callers: ['0x20'], callerCount: 1 }),
+        pseudoFn('0x20', { c: plain, callees: ['0x10', '0x99'], calleeCount: 2 }),
+        pseudoFn('0x30', { skipped: 'deadline' }),
+        pseudoFn('0x40', { error: 'Decompiler process died' }),
+      ],
+    }),
+    (x) =>
+      x?.status === 'DONE' && x.pseudoKey !== null && x.pseudoDeadlineHit && x.pseudoTotal === 5,
+  );
+  const g = (await fnGet(ana, target, '0x20')).json();
+  const f = (await fnGet(ana, target, '0x10')).json();
+  const skipped = (await fnGet(ana, target, '0x30')).json();
+  const failed = (await fnGet(ana, target, '0x40')).json();
+  ok(
+    'Range em bytes: a função depois dos acentos sai exata; NUL some',
+    g.c === plain && f.c === tricky.replace('\u0000', '') && f.name === 'fação',
+    { g: g.c, f: f.c },
+  );
+  ok(
+    'chamadas com nome, e a que está fora da lista só com o endereço',
+    JSON.stringify(g.callees) ===
+      JSON.stringify([
+        { entry: '0x10', name: 'fação' },
+        { entry: '0x99', name: null },
+      ]),
+    g.callees,
+  );
+  const listed = (await fnList(ana, target)).json();
+  ok(
+    'pulada pelo prazo e falha do descompilador: sem código, com o motivo',
+    skipped.c === null &&
+      skipped.skipped === 'deadline' &&
+      failed.c === null &&
+      failed.error === 'Decompiler process died' &&
+      listed.deadlineHit &&
+      listed.functions.filter((x: any) => !x.hasCode).length === 2,
+    { skipped, failed },
+  );
+  env.GHIDRA_MAX_PSEUDO_MB = 1;
+  await hostile(
+    'bomba de gzip: o resumo vale, o pseudo-C sai acima do limite',
+    (res) =>
+      reply(res, {
+        ok: true,
+        kind: 'pe',
+        version: '12.2',
+        summary: SUMMARY,
+        gzf: null,
+        gzfError: null,
+        pseudo: gzipSync(Buffer.alloc(70 * 1024 * 1024, 32)).toString('base64'),
+        pseudoError: null,
+        ms: 1,
+      }),
+    (x) => lost(x) && x.pseudoError === 'pseudo-C completo acima do limite',
+  );
+  env.GHIDRA_MAX_PSEUDO_MB = 32;
+  const unexpected = (x: any) =>
+    lost(x) && x.pseudoError === 'pseudo-C completo em formato inesperado';
+  await hostile(
+    'endereço repetido: formato inesperado',
+    withPseudo({
+      total: 2,
+      deadlineHit: false,
+      capHit: false,
+      functions: [pseudoFn('0x10', { c: 'a' }), pseudoFn('0x10', { c: 'b' })],
+    }),
+    unexpected,
+  );
+  await hostile(
+    'pseudo-C que não é gzip: formato inesperado',
+    withPseudo('bm8gZ3ppcA==', true),
+    unexpected,
+  );
+  await hostile(
+    'pseudo-C acima do teto por função: formato inesperado',
+    withPseudo({
+      total: 1,
+      deadlineHit: false,
+      capHit: false,
+      functions: [pseudoFn('0x10', { c: 'x'.repeat(256_001) })],
+    }),
+    unexpected,
+  );
+  await hostile(
+    'serviço sem o pseudo-C: concluída, com o motivo do serviço',
+    (res) =>
+      reply(res, {
+        ok: true,
+        kind: 'pe',
+        version: '12.2',
+        summary: SUMMARY,
+        gzf: null,
+        gzfError: null,
+        pseudo: null,
+        pseudoError: 'o pseudo-C completo não foi gerado',
+        ms: 1,
+      }),
+    (x) => lost(x) && x.pseudoError === 'o pseudo-C completo não foi gerado',
+  );
+  const noPseudo = (
+    await app.inject({
+      method: 'GET',
+      url: `/api/entries/${target}/ghidra`,
+      headers: { cookie: ana, 'accept-language': 'en' },
+    })
+  ).json().analysis;
+  ok(
+    'sem o pseudo-C: a lista dá 404 e o motivo sai no idioma do pedido',
+    (await fnList(ana, target)).statusCode === 404 &&
+      (await pseudoDl(ana, target)).statusCode === 404 &&
+      !noPseudo.hasPseudo &&
+      noPseudo.pseudoError === 'the full pseudo-C was not generated',
+    noPseudo,
+  );
+
   env.GHIDRA_REQUEST_TIMEOUT_S = 1;
   await hostile(
     'serviço travado: nova tentativa',

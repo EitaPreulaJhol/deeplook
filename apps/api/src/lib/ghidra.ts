@@ -1,3 +1,5 @@
+import { gunzipSync } from 'node:zlib';
+
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { z } from 'zod';
 
@@ -13,6 +15,8 @@ import { s3 } from './s3';
  * mesma ideia da do capa (7.2): persistida no banco, um trabalho por vez, com novas tentativas
  * quando o servico esta fora. O resultado e o resumo (maiores funcoes, quem chama APIs sensiveis e
  * o pseudo-C delas) e o projeto .gzf, que tem os bytes da amostra e por isso mora sob samples/.
+ * Desde plans/ghidra-pseudo-c, vem tambem o pseudo-C de todas as funcoes: um texto so no MinIO,
+ * fora de samples/, e o indice em GhidraFunction, com o deslocamento de cada funcao no texto.
  */
 
 const MAX_ATTEMPTS = 3;
@@ -35,6 +39,18 @@ export function ghidraEnabled(): boolean {
 
 /** Onde o projeto .gzf da amostra fica no MinIO (sob samples/, como o arquivo). */
 export const ghidraProjectKey = (entryId: string) => `samples/ghidra/${entryId}.gzf`;
+
+/**
+ * Onde o pseudo-C completo fica no MinIO: FORA de samples/. E texto derivado, como o resumo:
+ * continua depois do expurgo da retencao e entra no backup sem amostras.
+ */
+export const ghidraPseudoKey = (entryId: string) => `ghidra/${entryId}.c`;
+
+/** Teto do JSON do pseudo-C descomprimido: o mesmo do servico (apps/ghidra/server.py). */
+export const ghidraPseudoMax = () => (2 * env.GHIDRA_MAX_PSEUDO_MB + 64) * 1024 * 1024;
+
+/** Funcoes por insercao no banco (o Postgres aceita ate 65 535 parametros por comando). */
+const INSERT_CHUNK = 1000;
 
 /**
  * Por que a amostra nao vai para o Ghidra (null = vai). .NET fica de fora: o Ghidra nao
@@ -107,6 +123,48 @@ const summarySchema = z.object({
 });
 export type GhidraSummary = z.infer<typeof summarySchema>;
 
+const count = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(2 ** 31 - 1);
+/** Pseudo-C completo (apps/ghidra/scripts/ExportDeepLook.java, pseudo.json). */
+const pseudoSchema = z
+  .object({
+    total: count,
+    deadlineHit: z.boolean(),
+    capHit: z.boolean(),
+    functions: z
+      .array(
+        z.object({
+          name,
+          entry: address,
+          size: count,
+          complexity: z
+            .number()
+            .int()
+            .min(-1)
+            .max(2 ** 31 - 1),
+          isEntryPoint: z.boolean(),
+          library: z.boolean(),
+          sensitive: z.array(name).max(200),
+          apis: z.array(name).max(40),
+          callers: z.array(address).max(50),
+          callerCount: count,
+          callees: z.array(address).max(50),
+          calleeCount: count,
+          c: text(256_000).optional(),
+          truncated: z.boolean().optional(),
+          skipped: z.enum(['deadline', 'cap']).optional(),
+          error: text(1000).nullish(),
+        }),
+      )
+      .max(20_000),
+  })
+  // O endereco e a chave da funcao (link direto, chamadores, chamadas).
+  .refine((p) => new Set(p.functions.map((f) => f.entry)).size === p.functions.length);
+type Pseudo = z.infer<typeof pseudoSchema>;
+
 const resultSchema = z.union([
   z.object({
     ok: z.literal(true),
@@ -119,6 +177,9 @@ const resultSchema = z.union([
       .max(Math.ceil(MAX_GZF_BYTES / 3) * 4)
       .nullable(),
     gzfError: text(400).nullable(),
+    // Pseudo-C completo (JSON com gzip, em base64); um servico antigo nao manda.
+    pseudo: z.string().nullish(),
+    pseudoError: text(400).nullish(),
     ms: z.number().int().nonnegative(),
   }),
   z.object({
@@ -155,6 +216,158 @@ export async function deleteGhidraProject(entryId: string): Promise<void> {
   });
 }
 
+// ------------------------------------------------------------------ pseudo-C completo
+
+/** A analise sem o pseudo-C completo. */
+const NO_PSEUDO = {
+  pseudoKey: null,
+  pseudoSize: null,
+  pseudoError: null,
+  pseudoTotal: null,
+  pseudoDeadlineHit: false,
+  pseudoCapHit: false,
+};
+
+/** Apaga o pseudo-C completo da amostra: o texto no MinIO e o indice (idempotente). */
+export async function deleteGhidraPseudo(entryId: string): Promise<void> {
+  const row = await prisma.ghidraAnalysis.findUnique({
+    where: { entryId },
+    select: { id: true, pseudoKey: true },
+  });
+  if (!row) return;
+  if (row.pseudoKey) {
+    await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: row.pseudoKey }));
+  }
+  await prisma.$transaction([
+    prisma.ghidraFunction.deleteMany({ where: { analysisId: row.id } }),
+    prisma.ghidraAnalysis.update({ where: { id: row.id }, data: NO_PSEUDO }),
+  ]);
+}
+
+/** O codigo de uma funcao, lido do texto no MinIO so na faixa dela (Range). */
+export async function readGhidraFunction(
+  key: string,
+  offset: number,
+  length: number,
+): Promise<string> {
+  if (length === 0) return '';
+  const obj = await s3.send(
+    new GetObjectCommand({
+      Bucket: env.S3_BUCKET,
+      Key: key,
+      Range: `bytes=${offset}-${offset + length - 1}`,
+    }),
+  );
+  return Buffer.from(await obj.Body!.transformToByteArray()).toString('utf8');
+}
+
+type PseudoRow = Omit<Prisma.GhidraFunctionCreateManyInput, 'analysisId'>;
+interface PreparedPseudo {
+  fields: Omit<Prisma.GhidraAnalysisUpdateInput, 'functions'>;
+  rows: PseudoRow[];
+}
+
+function decodePseudo(b64: string): Pseudo | string {
+  const packed = Buffer.from(b64, 'base64');
+  let raw: Buffer;
+  try {
+    // O teto vale para o descomprimido: um gzip pequeno pode virar gigabytes (bomba de gzip).
+    raw = gunzipSync(packed, { maxOutputLength: ghidraPseudoMax() });
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE'
+      ? 'pseudo-C completo acima do limite'
+      : 'pseudo-C completo em formato inesperado';
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(raw.toString('utf8'));
+  } catch {
+    return 'pseudo-C completo em formato inesperado';
+  }
+  const parsed = pseudoSchema.safeParse(json);
+  return parsed.success ? withoutNul(parsed.data) : 'pseudo-C completo em formato inesperado';
+}
+
+/**
+ * Valida o pseudo-C completo, monta o texto (cada funcao precedida de um comentario com o nome e o
+ * endereco, para o arquivo baixado se ler sozinho) e o grava no MinIO. Devolve as colunas da
+ * analise e as linhas do indice; uma falha so tira o pseudo-C, com o motivo: o resumo vale sem ele.
+ */
+async function preparePseudo(
+  entryId: string,
+  b64: string | null | undefined,
+  serviceError: string | null | undefined,
+): Promise<PreparedPseudo> {
+  if (!b64) return { fields: { ...NO_PSEUDO, pseudoError: serviceError ?? null }, rows: [] };
+  const pseudo = decodePseudo(b64);
+  if (typeof pseudo === 'string')
+    return { fields: { ...NO_PSEUDO, pseudoError: pseudo }, rows: [] };
+
+  const chunks: Buffer[] = [];
+  let offset = 0;
+  const rows = pseudo.functions.map((f, rank): PseudoRow => {
+    let cOffset: number | null = null;
+    let cLength: number | null = null;
+    if (f.c !== undefined) {
+      const label = `${f.name} @ ${f.entry}`.replaceAll('*/', '*\\/').replace(/[\r\n]+/g, ' ');
+      const head = Buffer.from(`/* ${label} */\n`, 'utf8');
+      const code = Buffer.from(f.c, 'utf8');
+      cOffset = offset + head.length;
+      cLength = code.length;
+      chunks.push(head, code, Buffer.from('\n\n'));
+      offset = cOffset + cLength + 2;
+    }
+    return {
+      rank,
+      entry: f.entry,
+      name: f.name,
+      size: f.size,
+      complexity: f.complexity,
+      isEntryPoint: f.isEntryPoint,
+      library: f.library,
+      sensitive: f.sensitive,
+      apis: f.apis,
+      callers: f.callers,
+      callerCount: f.callerCount,
+      callees: f.callees,
+      calleeCount: f.calleeCount,
+      cOffset,
+      cLength,
+      truncated: f.truncated ?? false,
+      skipped: f.c === undefined ? (f.skipped ?? null) : null,
+      error: f.c === undefined && !f.skipped ? (f.error ?? 'sem resultado') : null,
+    };
+  });
+  const key = ghidraPseudoKey(entryId);
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: env.S3_BUCKET,
+        Key: key,
+        Body: Buffer.concat(chunks, offset),
+        // A rota de download poe o charset; aqui so o tipo.
+        ContentType: 'text/plain',
+      }),
+    );
+  } catch {
+    return {
+      fields: { ...NO_PSEUDO, pseudoError: 'não foi possível gravar o pseudo-C no armazenamento' },
+      rows: [],
+    };
+  }
+  return {
+    fields: {
+      pseudoKey: key,
+      pseudoSize: offset,
+      pseudoError: null,
+      pseudoTotal: pseudo.total,
+      pseudoDeadlineHit: pseudo.deadlineHit,
+      pseudoCapHit: pseudo.capHit,
+    },
+    rows,
+  };
+}
+
 // ------------------------------------------------------------------ fila
 
 const service = (): AnalysisService => ({
@@ -166,10 +379,12 @@ const service = (): AnalysisService => ({
 
 /** Pede a analise (nova ou de novo). */
 export async function enqueueGhidra(entryId: string, requestedById: string): Promise<void> {
-  // O projeto anterior sai antes: o novo tem a mesma chave, e uma falha nao deixa o velho
-  // parecendo o da analise nova.
+  // O projeto e o pseudo-C anteriores saem antes: os novos tem a mesma chave, e uma falha nao
+  // deixa os velhos parecendo os da analise nova.
   await deleteGhidraProject(entryId).catch(() => undefined);
+  await deleteGhidraPseudo(entryId).catch(() => undefined);
   const fresh = {
+    ...NO_PSEUDO,
     status: 'PENDING' as const,
     requestedById,
     summary: Prisma.DbNull,
@@ -335,16 +550,44 @@ async function analyzeJob(id: string, entryId: string, attempts: number): Promis
       gzfError = 'não foi possível gravar o projeto no armazenamento';
     }
   }
-  await finish(id, {
-    status: 'DONE',
-    summary: withoutNul(result.summary) as unknown as Prisma.InputJsonValue,
-    gzfKey,
-    gzfSize,
-    gzfError,
-    error: null,
-    version: result.version,
-    ms: result.ms,
-  });
+  const pseudo = await preparePseudo(entryId, result.pseudo, result.pseudoError);
+  try {
+    // O indice e a analise concluida juntos: nunca uma analise DONE com metade das funcoes.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.ghidraFunction.deleteMany({ where: { analysisId: id } });
+        for (let i = 0; i < pseudo.rows.length; i += INSERT_CHUNK) {
+          await tx.ghidraFunction.createMany({
+            data: pseudo.rows.slice(i, i + INSERT_CHUNK).map((r) => ({ ...r, analysisId: id })),
+          });
+        }
+        await tx.ghidraAnalysis.update({
+          where: { id },
+          data: {
+            finishedAt: new Date(),
+            status: 'DONE',
+            summary: withoutNul(result.summary) as unknown as Prisma.InputJsonValue,
+            gzfKey,
+            gzfSize,
+            gzfError,
+            ...pseudo.fields,
+            error: null,
+            version: result.version,
+            ms: result.ms,
+          },
+        });
+      },
+      { timeout: 120_000 },
+    );
+  } catch (err) {
+    // O texto ja foi gravado; sem o indice, ele nao serve (drain() marca a analise como FAILED).
+    if (pseudo.fields.pseudoKey) {
+      await s3
+        .send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: ghidraPseudoKey(entryId) }))
+        .catch(() => undefined);
+    }
+    throw err;
+  }
   logger.info(`[ghidra] amostra ${entryId}: concluída em ${result.ms} ms`);
 }
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ListQuery, UrlSchema } from '../routes/entries';
+import { FunctionsQuery } from '../routes/ghidra';
 import { ExportQuery } from '../routes/iocs';
 
 /**
@@ -346,6 +347,54 @@ export function openApiDocument(): Schema {
           parameters: [idParam],
           responses: {
             '200': json({ type: 'object' }, 'Situação e resultado da análise.'),
+            ...pick('401', '404'),
+          },
+        },
+      },
+      '/api/entries/{id}/ghidra/functions': {
+        get: {
+          summary: 'Funções do pseudo-C completo (Ghidra)',
+          description:
+            'Lista paginada de todas as funções da análise com o Ghidra, na ordem de prioridade ' +
+            '(ponto de entrada, as que chamam APIs sensíveis, as demais por tamanho, as de ' +
+            'biblioteca por último). `hasCode` falso: a função ficou sem pseudo-C (`skipped` ' +
+            'diz se foi o prazo ou o teto; `error`, a falha do descompilador).',
+          parameters: [idParam, ...queryParams(FunctionsQuery)].map((param) => ({
+            ...param,
+            description:
+              {
+                q: 'Parte do nome ou do endereço.',
+                sensitive: '`true`: só as que chamam APIs sensíveis.',
+                hideLibrary: '`true`: sem as funções de biblioteca.',
+                sort: 'Ordem: a de prioridade (padrão), nome, endereço, tamanho ou complexidade.',
+                page: 'Página, a partir de 1.',
+                pageSize: 'Funções por página (até 500).',
+              }[param.name as string] ?? param.description,
+          })),
+          responses: {
+            '200': json({ type: 'object' }, 'Funções da página e os totais.'),
+            ...pick('400', '401', '404'),
+          },
+        },
+      },
+      '/api/entries/{id}/ghidra/functions/{entry}': {
+        get: {
+          summary: 'Pseudo-C de uma função (Ghidra)',
+          description:
+            'A função pelo endereço (`0x...`, como na lista): o pseudo-C, as APIs que chama e os ' +
+            'chamadores e chamadas, com o nome quando estão na lista.',
+          parameters: [
+            idParam,
+            {
+              name: 'entry',
+              in: 'path',
+              required: true,
+              description: 'Endereço da função.',
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': json({ type: 'object' }, 'A função e o pseudo-C dela.'),
             ...pick('401', '404'),
           },
         },

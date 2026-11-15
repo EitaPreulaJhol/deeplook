@@ -51,6 +51,8 @@ const NOT_SENT: [text: string, reason: string][] = [
   ['não foi possível ler o arquivo no armazenamento', DATA],
   ['{0} não terminou a tempo', DATA],
   ['resposta do serviço em formato inesperado', DATA],
+  // Funcao do pseudo-C completo do Ghidra sem codigo nem motivo (plans/ghidra-pseudo-c).
+  ['sem resultado', DATA],
   ['o capa não produziu resultado', DATA],
   ['a análise falhou', DATA],
   ['falha interna ao desempacotar', DATA],
