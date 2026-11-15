@@ -6,4 +6,4 @@ oletools==0.60.2
 # renderizacao do PDF (pdfium, Apache-2.0/BSD) e imagens (Pillow, MIT-CMU).
 zxing-cpp==2.3.0
 pypdfium2==5.15.2
-pillow==11.3.0
+pillow==13.0.0
