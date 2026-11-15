@@ -48,8 +48,9 @@ for (const [network, prefix] of [
 /**
  * Portas que o proprio Chromium recusa (ERR_UNSAFE_PORT): SMTP, SSH, IMAP, IRC, NFS... Medidas,
  * e nao copiadas: o Chromium 156 da imagem do Playwright 1.64.1 navegou para cada porta de 1 a
- * 11000 e recusou exatamente estas 80. O navegador ja as recusa antes do proxy; aqui elas valem
- * para quem nao obedece ao navegador (o egress, item 6.19). Nenhuma outra porta e barrada:
+ * 11000 e recusou exatamente estas 80, e o Chromium 159 do Playwright 1.65.1 recusou as mesmas
+ * (scripts/chromium-unsafe-ports.mjs). O navegador ja as recusa antes do proxy; aqui elas valem
+ * para quem nao obedece ao navegador (o egress). Nenhuma outra porta e barrada:
  * phishing em porta alta (8000, 2083...) e comum e precisa ser capturado.
  */
 export const UNSAFE_PORTS = new Set([

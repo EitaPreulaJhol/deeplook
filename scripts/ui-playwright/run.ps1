@@ -17,10 +17,10 @@ if (-not (Test-Path (Join-Path $dist 'index.html'))) {
   throw "Build do web nao encontrado em $dist. Rode 'npm run build' em apps/web."
 }
 
-$image = 'mcr.microsoft.com/playwright:v1.64.1-noble'
+$image = 'mcr.microsoft.com/playwright:v1.65.1-noble'
 # run-all.sh roda todos, mesmo com falha, e no fim lista os que falharam (saida 1).
 $names = $Scripts -join ' '
-$cmd = "npm i --no-save --no-package-lock --silent --no-audit --no-fund playwright@1.64.1 && sh run-all.sh $names"
+$cmd = "npm i --no-save --no-package-lock --silent --no-audit --no-fund playwright@1.65.1 && sh run-all.sh $names"
 
 docker run --rm --ipc=host `
   -v "${PSScriptRoot}:/work" `

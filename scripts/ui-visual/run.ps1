@@ -16,6 +16,6 @@ docker run --rm --ipc=host `
   -e DIST_DIR=/work/apps/web/dist `
   -e NGINX_CONF=/work/apps/web/nginx.conf `
   -e OUT_DIR=/work/scripts/ui-visual/out `
-  mcr.microsoft.com/playwright:v1.64.1-noble `
+  mcr.microsoft.com/playwright:v1.65.1-noble `
   sh -c "npm install --no-audit --no-fund && npx playwright test $args"
 exit $LASTEXITCODE
