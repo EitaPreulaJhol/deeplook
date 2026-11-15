@@ -3,6 +3,7 @@ import type { Readable } from 'node:stream';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import WebSocket from 'ws';
+import { z } from 'zod';
 
 import { env, proxmoxMock, sandboxEnabled } from '../env';
 import type { Prisma } from '../generated/prisma/client';
@@ -35,11 +36,22 @@ import {
   getSession,
   latestSessionForEntry,
   listSessions,
+  sampleFileName,
   sandboxReady,
 } from '../lib/sandbox';
 import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
 import { suricataIndicators, type SuricataResult } from '../lib/suricata';
-import { sysmonIndicators, type SysmonSummary } from '../lib/sysmon';
+import {
+  entrySysmonIndicators,
+  sampleStart,
+  sampleTree,
+  sysmonTimeline,
+  sysmonView,
+  TIMELINE_KINDS,
+  TIMELINE_PAGE,
+  type TimelineKind,
+} from '../lib/sysmon-store';
+import { sendValidationError } from '../lib/validation';
 
 const ACTIVE = ['REQUESTED', 'PROVISIONING', 'RUNNING', 'STOPPING'] as const;
 
@@ -115,6 +127,18 @@ function localizeSession<T extends { autoRunError?: string | null }>(session: T,
     ? { ...session, autoRunError: localizeText(session.autoRunError, lang) }
     : session;
 }
+
+/** Filtros da linha do tempo de uma execucao (plans/sandbox-execucoes, fase 3). */
+const TimelineQuery = z.object({
+  /** sample: so a amostra e o que ela abriu; all: tudo (com o ruido do Windows). */
+  scope: z.enum(['sample', 'all']).optional(),
+  kinds: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',') : [...TIMELINE_KINDS]))
+    .pipe(z.array(z.enum(TIMELINE_KINDS)).min(1)),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+});
 
 export async function sandboxRoutes(app: FastifyInstance) {
   // ---- Diagnostico da integracao (admin) ----
@@ -204,12 +228,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const session = isAnalyst(user) ? await latestSessionForEntry(id) : null;
     // Sysmon (plano pos-revisao, item 5.3): dominios e IPs que a VM procurou ou contatou, em
     // qualquer ambiente da amostra, vao para os IOCs sugeridos do relatorio.
-    const sysmon = isAnalyst(user)
-      ? await prisma.sandboxArtifact.findMany({
-          where: { kind: 'SYSMON', session: { entryId: id } },
-          select: { sysmon: true },
-        })
-      : [];
+    const sysmonFound = isAnalyst(user) ? await entrySysmonIndicators(id) : [];
     // O que o Suricata viu no trafego (plano pos-revisao, item 5.4): DNS, HTTP, TLS e os IPs dos
     // alertas.
     const traffic = isAnalyst(user)
@@ -222,15 +241,44 @@ export async function sandboxRoutes(app: FastifyInstance) {
       enabled: sandboxEnabled,
       consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
       session: session ? localizeSession(session, requestLang(req)) : null,
-      sysmonIndicators: [
-        ...new Set(sysmon.flatMap((a) => sysmonIndicators(a.sysmon as unknown as SysmonSummary))),
-      ],
+      sysmonIndicators: sysmonFound,
       networkIndicators: [
         ...new Set(
           traffic.flatMap((c) => suricataIndicators(c.idsResult as unknown as SuricataResult)),
         ),
       ],
     });
+  });
+
+  // ---- Execucoes da amostra (plans/sandbox-execucoes, fase 1) ----
+  // Todas as sessoes, a mais recente primeiro: a secao do ambiente mostra a atual e lista as
+  // anteriores, cada uma com os proprios artefatos (rota /api/sandbox/:id/artifacts).
+  app.get('/api/entries/:id/sandbox/sessions', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas veem os artefatos do ambiente.' });
+    }
+    const { id } = req.params as { id: string };
+    const sessions = await prisma.sandboxSession.findMany({
+      where: { entryId: id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        startedAt: true,
+        stoppedAt: true,
+        autoRun: true,
+        autoRunAt: true,
+        autoRunUser: true,
+        autoRunSysmon: true,
+        autoRunError: true,
+        analyst: { select: { id: true, displayName: true } },
+      },
+    });
+    const lang = requestLang(req);
+    return reply.send({ sessions: sessions.map((s) => localizeSession(s, lang)) });
   });
 
   // ---- Abre o ambiente para uma amostra ----
@@ -434,7 +482,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const last = lists.at(-1);
     const processes = (last?.processes ?? []) as GuestProcess[];
     const lang = requestLang(req);
-    const stored = sysmon?.sysmon as unknown as SysmonSummary | undefined;
+    const sysmonNow = sysmon ? await sysmonView(session.id, sysmon.sysmon, lang) : null;
     return reply.send({
       status: session.status,
       note: localizeText(session.artifactsNote, lang),
@@ -450,15 +498,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
             appeared: newProcesses((first!.processes ?? []) as GuestProcess[], processes),
           }
         : null,
-      sysmon:
-        sysmon && stored
-          ? {
-              at: sysmon.createdAt,
-              ...(stored.available
-                ? stored
-                : { available: false, reason: localizeText(stored.reason, lang) }),
-            }
-          : null,
+      sysmon: sysmon && sysmonNow ? { at: sysmon.createdAt, ...sysmonNow } : null,
       captureEnabled: networkCaptureEnabled(),
       network: capture
         ? {
@@ -516,6 +556,60 @@ export async function sandboxRoutes(app: FastifyInstance) {
       .header('X-Content-Type-Options', 'nosniff')
       .header('Cache-Control', 'private, no-store')
       .send(obj.Body as Readable);
+  });
+
+  // ---- Linha do tempo de uma execucao (plans/sandbox-execucoes, fase 3) ----
+  // Os eventos do Sysmon em ordem de tempo, com as marcas do ambiente (no ar, amostra aberta,
+  // prints, fim) a parte. Padrao: so a amostra e o que ela abriu, quando ela aparece no Sysmon.
+  app.get('/api/sandbox/:id/timeline', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const parsed = TimelineQuery.safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
+    const extra = await prisma.sandboxSession.findUnique({
+      where: { id: session.id },
+      select: {
+        autoRun: true,
+        autoRunAt: true,
+        entry: { select: { originalFilename: true } },
+        artifacts: {
+          where: { kind: 'SCREENSHOT' },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, createdAt: true },
+        },
+      },
+    });
+    const name = sampleFileName({ originalFilename: extra?.entry.originalFilename ?? null });
+    const tree = await sampleTree(session.id, name);
+    const scope = parsed.data.scope ?? (tree.size ? 'sample' : 'all');
+    const { total, events } = await sysmonTimeline(session.id, {
+      tree,
+      sampleOnly: scope === 'sample',
+      kinds: parsed.data.kinds as TimelineKind[],
+      page: parsed.data.page,
+    });
+    const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
+    const markers = [
+      { kind: 'started', time: iso(session.startedAt) },
+      ...(extra?.autoRun === 'DONE' ? [{ kind: 'autorun', time: iso(extra.autoRunAt) }] : []),
+      { kind: 'sample', time: await sampleStart(session.id, tree) },
+      ...(extra?.artifacts ?? []).map((a) => ({
+        kind: 'screenshot',
+        time: iso(a.createdAt),
+        id: a.id,
+      })),
+      { kind: 'stopped', time: iso(session.stoppedAt) },
+    ].filter((m) => m.time);
+    return reply.send({
+      sample: { name, found: tree.size > 0, processes: tree.size },
+      scope,
+      kinds: parsed.data.kinds,
+      page: parsed.data.page,
+      pageSize: TIMELINE_PAGE,
+      total,
+      events,
+      markers,
+    });
   });
 
   app.get('/api/sandbox/:id/artifacts/:artifactId', async (req, reply) => {

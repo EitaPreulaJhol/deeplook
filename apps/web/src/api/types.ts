@@ -1287,6 +1287,54 @@ export interface SandboxSession {
   autoRunError?: string | null;
 }
 
+/** Tipos de evento da linha do tempo de uma execucao (plans/sandbox-execucoes, fase 3). */
+export type TimelineKind = 'process' | 'network' | 'dns' | 'file' | 'registry';
+
+export interface SandboxTimelineEvent {
+  /** Hora no relogio da API (ISO). */
+  time: string;
+  kind: TimelineKind;
+  image: string | null;
+  pid: number | null;
+  /** O processo e da amostra (ou descende dela). */
+  sample: boolean;
+  detail: Record<string, string | number | null>;
+}
+
+export interface SandboxTimelineMarker {
+  kind: 'started' | 'autorun' | 'sample' | 'screenshot' | 'stopped';
+  time: string;
+  /** Print da tela: o artefato. */
+  id?: string;
+}
+
+/** GET /api/sandbox/:id/timeline. */
+export interface SandboxTimeline {
+  sample: { name: string; found: boolean; processes: number };
+  scope: 'sample' | 'all';
+  kinds: TimelineKind[];
+  page: number;
+  pageSize: number;
+  total: number;
+  events: SandboxTimelineEvent[];
+  markers: SandboxTimelineMarker[];
+}
+
+/** Uma execucao (sessao) da amostra no historico: GET /api/entries/:id/sandbox/sessions. */
+export interface SandboxRun {
+  id: string;
+  status: SandboxStatus;
+  createdAt: string;
+  startedAt: string | null;
+  stoppedAt: string | null;
+  autoRun: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | null;
+  autoRunAt: string | null;
+  autoRunUser: string | null;
+  autoRunSysmon: boolean | null;
+  autoRunError: string | null;
+  analyst: { id: string; displayName: string };
+}
+
 export interface SandboxHealth {
   enabled: boolean;
   mock: boolean;

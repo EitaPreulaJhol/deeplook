@@ -768,6 +768,30 @@ async function runEnvironment() {
     check('4.6 IOCs sugeridos do Sysmon', 'O', ind.length > 0, '', ind.slice(0, 6).join(', '));
   }
 
+  // 4.8 Linha do tempo (plans/sandbox-execucoes, fase 3): por padrao so a amostra e o que ela
+  // abriu (pela arvore de processos do Sysmon), sem o ruido do Windows.
+  const tl = (await dl('GET', `/sandbox/${sessionId}/timeline`)).json;
+  const tlEvents = tl?.events ?? [];
+  const tlAll = (await dl('GET', `/sandbox/${sessionId}/timeline?scope=all`)).json;
+  check(
+    '4.8 linha do tempo: só a amostra, com o notepad e a consulta DNS dela',
+    'O',
+    tl?.scope === 'sample' &&
+      tl.sample?.found &&
+      tlEvents.some((e) => e.kind === 'process' && /notepad\.exe$/i.test(e.image ?? '')) &&
+      tlEvents.some((e) => e.kind === 'dns' && e.detail?.query === 'deeplook-teste.invalid') &&
+      (tlAll?.total ?? 0) > (tl.total ?? 0),
+    `${tl?.total ?? 0} de ${tlAll?.total ?? 0} evento(s)`,
+    `amostra ${tl?.sample?.name ?? '?'}: ${tl?.sample?.processes ?? 0} processo(s)`,
+  );
+  const runs = (await dl('GET', `/entries/${entryId}/sandbox/sessions`)).json?.sessions ?? [];
+  check(
+    '4.9 histórico de execuções da amostra',
+    'O',
+    runs.some((r) => r.id === sessionId),
+    `${runs.length} execução(ões)`,
+  );
+
   // 4.7 Antivirus da VM (diagnostico, so leitura pelo agente): o Defender ligado no template barra
   // a amostra (o script abre e morre, sem nenhum efeito no Sysmon) e, com malware de verdade, a
   // analise inteira. Mostra o estado e as deteccoes do log do Defender desde o inicio do ambiente.

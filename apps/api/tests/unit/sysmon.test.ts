@@ -2,33 +2,106 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { MOCK_SYSMON_EVENTS } from '../../src/lib/proxmox-mock';
-import { parseSysmon, sysmonCommand, sysmonIndicators } from '../../src/lib/sysmon';
+import {
+  parseSysmonRead,
+  summarizeSysmon,
+  type SummaryEvent,
+  SYSMON_READ_MAX,
+  sysmonCommand,
+  sysmonIndicators,
+  sysmonRow,
+  sysmonWindowS,
+  sysmonXPath,
+} from '../../src/lib/sysmon';
 
-// Sysmon no template (plano pos-revisao, item 5.3): comando do agente e leitura dos eventos.
+// Sysmon no template (plano pos-revisao, item 5.3) e a leitura incremental
+// (plans/sandbox-execucoes, fase 2): comando do agente, leitura e resumo dos eventos.
 
-test('comando: PowerShell em Base64 (UTF-16LE), lendo o canal desde o início da sessão', () => {
-  const now = Date.parse('2026-11-13T12:10:00.000Z');
-  const command = sysmonCommand(new Date('2026-11-13T12:00:00.000Z'), now);
+const script = (command: string[]) => Buffer.from(command[4], 'base64').toString('utf16le');
+/** Os eventos de exemplo como o resumo os recebe (a hora da VM, sem diferenca de relogio). */
+const asSummary = (events: { id: number; time?: string; data: object }[]): SummaryEvent[] =>
+  events.map((e) => ({
+    eventId: e.id,
+    time: e.time ?? '',
+    data: e.data as Record<string, unknown>,
+  }));
+
+test('comando: PowerShell em Base64 (UTF-16LE), com a hora da VM na saída', () => {
+  const command = sysmonCommand({ windowS: 900 });
   assert.deepEqual(command.slice(0, 4), [
     'powershell.exe',
     '-NoProfile',
     '-NonInteractive',
     '-EncodedCommand',
   ]);
-  const script = Buffer.from(command[4], 'base64').toString('utf16le');
-  assert.ok(script.includes('Microsoft-Windows-Sysmon/Operational'));
-  // Janela no relogio da VM: os 600 s da sessao mais a folga de 300 s, sem a hora da API.
-  assert.ok(script.includes('$since = (Get-Date).AddSeconds(-900)'), script);
-  assert.ok(!script.includes('2026-11-13'));
-  assert.ok(script.includes('Id = 1,3,11,12,13,14,22'));
-  assert.ok(script.includes('-MaxEvents 2000 -Oldest'));
+  const text = script(command);
+  assert.ok(text.includes("$log = 'Microsoft-Windows-Sysmon/Operational'"));
+  assert.ok(text.includes(`-FilterXPath $xpath -MaxEvents ${SYSMON_READ_MAX} -Oldest`));
+  assert.ok(text.includes('rec = $e.RecordId'));
+  assert.ok(text.includes('now = $now; events = $list'));
 });
 
-test('eventos de exemplo: processos, rede, arquivos, registro e DNS', () => {
-  const s = parseSysmon(JSON.stringify(MOCK_SYSMON_EVENTS));
-  assert.equal(s.available, true);
-  if (!s.available) return;
-  assert.equal(s.events, 6);
+test('janela da primeira leitura: no relógio da VM (timediff), sem a hora da API', () => {
+  const now = Date.parse('2026-11-13T12:10:00.000Z');
+  // Os 600 s da sessao mais a folga de 300 s.
+  const windowS = sysmonWindowS(new Date('2026-11-13T12:00:00.000Z'), now);
+  assert.equal(windowS, 900);
+  const xpath = sysmonXPath({ windowS });
+  assert.equal(
+    xpath,
+    '*[System[(EventID=1 or EventID=3 or EventID=11 or EventID=12 or EventID=13 or EventID=14 or EventID=22) and TimeCreated[timediff(@SystemTime) <= 900000]]]',
+  );
+  assert.ok(!script(sysmonCommand({ windowS })).includes('2026-11-13'));
+});
+
+test('leituras seguintes: a partir da hora do último evento guardado (da VM)', () => {
+  const xpath = sysmonXPath({ after: new Date('2026-11-13T12:05:03.250Z') });
+  assert.ok(xpath.endsWith('TimeCreated[@SystemTime>="2026-11-13T12:05:03.250Z"]]]'), xpath);
+  // Dentro de aspas simples do PowerShell: o XPath so usa aspas duplas.
+  assert.ok(!xpath.includes("'"));
+});
+
+test('leitura: eventos, a hora da VM e as linhas (com o ProcessGuid da árvore)', () => {
+  const read = parseSysmonRead(
+    JSON.stringify({ now: '2026-11-13T12:00:10.0000000Z', events: MOCK_SYSMON_EVENTS }),
+  );
+  assert.ok(read.available);
+  if (!read.available) return;
+  assert.equal(read.now, '2026-11-13T12:00:10.0000000Z');
+  assert.equal(read.events.length, 6);
+  const row = sysmonRow(read.events[1]);
+  assert.equal(row.recordId, 102n);
+  assert.equal(row.eventId, 1);
+  assert.equal(row.time.toISOString(), '2026-11-13T12:00:02.000Z');
+  assert.equal(row.processGuid, '{b0000000-0000-0000-0000-000000004512}');
+  assert.equal(row.parentGuid, '{a0000000-0000-0000-0000-000000004410}');
+});
+
+test('um evento só (o ConvertTo-Json o devolve sem lista), nenhum, BOM e aviso antes', () => {
+  const one = parseSysmonRead(JSON.stringify({ now: null, events: MOCK_SYSMON_EVENTS[2] }));
+  assert.ok(one.available && one.events.length === 1);
+  const none = parseSysmonRead(JSON.stringify({ now: '2026-11-13T12:00:00Z', events: [] }));
+  assert.ok(none.available && none.events.length === 0);
+  const noisy = parseSysmonRead(
+    `\uFEFFAVISO: algo\r\n${JSON.stringify({ events: MOCK_SYSMON_EVENTS })}`,
+  );
+  assert.ok(noisy.available && noisy.events.length === 6);
+  // Evento sem numero ou hora valida fica de fora.
+  const bad = parseSysmonRead(
+    JSON.stringify({ events: [{ id: 1, rec: 'x', time: 'ontem', data: {} }] }),
+  );
+  assert.ok(bad.available && bad.events.length === 0);
+});
+
+test('sem Sysmon e saída que não é JSON: indisponível, com o motivo', () => {
+  const missing = parseSysmonRead('DEEPLOOK_SEM_SYSMON\r\n');
+  assert.ok(!missing.available && missing.reason.includes('Sysmon não instalado'));
+  const broken = parseSysmonRead('Get-WinEvent : erro');
+  assert.ok(!broken.available && broken.reason.includes('formato inesperado'));
+});
+
+test('resumo: processos, rede, arquivos, registro e DNS', () => {
+  const s = summarizeSysmon(asSummary(MOCK_SYSMON_EVENTS));
   assert.deepEqual(
     s.processes.map((p) => [p.pid, p.ppid, p.image]),
     [
@@ -51,45 +124,27 @@ test('eventos de exemplo: processos, rede, arquivos, registro e DNS', () => {
   assert.deepEqual(sysmonIndicators(s), ['c2.evil.example', '203.0.113.7']);
 });
 
-test('um evento só (o ConvertTo-Json o devolve sem lista) e nenhum evento', () => {
-  const one = parseSysmon(JSON.stringify(MOCK_SYSMON_EVENTS[2]));
-  assert.ok(one.available && one.dns.length === 1);
-  const none = parseSysmon('');
-  assert.ok(none.available && none.events === 0);
-  const empty = parseSysmon('[]\r\n');
-  assert.ok(empty.available && empty.events === 0);
-  // BOM e um aviso antes do JSON (linha propria) nao atrapalham.
-  const noisy = parseSysmon(`\uFEFFAVISO: algo\r\n${JSON.stringify(MOCK_SYSMON_EVENTS)}`);
-  assert.ok(noisy.available && noisy.events === 6);
-});
-
-test('sem Sysmon e saída que não é JSON: indisponível, com o motivo', () => {
-  const missing = parseSysmon('DEEPLOOK_SEM_SYSMON\r\n');
-  assert.ok(!missing.available && missing.reason.includes('Sysmon não instalado'));
-  const broken = parseSysmon('Get-WinEvent : erro');
-  assert.ok(!broken.available && broken.reason.includes('formato inesperado'));
-  assert.deepEqual(sysmonIndicators(missing), []);
-});
-
 test('IP privado e loopback não viram indicador', () => {
-  const s = parseSysmon(
-    JSON.stringify([
-      { id: 3, data: { Image: 'a', DestinationIp: '10.0.0.5' } },
-      { id: 3, data: { Image: 'a', DestinationIp: '127.0.0.1' } },
-      { id: 3, data: { Image: 'a', DestinationIp: '192.168.1.1' } },
-      { id: 3, data: { Image: 'a', DestinationIp: '8.8.8.8' } },
-      // Multicast e broadcast (o DHCPv6 do Windows aparecia nos IOCs no teste real).
-      { id: 3, data: { Image: 'a', DestinationIp: 'ff02:0:0:0:0:0:1:2' } },
-      { id: 3, data: { Image: 'a', DestinationIp: '239.255.255.250' } },
-      { id: 3, data: { Image: 'a', DestinationIp: '255.255.255.255' } },
-    ]),
+  const s = summarizeSysmon(
+    asSummary(
+      [
+        '10.0.0.5',
+        '127.0.0.1',
+        '192.168.1.1',
+        '8.8.8.8',
+        // Multicast e broadcast (o DHCPv6 do Windows aparecia nos IOCs no teste real).
+        'ff02:0:0:0:0:0:1:2',
+        '239.255.255.250',
+        '255.255.255.255',
+      ].map((ip) => ({ id: 3, data: { Image: 'a', DestinationIp: ip } })),
+    ),
   );
   assert.deepEqual(sysmonIndicators(s), ['8.8.8.8']);
 });
 
 test('IOCs: sem o ruído do Windows (visto no teste real)', () => {
-  const s = parseSysmon(
-    JSON.stringify([
+  const s = summarizeSysmon(
+    asSummary([
       ...[
         'wpad',
         '..localmachine',

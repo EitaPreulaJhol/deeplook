@@ -39,8 +39,16 @@ let agentRuns = 0;
 const agentJobs = new Map<number, 'processes' | 'sysmon' | 'probe' | 'autorun'>();
 /** Execucoes automaticas da amostra que o agente simulado recebeu (os testes conferem). */
 export const mockAutoRuns: { vmid: number; script: string }[] = [];
-/** Leitura do Sysmon que volta ilegivel (os testes ligam; como um agente que falha no meio). */
-export const mockSysmon = { broken: false };
+/**
+ * Sysmon simulado: `broken` devolve saida ilegivel (agente que falha no meio); `extra` sao eventos
+ * que a VM registrou depois (a leitura incremental os acrescenta); `clockAheadMs`, o quanto o
+ * relogio da VM esta adiantado em relacao ao da API.
+ */
+export const mockSysmon = {
+  broken: false,
+  extra: [] as { id: number; rec: number; time: string; data: Record<string, string> }[],
+  clockAheadMs: 0,
+};
 /** As proximas `calls` chamadas ao agente dao "got timeout", como o PVE com a VM ocupada. */
 export const mockAgentBusy = {
   calls: 0,
@@ -57,10 +65,13 @@ let agentPid = 1000;
 export const MOCK_SYSMON_EVENTS = [
   {
     id: 1,
+    rec: 101,
     time: '2026-11-13T12:00:01.0000000Z',
     data: {
       ProcessId: '4410',
       ParentProcessId: '3020',
+      ProcessGuid: '{a0000000-0000-0000-0000-000000004410}',
+      ParentProcessGuid: '{e0000000-0000-0000-0000-000000003020}',
       Image: 'D:\\fatura.exe',
       CommandLine: '"D:\\fatura.exe" /silent',
       ParentImage: 'C:\\Windows\\explorer.exe',
@@ -70,10 +81,13 @@ export const MOCK_SYSMON_EVENTS = [
   },
   {
     id: 1,
+    rec: 102,
     time: '2026-11-13T12:00:02.0000000Z',
     data: {
       ProcessId: '4512',
       ParentProcessId: '4410',
+      ProcessGuid: '{b0000000-0000-0000-0000-000000004512}',
+      ParentProcessGuid: '{a0000000-0000-0000-0000-000000004410}',
       Image: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
       CommandLine: 'powershell -enc SQBFAFgA',
       ParentImage: 'D:\\fatura.exe',
@@ -81,14 +95,22 @@ export const MOCK_SYSMON_EVENTS = [
   },
   {
     id: 22,
+    rec: 103,
     time: '2026-11-13T12:00:03.0000000Z',
-    data: { Image: 'powershell.exe', QueryName: 'c2.evil.example', QueryResults: '203.0.113.7;' },
+    data: {
+      Image: 'powershell.exe',
+      ProcessGuid: '{b0000000-0000-0000-0000-000000004512}',
+      QueryName: 'c2.evil.example',
+      QueryResults: '203.0.113.7;',
+    },
   },
   {
     id: 3,
+    rec: 104,
     time: '2026-11-13T12:00:04.0000000Z',
     data: {
       Image: 'powershell.exe',
+      ProcessGuid: '{b0000000-0000-0000-0000-000000004512}',
       Protocol: 'tcp',
       DestinationIp: '203.0.113.7',
       DestinationPort: '443',
@@ -97,14 +119,21 @@ export const MOCK_SYSMON_EVENTS = [
   },
   {
     id: 11,
+    rec: 105,
     time: '2026-11-13T12:00:05.0000000Z',
-    data: { Image: 'powershell.exe', TargetFilename: 'C:\\Users\\Public\\stage2.dll' },
+    data: {
+      Image: 'powershell.exe',
+      ProcessGuid: '{b0000000-0000-0000-0000-000000004512}',
+      TargetFilename: 'C:\\Users\\Public\\stage2.dll',
+    },
   },
   {
     id: 13,
+    rec: 106,
     time: '2026-11-13T12:00:06.0000000Z',
     data: {
       Image: 'powershell.exe',
+      ProcessGuid: '{b0000000-0000-0000-0000-000000004512}',
       EventType: 'SetValue',
       TargetObject: 'HKU\\S-1-5-21\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\upd',
       Details: 'C:\\Users\\Public\\stage2.dll',
@@ -119,6 +148,9 @@ export function mockMac(vmid: number): string {
 }
 
 export function pveMockReset(): void {
+  mockSysmon.broken = false;
+  mockSysmon.extra = [];
+  mockSysmon.clockAheadMs = 0;
   agentRuns = 0;
   agentJobs.clear();
   mockAutoRuns.length = 0;
@@ -331,7 +363,10 @@ export async function pveMock(
           ? 'DEEPLOOK_SEM_SYSMON'
           : mockSysmon.broken
             ? 'saida cortada'
-            : JSON.stringify(MOCK_SYSMON_EVENTS);
+            : JSON.stringify({
+                now: new Date(Date.now() + mockSysmon.clockAheadMs).toISOString(),
+                events: [...MOCK_SYSMON_EVENTS, ...mockSysmon.extra],
+              });
       return { exited: 1, exitcode: 0, 'out-data': out };
     }
     if (rest.startsWith('/agent/exec-status')) {

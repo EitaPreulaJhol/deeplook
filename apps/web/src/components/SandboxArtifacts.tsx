@@ -7,6 +7,7 @@ import { t } from '../i18n/sandbox';
 import { HpsmMessage } from './messages';
 import { SandboxNetwork } from './SandboxNetwork';
 import { SandboxSysmon } from './SandboxSysmon';
+import { SandboxTimeline } from './SandboxTimeline';
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(intlLocale());
 /** Miniaturas mostradas (as mais recentes); o primeiro print fica sempre. */
@@ -106,6 +107,7 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
         </>
       )}
       {data.sysmon && <SandboxSysmon sysmon={data.sysmon} />}
+      {data.sysmon?.available && <SandboxTimeline sessionId={sessionId} running={running} />}
       {data.network && <SandboxNetwork sessionId={sessionId} network={data.network} />}
     </div>
   );

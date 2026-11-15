@@ -15,7 +15,16 @@ import {
   pveVerifyTls,
 } from './proxmox';
 import { s3 } from './s3';
-import { parseSysmon, sysmonCommand, type SysmonSummary } from './sysmon';
+import {
+  parseSysmonRead,
+  SYSMON_READ_MAX,
+  SYSMON_SESSION_MAX,
+  sysmonCommand,
+  type SysmonFrom,
+  type SysmonRead,
+  sysmonRow,
+  sysmonWindowS,
+} from './sysmon';
 import { vncSnapshot } from './vnc-snapshot';
 
 /**
@@ -231,13 +240,121 @@ export async function guestProcesses(
   return isWindows ? parseWindowsProcesses(out) : parseLinuxProcesses(out);
 }
 
-/** O Sysmon do guest Windows desde `since` (plano pos-revisao, item 5.3). */
-export async function guestSysmon(node: string, vmid: number, since: Date): Promise<SysmonSummary> {
-  return parseSysmon(
-    await guestRun(node, vmid, sysmonCommand(since), 'a leitura do Sysmon', {
+/** Uma leitura do Sysmon do guest Windows (plano pos-revisao, item 5.3). */
+export async function guestSysmon(
+  node: string,
+  vmid: number,
+  from: SysmonFrom,
+): Promise<SysmonRead> {
+  return parseSysmonRead(
+    await guestRun(node, vmid, sysmonCommand(from), 'a leitura do Sysmon', {
       waitMs: SYSMON_WAIT_MS,
     }),
   );
+}
+
+/**
+ * Situacao da leitura do Sysmon de um ambiente (registro SYSMON; os eventos ficam em
+ * SandboxSysmonEvent). Sessoes anteriores a leitura incremental guardam aqui o resumo inteiro.
+ */
+export type SysmonStatus =
+  | {
+      available: true;
+      /** Eventos guardados. */
+      events: number;
+      /** Bateu no teto de SYSMON_SESSION_MAX: a leitura parou. */
+      truncated: boolean;
+      /** Relogio da VM menos o da API (ms): as horas na tela saem no relogio da API. */
+      offsetMs: number;
+      readAt: string;
+    }
+  | { available: false; reason: string };
+
+/** Leituras seguidas numa coleta, enquanto o log tiver mais que SYSMON_READ_MAX novos. */
+const READS_PER_COLLECTION = 3;
+
+/**
+ * Le o Sysmon a partir do ultimo evento guardado (plans/sandbox-execucoes, fase 2) e guarda os
+ * novos. A primeira leitura cobre o tempo da sessao, no relogio da VM; as seguintes partem da hora
+ * do ultimo evento (tambem da VM). Reler a mesma hora nao duplica (unico por recordId e hora).
+ * Devolve se o Sysmon esta disponivel. Uma leitura que falha nunca apaga a situacao boa de antes.
+ */
+async function readSysmon(
+  sessionId: string,
+  node: string,
+  vmid: number,
+  since: Date,
+): Promise<boolean> {
+  let stored = await prisma.sandboxSysmonEvent.count({ where: { sessionId } });
+  let offsetMs: number | null = null;
+  let failure: string | null = null;
+  let reads = 0;
+  while (reads < READS_PER_COLLECTION && stored < SYSMON_SESSION_MAX) {
+    const last = await prisma.sandboxSysmonEvent.findFirst({
+      where: { sessionId },
+      orderBy: { time: 'desc' },
+      select: { time: true },
+    });
+    let read: SysmonRead;
+    try {
+      read = await guestSysmon(
+        node,
+        vmid,
+        last ? { after: last.time } : { windowS: sysmonWindowS(since) },
+      );
+    } catch (err) {
+      read = { available: false, reason: agentProblem(err) };
+    }
+    if (!read.available) {
+      failure = read.reason;
+      break;
+    }
+    reads += 1;
+    // A hora da VM sai no fim do comando; a da API, ao ver o comando terminado (meio segundo
+    // depois, no maximo): a diferenca vale em segundos inteiros, sem esse ruido.
+    if (read.now) offsetMs = Math.round((Date.parse(read.now) - Date.now()) / 1000) * 1000;
+    const rows = read.events.slice(0, SYSMON_SESSION_MAX - stored).map((e) => {
+      const row = sysmonRow(e);
+      return { ...row, sessionId, data: row.data as Prisma.InputJsonValue };
+    });
+    const added = rows.length
+      ? (await prisma.sandboxSysmonEvent.createMany({ data: rows, skipDuplicates: true })).count
+      : 0;
+    stored += added;
+    // Pegou tudo o que havia (ou so o que ja estava guardado): a proxima coleta continua.
+    if (read.events.length < SYSMON_READ_MAX || !added) break;
+  }
+
+  const previous = await prisma.sandboxArtifact.findFirst({
+    where: { sessionId, kind: 'SYSMON' },
+    select: { sysmon: true },
+  });
+  const before = previous?.sysmon as SysmonStatus | null | undefined;
+  let status: SysmonStatus;
+  if (!reads) {
+    // Uma leitura que falhou nunca apaga uma boa: a ultima coleta (com a VM ja desligando) ou uma
+    // leitura lenta tiravam da tela o que ja tinha sido lido.
+    if (before?.available) {
+      log.warn(`[sandbox] leitura do Sysmon do ambiente ${sessionId} falhou: ${failure}`);
+      return false;
+    }
+    status = { available: false, reason: failure ?? 'sem leitura' };
+  } else {
+    status = {
+      available: true,
+      events: stored,
+      truncated: stored >= SYSMON_SESSION_MAX,
+      offsetMs: offsetMs ?? (before?.available && 'offsetMs' in before ? before.offsetMs : 0),
+      readAt: new Date().toISOString(),
+    };
+  }
+  await prisma.$transaction([
+    prisma.sandboxArtifact.deleteMany({ where: { sessionId, kind: 'SYSMON' } }),
+    prisma.sandboxArtifact.create({
+      data: { sessionId, kind: 'SYSMON', sysmon: status as unknown as Prisma.InputJsonValue },
+    }),
+  ]);
+  return status.available;
 }
 
 /** O endpoint de screenshot do PVE existe? (o PVE 9 o tirou: responde 501). Lembrado no processo. */
@@ -343,34 +460,10 @@ export async function collectArtifacts(
     note = agentProblem(err);
   }
 
-  // Sysmon (plano pos-revisao, item 5.3): so no Windows, e so com o agente respondendo. Os eventos
-  // sao desde o inicio da sessao, entao fica so a leitura mais recente.
+  // Sysmon (plano pos-revisao, item 5.3): so no Windows, e so com o agente respondendo. Cada
+  // coleta le so os eventos novos (plans/sandbox-execucoes, fase 2).
   if (result.processes && windows) {
-    let sysmon: SysmonSummary;
-    try {
-      sysmon = await guestSysmon(node, vmid, session.startedAt ?? session.createdAt);
-    } catch (err) {
-      sysmon = { available: false, reason: agentProblem(err) };
-    }
-    // Uma leitura que falhou nunca apaga uma boa: a ultima coleta (com a VM ja desligando) ou uma
-    // leitura lenta tirava da amostra todos os eventos lidos durante a sessao.
-    const kept = sysmon.available
-      ? null
-      : await prisma.sandboxArtifact.findFirst({
-          where: { sessionId, kind: 'SYSMON', sysmon: { path: ['available'], equals: true } },
-          select: { id: true },
-        });
-    if (kept && !sysmon.available) {
-      log.warn(`[sandbox] leitura do Sysmon do ambiente ${sessionId} falhou: ${sysmon.reason}`);
-    } else {
-      await prisma.$transaction([
-        prisma.sandboxArtifact.deleteMany({ where: { sessionId, kind: 'SYSMON' } }),
-        prisma.sandboxArtifact.create({
-          data: { sessionId, kind: 'SYSMON', sysmon: sysmon as unknown as Prisma.InputJsonValue },
-        }),
-      ]);
-    }
-    result.sysmon = sysmon.available;
+    result.sysmon = await readSysmon(sessionId, node, vmid, session.startedAt ?? session.createdAt);
   }
   // A ultima coleta (ao encerrar) e de cortesia: o agente as vezes nao responde com a VM ja
   // desligando (visto no teste real, 5.5). Se o ambiente ja tem listas de processos, a falha dela

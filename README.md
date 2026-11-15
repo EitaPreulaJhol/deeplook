@@ -1560,10 +1560,18 @@ command line (the sample running, the PowerShell it opened).
   Without the agent or the permission, only the screenshots remain, and the reason shows on screen.
 - **Sysmon (optional):** on a Windows template with Sysmon installed (step in the
   [Proxmox guide](docs/proxmox.md#21-analysis-vm-template)), each collection reads through the same agent
-  the events of the `Microsoft-Windows-Sysmon/Operational` channel since the environment started (up to
-  2000): processes (1), connections (3), files created (11), registry (12 to 14) and DNS (22). The screen
-  shows the **process tree** and the lists; domains and public IPs go into the report's suggested IOCs.
-  Without Sysmon, or on a Linux guest, nothing changes, and the reason shows on screen.
+  the **new** events of the `Microsoft-Windows-Sysmon/Operational` channel (from the last one stored, up
+  to 2000 per read and 20,000 per environment): processes (1), connections (3), files created (11),
+  registry (12 to 14) and DNS (22). That way the sample's late behavior does not fall outside the cap of
+  one read. The screen shows the **process tree**, the lists and the **run timeline**: processes,
+  network, DNS, files and registry in a single sequence, with the environment markers (up, sample
+  opened, screenshots, end). By default it shows only the sample and what it opened (the tree through
+  Sysmon's `ParentProcessGuid`, starting at the process with the file name); "Everything" includes the
+  Windows noise. Times come in the API clock (the isolated VM does not sync its time). Domains and
+  public IPs go into the report's suggested IOCs. Without Sysmon, or on a Linux guest, nothing changes,
+  and the reason shows on screen.
+- **Previous runs:** every environment the sample had stays in the section, collapsed, with its own
+  screenshots, processes, Sysmon, timeline and capture (running again does not hide the previous one).
 - **Network traffic (optional):** with the VM traffic going through a MikroTik CHR, its sniffer sends
   each VM's packets (filtered by MAC) to the `netcap` service, which records one pcap per environment.
   On closing, the pcap goes to MinIO and **Suricata** reads it with the **ET Open** rules (downloaded
@@ -1636,6 +1644,8 @@ it.
 | GET | `/api/sandbox/:id/console/ws` | WebSocket (authenticated proxy to PVE) |
 | GET | `/api/sandbox/:id/screenshot` | Screen capture (PNG) — removed in PVE 9; the panel captures in the browser |
 | GET | `/api/sandbox/:id/artifacts` | Environment artifacts: screenshots, processes, Sysmon, network traffic and Suricata |
+| GET | `/api/sandbox/:id/timeline` | Sysmon timeline (`scope=sample\|all`, `kinds`, `page`) and the environment markers |
+| GET | `/api/entries/:id/sandbox/sessions` | The sample's runs (environments), newest first |
 | GET | `/api/sandbox/:id/artifacts/:artifactId` | One stored screenshot (PNG) |
 | GET | `/api/sandbox/:id/pcap` | Downloads the environment's pcap (recorded in the audit log) |
 

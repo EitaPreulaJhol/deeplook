@@ -1313,6 +1313,39 @@ export async function setupMock(context, state) {
           networkIndicators: state.networkIndicators?.[m[1]] ?? [],
         });
       }
+      // Execucoes da amostra (plans/sandbox-execucoes, fase 1): o roteiro define a lista; sem ela,
+      // so a sessao atual.
+      m = p.match(/^\/api\/entries\/(\w+)\/sandbox\/sessions$/);
+      if (m) {
+        const current = state.sandboxes[m[1]];
+        const fallback = current
+          ? [{ ...current, autoRun: current.autoRun ?? null, autoRunAt: null, autoRunUser: null, autoRunSysmon: null, autoRunError: null, analyst: { id: 'u1', displayName: 'Ana Souza' } }]
+          : [];
+        return json(route, 200, { sessions: state.sandboxRuns?.[m[1]] ?? fallback });
+      }
+      // Linha do tempo (fase 3): o roteiro da todos os eventos; aqui o escopo, os tipos e a pagina.
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/timeline$/);
+      if (m) {
+        const tl = state.sandboxTimelines?.[m[1]];
+        if (!tl) return json(route, 404, { error: 'Ambiente não encontrado.' });
+        const params = url.searchParams;
+        (state.timelineQueries ??= []).push(params.toString());
+        const scope = params.get('scope') ?? (tl.sample.found ? 'sample' : 'all');
+        const kinds = params.get('kinds') ? params.get('kinds').split(',') : ['process', 'network', 'dns', 'file', 'registry'];
+        const page = Number(params.get('page') || 1);
+        const pageSize = 200;
+        const matching = tl.events.filter((e) => (scope === 'all' || e.sample) && kinds.includes(e.kind));
+        return json(route, 200, {
+          sample: tl.sample,
+          scope,
+          kinds,
+          page,
+          pageSize,
+          total: matching.length,
+          events: matching.slice((page - 1) * pageSize, page * pageSize),
+          markers: tl.markers,
+        });
+      }
       // Artefatos do sandbox (revisao 3.7): o roteiro define o que cada GET devolve (lista = sequencia).
       m = p.match(/^\/api\/sandbox\/([\w-]+)\/artifacts$/);
       if (m) {

@@ -1,7 +1,12 @@
 /**
- * Sysmon no template (plano pos-revisao, item 5.3): o que o Sysmon registrou na VM desde o inicio da
- * sessao, lido pelo agente do guest (qemu-guest-agent, agent/exec) a cada coleta dos artefatos. Vira
- * a arvore de processos, as conexoes, os arquivos criados, o registro alterado e as consultas DNS.
+ * Sysmon no template (plano pos-revisao, item 5.3): o que o Sysmon registrou na VM, lido pelo agente
+ * do guest (qemu-guest-agent, agent/exec) a cada coleta dos artefatos. Vira a arvore de processos,
+ * as conexoes, os arquivos criados, o registro alterado, as consultas DNS e a linha do tempo.
+ *
+ * Leitura incremental (plans/sandbox-execucoes, fase 2): cada coleta le so os eventos a partir do
+ * ultimo guardado (SandboxSysmonEvent), ate SYSMON_READ_MAX por leitura. Antes, cada leitura trazia
+ * tudo desde o inicio ate 2000 eventos, e o ruido do Windows empurrava o comportamento tardio da
+ * amostra para fora.
  *
  * O Sysmon e instalado no template por quem o prepara (docs/proxmox.pt-BR.md). Sem ele, ou num
  * guest Linux, ficam os prints e a lista de processos de sempre, com o motivo na tela. Como a lista
@@ -9,50 +14,66 @@
  */
 
 /** Eventos lidos: processo (1), rede (3), arquivo (11), registro (12, 13, 14), DNS (22). */
-const EVENT_IDS = [1, 3, 11, 12, 13, 14, 22];
-/** Teto de eventos por leitura e de itens por lista guardada. */
-export const SYSMON_MAX_EVENTS = 2000;
-const MAX_ITEMS = 500;
+export const EVENT_IDS = [1, 3, 11, 12, 13, 14, 22];
+/** Eventos por leitura (os mais antigos primeiro; o resto vem na seguinte). */
+export const SYSMON_READ_MAX = 2000;
+/** Eventos guardados por ambiente. */
+export const SYSMON_SESSION_MAX = 20_000;
+/** Itens por lista do resumo (arvore, rede, DNS, arquivos, registro). */
+export const MAX_ITEMS = 500;
 const MAX_TEXT = 1000;
 
 /** Marca na saida: o canal do Sysmon nao existe (nao instalado). */
 const MISSING = 'DEEPLOOK_SEM_SYSMON';
 /**
- * Folga da janela de leitura, alem do tempo desde o inicio da sessao. O log ja comeca limpo a cada
+ * Folga da primeira leitura, alem do tempo desde o inicio da sessao. O log ja comeca limpo a cada
  * boot (scripts/template-windows/sysmon.bat): a folga so cobre a diferenca entre o inicio gravado
  * pela API e o boot da VM.
  */
 const WINDOW_MARGIN_S = 300;
 
-/** Segundos que a leitura cobre: desde o inicio da sessao, com a folga. */
+/** Segundos que a primeira leitura cobre: desde o inicio da sessao, com a folga. */
 export function sysmonWindowS(since: Date, now = Date.now()): number {
   return Math.max(0, Math.ceil((now - since.getTime()) / 1000)) + WINDOW_MARGIN_S;
 }
 
+/** De onde a leitura parte: os ultimos N segundos (a primeira) ou o ultimo evento guardado. */
+export type SysmonFrom = { windowS: number } | { after: Date };
+
+/** O filtro XPath do log: os tipos lidos e a janela, contada no relogio da propria VM. */
+export function sysmonXPath(from: SysmonFrom): string {
+  const ids = EVENT_IDS.map((id) => `EventID=${id}`).join(' or ');
+  const time =
+    'windowS' in from
+      ? `TimeCreated[timediff(@SystemTime) <= ${Math.round(from.windowS * 1000)}]`
+      : `TimeCreated[@SystemTime>="${from.after.toISOString()}"]`;
+  return `*[System[(${ids}) and ${time}]]`;
+}
+
 /**
- * O comando do agente: um PowerShell em Base64 (UTF-16LE, como o -EncodedCommand pede), sem aspas
- * a escapar. Le os eventos desde `since`, do mais antigo para o mais novo (no teto, o comeco da
- * execucao fica, que e o que mais conta), e devolve JSON compacto (uma lista, mesmo com um evento).
+ * O comando do agente: um PowerShell em Base64 (UTF-16LE, como o -EncodedCommand pede). Le os
+ * eventos do mais antigo para o mais novo (no teto, o resto vem na proxima leitura) e devolve JSON
+ * compacto com a hora da VM (`now`), para a API saber a diferenca entre os relogios.
  *
- * A janela e contada no relogio da propria VM (agora menos o tempo da sessao), nunca pela hora da
- * API: a VM isolada nao sincroniza a hora, e um relogio atrasado em relacao ao host deixava todos
- * os eventos antes do "inicio" e a leitura vazia.
+ * A janela e sempre no relogio da propria VM (timediff ou a hora do ultimo evento dela), nunca pela
+ * hora da API: a VM isolada nao sincroniza a hora.
  */
-export function sysmonCommand(since: Date, now = Date.now()): string[] {
+export function sysmonCommand(from: SysmonFrom): string[] {
   const script = [
     // Caminhos com acento: a saida do agente em UTF-8, nao na pagina de codigo do console.
     '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
     "$log = 'Microsoft-Windows-Sysmon/Operational'",
     `if (-not (Get-WinEvent -ListLog $log -ErrorAction SilentlyContinue)) { '${MISSING}'; exit 0 }`,
-    `$since = (Get-Date).AddSeconds(-${sysmonWindowS(since, now)})`,
-    `$events = Get-WinEvent -FilterHashtable @{ LogName = $log; StartTime = $since; Id = ${EVENT_IDS.join(',')} } -MaxEvents ${SYSMON_MAX_EVENTS} -Oldest -ErrorAction SilentlyContinue`,
-    // foreach sobre $null nao itera (sem eventos: lista vazia, "[]").
+    `$xpath = '${sysmonXPath(from)}'`,
+    `$events = Get-WinEvent -LogName $log -FilterXPath $xpath -MaxEvents ${SYSMON_READ_MAX} -Oldest -ErrorAction SilentlyContinue`,
+    // foreach sobre $null nao itera (sem eventos: lista vazia).
     '$list = @(foreach ($e in $events) {',
     '  $d = @{}',
     '  foreach ($n in ([xml]$e.ToXml()).Event.EventData.Data) { $d[$n.Name] = $n.InnerText }',
-    "  [pscustomobject]@{ id = $e.Id; time = $e.TimeCreated.ToUniversalTime().ToString('o'); data = $d }",
+    "  [pscustomobject]@{ id = $e.Id; rec = $e.RecordId; time = $e.TimeCreated.ToUniversalTime().ToString('o'); data = $d }",
     '})',
-    'ConvertTo-Json -InputObject $list -Compress -Depth 4',
+    "$now = (Get-Date).ToUniversalTime().ToString('o')",
+    'ConvertTo-Json -InputObject ([pscustomobject]@{ now = $now; events = $list }) -Compress -Depth 4',
   ].join('\n');
   return [
     'powershell.exe',
@@ -61,6 +82,97 @@ export function sysmonCommand(since: Date, now = Date.now()): string[] {
     '-EncodedCommand',
     Buffer.from(script, 'utf16le').toString('base64'),
   ];
+}
+
+/** Um evento como o comando o devolve. */
+export interface SysmonEvent {
+  /** EventID (1, 3, 11, 12-14, 22). */
+  id: number;
+  /** EventRecordID. */
+  rec: number;
+  /** Hora do evento no relogio da VM (ISO, UTC). */
+  time: string;
+  data: Record<string, string | null>;
+}
+
+export type SysmonRead =
+  | {
+      available: true;
+      /** Hora da VM no fim da leitura (null se nao veio). */
+      now: string | null;
+      events: SysmonEvent[];
+    }
+  | { available: false; reason: string };
+
+const text = (value: unknown): string | null => {
+  if (typeof value !== 'string' || !value.trim() || value === '-') return null;
+  return value.replaceAll('\u0000', '').slice(0, MAX_TEXT);
+};
+const int = (value: unknown): number | null => {
+  const n = typeof value === 'string' ? Number(value) : NaN;
+  return Number.isInteger(n) ? n : null;
+};
+
+/** A saida do comando. Texto que nao e JSON vira "indisponivel", com o motivo. */
+export function parseSysmonRead(output: string): SysmonRead {
+  // BOM e ruido antes do JSON (um aviso do PowerShell no stdout) nao derrubam a leitura.
+  const trimmed = output.replace(/^\uFEFF/, '').trim();
+  if (trimmed.endsWith(MISSING)) {
+    return {
+      available: false,
+      reason:
+        'Sysmon não instalado no template (canal Microsoft-Windows-Sysmon/Operational ausente)',
+    };
+  }
+  const start = trimmed.search(/^[[{]/m);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(start > 0 ? trimmed.slice(start) : trimmed);
+  } catch {
+    return { available: false, reason: 'resposta do Sysmon em formato inesperado' };
+  }
+  const body = (raw && typeof raw === 'object' ? raw : {}) as { now?: unknown; events?: unknown };
+  // O ConvertTo-Json do PowerShell 5.1 pode devolver um objeto so no lugar da lista de um.
+  const list = Array.isArray(body.events) ? body.events : body.events ? [body.events] : [];
+  const events: SysmonEvent[] = [];
+  for (const item of list as Record<string, unknown>[]) {
+    const id = Number(item?.id);
+    const rec = Number(item?.rec);
+    const time = typeof item?.time === 'string' ? item.time : '';
+    if (!Number.isInteger(id) || !Number.isSafeInteger(rec) || Number.isNaN(Date.parse(time))) {
+      continue;
+    }
+    const data: Record<string, string | null> = {};
+    for (const [k, v] of Object.entries((item.data ?? {}) as Record<string, unknown>)) {
+      data[k.slice(0, 100)] = text(v);
+    }
+    events.push({ id, rec, time, data });
+  }
+  const now = typeof body.now === 'string' && !Number.isNaN(Date.parse(body.now)) ? body.now : null;
+  return { available: true, now, events };
+}
+
+/** Um evento como fica guardado (SandboxSysmonEvent), sem a sessao. */
+export interface SysmonRow {
+  recordId: bigint;
+  eventId: number;
+  time: Date;
+  image: string | null;
+  processGuid: string | null;
+  parentGuid: string | null;
+  data: Record<string, string | null>;
+}
+
+export function sysmonRow(e: SysmonEvent): SysmonRow {
+  return {
+    recordId: BigInt(e.rec),
+    eventId: e.id,
+    time: new Date(e.time),
+    image: e.data.Image ?? null,
+    processGuid: e.data.ProcessGuid ?? null,
+    parentGuid: e.data.ParentProcessGuid ?? null,
+    data: e.data,
+  };
 }
 
 export interface SysmonProcess {
@@ -100,70 +212,41 @@ export interface SysmonDns {
   results: string | null;
 }
 
+export interface SysmonLists {
+  processes: SysmonProcess[];
+  network: SysmonConnection[];
+  files: SysmonFile[];
+  registry: SysmonRegistry[];
+  dns: SysmonDns[];
+}
+
 export type SysmonSummary =
-  | {
+  | ({
       available: true;
       events: number;
       /** Bateu no teto de eventos: o resto ficou de fora. */
       truncated: boolean;
-      processes: SysmonProcess[];
-      network: SysmonConnection[];
-      files: SysmonFile[];
-      registry: SysmonRegistry[];
-      dns: SysmonDns[];
-    }
+    } & SysmonLists)
   | { available: false; reason: string };
 
-type RawEvent = { id?: number; time?: string; data?: Record<string, string | null> };
+/** Um evento para o resumo: o tipo, a hora (ja no relogio da API, ISO) e os campos. */
+export interface SummaryEvent {
+  eventId: number;
+  time: string;
+  data: Record<string, unknown>;
+}
 
-const text = (value: unknown): string | null => {
-  if (typeof value !== 'string' || !value.trim() || value === '-') return null;
-  return value.replaceAll('\u0000', '').slice(0, MAX_TEXT);
-};
-const int = (value: unknown): number | null => {
-  const n = typeof value === 'string' ? Number(value) : NaN;
-  return Number.isInteger(n) ? n : null;
-};
-
-/** A saida do comando para o resumo. Texto que nao e JSON vira "indisponivel", com o motivo. */
-export function parseSysmon(output: string): SysmonSummary {
-  // BOM e ruido antes do JSON (um aviso do PowerShell no stdout) nao derrubam a leitura.
-  const trimmed = output.replace(/^\uFEFF/, '').trim();
-  if (trimmed.endsWith(MISSING)) {
-    return {
-      available: false,
-      reason:
-        'Sysmon não instalado no template (canal Microsoft-Windows-Sysmon/Operational ausente)',
-    };
-  }
-  let raw: unknown;
-  const start = trimmed.search(/^[[{]/m);
-  try {
-    raw = trimmed ? JSON.parse(start > 0 ? trimmed.slice(start) : trimmed) : [];
-  } catch {
-    return { available: false, reason: 'resposta do Sysmon em formato inesperado' };
-  }
-  const events = (Array.isArray(raw) ? raw : [raw]) as RawEvent[];
-  const summary = {
-    available: true as const,
-    events: events.length,
-    truncated: events.length >= SYSMON_MAX_EVENTS,
-    processes: [] as SysmonProcess[],
-    network: [] as SysmonConnection[],
-    files: [] as SysmonFile[],
-    registry: [] as SysmonRegistry[],
-    dns: [] as SysmonDns[],
-  };
+/** Os eventos nas listas do resumo (arvore, rede, arquivos, registro e DNS), ate MAX_ITEMS cada. */
+export function summarizeSysmon(events: SummaryEvent[]): SysmonLists {
+  const lists: SysmonLists = { processes: [], network: [], files: [], registry: [], dns: [] };
   const push = <T>(list: T[], item: T) => {
     if (list.length < MAX_ITEMS) list.push(item);
   };
-  for (const event of events) {
-    const d = event?.data ?? {};
-    const time = typeof event?.time === 'string' ? event.time : '';
+  for (const { eventId, time, data: d } of events) {
     const image = text(d.Image) ?? '?';
-    switch (event?.id) {
+    switch (eventId) {
       case 1:
-        push(summary.processes, {
+        push(lists.processes, {
           time,
           pid: int(d.ProcessId),
           ppid: int(d.ParentProcessId),
@@ -175,7 +258,7 @@ export function parseSysmon(output: string): SysmonSummary {
         });
         break;
       case 3:
-        push(summary.network, {
+        push(lists.network, {
           time,
           image,
           protocol: text(d.Protocol),
@@ -186,7 +269,7 @@ export function parseSysmon(output: string): SysmonSummary {
         break;
       case 11: {
         const path = text(d.TargetFilename);
-        if (path) push(summary.files, { time, image, path });
+        if (path) push(lists.files, { time, image, path });
         break;
       }
       case 12:
@@ -194,7 +277,7 @@ export function parseSysmon(output: string): SysmonSummary {
       case 14: {
         const key = text(d.TargetObject);
         if (key) {
-          push(summary.registry, {
+          push(lists.registry, {
             time,
             image,
             action: text(d.EventType),
@@ -206,14 +289,14 @@ export function parseSysmon(output: string): SysmonSummary {
       }
       case 22: {
         const query = text(d.QueryName);
-        if (query) push(summary.dns, { time, image, query, results: text(d.QueryResults) });
+        if (query) push(lists.dns, { time, image, query, results: text(d.QueryResults) });
         break;
       }
       default:
         break;
     }
   }
-  return summary;
+  return lists;
 }
 
 /**
@@ -234,17 +317,19 @@ export function publicName(value: string | null | undefined): string | null {
   return LOCAL_SUFFIXES.test(name) ? null : name;
 }
 
-export function sysmonIndicators(summary: SysmonSummary): string[] {
-  if (!summary.available) return [];
+export function sysmonIndicators(lists: {
+  dns: { query: string }[];
+  network: { dstHost: string | null; dstIp: string | null }[];
+}): string[] {
   const privateIp =
     // Privados, loopback, link-local, multicast (IPv4 224-239, IPv6 ff00::/8) e broadcast.
     /^(10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|22[4-9]\.|23\d\.|24\d\.|25[0-5]\.|::1$|fe80:|fc|fd|ff[0-9a-f]{2}:)/i;
   const out = new Set<string>();
-  for (const q of summary.dns) {
+  for (const q of lists.dns) {
     const name = publicName(q.query);
     if (name) out.add(name);
   }
-  for (const c of summary.network) {
+  for (const c of lists.network) {
     const host = publicName(c.dstHost);
     if (host) out.add(host);
     else if (c.dstIp && !privateIp.test(c.dstIp)) out.add(c.dstIp);

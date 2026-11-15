@@ -436,6 +436,7 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'the qemu-guest-agent did not answer in the VM (installed and running in the template?)',
   ],
   ['o agente da VM falhou: {0}', 'the VM agent failed: {0}'],
+  ['sem leitura', 'no reading'],
   [
     'o agente da VM não respondeu a tempo, nem repetindo (a amostra pode estar ocupando a VM)',
     'the VM agent did not answer in time, even when retried (the sample may be keeping the VM busy)',

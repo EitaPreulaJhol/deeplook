@@ -434,6 +434,8 @@ model SandboxSession {
   /// Por que a coleta de processos nao funciona (agente ausente, sem permissao); revisao 3.7.
   artifactsNote String?
   artifacts     SandboxArtifact[]
+  /// Eventos do Sysmon, lidos aos poucos (plans/sandbox-execucoes, fase 2).
+  sysmonEvents  SandboxSysmonEvent[]
   /// Captura de rede pelo MikroTik (plano pos-revisao, item 5.4).
   capture       NetworkCapture?
   /// Execucao automatica da amostra (pedida ao abrir): depois do boot e do Sysmon, na sessao do
@@ -469,7 +471,8 @@ enum SandboxAutoRunStatus {
 enum SandboxArtifactKind {
   SCREENSHOT
   PROCESSES
-  /// O que o Sysmon do template registrou (plano pos-revisao, item 5.3): so o mais recente.
+  /// Situacao da leitura do Sysmon (plano pos-revisao, item 5.3; os eventos ficam em
+  /// SandboxSysmonEvent). Sessoes antigas guardam aqui o resumo inteiro.
   SYSMON
 }
 
@@ -489,6 +492,30 @@ model SandboxArtifact {
   createdAt  DateTime            @default(now())
 
   @@index([sessionId, createdAt])
+}
+
+/// Eventos do Sysmon de um ambiente (plans/sandbox-execucoes, fase 2): cada coleta le so os novos,
+/// a partir do ultimo guardado, entao o comportamento tardio da amostra nao cai fora do teto de uma
+/// leitura. A hora e a do relogio da VM; a diferenca para a da API fica na situacao (SYSMON).
+model SandboxSysmonEvent {
+  id          String         @id @default(cuid())
+  sessionId   String
+  session     SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// EventRecordID do log: com a hora, identifica o evento (reler a mesma janela nao duplica).
+  recordId    BigInt
+  /// 1 processo, 3 rede, 11 arquivo, 12-14 registro, 22 DNS.
+  eventId     Int
+  time        DateTime
+  image       String?
+  processGuid String?
+  /// ParentProcessGuid (so no evento 1): monta a arvore de processos da amostra.
+  parentGuid  String?
+  /// Os campos do evento (EventData), cada um cortado.
+  data        Json
+
+  @@unique([sessionId, recordId, time])
+  @@index([sessionId, time])
+  @@index([sessionId, processGuid])
 }
 
 /// Tipos de evento do historico (auditoria) de uma amostra.

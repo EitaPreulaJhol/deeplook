@@ -11,6 +11,7 @@ import { HpsmSection } from './HpsmForm';
 import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { SandboxArtifacts } from './SandboxArtifacts';
+import { SandboxHistory } from './SandboxHistory';
 import {
   isSandboxActive,
   isSandboxWorking,
@@ -185,6 +186,9 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
 
   if (query.isLoading) return <HpsmLoading text={t('consultingEnv')} />;
 
+  // As execucoes anteriores da amostra, em todos os estados que ja tem um ambiente.
+  const history = session ? <SandboxHistory entryId={entryId} currentId={session.id} /> : null;
+
   // Sem como abrir ambiente (sandbox desligado ou arquivo expurgado): o motivo e, se houve um
   // ambiente que ja acabou, os artefatos dele.
   if (!enabled || purgedNote) {
@@ -195,6 +199,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
           {purgedNote ?? t('disabled')}
         </p>
         {past && <SandboxArtifacts sessionId={session.id} running={false} />}
+        {history}
       </HpsmSection>
     );
   }
@@ -215,6 +220,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
         <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
           {busy === 'open' ? t('opening') : t('openEnv')}
         </Button>
+        {history}
       </HpsmSection>
     );
   }
@@ -227,6 +233,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
           <StatusText tone="gray">{SANDBOX_STATUS_LABELS.STOPPING}</StatusText>
         </div>
         <HpsmLoading text={t('shuttingDown')} />
+        {history}
       </HpsmSection>
     );
   }
@@ -256,6 +263,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
         </ol>
         <HpsmLoading text={t('takesMoment')} />
         {session.status === 'REQUESTED' && <p className="dl-page-subtitle">{t('waitingQueue')}</p>}
+        {history}
       </HpsmSection>
     );
   }
@@ -316,6 +324,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
           </Button>
         </div>
         <SandboxArtifacts sessionId={session.id} running />
+        {history}
       </HpsmSection>
     );
   }
@@ -347,6 +356,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
         {t('openNewEnv')}
       </Button>
       {!failed && <SandboxArtifacts sessionId={session.id} running={false} />}
+      {history}
     </HpsmSection>
   );
 }

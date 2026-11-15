@@ -3772,6 +3772,132 @@ li .dl-link,
 }
 
 /* Artefatos do sandbox (revisao 3.7): miniaturas dos prints em linha, com a hora. */
+/* Execucoes anteriores da amostra (plans/sandbox-execucoes): uma por bloco recolhivel. */
+.dl-sandbox-history {
+  margin-block-start: 1.25rem;
+
+  h4 {
+    margin: 0 0 0.5rem;
+    font-size: var(--dl-font-size);
+  }
+}
+
+.dl-sandbox-history__run .dl-sandbox-artifacts {
+  margin-block-start: 0.5rem;
+}
+
+/* Linha do tempo de uma execucao (plans/sandbox-execucoes, fase 3). */
+.dl-timeline {
+  margin-block-start: 0.75rem;
+}
+
+.dl-timeline__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-block: 0.5rem;
+
+  fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.9rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  legend {
+    float: inline-start;
+    margin-inline-end: 0.5rem;
+    font-weight: 600;
+  }
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+}
+
+.dl-timeline__total {
+  margin: 0.25rem 0;
+  color: var(--dl-text-muted);
+}
+
+.dl-timeline__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--dl-field-border);
+  max-block-size: 32rem;
+  overflow-y: auto;
+}
+
+.dl-timeline__event,
+.dl-timeline__marker {
+  display: grid;
+  grid-template-columns: 5.5rem 5.5rem minmax(8rem, 14rem) minmax(0, 1fr);
+  gap: 0 0.5rem;
+  align-items: baseline;
+  padding: 0.2rem 0.5rem;
+  border-block-end: 1px solid var(--dl-grid-line);
+  font-size: 0.75rem;
+}
+
+.dl-timeline__marker {
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  background: var(--dl-readonly-bg);
+  font-weight: 600;
+}
+
+/* A borda de todas as linhas tem a mesma largura: so a da amostra aparece (colunas alinhadas). */
+.dl-timeline__event {
+  border-inline-start: 3px solid transparent;
+}
+
+.dl-timeline__event.is-sample {
+  border-inline-start-color: var(--dl-link);
+}
+
+.dl-timeline__kind {
+  color: var(--dl-text-muted);
+}
+
+.dl-timeline__proc {
+  overflow-wrap: anywhere;
+}
+
+.dl-timeline__tag {
+  margin-inline-start: 0.35rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--dl-link);
+  color: var(--dl-link);
+  font-size: 0.6875rem;
+}
+
+.dl-timeline__detail {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dl-timeline__pager {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+
+@media (max-width: 48rem) {
+  .dl-timeline__event {
+    grid-template-columns: 5rem minmax(0, 1fr);
+  }
+
+  .dl-timeline__detail {
+    grid-column: 1 / -1;
+  }
+}
+
 .dl-sandbox-artifacts {
   margin-block-start: 1rem;
 

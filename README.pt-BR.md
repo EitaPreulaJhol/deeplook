@@ -1578,10 +1578,18 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
   tela.
 - **Sysmon (opcional):** num template Windows com o Sysmon instalado (passo no
   [guia do Proxmox](docs/proxmox.pt-BR.md#21-template-da-vm-de-análise)), cada coleta lê pelo mesmo
-  agente os eventos do canal `Microsoft-Windows-Sysmon/Operational` desde o início do ambiente (até
-  2000): processos (1), conexões (3), arquivos criados (11), registro (12 a 14) e DNS (22). A tela
-  mostra a **árvore de processos** e as listas; os domínios e os IPs públicos entram nos IOCs
-  sugeridos do relatório. Sem o Sysmon, ou num guest Linux, nada muda, e o motivo aparece na tela.
+  agente os eventos **novos** do canal `Microsoft-Windows-Sysmon/Operational` (a partir do último
+  guardado, até 2000 por leitura e 20 000 por ambiente): processos (1), conexões (3), arquivos
+  criados (11), registro (12 a 14) e DNS (22). Assim o comportamento tardio da amostra não cai fora
+  do teto de uma leitura. A tela mostra a **árvore de processos**, as listas e a **linha do tempo da
+  execução**: processos, rede, DNS, arquivos e registro numa sequência só, com as marcas do ambiente
+  (no ar, amostra aberta, prints, fim). Por padrão ela mostra só a amostra e o que ela abriu (a
+  árvore pelo `ParentProcessGuid` do Sysmon, a partir do processo com o nome do arquivo); "Tudo"
+  inclui o ruído do Windows. As horas saem no relógio da API (a VM isolada não sincroniza a hora).
+  Os domínios e os IPs públicos entram nos IOCs sugeridos do relatório. Sem o Sysmon, ou num guest
+  Linux, nada muda, e o motivo aparece na tela.
+- **Execuções anteriores:** cada ambiente que a amostra já teve fica na seção, recolhido, com os
+  próprios prints, processos, Sysmon, linha do tempo e captura (rodar de novo não esconde a anterior).
 - **Tráfego de rede (opcional):** com o tráfego das VMs passando por um MikroTik CHR, o sniffer
   dele manda os pacotes de cada VM (filtrados pelo MAC) ao serviço `netcap`, que grava um pcap por
   ambiente. Ao encerrar, o pcap vai para o MinIO e o **Suricata** o lê com as regras **ET Open**
@@ -1652,6 +1660,8 @@ histórico da amostra registra a execução e quem a pediu.
 | GET | `/api/sandbox/:id/screenshot` | Captura de tela (PNG) — removido no PVE 9; o painel captura no navegador |
 | GET | `/api/sandbox/:id/artifacts` | Artefatos do ambiente: prints, processos, Sysmon, tráfego de rede e Suricata |
 | GET | `/api/sandbox/:id/artifacts/:artifactId` | Um print guardado (PNG) |
+| GET | `/api/sandbox/:id/timeline` | Linha do tempo do Sysmon (`scope=sample\|all`, `kinds`, `page`) e as marcas do ambiente |
+| GET | `/api/entries/:id/sandbox/sessions` | Execuções (ambientes) da amostra, a mais recente primeiro |
 | GET | `/api/sandbox/:id/pcap` | Baixa o pcap do ambiente (registrado na auditoria) |
 
 ---
