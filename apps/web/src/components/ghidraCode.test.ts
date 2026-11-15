@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { linkTargets, tokenizeC } from './ghidraCode';
+import { findMatches, linkTargets, searchRegExp, splitMarks, tokenizeC } from './ghidraCode';
 
 const kinds = (code: string) =>
   tokenizeC(code)
@@ -95,5 +95,42 @@ describe('linkTargets', () => {
     expect(targets.has('run')).toBe(false);
     expect(targets.get('A::run')).toBe('0x10');
     expect(targets.size).toBe(2);
+  });
+});
+
+describe('busca no pseudo-C', () => {
+  it('texto literal, com e sem caixa', () => {
+    expect(searchRegExp('a.b(', true).test('a.b(')).toBe(true);
+    expect(searchRegExp('a.b(', true).test('axb(')).toBe(false);
+    expect(searchRegExp('ALVO', false).test('alvo')).toBe(true);
+    expect(searchRegExp('ALVO', true).test('alvo')).toBe(false);
+  });
+
+  it('ocorrências com a linha de cada uma, até o teto', () => {
+    const code = 'alvo\nx\n  alvo alvo\nalvo';
+    expect(findMatches(code, searchRegExp('alvo', true))).toEqual([
+      { start: 0, end: 4, line: 1 },
+      { start: 9, end: 13, line: 3 },
+      { start: 14, end: 18, line: 3 },
+      { start: 19, end: 23, line: 4 },
+    ]);
+    expect(findMatches(code, searchRegExp('alvo', true), 2)).toHaveLength(2);
+  });
+
+  it('trecho em pedaços marcados, ignorando marcas fora do texto ou sobrepostas', () => {
+    expect(
+      splitMarks('x = alvo(alvo);', [
+        [9, 13],
+        [4, 8],
+        [5, 6],
+        [10, 99],
+      ]),
+    ).toEqual([
+      { text: 'x = ', mark: false },
+      { text: 'alvo', mark: true },
+      { text: '(', mark: false },
+      { text: 'alvo', mark: true },
+      { text: ');', mark: false },
+    ]);
   });
 });

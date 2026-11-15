@@ -534,8 +534,10 @@ headless (12.2) in the background, one at a time, and the card shows:
 - the **pseudo-C of every function**, in a window opened by **See all functions**: the list on the
   left, with search by name or address, "only callers of sensitive APIs", "hide library functions" and
   sort order; on the right, the code with line numbers and highlighting, the APIs the function calls
-  and who calls it. The name of a called function in the code leads to it, with back and forward. Each
-  pseudo-C block on the card has **Open in window**;
+  and who calls it. The name of a called function in the code leads to it, with back and forward.
+  **Code search** finds a text in the pseudo-C of every function and lists, per function, the lines
+  where it appears; each line opens the function there, with the matches marked. Each pseudo-C block on
+  the card has **Open in window**;
 - the **`.gzf` project**, to open in a local Ghidra already analyzed.
 
 Details:
@@ -551,7 +553,10 @@ Details:
   characters. Measured on Ghidra 12.2: `bash` (2041 functions) comes out whole in 70 s, at 750 KB. The text
   lives in MinIO **outside `samples/`** (it has none of the sample's bytes): it stays after retention, goes
   into the backup without samples and is removed by permanent deletion or by analyzing again. Viewing and
-  browsing: whoever sees the sample, like the summary (API tokens can also read the list and each function).
+  browsing: whoever sees the sample, like the summary (API tokens can also read the list, each function and
+  the search). The search reads the text in a stream, with no index: literal text, up to 200 functions
+  and 10 lines per function in the answer, 10 s of budget, 30 searches per minute per session and 4 at
+  a time on the API.
   **Download all (.c)**: only the submitter and analysts, logged in the Audit log, like the `.gzf`. Older
   analyses show "analyze again to see every function".
 - **The `.gzf` contains the bytes of the sample.** Downloading it follows the rule for downloading the sample

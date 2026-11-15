@@ -206,6 +206,12 @@ async function main() {
       url: `/api/entries/${id}/ghidra/pseudo-c`,
       headers: { cookie: c },
     });
+  const fnSearch = (c: string, id: string, params: Record<string, string>) =>
+    app.inject({
+      method: 'GET',
+      url: `/api/entries/${id}/ghidra/search?${new URLSearchParams(params)}`,
+      headers: { cookie: c },
+    });
   const fnCount = (analysisId: string) => prisma.ghidraFunction.count({ where: { analysisId } });
 
   const inj = await upload(bob, 'fatura.exe', file('prog64.exe'));
@@ -340,16 +346,66 @@ async function main() {
       (await fnList(bob, inj, '?pageSize=0')).statusCode === 400 &&
       (await fnGet(bob, inj, '0xdeadbeef')).statusCode === 404,
   );
+  // Busca no pseudo-C (fase 5): o objeto lido em fluxo, linha a linha.
+  const found = (await fnSearch(bob, inj, { q: 'createremotethread' })).json();
+  const hit = found.results?.find((h: any) => h.entry === main?.entry);
+  const code = each.find((e) => e.entry === main?.entry)?.c ?? '';
+  ok(
+    'busca sem caixa: acha a chamada na função de injeção, na linha certa e marcada',
+    found.scanned === s.functions &&
+      found.partial === false &&
+      found.matchedFunctions === found.results.length &&
+      hit?.lines.length === hit?.lineCount &&
+      hit.lines.every(
+        (l: any) =>
+          code.split('\n')[l.line - 1].trim() === l.text &&
+          l.marks.every(([a, b]: number[]) => l.text.slice(a, b) === 'CreateRemoteThread'),
+      ),
+    { found: { ...found, results: found.results?.length }, hit },
+  );
+  const exact = (
+    await fnSearch(bob, inj, { q: 'createremotethread', caseSensitive: 'true' })
+  ).json();
+  const url = (await fnSearch(bob, inj, { q: 'http://evil.test/stage2.bin' })).json();
+  const withCall = each.filter((e) => e.c.includes('()')).length;
+  const paren = (await fnSearch(bob, inj, { q: '()' })).json();
+  ok(
+    'busca: com caixa não acha; . / ( ) são literais; conta todas as funções',
+    exact.matchedFunctions === 0 &&
+      url.results.some((h: any) => h.entry === main?.entry) &&
+      paren.matchedFunctions === withCall &&
+      paren.results.length === Math.min(paren.matchedFunctions, 200),
+    { exact: exact.matchedFunctions, url: url.matchedFunctions, paren: paren.matchedFunctions },
+  );
+  ok(
+    'busca: texto curto, só espaços ou com quebra de linha: 400',
+    (await fnSearch(bob, inj, { q: 'a' })).statusCode === 400 &&
+      (await fnSearch(bob, inj, { q: '   ' })).statusCode === 400 &&
+      (await fnSearch(bob, inj, { q: 'a\nb' })).statusCode === 400 &&
+      (await fnSearch(bob, inj, { q: 'x'.repeat(201) })).statusCode === 400,
+  );
   // Quem ve a amostra ve a lista, como o resumo: por padrao todos; com "so as proprias", nao.
   const openList = await fnList(carol, inj);
+  const openSearch = await fnSearch(carol, inj, { q: 'return' });
   await setOwnSamplesOnly(true);
   const closedList = await fnList(carol, inj);
   const closedFn = await fnGet(carol, inj, all.functions[0].entry);
+  const closedSearch = await fnSearch(carol, inj, { q: 'return' });
   await setOwnSamplesOnly(false);
   ok(
-    'lista e função: quem vê a amostra; com "só as próprias", o outro usuário não',
-    openList.statusCode === 200 && closedList.statusCode === 404 && closedFn.statusCode === 404,
-    [openList.statusCode, closedList.statusCode, closedFn.statusCode],
+    'lista, função e busca: quem vê a amostra; com "só as próprias", o outro usuário não',
+    openList.statusCode === 200 &&
+      openSearch.statusCode === 200 &&
+      closedList.statusCode === 404 &&
+      closedFn.statusCode === 404 &&
+      closedSearch.statusCode === 404,
+    [
+      openList.statusCode,
+      openSearch.statusCode,
+      closedList.statusCode,
+      closedFn.statusCode,
+      closedSearch.statusCode,
+    ],
   );
   const ownerC = await pseudoDl(bob, inj);
   const expected = each.map((e) => `/* ${e.name} @ ${e.entry} */\n${e.c}\n\n`).join('');
@@ -638,6 +694,22 @@ async function main() {
         { entry: '0x99', name: null },
       ]),
     g.callees,
+  );
+  // A busca le o mesmo objeto em fluxo: as faixas em bytes valem tambem para ela.
+  const uni = (await fnSearch(ana, target, { q: 'ÜNÏCÖDÉ' })).json();
+  const ret = (await fnSearch(ana, target, { q: 'return', caseSensitive: 'true' })).json();
+  ok(
+    'busca depois dos acentos: função e linha certas, só nas que têm código',
+    uni.results.length === 1 &&
+      uni.results[0].entry === '0x10' &&
+      uni.results[0].lines[0].text.slice(...uni.results[0].lines[0].marks[0]) === 'ünïcödé' &&
+      ret.scanned === 2 &&
+      JSON.stringify(ret.results.map((h: any) => [h.entry, h.lines.map((l: any) => l.line)])) ===
+        JSON.stringify([
+          ['0x10', [1]],
+          ['0x20', [3]],
+        ]),
+    { uni, ret },
   );
   const listed = (await fnList(ana, target)).json();
   ok(

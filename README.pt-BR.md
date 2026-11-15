@@ -537,8 +537,10 @@ headless (12.2) em segundo plano, um por vez, e a ficha mostra:
 - o **pseudo-C de todas as funções**, numa janela aberta por **Ver todas as funções**: a lista à
   esquerda, com busca por nome ou endereço, "só as que chamam APIs sensíveis", "esconder as de
   biblioteca" e ordem; à direita, o código com números de linha e realce, as APIs que a função chama
-  e quem a chama. O nome de uma função chamada no código leva a ela, com voltar e avançar. Cada bloco
-  do pseudo-C da ficha tem **Abrir na janela**;
+  e quem a chama. O nome de uma função chamada no código leva a ela, com voltar e avançar. A **Busca
+  no código** procura um texto no pseudo-C de todas as funções e lista, por função, as linhas em que
+  ele aparece; cada linha abre a função nela, com as ocorrências marcadas. Cada bloco do pseudo-C da
+  ficha tem **Abrir na janela**;
 - o **projeto `.gzf`**, para abrir no Ghidra local já analisado.
 
 Detalhes:
@@ -554,7 +556,9 @@ Detalhes:
   Medido no Ghidra 12.2: o `bash` (2041 funções) sai inteiro em 70 s, com 750 KB. O texto mora no
   MinIO **fora de `samples/`** (não tem os bytes da amostra): fica depois da retenção, entra no
   backup sem amostras e sai na exclusão definitiva ou ao analisar de novo. Ver e navegar: quem vê a
-  amostra, como o resumo (a API de tokens também lê a lista e cada função). **Baixar tudo (.c)**: só
+  amostra, como o resumo (a API de tokens também lê a lista, cada função e a busca). A busca lê o
+  texto em fluxo, sem índice: texto literal, até 200 funções e 10 linhas por função na resposta, 10 s
+  de prazo, 30 buscas por minuto por sessão e 4 ao mesmo tempo na API. **Baixar tudo (.c)**: só
   quem enviou e os analistas, na Auditoria, como o `.gzf`. Análises anteriores mostram "analise de
   novo para ver todas as funções".
 - **O `.gzf` tem os bytes da amostra.** Baixá-lo segue a regra de baixar a amostra (quem enviou e os

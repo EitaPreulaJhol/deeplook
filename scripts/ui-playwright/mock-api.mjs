@@ -233,6 +233,8 @@ export function createState({ loggedIn = false } = {}) {
      */
     ghidraFns: {},
     ghidraFnQueries: [],
+    /** Buscas no codigo feitas (fase 5): a query de cada uma; o resultado sai de ghidraFns. */
+    ghidraSearchQueries: [],
     /** Desempacotamento por amostra (GET; lista = sequencia) e os pedidos feitos (POST). */
     unpack: {},
     unpackPosts: [],
@@ -927,6 +929,45 @@ export async function setupMock(context, state) {
             skipped: f.skipped,
             error: f.error,
           })),
+        });
+      }
+      const ghidraSearch = p.match(/^\/api\/entries\/(\w+)\/ghidra\/search$/);
+      if (ghidraSearch && req.method() === 'GET') {
+        const data = state.ghidraFns[ghidraSearch[1]];
+        if (!data) return json(route, 404, { error: 'O pseudo-C completo desta análise não está disponível.' });
+        const params = url.searchParams;
+        state.ghidraSearchQueries.push(params.toString());
+        const q = params.get('q') || '';
+        const cs = params.get('caseSensitive') === 'true';
+        const literal = q.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&');
+        const withCode = data.functions.filter(
+          (f) => f.c !== null && (params.get('hideLibrary') !== 'true' || !f.library),
+        );
+        const results = [];
+        let matchedLines = 0;
+        for (const f of withCode) {
+          const lines = [];
+          f.c.split('\n').forEach((text, i) => {
+            const marks = [...text.matchAll(new RegExp(literal, cs ? 'gu' : 'giu'))].map((m) => [m.index, m.index + m[0].length]);
+            if (!marks.length) return;
+            const indent = text.length - text.trimStart().length;
+            lines.push({ line: i + 1, text: text.trim(), marks: marks.map(([a, b]) => [a - indent, b - indent]) });
+          });
+          if (!lines.length) continue;
+          matchedLines += lines.length;
+          results.push({ entry: f.entry, name: f.name, library: f.library, lineCount: lines.length, lines });
+        }
+        return json(route, 200, {
+          q,
+          caseSensitive: cs,
+          hideLibrary: params.get('hideLibrary') === 'true',
+          ms: 3,
+          scanned: withCode.length,
+          matchedFunctions: results.length,
+          matchedLines,
+          truncated: false,
+          partial: false,
+          results,
         });
       }
       // Desempacotamento (item 7.8): mesma ideia; sem estado, a secao nao se aplica.

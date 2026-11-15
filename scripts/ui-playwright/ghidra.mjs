@@ -207,6 +207,56 @@ expect('função pulada pelo prazo: sem código, com o motivo', (await dialog.in
 const dl = dialog.locator('a', { hasText: 'Baixar tudo (.c)' });
 expect('download do .c para quem pode baixar', (await dl.getAttribute('href')) === '/api/entries/e1/ghidra/pseudo-c');
 await dialog.screenshot({ path: `${OUT}/ghidra-funcoes.png` });
+
+// 2b'. Busca no codigo de todas as funcoes (fase 5).
+await dialog.getByLabel('Busca no código').check();
+const go = dialog.locator('button[type="submit"]', { hasText: 'Procurar' });
+const hits = dialog.locator('button.dl-ghidra-code__hit');
+expect('modo busca: lista some, botão só com texto suficiente', (await dialog.locator('input[type="search"]').count()) === 1 && !(await go.isEnabled()));
+await dialog.getByLabel('Texto no pseudo-C de todas as funções').fill('process');
+await go.click();
+await hits.first().waitFor();
+const found = await dialog.locator('.dl-ghidra-code__count').innerText();
+expect(
+  'busca: linhas por função, com as ocorrências marcadas',
+  found.includes('2 linha(s) em 1 de 4 função(ões) com código') &&
+    (await hits.count()) === 2 &&
+    (await dialog.locator('.dl-ghidra-code__hit-name code').innerText()) === 'FUN_140001451' &&
+    (await hits.first().locator('mark').allInnerTexts()).join() === 'Process,Process' &&
+    state.ghidraSearchQueries.at(-1) === 'q=process',
+  found,
+);
+await hits.nth(1).click();
+await waitName('FUN_140001451');
+await page.waitForTimeout(100);
+const marked = await page.evaluate(() => ({
+  all: CSS.highlights.get('dl-ghidra-match')?.size ?? -1,
+  current: [...(CSS.highlights.get('dl-ghidra-match-current') ?? [])].map((r) => r.toString()),
+}));
+expect(
+  'resultado abre a função na linha: número destacado e as ocorrências marcadas no código',
+  (await dialog.locator('.dl-ghidra-code__gutter .is-focus').innerText()) === '4' &&
+    (await hits.nth(1).getAttribute('aria-current')) === 'true' &&
+    marked.all === 2 &&
+    marked.current.join() === 'Process',
+  JSON.stringify(marked),
+);
+await dialog.screenshot({ path: `${OUT}/ghidra-funcoes-busca.png` });
+await dialog.getByLabel('Diferenciar maiúsculas e minúsculas').check({ force: true });
+await go.click();
+await dialog.locator('.dl-ghidra-code__count', { hasText: 'Nenhuma ocorrência' }).waitFor();
+expect(
+  'com caixa: nenhuma ocorrência, pedido com caseSensitive',
+  (await dialog.locator('.dl-ghidra-code__count').innerText()).includes('Nenhuma ocorrência em 4 função(ões) com código.') &&
+    (await hits.count()) === 0 &&
+    state.ghidraSearchQueries.at(-1) === 'q=process&caseSensitive=true',
+);
+await dialog.getByLabel('Lista de funções').check();
+expect(
+  'de volta à lista: as marcas saem do código',
+  (await items.count()) === 1 && (await page.evaluate(() => CSS.highlights.has('dl-ghidra-match'))) === false,
+  `${await items.count()} ${await page.evaluate(() => [...CSS.highlights.keys()].join())}`,
+);
 await page.keyboard.press('Escape');
 await dialog.waitFor({ state: 'detached' });
 expect('Esc fecha e o foco volta para quem abriu', (await page.evaluate(() => document.activeElement?.textContent)) === 'Ver todas as funções (5)');

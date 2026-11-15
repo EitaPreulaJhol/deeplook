@@ -441,6 +441,10 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Somente quem enviou e os analistas baixam o pseudo-C do Ghidra.',
     'Only the submitter and analysts download the Ghidra pseudo-C.',
   ],
+  [
+    'Muitas buscas no pseudo-C ao mesmo tempo. Tente de novo em instantes.',
+    'Too many pseudo-C searches at once. Try again in a moment.',
+  ],
   ['mesmo domínio {0}', 'same domain {0}'],
   ['indicador em comum', 'shared indicator'],
   ['mesmas importações', 'same imports'],

@@ -186,6 +186,38 @@ export interface GhidraFunctionDetail {
   error: string | null;
 }
 
+/** Linha com o texto procurado: o trecho e as ocorrencias nele ([inicio, fim) em UTF-16). */
+export interface GhidraSearchLine {
+  line: number;
+  text: string;
+  marks: [number, number][];
+}
+
+export interface GhidraSearchHit {
+  entry: string;
+  name: string;
+  library: boolean;
+  /** Linhas com o texto na funcao (as devolvidas vao ate 10). */
+  lineCount: number;
+  lines: GhidraSearchLine[];
+}
+
+/** GET /api/entries/:id/ghidra/search (plans/ghidra-pseudo-c, fase 5). */
+export interface GhidraSearchResult {
+  q: string;
+  caseSensitive: boolean;
+  hideLibrary: boolean;
+  ms: number;
+  scanned: number;
+  matchedFunctions: number;
+  matchedLines: number;
+  /** Mais funcoes com o texto do que as devolvidas (ate 200). */
+  truncated: boolean;
+  /** O tempo da busca acabou antes do fim. */
+  partial: boolean;
+  results: GhidraSearchHit[];
+}
+
 /** GET /api/entries/:id/ghidra (item 7.3). */
 export interface GhidraInfo {
   enabled: boolean;

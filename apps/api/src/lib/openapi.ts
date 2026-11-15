@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { ListQuery, UrlSchema } from '../routes/entries';
-import { FunctionsQuery } from '../routes/ghidra';
+import { FunctionsQuery, SearchQuery } from '../routes/ghidra';
 import { ExportQuery } from '../routes/iocs';
 
 /**
@@ -396,6 +396,31 @@ export function openApiDocument(): Schema {
           responses: {
             '200': json({ type: 'object' }, 'A função e o pseudo-C dela.'),
             ...pick('401', '404'),
+          },
+        },
+      },
+      '/api/entries/{id}/ghidra/search': {
+        get: {
+          summary: 'Busca no pseudo-C completo (Ghidra)',
+          description:
+            'Procura um texto no pseudo-C de todas as funções com código, na ordem de prioridade. ' +
+            'Devolve até 200 funções com até 10 linhas cada (`lineCount` e os totais contam ' +
+            'todas); `marks` são as ocorrências dentro de `text`. `partial` verdadeiro: o tempo ' +
+            'da busca acabou antes do fim. Até 30 buscas por minuto.',
+          parameters: [idParam, ...queryParams(SearchQuery)].map((param) => ({
+            ...param,
+            description:
+              {
+                q: 'Texto procurado, literal (de 2 a 200 caracteres, numa linha).',
+                caseSensitive: '`true`: diferencia maiúsculas e minúsculas.',
+                hideLibrary: '`true`: sem as funções de biblioteca.',
+              }[param.name as string] ?? param.description,
+          })),
+          responses: {
+            '200': json({ type: 'object' }, 'As funções e linhas com o texto e os totais.'),
+            '429': json(ref('Error'), 'Buscas demais no último minuto.'),
+            '503': json(ref('Error'), 'Buscas demais em andamento ao mesmo tempo.'),
+            ...pick('400', '401', '404'),
           },
         },
       },

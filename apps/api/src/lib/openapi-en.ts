@@ -101,6 +101,22 @@ export const OPENAPI_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['Endereço da função.', 'Function address.'],
   ['A função e o pseudo-C dela.', 'The function and its pseudo-C.'],
+  ['Busca no pseudo-C completo (Ghidra)', 'Search in the full pseudo-C (Ghidra)'],
+  [
+    'Procura um texto no pseudo-C de todas as funções com código, na ordem de prioridade. Devolve até 200 funções com até 10 linhas cada (`lineCount` e os totais contam todas); `marks` são as ocorrências dentro de `text`. `partial` verdadeiro: o tempo da busca acabou antes do fim. Até 30 buscas por minuto.',
+    'Searches for a text in the pseudo-C of every function with code, in priority order. Returns up to 200 functions with up to 10 lines each (`lineCount` and the totals count them all); `marks` are the matches inside `text`. `partial` true: the search ran out of time before the end. Up to 30 searches per minute.',
+  ],
+  [
+    'Texto procurado, literal (de 2 a 200 caracteres, numa linha).',
+    'Text to search for, literal (2 to 200 characters, on one line).',
+  ],
+  ['`true`: diferencia maiúsculas e minúsculas.', '`true`: case-sensitive.'],
+  [
+    'As funções e linhas com o texto e os totais.',
+    'The functions and lines with the text, and the totals.',
+  ],
+  ['Buscas demais no último minuto.', 'Too many searches in the last minute.'],
+  ['Buscas demais em andamento ao mesmo tempo.', 'Too many searches running at once.'],
   ['Análise de funções (capa e FLOSS)', 'Function analysis (capa and FLOSS)'],
   [
     'O que as funções do executável fazem (regras do capa, com ATT&CK e MBC) e as strings que só aparecem na execução (FLOSS). `analysis` é null enquanto não houver análise.',

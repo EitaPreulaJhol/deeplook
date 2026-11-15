@@ -10,7 +10,9 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { localizeText } from '../lib/data-language';
 import { requestLang } from '../lib/error-language';
 import { enqueueGhidra, ghidraEnabled, ghidraIneligible, readGhidraFunction } from '../lib/ghidra';
+import { searchPattern, searchPseudo } from '../lib/ghidra-search';
 import { prisma } from '../lib/prisma';
+import { attemptLimit, sessionKey } from '../lib/rate-limit';
 import { isMissingObject, MISSING_OBJECT_MESSAGE, s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
 
@@ -63,6 +65,24 @@ export const FunctionsQuery = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(500).default(100),
 });
+
+/** Busca de texto no pseudo-C (fase 5; a especificacao OpenAPI sai daqui, lib/openapi.ts). */
+export const SearchQuery = z.object({
+  // Sem trim: espacos podem fazer parte do trecho procurado ("if (" e diferente de "if(").
+  q: z
+    .string()
+    .min(2)
+    .max(200)
+    .refine((v) => v.trim().length > 0 && !/[\r\n]/.test(v)),
+  caseSensitive: flag,
+  hideLibrary: flag,
+});
+
+/** Tempo de uma busca; passado, ela devolve o que achou com `partial`. */
+const SEARCH_BUDGET_MS = 10_000;
+/** Buscas ao mesmo tempo no processo (cada uma le o objeto inteiro do MinIO). */
+const SEARCH_CONCURRENCY = 4;
+let searching = 0;
 
 const ORDER = {
   priority: [{ rank: 'asc' }],
@@ -331,6 +351,67 @@ export async function ghidraRoutes(app: FastifyInstance) {
       skipped: fn.skipped,
       error: localizeText(fn.error, requestLang(req)),
     });
+  });
+
+  /**
+   * Busca de texto em todas as funcoes (fase 5): le o objeto do MinIO em fluxo e devolve, por
+   * funcao, as linhas com o trecho. Quem ve a amostra busca, como na lista.
+   */
+  const searchLimit = attemptLimit(sessionKey('ghidra-search'), { max: 30, windowMs: 60_000 });
+  app.get('/api/entries/:id/ghidra/search', { config: searchLimit }, async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    const parsed = SearchQuery.safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
+    const { q, caseSensitive, hideLibrary } = parsed.data;
+    const { id } = req.params as { id: string };
+    const analysis = await pseudoOf(id);
+    if (!analysis) return reply.code(404).send({ error: NO_PSEUDO_MESSAGE });
+    if (searching >= SEARCH_CONCURRENCY) {
+      return reply
+        .code(503)
+        .send({ error: 'Muitas buscas no pseudo-C ao mesmo tempo. Tente de novo em instantes.' });
+    }
+    searching++;
+    const started = Date.now();
+    try {
+      const rows = await prisma.ghidraFunction.findMany({
+        where: {
+          analysisId: analysis.id,
+          cOffset: { not: null },
+          ...(hideLibrary && { library: false }),
+        },
+        orderBy: { cOffset: 'asc' },
+        select: { entry: true, name: true, library: true, cOffset: true, cLength: true },
+      });
+      const fns = rows.map((r) => ({ ...r, cOffset: r.cOffset!, cLength: r.cLength! }));
+      let result;
+      try {
+        const obj = await s3.send(
+          new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: analysis.pseudoKey! }),
+        );
+        result = await searchPseudo(
+          obj.Body as Readable,
+          fns,
+          searchPattern(q, caseSensitive),
+          started + SEARCH_BUDGET_MS,
+        );
+      } catch (err) {
+        if (isMissingObject(err)) return reply.code(404).send({ error: MISSING_OBJECT_MESSAGE });
+        req.log.error({ err }, 'Falha ao ler o pseudo-C no MinIO');
+        return reply.code(502).send({ error: 'Não foi possível ler o pseudo-C no armazenamento.' });
+      }
+      const { bytes, ...found } = result;
+      const ms = Date.now() - started;
+      // Para medir se o objeto unico basta ou se a busca pede indice (plano, fase 5).
+      req.log.info(
+        { ms, bytes, scanned: found.scanned, partial: found.partial },
+        'busca no pseudo-C',
+      );
+      return reply.send({ q, caseSensitive, hideLibrary, ms, ...found });
+    } finally {
+      searching--;
+    }
   });
 
   /**

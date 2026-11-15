@@ -135,3 +135,57 @@ export function linkTargets(links: { entry: string; name: string | null }[]): Ma
   for (const key of ambiguous) targets.delete(key);
   return targets;
 }
+
+/** Ocorrencias marcadas no codigo aberto (acima disto, so as primeiras). */
+export const MATCH_MAX = 5_000;
+
+/** O texto da busca no pseudo-C como expressao literal, igual a da API (lib/ghidra-search.ts). */
+export function searchRegExp(q: string, caseSensitive: boolean): RegExp {
+  const literal = q.replace(/[\\^$.*+?()[\]{}|/]/g, '\\$&');
+  return new RegExp(literal, caseSensitive ? 'gu' : 'giu');
+}
+
+export interface Match {
+  start: number;
+  end: number;
+  /** Linha a partir de 1, como a numeracao da janela. */
+  line: number;
+}
+
+/** As ocorrencias de `re` (flag g) no codigo, com a linha de cada uma; ate `max`. */
+export function findMatches(code: string, re: RegExp, max = MATCH_MAX): Match[] {
+  const out: Match[] = [];
+  let line = 1;
+  let counted = 0;
+  re.lastIndex = 0;
+  for (const m of code.matchAll(re)) {
+    if (out.length >= max || m[0] === '') break;
+    for (
+      let p = code.indexOf('\n', counted);
+      p !== -1 && p < m.index;
+      p = code.indexOf('\n', p + 1)
+    ) {
+      line++;
+    }
+    counted = m.index;
+    out.push({ start: m.index, end: m.index + m[0].length, line });
+  }
+  return out;
+}
+
+/** Trecho de uma linha com as ocorrencias: pedacos de texto, marcados ou nao. */
+export function splitMarks(
+  text: string,
+  marks: [number, number][],
+): { text: string; mark: boolean }[] {
+  const parts: { text: string; mark: boolean }[] = [];
+  let pos = 0;
+  for (const [s, e] of [...marks].sort((a, b) => a[0] - b[0])) {
+    if (s < pos || e > text.length || e <= s) continue;
+    if (s > pos) parts.push({ text: text.slice(pos, s), mark: false });
+    parts.push({ text: text.slice(s, e), mark: true });
+    pos = e;
+  }
+  if (pos < text.length) parts.push({ text: text.slice(pos), mark: false });
+  return parts;
+}

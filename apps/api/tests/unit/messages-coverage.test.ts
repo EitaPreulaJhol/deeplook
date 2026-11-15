@@ -53,6 +53,9 @@ const NOT_SENT: [text: string, reason: string][] = [
   ['resposta do serviço em formato inesperado', DATA],
   // Funcao do pseudo-C completo do Ghidra sem codigo nem motivo (plans/ghidra-pseudo-c).
   ['sem resultado', DATA],
+  // Busca no pseudo-C (fase 5): a rota registra no log e responde 502 com a mensagem dela.
+  ['faixas do pseudo-C fora de ordem', 'erro interno da busca: o cliente recebe o 502 da rota'],
+  ['pseudo-C menor que o índice', 'erro interno da busca: o cliente recebe o 502 da rota'],
   ['o capa não produziu resultado', DATA],
   ['a análise falhou', DATA],
   ['falha interna ao desempacotar', DATA],

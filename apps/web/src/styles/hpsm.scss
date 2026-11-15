@@ -3165,6 +3165,104 @@ body:has(.dl-print) {
   align-self: center;
 }
 
+/* Busca no codigo (fase 5): o modo da coluna, o formulario e as linhas achadas. */
+.dl-ghidra-code__mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  margin: 0;
+  padding: 0 0 0.3rem;
+  border: 0;
+  border-block-end: 1px solid var(--dl-grid-line);
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+  }
+}
+
+.dl-ghidra-code__codeform {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+
+  > .cds--form-item {
+    align-self: stretch;
+  }
+}
+
+.dl-ghidra-code__hit-fn {
+  border-block-end: 1px solid var(--dl-grid-line);
+}
+
+.dl-ghidra-code__hit-name,
+.dl-ghidra-code__hit-more {
+  margin: 0;
+  padding: 0.25rem 0.4rem 0.1rem;
+  overflow-wrap: anywhere;
+}
+
+.dl-ghidra-code__hit-name code {
+  font-weight: 700;
+}
+
+.dl-ghidra-code__hit-more {
+  padding-block: 0 0.25rem;
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-ghidra-code__hit-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-ghidra-code__hit {
+  padding-inline-start: 0.9rem;
+  border-block-end: 0;
+}
+
+.dl-ghidra-code__hit-line {
+  color: var(--dl-text-muted);
+  font-size: 0.6875rem;
+}
+
+.dl-ghidra-code__hit-text {
+  font-size: 0.6875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  mark {
+    background: var(--dl-code-match);
+    color: inherit;
+    font-weight: 700;
+  }
+}
+
+/* Ocorrencias no codigo aberto (CSS Custom Highlight API); a da linha aberta, mais forte e
+   sublinhada (nao so pela cor). Sem a API, fica so o numero da linha destacado. */
+::highlight(dl-ghidra-match) {
+  background-color: var(--dl-code-match);
+  color: #000;
+}
+
+::highlight(dl-ghidra-match-current) {
+  background-color: var(--dl-code-match-current);
+  color: #000;
+  text-decoration: underline 2px;
+}
+
+.dl-ghidra-code__gutter .is-focus {
+  outline: 1px solid var(--dl-code-match-current);
+  background: var(--dl-code-match-current);
+  color: #000;
+  font-weight: 700;
+}
+
 /* Tela estreita: a lista em cima, menor, e o codigo embaixo. */
 @media (max-width: 48rem) {
   .dl-ghidra-code {

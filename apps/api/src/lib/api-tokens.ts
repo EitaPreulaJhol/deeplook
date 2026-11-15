@@ -47,6 +47,7 @@ export const ALLOWED_ROUTES = new Set([
   'GET /api/entries/:id/ghidra',
   'GET /api/entries/:id/ghidra/functions',
   'GET /api/entries/:id/ghidra/functions/:entry',
+  'GET /api/entries/:id/ghidra/search',
 ]);
 
 /**
