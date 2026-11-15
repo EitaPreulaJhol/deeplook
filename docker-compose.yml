@@ -159,6 +159,8 @@ services:
       CAPA_MAX_MB: ${CAPA_MAX_MB:-32}
       # Espera da API por uma analise: acima de CAPA_TIMEOUT_S + FLOSS_TIMEOUT_S do servico.
       CAPA_REQUEST_TIMEOUT_S: ${CAPA_REQUEST_TIMEOUT_S:-1000}
+      # Analises do capa ao mesmo tempo: o mesmo numero de replicas do servico capa abaixo.
+      CAPA_WORKERS: ${CAPA_WORKERS:-2}
       # Analise com o Ghidra (item 7.3), sob demanda: o servico ghidra abaixo; GHIDRA_URL= desliga.
       GHIDRA_URL: ${GHIDRA_URL-http://ghidra:3300}
       GHIDRA_TOKEN: ${GHIDRA_TOKEN:-troque-este-token-do-ghidra}
@@ -320,6 +322,11 @@ services:
     build:
       context: ./apps/capa
     restart: unless-stopped
+    # Um container por analise em andamento: um executavel grande prende o seu por ate 15 min
+    # (capa 600 s + FLOSS 300 s) e os outros seguem. A API manda cada analise a uma replica livre.
+    # Cada uma pode usar ate CAPA_MEM_LIMIT de memoria.
+    deploy:
+      replicas: ${CAPA_WORKERS:-2}
     logging: *default-logging
     environment:
       CAPA_TOKEN: ${CAPA_TOKEN:-troque-este-token-do-capa}

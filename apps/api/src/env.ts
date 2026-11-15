@@ -184,6 +184,11 @@ const EnvSchema = z
     /** Espera por uma analise: acima da soma dos tetos do capa e do FLOSS no servico. */
     CAPA_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(1000),
     /**
+     * Analises do capa ao mesmo tempo: uma por container do servico (o compose sobe este numero
+     * de replicas). Um executavel grande prende o seu por ate 15 min; os outros seguem a fila.
+     */
+    CAPA_WORKERS: z.coerce.number().int().min(1).max(8).default(2),
+    /**
      * Analise com o Ghidra (item 7.3): servico ghidra (sob demanda, sem rede) e o token
      * compartilhado. Vazio = desligada.
      */

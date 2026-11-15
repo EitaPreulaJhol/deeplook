@@ -378,6 +378,120 @@ async function main() {
       r.attempts === 1,
   );
 
+  // ------------------------------------------------------------ 3b. varias replicas e a ordem
+  // Duas replicas falsas atras de um "nome" (capaTiming.replicas): cada analise leva 700 ms.
+  const sizes: number[] = [];
+  let active = 0;
+  let peak = 0;
+  const served = [0, 0];
+  const slowReplica = (n: number) => (req: http.IncomingMessage, res: http.ServerResponse) => {
+    active++;
+    peak = Math.max(peak, active);
+    served[n]++;
+    sizes.push(Number(req.headers['content-length']));
+    setTimeout(() => {
+      active--;
+      reply(res, 200, VALID);
+    }, 700);
+  };
+  const replicaA = await fakeService(slowReplica(0));
+  const replicaB = await fakeService(slowReplica(1));
+  env.CAPA_URL = replicaA.url;
+  capaTiming.replicas = async () => [replicaA.url, replicaB.url];
+  const queued = [net, elf, mine, obf];
+  const sizeOf = new Map(
+    (
+      await prisma.entry.findMany({
+        where: { id: { in: queued } },
+        select: { id: true, fileSize: true },
+      })
+    ).map((e) => [e.id, e.fileSize!]),
+  );
+  // A da conexao derrubada (acima) fica fora desta rodada.
+  await prisma.capaAnalysis.update({
+    where: { entryId: inj },
+    data: { nextAttemptAt: new Date(Date.now() + 3600_000) },
+  });
+  const requeue = () =>
+    prisma.capaAnalysis.updateMany({
+      where: { entryId: { in: queued } },
+      data: { status: 'PENDING', attempts: 0, nextAttemptAt: new Date(), createdAt: new Date() },
+    });
+  // Uma replica so: o menor arquivo primeiro, mas quem espera ha mais de 30 min passa a frente.
+  env.CAPA_WORKERS = 1;
+  await requeue();
+  const bySize = [...queued].sort((x, y) => sizeOf.get(x)! - sizeOf.get(y)!);
+  const oldBig = bySize.at(-1)!;
+  await prisma.capaAnalysis.update({
+    where: { entryId: oldBig },
+    data: { createdAt: new Date(Date.now() - 2 * capaTiming.agedMs) },
+  });
+  await startCapaQueue(log);
+  await capaIdle();
+  const expected = [oldBig, ...bySize.slice(0, -1)].map((id) => sizeOf.get(id));
+  ok(
+    'fila: quem espera há mais de 30 min primeiro; depois o menor arquivo',
+    JSON.stringify(sizes) === JSON.stringify(expected) && peak === 1,
+    { sizes, expected, peak },
+  );
+  // Duas analises ao mesmo tempo, uma em cada replica.
+  sizes.length = 0;
+  peak = 0;
+  served[0] = served[1] = 0;
+  env.CAPA_WORKERS = 2;
+  await requeue();
+  await startCapaQueue(log);
+  await capaIdle();
+  const done = await prisma.capaAnalysis.count({
+    where: { entryId: { in: queued }, status: 'DONE' },
+  });
+  ok(
+    'duas réplicas: duas análises ao mesmo tempo, uma em cada',
+    done === queued.length && peak === 2 && served[0] > 0 && served[1] > 0,
+    { done, peak, served },
+  );
+  // Replica ocupada (e a outra sem resposta): a fila espera, sem gastar tentativa.
+  const busyReplica = http.createServer((_req, res) =>
+    res.writeHead(200, { 'content-type': 'application/json' }).end('{"state":"analisando"}'),
+  );
+  await new Promise<void>((r) => busyReplica.listen(0, '127.0.0.1', r));
+  const busyUrl = `http://127.0.0.1:${(busyReplica.address() as AddressInfo).port}`;
+  capaTiming.replicas = async () => ['http://127.0.0.1:9', busyUrl];
+  capaTiming.serviceWaitMs = 1500;
+  await prisma.capaAnalysis.update({
+    where: { entryId: net },
+    data: { status: 'PENDING', attempts: 0, nextAttemptAt: new Date(), error: null },
+  });
+  await startCapaQueue(log);
+  await capaIdle();
+  const waiting = await row(net);
+  ok(
+    'réplica ocupada não é serviço fora: a análise segue na fila, sem tentativa gasta',
+    waiting?.status === 'PENDING' && waiting.attempts === 0 && waiting.error === null,
+    waiting,
+  );
+  // Nenhuma respondendo: conta a tentativa com o motivo, como com uma replica so.
+  // Em producao o CAPA_URL e o nome das replicas: aqui, o mesmo endereco sem resposta.
+  env.CAPA_URL = 'http://127.0.0.1:9';
+  capaTiming.replicas = async () => [env.CAPA_URL];
+  await startCapaQueue(log);
+  await capaIdle();
+  const noneUp = await row(net);
+  ok(
+    'nenhuma réplica respondendo: tentativa contada com o motivo',
+    noneUp?.status === 'PENDING' &&
+      noneUp.attempts === 1 &&
+      noneUp.error === 'o serviço capa não respondeu',
+    noneUp,
+  );
+  busyReplica.close();
+  await replicaA.close();
+  await replicaB.close();
+  capaTiming.replicas = null;
+  capaTiming.serviceWaitMs = 90_000;
+  env.CAPA_WORKERS = 2;
+  env.CAPA_URL = REAL;
+
   // ------------------------------------------------------------ 4. reinicio da API e exclusao
   await prisma.capaAnalysis.update({
     where: { entryId: inj },

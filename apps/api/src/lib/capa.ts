@@ -1,3 +1,6 @@
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { z } from 'zod';
 
@@ -13,9 +16,14 @@ import { applyTriageRulesQuietly } from './triage-rules';
 /**
  * Analise de funcoes (item 7.2): o servico `capa` (apps/capa) roda o capa e o FLOSS num container
  * sem rede, sem root e com a raiz somente leitura, um container por analise. Aqui fica a fila:
- * em segundo plano, um trabalho por vez, e persistida no banco (a API pode reiniciar no meio).
- * Uma analise leva de segundos a minutos (o capa passou de 17 min num PE de 4.000 funcoes), entao
+ * em segundo plano e persistida no banco (a API pode reiniciar no meio). Uma analise leva de
+ * segundos a 15 min (os tetos do servico; um executavel em Go de 2 MB ja passa de 8 min), entao
  * nunca entra no caminho do envio.
+ *
+ * Varias ao mesmo tempo (CAPA_WORKERS): o compose sobe uma replica do servico por analise, todas
+ * atras do mesmo nome, e cada analise reserva uma replica livre (pelo /health de cada endereco do
+ * nome) antes de tirar um trabalho da fila. A fila pega o menor arquivo primeiro, e quem espera ha
+ * mais de CAPA_AGED_MS passa a frente: antes, um unico executavel grande parava todos os outros.
  */
 
 /** Executaveis que o capa le (o FLOSS so decifra os do Windows; o servico decide). */
@@ -34,11 +42,17 @@ const TICK_MS = 15_000;
 const SERVICE_WAIT_MS = 120_000;
 const RETRY_EVERY_MS = 2000;
 
+/** Quem espera na fila ha mais que isto passa a frente dos arquivos menores. */
+const AGED_MS = 30 * 60 * 1000;
+
 /** Tempos da fila; os testes os encurtam (os de producao sao os de cima). */
 export const capaTiming = {
   serviceWaitMs: SERVICE_WAIT_MS,
   retryEveryMs: RETRY_EVERY_MS,
   retryAfterMs: RETRY_AFTER_MS,
+  agedMs: AGED_MS,
+  /** Os testes trocam a resolucao das replicas (varios servicos falsos atras de um "nome"). */
+  replicas: null as null | (() => Promise<string[]>),
 };
 /** Indicadores das strings do FLOSS guardados como sugestao, por tipo. */
 const IOCS_PER_KIND = 15;
@@ -138,9 +152,9 @@ export function flossIocs(floss: FlossResult | null): Ioc[] {
 
 // ------------------------------------------------------------------ chamada ao servico
 
-const service = (): AnalysisService => ({
+const service = (url = env.CAPA_URL): AnalysisService => ({
   name: 'capa',
-  url: env.CAPA_URL,
+  url,
   token: env.CAPA_TOKEN,
   timeoutS: env.CAPA_REQUEST_TIMEOUT_S,
 });
@@ -148,9 +162,87 @@ const service = (): AnalysisService => ({
 /** Manda o arquivo ao capa quando ele estiver livre (ver analysis-service.ts). */
 export function requestCapa(
   data: Uint8Array,
-  { waitMs = capaTiming.serviceWaitMs, retryEveryMs = capaTiming.retryEveryMs } = {},
+  {
+    waitMs = capaTiming.serviceWaitMs,
+    retryEveryMs = capaTiming.retryEveryMs,
+    url = env.CAPA_URL,
+  } = {},
 ): Promise<Response> {
-  return requestAnalysis(service(), data, { waitMs, retryEveryMs });
+  return requestAnalysis(service(url), data, { waitMs, retryEveryMs });
+}
+
+/**
+ * Os enderecos das replicas: o nome do CAPA_URL resolvido em todos os IPs (o DNS do Docker da um
+ * por container). Com https, ou se o nome nao resolver, fica o proprio CAPA_URL.
+ */
+async function replicas(): Promise<string[]> {
+  if (capaTiming.replicas) return capaTiming.replicas();
+  const url = new URL(env.CAPA_URL);
+  if (url.protocol !== 'http:' || isIP(url.hostname.replace(/^\[|\]$/g, ''))) {
+    return [env.CAPA_URL];
+  }
+  try {
+    const all = await lookup(url.hostname, { all: true });
+    // So IPv4 quando houver: "localhost" da 127.0.0.1 e ::1, o mesmo servico duas vezes.
+    const v4 = all.filter((a) => a.family === 4);
+    const found = v4.length ? v4 : all;
+    return [
+      ...new Set(
+        found.map(({ address, family }) => {
+          const one = new URL(env.CAPA_URL);
+          one.hostname = family === 6 ? `[${address}]` : address;
+          return one.toString().replace(/\/$/, '');
+        }),
+      ),
+    ];
+  } catch {
+    return [env.CAPA_URL];
+  }
+}
+
+/** Replicas reservadas pelas analises em andamento neste processo. */
+const reserved = new Set<string>();
+
+type Slot = { kind: 'replica'; url: string } | { kind: 'down' } | { kind: 'busy' };
+
+/** Estado de uma replica pelo /health: livre, ocupada (analisando ou trocando) ou sem resposta. */
+async function replicaState(url: string): Promise<'livre' | 'ocupada' | null> {
+  try {
+    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) {
+      await res.body?.cancel();
+      return null;
+    }
+    const body = (await res.json().catch(() => ({}))) as { state?: string };
+    return body.state === undefined || body.state === 'livre' ? 'livre' : 'ocupada';
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reserva uma replica livre. Todas ocupadas por analises daqui: `busy` na hora (a fila espera).
+ * Alguma trocando de container ou analisando: espera ate serviceWaitMs e, se alguma respondeu,
+ * `busy` (ocupada nao e fora do ar). Nenhuma respondeu: `down`, e a fila conta a tentativa com o
+ * motivo, como com uma replica so.
+ */
+async function reserveReplica(): Promise<Slot> {
+  const deadline = Date.now() + capaTiming.serviceWaitMs;
+  let alive = reserved.size > 0;
+  for (;;) {
+    const free = (await replicas()).filter((url) => !reserved.has(url));
+    if (!free.length) return { kind: 'busy' };
+    for (const url of free) {
+      const state = await replicaState(url);
+      if (state) alive = true;
+      if (state === 'livre' && !reserved.has(url)) {
+        reserved.add(url);
+        return { kind: 'replica', url };
+      }
+    }
+    if (Date.now() >= deadline) return alive ? { kind: 'busy' } : { kind: 'down' };
+    await new Promise((resolve) => setTimeout(resolve, capaTiming.retryEveryMs));
+  }
 }
 
 // ------------------------------------------------------------------ fila
@@ -193,36 +285,61 @@ export async function enqueueCapaIfEligible(
   await enqueueCapa(entryId).catch((err) => log.error({ err }, '[capa] falha ao enfileirar'));
 }
 
-let worker: Promise<void> | null = null;
+/** Analises em andamento (ate CAPA_WORKERS). */
+const workers = new Set<Promise<void>>();
+/** Um trabalhador ja esta contando a tentativa com o servico fora: os outros nao repetem. */
+let probingDown = false;
 let timer: NodeJS.Timeout | null = null;
 let logger: { info: (m: string) => void; error: (o: object, m: string) => void } = {
   info: () => undefined,
   error: () => undefined,
 };
 
-/** Acorda a fila agora (sem esperar o proximo tique). */
+/** Acorda a fila agora (sem esperar o proximo tique): um trabalhador por analise possivel. */
 function wake(): void {
-  if (worker || !capaEnabled()) return;
-  // O catch e o que segura o processo: sem ele, o banco falhando no claim() (ou no finish() de
-  // dentro do catch do drain) vira rejeicao sem tratamento, e o Node encerra a API inteira. A fila
-  // tenta de novo no proximo tique.
-  worker = drain()
-    .catch((err: unknown) => logger.error({ err }, '[capa] a fila parou; volta no próximo tique'))
-    .finally(() => (worker = null));
+  if (!capaEnabled()) return;
+  while (workers.size < env.CAPA_WORKERS) {
+    // O catch e o que segura o processo: sem ele, o banco falhando no claim() (ou no finish() de
+    // dentro do catch do drain) vira rejeicao sem tratamento, e o Node encerra a API inteira. A
+    // fila tenta de novo no proximo tique.
+    const run: Promise<void> = drain()
+      .catch((err: unknown) => logger.error({ err }, '[capa] a fila parou; volta no próximo tique'))
+      .finally(() => workers.delete(run));
+    workers.add(run);
+  }
 }
 
 /** Para os testes: espera a fila esvaziar. */
 export async function capaIdle(): Promise<void> {
-  while (worker) await worker;
+  while (workers.size) await Promise.all([...workers]);
+}
+
+const ready = () => ({ status: 'PENDING' as const, nextAttemptAt: { lte: new Date() } });
+
+/**
+ * A proxima da fila: quem espera ha mais de agedMs primeiro (a mais antiga); senao, o menor
+ * arquivo. Assim os executaveis pequenos (segundos) nao ficam atras dos grandes (ate 15 min),
+ * e um grande nao fica para sempre no fim.
+ */
+async function nextJob() {
+  const aged = await prisma.capaAnalysis.findFirst({
+    where: { ...ready(), createdAt: { lt: new Date(Date.now() - capaTiming.agedMs) } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  return (
+    aged ??
+    prisma.capaAnalysis.findFirst({
+      where: ready(),
+      orderBy: [{ entry: { fileSize: 'asc' } }, { createdAt: 'asc' }],
+      select: { id: true },
+    })
+  );
 }
 
 /** Proxima analise da fila, marcada como em andamento (so uma instancia a pega). */
 async function claim() {
-  const next = await prisma.capaAnalysis.findFirst({
-    where: { status: 'PENDING', nextAttemptAt: { lte: new Date() } },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true },
-  });
+  const next = await nextJob();
   if (!next) return null;
   const taken = await prisma.capaAnalysis.updateMany({
     where: { id: next.id, status: 'PENDING' },
@@ -231,15 +348,32 @@ async function claim() {
   return taken.count ? prisma.capaAnalysis.findUnique({ where: { id: next.id } }) : null;
 }
 
+/**
+ * Um trabalhador: reserva uma replica livre e so entao tira um trabalho da fila (nenhuma tentativa
+ * se perde esperando replica). Sem nenhuma replica respondendo, um trabalhador so pega o proximo e
+ * conta a tentativa com o motivo, como antes.
+ */
 async function drain(): Promise<void> {
   for (;;) {
-    const job = await claim();
-    if (!job) return;
+    if (!(await nextJob())) return;
+    const slot = await reserveReplica();
+    if (slot.kind === 'busy') return;
+    if (slot.kind === 'down') {
+      if (probingDown) return;
+      probingDown = true;
+    }
     try {
-      await analyzeJob(job.id, job.entryId, job.attempts);
-    } catch (err) {
-      logger.error({ err }, '[capa] falha na análise');
-      await finish(job.id, { status: 'FAILED', error: 'falha interna na análise' });
+      const job = await claim();
+      if (!job) return;
+      try {
+        await analyzeJob(job.id, job.entryId, job.attempts, slot);
+      } catch (err) {
+        logger.error({ err }, '[capa] falha na análise');
+        await finish(job.id, { status: 'FAILED', error: 'falha interna na análise' });
+      }
+    } finally {
+      if (slot.kind === 'replica') reserved.delete(slot.url);
+      else probingDown = false;
     }
   }
 }
@@ -248,7 +382,12 @@ function finish(id: string, data: Prisma.CapaAnalysisUpdateInput) {
   return prisma.capaAnalysis.update({ where: { id }, data: { finishedAt: new Date(), ...data } });
 }
 
-async function analyzeJob(id: string, entryId: string, attempts: number): Promise<void> {
+async function analyzeJob(
+  id: string,
+  entryId: string,
+  attempts: number,
+  slot: { kind: 'replica'; url: string } | { kind: 'down' },
+): Promise<void> {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
     select: { storageKey: true, bucket: true, filePurgedAt: true, deletedAt: true },
@@ -273,7 +412,12 @@ async function analyzeJob(id: string, entryId: string, attempts: number): Promis
 
   let res: Response;
   try {
-    res = await requestCapa(data);
+    // Com a replica reservada (ja livre), o pedido vai a ela; sem nenhuma no ar, a espera ja
+    // passou na reserva e o pedido so confirma.
+    res =
+      slot.kind === 'replica'
+        ? await requestCapa(data, { url: slot.url })
+        : await requestCapa(data, { waitMs: 0 });
   } catch (err) {
     const reason = requestFailure(service(), err);
     // Servico fora do ar: tenta de novo mais tarde. Conexao que caiu no meio pode ser o proprio

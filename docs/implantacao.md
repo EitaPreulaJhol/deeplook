@@ -21,8 +21,9 @@ Each step says **what to do**, **how to check it** and, when one already exists,
   docker compose version
   ```
 - [ ] **Memory:** about 10 GB free. ClamAV uses 1.5 to 3 GB (the signature database is kept in
-  memory), the API has a 4 GB ceiling (`API_MEM_LIMIT`), function analysis (capa and FLOSS) 3 GB
-  (`CAPA_MEM_LIMIT`; it only uses that during an analysis), Ghidra 6 GB (`GHIDRA_MEM_LIMIT`; only when
+  memory), the API has a 4 GB ceiling (`API_MEM_LIMIT`), function analysis (capa and FLOSS) 3 GB per
+  container (`CAPA_MEM_LIMIT`; `CAPA_WORKERS`, 2 by default, analyses run at once, and each one only
+  uses that while analyzing), Ghidra 6 GB (`GHIDRA_MEM_LIMIT`; only when
   an analyst asks), unpacking 2 GB, oletools 1 GB and the capture 1 GB; with the `netcap` profile,
   Suricata 2 GB more. Except for ClamAV and the API, each one only takes memory while it works (a new
   container per job). Disk: the images add up to about 8 GB (the capture browser about 2 GB, Ghidra

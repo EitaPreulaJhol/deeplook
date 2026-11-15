@@ -22,7 +22,8 @@ Cada passo diz **o que fazer**, **como conferir** e, quando já existe, **onde e
   ```
 - [ ] **Memória:** uns 10 GB livres. O ClamAV usa de 1,5 a 3 GB (a base de assinaturas fica na
   memória), a API tem teto de 4 GB (`API_MEM_LIMIT`), a análise de funções (capa e FLOSS), de
-  3 GB (`CAPA_MEM_LIMIT`; só gasta isso durante uma análise), o Ghidra, de 6 GB
+  3 GB por contêiner (`CAPA_MEM_LIMIT`; são `CAPA_WORKERS`, 2 por padrão, análises ao mesmo tempo, e
+  cada uma só gasta isso enquanto analisa), o Ghidra, de 6 GB
   (`GHIDRA_MEM_LIMIT`; só quando um analista pede), o desempacotamento, de 2 GB, o oletools, de 1 GB,
   e a captura, de 1 GB; com o perfil `netcap`, mais 2 GB do Suricata. Tirando o ClamAV e a API, cada
   um só ocupa memória enquanto trabalha (um contêiner novo por trabalho). Disco: as imagens somam

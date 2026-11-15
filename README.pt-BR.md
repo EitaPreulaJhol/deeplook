@@ -493,8 +493,11 @@ amostras (A × B) mostra imphash, Rich header e quem assinou.
 ## Análise de funções (capa e FLOSS)
 
 Cada executável do Windows ou do Linux enviado (até `CAPA_MAX_MB`, 32 MB) entra numa fila, e o
-serviço `capa` o analisa em segundo plano, um por vez. Nada é executado: as duas ferramentas da
-Mandiant leem e emulam o código.
+serviço `capa` o analisa em segundo plano, `CAPA_WORKERS` de cada vez (2 por padrão, um
+contêiner por análise), os arquivos menores primeiro; quem espera há mais de 30 minutos passa à
+frente. Um executável grande ou em Go prende o seu contêiner por até 15 minutos (os tetos do capa e
+do FLOSS) sem parar a fila inteira. Nada é executado: as duas ferramentas da Mandiant leem e emulam
+o código.
 
 - **[capa](https://github.com/mandiant/capa)** diz o que as funções fazem ("injeta thread em
   outro processo", "contém strings montadas na pilha", "carrega assembly .NET"), com o grupo, as
@@ -1113,7 +1116,8 @@ COOKIE_SECURE=true
 | `CAPA_MAX_MB` | executáveis maiores não vão para o capa (o serviço tem o mesmo teto) | `32` |
 | `CAPA_TIMEOUT_S` / `FLOSS_TIMEOUT_S` | tempo máximo de cada ferramenta, no serviço | `600` / `300` |
 | `CAPA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise (acima da soma dos dois) | `1000` |
-| `CAPA_MEM_LIMIT` | memória do contêiner `capa` | `3g` |
+| `CAPA_MEM_LIMIT` | memória de cada contêiner `capa` | `3g` |
+| `CAPA_WORKERS` | análises do capa ao mesmo tempo (contêineres `capa`; cada um com até `CAPA_MEM_LIMIT`) | `2` |
 | `CAPA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
 | `GHIDRA_URL` | serviço do Ghidra (sob demanda); vazio desliga | `http://ghidra:3300` |
 | `GHIDRA_TOKEN` | token compartilhado entre a API e o serviço `ghidra` (16+ caracteres) | — |
