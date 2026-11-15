@@ -359,6 +359,8 @@ services:
       # Heap do Java; o container precisa de folga para o descompilador (processo nativo) e o /tmp.
       GHIDRA_HEADLESS_MAXMEM: ${GHIDRA_HEADLESS_MAXMEM:-3G}
       GHIDRA_RECYCLE: ${GHIDRA_RECYCLE:-true}
+      # Pseudo-C de todas as funcoes: teto do codigo somado (MB).
+      GHIDRA_MAX_PSEUDO_MB: ${GHIDRA_MAX_PSEUDO_MB:-32}
     # O projeto do Ghidra, a amostra e o .gzf ficam no /tmp em memoria, sem executaveis (o
     # descompilador nativo roda de /opt, somente leitura).
     read_only: true

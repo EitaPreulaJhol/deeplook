@@ -2,9 +2,10 @@
 
 Recebe POST /analyze (corpo = o executavel, com o token da API) e roda o Ghidra headless em duas
 passadas: a primeira importa, analisa e exporta o resumo (ExportDeepLook.java: funcoes, quem chama
-APIs sensiveis e o pseudo-C dessas funcoes); a segunda abre o programa ja gravado, sem analisar de
-novo, e empacota o projeto .gzf para abrir no Ghidra local (PackGzf.java). Devolve o resumo e o
-.gzf em base64. Um trabalho por vez; com GHIDRA_RECYCLE (padrao), o processo sai depois de responder
+APIs sensiveis e o pseudo-C dessas funcoes) e o pseudo-C de todas as funcoes, ate o prazo
+(plans/ghidra-pseudo-c); a segunda abre o programa ja gravado, sem analisar de novo, e empacota o
+projeto .gzf para abrir no Ghidra local (PackGzf.java). Devolve o resumo, o pseudo-C completo
+(JSON com gzip) e o .gzf, os dois em base64. Um trabalho por vez; com GHIDRA_RECYCLE (padrao), o processo sai depois de responder
 e o Docker sobe um container limpo, como a captura (item 6.17) e o capa (7.2).
 
 Mesmo esqueleto do apps/capa/server.py (token, recusa lendo o corpo, /health com o estado, troca de
@@ -12,6 +13,7 @@ container): mudou um, confira o outro.
 """
 
 import base64
+import gzip
 import hmac
 import json
 import os
@@ -41,6 +43,14 @@ MAX_BYTES = int(os.environ.get("GHIDRA_MAX_MB", "32")) * 1024 * 1024
 TIMEOUT = int(os.environ.get("GHIDRA_TIMEOUT_S", "900"))
 # O .gzf traz o programa inteiro (com os bytes da amostra); acima disto nao volta.
 MAX_GZF = int(os.environ.get("GHIDRA_MAX_GZF_MB", "64")) * 1024 * 1024
+# Pseudo-C completo: teto do codigo (UTF-8) somado de todas as funcoes; o script para de guardar ao
+# passar dele. O arquivo tem ainda os metadados e o escape do JSON: acima de PSEUDO_FILE_MAX, nao
+# volta. A API descomprime com o mesmo limite (lib/ghidra.ts).
+MAX_PSEUDO = int(os.environ.get("GHIDRA_MAX_PSEUDO_MB", "32")) * 1024 * 1024
+PSEUDO_FILE_MAX = 2 * MAX_PSEUDO + 64 * 1024 * 1024
+# O prazo do pseudo-C completo fica antes do teto da primeira passada: as funcoes em andamento
+# terminam (ate 30 s cada) e o script ainda grava os dois arquivos.
+PSEUDO_MARGIN_S = 90
 GHIDRA = os.environ.get("GHIDRA_HOME", "/opt/ghidra")
 APP = os.environ.get("GHIDRA_APP", "/app")
 VERSION = os.environ.get("GHIDRA_VERSION", "")
@@ -107,6 +117,17 @@ def headless(project, *args):
     ]
 
 
+def pack_pseudo(path):
+    """Pseudo-C completo em gzip e base64, ou (None, motivo). O resumo vale sem ele."""
+    if not os.path.exists(path):
+        return None, "o pseudo-C completo não foi gerado"
+    if os.path.getsize(path) > PSEUDO_FILE_MAX:
+        return None, f"pseudo-C completo acima de {PSEUDO_FILE_MAX // (1024 * 1024)} MB"
+    with open(path, "rb") as f:
+        packed = gzip.compress(f.read(), compresslevel=6, mtime=0)
+    return base64.b64encode(packed).decode(), None
+
+
 def analyze(data):
     started = time.monotonic()
     work = tempfile.mkdtemp(prefix="ghidra-", dir="/tmp")
@@ -114,6 +135,7 @@ def analyze(data):
         sample = os.path.join(work, "amostra")
         project = os.path.join(work, "projeto")
         out = os.path.join(work, "resumo.json")
+        pseudo = os.path.join(work, "pseudo.json")
         gzf = os.path.join(work, "projeto.gzf")
         os.mkdir(project)
         with open(sample, "wb") as f:
@@ -121,6 +143,7 @@ def analyze(data):
         # A analise automatica para em 70% do teto e o script ainda roda: sai um resultado
         # parcial em vez de nada.
         analysis_timeout = max(60, int(TIMEOUT * 0.7))
+        deadline_ms = int((time.time() + max(30, TIMEOUT - PSEUDO_MARGIN_S)) * 1000)
         error = run(
             headless(
                 project,
@@ -133,6 +156,9 @@ def analyze(data):
                 out,
                 f"{APP}/sensitive-apis.txt",
                 f"{APP}/pe-ordinals.json",
+                pseudo,
+                str(deadline_ms),
+                str(MAX_PSEUDO),
             ),
             TIMEOUT,
             os.path.join(work, "passo1.log"),
@@ -162,6 +188,8 @@ def analyze(data):
             else:
                 with open(gzf, "rb") as f:
                     gzf_b64 = base64.b64encode(f.read()).decode()
+        # Depois da segunda passada, com o Java fora da memoria.
+        pseudo_b64, pseudo_error = pack_pseudo(pseudo)
         return {
             "ok": True,
             "kind": kind_of(data[:4]),
@@ -169,6 +197,8 @@ def analyze(data):
             "summary": summary,
             "gzf": gzf_b64,
             "gzfError": gzf_error,
+            "pseudo": pseudo_b64,
+            "pseudoError": pseudo_error,
             "ms": int((time.monotonic() - started) * 1000),
         }
     finally:
