@@ -1606,7 +1606,10 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
 O ambiente abre pelo botão **"Abrir ambiente isolado"** da barra de ferramentas da amostra (analistas,
 arquivo presente, nenhum ambiente ativo). Ele mostra um diálogo com as opções de início e o botão
 **"Iniciar ambiente"**, que abre a janela do console e leva à aba Análise; um erro (como o limite de
-ambientes) aparece no próprio diálogo. A caixa **"Executar a amostra automaticamente"** do diálogo
+ambientes) aparece no próprio diálogo. Com um ambiente ativo, o mesmo lugar da barra vira **"Abrir
+console"** (no ar) ou **"Ir para o ambiente"** (subindo ou encerrando). O "Abrir novo ambiente" da
+janela do console usa o mesmo diálogo, e a própria janela passa a mostrar o ambiente novo. A caixa
+**"Executar a amostra automaticamente"** do diálogo
 (lembrada no navegador) pede que o DeepLook rode a amostra sozinho, para uma análise rápida: abrir, esperar e ler os artefatos.
 Depois que o Windows sobe e o Sysmon está no ar, a API, pelo `qemu-guest-agent`, copia a amostra do
 CD para a pasta temporária do usuário logado e a abre **na sessão dele**, por uma tarefa agendada

@@ -64,6 +64,7 @@ import {
 } from '../components/ResolutionSection';
 import { RiskSection } from '../components/RiskSection';
 import { SandboxLaunchDialog } from '../components/SandboxLaunchDialog';
+import { openConsoleWindow } from '../components/sandboxOpen';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
@@ -386,7 +387,29 @@ export function EntryDetailPage() {
           />
         )}
         {/* Ambiente isolado: so analistas, arquivo presente e nenhum ambiente ativo. Abre o dialogo
-            com as opcoes de inicio; "Iniciar ambiente" leva para a aba Analise. */}
+            com as opcoes de inicio; "Iniciar ambiente" leva para a aba Analise. Com um ambiente
+            ativo, o mesmo lugar abre o console (no ar) ou leva ao ambiente (subindo, encerrando). */}
+        {canTriage &&
+          sandboxSession &&
+          sandboxActive &&
+          (sandboxRunning && sandboxQuery.data?.consoleEnabled !== false ? (
+            <HpsmToolbarButton
+              label={tSandbox('openConsole')}
+              icon={IconScreen}
+              onClick={() => {
+                setPinNotice(null);
+                if (!openConsoleWindow(entry.id)) {
+                  setPinNotice({ ok: false, text: tSandbox('popupBlockedConsole'), warning: true });
+                }
+              }}
+            />
+          ) : (
+            <HpsmToolbarButton
+              label={tSandbox('goToEnv')}
+              icon={IconScreen}
+              onClick={() => changeTab('analise')}
+            />
+          ))}
         {canTriage &&
           entry.type === 'FILE' &&
           sandboxQuery.data?.enabled &&

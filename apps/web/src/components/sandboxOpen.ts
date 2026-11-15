@@ -42,8 +42,10 @@ export type OpenResult = { kind: 'ok' } | { kind: 'warning' | 'error'; text: str
 export function useOpenSandbox(entryId: string) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const open = async (autoRun = readAutoRun()): Promise<OpenResult> => {
-    const opened = openConsoleWindow(entryId);
+  const open = async (autoRun = readAutoRun(), withConsole = true): Promise<OpenResult> => {
+    // Dentro da propria janela do console, nao: abri-la pelo nome dela a recarregaria e cancelaria
+    // o pedido; ela mesma passa a mostrar o ambiente novo.
+    const opened = withConsole ? openConsoleWindow(entryId) : true;
     setBusy(true);
     try {
       await api.post(`/entries/${entryId}/sandbox`, { autoRun });

@@ -12,9 +12,14 @@ const state = createState({ loggedIn: true });
 await setupMock(context, state);
 const page = await context.newPage();
 watchErrors(page);
-// A janela do console abre num popup: fecha (o roteiro olha o painel).
+// A janela do console abre num popup: guarda o endereco e fecha (o roteiro olha o painel).
+const popupUrls = [];
 context.on('page', (p) => {
-  if (p !== page) void p.close();
+  if (p === page) return;
+  void p.waitForLoadState('domcontentloaded').then(() => {
+    popupUrls.push(new URL(p.url()).pathname);
+    return p.close();
+  });
 });
 
 let failures = 0;
@@ -90,6 +95,27 @@ expect('aviso de que o Sysmon não estava no ar', text.includes('O Sysmon não e
 await panel.scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${OUT}/sandbox-autorun.png`, fullPage: true });
 
+// 2b. Ambiente no ar: a barra troca "Abrir ambiente isolado" por "Abrir console".
+const toolbarBtn = (name) => page.locator('.hpsm-toolbar button', { hasText: name });
+expect(
+  'ambiente no ar: "Abrir console" na barra, sem "Abrir ambiente isolado"',
+  (await toolbarBtn('Abrir console').count()) === 1 && (await toolbarOpen.count()) === 0,
+);
+const popupsBefore = popupUrls.length;
+await toolbarBtn('Abrir console').click();
+await page.waitForFunction(() => true);
+for (let i = 0; i < 20 && popupUrls.length === popupsBefore; i++) await page.waitForTimeout(100);
+expect('"Abrir console" abre a janela do console da amostra', popupUrls.at(-1) === '/sandbox/entry/e1/console', popupUrls.join(' '));
+// Subindo: "Ir para o ambiente" leva a aba Analise.
+const running = state.sandboxes.e1;
+state.sandboxes.e1 = { ...running, status: 'PROVISIONING', phase: 'clonando' };
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+await toolbarBtn('Ir para o ambiente').click();
+await panel.waitFor();
+expect('subindo: "Ir para o ambiente" leva à aba Análise', page.url().includes('tab=analise') && (await toolbarOpen.count()) === 0);
+state.sandboxes.e1 = running;
+await page.goto(ORIGIN + '/entries/e1?tab=analise', { waitUntil: 'networkidle' });
+
 // 3. Como SYSTEM (nenhum usuario logado): o aviso de que nao aparece no console.
 state.sandboxes.e1 = { ...state.sandboxes.e1, autoRunUser: 'SYSTEM', autoRunSysmon: true };
 await page.reload({ waitUntil: 'networkidle' });
@@ -110,6 +136,26 @@ await dialog.waitFor();
 expect('encerrado: o botão volta e a escolha continua lembrada', await box().isChecked());
 await page.keyboard.press('Escape');
 await dialog.waitFor({ state: 'detached' });
+
+// 5b. Janela do console com o ambiente encerrado: "Abrir novo ambiente" abre o mesmo dialogo, e
+// ela mesma passa a mostrar o ambiente novo (nenhuma janela nova).
+const opensBefore = state.sandboxOpens.length;
+const popupsAtConsole = popupUrls.length;
+await page.goto(ORIGIN + '/sandbox/entry/e1/console', { waitUntil: 'networkidle' });
+await page.locator('button', { hasText: 'Abrir novo ambiente' }).click();
+await dialog.waitFor();
+expect('janela do console: o diálogo de início, com a escolha lembrada', (await dialog.evaluate((d) => d.open && d.matches(':modal'))) && (await box().isChecked()));
+await dialog.locator('button', { hasText: 'Iniciar ambiente' }).click();
+await dialog.waitFor({ state: 'detached' });
+await page.waitForTimeout(300);
+expect(
+  'janela do console: pede com autoRun, sem abrir outra janela nem sair da página',
+  state.sandboxOpens.length === opensBefore + 1 &&
+    state.sandboxOpens.at(-1).body.autoRun === true &&
+    popupUrls.length === popupsAtConsole &&
+    new URL(page.url()).pathname === '/sandbox/entry/e1/console',
+  JSON.stringify(state.sandboxOpens.at(-1)),
+);
 
 // 6. Historico da amostra.
 events.e1.push({ id: 'e1-autorun', entryId: 'e1', type: 'SANDBOX_AUTORUN', toValue: 'no-sysmon', detail: 'DEEPLOOK\\DeepLookUser', createdAt: at, actor: { id: 'u1', displayName: 'Ana Souza' } });

@@ -10,6 +10,7 @@ import { HpsmToolbar, HpsmToolbarButton, HpsmToolbarDivider } from '../component
 import { IconRefresh, IconScreen, IconTrash } from '../components/icons';
 import { HpsmLoading, HpsmMessage } from '../components/messages';
 import { SandboxConsole, type SandboxConsoleHandle } from '../components/SandboxConsole';
+import { SandboxLaunchDialog } from '../components/SandboxLaunchDialog';
 import {
   isSandboxActive,
   isSandboxWorking,
@@ -38,6 +39,8 @@ export function SandboxConsoleWindowPage() {
   const confirm = useConfirm();
   const consoleRef = useRef<SandboxConsoleHandle>(null);
   const [error, setError] = useState<string | null>(null);
+  // Dialogo com as opcoes de inicio (o mesmo da barra de ferramentas da amostra).
+  const [launchOpen, setLaunchOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   // Mesma queryKey do painel (chaves consistentes entre as telas). Cada janela
@@ -129,12 +132,18 @@ export function SandboxConsoleWindowPage() {
           <HpsmMessage kind="error">{t('envFailed', { error: session.lastError })}</HpsmMessage>
         )}
         {!isSandboxActive(session.status) && (
-          <Button
-            disabled={busy !== null}
-            onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`))}
-          >
+          <Button disabled={busy !== null} onClick={() => setLaunchOpen(true)}>
             {t('openNewEnv')}
           </Button>
+        )}
+        {launchOpen && (
+          <SandboxLaunchDialog
+            entryId={entryId}
+            sampleName={session.entry?.title ?? ''}
+            openConsole={false}
+            onClose={() => setLaunchOpen(false)}
+            onStarted={() => setError(null)}
+          />
         )}
       </Tile>
     );

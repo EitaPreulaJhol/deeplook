@@ -64,6 +64,7 @@ export const messages = {
   launchSample: ['Amostra:', 'Sample:'],
   launchOptions: ['Opções', 'Options'],
   launchStart: ['Iniciar ambiente', 'Start environment'],
+  goToEnv: ['Ir para o ambiente', 'Go to the environment'],
   cancel: ['Cancelar', 'Cancel'],
   consoleSessionEnded: ['Sessão do console encerrada.', 'Console session ended.'],
   passwordUnavailable: ['senha indisponível', 'password unavailable'],

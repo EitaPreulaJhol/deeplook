@@ -16,9 +16,12 @@ export function SandboxLaunchDialog({
   sampleName,
   onClose,
   onStarted,
+  openConsole = true,
 }: {
   entryId: string;
   sampleName: string;
+  /** Abre a janela do console ao iniciar (false dentro da propria janela do console). */
+  openConsole?: boolean;
   onClose: () => void;
   /** O ambiente foi pedido (com o aviso, se o navegador bloqueou a janela do console). */
   onStarted: (result: OpenResult) => void;
@@ -43,7 +46,7 @@ export function SandboxLaunchDialog({
     if ((e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'cancel') return;
     e.preventDefault();
     setError(null);
-    const result = await opener.open(autoRun);
+    const result = await opener.open(autoRun, openConsole);
     if (result.kind === 'error') {
       setError(result.text);
       return;
