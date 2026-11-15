@@ -8,6 +8,9 @@
 //   node scripts/sandbox-real-check.mjs --keep        nao manda a amostra de teste para a lixeira
 //   node scripts/sandbox-real-check.mjs --auto-run    a amostra roda pela execucao automatica do
 //                                                     DeepLook (a caixa do painel), nao pelo script
+//   node scripts/sandbox-real-check.mjs --stress      a amostra ocupa todos os nucleos da VM por
+//                                                     4 min antes do resto, como malware pesado (o
+//                                                     agente da VM demora a responder)
 //   CHECK_BOOT_WAIT_S=180 node scripts/...            quanto esperar o boot ate o agente responder
 //                                                     (padrao 480 s)
 //
@@ -32,6 +35,8 @@ const READ_ONLY = args.has('--read-only');
 const KEEP = args.has('--keep');
 /** A amostra roda pela execucao automatica do DeepLook (a caixa do painel), nao pelo script. */
 const AUTO_RUN = args.has('--auto-run');
+/** A amostra ocupa todos os nucleos da VM por 4 min (o agente tem de responder mesmo assim). */
+const STRESS = args.has('--stress');
 
 // ------------------------------------------------------------------ configuracao
 
@@ -244,8 +249,11 @@ async function dl(method, path, body) {
   return { status: res.status, json };
 }
 
+const STRESS_LINES = `# --stress: dois processos por nucleo girando por 4 min, como malware pesado.
+1..([Environment]::ProcessorCount * 2) | ForEach-Object { Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', '$s = [Diagnostics.Stopwatch]::StartNew(); while ($s.Elapsed.TotalSeconds -lt 240) { }' }
+`;
 const SAMPLE = `# Amostra inofensiva do teste real do DeepLook (scripts/sandbox-real-check.mjs).
-nslookup deeplook-teste.invalid 2>$null | Out-Null
+${STRESS ? STRESS_LINES : ''}nslookup deeplook-teste.invalid 2>$null | Out-Null
 Resolve-DnsName deeplook-teste.invalid -ErrorAction SilentlyContinue | Out-Null
 try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 http://testmynids.org/uid/index.html | Out-Null } catch {}
 Set-Content -Path "$env:PUBLIC\\deeplook-teste.txt" -Value 'teste do DeepLook'
@@ -689,9 +697,12 @@ async function runEnvironment() {
   }
 
   const t2 = Date.now();
+  // Avisos do agente durante a espera (com --stress, a VM ocupada): cada um e uma coleta perdida.
+  const notes = new Set();
   const after = await until(
     async () => {
       const a = (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
+      if (a?.note) notes.add(a.note);
       const appeared = (a?.processes?.appeared ?? []).map((p) => p.name.toLowerCase());
       // Com o Sysmon no ar, espera a leitura que ja traz a consulta da amostra.
       const sysmonReady =
@@ -704,6 +715,13 @@ async function runEnvironment() {
     5000,
   );
   check('3.2 notepad.exe em "processos que surgiram"', 'O', Boolean(after), secs(Date.now() - t2));
+  check(
+    `3.3 o agente respondeu em todas as coletas${STRESS ? ' (VM com todos os núcleos ocupados)' : ''}`,
+    'D',
+    notes.size === 0,
+    '',
+    [...notes].join(' | ').slice(0, 300),
+  );
   const final = after ?? (await dl('GET', `/sandbox/${sessionId}/artifacts`)).json;
   const sm = final?.sysmon;
   if (!sm) {

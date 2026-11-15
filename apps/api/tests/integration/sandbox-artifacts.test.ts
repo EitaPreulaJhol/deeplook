@@ -18,7 +18,7 @@ async function main() {
   const { ensureBucket, s3 } = await import('../../src/lib/s3');
   const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
   const { pve } = await import('../../src/lib/proxmox');
-  const { mockSysmon, pveMockReset } = await import('../../src/lib/proxmox-mock');
+  const { mockAgentBusy, mockSysmon, pveMockReset } = await import('../../src/lib/proxmox-mock');
   const { artifactKeysOf, collectArtifacts, collectRunning } =
     await import('../../src/lib/sandbox-artifacts');
   const { dispose } = await import('../../src/lib/sandbox');
@@ -120,6 +120,16 @@ async function main() {
       sm.registry.length === 1 &&
       sm.dns[0].query === 'c2.evil.example',
     sm,
+  );
+  // Agente ocupado (a amostra tomando a VM): o PVE da "got timeout" e a coleta repete, sem aviso.
+  mockAgentBusy.calls = 3;
+  const busy = await collectArtifacts(session.id);
+  const busyNote = (await prisma.sandboxSession.findUnique({ where: { id: session.id } }))
+    ?.artifactsNote;
+  ok(
+    'agente ocupado ("got timeout"): a coleta repete e sai inteira, sem aviso',
+    busy.processes && busy.sysmon && mockAgentBusy.calls === 0 && busyNote === null,
+    { busy, busyNote },
   );
   // A ultima coleta (VM ja desligando) com a leitura falhando nao apaga a boa.
   mockSysmon.broken = true;

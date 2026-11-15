@@ -1598,6 +1598,12 @@ it.
   instruction, and Sysmon only showed Windows noise (seen in the test against the real Proxmox).
 - The artifacts (screenshots, processes, Sysmon, capture) stay in the environment section after it
   ends, also when the file was purged by retention or the sandbox is turned off.
+- With the sample keeping the VM busy, the agent is slow, and Proxmox gives up after about 10 s ("got
+  timeout"). The reads (processes, Sysmon, progress) retry within their own deadline instead of losing
+  the collection; the request that runs the sample is not retried (it would run twice), and the
+  failure says to check in the console.
+- The reference process list is taken before the sample (a collection right then, if there is none
+  yet): "processes that appeared" compares against it.
 
 ### Limits, TTL and cleanup
 

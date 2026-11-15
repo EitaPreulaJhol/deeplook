@@ -436,6 +436,14 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'the qemu-guest-agent did not answer in the VM (installed and running in the template?)',
   ],
   ['o agente da VM falhou: {0}', 'the VM agent failed: {0}'],
+  [
+    'o agente da VM não respondeu a tempo, nem repetindo (a amostra pode estar ocupando a VM)',
+    'the VM agent did not answer in time, even when retried (the sample may be keeping the VM busy)',
+  ],
+  [
+    'o agente da VM não confirmou a execução a tempo (VM ocupada); confira no console se a amostra rodou',
+    'the VM agent did not confirm the run in time (VM busy); check in the console whether the sample ran',
+  ],
   ['{0} não terminou a tempo', '{0} did not finish in time'],
   ['a listagem de processos', 'the process listing'],
   ['a leitura do Sysmon', 'the Sysmon read'],

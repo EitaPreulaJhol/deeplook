@@ -40,7 +40,12 @@ import { vncSnapshot } from './vnc-snapshot';
 export type GuestProcess = { pid: number; ppid: number | null; name: string; cmd: string | null };
 
 const MAX_PROCESSES = 500;
-const EXEC_WAIT_MS = 20_000;
+const EXEC_WAIT_MS = 45_000;
+/**
+ * Pausa antes de repetir uma chamada ao agente que o PVE desistiu de esperar ("got timeout", uns
+ * 10 s): com a amostra ocupando a VM, o agente demora, e uma coleta perdida e o que mais importa.
+ */
+const AGENT_RETRY_MS = 3000;
 /**
  * Espera da leitura do Sysmon: ate 2000 eventos convertidos um a um pelo PowerShell 5.1, numa VM
  * que a amostra pode estar ocupando. Os 20 s dos outros comandos nao bastavam.
@@ -145,31 +150,64 @@ function agentProblem(err: unknown): string {
   if (/not running|no qemu guest agent/i.test(text)) {
     return 'o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)';
   }
+  if (agentBusy(err)) {
+    return 'o agente da VM não respondeu a tempo, nem repetindo (a amostra pode estar ocupando a VM)';
+  }
   return `o agente da VM falhou: ${text.slice(0, 160)}`;
 }
 
 const agentBase = (node: string, vmid: number) => `/nodes/${node}/qemu/${vmid}/agent`;
 
+/** O PVE desistiu de esperar o agente ("qga command ... failed - got timeout"): a VM esta ocupada. */
+export function agentBusy(err: unknown): boolean {
+  return /got timeout/i.test(reason(err));
+}
+
+/** Uma chamada ao agente, repetida enquanto ele estiver so ocupado e houver prazo. */
+async function agentCall<T>(call: () => Promise<T>, deadline: number): Promise<T> {
+  for (;;) {
+    try {
+      return await call();
+    } catch (err) {
+      if (!agentBusy(err) || Date.now() + AGENT_RETRY_MS > deadline) throw err;
+      await new Promise((resolve) => setTimeout(resolve, AGENT_RETRY_MS));
+    }
+  }
+}
+
 /** O guest e Windows? (pelo agente; lanca se ele nao responder). */
 export async function guestIsWindows(node: string, vmid: number): Promise<boolean> {
-  const os = await pve<{ result?: { id?: string } }>(`${agentBase(node, vmid)}/get-osinfo`);
+  const os = await agentCall(
+    () => pve<{ result?: { id?: string } }>(`${agentBase(node, vmid)}/get-osinfo`),
+    Date.now() + EXEC_WAIT_MS,
+  );
   return (os.result?.id ?? '').toLowerCase().includes('windows');
 }
 
-/** Roda um comando no guest pelo agente e devolve a saida padrao. */
+/**
+ * Roda um comando no guest pelo agente e devolve a saida padrao. Com o agente ocupado ("got
+ * timeout"), a consulta do andamento sempre repete; o pedido de execucao so com `retryStart`: o
+ * agente pode ter recebido o comando mesmo sem o PVE ver a resposta, e repetir rodaria de novo
+ * (inofensivo numa listagem, nunca na execucao da amostra).
+ */
 export async function guestRun(
   node: string,
   vmid: number,
   command: string[],
   what: string,
-  waitMs = EXEC_WAIT_MS,
+  { waitMs = EXEC_WAIT_MS, retryStart = true }: { waitMs?: number; retryStart?: boolean } = {},
 ): Promise<string> {
   const base = agentBase(node, vmid);
-  const started = await pve<{ pid: number }>(`${base}/exec`, { method: 'POST', body: { command } });
   const deadline = Date.now() + waitMs;
+  const start = () => pve<{ pid: number }>(`${base}/exec`, { method: 'POST', body: { command } });
+  const started = retryStart ? await agentCall(start, deadline) : await start();
   for (;;) {
-    const status = await pve<{ exited?: number | boolean; 'out-data'?: string; exitcode?: number }>(
-      `${base}/exec-status?pid=${started.pid}`,
+    const status = await agentCall(
+      () =>
+        pve<{ exited?: number | boolean; 'out-data'?: string; exitcode?: number }>(
+          `${base}/exec-status?pid=${started.pid}`,
+        ),
+      deadline,
     );
     if (status.exited) return status['out-data'] ?? '';
     if (Date.now() > deadline) throw new Error(`${what} não terminou a tempo`);
@@ -196,7 +234,9 @@ export async function guestProcesses(
 /** O Sysmon do guest Windows desde `since` (plano pos-revisao, item 5.3). */
 export async function guestSysmon(node: string, vmid: number, since: Date): Promise<SysmonSummary> {
   return parseSysmon(
-    await guestRun(node, vmid, sysmonCommand(since), 'a leitura do Sysmon', SYSMON_WAIT_MS),
+    await guestRun(node, vmid, sysmonCommand(since), 'a leitura do Sysmon', {
+      waitMs: SYSMON_WAIT_MS,
+    }),
   );
 }
 

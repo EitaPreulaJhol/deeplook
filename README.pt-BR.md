@@ -1615,6 +1615,11 @@ histórico da amostra registra a execução e quem a pediu.
   instrução, e o Sysmon só mostrava o ruído do Windows (visto no teste contra o Proxmox real).
 - Os artefatos (prints, processos, Sysmon, captura) ficam na seção do ambiente depois que ele
   acaba, também com o arquivo expurgado pela retenção ou com o sandbox desligado.
+- Com a amostra ocupando a VM, o agente demora, e o Proxmox desiste em uns 10 s ("got timeout"). As
+  leituras (processos, Sysmon, andamento) repetem dentro do prazo delas em vez de perder a coleta;
+  o pedido que executa a amostra não repete (rodaria duas vezes), e a falha manda conferir no console.
+- A lista de processos de referência sai antes da amostra (uma coleta na hora, se ainda não houver
+  nenhuma): "processos que surgiram" compara com ela.
 
 ### Limites, TTL e limpeza
 

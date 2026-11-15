@@ -73,6 +73,10 @@ const NOT_SENT: [text: string, reason: string][] = [
     DATA,
   ],
   ['o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)', DATA],
+  [
+    'o agente da VM não respondeu a tempo, nem repetindo (a amostra pode estar ocupando a VM)',
+    DATA,
+  ],
   ['o agente da VM falhou: {0}', DATA],
   ['o console fechou a conexão', DATA],
   ['o console não respondeu a tempo', DATA],

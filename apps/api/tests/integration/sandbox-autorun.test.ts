@@ -16,7 +16,7 @@ async function main() {
   const { hashPassword } = await import('../../src/lib/crypto');
   const { prisma } = await import('../../src/lib/prisma');
   const { pve } = await import('../../src/lib/proxmox');
-  const { mockAutoRuns, pveMockReset } = await import('../../src/lib/proxmox-mock');
+  const { mockAgentBusy, mockAutoRuns, pveMockReset } = await import('../../src/lib/proxmox-mock');
   const { autoRunTick, autoRunTiming, CONHOST, startAutoRun } =
     await import('../../src/lib/sandbox-autorun');
   const { buildApp } = await import('../../src/app');
@@ -107,6 +107,15 @@ async function main() {
     r1?.autoRun === 'DONE' && r1.autoRunUser === 'SANDBOX\\analista' && r1.autoRunSysmon === true,
     r1,
   );
+  const baseline = await prisma.sandboxArtifact.findFirst({
+    where: { sessionId: s1.id, kind: 'PROCESSES' },
+    orderBy: { createdAt: 'asc' },
+  });
+  ok(
+    'lista de processos de referência tirada antes da amostra (o que ela abrir "surge")',
+    Boolean(baseline && r1?.autoRunAt && baseline.createdAt <= r1.autoRunAt),
+    { baseline: baseline?.createdAt, autoRunAt: r1?.autoRunAt },
+  );
   const sent = mockAutoRuns.find((r) => r.vmid === 9000)?.script ?? '';
   const launcher = /-EncodedCommand ([A-Za-z0-9+/=]+)/.exec(sent)?.[1] ?? '';
   const launcherText = Buffer.from(launcher, 'base64').toString('utf16le');
@@ -190,6 +199,21 @@ async function main() {
     en,
   );
   ok('nada executado na VM sem agente', !mockAutoRuns.some((r) => r.vmid === 9999));
+
+  // ---- 4b. Agente ocupado no pedido da amostra: nao repete (rodaria duas vezes) e manda conferir.
+  const e4 = await mkEntry('pesada.exe');
+  const s4 = await mkSession(e4.id, 9100);
+  mockAgentBusy.autorunStart = true;
+  await autoRunTick();
+  mockAgentBusy.autorunStart = false;
+  const r4 = await prisma.sandboxSession.findUnique({ where: { id: s4.id } });
+  ok(
+    'agente ocupado na execução: uma tentativa só, e a falha manda conferir no console',
+    mockAgentBusy.autorunTries === 1 &&
+      r4?.autoRun === 'FAILED' &&
+      String(r4.autoRunError).includes('confira no console se a amostra rodou'),
+    { tries: mockAgentBusy.autorunTries, r4 },
+  );
 
   // ---- 5. API que reinicia no meio de uma execucao: vira falha (nao se sabe se rodou).
   await prisma.sandboxSession.update({ where: { id: s3.id }, data: { autoRun: 'RUNNING' } });

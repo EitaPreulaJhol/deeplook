@@ -3,7 +3,7 @@ import { recordEvent } from './events';
 import { log, reason } from './log';
 import { prisma } from './prisma';
 import { sampleFileName } from './sandbox';
-import { guestIsWindows, guestRun } from './sandbox-artifacts';
+import { agentBusy, collectArtifacts, guestIsWindows, guestRun } from './sandbox-artifacts';
 
 /**
  * Execucao automatica da amostra no ambiente isolado. Pedida pelo analista ao abrir o ambiente
@@ -176,6 +176,14 @@ async function step(s: Waiting, now: number): Promise<void> {
   const sysmon = probe.includes('SYSMON_OK');
   if (!sysmon && now - agentSince.get(s.id)! < autoRunTiming.sysmonWaitMs) return;
 
+  // A lista de processos de referencia sai antes da amostra: "processos que surgiram" compara com
+  // a primeira lista, e uma primeira lista tirada depois da amostra (a coleta periodica so roda a
+  // cada SANDBOX_ARTIFACT_INTERVAL_S) a escondia inteira (visto no teste contra o Proxmox real).
+  const baseline = await prisma.sandboxArtifact.count({
+    where: { sessionId: s.id, kind: 'PROCESSES' },
+  });
+  if (!baseline && !(await collectArtifacts(s.id)).processes) return;
+
   // Uma vez so: quem marca RUNNING executa.
   const claimed = await prisma.sandboxSession.updateMany({
     where: { id: s.id, autoRun: 'PENDING', status: 'RUNNING' },
@@ -191,9 +199,16 @@ async function step(s: Waiting, now: number): Promise<void> {
       s.vmid,
       autoRunCommand(sampleFileName(s.entry)),
       'a execução da amostra',
+      // Nunca repete o pedido: o agente pode te-lo recebido, e a amostra rodaria duas vezes.
+      { retryStart: false },
     );
   } catch (err) {
-    await fail(s, `o agente da VM falhou: ${reason(err).slice(0, 160)}`);
+    await fail(
+      s,
+      agentBusy(err)
+        ? 'o agente da VM não confirmou a execução a tempo (VM ocupada); confira no console se a amostra rodou'
+        : `o agente da VM falhou: ${reason(err).slice(0, 160)}`,
+    );
     return;
   }
   const line = out.trim().split(/\r?\n/).at(-1) ?? '';

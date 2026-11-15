@@ -41,6 +41,13 @@ const agentJobs = new Map<number, 'processes' | 'sysmon' | 'probe' | 'autorun'>(
 export const mockAutoRuns: { vmid: number; script: string }[] = [];
 /** Leitura do Sysmon que volta ilegivel (os testes ligam; como um agente que falha no meio). */
 export const mockSysmon = { broken: false };
+/** As proximas `calls` chamadas ao agente dao "got timeout", como o PVE com a VM ocupada. */
+export const mockAgentBusy = {
+  calls: 0,
+  /** O pedido de execucao da amostra da "got timeout" (e conta quantas vezes veio). */
+  autorunStart: false,
+  autorunTries: 0,
+};
 let agentPid = 1000;
 
 /**
@@ -280,6 +287,10 @@ export async function pveMock(
     if (rest.startsWith('/agent/') && vmid === 9999) {
       throw new Error('QEMU guest agent is not running');
     }
+    if (rest.startsWith('/agent/') && mockAgentBusy.calls > 0) {
+      mockAgentBusy.calls -= 1;
+      throw new Error(`VM ${vmid} qga command 'guest-exec' failed - got timeout`);
+    }
     if (rest === '/agent/get-osinfo') {
       return { result: { id: 'mswindows', name: 'Microsoft Windows 10' } };
     }
@@ -296,6 +307,10 @@ export async function pveMock(
           : script.includes('DEEPLOOK_SYSMON_PROBE')
             ? 'probe'
             : 'sysmon';
+      if (kind === 'autorun' && mockAgentBusy.autorunStart) {
+        mockAgentBusy.autorunTries += 1;
+        throw new Error(`VM ${vmid} qga command 'guest-exec' failed - got timeout`);
+      }
       if (kind === 'autorun') mockAutoRuns.push({ vmid, script });
       if (kind === 'processes') agentRuns += 1;
       agentPid += 1;
