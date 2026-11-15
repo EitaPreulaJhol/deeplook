@@ -50,7 +50,7 @@ jobs:
           fi
 
       # Historico e tags completos: o RELEASE.txt do pacote usa o `git describe` da tag.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0

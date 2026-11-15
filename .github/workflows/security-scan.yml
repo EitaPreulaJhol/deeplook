@@ -43,7 +43,7 @@ jobs:
     outputs:
       images: ${{ steps.lista.outputs.images }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: lista
         run: |
@@ -61,7 +61,7 @@ jobs:
       matrix:
         image: ${{ fromJSON(needs.inventario.outputs.images) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Varredura
         env:
@@ -94,7 +94,7 @@ jobs:
           - { app: netcap, dir: netcap, dockerfile: Dockerfile }
           - { app: suricata, dir: suricata, dockerfile: Dockerfile }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Montar a imagem
         run: >-
@@ -111,7 +111,7 @@ jobs:
     name: Trivy (Dockerfiles)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Varredura de configuracao
         run: node scripts/trivy.mjs config apps
