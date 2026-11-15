@@ -1585,7 +1585,11 @@ command line (the sample running, the PowerShell it opened).
 
 ### Automatic sample run
 
-When opening the environment, the **"Run the sample automatically"** box (remembered in the browser)
+The environment opens through the **"Open isolated environment"** button in the sample toolbar
+(analysts, file present, no active environment). It shows a dialog with the launch options and the
+**"Start environment"** button, which opens the console window and goes to the Analysis tab; an error
+(such as the environment limit) shows in the dialog itself. The dialog's **"Run the sample
+automatically"** box (remembered in the browser)
 asks DeepLook to run the sample on its own, for a quick analysis: open, wait and read the artifacts.
 After Windows starts and Sysmon is running, the API, through the `qemu-guest-agent`, copies the
 sample from the CD to the logged-in user's temporary folder and opens it **in that user's session**,

@@ -1,6 +1,6 @@
-// Visualizador hexadecimal (57): secao na aba Analise, carrega sob demanda,
+// Visualizador hexadecimal (57): secao na aba Detalhes (so analistas), carrega sob demanda,
 // linhas offset | hex | texto, cabecalho conhecido destacado, "Mostrar mais 4 KB"
-// ate o limite, expurgado mostra o aviso, usuario comum nao ve a aba.
+// ate o limite, expurgado mostra o aviso, usuario comum nao ve a secao.
 import { chromium } from 'playwright';
 
 import { createState, entries, ORIGIN, OUT, setupMock, watchErrors } from './mock-api.mjs';
@@ -25,7 +25,9 @@ const settle = (ms = 500) => page.waitForTimeout(ms);
 const section = page.locator('.hpsm-section:has(.hpsm-section__head:has-text("Conteúdo (hex)"))');
 
 await page.goto(ORIGIN + '/entries/e1?tab=analise', { waitUntil: 'networkidle' });
-expect('seção na aba Análise', (await section.count()) === 1);
+expect('não fica mais na aba Análise', (await section.count()) === 0);
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+expect('seção na aba Detalhes, logo depois de Arquivo', (await section.count()) === 1 && (await page.locator('.hpsm-section:has(.hpsm-section__head:has-text("Arquivo")) + .hpsm-section .hpsm-section__head').first().innerText()).includes('Conteúdo (hex)'));
 expect('só carrega quando pedido', !state.calls.some((c) => c.startsWith('HEX')));
 await section.locator('button:has-text("Mostrar conteúdo")').click();
 await settle();
@@ -44,16 +46,16 @@ expect('sem "Mostrar mais" no fim', (await section.locator('button:has-text("Mos
 
 // Expurgado.
 Object.assign(entries.find((e) => e.id === 'e4'), { storageKey: null, filePurgedAt: '2026-10-01T12:00:00.000Z' });
-await page.goto(ORIGIN + '/entries/e4?tab=analise', { waitUntil: 'networkidle' });
+await page.goto(ORIGIN + '/entries/e4', { waitUntil: 'networkidle' });
 expect('expurgado: aviso', (await section.locator('.dl-static-empty').innerText()).startsWith('Indisponível: o arquivo desta amostra foi expurgado'));
 
 // Link: sem a secao.
-await page.goto(ORIGIN + '/entries/e2?tab=analise', { waitUntil: 'networkidle' });
+await page.goto(ORIGIN + '/entries/e2', { waitUntil: 'networkidle' });
 expect('link: sem a seção', (await section.count()) === 0);
 
-// Usuario comum: sem a aba Analise.
+// Usuario comum: a rota do hex e so de analistas, entao a secao nao aparece nos Detalhes.
 state.role = 'USER';
-await page.goto(ORIGIN + '/entries/e1?tab=analise', { waitUntil: 'networkidle' });
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
 expect('usuário comum: sem a seção', (await section.count()) === 0);
 
 await browser.close();

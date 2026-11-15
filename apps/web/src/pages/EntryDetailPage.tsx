@@ -63,6 +63,7 @@ import {
   ResolutionNotice,
 } from '../components/ResolutionSection';
 import { RiskSection } from '../components/RiskSection';
+import { SandboxLaunchDialog } from '../components/SandboxLaunchDialog';
 import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
@@ -75,6 +76,7 @@ import { useWorkspaceTitle } from '../components/workspace';
 import { useYara, YaraSection } from '../components/YaraSection';
 import { getLocale, intlLocale } from '../i18n';
 import { t as tr } from '../i18n/entry';
+import { t as tSandbox } from '../i18n/sandbox';
 
 function fmtDate(iso?: string | null): string {
   return iso ? new Date(iso).toLocaleString(intlLocale()) : '—';
@@ -203,7 +205,14 @@ export function EntryDetailPage() {
   };
 
   // Retorno das acoes da toolbar (Fixar, menu Mais) na barra de mensagens.
-  const [pinNotice, setPinNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pinNotice, setPinNotice] = useState<{
+    ok: boolean;
+    text: string;
+    /** Aviso (amarelo) no lugar de sucesso ou erro: o pop-up do console bloqueado. */
+    warning?: boolean;
+  } | null>(null);
+  // Dialogo com as opcoes de inicio do ambiente isolado (botao da barra de ferramentas).
+  const [launchOpen, setLaunchOpen] = useState(false);
   const [pinning, setPinning] = useState(false);
   const togglePin = async () => {
     setPinNotice(null);
@@ -376,6 +385,22 @@ export function EntryDetailPage() {
             onClick={() => quickUpdate({ assigneeId: user.id })}
           />
         )}
+        {/* Ambiente isolado: so analistas, arquivo presente e nenhum ambiente ativo. Abre o dialogo
+            com as opcoes de inicio; "Iniciar ambiente" leva para a aba Analise. */}
+        {canTriage &&
+          entry.type === 'FILE' &&
+          sandboxQuery.data?.enabled &&
+          !entry.filePurgedAt &&
+          !sandboxActive && (
+            <HpsmToolbarButton
+              label={tSandbox('openEnv')}
+              icon={IconScreen}
+              onClick={() => {
+                setPinNotice(null);
+                setLaunchOpen(true);
+              }}
+            />
+          )}
         {position >= 0 && sequence.length > 1 && (
           <>
             <HpsmToolbarDivider />
@@ -512,6 +537,19 @@ export function EntryDetailPage() {
         )}
       </HpsmToolbar>
 
+      {launchOpen && (
+        <SandboxLaunchDialog
+          entryId={entry.id}
+          sampleName={entry.originalFilename || entry.title}
+          onClose={() => setLaunchOpen(false)}
+          onStarted={(result) => {
+            changeTab('analise');
+            if (result.kind === 'warning') {
+              setPinNotice({ ok: false, text: result.text, warning: true });
+            }
+          }}
+        />
+      )}
       {caseOpen && (
         <AddToCaseDialog
           entryIds={[entry.id]}
@@ -573,7 +611,10 @@ export function EntryDetailPage() {
       )}
 
       {pinNotice && (
-        <HpsmMessage key={pinNotice.text} kind={pinNotice.ok ? 'success' : 'error'}>
+        <HpsmMessage
+          key={pinNotice.text}
+          kind={pinNotice.warning ? 'warning' : pinNotice.ok ? 'success' : 'error'}
+        >
           {pinNotice.text}
         </HpsmMessage>
       )}
@@ -832,6 +873,10 @@ export function EntryDetailPage() {
               </HpsmForm>
             </HpsmSection>
           ) : null}
+          {/* Conteudo do arquivo em hexa: so analistas (a rota /hex e deles). */}
+          {entry.type === 'FILE' && canTriage && (
+            <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />
+          )}
           {entry.type === 'FILE' && (
             <StaticAnalysisSection
               entryId={entry.id}
@@ -980,9 +1025,6 @@ export function EntryDetailPage() {
             onSave={(resolution) => quickUpdate({ resolution })}
           />
 
-          {entry.type === 'FILE' && (
-            <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />
-          )}
           {entry.type === 'FILE' && (
             <SandboxPanel
               entryId={entry.id}

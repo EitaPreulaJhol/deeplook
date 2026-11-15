@@ -26,15 +26,57 @@ const panel = page.locator('.hpsm-section:has(.hpsm-section__head:has-text("Ambi
 const box = () => page.locator('#sandbox-autorun-e1');
 const panelText = async () => (await panel.innerText()).replace(/\s+/g, ' ');
 
-// 1. Sem ambiente: a caixa desmarcada; marcada, o pedido leva autoRun.
+// 1. Sem ambiente: a secao so aponta para o botao da barra; o dialogo tem as opcoes de inicio.
 await page.goto(ORIGIN + '/entries/e1?tab=analise', { waitUntil: 'networkidle' });
-await box().waitFor({ state: 'attached' });
-expect('caixa presente e desmarcada', !(await box().isChecked()));
-expect('texto de ajuda', (await panelText()).includes('a amostra roda sozinha na sessão do usuário da VM'));
-await page.locator('label[for="sandbox-autorun-e1"]').click();
-await page.getByRole('button', { name: 'Abrir ambiente' }).click();
+await panel.waitFor();
+const toolbarOpen = page.locator('.hpsm-toolbar button', { hasText: 'Abrir ambiente isolado' });
+const dialog = page.locator('dialog.dl-launch-dialog');
+expect(
+  '"Abrir ambiente isolado" na barra de ferramentas; na seção, nem botão nem caixa',
+  (await toolbarOpen.count()) === 1 &&
+    (await panel.locator('button', { hasText: 'Abrir ambiente' }).count()) === 0 &&
+    (await box().count()) === 0 &&
+    (await panelText()).includes('use "Abrir ambiente isolado" na barra de ferramentas'),
+);
+await page.locator('.hpsm-toolbar').first().screenshot({ path: `${OUT}/barra-amostra-sandbox.png` });
+await toolbarOpen.click();
+await dialog.waitFor();
+const dialogText = (await dialog.innerText()).replace(/\s+/g, ' ');
+expect(
+  'diálogo modal com o título, a amostra, a caixa desmarcada e o foco em "Iniciar ambiente"',
+  (await dialog.evaluate((d) => d.open && d.matches(':modal'))) &&
+    (await dialog.locator('h2').innerText()) === 'Abrir ambiente isolado' &&
+    dialogText.includes('Amostra: setup_v2.exe') &&
+    dialogText.includes('a amostra roda sozinha na sessão do usuário da VM') &&
+    !(await box().isChecked()) &&
+    (await page.evaluate(() => document.activeElement?.textContent)) === 'Iniciar ambiente',
+  dialogText,
+);
+await dialog.screenshot({ path: `${OUT}/sandbox-iniciar.png` });
+await dialog.locator('button', { hasText: 'Cancelar' }).click();
+await dialog.waitFor({ state: 'detached' });
+expect(
+  'Cancelar fecha sem pedir nada e o foco volta ao botão da barra',
+  !state.sandboxOpens && (await page.evaluate(() => document.activeElement?.textContent)) === 'Abrir ambiente isolado',
+);
+// Erro da API: aparece no dialogo, que continua aberto.
+state.sandboxOpenError = 'Limite de ambientes ativos atingido.';
+await toolbarOpen.click();
+await dialog.waitFor();
+await dialog.locator('button', { hasText: 'Iniciar ambiente' }).click();
+await dialog.locator('[role="alert"]').waitFor();
+expect('erro da API dentro do diálogo, aberto', (await dialog.locator('[role="alert"]').innerText()) === 'Limite de ambientes ativos atingido.' && (await dialog.evaluate((d) => d.open)));
+state.sandboxOpenError = undefined;
+// Marcada a caixa, "Iniciar ambiente" pede com autoRun e leva para a aba Analise.
+await dialog.locator('label[for="sandbox-autorun-e1"]').click();
+await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
+await toolbarOpen.click();
+await dialog.waitFor();
+expect('a escolha da caixa fica lembrada no navegador', await box().isChecked());
+await dialog.locator('button', { hasText: 'Iniciar ambiente' }).click();
+await dialog.waitFor({ state: 'detached' });
 await page.locator('.dl-sandbox__autorun').first().waitFor();
-expect('pedido com autoRun', state.sandboxOpens?.at(-1)?.body?.autoRun === true, JSON.stringify(state.sandboxOpens));
+expect('pedido com autoRun e a aba Análise aberta', state.sandboxOpens?.at(-1)?.body?.autoRun === true && page.url().includes('tab=analise'), JSON.stringify(state.sandboxOpens));
 expect('esperando o Windows e o Sysmon', (await panelText()).includes('Execução automática: aguardando o Windows e o Sysmon'));
 
 // 2. Executada, sem o Sysmon: a hora, o usuario e o aviso.
@@ -60,11 +102,14 @@ state.sandboxes.e1 = { ...state.sandboxes.e1, autoRun: 'FAILED', autoRunError: '
 await page.reload({ waitUntil: 'networkidle' });
 expect('falha com o motivo', (await panelText()).includes('A execução automática falhou: o agente da VM não respondeu a tempo'));
 
-// 5. Ambiente encerrado: a caixa volta, lembrando a escolha.
+// 5. Ambiente encerrado: o botao da barra volta, e o dialogo lembra a escolha.
 state.sandboxes.e1 = { ...runningSandbox('e1', 40), status: 'STOPPED', stoppedAt: at };
 await page.reload({ waitUntil: 'networkidle' });
-await box().waitFor({ state: 'attached' });
-expect('a escolha fica lembrada no navegador', await box().isChecked());
+await toolbarOpen.click();
+await dialog.waitFor();
+expect('encerrado: o botão volta e a escolha continua lembrada', await box().isChecked());
+await page.keyboard.press('Escape');
+await dialog.waitFor({ state: 'detached' });
 
 // 6. Historico da amostra.
 events.e1.push({ id: 'e1-autorun', entryId: 'e1', type: 'SANDBOX_AUTORUN', toValue: 'no-sysmon', detail: 'DEEPLOOK\\DeepLookUser', createdAt: at, actor: { id: 'u1', displayName: 'Ana Souza' } });

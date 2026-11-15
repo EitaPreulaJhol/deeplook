@@ -1,4 +1,4 @@
-import { Button, Checkbox } from '@carbon/react';
+import { Button } from '@carbon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -12,6 +12,7 @@ import { IconRefresh, IconScreen, IconTrash } from './icons';
 import { HpsmLoading, HpsmMessage } from './messages';
 import { SandboxArtifacts } from './SandboxArtifacts';
 import { SandboxHistory } from './SandboxHistory';
+import { openConsoleWindow } from './sandboxOpen';
 import {
   isSandboxActive,
   isSandboxWorking,
@@ -21,16 +22,6 @@ import {
 } from './sandboxStatus';
 import { StatusText } from './tags';
 
-/** Abre a janela dedicada do console (popup). Retorna false se foi bloqueada. */
-function openConsoleWindow(entryId: string): boolean {
-  const win = window.open(
-    `/sandbox/entry/${entryId}/console`,
-    `deeplook-console-${entryId}`,
-    'popup=yes,width=1280,height=900',
-  );
-  return !!win;
-}
-
 interface Props {
   entryId: string;
   /**
@@ -38,23 +29,6 @@ interface Props {
    * ficam com a amostra) continuam na tela, com este aviso.
    */
   purgedNote?: string;
-}
-
-/** A escolha da caixa de execucao automatica fica lembrada neste navegador. */
-const AUTO_RUN_KEY = 'dl.sandbox.autoRun';
-function readAutoRun(): boolean {
-  try {
-    return window.localStorage.getItem(AUTO_RUN_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-function saveAutoRun(value: boolean): void {
-  try {
-    window.localStorage.setItem(AUTO_RUN_KEY, String(value));
-  } catch {
-    /* sem armazenamento: so nao lembra */
-  }
 }
 
 /**
@@ -106,7 +80,6 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
-  const [autoRun, setAutoRun] = useState(readAutoRun);
 
   const query = useQuery({
     queryKey: ['sandbox', 'entry', entryId],
@@ -157,33 +130,6 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
     if (!openConsoleWindow(entryId)) setPopupBlocked(true);
   };
 
-  /** Cria o ambiente e ja abre a janela do console (no mesmo gesto do clique). */
-  const openEnvironment = () => {
-    setPopupBlocked(false);
-    const opened = openConsoleWindow(entryId);
-    void run('open', async () => {
-      await api.post(`/entries/${entryId}/sandbox`, { autoRun });
-      if (!opened) setPopupBlocked(true);
-    });
-  };
-
-  /** A caixa da execucao automatica, nos dois lugares de onde se abre um ambiente. */
-  const autoRunBox = (
-    <div className="dl-sandbox__autorun-box">
-      <Checkbox
-        id={`sandbox-autorun-${entryId}`}
-        labelText={t('autoRunLabel')}
-        helperText={t('autoRunHelp')}
-        checked={autoRun}
-        disabled={busy !== null}
-        onChange={(_, { checked }) => {
-          setAutoRun(checked);
-          saveAutoRun(checked);
-        }}
-      />
-    </div>
-  );
-
   if (query.isLoading) return <HpsmLoading text={t('consultingEnv')} />;
 
   // As execucoes anteriores da amostra, em todos os estados que ja tem um ambiente.
@@ -216,10 +162,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
         <p className="dl-page-subtitle">{t('intro')}</p>
         {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
         {popupBlocked && <HpsmMessage kind="warning">{t('popupBlocked')}</HpsmMessage>}
-        {autoRunBox}
-        <Button renderIcon={IconScreen} disabled={busy !== null} onClick={openEnvironment}>
-          {busy === 'open' ? t('opening') : t('openEnv')}
-        </Button>
+        <p className="dl-hint-muted">{t('openFromToolbar')}</p>
         {history}
       </HpsmSection>
     );
@@ -347,14 +290,7 @@ export function SandboxPanel({ entryId, purgedNote }: Props) {
         {session.status === 'EXPIRED' ? t('envExpired') : t('envClosed')}
       </p>
       {!failed && <AutoRunStatus session={session} />}
-      {autoRunBox}
-      <Button
-        renderIcon={IconScreen}
-        disabled={busy !== null}
-        onClick={() => run('open', () => api.post(`/entries/${entryId}/sandbox`, { autoRun }))}
-      >
-        {t('openNewEnv')}
-      </Button>
+      <p className="dl-hint-muted">{t('openFromToolbar')}</p>
       {!failed && <SandboxArtifacts sessionId={session.id} running={false} />}
       {history}
     </HpsmSection>

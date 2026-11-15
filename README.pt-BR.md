@@ -1603,8 +1603,11 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
 
 ### Execução automática da amostra
 
-Ao abrir o ambiente, a caixa **"Executar a amostra automaticamente"** (lembrada no navegador) pede
-que o DeepLook rode a amostra sozinho, para uma análise rápida: abrir, esperar e ler os artefatos.
+O ambiente abre pelo botão **"Abrir ambiente isolado"** da barra de ferramentas da amostra (analistas,
+arquivo presente, nenhum ambiente ativo). Ele mostra um diálogo com as opções de início e o botão
+**"Iniciar ambiente"**, que abre a janela do console e leva à aba Análise; um erro (como o limite de
+ambientes) aparece no próprio diálogo. A caixa **"Executar a amostra automaticamente"** do diálogo
+(lembrada no navegador) pede que o DeepLook rode a amostra sozinho, para uma análise rápida: abrir, esperar e ler os artefatos.
 Depois que o Windows sobe e o Sysmon está no ar, a API, pelo `qemu-guest-agent`, copia a amostra do
 CD para a pasta temporária do usuário logado e a abre **na sessão dele**, por uma tarefa agendada
 interativa: ela aparece no console e nos prints, como se o analista a tivesse aberto. A amostra é

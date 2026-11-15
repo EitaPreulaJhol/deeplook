@@ -57,6 +57,14 @@ export const messages = {
     'Environment closed: the VM and the sample ISO were removed.',
   ],
   openNewEnv: ['Abrir novo ambiente', 'Open a new environment'],
+  openFromToolbar: [
+    'Para abrir um ambiente, use "Abrir ambiente isolado" na barra de ferramentas da amostra: as opções de início ficam lá.',
+    'To open an environment, use "Open isolated environment" in the sample toolbar: the launch options are there.',
+  ],
+  launchSample: ['Amostra:', 'Sample:'],
+  launchOptions: ['Opções', 'Options'],
+  launchStart: ['Iniciar ambiente', 'Start environment'],
+  cancel: ['Cancelar', 'Cancel'],
   consoleSessionEnded: ['Sessão do console encerrada.', 'Console session ended.'],
   passwordUnavailable: ['senha indisponível', 'password unavailable'],
   authFailed: [
