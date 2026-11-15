@@ -363,7 +363,7 @@ ensure(
   'MINIO_ROOT_PASSWORD=deeplook123',
   '-p',
   '127.0.0.1:59000:9000',
-  'pgsty/silo@sha256:7bb2aff6b89efe1cb1303c10fc21d579447434ed06649ac9ec05a5e2dbf30ad7',
+  'pgsty/silo@sha256:c20d112390b9a9ce8c11b8af95ad35bcaa62f4759663c09c936cd8d2b511f329',
   'server',
   '/data',
 );
