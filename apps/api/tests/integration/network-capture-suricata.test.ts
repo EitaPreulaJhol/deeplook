@@ -345,6 +345,16 @@ async function main() {
   ok('download na auditoria', audited === 1, audited);
 
   // ---- 6. Status do sistema: os dois componentes.
+  // Depois de cada analise o servico troca de container (SURICATA_RECYCLE): espera o novo atender,
+  // senao a checagem pega a troca no meio ("conexão interrompida") quando o runner esta carregado.
+  for (let i = 0; i < 60; i++) {
+    // "trocando" e o container que ainda vai sair; so o novo responde "livre".
+    const up = await fetch('http://localhost:53800/health', { signal: AbortSignal.timeout(2000) })
+      .then(async (r) => r.ok && ((await r.json()) as { state?: string }).state === 'livre')
+      .catch(() => false);
+    if (up) break;
+    await sleep(1000);
+  }
   const status = await systemStatus();
   const netcapCheck = status.checks.find((c) => c.id === 'netcap');
   const suricataCheck = status.checks.find((c) => c.id === 'suricata');
