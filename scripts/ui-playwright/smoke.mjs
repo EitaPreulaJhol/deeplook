@@ -222,7 +222,7 @@ try {
   await page.locator('[role=alertdialog] button:has-text("Desligar")').click();
   await page.waitForSelector('.hpsm-msg--success');
   const updates = (await api(admin, 'GET', '/api/admin/yara-packs/updates')).body;
-  expect('atualização ligada por padrão', updates?.autoUpdate === true && updates.packs.length === 3, JSON.stringify(updates));
+  expect('atualização ligada por padrão', updates?.autoUpdate === true && updates.packs.map((p) => p.id).sort().join() === 'bartblaze,eset,reversinglabs,signature-base,volexity', JSON.stringify(updates));
   await page.waitForSelector('section:has-text("Atualização dos pacotes") #yara-auto-update', { state: 'attached' });
   expect('sem erro nos pacotes', !drain(admin));
 
