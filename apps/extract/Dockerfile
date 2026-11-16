@@ -2,12 +2,12 @@
 # (GPL-3.0) com as regras YARA do CAPEv2 (rules/, GPL-3.0) e o leitor de minidump (MIT). A licenca
 # GPL fica aqui dentro: a API so conversa por HTTP. Sem rede, sem root e com a raiz somente leitura
 # no compose; um container por analise (server.py).
-FROM python:3.13-slim AS build
+FROM python:3.14-slim AS build
 COPY requirements.txt /tmp/
 # Wheels de tudo, conferidos pelo hash do lockfile.
 RUN pip wheel --no-cache-dir --require-hashes --wheel-dir /wheels -r /tmp/requirements.txt
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 # As correcoes de seguranca que o Debian ja publicou e a imagem do Python ainda nao tem.
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
