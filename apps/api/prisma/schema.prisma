@@ -438,6 +438,8 @@ model SandboxSession {
   sysmonEvents  SandboxSysmonEvent[]
   /// Captura de rede pelo MikroTik (plano pos-revisao, item 5.4).
   capture       NetworkCapture?
+  /// O analista desligou a captura de rede ao abrir (plans/ajustes-usabilidade, item 5).
+  captureOff    Boolean               @default(false)
   /// Execucao automatica da amostra (pedida ao abrir): depois do boot e do Sysmon, na sessao do
   /// usuario logado. Null = nao pedida.
   autoRun       SandboxAutoRunStatus?

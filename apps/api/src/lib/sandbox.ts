@@ -174,7 +174,17 @@ export type CreateSessionResult =
 export async function createSession(
   entry: Entry,
   analystId: string,
-  { autoRun = false }: { autoRun?: boolean } = {},
+  {
+    autoRun = false,
+    minutes = env.SANDBOX_TTL_MINUTES,
+    capture = true,
+  }: {
+    autoRun?: boolean;
+    /** Duracao pedida no dialogo de inicio, ate o SANDBOX_TTL_MINUTES (o painel estende). */
+    minutes?: number;
+    /** Captura de rede, quando configurada; o analista pode desliga-la para este ambiente. */
+    capture?: boolean;
+  } = {},
 ): Promise<CreateSessionResult> {
   if (entry.type === 'FILE' && entry.filePurgedAt) {
     return {
@@ -217,8 +227,9 @@ export async function createSession(
       name: vmName(entry),
       status: 'REQUESTED',
       phase: 'na-fila',
-      expiresAt: new Date(Date.now() + env.SANDBOX_TTL_MINUTES * 60_000),
+      expiresAt: new Date(Date.now() + Math.min(minutes, env.SANDBOX_TTL_MINUTES) * 60_000),
       ...(autoRun ? { autoRun: 'PENDING' as const } : {}),
+      ...(capture ? {} : { captureOff: true }),
     },
   });
 
@@ -429,7 +440,7 @@ export async function provision(sessionId: string): Promise<void> {
 
     // 4b. Captura de rede (plano pos-revisao, 5.4): antes de ligar, para pegar o trafego desde o
     // boot. Nunca derruba o ambiente; sem o MikroTik configurado, nao faz nada.
-    await startCapture(sessionId, pveNode(), nextId);
+    if (!session.captureOff) await startCapture(sessionId, pveNode(), nextId);
 
     // 5. Liga a VM.
     await setPhase(sessionId, 'iniciando');

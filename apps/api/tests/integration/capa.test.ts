@@ -18,6 +18,7 @@ import {
 import { hashPassword } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
+import { localizeStatus, systemStatus } from '../../src/lib/status';
 
 // Analise de funcoes (item 7.2) contra o servico capa de verdade (tests/run.mjs o sobe com o
 // endurecimento do compose e o restart que troca o container a cada analise), e contra um
@@ -495,6 +496,44 @@ async function main() {
     waiting?.status === 'PENDING' && waiting.attempts === 0 && waiting.error === null,
     waiting,
   );
+  // Status do sistema (plans/ajustes-usabilidade, item 8): cada replica, a fila e a espera.
+  const capaStatus = async () =>
+    (await systemStatus()).checks.find((c: { id: string }) => c.id === 'capa')!;
+  const detail = (c: Awaited<ReturnType<typeof capaStatus>>, label: string) =>
+    c.details.find((d: { label: string }) => d.label === label)?.value;
+  env.CAPA_URL = busyUrl;
+  const st = await capaStatus();
+  ok(
+    'status: réplicas (uma ocupada, uma sem resposta), a fila e a espera do mais antigo',
+    st.level === 'warn' &&
+      st.summary === 'respondendo; 1 réplica(s) sem resposta' &&
+      detail(st, 'Réplicas') === '2 · 0 livre(s), 1 ocupada(s), 1 sem resposta' &&
+      /^\d+ esperando · 0 analisando$/.test(detail(st, 'Na fila') ?? '') &&
+      /^\d+ min$/.test(detail(st, 'Espera do mais antigo') ?? ''),
+    st,
+  );
+  const [en] = localizeStatus({ checks: [st] }, 'en').checks;
+  ok(
+    'status em inglês',
+    en.summary === 'responding; 1 replica(s) not responding' &&
+      en.details.some((d) => d.value === '2 · 0 free, 1 busy, 1 not responding'),
+    en,
+  );
+  capaTiming.replicas = async () => [busyUrl];
+  await prisma.capaAnalysis.update({
+    where: { entryId: net },
+    data: { createdAt: new Date(Date.now() - 2 * 3600_000) },
+  });
+  const slow = await capaStatus();
+  ok(
+    'status: o mais antigo esperando há 2 h é aviso de fila lenta',
+    slow.level === 'warn' &&
+      slow.summary === 'fila lenta: o mais antigo espera há 120 min' &&
+      detail(slow, 'Réplicas') === '1 · 0 livre(s), 1 ocupada(s)',
+    slow,
+  );
+  capaTiming.replicas = async () => ['http://127.0.0.1:9', busyUrl];
+  env.CAPA_URL = replicaA.url;
   // Nenhuma respondendo: conta a tentativa com o motivo, como com uma replica so.
   // Em producao o CAPA_URL e o nome das replicas: aqui, o mesmo endereco sem resposta.
   env.CAPA_URL = 'http://127.0.0.1:9';

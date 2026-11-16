@@ -626,6 +626,32 @@ async function main() {
       x.summary.decompiled[0].name === 'ab',
   );
 
+  // Analise mais leve (plans/ajustes-usabilidade, item 2): a marca fica no resumo; motivo fora da
+  // lista recusa a resposta.
+  const lightReply = (reason: string) => (res: http.ServerResponse) =>
+    reply(res, {
+      ok: true,
+      kind: 'elf',
+      version: '12.2',
+      summary: { ...SUMMARY, light: { reason, analyzers: ['Decompiler Switch Analysis'] } },
+      gzf: null,
+      gzfError: null,
+      ms: 1,
+    });
+  await hostile(
+    'análise leve: concluída, com o motivo e o analisador que ficou de fora',
+    lightReply('size'),
+    (x) =>
+      x?.status === 'DONE' &&
+      x.summary.light?.reason === 'size' &&
+      x.summary.light.analyzers.join() === 'Decompiler Switch Analysis',
+  );
+  await hostile(
+    'análise leve com motivo desconhecido: formato inesperado',
+    lightReply('outro'),
+    (x) => x?.status === 'FAILED' && x.error === 'resposta do serviço em formato inesperado',
+  );
+
   // Pseudo-C completo hostil: o resumo vale sempre; o pseudo-C sai com o motivo.
   const pseudoFn = (entry: string, extra: object = {}) => ({
     name: `FUN_${entry}`,

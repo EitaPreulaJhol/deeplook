@@ -112,6 +112,9 @@ export function EntryDetailPage() {
       api.get<{
         enabled: boolean;
         consoleEnabled: boolean;
+        /** Teto da duracao e captura configurada (dialogo de inicio). */
+        ttlMinutes?: number;
+        captureEnabled?: boolean;
         session: SandboxSession | null;
         sysmonIndicators?: string[];
         networkIndicators?: string[];
@@ -572,6 +575,8 @@ export function EntryDetailPage() {
         <SandboxLaunchDialog
           entryId={entry.id}
           sampleName={entry.originalFilename || entry.title}
+          ttlMinutes={sandboxQuery.data?.ttlMinutes}
+          captureEnabled={sandboxQuery.data?.captureEnabled}
           onClose={() => setLaunchOpen(false)}
           onStarted={(result) => {
             changeTab('analise');

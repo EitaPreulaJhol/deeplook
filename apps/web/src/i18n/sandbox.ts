@@ -64,6 +64,16 @@ export const messages = {
   launchSample: ['Amostra:', 'Sample:'],
   launchOptions: ['Opções', 'Options'],
   launchStart: ['Iniciar ambiente', 'Start environment'],
+  durationLabel: ['Duração', 'Duration'],
+  durationHelp: [
+    'O ambiente se encerra sozinho depois disso; o painel ainda pode estendê-lo.',
+    'The environment ends by itself after this; the panel can still extend it.',
+  ],
+  captureLabel: ['Capturar o tráfego de rede', 'Capture the network traffic'],
+  captureHelp: [
+    'Grava o pcap da VM e o passa ao Suricata. Desligue para um ambiente que não precisa dele.',
+    'Records the VM pcap and passes it to Suricata. Turn it off for an environment that does not need it.',
+  ],
   goToEnv: ['Ir para o ambiente', 'Go to the environment'],
   runTitle: ['Ambiente isolado: última execução', 'Isolated environment: latest run'],
   runWhen: ['Execução', 'Run'],

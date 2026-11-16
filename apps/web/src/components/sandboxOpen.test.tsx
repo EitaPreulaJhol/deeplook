@@ -5,7 +5,14 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '../api/client';
-import { openConsoleWindow, readAutoRun, saveAutoRun, useOpenSandbox } from './sandboxOpen';
+import {
+  durationChoices,
+  formatMinutes,
+  openConsoleWindow,
+  readAutoRun,
+  saveAutoRun,
+  useOpenSandbox,
+} from './sandboxOpen';
 
 afterEach(() => {
   cleanup();
@@ -51,6 +58,21 @@ describe('execução automática lembrada', () => {
   });
 });
 
+describe('duração do ambiente', () => {
+  it('opções até o teto, que sempre entra por último', () => {
+    expect(durationChoices(60)).toEqual([15, 30, 60]);
+    expect(durationChoices(90)).toEqual([15, 30, 60, 90]);
+    expect(durationChoices(10)).toEqual([10]);
+    expect(durationChoices(1440).slice(-2)).toEqual([720, 1440]);
+  });
+
+  it('em minutos ou horas', () => {
+    expect(formatMinutes(15)).toBe('15 min');
+    expect(formatMinutes(60)).toBe('1 h');
+    expect(formatMinutes(90)).toBe('1 h 30 min');
+  });
+});
+
 describe('useOpenSandbox', () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
@@ -62,13 +84,17 @@ describe('useOpenSandbox', () => {
     const { result } = renderHook(() => useOpenSandbox('e1'), { wrapper });
     let res;
     await act(async () => {
-      res = await result.current.open(true);
+      res = await result.current.open({ autoRun: true, minutes: 30, capture: false });
     });
     expect(res).toEqual({ kind: 'ok' });
-    expect(post).toHaveBeenCalledWith('/entries/e1/sandbox', { autoRun: true });
+    expect(post).toHaveBeenCalledWith('/entries/e1/sandbox', {
+      autoRun: true,
+      minutes: 30,
+      capture: false,
+    });
     vi.spyOn(window, 'open').mockReturnValue(null);
     await act(async () => {
-      res = await result.current.open(false);
+      res = await result.current.open({ autoRun: false });
     });
     expect(res).toMatchObject({ kind: 'warning' });
     expect(result.current.busy).toBe(false);
@@ -84,6 +110,12 @@ describe('useOpenSandbox', () => {
       res = await result.current.open(undefined, false);
     });
     expect(open).not.toHaveBeenCalled();
+    // Sem opcoes: a execucao automatica lembrada; duracao e captura ficam com a API.
+    expect(vi.mocked(api.post)).toHaveBeenCalledWith('/entries/e1/sandbox', {
+      autoRun: true,
+      minutes: undefined,
+      capture: undefined,
+    });
     expect(res).toEqual({ kind: 'error', text: 'Limite de ambientes.' });
   });
 });

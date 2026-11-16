@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { TextInput } from '@carbon/react';
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import { localized } from '../i18n';
@@ -9,6 +10,8 @@ import { HpsmLoading, HpsmMessage } from './messages';
 
 const BLOCK = 4 * 1024;
 const PER_LINE = 16;
+/** Linhas de contexto antes da posicao procurada. */
+const CONTEXT_LINES = 8;
 
 /** Cabecalhos conhecidos destacados no comeco do arquivo. */
 const MAGICS: { bytes: number[]; name: string }[] = localized(() => [
@@ -35,6 +38,20 @@ interface HexChunk {
   data: string;
 }
 
+type Encoding = 'utf8' | 'utf16' | 'bytes';
+interface SearchResult {
+  q: string;
+  kind: 'text' | 'bytes';
+  hits: { offset: number; length: number; encoding: Encoding }[];
+  truncated: boolean;
+}
+
+/** O trecho exibido: a partir de `base`, contiguo. */
+interface View {
+  base: number;
+  bytes: Uint8Array;
+}
+
 function decode(base64: string): Uint8Array {
   const bin = atob(base64);
   const out = new Uint8Array(bin.length);
@@ -45,38 +62,112 @@ function decode(base64: string): Uint8Array {
 const hex = (n: number, w: number) => n.toString(16).toUpperCase().padStart(w, '0');
 const printable = (b: number) => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : '.');
 
+/** "0x1A30", "1a30h" ou "6704" (decimal) -> posicao; null se nao for numero. */
+export function parseOffset(text: string): number | null {
+  const v = text.trim().toLowerCase();
+  if (/^0x[0-9a-f]+$/.test(v)) return parseInt(v.slice(2), 16);
+  if (/^[0-9a-f]+h$/.test(v)) return parseInt(v.slice(0, -1), 16);
+  if (/^\d+$/.test(v)) return Number(v);
+  return null;
+}
+
+const ENCODING_LABEL = { utf8: 'encUtf8', utf16: 'encUtf16', bytes: 'encBytes' } as const;
+
 /**
- * Secao "Conteudo (hex)" da aba Analise (item 57): os primeiros 4 KB do arquivo
- * em hexadecimal + texto, "Mostrar mais" de 4 em 4 KB ate 64 KB, e o cabecalho
- * conhecido (MZ, PK, %PDF...) destacado. Nada e baixado nem executado.
+ * Secao "Conteudo (hex)" da aba Detalhes (item 57): o arquivo em hexadecimal + texto, de 4 em 4 KB,
+ * com o cabecalho conhecido (MZ, PK, %PDF...) destacado. A busca (plans/ajustes-usabilidade, item
+ * 7) procura um texto (ASCII e UTF-16, sem diferenciar maiusculas) ou bytes no arquivo inteiro, na
+ * API; cada posicao achada, ou digitada em "Ir para", abre o trecho dela com os bytes destacados.
+ * Nada e baixado nem executado.
  */
 export function HexViewer({ entryId, purged }: { entryId: string; purged: boolean }) {
-  const [bytes, setBytes] = useState<Uint8Array | null>(null);
-  const [meta, setMeta] = useState<{ size: number; limit: number } | null>(null);
+  const id = useId();
+  const [view, setView] = useState<View | null>(null);
+  const [size, setSize] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mark, setMark] = useState<{ offset: number; length: number } | null>(null);
+  const [kind, setKind] = useState<'text' | 'bytes'>('text');
+  const [search, setSearch] = useState<SearchResult | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [gotoError, setGotoError] = useState<string | null>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+  const markRef = useRef<HTMLDivElement>(null);
 
-  const load = async (offset: number) => {
+  const fetchBlock = async (offset: number, length = BLOCK) => {
+    const res = await api.get<HexChunk>(
+      `/entries/${entryId}/hex?offset=${offset}&length=${length}`,
+    );
+    setSize(res.size);
+    return decode(res.data);
+  };
+
+  /** Le um bloco e o poe no lugar do trecho, depois dele ou antes dele. */
+  const load = async (offset: number, mode: 'replace' | 'append' | 'prepend' = 'replace') => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<HexChunk>(
-        `/entries/${entryId}/hex?offset=${offset}&length=${BLOCK}`,
-      );
-      const chunk = decode(res.data);
-      setMeta({ size: res.size, limit: res.limit });
-      setBytes((prev) => {
-        if (!prev || offset === 0) return chunk;
-        const merged = new Uint8Array(prev.length + chunk.length);
-        merged.set(prev);
-        merged.set(chunk, prev.length);
-        return merged;
+      const start = mode === 'prepend' ? Math.max(0, offset - BLOCK) : offset;
+      const chunk = await fetchBlock(start, mode === 'prepend' ? offset - start : BLOCK);
+      setView((prev) => {
+        if (!prev || mode === 'replace') return { base: start, bytes: chunk };
+        const merged = new Uint8Array(prev.bytes.length + chunk.length);
+        if (mode === 'append') {
+          merged.set(prev.bytes);
+          merged.set(chunk, prev.bytes.length);
+          return { base: prev.base, bytes: merged };
+        }
+        merged.set(chunk);
+        merged.set(prev.bytes, chunk.length);
+        return { base: start, bytes: merged };
       });
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
+  };
+
+  /** Abre o trecho da posicao, com algumas linhas antes, e destaca os bytes dela. */
+  const jump = async (offset: number, length = 1) => {
+    setMark({ offset, length });
+    const line = Math.floor(offset / PER_LINE) * PER_LINE;
+    await load(Math.max(0, line - CONTEXT_LINES * PER_LINE));
+  };
+
+  // A linha destacada fica a vista dentro da caixa (so ela rola, nao a pagina).
+  useEffect(() => {
+    const pre = preRef.current;
+    const line = markRef.current;
+    if (pre && line) pre.scrollTop = Math.max(0, line.offsetTop - pre.clientHeight / 3);
+  }, [view, mark]);
+
+  const runSearch = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const q = String(new FormData(e.currentTarget).get('q') ?? '').trim();
+    if (!q) return;
+    setSearching(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ q, kind });
+      setSearch(await api.get<SearchResult>(`/entries/${entryId}/hex/search?${params}`));
+    } catch (err) {
+      setSearch(null);
+      setError((err as Error).message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const goTo = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const offset = parseOffset(String(new FormData(e.currentTarget).get('offset') ?? ''));
+    if (offset === null || (size !== null && offset >= size)) {
+      setGotoError(offset === null ? t('gotoInvalid') : t('gotoPastEnd'));
+      return;
+    }
+    setGotoError(null);
+    void jump(offset);
   };
 
   if (purged) {
@@ -87,17 +178,116 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
     );
   }
 
-  const magic = bytes
-    ? MAGICS.find((m) => m.bytes.length <= bytes.length && m.bytes.every((b, i) => bytes[i] === b))
-    : undefined;
+  const bytes = view?.bytes;
+  const base = view?.base ?? 0;
+  const magic =
+    bytes && base === 0
+      ? MAGICS.find(
+          (m) => m.bytes.length <= bytes.length && m.bytes.every((b, i) => bytes[i] === b),
+        )
+      : undefined;
   const magicLen = magic?.bytes.length ?? 0;
+  const marked = (at: number) =>
+    mark !== null && at >= mark.offset && at < mark.offset + mark.length;
   const lines: number[] = [];
   if (bytes) for (let i = 0; i < bytes.length; i += PER_LINE) lines.push(i);
-  const more = bytes && meta && bytes.length < meta.limit;
+  const end = base + (bytes?.length ?? 0);
+  const more = bytes && size !== null && end < size;
+
+  const searchForm = (
+    <search className="dl-hex__tools">
+      <form
+        className="dl-hex__search"
+        aria-label={t('hexSearchLabel')}
+        onSubmit={(e) => void runSearch(e)}
+      >
+        <TextInput
+          id={`${id}-q`}
+          name="q"
+          type="search"
+          size="sm"
+          labelText={t('hexSearchLabel')}
+          helperText={t(kind === 'text' ? 'hexSearchHelpText' : 'hexSearchHelpBytes')}
+          maxLength={1024}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="search"
+          required
+        />
+        <fieldset className="dl-hex__kind">
+          <legend className="cds--visually-hidden">{t('hexSearchKind')}</legend>
+          {(['text', 'bytes'] as const).map((k) => (
+            <label key={k}>
+              <input
+                type="radio"
+                name="kind"
+                value={k}
+                checked={kind === k}
+                onChange={() => setKind(k)}
+              />{' '}
+              {t(k === 'text' ? 'hexKindText' : 'hexKindBytes')}
+            </label>
+          ))}
+        </fieldset>
+        <button type="submit" className="dl-btn" disabled={searching}>
+          {searching ? t('hexSearching') : t('hexSearchButton')}
+        </button>
+      </form>
+      <form className="dl-hex__goto" aria-label={t('gotoLabel')} onSubmit={goTo}>
+        <TextInput
+          id={`${id}-offset`}
+          name="offset"
+          size="sm"
+          labelText={t('gotoLabel')}
+          helperText={t('gotoHelp')}
+          invalid={Boolean(gotoError)}
+          invalidText={gotoError ?? ''}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          onInput={() => setGotoError(null)}
+          required
+        />
+        <button type="submit" className="dl-btn" disabled={loading}>
+          {t('gotoButton')}
+        </button>
+      </form>
+    </search>
+  );
 
   return (
     <HpsmSection title={t('hexTitle')}>
       {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
+      {searchForm}
+      {search && (
+        <div className="dl-hex__results">
+          <p role="status">
+            {search.hits.length === 0
+              ? t('hexNoHits', { q: search.q })
+              : t(search.truncated ? 'hexHitsCut' : 'hexHits', { n: search.hits.length })}
+          </p>
+          {search.hits.length > 0 && (
+            <ol className="dl-hex__hits">
+              {search.hits.map((h) => (
+                <li key={`${h.offset}-${h.encoding}`}>
+                  <button
+                    type="button"
+                    className="dl-link-button"
+                    aria-current={mark?.offset === h.offset ? 'location' : undefined}
+                    onClick={() => void jump(h.offset, h.length)}
+                  >
+                    0x{hex(h.offset, 8)}
+                  </button>{' '}
+                  <span className="dl-hex__enc">{t(ENCODING_LABEL[h.encoding])}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
       {!bytes ? (
         <p className="dl-static-empty">
           {t('hexHelp')}{' '}
@@ -113,13 +303,12 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
       ) : (
         <>
           <p className="dl-hex__info">
-            {t('hexShowing', {
+            {t('hexShowingRange', {
+              from: hex(base, 8),
+              to: hex(Math.max(base, end - 1), 8),
               n: formatFileSize(bytes.length),
-              total: formatFileSize(meta?.size),
+              total: formatFileSize(size),
             })}
-            {meta && meta.size > meta.limit
-              ? ` ${t('hexLimit', { limit: formatFileSize(meta.limit) })}`
-              : ''}
             {magic && (
               <>
                 {' '}
@@ -127,16 +316,36 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
               </>
             )}
           </p>
-          <pre className="dl-hex" aria-label={t('hexAria')}>
-            {lines.map((start) => {
-              const row = Array.from(bytes.subarray(start, start + PER_LINE));
+          {base > 0 && (
+            <button
+              type="button"
+              className="dl-link-button"
+              disabled={loading}
+              onClick={() => void load(base, 'prepend')}
+            >
+              {t('showPrev4k')}
+            </button>
+          )}
+          <pre className="dl-hex" aria-label={t('hexAria')} ref={preRef}>
+            {lines.map((rel) => {
+              const start = base + rel;
+              const row = Array.from(bytes.subarray(rel, rel + PER_LINE));
+              const hasMark = row.some((_, i) => marked(start + i));
+              // A primeira linha do trecho destacado e a que fica a vista.
+              const firstMark = hasMark && !marked(start - 1);
               return (
-                <div key={start} className="dl-hex__line">
+                <div
+                  key={start}
+                  className={hasMark ? 'dl-hex__line has-mark' : 'dl-hex__line'}
+                  ref={firstMark ? markRef : undefined}
+                >
                   <span className="dl-hex__offset">{hex(start, 8)}</span>
                   <span className="dl-hex__bytes">
                     {Array.from({ length: PER_LINE }, (_, i) => {
                       const b = row[i];
-                      const cls = start + i < magicLen ? 'dl-hex__byte is-magic' : 'dl-hex__byte';
+                      let cls = 'dl-hex__byte';
+                      if (start + i < magicLen) cls += ' is-magic';
+                      if (marked(start + i)) cls += ' is-match';
                       return (
                         <span key={i} className={cls}>
                           {b === undefined ? '  ' : hex(b, 2)}
@@ -145,7 +354,15 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
                       );
                     })}
                   </span>
-                  <span className="dl-hex__text">{row.map(printable).join('')}</span>
+                  <span className="dl-hex__text">
+                    {hasMark
+                      ? row.map((b, i) => (
+                          <span key={i} className={marked(start + i) ? 'is-match' : undefined}>
+                            {printable(b)}
+                          </span>
+                        ))
+                      : row.map(printable).join('')}
+                  </span>
                 </div>
               );
             })}
@@ -155,7 +372,7 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
               type="button"
               className="dl-link-button"
               disabled={loading}
-              onClick={() => void load(bytes.length)}
+              onClick={() => void load(end, 'append')}
             >
               {loading ? t('loadingDots') : t('showMore4k')}
             </button>

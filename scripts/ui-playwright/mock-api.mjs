@@ -1243,12 +1243,34 @@ export async function setupMock(context, state) {
           previous: filename.includes('repetida') ? { id: 'e1', title: entries[0].title } : null,
         });
       }
+      // Busca no arquivo (item 7): a mesma regra da API (texto sem maiusculas, em UTF-8 e UTF-16LE;
+      // bytes exatos), sem teto.
+      const hs = p.match(/^\/api\/entries\/(\w+)\/hex\/search$/);
+      if (hs) {
+        const all = state.fileBytes[hs[1]] ?? Buffer.alloc(0);
+        const q = url.searchParams.get('q') ?? '';
+        const kind = url.searchParams.get('kind') ?? 'text';
+        (state.hexSearches ??= []).push(url.searchParams.toString());
+        const lower = (b) => Buffer.from(b.map((x) => (x >= 0x41 && x <= 0x5a ? x + 0x20 : x)));
+        const hay = kind === 'text' ? lower(all) : all;
+        const patterns =
+          kind === 'text'
+            ? [[lower(Buffer.from(q, 'utf8')), 'utf8'], [lower(Buffer.from(q, 'utf16le')), 'utf16']]
+            : [[Buffer.from(q.replace(/\s/g, ''), 'hex'), 'bytes']];
+        const hits = [];
+        for (const [bytes, encoding] of patterns) {
+          for (let at = hay.indexOf(bytes); at !== -1; at = hay.indexOf(bytes, at + 1)) hits.push({ offset: at, length: bytes.length, encoding });
+        }
+        hits.sort((a, b) => a.offset - b.offset);
+        return json(route, 200, { q, kind, size: all.length, hits, truncated: false, scanned: all.length });
+      }
       const hx = p.match(/^\/api\/entries\/(\w+)\/hex$/);
       if (hx) {
         const all = state.fileBytes[hx[1]] ?? Buffer.alloc(0);
         const offset = Number(url.searchParams.get('offset') ?? 0);
         const length = Number(url.searchParams.get('length') ?? 4096);
-        const limit = Math.min(all.length, 65536);
+        // O arquivo inteiro (plans/ajustes-usabilidade, item 7: a busca salta para qualquer posicao).
+        const limit = all.length;
         state.calls.push(`HEX ${hx[1]} ${offset}`);
         return json(route, 200, { offset, size: all.length, limit, data: all.subarray(offset, Math.min(offset + length, limit)).toString('base64') });
       }
@@ -1310,6 +1332,9 @@ export async function setupMock(context, state) {
         return json(route, 200, {
           enabled: true,
           consoleEnabled: true,
+          // Dialogo de inicio (plans/ajustes-usabilidade, item 5).
+          ttlMinutes: state.sandboxTtl ?? 60,
+          captureEnabled: state.sandboxCapture ?? false,
           session: state.sandboxes[m[1]] ?? null,
           sysmonIndicators: state.sysmonIndicators?.[m[1]] ?? [],
           networkIndicators: state.networkIndicators?.[m[1]] ?? [],

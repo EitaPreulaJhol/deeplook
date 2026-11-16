@@ -410,6 +410,59 @@ async function main() {
     { after8, left8, router: router.state },
   );
 
+  // ---- 9. Dialogo de inicio (plans/ajustes-usabilidade, item 5): o painel sabe do teto e da
+  // captura; o analista escolhe a duracao e desliga a captura daquele ambiente.
+  // A rota de abrir espera a limpeza inicial (aqui as sessoes foram criadas direto).
+  const { initSandbox } = await import('../../src/lib/sandbox');
+  await initSandbox({ info: () => undefined, warn: () => undefined, error: () => undefined });
+  const info = (await get(`/api/entries/${entry.id}/sandbox`)).json();
+  ok(
+    'painel: teto da duração e captura configurada',
+    info.ttlMinutes === env.SANDBOX_TTL_MINUTES && info.captureEnabled === true,
+    { ttlMinutes: info.ttlMinutes, captureEnabled: info.captureEnabled },
+  );
+  const launch = (payload: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/entries/${entry.id}/sandbox`,
+      headers: { cookie },
+      payload: payload as object,
+    });
+  const badLaunch = await Promise.all([
+    launch({ minutes: env.SANDBOX_TTL_MINUTES + 1 }),
+    launch({ minutes: 2 }),
+    launch({ minutes: 'muito' }),
+    launch({ capture: 'sim' }),
+  ]);
+  ok(
+    'opções inválidas: 400, sem ambiente novo (acima do teto, abaixo de 5, texto)',
+    badLaunch.every((r) => r.statusCode === 400) &&
+      (await prisma.sandboxSession.count({ where: { entryId: entry.id, status: 'REQUESTED' } })) ===
+        0,
+    badLaunch.map((r) => r.statusCode),
+  );
+  const before9 = Date.now();
+  const opened = await launch({ minutes: 15, capture: false });
+  const openedId = opened.json().session?.id as string;
+  let quiet9 = null;
+  for (let i = 0; i < 60; i++) {
+    quiet9 = await prisma.sandboxSession.findUnique({ where: { id: openedId } });
+    if (quiet9?.status === 'RUNNING' || quiet9?.status === 'FAILED') break;
+    await sleep(250);
+  }
+  const minutes9 = (quiet9!.expiresAt.getTime() - before9) / 60_000;
+  ok(
+    'sem captura e com 15 min: no ar, sem captura nenhuma e o prazo pedido',
+    opened.statusCode === 201 &&
+      quiet9?.status === 'RUNNING' &&
+      quiet9.captureOff &&
+      minutes9 > 14.9 &&
+      minutes9 < 15.1 &&
+      (await prisma.networkCapture.count({ where: { sessionId: openedId } })) === 0,
+    { status: opened.statusCode, session: quiet9, minutes9 },
+  );
+  await dispose(openedId);
+
   stopSuricataQueue();
   netcap.kill();
   router.server.close();

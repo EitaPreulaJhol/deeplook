@@ -57,6 +57,12 @@ VERSION = os.environ.get("GHIDRA_VERSION", "")
 MIN_UPTIME_S = 10.5
 # A segunda passada so abre o programa gravado e empacota: nao analisa nada.
 PACK_TIMEOUT = 300
+# Analise mais leve (plans/ajustes-usabilidade, item 2): acima de GHIDRA_LIGHT_MB, sem o analisador
+# de switch. No python3.13 (6,8 MB), com o teto de memoria do descompilador (decompile-limit.sh), a
+# completa levou 662 s (a analise automatica perto do teto de 630 s) e a leve 300 s, com 2% a menos
+# de funcoes. 0 desliga.
+LIGHT_BYTES = int(os.environ.get("GHIDRA_LIGHT_MB", "5")) * 1024 * 1024
+LIGHT_ANALYZERS = ["Decompiler Switch Analysis"]
 
 STARTED = time.monotonic()
 _busy = threading.Lock()
@@ -77,7 +83,9 @@ def run(cmd, timeout, logfile):
             os.killpg(proc.pid, signal.SIGKILL)
             proc.wait()
             return f"tempo esgotado ({timeout} s)"
-    if proc.returncode == -signal.SIGKILL:
+    # Morto pelo teto do conteiner: o sinal direto ou 137 (128 + 9) pelo script do headless, que
+    # espera o Java.
+    if proc.returncode in (-signal.SIGKILL, 128 + signal.SIGKILL):
         return "a análise foi interrompida (memória esgotada)"
     if proc.returncode != 0:
         return f"o Ghidra saiu com código {proc.returncode}"
@@ -128,6 +136,38 @@ def pack_pseudo(path):
     return base64.b64encode(packed).decode(), None
 
 
+def first_pass(work, budget, light):
+    """Importa, analisa e exporta (resumo e pseudo-C) em ate `budget` s. Erro ou None."""
+    project = os.path.join(work, "projeto")
+    os.mkdir(project)
+    # A analise automatica para em 70% do teto e o script ainda roda: sai um resultado
+    # parcial em vez de nada.
+    analysis_timeout = max(60, int(budget * 0.7))
+    deadline_ms = int((time.time() + max(30, budget - PSEUDO_MARGIN_S)) * 1000)
+    logfile = os.path.join(work, "passo1.log")
+    error = run(
+        headless(
+            project,
+            "-import",
+            os.path.join(work, "amostra"),
+            "-analysisTimeoutPerFile",
+            str(analysis_timeout),
+            *(["-preScript", "LightAnalysis.java", *LIGHT_ANALYZERS] if light else []),
+            "-postScript",
+            "ExportDeepLook.java",
+            os.path.join(work, "resumo.json"),
+            f"{APP}/sensitive-apis.txt",
+            f"{APP}/pe-ordinals.json",
+            os.path.join(work, "pseudo.json"),
+            str(deadline_ms),
+            str(MAX_PSEUDO),
+        ),
+        budget,
+        logfile,
+    )
+    return error or script_error(logfile)
+
+
 def analyze(data):
     started = time.monotonic()
     work = tempfile.mkdtemp(prefix="ghidra-", dir="/tmp")
@@ -137,33 +177,10 @@ def analyze(data):
         out = os.path.join(work, "resumo.json")
         pseudo = os.path.join(work, "pseudo.json")
         gzf = os.path.join(work, "projeto.gzf")
-        os.mkdir(project)
         with open(sample, "wb") as f:
             f.write(data)
-        # A analise automatica para em 70% do teto e o script ainda roda: sai um resultado
-        # parcial em vez de nada.
-        analysis_timeout = max(60, int(TIMEOUT * 0.7))
-        deadline_ms = int((time.time() + max(30, TIMEOUT - PSEUDO_MARGIN_S)) * 1000)
-        error = run(
-            headless(
-                project,
-                "-import",
-                sample,
-                "-analysisTimeoutPerFile",
-                str(analysis_timeout),
-                "-postScript",
-                "ExportDeepLook.java",
-                out,
-                f"{APP}/sensitive-apis.txt",
-                f"{APP}/pe-ordinals.json",
-                pseudo,
-                str(deadline_ms),
-                str(MAX_PSEUDO),
-            ),
-            TIMEOUT,
-            os.path.join(work, "passo1.log"),
-        )
-        error = error or script_error(os.path.join(work, "passo1.log"))
+        light = "size" if LIGHT_BYTES and len(data) > LIGHT_BYTES else None
+        error = first_pass(work, TIMEOUT, light)
         if error or not os.path.exists(out):
             return {
                 "ok": False,
@@ -173,6 +190,10 @@ def analyze(data):
             }
         with open(out, encoding="utf-8") as f:
             summary = json.load(f)
+        if light:
+            # O motivo e o que ficou de fora, para a tela explicar o resultado.
+            summary["light"] = {"reason": light, "analyzers": LIGHT_ANALYZERS}
+            log(f"análise leve ({light}): sem {', '.join(LIGHT_ANALYZERS)}")
 
         gzf_b64 = None
         gzf_error = run(

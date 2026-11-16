@@ -460,6 +460,17 @@ os redirecionamentos, o certificado e o que foi bloqueado.
 - **Token:** troque o `CAPTURE_TOKEN` (16+ caracteres), que vale para a API e para o
   serviço.
 
+## Conteúdo do arquivo (hexadecimal)
+
+Na aba Detalhes, para analistas, a seção **Conteúdo (hex)** mostra o arquivo em hexadecimal e texto,
+de 4 em 4 KB, com o cabeçalho conhecido (MZ, ELF, PK, %PDF...) destacado. Nada é baixado nem
+executado: a API lê do MinIO só a faixa pedida.
+- **Buscar no arquivo:** por **texto** (sem diferenciar maiúsculas, em ASCII/UTF-8 e em UTF-16, o
+  das strings do Windows) ou por **bytes** em hexadecimal (`4D 5A 90 00`). A API lê o arquivo
+  inteiro em fluxo e devolve até 200 posições; cada uma abre o trecho dela, com os bytes destacados.
+- **Ir para a posição:** em hexadecimal (`0x1A30`) ou decimal; "Mostrar os 4 KB anteriores" e
+  "Mostrar mais 4 KB" andam a partir dali.
+
 ## Análise estática de executáveis do Windows
 
 Todo arquivo enviado passa pela análise estática (só leitura de bytes, numa thread com limite
@@ -525,8 +536,9 @@ o código.
   sem capacidades, raiz somente leitura e `/tmp` em memória sem execução. Como a captura, um
   **contêiner novo a cada análise**: a API espera o novo estar livre antes de mandar o próximo
   arquivo. Serviço fora do ar: a análise volta para a fila e tenta de novo (até 3 vezes).
-- **Status do sistema:** linha "Análise de funções (capa)" com as versões, a fila e as análises
-  em 24 h.
+- **Status do sistema:** linha "Análise de funções (capa)" com as versões, cada réplica (livre,
+  ocupada ou sem resposta), a fila (esperando e analisando), a espera do mais antigo e as análises
+  em 24 h. Fica em aviso com uma réplica sem resposta ou com o mais antigo esperando há mais de 1 h.
 - **Versões:** capa 10.0.0 e FLOSS 3.2.0, com as regras e as assinaturas da mesma versão do capa,
   baixadas no build e conferidas pelo hash. As dependências Python ficam travadas com hash em
   `apps/capa/requirements.txt` (gerado de `requirements.in`). Para subir o capa, troque a versão
@@ -560,6 +572,13 @@ Detalhes:
   descompila o código intermediário (IL), e o resultado seria só o stub do CLR.
 - **Tempo:** de 12 a 20 s nos executáveis de teste (o Java sobe a cada análise). Num executável
   grande, a análise automática para em 70% de `GHIDRA_TIMEOUT_S` e o resumo ainda sai, parcial.
+- **Binários grandes:** cada processo do descompilador nativo tem teto de memória
+  (`GHIDRA_DECOMPILER_MAX_MB`): numa função em que ele cresceria sem limite, só ela fica sem
+  pseudo-C, em vez de o contêiner esgotar a memória e não sair nada. Acima de `GHIDRA_LIGHT_MB`, a
+  análise começa sem o analisador de `switch`, que dobra o tempo; a ficha mostra "Mais leve, pelo
+  tamanho do binário", e o código alcançado só por tabelas de salto pode ficar de fora (de 2% a 3%
+  das funções nos medidos). No `python3.13` (6,8 MB), que antes passava de 10 GB e não terminava:
+  320 s, 2,4 GB, 6403 funções e o pseudo-C de todas menos 31.
 - **Pseudo-C de todas as funções:** sai na mesma passada, em paralelo (o ponto de entrada e as que
   chamam APIs sensíveis primeiro, as de biblioteca por último), com prazo de `GHIDRA_TIMEOUT_S` menos
   90 s. O que não couber no prazo, ou passar de `GHIDRA_MAX_PSEUDO_MB` de código somado, aparece na
@@ -1135,6 +1154,8 @@ COOKIE_SECURE=true
 | `GHIDRA_TIMEOUT_S` | teto da análise no serviço (a análise automática para em 70% dele e o resumo ainda sai) | `900` |
 | `GHIDRA_REQUEST_TIMEOUT_S` | quanto a API espera uma análise | `1300` |
 | `GHIDRA_HEADLESS_MAXMEM` / `GHIDRA_MEM_LIMIT` | heap do Java e memória do contêiner | `3G` / `6g` |
+| `GHIDRA_DECOMPILER_MAX_MB` | memória de cada processo do descompilador nativo (até dois, fora o heap); `0` desliga | `1024` |
+| `GHIDRA_LIGHT_MB` | executáveis acima disto são analisados sem o analisador de `switch` (mais rápido); `0` desliga | `5` |
 | `GHIDRA_RECYCLE` | um container novo a cada análise; `false` = processo de longa vida | `true` |
 | `GHIDRA_MAX_PSEUDO_MB` | teto do pseudo-C de todas as funções (código somado), no serviço e na API | `32` |
 | `UNPACK_URL` | serviço de desempacotamento; vazio desliga | `http://unpack:3400` |
@@ -1620,8 +1641,10 @@ arquivo presente, nenhum ambiente ativo). Ele mostra um diálogo com as opções
 **"Iniciar ambiente"**, que abre a janela do console e leva à aba Análise; um erro (como o limite de
 ambientes) aparece no próprio diálogo. Com um ambiente ativo, o mesmo lugar da barra vira **"Abrir
 console"** (no ar) ou **"Ir para o ambiente"** (subindo ou encerrando). O "Abrir novo ambiente" da
-janela do console usa o mesmo diálogo, e a própria janela passa a mostrar o ambiente novo. A caixa
-**"Executar a amostra automaticamente"** do diálogo
+janela do console usa o mesmo diálogo, e a própria janela passa a mostrar o ambiente novo. O
+diálogo também escolhe a **duração** (de 15 min até `SANDBOX_TTL_MINUTES`, o padrão; o painel ainda
+estende) e, com a captura de rede configurada, se **este ambiente** grava o tráfego (marcada por
+padrão). A caixa **"Executar a amostra automaticamente"** do diálogo
 (lembrada no navegador) pede que o DeepLook rode a amostra sozinho, para uma análise rápida: abrir, esperar e ler os artefatos.
 Depois que o Windows sobe e o Sysmon está no ar, a API, pelo `qemu-guest-agent`, copia a amostra do
 CD para a pasta temporária do usuário logado e a abre **na sessão dele**, por uma tarefa agendada
@@ -1665,8 +1688,10 @@ histórico da amostra registra a execução e quem a pediu.
 | Método | Rota | Função |
 |---|---|---|
 | GET | `/api/sandbox/health` | Diagnóstico da integração (admin) |
+| GET | `/api/entries/:id/hex` | Bytes do arquivo (`offset`, `length` até 4 KB), em base64 (analistas) |
+| GET | `/api/entries/:id/hex/search` | Busca no arquivo inteiro (`q`, `kind=text\|bytes`): até 200 posições |
 | GET | `/api/entries/:id/sandbox` | Sessão ativa da amostra (usada no painel) |
-| POST | `/api/entries/:id/sandbox` | Abre o ambiente (analista); `{"autoRun":true}` executa a amostra sozinho |
+| POST | `/api/entries/:id/sandbox` | Abre o ambiente (analista); `{"autoRun":true}` executa a amostra sozinho, `minutes` (5 até `SANDBOX_TTL_MINUTES`) dá a duração e `{"capture":false}` desliga a captura de rede |
 | GET | `/api/sandbox` | Lista ambientes (`?active=true`, `?scope=all` p/ admin) |
 | GET | `/api/sandbox/:id` | Detalhe + estado atual da VM (polling do painel) |
 | POST | `/api/sandbox/:id/extend` | Estende o prazo |

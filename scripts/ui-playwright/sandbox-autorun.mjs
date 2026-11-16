@@ -57,6 +57,14 @@ expect(
     (await page.evaluate(() => document.activeElement?.textContent)) === 'Iniciar ambiente',
   dialogText,
 );
+const duration = dialog.locator('select#sandbox-minutes-e1');
+expect(
+  'duração: até o teto, com o teto escolhido; sem captura configurada, sem a caixa dela',
+  (await duration.locator('option').allTextContents()).join('|') === '15 min|30 min|1 h' &&
+    (await duration.inputValue()) === '60' &&
+    (await dialog.locator('#sandbox-capture-e1').count()) === 0,
+  (await duration.locator('option').allTextContents()).join('|'),
+);
 await dialog.screenshot({ path: `${OUT}/sandbox-iniciar.png` });
 await dialog.locator('button', { hasText: 'Cancelar' }).click();
 await dialog.waitFor({ state: 'detached' });
@@ -72,16 +80,28 @@ await dialog.locator('button', { hasText: 'Iniciar ambiente' }).click();
 await dialog.locator('[role="alert"]').waitFor();
 expect('erro da API dentro do diálogo, aberto', (await dialog.locator('[role="alert"]').innerText()) === 'Limite de ambientes ativos atingido.' && (await dialog.evaluate((d) => d.open)));
 state.sandboxOpenError = undefined;
-// Marcada a caixa, "Iniciar ambiente" pede com autoRun e leva para a aba Analise.
+// Marcada a caixa, "Iniciar ambiente" pede com autoRun e leva para a aba Analise. Com a captura
+// configurada, a caixa dela aparece marcada; aqui o analista a desliga e escolhe 30 min.
 await dialog.locator('label[for="sandbox-autorun-e1"]').click();
+state.sandboxCapture = true;
 await page.goto(ORIGIN + '/entries/e1', { waitUntil: 'networkidle' });
 await toolbarOpen.click();
 await dialog.waitFor();
 expect('a escolha da caixa fica lembrada no navegador', await box().isChecked());
+const captureBox = dialog.locator('#sandbox-capture-e1');
+expect('captura configurada: a caixa, marcada', await captureBox.isChecked());
+await dialog.locator('label[for="sandbox-capture-e1"]').click();
+await duration.selectOption('30');
+await dialog.screenshot({ path: `${OUT}/sandbox-iniciar-opcoes.png` });
 await dialog.locator('button', { hasText: 'Iniciar ambiente' }).click();
 await dialog.waitFor({ state: 'detached' });
 await page.locator('.dl-sandbox__autorun').first().waitFor();
-expect('pedido com autoRun e a aba Análise aberta', state.sandboxOpens?.at(-1)?.body?.autoRun === true && page.url().includes('tab=analise'), JSON.stringify(state.sandboxOpens));
+expect(
+  'pedido com autoRun, 30 min e sem captura, e a aba Análise aberta',
+  JSON.stringify(state.sandboxOpens?.at(-1)?.body) === JSON.stringify({ autoRun: true, minutes: 30, capture: false }) && page.url().includes('tab=analise'),
+  JSON.stringify(state.sandboxOpens),
+);
+state.sandboxCapture = undefined;
 expect('esperando o Windows e o Sysmon', (await panelText()).includes('Execução automática: aguardando o Windows e o Sysmon'));
 
 // 2. Executada, sem o Sysmon: a hora, o usuario e o aviso.

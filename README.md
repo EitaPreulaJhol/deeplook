@@ -458,6 +458,17 @@ certificate and what was blocked are stored.
 - **Token:** change `CAPTURE_TOKEN` (16+ characters), which is used by both the API and the
   service.
 
+## File content (hexadecimal)
+
+In the Details tab, for analysts, the **Content (hex)** section shows the file in hexadecimal and
+text, 4 KB at a time, with the known header (MZ, ELF, PK, %PDF...) highlighted. Nothing is downloaded
+or run: the API reads only the requested range from MinIO.
+- **Search the file:** by **text** (ignoring case, in ASCII/UTF-8 and in UTF-16, the one of Windows
+  strings) or by **bytes** in hexadecimal (`4D 5A 90 00`). The API reads the whole file as a stream
+  and returns up to 200 positions; each one opens its stretch, with the bytes highlighted.
+- **Go to position:** in hexadecimal (`0x1A30`) or decimal; "Show the previous 4 KB" and "Show 4 KB
+  more" move on from there.
+
 ## Static analysis of Windows executables
 
 Every uploaded file goes through static analysis (read-only access to the bytes, in a thread with a time
@@ -521,8 +532,9 @@ whole queue. Nothing is executed: the two Mandiant tools read and emulate the co
   no capabilities, read-only root and `/tmp` in memory without execution. Like the capture, a **new container for
   each analysis**: the API waits for the new one to be free before sending the next file. Service down: the
   analysis goes back into the queue and is retried (up to 3 times).
-- **System status:** "Function analysis (capa)" line with the versions, the queue and the analyses
-  in the last 24 h.
+- **System status:** "Function analysis (capa)" line with the versions, each replica (free, busy or
+  not responding), the queue (waiting and analyzing), the oldest wait and the analyses in the last
+  24 h. It turns to a warning with a replica not responding or the oldest waiting for over 1 h.
 - **Versions:** capa 10.0.0 and FLOSS 3.2.0, with the rules and signatures of the same capa version, downloaded at
   build time and checked by hash. The Python dependencies are pinned with hashes in
   `apps/capa/requirements.txt` (generated from `requirements.in`). To upgrade capa, change the version in
@@ -556,6 +568,13 @@ Details:
   decompile intermediate code (IL), and the result would be just the CLR stub.
 - **Time:** 12 to 20 s on the test executables (Java starts up on every analysis). On a large executable,
   the automatic analysis stops at 70% of `GHIDRA_TIMEOUT_S` and the summary still comes out, partial.
+- **Large binaries:** each native decompiler process has a memory cap (`GHIDRA_DECOMPILER_MAX_MB`): on a
+  function where it would grow without bound, only that function is left without pseudo-C, instead of
+  the container running out of memory and nothing coming out. Above `GHIDRA_LIGHT_MB`, the analysis
+  starts without the `switch` analyzer, which doubles the time; the card shows "Lighter, because of the
+  binary size", and code reached only through jump tables may be left out (2% to 3% of the functions in
+  the ones measured). On `python3.13` (6.8 MB), which used to go over 10 GB and never finish: 320 s,
+  2.4 GB, 6403 functions and the pseudo-C of all but 31.
 - **Pseudo-C of every function:** it comes out of the same pass, in parallel (the entry point and the
   callers of sensitive APIs first, library functions last), with a deadline of `GHIDRA_TIMEOUT_S` minus
   90 s. Whatever misses the deadline, or goes over `GHIDRA_MAX_PSEUDO_MB` of code in total, shows up in the
@@ -1122,6 +1141,8 @@ COOKIE_SECURE=true
 | `GHIDRA_TIMEOUT_S` | ceiling of the analysis in the service (the automatic analysis stops at 70% of it and the summary still comes out) | `900` |
 | `GHIDRA_REQUEST_TIMEOUT_S` | how long the API waits for an analysis | `1300` |
 | `GHIDRA_HEADLESS_MAXMEM` / `GHIDRA_MEM_LIMIT` | Java heap and container memory | `3G` / `6g` |
+| `GHIDRA_DECOMPILER_MAX_MB` | memory of each native decompiler process (up to two, besides the heap); `0` turns it off | `1024` |
+| `GHIDRA_LIGHT_MB` | executables above this are analyzed without the `switch` analyzer (faster); `0` turns it off | `5` |
 | `GHIDRA_RECYCLE` | a new container for each analysis; `false` = long-lived process | `true` |
 | `GHIDRA_MAX_PSEUDO_MB` | ceiling of the pseudo-C of every function (code in total), in the service and the API | `32` |
 | `UNPACK_URL` | unpacking service; empty turns it off | `http://unpack:3400` |
@@ -1603,7 +1624,10 @@ The environment opens through the **"Open isolated environment"** button in the 
 (such as the environment limit) shows in the dialog itself. With an active environment, the same spot
 in the toolbar becomes **"Open console"** (up) or **"Go to the environment"** (starting or ending). The
 console window's "Open a new environment" uses the same dialog, and the window itself then shows the
-new environment. The dialog's **"Run the sample automatically"** box (remembered in the browser)
+new environment. The dialog also picks the **duration** (from 15 min up to `SANDBOX_TTL_MINUTES`, the
+default; the panel can still extend it) and, with network capture configured, whether **this
+environment** records the traffic (checked by default). The dialog's **"Run the sample automatically"**
+box (remembered in the browser)
 asks DeepLook to run the sample on its own, for a quick analysis: open, wait and read the artifacts.
 After Windows starts and Sysmon is running, the API, through the `qemu-guest-agent`, copies the
 sample from the CD to the logged-in user's temporary folder and opens it **in that user's session**,
@@ -1650,8 +1674,10 @@ it.
 | Method | Route | Function |
 |---|---|---|
 | GET | `/api/sandbox/health` | Integration diagnostics (admin) |
+| GET | `/api/entries/:id/hex` | File bytes (`offset`, `length` up to 4 KB), in base64 (analysts) |
+| GET | `/api/entries/:id/hex/search` | Search the whole file (`q`, `kind=text\|bytes`): up to 200 positions |
 | GET | `/api/entries/:id/sandbox` | Active session of the sample (used in the panel) |
-| POST | `/api/entries/:id/sandbox` | Opens the environment (analyst); `{"autoRun":true}` runs the sample by itself |
+| POST | `/api/entries/:id/sandbox` | Opens the environment (analyst); `{"autoRun":true}` runs the sample by itself, `minutes` (5 up to `SANDBOX_TTL_MINUTES`) sets the duration and `{"capture":false}` turns network capture off |
 | GET | `/api/sandbox` | Lists environments (`?active=true`, `?scope=all` for admin) |
 | GET | `/api/sandbox/:id` | Details + current VM state (panel polling) |
 | POST | `/api/sandbox/:id/extend` | Extends the deadline |

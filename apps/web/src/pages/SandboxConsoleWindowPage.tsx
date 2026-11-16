@@ -49,9 +49,13 @@ export function SandboxConsoleWindowPage() {
   const query = useQuery({
     queryKey: ['sandbox', 'entry', entryId],
     queryFn: () =>
-      api.get<{ enabled: boolean; consoleEnabled: boolean; session: SandboxSession | null }>(
-        `/entries/${entryId}/sandbox`,
-      ),
+      api.get<{
+        enabled: boolean;
+        consoleEnabled: boolean;
+        ttlMinutes?: number;
+        captureEnabled?: boolean;
+        session: SandboxSession | null;
+      }>(`/entries/${entryId}/sandbox`),
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2000 : false),
     refetchOnWindowFocus: true,
   });
@@ -141,6 +145,8 @@ export function SandboxConsoleWindowPage() {
             entryId={entryId}
             sampleName={session.entry?.title ?? ''}
             openConsole={false}
+            ttlMinutes={query.data?.ttlMinutes}
+            captureEnabled={query.data?.captureEnabled}
             onClose={() => setLaunchOpen(false)}
             onStarted={() => setError(null)}
           />

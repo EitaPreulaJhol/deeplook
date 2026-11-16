@@ -120,6 +120,11 @@ const summarySchema = z.object({
       }),
     )
     .max(26),
+  /**
+   * Analise mais leve (plans/ajustes-usabilidade, item 2): sem os analisadores listados, pelo
+   * tamanho do binario (GHIDRA_LIGHT_MB no servico).
+   */
+  light: z.object({ reason: z.enum(['size']), analyzers: z.array(text(120)).max(10) }).optional(),
 });
 export type GhidraSummary = z.infer<typeof summarySchema>;
 

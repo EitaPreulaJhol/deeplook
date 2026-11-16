@@ -362,6 +362,12 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Not a disk image with files that DeepLook can list.',
   ],
   ['Parâmetros inválidos.', 'Invalid parameters.'],
+  [
+    'Use bytes em hexadecimal, como 4D 5A 90 00 (até 256 bytes).',
+    'Use bytes in hexadecimal, like 4D 5A 90 00 (up to 256 bytes).',
+  ],
+  ['Texto longo demais para a busca.', 'Text too long for the search.'],
+  ['use até {0} minutos', 'use up to {0} minutes'],
   ['Só arquivos têm análise estática.', 'Only files have static analysis.'],
   ['Nao foi possivel ler o arquivo no armazenamento.', 'Could not read the file in storage.'],
   ['Não foi possível analisar este arquivo.', 'Could not analyze this file.'],

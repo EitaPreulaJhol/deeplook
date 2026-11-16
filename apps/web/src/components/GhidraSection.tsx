@@ -208,6 +208,15 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
                 {a.ms !== null && ` · ${Math.round(a.ms / 1000)} s`}
               </HpsmReadonly>
             </HpsmField>
+            {s.light && (
+              <HpsmField label={t('ghidraLight')} wide help={t('ghidraLightHelp')}>
+                <HpsmReadonly>
+                  <StatusText tone="orange">
+                    {t('ghidraLightSize', { analyzers: s.light.analyzers.join(', ') })}
+                  </StatusText>
+                </HpsmReadonly>
+              </HpsmField>
+            )}
           </>
         )}
       </HpsmForm>

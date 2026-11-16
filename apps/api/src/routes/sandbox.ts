@@ -131,6 +131,21 @@ function localizeSession<T extends { autoRunError?: string | null }>(session: T,
     : session;
 }
 
+/** Opcoes de inicio do ambiente (dialogo "Abrir ambiente isolado"; ajustes, item 5). */
+const LaunchBody = z.object({
+  autoRun: z.boolean().optional(),
+  /** Ate o SANDBOX_TTL_MINUTES (o mesmo teto de cada extensao). */
+  minutes: z
+    .number()
+    .int()
+    .min(5)
+    .refine((m) => m <= env.SANDBOX_TTL_MINUTES, {
+      message: `use até ${env.SANDBOX_TTL_MINUTES} minutos`,
+    })
+    .optional(),
+  capture: z.boolean().optional(),
+});
+
 /** Formato da exportacao da linha do tempo (plans/ajustes-usabilidade, item 6). */
 const ExportFormat = z.object({ format: z.enum(['csv', 'json']).default('csv') });
 
@@ -256,6 +271,9 @@ export async function sandboxRoutes(app: FastifyInstance) {
     return reply.send({
       enabled: sandboxEnabled,
       consoleEnabled: env.SANDBOX_CONSOLE_ENABLED === 'true',
+      // Para o dialogo de inicio: o teto da duracao e se ha captura de rede para ligar ou nao.
+      ttlMinutes: env.SANDBOX_TTL_MINUTES,
+      captureEnabled: networkCaptureEnabled(),
       session: session ? localizeSession(session, requestLang(req)) : null,
       sysmonIndicators: sysmonFound,
       networkIndicators: [
@@ -316,9 +334,11 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const entry = await prisma.entry.findUnique({ where: { id } });
     if (!entry) return reply.code(404).send({ error: 'Amostra não encontrada.' });
 
-    // Execucao automatica da amostra (caixa no painel): depois do boot e do Sysmon.
-    const autoRun = (req.body as { autoRun?: unknown } | null)?.autoRun === true;
-    const result = await createSession(entry, user.id, { autoRun });
+    // Opcoes do dialogo de inicio: execucao automatica (depois do boot e do Sysmon), duracao e
+    // captura de rede (plans/ajustes-usabilidade, item 5).
+    const options = LaunchBody.safeParse(req.body ?? {});
+    if (!options.success) return sendValidationError(reply, options.error, 'Parâmetros inválidos.');
+    const result = await createSession(entry, user.id, options.data);
     if (!result.ok) return reply.code(result.code).send({ error: result.error });
     await recordEvent(prisma, { entryId: entry.id, actorId: user.id, type: 'SANDBOX_OPENED' });
 

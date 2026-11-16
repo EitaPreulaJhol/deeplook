@@ -1,15 +1,24 @@
-import { Checkbox } from '@carbon/react';
+import { Checkbox, Select, SelectItem } from '@carbon/react';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { t } from '../i18n/sandbox';
-import { type OpenResult, readAutoRun, saveAutoRun, useOpenSandbox } from './sandboxOpen';
+import {
+  durationChoices,
+  formatMinutes,
+  type OpenResult,
+  readAutoRun,
+  saveAutoRun,
+  useOpenSandbox,
+} from './sandboxOpen';
 
 /**
  * As opcoes de inicio do ambiente isolado, num dialogo aberto pelo botao "Abrir ambiente isolado"
  * da barra de ferramentas da amostra: a execucao automatica (lembrada no navegador) e o botao que
  * inicia. Dialogo nativo em modal: o navegador cuida do foco, do Esc e de devolver o foco ao botao
  * da barra. "Iniciar ambiente" abre a janela do console no mesmo clique (senao o navegador a
- * bloqueia); um erro da API aparece aqui dentro, com o dialogo aberto.
+ * bloqueia); um erro da API aparece aqui dentro, com o dialogo aberto. Com o teto da duracao e a
+ * captura de rede configurada (GET /api/entries/:id/sandbox), tambem a duracao e ligar ou nao a
+ * captura (plans/ajustes-usabilidade, item 5).
  */
 export function SandboxLaunchDialog({
   entryId,
@@ -17,9 +26,15 @@ export function SandboxLaunchDialog({
   onClose,
   onStarted,
   openConsole = true,
+  ttlMinutes,
+  captureEnabled = false,
 }: {
   entryId: string;
   sampleName: string;
+  /** Teto da duracao (SANDBOX_TTL_MINUTES); sem ele, nao ha escolha de duracao. */
+  ttlMinutes?: number;
+  /** Captura de rede configurada: a caixa para desliga-la neste ambiente. */
+  captureEnabled?: boolean;
   /** Abre a janela do console ao iniciar (false dentro da propria janela do console). */
   openConsole?: boolean;
   onClose: () => void;
@@ -30,6 +45,8 @@ export function SandboxLaunchDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const startRef = useRef<HTMLButtonElement>(null);
   const [autoRun, setAutoRun] = useState(readAutoRun);
+  const [minutes, setMinutes] = useState<number | undefined>(ttlMinutes);
+  const [capture, setCapture] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const opener = useOpenSandbox(entryId);
 
@@ -46,7 +63,10 @@ export function SandboxLaunchDialog({
     if ((e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'cancel') return;
     e.preventDefault();
     setError(null);
-    const result = await opener.open(autoRun, openConsole);
+    const result = await opener.open(
+      { autoRun, minutes, capture: captureEnabled ? capture : undefined },
+      openConsole,
+    );
     if (result.kind === 'error') {
       setError(result.text);
       return;
@@ -84,6 +104,32 @@ export function SandboxLaunchDialog({
                 saveAutoRun(checked);
               }}
             />
+            {captureEnabled && (
+              <Checkbox
+                id={`sandbox-capture-${entryId}`}
+                labelText={t('captureLabel')}
+                helperText={t('captureHelp')}
+                checked={capture}
+                disabled={opener.busy}
+                onChange={(_, { checked }) => setCapture(checked)}
+              />
+            )}
+            {ttlMinutes !== undefined && (
+              <Select
+                id={`sandbox-minutes-${entryId}`}
+                className="dl-launch-dialog__duration"
+                labelText={t('durationLabel')}
+                helperText={t('durationHelp')}
+                size="sm"
+                value={String(minutes ?? ttlMinutes)}
+                disabled={opener.busy}
+                onChange={(e) => setMinutes(Number(e.target.value))}
+              >
+                {durationChoices(ttlMinutes).map((m) => (
+                  <SelectItem key={m} value={String(m)} text={formatMinutes(m)} />
+                ))}
+              </Select>
+            )}
           </fieldset>
           {error && (
             <p className="dl-launch-dialog__error" role="alert">

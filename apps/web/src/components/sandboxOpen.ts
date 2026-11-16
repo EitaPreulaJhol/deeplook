@@ -14,6 +14,23 @@ export function openConsoleWindow(entryId: string): boolean {
   return !!win;
 }
 
+/**
+ * Duracoes oferecidas no dialogo de inicio, ate o teto (SANDBOX_TTL_MINUTES), que sempre entra e e o
+ * padrao.
+ */
+export function durationChoices(ttlMinutes: number): number[] {
+  const steps = [15, 30, 60, 120, 240, 480, 720, 1440].filter((m) => m < ttlMinutes);
+  return [...steps, ttlMinutes];
+}
+
+/** "15 min", "1 h", "1 h 30 min". */
+export function formatMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
 /** A escolha da caixa de execucao automatica fica lembrada neste navegador. */
 const AUTO_RUN_KEY = 'dl.sandbox.autoRun';
 export function readAutoRun(): boolean {
@@ -31,6 +48,16 @@ export function saveAutoRun(value: boolean): void {
   }
 }
 
+/**
+ * Opcoes do dialogo de inicio (plans/ajustes-usabilidade, item 5). Sem duracao, vale o
+ * SANDBOX_TTL_MINUTES; sem `capture`, a captura de rede segue ligada (quando configurada).
+ */
+export interface LaunchOptions {
+  autoRun?: boolean;
+  minutes?: number;
+  capture?: boolean;
+}
+
 /** Resultado de abrir o ambiente: o aviso, quando houver (popup bloqueado ou erro da API). */
 export type OpenResult = { kind: 'ok' } | { kind: 'warning' | 'error'; text: string };
 
@@ -42,13 +69,16 @@ export type OpenResult = { kind: 'ok' } | { kind: 'warning' | 'error'; text: str
 export function useOpenSandbox(entryId: string) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const open = async (autoRun = readAutoRun(), withConsole = true): Promise<OpenResult> => {
+  const open = async (
+    { autoRun = readAutoRun(), minutes, capture }: LaunchOptions = {},
+    withConsole = true,
+  ): Promise<OpenResult> => {
     // Dentro da propria janela do console, nao: abri-la pelo nome dela a recarregaria e cancelaria
     // o pedido; ela mesma passa a mostrar o ambiente novo.
     const opened = withConsole ? openConsoleWindow(entryId) : true;
     setBusy(true);
     try {
-      await api.post(`/entries/${entryId}/sandbox`, { autoRun });
+      await api.post(`/entries/${entryId}/sandbox`, { autoRun, minutes, capture });
       // Abrir entra no historico da amostra; o painel e o indicador da aba se atualizam.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['sandbox', 'entry', entryId] }),

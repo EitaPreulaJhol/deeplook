@@ -276,6 +276,22 @@ state.ghidra.e1 = { ...DONE, analysis: { ...DONE.analysis, hasPseudo: false, pse
 await open('e1');
 expect('sem o pseudo-C: o motivo', (await section.innerText()).includes('Pseudo-C completo indisponível: o pseudo-C completo não foi gerado.'));
 
+// 2d. Binario grande: analise mais leve, sem o analisador de switch (plans/ajustes-usabilidade,
+// item 2). Sem a marca, o campo nao aparece (acima, nas analises completas).
+expect('análise completa: sem o campo "Análise"', (await section.locator('.hpsm-field__label:text-is("Análise:")').count()) === 0);
+state.ghidra.e1 = {
+  ...DONE,
+  analysis: { ...DONE.analysis, summary: { ...DONE.analysis.summary, light: { reason: 'size', analyzers: ['Decompiler Switch Analysis'] } } },
+};
+await open('e1');
+expect(
+  'análise leve: o motivo e o analisador, em laranja',
+  (await field('Análise').locator('.hpsm-status--orange').innerText()) === 'Mais leve, pelo tamanho do binário: sem Decompiler Switch Analysis',
+  await field('Análise').innerText(),
+);
+await section.screenshot({ path: `${OUT}/ghidra-analise-leve.png` });
+state.ghidra.e1 = DONE;
+
 // 3. Usuario comum: ve, nao pede; sem permissao de baixar, sem link.
 state.role = 'USER';
 state.ghidra.e1 = { ...DONE, canDownload: false };

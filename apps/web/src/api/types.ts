@@ -233,6 +233,8 @@ export interface GhidraInfo {
   analysis: {
     status: CapaStatus;
     summary: {
+      /** Analise mais leve: sem os analisadores listados, pelo tamanho do binario. */
+      light?: { reason: 'size'; analyzers: string[] };
       format: string | null;
       language: string | null;
       compiler: string | null;

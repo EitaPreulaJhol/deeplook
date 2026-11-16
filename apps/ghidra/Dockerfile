@@ -41,6 +41,12 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* /usr/lib/jvm/java-25-openjdk-amd64/jmods \
   && useradd --system --uid 10002 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin ghidra
 COPY --from=fetch /opt/ghidra /opt/ghidra
+# O descompilador nativo com teto de memoria por processo (decompile-limit.sh).
+COPY decompile-limit.sh /tmp/
+RUN d=/opt/ghidra/Ghidra/Features/Decompiler/os/linux_x86_64 \
+  && mv "$d/decompile" "$d/decompile.real" \
+  && install -m 755 /tmp/decompile-limit.sh "$d/decompile" \
+  && rm /tmp/decompile-limit.sh
 # HOME (inclusive a do usuario no /etc/passwd, de onde o Java tira user.home) e as pastas de
 # configuracao e cache no /tmp (tmpfs): o Ghidra grava ali as preferencias, o
 # log e os scripts compilados; com a raiz somente leitura, nao ha outro lugar.

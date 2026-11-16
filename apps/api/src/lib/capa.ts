@@ -202,6 +202,17 @@ async function replicas(): Promise<string[]> {
   }
 }
 
+/**
+ * Cada replica pelo /health, para o Status do sistema (plans/ajustes-usabilidade, item 8): livre,
+ * ocupada (analisando ou trocando de container) ou sem resposta (null).
+ */
+export async function capaReplicaStates(): Promise<
+  { url: string; state: 'livre' | 'ocupada' | null }[]
+> {
+  const urls = await replicas();
+  return Promise.all(urls.map(async (url) => ({ url, state: await replicaState(url) })));
+}
+
 /** Replicas reservadas pelas analises em andamento neste processo. */
 const reserved = new Set<string>();
 

@@ -12,7 +12,7 @@ import { alertLogEnabled, writeStateAlert } from './alert-log';
 import { lastAuditCheck } from './audit-check';
 import { checkBackupDir } from './backup';
 import { describe, readSchedule, scheduledBackupProblem } from './backup-schedule';
-import { capaEnabled } from './capa';
+import { capaEnabled, capaReplicaStates } from './capa';
 import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { pendingRekey } from './data-key-rekey';
 import { createTranslator, type Lang } from './error-language';
@@ -535,7 +535,13 @@ async function captureCheck(): Promise<StatusCheck> {
   };
 }
 
-/** Analise de funcoes (item 7.2): servico capa, fila e analises em 24 h. */
+/**
+ * Espera do mais antigo da fila do capa acima disto: aviso (plans/ajustes-usabilidade, item 8). A
+ * fila pega o mais antigo depois de 30 min; uma hora parado e sinal de replicas presas ou poucas.
+ */
+const CAPA_QUEUE_WARN_MS = 60 * 60 * 1000;
+
+/** Analise de funcoes (item 7.2): servico capa, replicas, fila e analises em 24 h. */
 async function capaCheck(): Promise<StatusCheck> {
   const name = 'Análise de funções (capa)';
   if (!capaEnabled()) {
@@ -571,21 +577,44 @@ async function capaCheck(): Promise<StatusCheck> {
     value: `capa ${v.capa ?? '?'} · FLOSS ${v.floss ?? '?'} · regras ${v.rules ?? '?'}`,
   });
   const since = new Date(Date.now() - 24 * 3600 * 1000);
-  const [queued, done, failed] = await Promise.all([
-    prisma.capaAnalysis.count({ where: { status: { in: ['PENDING', 'RUNNING'] } } }),
+  const [states, waiting, running, oldest, done, failed] = await Promise.all([
+    capaReplicaStates(),
+    prisma.capaAnalysis.count({ where: { status: 'PENDING' } }),
+    prisma.capaAnalysis.count({ where: { status: 'RUNNING' } }),
+    prisma.capaAnalysis.findFirst({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true },
+    }),
     prisma.capaAnalysis.count({ where: { finishedAt: { gt: since }, status: 'DONE' } }),
     prisma.capaAnalysis.count({ where: { finishedAt: { gt: since }, status: 'FAILED' } }),
   ]);
-  details.push({ label: 'Na fila', value: String(queued) });
+  // Replicas (CAPA_WORKERS containers): quantas livres, ocupadas e sem resposta.
+  const free = states.filter((s) => s.state === 'livre').length;
+  const busy = states.filter((s) => s.state === 'ocupada').length;
+  const silent = states.length - free - busy;
+  details.push({
+    label: 'Réplicas',
+    value: silent
+      ? `${states.length} · ${free} livre(s), ${busy} ocupada(s), ${silent} sem resposta`
+      : `${states.length} · ${free} livre(s), ${busy} ocupada(s)`,
+  });
+  details.push({ label: 'Na fila', value: `${waiting} esperando · ${running} analisando` });
+  const waitMs = oldest ? Date.now() - oldest.createdAt.getTime() : 0;
+  if (oldest) {
+    details.push({ label: 'Espera do mais antigo', value: `${Math.round(waitMs / 60_000)} min` });
+  }
   details.push({ label: 'Análises em 24 h', value: `${done} · ${failed} falha(s)` });
-  return {
-    id: 'capa',
-    name,
-    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
-    summary: v.state === 'analisando' ? 'respondendo (analisando)' : 'respondendo',
-    latencyMs: probe.ms,
-    details,
-  };
+  let level: StatusCheck['level'] = probe.ms > SLOW_MS ? 'warn' : 'ok';
+  let summary = v.state === 'analisando' ? 'respondendo (analisando)' : 'respondendo';
+  if (silent) {
+    level = 'warn';
+    summary = `respondendo; ${silent} réplica(s) sem resposta`;
+  } else if (waitMs > CAPA_QUEUE_WARN_MS) {
+    level = 'warn';
+    summary = `fila lenta: o mais antigo espera há ${Math.round(waitMs / 60_000)} min`;
+  }
+  return { id: 'capa', name, level, summary, latencyMs: probe.ms, details };
 }
 
 /** Office e PDF mais fundo (item 7.14): servico oletools, fila e analises em 24 h. */
