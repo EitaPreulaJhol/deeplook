@@ -2,7 +2,10 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "CommonJS",
-    "moduleResolution": "Node",
+    // TypeScript 6 descontinuou o "Node" (node10). O "Bundler" so muda como os tipos sao achados;
+    // a saida continua CommonJS. O "Node16" pediria extensao .js em todo import relativo e import()
+    // dinamico para o yara-x (ESM).
+    "moduleResolution": "Bundler",
     "lib": ["ES2022"],
     "outDir": "dist",
     "rootDir": "src",
