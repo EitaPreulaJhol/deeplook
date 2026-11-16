@@ -209,7 +209,7 @@ export async function sysmonTimeline(
     kinds,
     page,
   }: { tree: Set<string>; sampleOnly: boolean; kinds: TimelineKind[]; page: number },
-): Promise<{ total: number; events: TimelineEvent[] }> {
+): Promise<{ total: number; events: TimelineEvent[]; next: string | null }> {
   const offsetMs = await sysmonOffset(sessionId);
   const where = {
     sessionId,
@@ -222,12 +222,16 @@ export async function sysmonTimeline(
       where,
       orderBy: [{ time: 'asc' }, { recordId: 'asc' }],
       skip: (page - 1) * TIMELINE_PAGE,
-      take: TIMELINE_PAGE,
+      // Um a mais: o horario em que a proxima pagina comeca (as marcas do intervalo entre as duas
+      // ficam nesta, e nao somem).
+      take: TIMELINE_PAGE + 1,
       select: { eventId: true, time: true, image: true, processGuid: true, data: true },
     }),
   ]);
+  const following = rows.length > TIMELINE_PAGE ? rows.pop() : undefined;
   return {
     total,
+    next: following ? apiTime(following.time, offsetMs) : null,
     events: rows.map((r) => {
       const d = r.data as Record<string, unknown>;
       return {

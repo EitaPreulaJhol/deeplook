@@ -631,7 +631,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const name = sampleFileName({ originalFilename: extra?.entry.originalFilename ?? null });
     const tree = await sampleTree(session.id, name);
     const scope = parsed.data.scope ?? (tree.size ? 'sample' : 'all');
-    const { total, events } = await sysmonTimeline(session.id, {
+    const { total, events, next } = await sysmonTimeline(session.id, {
       tree,
       sampleOnly: scope === 'sample',
       kinds: parsed.data.kinds as TimelineKind[],
@@ -657,6 +657,7 @@ export async function sandboxRoutes(app: FastifyInstance) {
       pageSize: TIMELINE_PAGE,
       total,
       events,
+      next,
       markers,
     });
   });

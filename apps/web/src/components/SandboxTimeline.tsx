@@ -53,22 +53,28 @@ function describe(e: SandboxTimelineEvent): string {
 
 function MarkerRow({ marker, sessionId }: { marker: SandboxTimelineMarker; sessionId: string }) {
   const label = t(MARKER_LABEL[marker.kind]);
+  if (marker.kind === 'screenshot' && marker.id) {
+    // A propria imagem, para ver na tela o que os eventos em volta fizeram; o clique abre inteira.
+    const src = `/api/sandbox/${sessionId}/artifacts/${marker.id}`;
+    return (
+      <li className="dl-timeline__marker dl-timeline__marker--shot">
+        <time dateTime={marker.time}>{fmtTime(marker.time)}</time>
+        <a className="dl-timeline__shot" href={src} target="_blank" rel="noreferrer">
+          <img
+            src={src}
+            alt={t('vmScreenAt', { time: fmtTime(marker.time) })}
+            loading="lazy"
+            decoding="async"
+          />
+          <span>{label}</span>
+        </a>
+      </li>
+    );
+  }
   return (
     <li className="dl-timeline__marker">
       <time dateTime={marker.time}>{fmtTime(marker.time)}</time>
-      <span>
-        {marker.kind === 'screenshot' && marker.id ? (
-          <a
-            href={`/api/sandbox/${sessionId}/artifacts/${marker.id}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {label}
-          </a>
-        ) : (
-          label
-        )}
-      </span>
+      <span>{label}</span>
     </li>
   );
 }
@@ -122,25 +128,21 @@ function EventRow({ event, showSample }: { event: SandboxTimelineEvent; showSamp
 }
 
 /**
- * As marcas do ambiente (no ar, amostra aberta, prints, fim) entre os eventos da pagina: as do
- * intervalo dela e, na primeira e na ultima pagina, as de antes e as de depois.
+ * As marcas do ambiente (no ar, amostra aberta, prints, fim) entre os eventos da pagina: as de
+ * depois do primeiro evento dela (na primeira, tambem as de antes) e de antes do primeiro evento da
+ * proxima (na ultima, tambem as de depois). Assim a marca no intervalo entre duas paginas nao some.
  */
 function merge(
   events: SandboxTimelineEvent[],
   markers: SandboxTimelineMarker[],
   first: boolean,
-  last: boolean,
+  next: string | null,
 ): (
   { kind: 'event'; event: SandboxTimelineEvent } | { kind: 'marker'; marker: SandboxTimelineMarker }
 )[] {
-  const start = events[0]?.time ?? '';
-  const end = events[events.length - 1]?.time ?? '';
+  const start = events[0]?.time;
   const inPage = markers.filter(
-    (m) =>
-      !events.length ||
-      (m.time >= start && m.time <= end) ||
-      (first && m.time < start) ||
-      (last && m.time > end),
+    (m) => (first || start === undefined || m.time >= start) && (next === null || m.time < next),
   );
   const items: ReturnType<typeof merge> = events.map((event) => ({ kind: 'event', event }));
   for (const marker of inPage) {
@@ -234,11 +236,11 @@ function TimelineBody({ sessionId, running }: { sessionId: string; running: bool
           </>
         )}
       </div>
-      {data.events.length === 0 ? (
-        <p className="dl-hint-muted">{t('timelineEmpty')}</p>
-      ) : (
+      {data.events.length === 0 && <p className="dl-hint-muted">{t('timelineEmpty')}</p>}
+      {/* Sem evento no filtro, as marcas (e as prints) continuam: o que a tela mostrou. */}
+      {(data.events.length > 0 || data.markers.length > 0) && (
         <ol className="dl-timeline__list">
-          {merge(data.events, data.markers, page === 1, page >= pages).map((item, i) => (
+          {merge(data.events, data.markers, page === 1, data.next ?? null).map((item, i) => (
             <Fragment key={i}>
               {item.kind === 'event' ? (
                 <EventRow event={item.event} showSample={data.scope === 'all'} />

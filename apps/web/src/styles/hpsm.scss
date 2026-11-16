@@ -2921,6 +2921,15 @@ body:has(.dl-print) {
   align-items: start;
 }
 
+/* Tabelas logo abaixo do formulario (secoes e imports do PE, secoes do ELF, arquivos da imagem de
+   disco, regras YARA que bateram, macros): sem o espaco, o ultimo campo ("Manifesto:") encostava
+   no cabecalho da tabela. */
+.hpsm-form + .dl-static-tables,
+.hpsm-form + .cds--data-table-container,
+.hpsm-form + .dl-doc-macros {
+  margin-block-start: 0.75rem;
+}
+
 @media (max-width: 64rem) {
   .dl-static-tables {
     grid-template-columns: minmax(0, 1fr);
@@ -4001,6 +4010,31 @@ li .dl-link,
   grid-template-columns: 5.5rem minmax(0, 1fr);
   background: var(--dl-readonly-bg);
   font-weight: 600;
+}
+
+/* Print da tela na linha do tempo: a miniatura entre os eventos, para ver o que a tela mostrava
+   naquele momento. O clique abre a imagem inteira. */
+.dl-timeline__marker--shot {
+  align-items: start;
+}
+
+.dl-timeline__shot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  inline-size: fit-content;
+
+  img {
+    display: block;
+    inline-size: 14rem;
+    max-inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 4 / 3;
+    border: 1px solid var(--dl-table-border);
+    object-fit: contain;
+    background: var(--dl-table-row-alt);
+  }
 }
 
 /* A borda de todas as linhas tem a mesma largura: so a da amostra aparece (colunas alinhadas). */

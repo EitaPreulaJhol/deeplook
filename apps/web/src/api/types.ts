@@ -1629,6 +1629,8 @@ export interface SandboxTimeline {
   pageSize: number;
   total: number;
   events: SandboxTimelineEvent[];
+  /** Horario do primeiro evento da proxima pagina (null na ultima). */
+  next: string | null;
   markers: SandboxTimelineMarker[];
 }
 
