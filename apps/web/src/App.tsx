@@ -56,6 +56,8 @@ const TriageRulesPage = lazyPage(() => import('./pages/TriageRulesPage'), 'Triag
 const UserPage = lazyPage(() => import('./pages/UserPage'), 'UserPage');
 const WelcomePage = lazyPage(() => import('./pages/WelcomePage'), 'WelcomePage');
 const YaraRulesPage = lazyPage(() => import('./pages/YaraRulesPage'), 'YaraRulesPage');
+const SigmaRulesPage = lazyPage(() => import('./pages/SigmaRulesPage'), 'SigmaRulesPage');
+const SandboxHuntPage = lazyPage(() => import('./pages/SandboxHuntPage'), 'SandboxHuntPage');
 
 function FullScreenLoader() {
   return (
@@ -205,6 +207,14 @@ export default function App() {
           <Route
             path="/yara"
             element={user.role === 'USER' ? <Navigate to="/" replace /> : <YaraRulesPage />}
+          />
+          <Route
+            path="/sigma"
+            element={user.role === 'USER' ? <Navigate to="/" replace /> : <SigmaRulesPage />}
+          />
+          <Route
+            path="/busca-sandbox"
+            element={user.role === 'USER' ? <Navigate to="/" replace /> : <SandboxHuntPage />}
           />
           <Route
             path="/admin"

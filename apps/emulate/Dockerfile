@@ -17,7 +17,9 @@ COPY --from=build /wheels /wheels
 RUN pip install --no-cache-dir --no-index --no-deps /wheels/*.whl \
   && rm -rf /wheels \
   && python -m pip uninstall -y -q pip
+# O setuptools 81 (fixado pelo pkg_resources do unicorn; ver requirements.in) avisa a cada import.
 ENV HOME=/tmp \
+  PYTHONWARNINGS="ignore:pkg_resources is deprecated:UserWarning" \
   PYTHONDONTWRITEBYTECODE=1 \
   PYTHONUNBUFFERED=1 \
   PORT=3600

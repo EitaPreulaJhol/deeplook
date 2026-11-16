@@ -1,6 +1,7 @@
 import { Checkbox } from '@carbon/react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Fragment, type ReactNode, useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type {
@@ -72,7 +73,27 @@ function MarkerRow({ marker, sessionId }: { marker: SandboxTimelineMarker; sessi
   );
 }
 
+/** O que buscar nas outras execucoes a partir de um evento (plans/caca-e-formatos, item 2). */
+function huntOf(e: SandboxTimelineEvent): { field: string; value: string } | null {
+  const d = e.detail;
+  const pick = (field: string, value: unknown) =>
+    typeof value === 'string' && value.trim().length >= 2 ? { field, value } : null;
+  switch (e.kind) {
+    case 'process':
+      return pick('process', e.image ? base(e.image) : null);
+    case 'network':
+      return pick('network', d.host ?? d.ip);
+    case 'dns':
+      return pick('dns', d.query);
+    case 'file':
+      return pick('file', d.path);
+    case 'registry':
+      return pick('registry', d.key);
+  }
+}
+
 function EventRow({ event, showSample }: { event: SandboxTimelineEvent; showSample: boolean }) {
+  const hunt = huntOf(event);
   return (
     <li className={`dl-timeline__event${showSample && event.sample ? ' is-sample' : ''}`}>
       <time dateTime={event.time}>{fmtTime(event.time)}</time>
@@ -87,6 +108,15 @@ function EventRow({ event, showSample }: { event: SandboxTimelineEvent; showSamp
         )}
       </span>
       <code className="dl-mono dl-timeline__detail">{describe(event)}</code>
+      {hunt && (
+        <Link
+          className="dl-timeline__hunt"
+          to={`/busca-sandbox?${new URLSearchParams({ ...hunt, op: hunt.field === 'process' ? 'ends' : 'contains' })}`}
+          title={t('huntElsewhere')}
+        >
+          {t('huntElsewhere')}
+        </Link>
+      )}
     </li>
   );
 }

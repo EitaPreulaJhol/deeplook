@@ -203,6 +203,22 @@ function syntheticSeeds(): Record<string, Buffer[]> {
     zip: [zip],
     disk: [iso],
     eml: [eml],
+    // Formatos de entrega (plans/caca-e-formatos, item 4): o OLE (o leitor de MSI), um OneNote e
+    // uma pagina com Base64 e lista de bytes.
+    delivery: [
+      ole,
+      Buffer.concat([
+        Buffer.from('e4525c7b8cd8a74daeb15378d02996d3', 'hex'),
+        Buffer.from('e716e3bd65261145a4c48d4d0b7a9eac', 'hex'),
+        Buffer.from([16, 0, 0, 0, 0, 0, 0, 0]),
+        Buffer.alloc(12),
+        Buffer.from('MZ' + 'A'.repeat(14)),
+      ]),
+      Buffer.from(
+        `<html><script>atob("${Buffer.alloc(1100, 77).toString('base64')}"); new Blob([1]);` +
+          `[${Array.from({ length: 300 }, (_, i) => i % 256).join(',')}]</script></html>`,
+      ),
+    ],
     // Desofuscacao (plans/novas-analises, item 5): um trecho de cada sabor.
     deobfuscate: [
       script,

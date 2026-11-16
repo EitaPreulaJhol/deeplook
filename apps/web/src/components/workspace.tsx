@@ -65,6 +65,8 @@ function routeKey(pathname: string): keyof typeof messages | null {
   if (pathname === '/avisos') return 'rtBroadcasts';
   if (pathname === '/revisoes') return 'rtReviews';
   if (pathname === '/yara') return 'rtYara';
+  if (pathname === '/sigma') return 'rtSigma';
+  if (pathname === '/busca-sandbox') return 'rtSandboxHunt';
   if (pathname === '/permitidos') return 'rtAllowlist';
   if (pathname === '/regras-triagem') return 'rtTriage';
   if (pathname === '/dominios-empresa') return 'rtDomains';

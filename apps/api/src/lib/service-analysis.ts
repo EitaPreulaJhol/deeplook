@@ -29,6 +29,8 @@ export interface ServiceDef<R = unknown> {
   path: string;
   /** Tipos (lib/file-type.ts) que vao sozinhos para a fila no envio. */
   autoKinds: Set<string>;
+  /** Filtro a mais no envio, sobre a analise estatica (ex.: so o PE que e .NET). */
+  autoOk?: (staticInfo: unknown) => boolean;
   /** Tipos que um analista pode pedir (os automaticos e, na emulacao, qualquer arquivo como shellcode). */
   manualOk: (typeId: string | null | undefined, options: Record<string, string>) => boolean;
   /** Query do pedido a partir das opcoes (ex.: "?kind=shellcode&arch=x86"). */
@@ -37,6 +39,11 @@ export interface ServiceDef<R = unknown> {
   schema: z.ZodType<R>;
   alerts: (result: R) => ServiceAlert[];
   iocs: (result: R) => string[];
+  /**
+   * Guarda o que e pesado demais para o banco (no armazenamento, ou como amostras filhas) e devolve
+   * o resultado que fica em ServiceAnalysis.result. Os alertas e os IOCs saem do resultado inteiro.
+   */
+  persist?: (entryId: string, result: R) => Promise<unknown>;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -130,9 +137,11 @@ export async function enqueueServicesIfEligible(
   typeId: string | null | undefined,
   size: number,
   log: { error: (o: object, m: string) => void },
+  staticInfo?: unknown,
 ): Promise<void> {
   for (const def of defs.values()) {
     if (!serviceEnabled(def.kind) || !serviceAutoEligible(def, typeId, size)) continue;
+    if (def.autoOk && !def.autoOk(staticInfo)) continue;
     await enqueueService(def.kind, entryId).catch((err) =>
       log.error({ err }, `[${def.name}] falha ao enfileirar`),
     );
@@ -281,9 +290,24 @@ async function analyzeJob(
     return;
   }
   const result = parsed.data;
+  let stored: unknown = result;
+  if (def.persist) {
+    try {
+      stored = await def.persist(job.entryId, result);
+    } catch (err) {
+      logger.error({ err }, `[${def.name}] falha ao guardar o resultado`);
+      await finish(job.id, {
+        status: 'FAILED',
+        error: 'não foi possível guardar o resultado',
+        version,
+        ms,
+      });
+      return;
+    }
+  }
   await finish(job.id, {
     status: 'DONE',
-    result: result as Prisma.InputJsonValue,
+    result: stored as Prisma.InputJsonValue,
     alerts: def.alerts(result) as unknown as Prisma.InputJsonValue,
     iocs: [...new Set(def.iocs(result))].slice(0, 300),
     error: null,

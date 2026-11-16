@@ -8,7 +8,14 @@ import {
   type SigmaEvent,
   SigmaUnsupported,
 } from '../../src/lib/sigma';
-import { matchSigma, sigmaManifest, sigmaRules } from '../../src/lib/sigma-rules';
+import {
+  compileTeamRule,
+  isTeamRule,
+  matchSigma,
+  sigmaManifest,
+  sigmaRules,
+  sigmaRuleUrl,
+} from '../../src/lib/sigma-rules';
 
 const rule = (detection: string, logsource = 'category: process_creation', extra = '') =>
   compileSigma(
@@ -191,4 +198,21 @@ test('as regras vendorizadas compilam e acham o comportamento típico', () => {
     ),
     [],
   );
+});
+
+// Regras da equipe (plans/caca-e-formatos, item 1): o id das deteccoes e "team:<id do banco>".
+test('regra da equipe: id "team:" e sem link do GitHub', () => {
+  const rule = compileTeamRule(
+    [
+      'title: Equipe',
+      'id: 11111111-2222-3333-4444-555555555555',
+      'logsource: { product: windows, category: process_creation }',
+      'detection: { sel: { Image|endswith: \\vssadmin.exe }, condition: sel }',
+    ].join('\n'),
+    'abc',
+  );
+  assert.equal(rule.id, 'team:abc');
+  assert.ok(isTeamRule(rule.id) && !isTeamRule('11111111-2222-3333-4444-555555555555'));
+  assert.equal(sigmaRuleUrl(rule), null);
+  assert.ok(rule.match({ eventId: 1, data: { Image: 'C:\\Windows\\System32\\vssadmin.exe' } }));
 });

@@ -87,6 +87,9 @@ updates:
     ignore:
       - dependency-name: unicorn
       - dependency-name: cape-parsers
+      # O unicorn 1.0.2 do emulate importa o pkg_resources, que saiu no setuptools 82.
+      - dependency-name: setuptools
+        versions: ['>= 82']
 
   # Analise de funcoes (item 7.2): o lockfile com hash do pip-compile (requirements.in). O capa
   # e o FLOSS sobem a mao: as regras e as assinaturas baixadas no Dockerfile (URL, hash e
@@ -118,7 +121,7 @@ updates:
       - /apps/netcap
       - /apps/suricata
       - /apps/android
-      - /apps/extract
+      - /apps/dotnet
     schedule:
       interval: weekly
       day: monday
@@ -150,6 +153,18 @@ updates:
     ignore:
       - dependency-name: python
         versions: ['>= 3.12']
+
+  # Configuracao de familias (CAPE-parsers): fica no Python 3.13, porque o yara-python 4.5.4 nao tem
+  # wheel para o 3.14 (o build compila e falha sem gcc). Liberar quando sair o wheel cp314.
+  - package-ecosystem: docker
+    directory: /apps/extract
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: python
+        versions: ['>= 3.14']
 
   # As imagens de terceiros do docker-compose.yml (Postgres e ClamAV), fixadas por tag e digest:
   # o Dependabot abre o PR quando a tag ganha uma imagem nova; a mao, node scripts/pin-images.mjs

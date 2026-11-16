@@ -217,6 +217,22 @@ const TREE: NavFolder[] = [
         },
         icon: IconFilter,
       },
+      // Regras Sigma sobre o Sysmon do sandbox (plans/caca-e-formatos, item 1).
+      {
+        to: '/sigma',
+        get label() {
+          return t('nav.sigma');
+        },
+        icon: IconFilter,
+      },
+      // Busca nos eventos de todas as execucoes (plans/caca-e-formatos, item 2).
+      {
+        to: '/busca-sandbox',
+        get label() {
+          return t('nav.sandboxHunt');
+        },
+        icon: IconFilter,
+      },
       // Lista de permissoes (item 69).
       {
         to: '/permitidos',

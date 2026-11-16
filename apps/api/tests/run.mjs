@@ -24,6 +24,7 @@ const SURICATA = 'dl-suricata';
 const EMULATE = 'dl-emulate';
 const ANDROID = 'dl-android';
 const EXTRACT = 'dl-extract';
+const DOTNET = 'dl-dotnet';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -315,6 +316,19 @@ const startExtract = () =>
     tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
   });
 
+// Descompilacao de .NET (plans/caca-e-formatos, item 3).
+const startDotnet = () =>
+  startService({
+    name: DOTNET,
+    dir: 'dotnet',
+    port: 54000,
+    inner: 3900,
+    env: 'DOTNET_TOKEN',
+    memory: '2g',
+    pids: 64,
+    tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
+  });
+
 const startUnpack = () =>
   startService({
     name: UNPACK,
@@ -417,7 +431,7 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
-if (files.some((f) => /^pe-|capa|ghidra|unpack|emulate|extract/.test(f))) {
+if (files.some((f) => /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet/.test(f))) {
   peFixtures();
 }
 if (files.some((f) => f.includes('capa'))) await startCapa();
@@ -428,6 +442,7 @@ if (files.some((f) => f.includes('suricata'))) await startSuricata();
 if (files.some((f) => f.includes('emulate'))) await startEmulate();
 if (files.some((f) => f.includes('android'))) await startAndroid();
 if (files.some((f) => f.includes('extract'))) await startExtract();
+if (files.some((f) => f.includes('dotnet'))) await startDotnet();
 
 let total = 0;
 const bad = [];
@@ -439,7 +454,7 @@ for (const file of files) {
   if (status !== 0 || failed.length) bad.push(file);
 }
 if (clean) {
-  quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
+  quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA, DOTNET);
   quiet('rm', '-f', EMULATE, ANDROID, EXTRACT);
 } else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(

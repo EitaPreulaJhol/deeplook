@@ -45,7 +45,8 @@ export function unpackEnabled(): boolean {
  * Tipos reais que vao para o servico: o Detect It Easy (item 7.9) identifica todos; os
  * desempacotadores so agem em executavel do Windows ou do Linux.
  */
-const KINDS = new Set(['pe', 'elf', 'macho', 'apk', 'jar']);
+// O CAB solto (plans/caca-e-formatos, item 4) e a midia que sai de um MSI: o 7-Zip o abre.
+const KINDS = new Set(['pe', 'elf', 'macho', 'apk', 'jar', 'cab']);
 
 /** Vai para o servico? Executavel (ou pacote Android/Java) dentro do teto. */
 export function identifiable(

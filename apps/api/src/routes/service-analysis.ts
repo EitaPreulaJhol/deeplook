@@ -15,6 +15,7 @@ const KINDS: Record<string, ServiceKind> = {
   emulation: 'EMULATION',
   android: 'ANDROID',
   config: 'CONFIG',
+  dotnet: 'DOTNET',
 };
 
 /** Opcoes do pedido: so a emulacao tem (shellcode e a arquitetura). */

@@ -47,6 +47,8 @@ const NOT_SENT: [text: string, reason: string][] = [
   // Analises em segundo plano (capa, ghidra, oletools, unpack, reputacao, links): o motivo da
   // falha fica gravado na analise e aparece na ficha.
   ['falha interna na análise', DATA],
+  // O gancho persist da fila de servicos (o .NET guarda o fonte; plans/caca-e-formatos, item 3).
+  ['não foi possível guardar o resultado', DATA],
   ['o arquivo não está mais disponível', DATA],
   ['não foi possível ler o arquivo no armazenamento', DATA],
   ['{0} não terminou a tempo', DATA],
@@ -133,7 +135,10 @@ function errorContext(node: ts.Node, file: string): boolean {
   if (/validation\.ts$/.test(file)) return true;
   for (let up = node.parent; up; up = up.parent) {
     if (ts.isPropertyAssignment(up) && /^(error|message)$/.test(up.name.getText())) return true;
-    if (ts.isNewExpression(up) && /Error$/.test(up.expression.getText())) return true;
+    // SigmaUnsupported (lib/sigma.ts): o motivo vai para a tela das regras Sigma da equipe.
+    if (ts.isNewExpression(up) && /(Error|SigmaUnsupported)$/.test(up.expression.getText())) {
+      return true;
+    }
     if (ts.isCallExpression(up) && ZOD_CALL.test(up.expression.getText())) return true;
     if (ts.isVariableDeclaration(up) && /(MESSAGE|ERROR|_MSG)$/.test(up.name.getText()))
       return true;

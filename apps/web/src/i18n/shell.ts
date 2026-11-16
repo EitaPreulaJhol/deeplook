@@ -152,6 +152,8 @@ export const messages = {
   rtBroadcasts: ['Avisos gerais', 'Announcements'],
   rtReviews: ['Relatórios para revisar', 'Reports to review'],
   rtYara: ['Regras YARA', 'YARA rules'],
+  rtSigma: ['Regras Sigma', 'Sigma rules'],
+  rtSandboxHunt: ['Busca no sandbox', 'Sandbox search'],
   rtAllowlist: ['Indicadores permitidos', 'Allowed indicators'],
   rtTriage: ['Regras de triagem', 'Triage rules'],
   rtDomains: ['Domínios da empresa', 'Company domains'],

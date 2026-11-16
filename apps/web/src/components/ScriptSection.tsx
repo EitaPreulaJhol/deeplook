@@ -15,6 +15,7 @@ const LANGUAGE: Record<ScriptInfo['language'], string> = localized(() => ({
   vbscript: 'VBScript',
   batch: t('langBatch'),
   hta: t('langHta'),
+  autoit: 'AutoIt',
 }));
 
 const RISK: Record<ScriptInfo['risk'], { label: string; tone: StatusTone }> = localized(() => ({

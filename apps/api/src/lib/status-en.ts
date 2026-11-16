@@ -99,6 +99,8 @@ export const STATUS_EN: readonly (readonly [pt: string, en: string])[] = [
   ['desligado (ANDROID_URL vazio)', 'off (ANDROID_URL empty)'],
   ['Configuração e memória (CAPE)', 'Configuration and memory (CAPE)'],
   ['desligado (EXTRACT_URL vazio)', 'off (EXTRACT_URL empty)'],
+  ['Descompilação de .NET (ILSpy)', '.NET decompilation (ILSpy)'],
+  ['desligada (DOTNET_URL vazio)', 'off (DOTNET_URL empty)'],
   ['Rascunho por IA', 'AI draft'],
   ['desligado (LLM_PROVIDER vazio)', 'off (LLM_PROVIDER empty)'],
   [

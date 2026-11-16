@@ -449,6 +449,103 @@ export const messages = {
     'Só as que não dispararam em {days} dias ({n})',
     'Only those that did not fire in {days} days ({n})',
   ],
+  // ---- Regras Sigma (plans/caca-e-formatos, item 1)
+  sigmaTitle: ['Regras Sigma', 'Sigma rules'],
+  sigmaSubtitle: [
+    '{team} regra(s) da equipe ativa(s) · {vendored} da SigmaHQ ligada(s), sobre os eventos do Sysmon do sandbox',
+    '{team} active team rule(s) · {vendored} SigmaHQ rule(s) on, over the sandbox Sysmon events',
+  ],
+  sigmaNew: ['Nova regra Sigma', 'New Sigma rule'],
+  sigmaEdit: ['Editando: {name}', 'Editing: {name}'],
+  sigmaYaml: ['Regra (YAML)', 'Rule (YAML)'],
+  sigmaHelp: [
+    'Regra Sigma para Windows (logsource product: windows, com a categoria ou o serviço sysmon). O id e o title são obrigatórios; o title é o nome da regra. Sem keywords, agregação nem correlação.',
+    'Sigma rule for Windows (logsource product: windows, with the category or the sysmon service). id and title are required; the title is the rule name. No keywords, aggregation or correlation.',
+  ],
+  sigmaApplyNext: [
+    'Vale para as execuções guardadas e as próximas',
+    'Applies to stored runs and the next ones',
+  ],
+  sigmaTemplate: ['Usar o modelo', 'Use the template'],
+  sigmaTemplateTitle: ['Equipe - nome da regra', 'Team - rule name'],
+  sigmaTemplateDesc: ['O que a regra detecta e por quê.', 'What the rule detects and why.'],
+  sigmaCompiles: [
+    '{title} · nível {level} · eventos {events}',
+    '{title} · level {level} · events {events}',
+  ],
+  sigmaAnyEvent: ['todos', 'all'],
+  sigmaTest: ['Testar numa execução', 'Test on a run'],
+  sigmaTestRun: ['Execução', 'Run'],
+  sigmaTestPick: ['Escolha uma execução com eventos do Sysmon', 'Pick a run with Sysmon events'],
+  sigmaTestRunOption: ['{title} · {when} · {n} evento(s)', '{title} · {when} · {n} event(s)'],
+  sigmaTestNoRuns: [
+    'Nenhuma execução com eventos do Sysmon para testar.',
+    'No run with Sysmon events to test on.',
+  ],
+  sigmaTesting: ['Testando...', 'Testing...'],
+  sigmaTestResult: [
+    '{n} evento(s) casaram, de {scanned} lido(s). Nada foi gravado.',
+    '{n} event(s) matched, out of {scanned} read. Nothing was stored.',
+  ],
+  sigmaTestTruncated: [
+    'A leitura parou no teto de eventos por teste.',
+    'Reading stopped at the per-test event cap.',
+  ],
+  sigmaTestFirst: ['Os primeiros {n}:', 'The first {n}:'],
+  sigmaWhen: ['Hora', 'Time'],
+  sigmaEvent: ['Evento', 'Event'],
+  sigmaProcess: ['Processo', 'Process'],
+  sigmaOfSample: ['da amostra', 'from the sample'],
+  sigmaNotSample: ['fora da amostra', 'outside the sample'],
+  sigmaLevel: ['Nível', 'Level'],
+  sigmaFired: ['Disparou em', 'Fired on'],
+  sigmaFiredRuns: ['{n} execução(ões)', '{n} run(s)'],
+  sigmaEvaluating: ['avaliando as execuções guardadas…', 'evaluating the stored runs…'],
+  sigmaSaved: [
+    'Regra Sigma "{name}" salva. As detecções dela nas execuções guardadas são refeitas em segundo plano.',
+    'Sigma rule "{name}" saved. Its detections on the stored runs are redone in the background.',
+  ],
+  sigmaOn: [
+    '"{name}" ligada: as execuções guardadas são reavaliadas.',
+    '"{name}" on: the stored runs are re-evaluated.',
+  ],
+  sigmaOff: [
+    '"{name}" desligada: as detecções dela saíram das execuções.',
+    '"{name}" off: its detections were removed from the runs.',
+  ],
+  sigmaDeleteConfirm: [
+    'Excluir a regra "{name}"? As detecções dela saem de todas as execuções.',
+    'Delete the rule "{name}"? Its detections are removed from every run.',
+  ],
+  sigmaNoTeam: [
+    'Nenhuma regra da equipe ainda. Escreva uma acima, teste numa execução e salve.',
+    'No team rule yet. Write one above, test it on a run and save it.',
+  ],
+  sigmaTeamSection: ['Da equipe', 'Team'],
+  sigmaCatalog: ['SigmaHQ {release}', 'SigmaHQ {release}'],
+  sigmaCatalogHelp: [
+    'As regras vendorizadas ({license}). Desligar uma que só faz ruído no ambiente tira as detecções dela de todas as execuções; religar refaz.',
+    'The vendored rules ({license}). Turning off one that only makes noise in the environment removes its detections from every run; turning it back on redoes them.',
+  ],
+  sigmaSearch: [
+    'Buscar por título, id, caminho ou técnica',
+    'Search by title, id, path or technique',
+  ],
+  sigmaAllLevels: ['Todos os níveis', 'All levels'],
+  sigmaStateAll: ['Ligadas e desligadas', 'On and off'],
+  sigmaStateOn: ['Só as ligadas', 'Only those on'],
+  sigmaStateOff: ['Só as desligadas', 'Only those off'],
+  sigmaCatalogCount: [
+    '{n} regra(s) · {off} desligada(s) no total',
+    '{n} rule(s) · {off} turned off in total',
+  ],
+  sigmaPage: ['Página {page} de {pages}', 'Page {page} of {pages}'],
+  sigmaRuleOn: ['Ligada', 'On'],
+  sigmaRuleOff: ['Desligada', 'Off'],
+  sigmaTurnOn: ['Ligar', 'Turn on'],
+  sigmaTurnOff: ['Desligar', 'Turn off'],
+  sigmaView: ['Ver no GitHub', 'View on GitHub'],
+  sigmaEvents: ['Eventos', 'Events'],
 } as const satisfies Pairs;
 
 export const t = define(messages);

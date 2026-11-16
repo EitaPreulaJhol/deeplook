@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { SandboxSigma as Sigma, SandboxSigmaHit } from '../api/types';
@@ -58,6 +59,7 @@ function HitRow({ hit }: { hit: SandboxSigmaHit }) {
           >
             {hit.title}
           </button>
+          {hit.teamRuleId && <span className="dl-hint-muted"> · {t('sigmaTeam')}</span>}
           {!hit.sample && <span className="dl-hint-muted"> · {t('sigmaNotSample')}</span>}
         </td>
         <td>{hit.techniques.length ? <AttackTechniqueLinks ids={hit.techniques} /> : '—'}</td>
@@ -86,6 +88,11 @@ function HitRow({ hit }: { hit: SandboxSigmaHit }) {
                 <a href={hit.url} target="_blank" rel="noreferrer noopener">
                   {t('sigmaRuleLink')}
                 </a>
+              )}
+              {hit.teamRuleId && (
+                <Link to={`/sigma?editar=${encodeURIComponent(hit.teamRuleId)}`}>
+                  {t('sigmaEditTeamRule')}
+                </Link>
               )}
             </p>
           </td>
@@ -159,6 +166,7 @@ export function SandboxSigma({
               </a>
             )}
             {data.rules.license && ` (${data.rules.license})`}
+            {data.rules.team ? ` · ${t('sigmaTeamRules', { n: data.rules.team })}` : ''}
             {data.pending > 0 && ` · ${t('sigmaPending', { n: data.pending })}`}
           </p>
           <div className="dl-timeline__filters">

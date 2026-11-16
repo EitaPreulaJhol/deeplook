@@ -236,7 +236,8 @@ function fieldValue(e: SigmaEvent, field: string): string | null {
 /** Um campo com os modificadores e os valores -> matcher. */
 function fieldMatcher(spec: string, raw: unknown): Matcher {
   const [field, ...mods] = spec.split('|');
-  for (const m of mods) if (!MODIFIERS.has(m)) throw new SigmaUnsupported(`modificador ${m}`);
+  for (const m of mods)
+    if (!MODIFIERS.has(m)) throw new SigmaUnsupported(`modificador ${m} não suportado`);
   const has = (m: string) => mods.includes(m);
   const values = Array.isArray(raw) ? raw : [raw];
   if (!values.length) throw new SigmaUnsupported(`campo ${field} sem valores`);
@@ -468,7 +469,7 @@ export function compileSigma(yamlText: string, path: string): SigmaRule {
   } catch (err) {
     throw new SigmaUnsupported(`YAML inválido: ${(err as Error).message.slice(0, 120)}`);
   }
-  if (!doc || typeof doc !== 'object') throw new SigmaUnsupported('YAML vazio');
+  if (!doc || typeof doc !== 'object') throw new SigmaUnsupported('o YAML está vazio');
   if (doc.correlation) throw new SigmaUnsupported('regra de correlação');
   const id = text(doc.id, 100);
   const title = text(doc.title, 300);

@@ -63,6 +63,7 @@ export interface StatusCheck {
     | 'emulate'
     | 'android'
     | 'extract'
+    | 'dotnet'
     | 'ai'
     | 'backup'
     | 'config';
@@ -732,6 +733,12 @@ const SERVICE_CHECKS = {
     name: 'Configuração e memória (CAPE)',
     summary: 'desligado (EXTRACT_URL vazio)',
   },
+  // Descompilacao de .NET (plans/caca-e-formatos, item 3).
+  DOTNET: {
+    id: 'dotnet',
+    name: 'Descompilação de .NET (ILSpy)',
+    summary: 'desligada (DOTNET_URL vazio)',
+  },
 } as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
 
 async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
@@ -1220,6 +1227,7 @@ export async function systemStatus() {
     serviceCheck('EMULATION'),
     serviceCheck('ANDROID'),
     serviceCheck('CONFIG'),
+    serviceCheck('DOTNET'),
     aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),

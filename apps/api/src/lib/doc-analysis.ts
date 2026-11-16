@@ -248,7 +248,7 @@ export function analyzePdf(buf: Buffer): DocumentInfo {
 const FREESECT = 0xffffffff;
 const ENDOFCHAIN = 0xfffffffe;
 
-interface CfbEntry {
+export interface CfbEntry {
   name: string;
   type: number;
   left: number;
@@ -259,7 +259,7 @@ interface CfbEntry {
 }
 
 /** Leitor minimo do formato OLE (Compound File Binary), so leitura e com limites. */
-class Cfb {
+export class Cfb {
   private sectorSize: number;
   private fat: number[] = [];
   private miniFat: number[] = [];
@@ -268,10 +268,16 @@ class Cfb {
 
   constructor(private buf: Buffer) {
     if (buf.readUInt32LE(0) !== 0xe011cfd0) throw new Error('não é OLE');
-    this.sectorSize = 1 << buf.readUInt16LE(30);
+    const sectorShift = buf.readUInt16LE(30);
+    // So os dois tamanhos do formato (512 e 4096 bytes).
+    if (sectorShift !== 9 && sectorShift !== 12) throw new Error('OLE incomum');
+    this.sectorSize = 1 << sectorShift;
     const miniSectorShift = buf.readUInt16LE(32);
     if (miniSectorShift !== 6) throw new Error('OLE incomum');
-    const numFatSectors = buf.readUInt32LE(44);
+    // A FAT nao tem mais setores do que o arquivo. Um cabecalho que declara milhoes (com a DIFAT
+    // repetindo o mesmo setor) montava uma FAT de milhoes de entradas, em segundos, ate estourar o
+    // array (achado do fuzzing dos formatos de entrega, plans/caca-e-formatos, item 4).
+    const numFatSectors = Math.min(buf.readUInt32LE(44), Math.ceil(buf.length / this.sectorSize));
     const dirStart = buf.readUInt32LE(48);
     const miniFatStart = buf.readUInt32LE(60);
     let difatSector = buf.readUInt32LE(68);

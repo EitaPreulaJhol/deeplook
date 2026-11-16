@@ -12,6 +12,7 @@ import { attackHref } from '../components/attack';
 import { CapaSection, useCapa } from '../components/CapaSection';
 import { caseHref } from '../components/cases';
 import { copyText } from '../components/CopyButton';
+import { DeliverySection, DeliveryWarning } from '../components/DeliverySection';
 import { DiskImageSection, LnkSection, LnkWarning } from '../components/DiskSections';
 import { DocumentSection, DocumentWarning } from '../components/DocumentSection';
 import { DuplicateDialog, EntryPickDialog } from '../components/DuplicateDialog';
@@ -72,6 +73,7 @@ import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
 import {
   AndroidSection,
   ConfigSection,
+  DotnetSection,
   EmulationSection,
   useServiceAnalysis,
 } from '../components/ServiceSections';
@@ -653,6 +655,7 @@ export function EntryDetailPage() {
 
       <DisguisedFileWarning info={entry.staticInfo} />
       <DocumentWarning info={entry.staticInfo} />
+      <DeliveryWarning info={entry.staticInfo} />
       <ScriptWarning info={entry.staticInfo} />
       <LnkWarning info={entry.staticInfo} />
       <LookalikeWarning hits={entry.lookalikeHits} />
@@ -951,7 +954,11 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && <EmulationSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <ConfigSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <AndroidSection entryId={entry.id} canTriage={canTriage} />}
+          {/* Descompilacao de .NET (plans/caca-e-formatos, item 3). */}
+          {entry.type === 'FILE' && <DotnetSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
+          {/* OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */}
+          {entry.type === 'FILE' && <DeliverySection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <OfficeSection entryId={entry.id} canTriage={canTriage} />}
           {/* QR code na imagem, no PDF ou no print da pagina (plano pos-revisao, item 2.2). */}
           <QrSection entry={entry} canTriage={canTriage} />

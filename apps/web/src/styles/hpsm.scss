@@ -4428,6 +4428,162 @@ textarea.dl-code-input {
   white-space: pre;
 }
 
+/* Busca no sandbox (plans/caca-e-formatos, item 2): o formulario numa linha e o resultado. */
+.dl-hunt__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.dl-hunt__form .cds--form-item {
+  flex: 0 1 auto;
+}
+
+.dl-hunt__value {
+  min-inline-size: min(20rem, 100%);
+}
+
+.dl-hunt__first {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* O atalho "buscar em outras execucoes" so aparece com o mouse ou o foco, por cima da linha: a
+   grade da linha do tempo fica igual. */
+.dl-timeline__event {
+  position: relative;
+}
+
+.dl-timeline__hunt {
+  position: absolute;
+  inset-block-start: 0.15rem;
+  inset-inline-end: 0.5rem;
+  padding: 0 0.3rem;
+  background: var(--dl-readonly-bg);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+.dl-timeline__event:hover .dl-timeline__hunt,
+.dl-timeline__hunt:focus-visible {
+  opacity: 1;
+}
+
+/* Regras Sigma (plans/caca-e-formatos, item 1): testar numa execucao e os filtros do catalogo. */
+.dl-sigma-test,
+.dl-sigma-catalog__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dl-sigma-test .cds--select {
+  min-inline-size: min(28rem, 100%);
+}
+
+.dl-sigma-catalog__filters {
+  margin-block: 0.5rem;
+}
+
+.dl-sigma-catalog__filters .cds--text-input-wrapper {
+  flex: 1 1 18rem;
+}
+
+.dl-sigma-test__result {
+  margin-block-start: 0.5rem;
+}
+
+/* Texto longo da VM ou do arquivo (comando, hash, caminho) quebra em qualquer ponto. */
+.dl-break {
+  overflow-wrap: anywhere;
+}
+
+/* Codigo .NET descompilado (plans/caca-e-formatos, item 3): a lista de tipos e o fonte lado a lado
+   (empilhados na tela estreita), com o numero das linhas e as linhas dos achados marcadas. */
+.dl-dotnet {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: 0.5rem;
+  inline-size: 100%;
+}
+
+@media (max-width: 48rem) {
+  .dl-dotnet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dl-dotnet__types ul {
+  overflow: auto;
+  max-block-size: 24rem;
+  margin: 0.25rem 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.dl-dotnet__types .is-selected {
+  font-weight: 600;
+}
+
+.dl-dotnet__filter {
+  inline-size: 100%;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--dl-field-border);
+  font: inherit;
+}
+
+.dl-dotnet__source {
+  overflow: auto;
+  max-block-size: 32rem;
+  margin: 0;
+  padding: 0.3rem 0;
+  border: 1px solid var(--dl-field-border);
+  background: var(--dl-readonly-bg);
+  font-family: var(--dl-font-mono);
+  font-size: 0.75rem;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.dl-dotnet__line.is-marked {
+  background: var(--dl-warning-bg);
+}
+
+.dl-dotnet__ln {
+  display: inline-block;
+  min-inline-size: 3.5rem;
+  padding-inline-end: 0.75rem;
+  color: var(--dl-text-muted);
+  text-align: end;
+  user-select: none;
+}
+
+.dl-dotnet__snippet {
+  display: block;
+  font-size: 0.75rem;
+}
+
+/* Subtitulo dentro de uma secao (formatos de entrega: arquivos escondidos, acoes do MSI). */
+.dl-subsection-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: var(--dl-font-size);
+  font-weight: 600;
+}
+
+.dl-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-start: 0.5rem;
+}
+
 /* MITRE ATT&CK (item 59): campo do relatorio, links na ficha e barras do Painel. */
 .dl-attack-picker__box {
   position: relative;

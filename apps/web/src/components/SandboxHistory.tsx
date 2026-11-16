@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { SandboxRun } from '../api/types';
@@ -14,7 +15,14 @@ const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(intlLocale());
 
 /** Uma execucao anterior: o resumo na linha e os artefatos so quando aberta (carrega sob demanda). */
 function PreviousRun({ run }: { run: SandboxRun }) {
-  const [open, setOpen] = useState(false);
+  // Vindo da busca no sandbox (?execucao=<id>): esta execucao abre e aparece na tela.
+  const [params] = useSearchParams();
+  const target = params.get('execucao') === run.id;
+  const [open, setOpen] = useState(target);
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (target) ref.current?.scrollIntoView({ block: 'start' });
+  }, [target]);
   const autoRun =
     run.autoRun === 'DONE' && run.autoRunAt
       ? t('historyAutoRun', { time: fmtTime(run.autoRunAt) })
@@ -23,6 +31,8 @@ function PreviousRun({ run }: { run: SandboxRun }) {
         : null;
   return (
     <details
+      ref={ref}
+      open={target || undefined}
       className="dl-static-strings dl-sandbox-history__run"
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >

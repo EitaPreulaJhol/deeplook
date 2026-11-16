@@ -1,3 +1,4 @@
+import { analyzeDelivery, type DeliveryInfo, htmlScripts } from './delivery-formats';
 import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
 import { type ElfInfo, parseElf } from './elf-analysis';
@@ -51,6 +52,11 @@ export interface StaticInfo {
   script?: ScriptInfo | null;
   /** Atalho do Windows (item 84): destino, argumentos, maquina de origem. */
   lnk?: LnkInfo | null;
+  /**
+   * OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4): o que estava escondido no
+   * arquivo (as amostras filhas saem na criacao da amostra) e os alertas.
+   */
+  delivery?: DeliveryInfo | null;
   /** Imagem de disco (item 84): ISO/IMG/VHD com a lista de arquivos. */
   diskImage?:
     | (Omit<DiskImageInfo, 'files'> & { files: { path: string; size: number; hidden: boolean }[] })
@@ -240,10 +246,18 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
   }
   // Documentos (item 70): macros, scripts, links e objetos; os links viram sugestao.
   const document = analyzeDocument(buf, detectedType?.id);
+  // OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4): so o resumo; os bytes do que
+  // sai viram amostras filhas na criacao da amostra (entry-create.ts).
+  const delivery = analyzeDelivery(buf, filename, detectedType?.id)?.info ?? null;
   // Scripts (item 83): as URLs das camadas decodificadas tambem viram sugestao.
   let script: ScriptInfo | null;
   try {
     script = analyzeScript(buf, filename);
+    // Pagina HTML: o JavaScript das tags <script> passa pela mesma analise.
+    if (!script && delivery?.format === 'html') {
+      const code = htmlScripts(buf);
+      if (code) script = analyzeScript(Buffer.from(code), 'pagina.js');
+    }
   } catch {
     script = null;
   }
@@ -262,6 +276,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       ...(document?.links ?? []),
       ...(script?.urls ?? []),
       lnk?.arguments ?? '',
+      ...(delivery?.msi?.customActions.map((a) => a.target ?? '') ?? []),
     ].join('\n'),
   );
   return {
@@ -278,6 +293,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     elf,
     document,
     script,
+    delivery,
     lnk,
     diskImage,
     iocCandidates: capPerKind(iocCandidates, CANDIDATES_PER_KIND),

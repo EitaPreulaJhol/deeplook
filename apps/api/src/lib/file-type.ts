@@ -71,6 +71,9 @@ export function detectType(buf: Buffer): DetectedType | null {
     return t('lnk', 'Atalho do Windows (LNK)', ['lnk'], true);
   }
   if (ascii(buf, 'CD001', 0x8001)) return t('iso', 'Imagem de disco (ISO)', ['iso', 'img']);
+  // OneNote (plans/caca-e-formatos, item 4): o GUID do cabecalho do .one.
+  if (startsWith(buf, [0xe4, 0x52, 0x5c, 0x7b, 0x8c, 0xd8, 0xa7, 0x4d, 0xae, 0xb1, 0x53, 0x78]))
+    return t('onenote', 'Caderno do OneNote', ['one']);
   if (startsWith(buf, [0x89, 0x50, 0x4e, 0x47])) return t('png', 'Imagem PNG', ['png']);
   if (startsWith(buf, [0xff, 0xd8, 0xff])) return t('jpeg', 'Imagem JPEG', ['jpg', 'jpeg']);
   if (ascii(buf, 'GIF8')) return t('gif', 'Imagem GIF', ['gif']);

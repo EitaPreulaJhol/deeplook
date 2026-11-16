@@ -273,6 +273,14 @@ const EnvSchema = z
       .default(''),
     EXTRACT_MAX_MB: z.coerce.number().int().min(1).max(1024).default(64),
     EXTRACT_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(400),
+    /** Descompilacao de .NET (plans/caca-e-formatos, item 3): servico dotnet (ILSpy, sem rede). */
+    DOTNET_URL: z.string().default(''),
+    DOTNET_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    DOTNET_MAX_MB: z.coerce.number().int().min(1).max(200).default(30),
+    DOTNET_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -389,6 +397,7 @@ const KNOWN_SECRETS = new Set([
   'troque-este-token-do-emulate',
   'troque-este-token-do-android',
   'troque-este-token-do-extract',
+  'troque-este-token-do-dotnet',
 ]);
 /**
  * Senhas do banco e do MinIO que o compose e o .env.example trazem: publicas tambem. Com elas,
@@ -421,6 +430,7 @@ const refused = [
   env.EMULATE_URL && KNOWN_SECRETS.has(env.EMULATE_TOKEN) && 'EMULATE_TOKEN',
   env.ANDROID_URL && KNOWN_SECRETS.has(env.ANDROID_TOKEN) && 'ANDROID_TOKEN',
   env.EXTRACT_URL && KNOWN_SECRETS.has(env.EXTRACT_TOKEN) && 'EXTRACT_TOKEN',
+  env.DOTNET_URL && KNOWN_SECRETS.has(env.DOTNET_TOKEN) && 'DOTNET_TOKEN',
   env.NETCAP_URL && KNOWN_SECRETS.has(env.NETCAP_TOKEN) && 'NETCAP_TOKEN',
   env.SURICATA_URL && KNOWN_SECRETS.has(env.SURICATA_TOKEN) && 'SURICATA_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',

@@ -94,6 +94,8 @@ jobs:
           - { app: emulate, dir: emulate, dockerfile: Dockerfile }
           - { app: android, dir: android, dockerfile: Dockerfile }
           - { app: extract, dir: extract, dockerfile: Dockerfile }
+          # Descompilacao de .NET (plans/caca-e-formatos, item 3): ilspycmd nativo e Python.
+          - { app: dotnet, dir: dotnet, dockerfile: Dockerfile }
           # Captura de rede do sandbox (plano pos-revisao, 5.4): netcap (Node) e Suricata (Debian).
           - { app: netcap, dir: netcap, dockerfile: Dockerfile }
           - { app: suricata, dir: suricata, dockerfile: Dockerfile }

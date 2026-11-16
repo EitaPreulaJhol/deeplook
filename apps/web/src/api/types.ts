@@ -596,7 +596,7 @@ export interface DiskImageInfo {
 
 /** Script (item 83): PowerShell, JS, VBS, BAT e HTA. */
 export interface ScriptInfo {
-  language: 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta';
+  language: 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta' | 'autoit';
   lines: number;
   risk: 'high' | 'medium' | 'low';
   findings: {
@@ -613,6 +613,44 @@ export interface ScriptInfo {
 }
 
 /** Analise de documento (item 70): PDF, Office e RTF. */
+/** OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */
+export interface DeliveryInfo {
+  format: 'onenote' | 'html' | 'msi';
+  risk: 'high' | 'medium' | 'low';
+  alerts: { level: 'high' | 'medium' | 'info'; text: string }[];
+  files: {
+    name: string;
+    size: number;
+    sha256: string;
+    type: string | null;
+    source: string;
+    entryId?: string;
+    skipped?: string;
+  }[];
+  onenote?: { objects: number; images: number };
+  html?: { smuggling: string[]; base64: number; dataUris: number; byteArrays: number };
+  msi?: {
+    product: {
+      name: string | null;
+      manufacturer: string | null;
+      version: string | null;
+      code: string | null;
+    };
+    customActions: {
+      action: string;
+      type: number;
+      kind: string;
+      source: string | null;
+      target: string | null;
+      flags: string[];
+    }[];
+    binary: string[];
+    files: string[];
+    filesTotal: number;
+    tables: string[];
+  };
+}
+
 export interface DocumentInfo {
   format: 'pdf' | 'ooxml' | 'ole' | 'rtf';
   risk: 'high' | 'medium' | 'low';
@@ -669,6 +707,7 @@ export interface StaticInfo {
   /** Executavel Linux (item 168). */
   elf?: ElfInfo | null;
   document?: DocumentInfo | null;
+  delivery?: DeliveryInfo | null;
   script?: ScriptInfo | null;
   lnk?: LnkInfo | null;
   diskImage?: DiskImageInfo | null;
@@ -753,6 +792,9 @@ export type AuditAction =
   | 'ENTRY_INTEGRITY_FAILED'
   | 'ENTRY_INTEGRITY_RESTORED'
   | 'YARA_RULE_CREATED'
+  | 'SIGMA_RULE_CREATED'
+  | 'SIGMA_RULE_UPDATED'
+  | 'SIGMA_RULE_DELETED'
   | 'YARA_RULE_UPDATED'
   | 'YARA_RULE_DELETED'
   | 'ALLOWLIST_ADDED'
@@ -800,6 +842,89 @@ export interface SandboxSigmaHit {
   falsepositives: string[];
   references: string[];
   url: string | null;
+  /** Regra da equipe (plans/caca-e-formatos, item 1): o id no banco, para o editor. */
+  teamRuleId: string | null;
+}
+
+/** Resumo do que o compilador entendeu de uma regra Sigma. */
+export interface SigmaRuleSummary {
+  ruleId: string;
+  title: string;
+  level: string;
+  eventIds: number[];
+  techniques: string[];
+}
+
+/** Regra Sigma da equipe (plans/caca-e-formatos, item 1). */
+export interface TeamSigmaRule {
+  id: string;
+  ruleId: string;
+  name: string;
+  source: string;
+  enabled: boolean;
+  evaluatedAt: string | null;
+  evaluating: boolean;
+  firedRuns: number;
+  rule: SigmaRuleSummary | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: { id: string; displayName: string } | null;
+  updatedBy: { id: string; displayName: string } | null;
+}
+
+/** Regra vendorizada no catalogo (SigmaHQ). */
+export interface CatalogSigmaRule extends SigmaRuleSummary {
+  path: string;
+  description: string | null;
+  enabled: boolean;
+  firedRuns: number;
+  url: string | null;
+  evaluating: boolean;
+}
+
+export interface SigmaTestResult {
+  rule: SigmaRuleSummary;
+  matched: number;
+  scanned: number;
+  truncated: boolean;
+  events: {
+    time: string;
+    eventId: number;
+    image: string | null;
+    pid: number | null;
+    sample: boolean;
+    event: Record<string, string | null>;
+  }[];
+}
+
+/** Busca nos eventos do sandbox (plans/caca-e-formatos, item 2). */
+export interface HuntEvent {
+  time: string;
+  eventId: number;
+  image: string | null;
+  pid: number | null;
+  sample: boolean;
+  summary: string | null;
+  data: Record<string, string | null>;
+}
+export interface HuntRunsPage {
+  runs: {
+    sessionId: string;
+    entryId: string;
+    entryTitle: string;
+    startedAt: string;
+    matched: number;
+    first: HuntEvent[];
+  }[];
+  total: number | null;
+  nextOffset: number | null;
+  capped: boolean;
+}
+export interface HuntEventsPage {
+  total: number;
+  page: number;
+  pageSize: number;
+  events: HuntEvent[];
 }
 
 export interface SandboxSigma {
@@ -808,6 +933,7 @@ export interface SandboxSigma {
     release: string | null;
     license: string | null;
     url: string | null;
+    team?: number;
     count: number;
   };
   sample: { name: string; found: boolean };
@@ -927,7 +1053,7 @@ export interface SandboxProcess {
 
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 /** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
-export type ServiceKindId = 'emulation' | 'android' | 'config';
+export type ServiceKindId = 'emulation' | 'android' | 'config' | 'dotnet';
 
 export interface EmulationResult {
   kind: 'pe' | 'shellcode';
@@ -1016,6 +1142,32 @@ export interface AndroidResult {
   hiddenPayloads: (string | null)[];
   fileCount: number;
   dexErrors: (string | null)[];
+}
+
+/** Descompilacao de .NET (plans/caca-e-formatos, item 3). */
+export interface DotnetResult {
+  module: { name: string | null; framework: string | null; outputType: string | null };
+  types: { path: string; size: number; lines: number }[];
+  findings: {
+    rule: string;
+    level: 'high' | 'medium';
+    why: string;
+    path: string;
+    line: number;
+    text: string;
+  }[];
+  obfuscators: string[];
+  resources: {
+    name: string;
+    size: number;
+    sha256: string;
+    kind: string | null;
+    entropy: number;
+    entryId?: string;
+  }[];
+  urls: string[];
+  truncated: boolean;
+  sourceKey: string | null;
 }
 
 export interface ConfigResult {

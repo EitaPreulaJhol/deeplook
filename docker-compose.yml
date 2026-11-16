@@ -199,6 +199,12 @@ services:
       EXTRACT_TOKEN: ${EXTRACT_TOKEN:-troque-este-token-do-extract}
       EXTRACT_MAX_MB: ${EXTRACT_MAX_MB:-64}
       EXTRACT_REQUEST_TIMEOUT_S: ${EXTRACT_REQUEST_TIMEOUT_S:-400}
+      # Descompilacao de .NET (plans/caca-e-formatos, item 3): o servico dotnet abaixo; DOTNET_URL=
+      # desliga.
+      DOTNET_URL: ${DOTNET_URL-http://dotnet:3900}
+      DOTNET_TOKEN: ${DOTNET_TOKEN:-troque-este-token-do-dotnet}
+      DOTNET_MAX_MB: ${DOTNET_MAX_MB:-30}
+      DOTNET_REQUEST_TIMEOUT_S: ${DOTNET_REQUEST_TIMEOUT_S:-300}
       # Dump de memoria dos processos da amostra no sandbox (item 3): teto por processo (0 desliga),
       # processos por captura e espera depois da execucao automatica.
       SANDBOX_MEMDUMP_MAX_MB: ${SANDBOX_MEMDUMP_MAX_MB:-512}
@@ -551,6 +557,32 @@ services:
       # O dump (gzip) e ele descompactado ficam aqui durante a analise.
       - /tmp:size=1200m,noexec,nosuid,nodev
     mem_limit: ${EXTRACT_MEM_LIMIT:-3g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # Descompilacao de .NET (plans/caca-e-formatos, item 3): ilspycmd (MIT), binario nativo, sem o
+  # runtime do .NET. So le o IL e os metadados; nada e executado. Um container por analise.
+  dotnet:
+    build:
+      context: ./apps/dotnet
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      DOTNET_TOKEN: ${DOTNET_TOKEN:-troque-este-token-do-dotnet}
+      DOTNET_MAX_MB: ${DOTNET_MAX_MB:-30}
+      DOTNET_TIMEOUT_S: ${DOTNET_TIMEOUT_S:-240}
+      DOTNET_DECOMPILE_S: ${DOTNET_DECOMPILE_S:-200}
+      DOTNET_RECYCLE: ${DOTNET_RECYCLE:-true}
+    read_only: true
+    tmpfs:
+      # O assembly e o projeto descompilado ficam aqui durante a analise.
+      - /tmp:size=512m,noexec,nosuid,nodev
+    mem_limit: ${DOTNET_MEM_LIMIT:-2g}
     pids_limit: 64
     cap_drop:
       - ALL

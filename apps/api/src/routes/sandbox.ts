@@ -42,7 +42,7 @@ import {
 import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
 import { compareSessions } from '../lib/sandbox-compare';
 import { captureMemory, memdumpEnabled } from '../lib/sandbox-memdump';
-import { sigmaManifest, sigmaRules } from '../lib/sigma-rules';
+import { activeSigmaCount, sigmaManifest } from '../lib/sigma-rules';
 import { reevaluateSigma, sigmaHitsView } from '../lib/sigma-store';
 import { suricataIndicators, type SuricataResult } from '../lib/suricata';
 import {
@@ -816,7 +816,8 @@ export async function sandboxRoutes(app: FastifyInstance) {
         release: manifest?.release ?? null,
         license: manifest?.license ?? null,
         url: manifest?.url ?? null,
-        count: sigmaRules().rules.length,
+        count: activeSigmaCount().vendored,
+        team: activeSigmaCount().team,
       },
       sample: { name, found: tree.size > 0 },
       // Eventos ainda nao avaliados (a coleta seguinte, ou a subida da API, avalia).

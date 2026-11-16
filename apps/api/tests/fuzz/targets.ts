@@ -1,6 +1,7 @@
 // Alvos do fuzzing (revisao de novembro, item 2.2): os parsers que leem entrada hostil. Cada alvo
 // recebe os bytes e ou devolve um resultado, ou lanca um dos erros que a API ja trata como
 // "arquivo invalido". Qualquer outra excecao, demora ou resultado gigante e um achado.
+import { analyzeDelivery } from '../../src/lib/delivery-formats';
 import { analyzeDiskImage, extractDiskFile } from '../../src/lib/disk-image';
 import { parseEmail } from '../../src/lib/eml';
 import { cleanEvidenceImage, EvidenceImageError } from '../../src/lib/evidence-image';
@@ -38,6 +39,19 @@ export const TARGETS: Record<string, Target> = {
         (f) => normalizeScript(text, f).text.length,
       );
       return { out, encoded: decodeScriptEncoder(`#@~^AAAAAA==${text}AAAAAA==^#~@`)?.length };
+    },
+  },
+  // Formatos de entrega (plans/caca-e-formatos, item 4): o OneNote, o HTML e o MSI, cada um pelo
+  // caminho dele (o MSI le o CFB e as tabelas guardadas por coluna).
+  delivery: {
+    expected: never,
+    run: (buf) => {
+      const out = [
+        analyzeDelivery(buf, 'x.one', 'onenote'),
+        analyzeDelivery(buf, 'x.html', 'html'),
+        analyzeDelivery(buf, 'x.msi', 'ole'),
+      ];
+      return out.map((r) => r?.info.files.length ?? -1);
     },
   },
   zip: {

@@ -27,6 +27,7 @@ import { caseRoutes } from './routes/cases';
 import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
+import { dotnetRoutes } from './routes/dotnet';
 import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
@@ -50,10 +51,12 @@ import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
 import { riskRoutes } from './routes/risk';
 import { sandboxRoutes } from './routes/sandbox';
+import { sandboxHuntRoutes } from './routes/sandbox-hunt';
 import { searchRoutes } from './routes/search';
 import { serviceAnalysisRoutes } from './routes/service-analysis';
 import { sessionRoutes } from './routes/sessions';
 import { settingsRoutes } from './routes/settings';
+import { sigmaRoutes } from './routes/sigma';
 import { statusRoutes } from './routes/status';
 import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
@@ -137,6 +140,9 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   caseRoutes,
   allowlistRoutes,
   searchRoutes,
+  sigmaRoutes,
+  sandboxHuntRoutes,
+  dotnetRoutes,
   yaraRoutes,
   hexRoutes,
   adminRoutes,

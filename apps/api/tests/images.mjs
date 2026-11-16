@@ -1195,7 +1195,7 @@ const UNPACK_NETWORKS = ['dl-test-unpack-net', 'dl-test-unpack-front-net'];
 /** Desempacotar e extrair (item 7.8): o servico com a configuracao do compose, como o capa. */
 async function unpackImage() {
   docker('build', '-q', '-t', 'dl-test-unpack', join(APPS, 'unpack'));
-  ok('imagem do unpack compila (pyinstxtractor conferido pelo hash)', true);
+  ok('imagem do unpack compila (pyinstxtractor e autoit-ripper conferidos pelo hash)', true);
   quiet('rm', '-f', ...UNPACK_CONTAINERS);
   for (const net of UNPACK_NETWORKS) quiet('network', 'rm', net);
   docker('network', 'create', ...networkArgs('analysis'), 'dl-test-unpack-net');
@@ -1245,7 +1245,7 @@ async function unpackImage() {
       'unpack sobe com a configuração do compose, o Detect It Easy e os desempacotadores',
       health?.state === 'livre' &&
         health.die === '3.21' &&
-        ['upx', 'pyinstaller', 'inno', 'nsis', 'archive'].every((u) =>
+        ['upx', 'autoit', 'pyinstaller', 'inno', 'nsis', 'archive', 'cab'].every((u) =>
           health.unpackers?.includes(u),
         ),
       health,

@@ -111,6 +111,8 @@ model User {
   iocUrlLookups     IocUrlLookup[]
   yaraRules         YaraRule[]              @relation("YaraRuleAuthor")
   yaraRulesEdited   YaraRule[]              @relation("YaraRuleEditor")
+  sigmaRules        SigmaRule[]             @relation("SigmaRuleAuthor")
+  sigmaRulesEdited  SigmaRule[]             @relation("SigmaRuleEditor")
   teamViews         TeamView[]
   kbCreated         KbArticle[]             @relation("KbAuthor")
   kbUpdated         KbArticle[]             @relation("KbEditor")
@@ -526,11 +528,31 @@ model SandboxSysmonEvent {
   data         Json
   /// Ja passou pelas regras Sigma (plans/novas-analises, item 1).
   sigmaChecked Boolean        @default(false)
+  // Indice de trigramas em ("data"::text), da busca no sandbox (plans/caca-e-formatos, item 2), criado
+  // na migracao 20270115000000_sandbox_hunt_trgm: o Prisma nao representa indice de expressao (fica
+  // fora daqui, e o `prisma migrate diff` o ignora).
 
   @@unique([sessionId, recordId, time])
   @@index([sessionId, time])
   @@index([sessionId, processGuid])
   @@index([sessionId, sigmaChecked])
+}
+
+/// Regra Sigma da equipe (plans/caca-e-formatos, item 1): o YAML, validado pelo mesmo compilador
+/// das vendorizadas. Nas deteccoes (SandboxSigmaHit.ruleId) ela e "team:<id>"; o nome e o title do
+/// YAML. evaluatedAt: quando terminou a avaliacao sobre os eventos ja guardados (null = na fila).
+model SigmaRule {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  source      String
+  enabled     Boolean   @default(true)
+  evaluatedAt DateTime?
+  createdById String?
+  createdBy   User?     @relation("SigmaRuleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?     @relation("SigmaRuleEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 /// Deteccao de uma regra Sigma nos eventos do Sysmon de um ambiente (plans/novas-analises, item 1):
@@ -558,6 +580,7 @@ model SandboxSigmaHit {
 
   @@unique([sessionId, ruleId, processGuid])
   @@index([sessionId, level])
+  @@index([ruleId])
 }
 
 /// Tipos de evento do historico (auditoria) de uma amostra.
@@ -1120,6 +1143,9 @@ enum AuditAction {
   SANDBOX_MEMDUMP_DOWNLOADED
   /// Rascunho de relatorio pedido a IA (plans/novas-analises, item 7): o que saiu e para onde.
   REPORT_AI_DRAFT
+  SIGMA_RULE_CREATED
+  SIGMA_RULE_UPDATED
+  SIGMA_RULE_DELETED
   /// Arquivo guardado nao confere com o SHA-256 da ficha (ou sumiu) e voltou a conferir (item 4.2).
   ENTRY_INTEGRITY_FAILED
   ENTRY_INTEGRITY_RESTORED
@@ -1742,6 +1768,7 @@ enum ServiceKind {
   EMULATION
   ANDROID
   CONFIG
+  DOTNET
 }
 
 enum ServiceAnalysisStatus {

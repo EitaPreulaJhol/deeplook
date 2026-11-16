@@ -45,7 +45,7 @@ validate the application with Strix. Thank you ❤️.
 │  ┌───────────────────▼┐     │   ┌──▼────────────────────────────────────────────────┐  │
 │  │ capture            │     │   │ analysis services (internal, no internet)         │  │
 │  │ headless browser   │     │   │ capa · ghidra · unpack · oletools · emulate       │  │
-│  └─────────┬──────────┘     │   │ android · extract · netcap · suricata             │  │
+│  └─────────┬──────────┘     │   │ android · extract · dotnet · netcap · suricata    │  │
 │            │                │   └───────────────────────────────────▲───────────────┘  │
 │  ┌─────────▼──────────┐     │                                       │                  │
 │  │ egress             │     │                                       │                  │
@@ -79,7 +79,7 @@ validate the application with Strix. Thank you ❤️.
 - **ghidra**: Ghidra headless, on demand, with the same isolation as capa. See
   [Ghidra analysis](#ghidra-analysis).
 - **unpack**: identifies the executables with Detect It Easy and unpacks them (UPX, installers,
-  PyInstaller), with the same isolation. See [Identify and unpack](#identify-and-unpack).
+  PyInstaller, AutoIt), with the same isolation. See [Identify and unpack](#identify-and-unpack).
 - **oletools**: VBA and XLM 4.0 macros, DDE and RTF objects in Office documents, with the same
   isolation. See [Office documents (oletools)](#office-documents-oletools).
 - **emulate**: emulates Windows executables and shellcode with Speakeasy, with the same isolation.
@@ -87,6 +87,8 @@ validate the application with Strix. Thank you ❤️.
 - **android**: reads APKs with androguard, with the same isolation. See [Android (APK)](#android-apk).
 - **extract**: family configuration with the CAPE extractors, and the sandbox memory dumps, with the
   same isolation. See [Family configuration (CAPE)](#family-configuration-cape).
+- **dotnet**: decompiles .NET executables with ILSpy, with the same isolation. See
+  [.NET code (ILSpy)](#net-code-ilspy).
 - **capture**: isolated browser that captures a link's page, on an internal network with only the
   API and `egress`. See [Link page capture](#link-page-capture).
 - **egress**: the only way out to the Internet for the capture (and for downloading the Suricata
@@ -695,9 +697,9 @@ this link** button (a new link sample that cites the original) and adds to the *
 limits are explicit: the first 5 PDF pages, 40 million pixels per image or page and 20 codes per
 sample. Nothing is executed: the PDF is only rendered, without JavaScript.
 
-## Scripts (PowerShell, batch, VBScript, JScript)
+## Scripts (PowerShell, batch, VBScript, JScript, AutoIt)
 
-Submitted scripts (`.ps1`, `.bat`, `.cmd`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.hta`, or
+Submitted scripts (`.ps1`, `.bat`, `.cmd`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.hta`, `.au3`, or
 recognized by content) get the **Script** section on the record. It shows the suspicious calls (with
 why), the URLs and the **decoded layers**. Nothing is executed: everything works on the text.
 
@@ -718,6 +720,47 @@ why), the URLs and the **decoded layers**. Nothing is executed: everything works
 The suspicious-call rules look at the original text and at the layers, and each finding says which
 layer it showed up in. The caps are 12 layers, 5 levels and 2 MB of text, with no quadratically
 backtracking regex (the `npm run test:fuzz -- --target deobfuscate` fuzz covers the normalization).
+
+**AutoIt.** The script that comes out of an executable compiled with AutoIt (see [Identify and
+unpack](#identify-and-unpack)) gets its own rules, which only apply to it (in another language,
+`Run(` is just a name):
+- `Run`/`ShellExecute`, `InetGet`/`InetRead` and `RegWrite` to the `Run` key;
+- `DllCall` of `VirtualAlloc`, `CallWindowProc` and the like (code put in memory and run) and the
+  `DllStructCreate("byte[...]")` that receives the shellcode;
+- `BinaryToString`/`_Crypt_DecryptData`, `FileInstall` and `#NoTrayIcon`.
+
+A long `0x...` binary becomes a layer when it is text and the **PE in a 0x binary** finding when it is
+an executable.
+
+## OneNote, HTML smuggling and MSI
+
+Three formats that hide the payload inside a harmless-looking file. Static analysis reads the bytes,
+without running anything. Each payload found becomes a **child sample**, with the full analysis,
+and the format's section on the record says where it came from (with the link). When opened, a high
+risk shows at the top of the record.
+- **OneNote (`.one`)**, recognized by the header GUID: each attached object (`FileDataStoreObject`).
+  Images are left out, and the name comes from the type (`embutido-2.hta`). An attached executable
+  or script is **high**. An image next to the attachment (the "double-click to view") is **medium**.
+  `.onepkg` is a CAB, which `unpack` opens.
+- **HTML and SVG**: long Base64 literals, binary `data:` URIs and byte lists
+  (`new Uint8Array([...])`). What decodes to an executable, archive, document, shortcut, disk image
+  or script becomes a child. With `Blob`, `URL.createObjectURL`, `msSaveOrOpenBlob` or the
+  `download` attribute on the page, the alert is **high** (HTML smuggling: the page assembles the
+  file and delivers it as a download). The JavaScript in the `<script>` tags goes through
+  [script analysis](#scripts-powershell-batch-vbscript-jscript-autoit).
+- **MSI**: the installer tables (the string pool, `_Columns`, `Property`, `CustomAction`, `Binary`
+  and `File`), with the product, the manufacturer and the version. Each **custom action** shows the
+  translated type (DLL or EXE from the Binary table, EXE with a command line, embedded script...) and
+  the flags (as SYSTEM, deferred). A script in the action, or from the Binary table, is **high**. An
+  EXE with a suspicious command line (PowerShell, `cmd /c`, URL...) is **high**. A DLL or EXE from
+  the Binary table is **medium**. The Binary table items, the script embedded in an action (as `.js`
+  or `.vbs`) and the media CABs become children, and `unpack` opens the CAB. The actions' command
+  lines also go into the suggested IOCs.
+- **Limits:** 40 files and 128 MB per sample (the rest shows as "skipped", with the reason), three
+  nesting levels and files up to 64 MB. A payload encrypted another way (XOR, reversed Base64) is
+  not decoded. With Blob and download on the page, the alert says the payload was not decoded.
+- **Risk score:** a high-risk delivery format weighs 35, and a medium one, 15. Each child has its own
+  risk.
 
 ## Emulation (Speakeasy)
 
@@ -775,9 +818,43 @@ risk score (a family recognized only by the rule scores +35), and the C2s go to 
 CAPE-parsers and the CAPEv2 rules are **GPL-3.0**, so they stay inside the `extract` container and
 the API only talks to it over HTTP.
 
+## .NET code (ILSpy)
+
+Every .NET executable that arrives (up to `DOTNET_MAX_MB`, default 30 MB) goes, in the background,
+to the `dotnet` service. It runs [ILSpy](https://github.com/icsharpcode/ILSpy) (`ilspycmd` 11.2,
+MIT), the native binary, without the .NET runtime. ILSpy only reads the IL and the metadata, and
+nothing is executed. The container has no network and no root, the root is read-only and there is
+one container per analysis. Executables that arrived earlier, or a PE that static analysis did not
+recognize as .NET, can be requested by an analyst in the record's **.NET code (ILSpy)** section.
+- **Types:** the C# project ILSpy builds, with one file per type. The list has a filter. A type's
+  code opens beside it, with line numbers and the findings' lines marked. **Download the project
+  (.zip)** brings everything and is audited. The code stays in storage
+  (`dotnet/<sample>.json.gz`, up to 16 MB of source), not in the database. It goes away with the
+  sample when the sample is deleted. Only the submitter and analysts see the code.
+- **Findings**, by rule over the C#, with the file and the line:
+  - in-memory loading (`Assembly.Load`) and calls through reflection;
+  - download (`WebClient`, `HttpClient`) and `Process.Start`;
+  - the `Run` key, decryption (`RijndaelManaged`, `CreateDecryptor`) and `FromBase64String`;
+  - other processes' memory (`VirtualAlloc`, `WriteProcessMemory`, `CreateRemoteThread`);
+  - anti-analysis (debugger, VM, sandbox);
+  - browser and wallet data, keystrokes, screenshots, Telegram/Discord and Defender.
+- **Obfuscators** recognized by attributes and names: ConfuserEx, .NET Reactor, SmartAssembly,
+  Eazfuscator.NET, Babel, Dotfuscator, Agile.NET and Crypto Obfuscator. Without a known name, when
+  more than half of the names are unreadable, the alert says so. de4dot is not included: it is
+  unmaintained and only runs on .NET Framework.
+- **Embedded resources:** the list, with the type and the entropy. Those that are PE or ZIP become
+  **child samples** (that is where a loader keeps the payload). A large encrypted resource (64 KB or
+  more, entropy above 7.2) is a medium alert.
+- **IOCs:** the URLs in the code go to the suggested IOCs.
+- **Risk:** as in emulation. A high finding weighs 25, plus 5 per extra high alert (cap 35). Medium
+  only (obfuscator, encrypted resource, anti-analysis) weighs 10, plus 3 per alert (cap 16).
+- **System status:** the **.NET decompilation (ILSpy)** row, with the queue and the analyses in 24 h.
+- ILSpy is upgraded by hand (the `ilspycmd.linux-x64` NuGet package, with the version and the
+  SHA-256 in `apps/dotnet/Dockerfile`).
+
 ## Identify and unpack
 
-Every executable that arrives (Windows, Linux, macOS, APK and JAR, up to `UNPACK_MAX_MB`) goes through the
+Every executable that arrives (Windows, Linux, macOS, APK and JAR, and CABs, up to `UNPACK_MAX_MB`) goes through the
 `unpack` service in the background:
 
 1. **[Detect It Easy](https://github.com/horsicq/DIE-engine)** 3.21 (MIT) identifies it by its signatures: compiler
@@ -797,10 +874,12 @@ Setup` or `Delphi`; empty = any packer or protector).
 | Unpacker | Tool | What comes out |
 |---|---|---|
 | UPX | `upx -d` 4.2 | the original executable (functionally; see below) |
+| AutoIt | autoit-ripper 1.2.0 | the script (`script.au3`, AutoIt 3.0 onward and old AutoHotkey) and the `FileInstall` files, with their original name |
 | PyInstaller | pyinstxtractor 2026.07 | only the author's script (`.pyc`), without the standard library or the bootstrap |
 | Inno Setup | innoextract 1.9 | the files of the installer (format up to Inno Setup 6.2) |
 | NSIS | 7-Zip 25 | the files and the script of the installer (`[NSIS].nsi`) |
 | Embedded archive | 7-Zip 25 | what is in the ZIP, 7z, RAR or CAB attached to the executable |
+| CAB | 7-Zip 25 | what is in a standalone CAB (an MSI's media, for example) |
 
 - **Nothing is executed:** the tools only read and extract. Container with no network, non-root, no
   capabilities, read-only root and `/tmp` in memory without execution; one container per job.
@@ -853,6 +932,7 @@ by itself.
 | YARA | rule sets that matched | +35, plus 5 per set beyond the first (cap 50) |
 | Script | high risk · medium | +35 · +15 |
 | Document | high risk · contains macros · medium risk | +35 · +15 · +10 |
+| Delivery format (OneNote, HTML, MSI) | hidden payload · suspicious embedded file | +35 · +15 |
 | Lookalike domain | imitates a company domain | +35 |
 | File type | executable or script disguised with another extension | +30 |
 | Shortcut | `.lnk` with alerts | +25 |
@@ -862,6 +942,7 @@ by itself.
 | Packing | packed or protected | +10 |
 | Sigma (sandbox) | rules that matched the sample's processes: critical · high · medium | +40 · +30 · +15, plus 5 per extra rule (cap 50) |
 | Emulation | high alerts · medium only | +25, plus 5 per extra alert (cap 35) · +10, plus 3 per extra (cap 16) |
+| .NET | high alerts · medium only | +25, plus 5 per extra alert (cap 35) · +10, plus 3 per extra (cap 16) |
 | Android | high alerts · medium only | +30, plus 5 per extra alert (cap 40) · +10, plus 3 per extra (cap 20) |
 | Configuration | family configuration extracted · family recognized only by the CAPE rule | +60 · +35 |
 
@@ -1279,6 +1360,8 @@ COOKIE_SECURE=true
 | `ANDROID_MAX_MB` / `ANDROID_TIMEOUT_S` / `ANDROID_MEM_LIMIT` | largest APK, ceiling of one analysis and container memory | `100` / `180` / `1g` |
 | `EXTRACT_URL` / `EXTRACT_TOKEN` | configuration and memory service (CAPE); empty URL turns it off | `http://extract:3800` / — |
 | `EXTRACT_MAX_MB` / `EXTRACT_TIMEOUT_S` / `EXTRACT_MEM_LIMIT` | largest file, ceiling of one analysis and container memory | `64` / `300` / `2g` |
+| `DOTNET_URL` / `DOTNET_TOKEN` | .NET decompilation service (ILSpy); empty URL turns it off | `http://dotnet:3900` / — |
+| `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | largest assembly, ceiling of one analysis, ILSpy ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | memory dump: cap per process (`0` turns it off), processes per capture, wait after the automatic run | `512` / `4` / `120` |
 | `LLM_PROVIDER` | AI report draft: `anthropic`, `openai` (compatible server) or empty (off) | — |
 | `LLM_URL` / `LLM_API_KEY` / `LLM_MODEL` | server (required for `openai`), key (required for `anthropic`) and model (default `claude-opus-5-5` on `anthropic`) | — |
@@ -1786,6 +1869,52 @@ drivers and deleted files. For these rules, the Sysmon read also brings events 6
 
   The rules are under **DRL 1.1**, and each rule's name and link are shown on screen.
 
+#### Team rules and the catalog (Navigator › Sigma rules)
+
+Analysts and administrators maintain the team's own rules and choose which SigmaHQ rules apply in
+the environment:
+- **Team rule:** the rule's YAML, with **Validate** (the same evaluator as the detections says what
+  it understood: title, level, Sysmon events and techniques, or why it does not compile) and **Test
+  on a run**. The test shows how many events matched and the first 20, with the process and whether
+  it belongs to the sample, and stores nothing. The YAML `title` is the rule name, and `id` is
+  required.
+- **On save, turning on or off:** the rule's detections are redone in the background on every stored
+  run, and the list shows "evaluating". Nothing is counted twice: each run is redone with the
+  collection locked, and events not evaluated yet go through the rule in the normal collection.
+  Turning off or deleting removes its detections from every run.
+- **SigmaHQ catalog:** search by title, id, path or technique, filter by level and by on or off, and
+  how many runs each rule fired on. **Turning off** a rule that only makes noise in the environment
+  removes its detections from every run. **Turning it back on** redoes them.
+- **On the run:** a team rule's detection shows "team rule" and leads to the editor, instead of the
+  GitHub link. It weighs on the risk by level, like the others.
+- **Audit:** create, change (including turning on and off, SigmaHQ ones too) and delete.
+
+### Search across sandbox events
+
+**Navigator › Sandbox search** looks through the Sysmon events of **every** stored run: who ran a
+command, wrote a path, looked up a domain or loaded a DLL. It is for analysts and administrators
+only.
+- **Filters** (they stay in the page address):
+  - the field: any, process, command line, file, registry, network, DNS, hash, loaded DLL or pipe;
+  - the operator: contains, equals, starts with, ends with or regular expression (Postgres's,
+    case-insensitive, up to 200 characters);
+  - the event type, the period of the runs and the processes (all or only the sample's).
+- **Result per run**, most recent first: the sample, when it ran, how many events matched and the
+  first three. **Show the events** opens the paginated list of those that matched. **Open the run**
+  leads to the sample record with that run open.
+- **Only the sample** uses the same process tree as the timeline, built for each run. Runs with no
+  sample event are dropped before the page is built.
+- **Limits:** the 300 most recent matching runs (the screen warns when it is reached) and 15 s per
+  query. An invalid regex or a search that is too slow come back with the reason. The CSV carries up
+  to 10 thousand events.
+- **From the timeline:** hovering over an event, **search in other runs** opens the search with that
+  event's process, destination, DNS query, file or key.
+- **Performance:** a trigram index (`pg_trgm`) on the event text serves the text operators. With
+  500 thousand events across a thousand runs, the search takes about 4 ms with the index, against
+  0.25 to 2.6 s without it. Regular expressions do not use the index. If the database user cannot
+  create the extension, the migration goes on without the index and the search still works, only
+  slower.
+
 ### Memory dump of the sample processes
 
 The whole VM memory cannot leave Proxmox without giving DeepLook the QEMU monitor (`Sys.Modify` on
@@ -1899,6 +2028,15 @@ it.
 | GET | `/api/sandbox/:id/timeline/export` | The whole timeline as a download (`format=csv\|json`, `scope`, `kinds`) |
 | GET | `/api/sandbox/:id/sigma` | Sigma detections in the run (rule, level, ATT&CK, process, whether it is the sample's) |
 | POST | `/api/sandbox/:id/sigma/reevaluate` | Evaluates the run's events again from scratch |
+| GET/POST | `/api/sigma/rules` | Team Sigma rules (list, with the runs they fired on) and create |
+| PATCH/DELETE | `/api/sigma/rules/:id` | Edit, turn on/off (`{ enabled }`) and delete a team rule |
+| POST | `/api/sigma/validate` | Compiles the YAML without saving |
+| POST | `/api/sigma/test` | Tests the YAML on a run (`sessionId`), storing nothing |
+| GET | `/api/sigma/catalog` | SigmaHQ rules (`q`, `level`, `state=all\|on\|off`, `page`) |
+| PATCH | `/api/sigma/catalog/:ruleId` | Turns a SigmaHQ rule on or off |
+| GET | `/api/sandbox/hunt` | Search across every run's events (`field`, `op`, `value`, `kind`, `scope`, `from`, `to`, `offset`) |
+| GET | `/api/sandbox/hunt/:sessionId` | The matching events of one run (the same filters and `page`) |
+| GET | `/api/sandbox/hunt/export` | The result as CSV (up to 10 thousand events) |
 | GET | `/api/sandbox/:id/compare/:other` | Diff between two runs of the same sample (`scope=sample\|all`) |
 | GET | `/api/sandbox/:id/memory` | Memory dumps of the run (processes, regions, child samples) |
 | POST | `/api/sandbox/:id/memory` | Captures the memory of the sample processes now (environment up) |

@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type {
   AndroidResult,
   ConfigResult,
+  DotnetResult,
   EmulationResult,
   ServiceAnalysisInfo,
   ServiceKindId,
@@ -469,6 +471,182 @@ export function ConfigSection({ entryId, canTriage }: { entryId: string; canTria
       notYet={t('cfgNotYet')}
       off={t('cfgOff')}
       body={(r) => <ConfigBody r={r} />}
+    />
+  );
+}
+
+// ------------------------------------------------------------------ .NET (plans/caca-e-formatos, item 3)
+
+/** Teto de tipos listados (o filtro acha o resto). */
+const TYPES_SHOWN = 300;
+
+/** O fonte de um tipo, com o numero das linhas e as linhas dos achados marcadas (texto da amostra). */
+function DotnetSource({
+  entryId,
+  path,
+  marks,
+}: {
+  entryId: string;
+  path: string;
+  marks: Map<number, string>;
+}) {
+  const query = useQuery({
+    queryKey: ['dotnet-source', entryId, path],
+    queryFn: () =>
+      api.get<{ path: string; source: string }>(
+        `/entries/${entryId}/dotnet/source?path=${encodeURIComponent(path)}`,
+      ),
+    staleTime: Infinity,
+  });
+  if (query.isError)
+    return <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>;
+  if (!query.data) return <p className="dl-hint-muted">{t('netLoading')}</p>;
+  // Sem a linha vazia depois do ultimo \n.
+  const lines = query.data.source.replace(/\r?\n$/, '').split('\n');
+  return (
+    <pre className="dl-dotnet__source" aria-label={path}>
+      {lines.map((line, i) => (
+        <span
+          key={i}
+          className={marks.has(i + 1) ? 'dl-dotnet__line is-marked' : 'dl-dotnet__line'}
+          title={marks.get(i + 1)}
+        >
+          <span className="dl-dotnet__ln">{i + 1}</span>
+          {line}
+          {'\n'}
+        </span>
+      ))}
+    </pre>
+  );
+}
+
+function DotnetBody({ r, entryId }: { r: DotnetResult; entryId: string }) {
+  const [filter, setFilter] = useState('');
+  const [open, setOpen] = useState<string | null>(
+    () =>
+      r.findings[0]?.path ?? r.types.find((x) => !x.path.startsWith('Properties/'))?.path ?? null,
+  );
+  const needle = filter.trim().toLowerCase();
+  const types = r.types.filter((x) => !needle || x.path.toLowerCase().includes(needle));
+  const marks = new Map(
+    r.findings.filter((f) => f.path === open).map((f) => [f.line, f.why] as [number, string]),
+  );
+  const module = [r.module.name, r.module.framework, r.module.outputType]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <>
+      {module && (
+        <HpsmField label={t('netModule')}>
+          <HpsmReadonly>{module}</HpsmReadonly>
+        </HpsmField>
+      )}
+      {r.obfuscators.length > 0 && (
+        <HpsmField label={t('netObfuscators')}>
+          <HpsmReadonly>
+            <StatusText tone="orange">
+              {r.obfuscators
+                .map((o) => (o === 'unknown' ? t('netUnknownObfuscator') : o))
+                .join(', ')}
+            </StatusText>
+          </HpsmReadonly>
+        </HpsmField>
+      )}
+      {r.findings.length > 0 && (
+        <HpsmField label={t('netFindings', { n: r.findings.length })} wide top>
+          <ul className="dl-office__alerts">
+            {r.findings.slice(0, SHOWN * 2).map((f, i) => (
+              <li key={i}>
+                <StatusText tone={TONE[f.level] ?? 'gray'}>{f.why}</StatusText>{' '}
+                <button
+                  type="button"
+                  className="dl-link-button dl-mono"
+                  onClick={() => setOpen(f.path)}
+                >
+                  {f.path}:{f.line}
+                </button>
+                <code className="dl-mono dl-break dl-dotnet__snippet">{f.text}</code>
+              </li>
+            ))}
+          </ul>
+        </HpsmField>
+      )}
+      {r.resources.length > 0 && (
+        <HpsmField label={t('netResources', { n: r.resources.length })} wide top>
+          <ul className="dl-office__alerts">
+            {r.resources.map((x) => (
+              <li key={x.sha256} className="dl-mono">
+                {x.name} ({x.kind ?? '?'} · {x.size.toLocaleString(intlLocale())} B · H {x.entropy})
+                {x.entryId && (
+                  <>
+                    {' · '}
+                    <Link className="dl-link" to={`/entries/${x.entryId}`}>
+                      {t('netOpenChild')}
+                    </Link>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </HpsmField>
+      )}
+      <HpsmField label={t('netTypes', { n: r.types.length })} wide top>
+        {r.truncated && <HpsmMessage kind="warning">{t('netTruncated')}</HpsmMessage>}
+        <div className="dl-dotnet">
+          <div className="dl-dotnet__types">
+            <input
+              type="search"
+              className="dl-dotnet__filter"
+              aria-label={t('netFilter')}
+              placeholder={t('netFilter')}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <ul>
+              {types.slice(0, TYPES_SHOWN).map((x) => (
+                <li key={x.path}>
+                  <button
+                    type="button"
+                    className={`dl-link-button dl-mono${open === x.path ? ' is-selected' : ''}`}
+                    aria-current={open === x.path || undefined}
+                    onClick={() => setOpen(x.path)}
+                  >
+                    {x.path}
+                  </button>
+                </li>
+              ))}
+              {types.length > TYPES_SHOWN && (
+                <li className="dl-hint-muted">{t('netMore', { n: types.length - TYPES_SHOWN })}</li>
+              )}
+            </ul>
+            <a className="dl-link" href={`/api/entries/${entryId}/dotnet/download`} download>
+              {t('netDownload')}
+            </a>
+          </div>
+          <div className="dl-dotnet__code">
+            {open ? (
+              <DotnetSource entryId={entryId} path={open} marks={marks} />
+            ) : (
+              <p className="dl-hint-muted">{t('netPick')}</p>
+            )}
+          </div>
+        </div>
+      </HpsmField>
+    </>
+  );
+}
+
+export function DotnetSection({ entryId, canTriage }: { entryId: string; canTriage: boolean }) {
+  return (
+    <ServiceSection<DotnetResult>
+      kind="dotnet"
+      entryId={entryId}
+      canTriage={canTriage}
+      title={t('netTitle')}
+      help={t('netHelp')}
+      notYet={t('netNotYet')}
+      off={t('netOff')}
+      body={(r) => <DotnetBody r={r} entryId={entryId} />}
     />
   );
 }

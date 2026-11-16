@@ -1358,7 +1358,44 @@ export async function setupMock(context, state) {
       }
       // Novas analises (plans/novas-analises): emulacao, APK, configuracao, Sigma, memoria, diff
       // entre execucoes e o rascunho por IA. O roteiro define as respostas; sem elas, desligado.
-      m = p.match(/^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config)$/);
+      // Caca e formatos (plans/caca-e-formatos): regras Sigma da equipe, busca no sandbox e o .NET.
+      if (p === '/api/sigma/rules' && req.method() === 'POST') {
+        (state.sigmaRequests ??= []).push({ kind: 'create', body });
+        const rule = { ...state.sigmaNewRule, source: body?.source ?? '' };
+        state.sigmaRules = { ...state.sigmaRules, rules: [...(state.sigmaRules?.rules ?? []), rule] };
+        return json(route, 201, { rule });
+      }
+      if (p === '/api/sigma/rules') return json(route, 200, state.sigmaRules ?? { rules: [], active: { vendored: 0, team: 0 } });
+      if (p === '/api/sigma/runs') return json(route, 200, { runs: state.sigmaRuns ?? [] });
+      if (p === '/api/sigma/validate') return json(route, 200, state.sigmaValidate ?? { ok: false, errors: ['o YAML está vazio'] });
+      if (p === '/api/sigma/test') {
+        (state.sigmaRequests ??= []).push({ kind: 'test', body });
+        return json(route, 200, state.sigmaTest);
+      }
+      if (p === '/api/sigma/catalog') {
+        (state.sigmaRequests ??= []).push({ kind: 'catalog', query: Object.fromEntries(url.searchParams) });
+        return json(route, 200, state.sigmaCatalog);
+      }
+      m = p.match(/^\/api\/sigma\/catalog\/(.+)$/);
+      if (m) {
+        (state.sigmaRequests ??= []).push({ kind: 'toggle', ruleId: decodeURIComponent(m[1]), body });
+        return json(route, 200, { ok: true, enabled: body?.enabled });
+      }
+      if (p === '/api/sandbox/hunt') {
+        (state.huntRequests ??= []).push(Object.fromEntries(url.searchParams));
+        return json(route, 200, state.huntRuns);
+      }
+      m = p.match(/^\/api\/sandbox\/hunt\/([\w-]+)$/);
+      if (m) return json(route, 200, state.huntEvents?.[m[1]] ?? { total: 0, page: 1, pageSize: 50, events: [] });
+      m = p.match(/^\/api\/entries\/(\w+)\/dotnet\/source$/);
+      if (m) {
+        const path = url.searchParams.get('path');
+        const source = state.dotnetSources?.[m[1]]?.[path];
+        return source === undefined
+          ? json(route, 404, { error: 'Arquivo não encontrado no projeto.' })
+          : json(route, 200, { path, source });
+      }
+      m = p.match(/^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config|dotnet)$/);
       if (m && req.method() === 'POST') {
         (state.serviceRequests ??= []).push({ entryId: m[1], kind: m[2], body });
         return json(route, 202, { ok: true });

@@ -9,6 +9,7 @@ import { autoAssign } from './auto-assign';
 import { enqueueCapaIfEligible } from './capa';
 import { scanInBackground } from './clamav';
 import { sha256Hex } from './crypto';
+import { analyzeDelivery, CHILD_FAILED } from './delivery-formats';
 import { isEmailFile, parseEmail } from './eml';
 import { recordEvent } from './events';
 import { normalizeUrl, urlKey } from './ioc-normalize';
@@ -150,7 +151,13 @@ export async function createFileEntry(
   // Documento do Office ou RTF (item 7.14): oletools, em segundo plano.
   await enqueueOletoolsIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Emulacao (PE), APK e configuracao de familias (plans/novas-analises, itens 2, 4 e 6).
-  await enqueueServicesIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
+  await enqueueServicesIfEligible(
+    entry.id,
+    staticInfo?.detectedType?.id,
+    buffer.length,
+    req.log,
+    staticInfo,
+  );
   // Imagem ou PDF (plano pos-revisao, item 2.2): leitura de QR code, em segundo plano.
   await enqueueQrIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Identificar (Detect It Easy, 7.9) e desempacotar (7.8): todo executavel vai para a fila, menos a
@@ -164,6 +171,11 @@ export async function createFileEntry(
   }
   await notifyWatchers(prisma, sampleIndicators(entry), entry.id, ownerId, 'sample');
   if (quota.remaining !== null) quota.remaining -= 1;
+  // OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4): o que estava escondido vira
+  // amostra filha (ate 3 niveis, como os anexos de e-mail).
+  if (staticInfo?.delivery?.files.some((f) => !f.skipped) && depth < 3) {
+    await extractDelivery(req, ownerId, entry, buffer, filename, staticInfo, input, depth);
+  }
   // E-mail (.eml): le e transforma cada anexo numa amostra filha (ate 3 niveis
   // de e-mail encaminhado como anexo).
   if (isEmailFile(filename, mimetype) && depth < 3) {
@@ -198,6 +210,57 @@ export const unpackChildCreator =
     );
     return { id: entry.id };
   };
+
+/**
+ * As filhas de um formato de entrega: le o arquivo de novo (a analise estatica so guardou o resumo),
+ * cria cada carga como amostra filha, sem cota (como as de um desempacotamento), e grava o id de
+ * cada uma no resumo.
+ */
+async function extractDelivery(
+  req: EntryContext,
+  ownerId: string,
+  entry: { id: string; title: string },
+  buffer: Buffer,
+  filename: string,
+  staticInfo: StaticInfo,
+  input: { tags: { id: string }[] },
+  depth: number,
+) {
+  const result = analyzeDelivery(buffer, filename, staticInfo.detectedType?.id);
+  const info = staticInfo.delivery;
+  if (!result || !info) return;
+  const where =
+    info.format === 'onenote' ? 'do OneNote' : info.format === 'msi' ? 'do MSI' : 'da página HTML';
+  for (const [i, file] of info.files.entries()) {
+    const data = result.payloads[i];
+    if (file.skipped || !data?.length || result.info.files[i]?.sha256 !== file.sha256) continue;
+    try {
+      const { entry: child } = await createFileEntry(
+        req,
+        ownerId,
+        {
+          buffer: data,
+          filename: file.name,
+          mimetype: 'application/octet-stream',
+          title: file.name,
+          description: `Extraído ${where} "${entry.title}" (${file.source}).`,
+          tags: input.tags,
+          parentEntryId: entry.id,
+        },
+        { remaining: null },
+        depth + 1,
+      );
+      file.entryId = child.id;
+    } catch (err) {
+      req.log.warn({ err }, 'Falha ao criar a filha do formato de entrega');
+      file.skipped = CHILD_FAILED;
+    }
+  }
+  await prisma.entry.update({
+    where: { id: entry.id },
+    data: { staticInfo: staticInfo as unknown as Prisma.InputJsonValue },
+  });
+}
 
 /** Le o .eml enviado, cria os anexos como amostras filhas e grava `emailInfo`. */
 async function readEmail(

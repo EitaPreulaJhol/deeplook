@@ -315,6 +315,64 @@ async function main() {
     { name: pyc?.originalFilename, iocs: (pyc?.staticInfo as any)?.iocCandidates },
   );
 
+  // AutoIt (plans/caca-e-formatos, item 5): o script tokenizado e comprimido do EA06 volta como
+  // texto, analisado como AutoIt, e o arquivo do FileInstall vira filha com o nome original.
+  const au = await upload(ana, 'fatura.exe', file('autoit.exe'));
+  await unpackIdle();
+  const auKids = await children(au);
+  const au3 = auKids.find((k) => k.originalFilename === 'script.au3');
+  const au3Script = (au3?.staticInfo as any)?.script;
+  ok(
+    'AutoIt: o script e o arquivo do FileInstall',
+    (await job(au))?.unpacker === 'autoit' &&
+      (await job(au))?.note === 'EA06 · 1 script(s) · 1 FileInstall' &&
+      auKids.some(
+        (k) => k.originalFilename === 'carga.exe' && k.sha256 === sha(file('payload.bin')),
+      ),
+    { job: await job(au), kids: auKids.map((k) => k.originalFilename) },
+  );
+  ok(
+    'AutoIt: o script analisado como AutoIt (download, execução, Run, memória e o PE em 0x)',
+    au3Script?.language === 'autoit' &&
+      au3Script.risk === 'high' &&
+      [
+        'InetGet/InetRead',
+        'Run/ShellExecute',
+        'RegWrite na chave Run',
+        'DllCall de memória executável',
+        'FileInstall',
+        'PE em binário 0x',
+      ].every((n) => au3Script.findings.some((f: { name: string }) => f.name === n)) &&
+      ((au3?.staticInfo as any)?.iocCandidates ?? []).some(
+        (i: { value: string }) => i.value === 'http://autoit.evil.test/carga.bin',
+      ),
+    au3Script,
+  );
+  const auUpx = await upload(ana, 'fatura-upx.exe', file('autoit-upx.exe'));
+  await unpackIdle();
+  const [auUpxChild] = await children(auUpx);
+  const auUpxGrand = auUpxChild ? await children(auUpxChild.id) : [];
+  ok(
+    'AutoIt dentro de UPX: o UPX sai primeiro e o script sai da filha',
+    (await job(auUpx))?.unpacker === 'upx' &&
+      (auUpxChild ? await job(auUpxChild.id) : null)?.unpacker === 'autoit' &&
+      auUpxGrand.some((k) => k.originalFilename === 'script.au3'),
+    auUpxGrand.map((k) => k.originalFilename),
+  );
+
+  // CAB solto (plans/caca-e-formatos, item 4): a midia que sai do MSI e aberta pelo 7-Zip.
+  const msi = await upload(ana, 'atualizador.msi', file('teste.msi'));
+  await unpackIdle();
+  const cab = (await children(msi)).find((k) => k.originalFilename === 'midia.cab');
+  const cabKids = cab ? await children(cab.id) : [];
+  ok(
+    'o CAB do MSI vira filha e o unpack abre o CAB',
+    Boolean(cab) &&
+      (await job(cab!.id))?.unpacker === 'cab' &&
+      cabKids.some((k) => k.originalFilename === 'leia.txt'),
+    { cab: cab?.originalFilename, job: cab ? await job(cab.id) : null, kids: cabKids },
+  );
+
   const inno = await upload(ana, 'setup-inno.exe', file('inno-6.2.2.exe'));
   await unpackIdle();
   const innoJob = await job(inno);

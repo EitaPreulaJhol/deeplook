@@ -49,6 +49,8 @@ export type RiskInputs = {
   signedValid: boolean;
   scriptRisk: string | null;
   documentRisk: string | null;
+  /** OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */
+  deliveryRisk?: string | null;
   pending: string[];
   /** Enderecos de QR codes lidos na amostra (plano pos-revisao, item 2.2). */
   qrUrls?: string[];
@@ -58,6 +60,8 @@ export type RiskInputs = {
   sigmaHits?: { title: string; level: string }[];
   /** Alertas da emulacao e do APK (plans/novas-analises, itens 4 e 6), no idioma do pedido. */
   emulationAlerts?: { level: string; text: string }[];
+  /** Descompilacao de .NET (plans/caca-e-formatos, item 3). */
+  dotnetAlerts?: { level: string; text: string }[];
   androidAlerts?: { level: string; text: string }[];
   /** Familias reconhecidas pela configuracao (item 2): com a configuracao extraida ou so pela regra. */
   configFamilies?: { family: string; extracted: boolean }[];
@@ -149,6 +153,17 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
       15,
     );
   }
+  // Formatos de entrega (plans/caca-e-formatos, item 4): a carga escondida no OneNote, no HTML ou
+  // no MSI. As filhas tem o proprio risco; aqui conta o disfarce.
+  const delivery = tr('Formato de entrega', 'Delivery format');
+  if (input.deliveryRisk === 'high')
+    add(
+      delivery,
+      tr('carga escondida (OneNote, HTML ou MSI)', 'hidden payload (OneNote, HTML or MSI)'),
+      35,
+    );
+  else if (input.deliveryRisk === 'medium')
+    add(delivery, tr('arquivo embutido suspeito', 'suspicious embedded file'), 15);
   const document = tr('Documento', 'Document');
   if (input.documentRisk === 'high')
     add(document, tr('documento de alto risco', 'high-risk document'), 35);
@@ -255,6 +270,9 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   };
   scored(tr('Emulação', 'Emulation'), input.emulationAlerts, [25, 5, 35], [10, 3, 16]);
+  // .NET descompilado (plans/caca-e-formatos, item 3): os achados no codigo pesam como na emulacao;
+  // o ofuscador e os recursos medios, como os medios dela.
+  scored('.NET', input.dotnetAlerts, [25, 5, 35], [10, 3, 16]);
   // APK (item 6): as combinacoes de banker, spyware e dropper.
   scored('Android', input.androidAlerts, [30, 5, 40], [10, 3, 20]);
   // Configuracao de familia (item 2): a configuracao extraida e a identificacao mais certa que ha.
@@ -422,6 +440,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
   const st = (entry.staticInfo ?? {}) as {
     script?: { risk?: string } | null;
     document?: { risk?: string } | null;
+    delivery?: { risk?: string } | null;
     pe?: {
       signature?: {
         signatureValid?: boolean;
@@ -446,6 +465,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
     servicePending('EMULATION') && (en ? 'emulation' : 'emulação'),
     servicePending('ANDROID') && (en ? 'APK analysis' : 'análise do APK'),
     servicePending('CONFIG') && (en ? 'configuration extraction' : 'extração de configuração'),
+    servicePending('DOTNET') && (en ? '.NET decompilation' : 'descompilação do .NET'),
   ].filter((name): name is string => Boolean(name));
   return scoreRisk(
     {
@@ -454,11 +474,13 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       signedValid: Boolean(sig && !sig.error && sig.signatureValid && sig.digestMatches !== false),
       scriptRisk: st.script?.risk ?? null,
       documentRisk: st.document?.risk ?? null,
+      deliveryRisk: st.delivery?.risk ?? null,
       pending,
       qrUrls,
       idsAlerts,
       sigmaHits,
       emulationAlerts: alertsOf('EMULATION'),
+      dotnetAlerts: alertsOf('DOTNET'),
       androidAlerts: alertsOf('ANDROID'),
       configFamilies: configFound,
     },

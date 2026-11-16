@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Prisma } from '../generated/prisma/client';
 import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
+import { dotnetKeysOf } from '../lib/dotnet';
 import { recordEvent } from '../lib/events';
 import { deleteGhidraProject, deleteGhidraPseudo } from '../lib/ghidra';
 import { captureKeysOf } from '../lib/network-capture';
@@ -151,6 +152,8 @@ export async function trashRoutes(app: FastifyInstance) {
         ...(await artifactKeysOf(id)),
         // Dumps de memoria do sandbox (plans/novas-analises, item 3).
         ...(await memdumpKeysOf(id)),
+        // O fonte descompilado do .NET (plans/caca-e-formatos, item 3).
+        ...(await dotnetKeysOf(id)),
         ...(await captureKeysOf(id)),
         ...captures
           .flatMap((c) => [c.screenshotKey, c.htmlKey])

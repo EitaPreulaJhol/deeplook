@@ -23,6 +23,8 @@ export const messages = {
   'nav.allCases': ['Todos os casos', 'All cases'],
   'nav.detection': ['Detecção', 'Detection'],
   'nav.yara': ['Regras YARA', 'YARA rules'],
+  'nav.sigma': ['Regras Sigma', 'Sigma rules'],
+  'nav.sandboxHunt': ['Busca no sandbox', 'Sandbox search'],
   'nav.allowlist': ['Indicadores permitidos', 'Allowed indicators'],
   'nav.triage': ['Regras de triagem', 'Triage rules'],
   'nav.companyDomains': ['Domínios da empresa', 'Company domains'],

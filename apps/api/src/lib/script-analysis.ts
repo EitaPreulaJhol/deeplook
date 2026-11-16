@@ -18,9 +18,14 @@ import {
  * normalizacao de script-deobfuscate.ts (concatenacao, -f, crases, variaveis do lote...), que vira
  * uma camada propria quando muda o texto; o Script Encoder (.vbe/.jse) e decodificado; e blocos
  * Base64 ou listas de bytes que nao sao texto tentam XOR de um byte.
+ *
+ * AutoIt (plans/caca-e-formatos, item 5): o script que o desempacotador tira do executavel
+ * compilado (script.au3). As regras proprias do AutoIt (Run, InetGet, DllCall...) so valem nele: em
+ * outra linguagem, "Run(" e um nome qualquer. O binario 0x... longo (o PE ou o shellcode que o
+ * script grava ou poe na memoria) vira camada quando e texto e achado quando e PE.
  */
 
-export type ScriptLanguage = 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta';
+export type ScriptLanguage = 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta' | 'autoit';
 
 export interface ScriptFinding {
   /** Chamada/trecho achado (ex.: "DownloadString"). */
@@ -74,6 +79,7 @@ const EXT: Record<string, ScriptLanguage> = {
   bat: 'batch',
   cmd: 'batch',
   hta: 'hta',
+  au3: 'autoit',
 };
 
 const LABEL: Record<ScriptLanguage, string> = {
@@ -82,6 +88,7 @@ const LABEL: Record<ScriptLanguage, string> = {
   vbscript: 'VBScript',
   batch: 'Lote (BAT/CMD)',
   hta: 'HTA (aplicativo HTML)',
+  autoit: 'AutoIt',
 };
 export const scriptLabel = (l: ScriptLanguage) => LABEL[l];
 
@@ -90,6 +97,61 @@ export const scriptLabel = (l: ScriptLanguage) => LABEL[l];
  * com `[^\n]*`, uma linha longa de palavras repetidas custa o quadrado do tamanho.
  */
 type Rule = { re: RegExp; name: string; why: string; kind: ScriptFinding['kind'] };
+
+/** So no AutoIt (o script.au3 do executavel compilado). */
+const AUTOIT_RULES: Rule[] = [
+  {
+    re: /(?<![\w.$])(?:run|runwait|shellexecute|shellexecutewait)\s*\(/i,
+    name: 'Run/ShellExecute',
+    why: 'inicia outro programa',
+    kind: 'execute',
+  },
+  {
+    re: /(?<![\w.$])(?:inetget|inetread)\s*\(/i,
+    name: 'InetGet/InetRead',
+    why: 'baixa conteúdo da internet',
+    kind: 'download',
+  },
+  {
+    re: /(?<![\w.$])dllcall\s*\([^\n]{0,1000}\b(?:virtualalloc(?:ex)?|virtualprotect(?:ex)?|callwindowproc|createthread|createremotethread|writeprocessmemory|rtlmovememory)\b/i,
+    name: 'DllCall de memória executável',
+    why: 'põe código na memória e o executa (shellcode ou PE carregado à mão)',
+    kind: 'execute',
+  },
+  {
+    re: /(?<![\w.$])dllstructcreate\s*\(\s*["']byte\s*\[/i,
+    name: 'DllStructCreate("byte[...]")',
+    why: 'reserva um buffer de bytes (costuma receber o shellcode)',
+    kind: 'other',
+  },
+  {
+    re: /(?<![\w.$])regwrite\s*\([^\n]{0,1000}\\currentversion\\run/i,
+    name: 'RegWrite na chave Run',
+    why: 'fica ativo depois de reiniciar (persistência)',
+    kind: 'persistence',
+  },
+  {
+    re: /(?<![\w.$])(?:binarytostring|_crypt_decryptdata|_base64decode)\s*\(/i,
+    name: 'BinaryToString/_Crypt_DecryptData',
+    why: 'decodifica ou decifra conteúdo escondido',
+    kind: 'obfuscation',
+  },
+  {
+    re: /(?<![\w.$])fileinstall\s*\(/i,
+    name: 'FileInstall',
+    why: 'grava no disco um arquivo embutido no executável',
+    kind: 'other',
+  },
+  {
+    re: /#notrayicon\b/i,
+    name: '#NoTrayIcon',
+    why: 'esconde o ícone da bandeja (roda sem o usuário perceber)',
+    kind: 'evasion',
+  },
+];
+
+/** Binario 0x... do AutoIt: 64 bytes ou mais. */
+const AUTOIT_BINARY_RE = /["']0x((?:[0-9a-f]{2}){64,})["']/gi;
 
 /** Chamadas suspeitas (valem em qualquer linguagem: as camadas misturam). */
 const RULES: Rule[] = [
@@ -350,6 +412,8 @@ function decodeCandidates(text: string): [string, string][] {
   }
   // Bloco Base64 solto e longo (payload embutido).
   for (const m of text.matchAll(/["']([A-Za-z0-9+/]{120,}={0,2})["']/g)) {
+    // So hexadecimal (o binario 0x... do AutoIt, um hash) tambem e Base64 valido, mas nao e.
+    if (/^(?:0x)?[0-9a-f]+$/i.test(m[1])) continue;
     const bytes = b64(m[1]);
     const packed = inflate(bytes);
     if (!packed && xorCandidate(out, bytes)) continue;
@@ -377,6 +441,11 @@ function detectLanguage(text: string, filename?: string | null): ScriptLanguage 
   if (ext && EXT[ext]) return EXT[ext];
   const head = text.slice(0, 4000).toLowerCase();
   if (/<hta:application/.test(head)) return 'hta';
+  if (
+    /^\s*#(?:notrayicon|requireadmin|include\s*<[\w.]+\.au3>)/m.test(head) ||
+    /^\s*func\s+\w+\s*\([^)]*\)\s*$[\s\S]{0,3000}^\s*endfunc\b/m.test(head)
+  )
+    return 'autoit';
   if (/^\s*@?echo\s+off/m.test(head)) return 'batch';
   if (/^\s*(?:\$[a-z_]+\s*=|function\s+[a-z]+-[a-z]+|param\s*\(|\[cmdletbinding)/m.test(head))
     return 'powershell';
@@ -396,6 +465,8 @@ function asText(buf: Buffer): string | null {
   const text = buf.subarray(0, MAX_TEXT).toString('utf8');
   return readable(text) ? text : null;
 }
+
+const AUTOIT_PE = 'PE em binário 0x';
 
 const URL_RE = /\bh(?:tt|xx)ps?:\/\/[^\s"'<>`)]{4,300}/gi;
 
@@ -431,7 +502,9 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
     // regras e as camadas olham os dois; o normalizado vira camada quando muda o texto.
     let source = raw;
     let layer = rawLayer;
-    const normalized = normalizeScript(raw, flavorOf(raw, depth === 0 ? language : null));
+    // O AutoIt concatena com & e usa StringReverse/StringReplace: normaliza como VBScript.
+    const rootFlavor = language === 'autoit' ? 'vbscript' : language;
+    const normalized = normalizeScript(raw, flavorOf(raw, depth === 0 ? rootFlavor : null));
     if (normalized.techniques.length && normalized.text.trim() !== raw.trim()) {
       const index = pushLayer(normalized.techniques.join(' · '), rawLayer, normalized.text);
       if (index !== null) {
@@ -452,20 +525,48 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
     }
   };
 
+  const rules = language === 'autoit' ? [...AUTOIT_RULES, ...RULES] : RULES;
   const scanRules = (source: string, layer: number) => {
-    for (const rule of RULES) {
+    for (const rule of rules) {
       if (!findings.has(rule.name) && rule.re.test(source)) {
         findings.set(rule.name, { name: rule.name, why: rule.why, kind: rule.kind, layer });
       }
     }
     for (const m of source.matchAll(URL_RE))
       if (urls.size < 50) urls.add(m[0].replace(/[.,;]+$/, ''));
+    if (language === 'autoit') scanAutoitBinaries(source, layer);
   };
+
+  // Binario 0x... longo: texto vira camada (pelo scan normal, em decodeCandidates nao entra, que
+  // vale para todas as linguagens); PE vira achado.
+  const scanAutoitBinaries = (source: string, layer: number) => {
+    for (const m of source.matchAll(AUTOIT_BINARY_RE)) {
+      const bytes = Buffer.from(m[1], 'hex');
+      if (bytes[0] === 0x4d && bytes[1] === 0x5a) {
+        if (!findings.has(AUTOIT_PE)) {
+          findings.set(AUTOIT_PE, {
+            name: AUTOIT_PE,
+            why: 'o script traz um executável inteiro em hexadecimal (grava ou carrega na memória)',
+            kind: 'execute',
+            layer,
+          });
+        }
+        continue;
+      }
+      const decoded = bytesToText(bytes);
+      if (readable(decoded)) pendingBinaries.push([layer, decoded]);
+    }
+  };
+  const pendingBinaries: [number, string][] = [];
 
   // Script Encoder (#@~^, .vbe/.jse): o texto decodificado e a primeira camada.
   const encoded = /#@~\^/.test(text.slice(0, 4000));
   const plain = encoded ? decodeScriptEncoder(text) : null;
   scan(text, 0, 0);
+  for (const [from, decoded] of pendingBinaries.splice(0, 20)) {
+    const index = pushLayer('Binário 0x (AutoIt)', from, decoded);
+    if (index !== null) scan(decoded, index, 1);
+  }
   if (plain) {
     const index = pushLayer('Script Encoder (.vbe/.jse)', 0, plain);
     if (index !== null) scan(plain, index, 1);
