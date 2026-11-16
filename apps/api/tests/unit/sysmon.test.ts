@@ -49,7 +49,10 @@ test('janela da primeira leitura: no relógio da VM (timediff), sem a hora da AP
   const xpath = sysmonXPath({ windowS });
   assert.equal(
     xpath,
-    '*[System[(EventID=1 or EventID=3 or EventID=11 or EventID=12 or EventID=13 or EventID=14 or EventID=22) and TimeCreated[timediff(@SystemTime) <= 900000]]]',
+    // Os eventos das regras Sigma (plans/novas-analises, item 1) tambem sao lidos.
+    `*[System[(${[1, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 25, 26]
+      .map((id) => `EventID=${id}`)
+      .join(' or ')}) and TimeCreated[timediff(@SystemTime) <= 900000]]]`,
   );
   assert.ok(!script(sysmonCommand({ windowS })).includes('2026-11-13'));
 });

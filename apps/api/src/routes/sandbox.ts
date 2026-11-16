@@ -40,6 +40,10 @@ import {
   sandboxReady,
 } from '../lib/sandbox';
 import { type GuestProcess, newProcesses } from '../lib/sandbox-artifacts';
+import { compareSessions } from '../lib/sandbox-compare';
+import { captureMemory, memdumpEnabled } from '../lib/sandbox-memdump';
+import { sigmaManifest, sigmaRules } from '../lib/sigma-rules';
+import { reevaluateSigma, sigmaHitsView } from '../lib/sigma-store';
 import { suricataIndicators, type SuricataResult } from '../lib/suricata';
 import {
   describeEvent,
@@ -144,6 +148,8 @@ const LaunchBody = z.object({
     })
     .optional(),
   capture: z.boolean().optional(),
+  /** Dump de memoria depois da execucao automatica (plans/novas-analises, item 3). */
+  memoryDump: z.boolean().optional(),
 });
 
 /** Formato da exportacao da linha do tempo (plans/ajustes-usabilidade, item 6). */
@@ -160,6 +166,11 @@ function csvCell(value: unknown): string {
 }
 
 /** Filtros da linha do tempo de uma execucao (plans/sandbox-execucoes, fase 3). */
+const CompareQuery = z.object({
+  /** sample: so a amostra e o que ela abriu (padrao); all: tudo. */
+  scope: z.enum(['sample', 'all']).optional(),
+});
+
 const TimelineQuery = z.object({
   /** sample: so a amostra e o que ela abriu; all: tudo (com o ruido do Windows). */
   scope: z.enum(['sample', 'all']).optional(),
@@ -274,6 +285,8 @@ export async function sandboxRoutes(app: FastifyInstance) {
       // Para o dialogo de inicio: o teto da duracao e se ha captura de rede para ligar ou nao.
       ttlMinutes: env.SANDBOX_TTL_MINUTES,
       captureEnabled: networkCaptureEnabled(),
+      // Dump de memoria depois da execucao automatica (plans/novas-analises, item 3).
+      memoryDumpEnabled: memdumpEnabled(),
       session: session ? localizeSession(session, requestLang(req)) : null,
       sysmonIndicators: sysmonFound,
       networkIndicators: [
@@ -657,6 +670,167 @@ export async function sandboxRoutes(app: FastifyInstance) {
     const name = sampleFileName({ originalFilename: row?.entry.originalFilename ?? null });
     return { name, entryId: row?.entryId ?? '', tree: await sampleTree(sessionId, name) };
   };
+
+  // ---- Dump de memoria dos processos da amostra (plans/novas-analises, item 3) ----
+  app.get('/api/sandbox/:id/memory', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const dumps = await prisma.sandboxMemoryDump.findMany({
+      where: { sessionId: session.id },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        pid: true,
+        image: true,
+        status: true,
+        size: true,
+        storedSize: true,
+        sha256: true,
+        error: true,
+        result: true,
+        children: true,
+        createdAt: true,
+        storedAt: true,
+        finishedAt: true,
+      },
+    });
+    const extra = await prisma.sandboxSession.findUnique({
+      where: { id: session.id },
+      select: { memoryDump: true, memoryDumpAt: true },
+    });
+    const lang = requestLang(req);
+    return reply.send({
+      enabled: memdumpEnabled(),
+      analysis: Boolean(env.EXTRACT_URL && env.EXTRACT_TOKEN),
+      running: session.status === 'RUNNING',
+      scheduledAt: extra?.memoryDumpAt?.toISOString() ?? null,
+      requested: extra?.memoryDump ?? false,
+      dumps: dumps.map((d) => ({
+        ...d,
+        size: d.size === null ? null : Number(d.size),
+        storedSize: d.storedSize === null ? null : Number(d.storedSize),
+        error: localizeText(d.error, lang),
+      })),
+    });
+  });
+
+  app.post('/api/sandbox/:id/memory', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    if (!memdumpEnabled()) {
+      return reply
+        .code(503)
+        .send({ error: 'O dump de memória está desligado (SANDBOX_MEMDUMP_MAX_MB=0).' });
+    }
+    if (session.status !== 'RUNNING') {
+      return reply.code(409).send({ error: 'O ambiente não está no ar.' });
+    }
+    const busy = await prisma.sandboxMemoryDump.count({
+      where: { sessionId: session.id, status: 'CAPTURING' },
+    });
+    if (busy) return reply.code(409).send({ error: 'Já há uma captura de memória em andamento.' });
+    // Em segundo plano: o dump e a transferencia levam de segundos a minutos.
+    void captureMemory(session.id).catch((err: unknown) =>
+      req.log.warn({ err }, '[memória] captura falhou'),
+    );
+    return reply.code(202).send({ ok: true });
+  });
+
+  app.get('/api/sandbox/:id/memory/:dumpId/download', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const { dumpId } = req.params as { dumpId: string };
+    const dump = await prisma.sandboxMemoryDump.findFirst({
+      where: { id: dumpId, sessionId: session.id, storageKey: { not: null } },
+      select: {
+        storageKey: true,
+        pid: true,
+        storedSize: true,
+        session: { select: { entry: { select: { ownerId: true, title: true } } } },
+      },
+    });
+    if (!dump) return reply.code(404).send({ error: 'Dump de memória não encontrado.' });
+    const obj = await s3
+      .send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: dump.storageKey! }))
+      .catch(() => null);
+    if (!obj) return reply.code(404).send({ error: 'Dump de memória não encontrado.' });
+    await audit(prisma, req, {
+      action: 'SANDBOX_MEMDUMP_DOWNLOADED',
+      actorId: session.viewer.id,
+      targetUserId: dump.session.entry.ownerId,
+      targetLabel: dump.session.entry.title,
+      detail: `ambiente ${session.id} · PID ${dump.pid} · ${Number(dump.storedSize ?? 0)} bytes`,
+    });
+    return reply
+      .header('Content-Type', 'application/gzip')
+      .header(
+        'Content-Disposition',
+        `attachment; filename="memoria-${session.id}-${dump.pid}.dmp.gz"`,
+      )
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Cache-Control', 'private, no-store')
+      .send(obj.Body as Readable);
+  });
+
+  // ---- Diff entre duas execucoes da mesma amostra (plans/novas-analises, item 8) ----
+  app.get('/api/sandbox/:id/compare/:other', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const { other } = req.params as { other: string };
+    const parsed = CompareQuery.safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
+    const pair = await prisma.sandboxSession.findMany({
+      where: { id: { in: [session.id, other] } },
+      select: { id: true, entryId: true, startedAt: true, createdAt: true, stoppedAt: true },
+    });
+    const a = pair.find((p) => p.id === session.id);
+    const b = pair.find((p) => p.id === other);
+    if (!a || !b) return reply.code(404).send({ error: 'Ambiente não encontrado.' });
+    if (a.id === b.id || a.entryId !== b.entryId) {
+      return reply.code(400).send({ error: 'Compare duas execuções diferentes da mesma amostra.' });
+    }
+    const sampleOnly = (parsed.data.scope ?? 'sample') === 'sample';
+    const result = await compareSessions(a.id, b.id, sampleOnly);
+    const when = (s: typeof a) => (s.startedAt ?? s.createdAt).toISOString();
+    return reply.send({
+      a: { id: a.id, startedAt: when(a), stoppedAt: a.stoppedAt?.toISOString() ?? null },
+      b: { id: b.id, startedAt: when(b), stoppedAt: b.stoppedAt?.toISOString() ?? null },
+      scope: sampleOnly ? 'sample' : 'all',
+      ...result,
+    });
+  });
+
+  // ---- Regras Sigma sobre o Sysmon (plans/novas-analises, item 1) ----
+  app.get('/api/sandbox/:id/sigma', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const { tree, name } = await sampleOf(session.id);
+    const [hits, pending] = await Promise.all([
+      sigmaHitsView(session.id, tree),
+      prisma.sandboxSysmonEvent.count({ where: { sessionId: session.id, sigmaChecked: false } }),
+    ]);
+    const manifest = sigmaManifest();
+    return reply.send({
+      rules: {
+        name: manifest?.name ?? null,
+        release: manifest?.release ?? null,
+        license: manifest?.license ?? null,
+        url: manifest?.url ?? null,
+        count: sigmaRules().rules.length,
+      },
+      sample: { name, found: tree.size > 0 },
+      // Eventos ainda nao avaliados (a coleta seguinte, ou a subida da API, avalia).
+      pending,
+      hits,
+    });
+  });
+
+  app.post('/api/sandbox/:id/sigma/reevaluate', async (req, reply) => {
+    const session = await artifactSession(req, reply);
+    if (!session) return;
+    const created = await reevaluateSigma(session.id);
+    return reply.send({ ok: true, hits: created });
+  });
 
   // ---- Linha do tempo inteira para baixar (plans/ajustes-usabilidade, item 6) ----
   app.get('/api/sandbox/:id/timeline/export', async (req, reply) => {

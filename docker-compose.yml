@@ -181,6 +181,37 @@ services:
       OLETOOLS_MAX_MB: ${OLETOOLS_MAX_MB:-32}
       # Acima do OLETOOLS_TIMEOUT_S do servico.
       OLETOOLS_REQUEST_TIMEOUT_S: ${OLETOOLS_REQUEST_TIMEOUT_S:-300}
+      # Emulacao de PE e shellcode (plans/novas-analises, item 4): o servico emulate abaixo;
+      # EMULATE_URL= desliga.
+      EMULATE_URL: ${EMULATE_URL-http://emulate:3600}
+      EMULATE_TOKEN: ${EMULATE_TOKEN:-troque-este-token-do-emulate}
+      EMULATE_MAX_MB: ${EMULATE_MAX_MB:-32}
+      # Acima do EMULATE_TIMEOUT_S do servico.
+      EMULATE_REQUEST_TIMEOUT_S: ${EMULATE_REQUEST_TIMEOUT_S:-300}
+      # APK/Android (item 6): o servico android abaixo; ANDROID_URL= desliga.
+      ANDROID_URL: ${ANDROID_URL-http://android:3700}
+      ANDROID_TOKEN: ${ANDROID_TOKEN:-troque-este-token-do-android}
+      ANDROID_MAX_MB: ${ANDROID_MAX_MB:-100}
+      ANDROID_REQUEST_TIMEOUT_S: ${ANDROID_REQUEST_TIMEOUT_S:-300}
+      # Configuracao de familias e dumps de memoria (itens 2 e 3): o servico extract abaixo;
+      # EXTRACT_URL= desliga.
+      EXTRACT_URL: ${EXTRACT_URL-http://extract:3800}
+      EXTRACT_TOKEN: ${EXTRACT_TOKEN:-troque-este-token-do-extract}
+      EXTRACT_MAX_MB: ${EXTRACT_MAX_MB:-64}
+      EXTRACT_REQUEST_TIMEOUT_S: ${EXTRACT_REQUEST_TIMEOUT_S:-400}
+      # Dump de memoria dos processos da amostra no sandbox (item 3): teto por processo (0 desliga),
+      # processos por captura e espera depois da execucao automatica.
+      SANDBOX_MEMDUMP_MAX_MB: ${SANDBOX_MEMDUMP_MAX_MB:-512}
+      SANDBOX_MEMDUMP_MAX_PROCESSES: ${SANDBOX_MEMDUMP_MAX_PROCESSES:-4}
+      SANDBOX_MEMDUMP_DELAY_S: ${SANDBOX_MEMDUMP_DELAY_S:-120}
+      # Rascunho do relatorio por IA (item 7), desligado por padrao: anthropic ou openai (servidor
+      # compativel, ex.: Ollama). Com anthropic, as evidencias das analises saem para a Anthropic.
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_URL: ${LLM_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-180}
+      LLM_DAILY_LIMIT: ${LLM_DAILY_LIMIT:-30}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # So a rede deeplook (abaixo) conecta na API e informa o IP do cliente: o capture, na
       # outra rede, abre paginas maliciosas e nao deve alcancar a API (src/lib/network.ts).
@@ -443,6 +474,83 @@ services:
     tmpfs:
       - /tmp:size=256m,noexec,nosuid,nodev
     mem_limit: ${OLETOOLS_MEM_LIMIT:-1g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # Emulacao de PE e shellcode (plans/novas-analises, item 4): Speakeasy, sem rede (a rede que a
+  # amostra ve e a simulada pelo proprio emulador). Um container por analise, como o oletools.
+  emulate:
+    build:
+      context: ./apps/emulate
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      EMULATE_TOKEN: ${EMULATE_TOKEN:-troque-este-token-do-emulate}
+      EMULATE_MAX_MB: ${EMULATE_MAX_MB:-32}
+      EMULATE_TIMEOUT_S: ${EMULATE_TIMEOUT_S:-180}
+      # Tempo de emulacao (o Speakeasy para sozinho) e teto de chamadas de API.
+      EMULATE_RUN_S: ${EMULATE_RUN_S:-60}
+      EMULATE_RECYCLE: ${EMULATE_RECYCLE:-true}
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    mem_limit: ${EMULATE_MEM_LIMIT:-1g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # APK/Android (item 6): androguard, sem rede; so le o manifesto, os certificados e os DEX.
+  android:
+    build:
+      context: ./apps/android
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      ANDROID_TOKEN: ${ANDROID_TOKEN:-troque-este-token-do-android}
+      ANDROID_MAX_MB: ${ANDROID_MAX_MB:-100}
+      ANDROID_TIMEOUT_S: ${ANDROID_TIMEOUT_S:-180}
+      ANDROID_RECYCLE: ${ANDROID_RECYCLE:-true}
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,noexec,nosuid,nodev
+    mem_limit: ${ANDROID_MEM_LIMIT:-1g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # Configuracao de familias (item 2) e dumps de memoria do sandbox (item 3): CAPE-parsers (GPL,
+  # isolado aqui; a API so fala HTTP) e minidump, sem rede.
+  extract:
+    build:
+      context: ./apps/extract
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      EXTRACT_TOKEN: ${EXTRACT_TOKEN:-troque-este-token-do-extract}
+      # Maior corpo aceito: o dump de memoria (gzip) e maior que um executavel.
+      EXTRACT_MAX_MB: ${EXTRACT_SERVICE_MAX_MB:-512}
+      # Dump descompactado (o mesmo teto do SANDBOX_MEMDUMP_MAX_MB da API).
+      EXTRACT_MEMDUMP_MAX_MB: ${SANDBOX_MEMDUMP_MAX_MB:-512}
+      EXTRACT_TIMEOUT_S: ${EXTRACT_TIMEOUT_S:-300}
+      EXTRACT_RECYCLE: ${EXTRACT_RECYCLE:-true}
+    read_only: true
+    tmpfs:
+      # O dump (gzip) e ele descompactado ficam aqui durante a analise.
+      - /tmp:size=1200m,noexec,nosuid,nodev
+    mem_limit: ${EXTRACT_MEM_LIMIT:-3g}
     pids_limit: 64
     cap_drop:
       - ALL

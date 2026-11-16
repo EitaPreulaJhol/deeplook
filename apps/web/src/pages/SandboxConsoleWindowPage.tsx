@@ -54,6 +54,7 @@ export function SandboxConsoleWindowPage() {
         consoleEnabled: boolean;
         ttlMinutes?: number;
         captureEnabled?: boolean;
+        memoryDumpEnabled?: boolean;
         session: SandboxSession | null;
       }>(`/entries/${entryId}/sandbox`),
     refetchInterval: (q) => (isSandboxWorking(q.state.data?.session?.status) ? 2000 : false),
@@ -147,6 +148,7 @@ export function SandboxConsoleWindowPage() {
             openConsole={false}
             ttlMinutes={query.data?.ttlMinutes}
             captureEnabled={query.data?.captureEnabled}
+            memoryDumpEnabled={query.data?.memoryDumpEnabled}
             onClose={() => setLaunchOpen(false)}
             onStarted={() => setError(null)}
           />

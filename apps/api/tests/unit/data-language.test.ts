@@ -29,6 +29,7 @@ const FILES = [
   'capa',
   'ghidra',
   'script-analysis',
+  'script-deobfuscate',
   'file-type',
   'reputation',
   'yara-update',
@@ -40,6 +41,11 @@ const FILES = [
   'suricata',
   'mikrotik',
   'sandbox-autorun',
+  'emulation',
+  'android',
+  'config-extract',
+  'service-analysis',
+  'sandbox-memdump',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
@@ -79,13 +85,29 @@ const SAME = new Set([
   'Base64 + {0}',
   'atob (Base64)',
   'unescape (%xx)',
+  'Script Encoder (.vbe/.jse)',
+  // C# e PowerShell do dump de memoria (sandbox-memdump.ts): codigo que roda na VM.
+  "Add-Type -TypeDefinition @'",
+  'using System;',
+  'using System.Runtime.InteropServices;',
+  'using Microsoft.Win32.SafeHandles;',
+  'public static class DeepLookDump {',
+  'Remove-Item -LiteralPath {0} -ErrorAction SilentlyContinue',
+  // PATHEXT do Windows (script-deobfuscate.ts): valor de variavel de ambiente.
+  '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC',
 ]);
 
 /** Titulo e descricao da amostra filha do unpack: as pessoas editam, ficam como foram gravados. */
 /** Mensagens do log de alertas (plano pos-revisao, 5.2): so em portugues; o codigo e estavel. */
 const ALERT_TEXT = new Set(['Atualização de regras YARA retida']);
 
-const USER_TEXT = new Set(['{0} (desempacotado)', 'Extraído de "{0}" pelo desempacotador {1}{2}.']);
+const USER_TEXT = new Set([
+  '{0} (desempacotado)',
+  'Extraído de "{0}" pelo desempacotador {1}{2}.',
+  // Titulo e descricao do PE achado na memoria do sandbox (plans/novas-analises, item 3).
+  '{0} (memória, {1})',
+  'PE achado na memória do processo {0} (PID {1}), região {2}, no sandbox de "{3}".',
+]);
 
 const phrase = (text: string) =>
   /^[A-Za-zÀ-ú0-9{(][^\\^$|[\]]*$/.test(text) &&
@@ -120,6 +142,13 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
   // Motivos de falha que vem do leitor de QR code (apps/oletools/qr.py, em Python): a varredura e
   // so do TypeScript.
   const fromService = new Set([
+    // Dos servicos novos (apps/emulate e apps/android, em Python; plans/novas-analises).
+    'o Speakeasy não emulou o arquivo: {0}',
+    'não foi possível ler o APK: {0}',
+    'o arquivo não é um APK válido (sem AndroidManifest.xml)',
+    // Do leitor de minidump (apps/extract/memdump.py; item 3).
+    'dump acima de {0} MB',
+    'não é um minidump legível: {0}',
     'imagem acima de {0} pixels',
     'não foi possível ler o arquivo: {0}',
     // Do Suricata (apps/suricata/server.py; plano pos-revisao, 5.4).

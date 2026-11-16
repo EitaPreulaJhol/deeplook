@@ -373,6 +373,97 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'monta texto caractere a caractere (ofuscação)',
     'builds text one character at a time (obfuscation)',
   ],
+  // Desofuscacao mais funda (script-deobfuscate.ts; plans/novas-analises, item 5)
+  ['Crase de escape (PowerShell)', 'Backtick escapes (PowerShell)'],
+  ['Concatenação de literais', 'Literal concatenation'],
+  ['Operador de formato -f', 'Format operator -f'],
+  ['[char] e listas de códigos', '[char] and character code lists'],
+  ['Substituição de texto (-replace/Replace)', 'Text replacement (-replace/Replace)'],
+  ['Texto invertido', 'Reversed text'],
+  ['Variável com valor fixo', 'Variable with a fixed value'],
+  ['Circunflexo de escape (lote)', 'Caret escapes (batch)'],
+  ['Variáveis do lote (set, %var:~a,b%)', 'Batch variables (set, %var:~a,b%)'],
+  ['Escapes hexadecimais e Unicode (JavaScript)', 'Hex and Unicode escapes (JavaScript)'],
+  ['Chr() no meio do texto', 'Chr() inside the text'],
+  ['Lista de bytes', 'Byte list'],
+  ['XOR de um byte (chave {0})', 'Single-byte XOR (key {0})'],
+
+  // ---- Emulacao (emulation.ts; plans/novas-analises, item 4) ----
+  ['Injeta código em outro processo ({0}).', 'Injects code into another process ({0}).'],
+  [
+    'Contata a rede e abre outro programa: {0} → {1}',
+    'Contacts the network and starts another program: {0} → {1}',
+  ],
+  ['Contata a rede: {0}', 'Contacts the network: {0}'],
+  ['Abre outro programa: {0}', 'Starts another program: {0}'],
+  ['Mexe numa chave de inicialização: {0}', 'Touches a startup key: {0}'],
+  ['Grava {0} arquivo(s): {1}', 'Writes {0} file(s): {1}'],
+  ['Checa se está sendo depurado.', 'Checks whether it is being debugged.'],
+  [
+    'Gera código em memória ({0} região(ões)): costuma ser desempacotamento.',
+    'Generates code in memory ({0} region(s)): usually unpacking.',
+  ],
+  [
+    'Nenhuma chamada de API emulada: o código pode depender de algo que o emulador não tem.',
+    'No API call emulated: the code may depend on something the emulator does not have.',
+  ],
+  ['A emulação parou antes do fim: {0}', 'The emulation stopped before the end: {0}'],
+  ['o Speakeasy não emulou o arquivo: {0}', 'Speakeasy did not emulate the file: {0}'],
+
+  // ---- APK/Android (android.ts; plans/novas-analises, item 6) ----
+  [
+    'Acessibilidade com SMS: a combinação típica de trojan bancário (lê a tela e intercepta códigos).',
+    'Accessibility with SMS: the typical banking trojan combination (reads the screen and intercepts codes).',
+  ],
+  [
+    'Usa o serviço de acessibilidade (pode ler a tela e tocar por quem usa o aparelho).',
+    'Uses the accessibility service (can read the screen and tap on behalf of the user).',
+  ],
+  [
+    'Envia SMS (fraude por SMS pago, espalha links).',
+    'Sends SMS (premium SMS fraud, spreads links).',
+  ],
+  [
+    'Pede administrador do dispositivo (dificulta a remoção, pode bloquear a tela).',
+    'Asks for device admin (makes removal harder, can lock the screen).',
+  ],
+  ['Carrega código em tempo de execução{0}.', 'Loads code at run time{0}.'],
+  [
+    'Desenha sobre outros aplicativos (telas falsas de login).',
+    'Draws over other apps (fake login screens).',
+  ],
+  [
+    'Lê as notificações (códigos de verificação, mensagens).',
+    'Reads notifications (verification codes, messages).',
+  ],
+  ['Instala outros aplicativos.', 'Installs other apps.'],
+  ['Grava ou transmite a tela.', 'Records or streams the screen.'],
+  ['Executa comandos do sistema (ou procura o su).', 'Runs system commands (or looks for su).'],
+  [
+    'Assinado com o certificado de depuração do Android.',
+    'Signed with the Android debug certificate.',
+  ],
+  [
+    'O APK não está assinado (o Android não instala assim).',
+    'The APK is not signed (Android will not install it).',
+  ],
+  ['{0} permissão(ões) perigosa(s): {1}', '{0} dangerous permission(s): {1}'],
+  ['não foi possível ler o APK: {0}', 'could not read the APK: {0}'],
+  [
+    'o arquivo não é um APK válido (sem AndroidManifest.xml)',
+    'the file is not a valid APK (no AndroidManifest.xml)',
+  ],
+
+  // ---- Configuracao de familias (config-extract.ts; plans/novas-analises, item 2) ----
+  [
+    'Configuração de {0} extraída (família identificada).',
+    '{0} configuration extracted (family identified).',
+  ],
+  [
+    'Regra do CAPE reconhece {0}, sem configuração extraída.',
+    'A CAPE rule recognizes {0}, with no configuration extracted.',
+  ],
+  ['O extrator de {0} falhou: {1}', 'The {0} extractor failed: {1}'],
 
   // ---- Reputacao externa (reputation.ts): nome dos servicos e resumo do resultado ----
   ['Registro (RDAP)', 'Registration (RDAP)'],
@@ -448,6 +539,32 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['{0} não terminou a tempo', '{0} did not finish in time'],
   ['a listagem de processos', 'the process listing'],
   ['a leitura do Sysmon', 'the Sysmon read'],
+  // Dump de memoria (sandbox-memdump.ts; plans/novas-analises, item 3)
+  ['a leitura do dump', 'the dump read'],
+  ['o dump de memória', 'the memory dump'],
+  ['a limpeza do dump', 'the dump cleanup'],
+  ['o processo já terminou', 'the process has already ended'],
+  [
+    'dump de {0} MB, acima do teto (SANDBOX_MEMDUMP_MAX_MB)',
+    '{0} MB dump, above the cap (SANDBOX_MEMDUMP_MAX_MB)',
+  ],
+  ['o MiniDumpWriteDump falhou (erro {0})', 'MiniDumpWriteDump failed (error {0})'],
+  [
+    'resposta inesperada da VM ao tirar o dump',
+    'unexpected answer from the VM while taking the dump',
+  ],
+  ['pedaço do dump com tamanho errado', 'dump chunk with the wrong size'],
+  [
+    'o dump chegou diferente do que a VM gravou (SHA-256)',
+    'the dump arrived different from what the VM wrote (SHA-256)',
+  ],
+  [
+    'o agente da VM não respondeu a tempo (VM ocupada)',
+    'the VM agent did not answer in time (VM busy)',
+  ],
+  ['o dump não está mais no armazenamento', 'the dump is no longer in storage'],
+  ['dump acima de {0} MB', 'dump above {0} MB'],
+  ['não é um minidump legível: {0}', 'not a readable minidump: {0}'],
   [
     'Sysmon não instalado no template (canal Microsoft-Windows-Sysmon/Operational ausente)',
     'Sysmon not installed in the template (Microsoft-Windows-Sysmon/Operational channel missing)',

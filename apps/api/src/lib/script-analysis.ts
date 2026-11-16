@@ -1,11 +1,23 @@
 import { createHash } from 'node:crypto';
 import { gunzipSync, inflateRawSync, inflateSync } from 'node:zlib';
 
+import {
+  decodeScriptEncoder,
+  flavorOf,
+  normalizeScript,
+  singleByteXor,
+} from './script-deobfuscate';
+
 /**
  * Scripts (item 83): PowerShell, JScript/JavaScript, VBScript, lote (BAT/CMD) e
  * HTA. So le e decodifica texto: nada e executado. Mostra chamadas suspeitas
  * (com o porque) e desfaz as camadas comuns de ofuscacao (-EncodedCommand,
  * Base64 + GZip, fromCharCode, unescape, Chr(...)), ate um limite.
+ *
+ * Desofuscacao mais funda (plans/novas-analises, item 5): antes das regras, cada texto passa pela
+ * normalizacao de script-deobfuscate.ts (concatenacao, -f, crases, variaveis do lote...), que vira
+ * uma camada propria quando muda o texto; o Script Encoder (.vbe/.jse) e decodificado; e blocos
+ * Base64 ou listas de bytes que nao sao texto tentam XOR de um byte.
  */
 
 export type ScriptLanguage = 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta';
@@ -39,7 +51,7 @@ export interface ScriptInfo {
   layers: ScriptLayer[];
   /** URLs achadas no arquivo e nas camadas (texto; nunca link). */
   urls: string[];
-  /** Codificado com o Script Encoder (#@~^): nao decodificado. */
+  /** Codificado com o Script Encoder (#@~^); o texto decodificado vira a primeira camada. */
   encoded: boolean;
 }
 
@@ -273,6 +285,15 @@ function inflate(bytes: Buffer): { data: Buffer; method: string } | null {
   return null;
 }
 
+/** Bytes que viram script com XOR de um byte (-bxor com chave fixa). */
+function xorCandidate(out: [string, string][], bytes: Buffer): boolean {
+  const found = singleByteXor(bytes);
+  if (!found) return false;
+  const key = `0x${found.key.toString(16).padStart(2, '0')}`;
+  out.push([`XOR de um byte (chave ${key})`, found.text]);
+  return true;
+}
+
 /** Candidatos a camada num texto: [metodo, texto decodificado]. */
 function decodeCandidates(text: string): [string, string][] {
   const out: [string, string][] = [];
@@ -292,7 +313,7 @@ function decodeCandidates(text: string): [string, string][] {
     if (packed) {
       const decoded = bytesToText(packed.data);
       if (readable(decoded)) out.push([`Base64 + ${packed.method}`, decoded]);
-    } else {
+    } else if (!xorCandidate(out, bytes)) {
       const decoded = bytesToText(bytes);
       if (readable(decoded)) out.push(['Base64', decoded]);
     }
@@ -331,9 +352,21 @@ function decodeCandidates(text: string): [string, string][] {
   for (const m of text.matchAll(/["']([A-Za-z0-9+/]{120,}={0,2})["']/g)) {
     const bytes = b64(m[1]);
     const packed = inflate(bytes);
+    if (!packed && xorCandidate(out, bytes)) continue;
     const decoded = bytesToText(packed ? packed.data : bytes);
     if (readable(decoded))
       out.push([packed ? `Base64 + ${packed.method}` : 'Base64 (bloco)', decoded]);
+  }
+  // Lista de bytes (0x41,0x42,... ou 65,66,...) com 16 ou mais: texto direto ou com XOR.
+  for (const m of text.matchAll(
+    /\(\s*((?:(?:0x[0-9a-f]{1,2}|\d{1,3})\s*,\s*){15,20000}(?:0x[0-9a-f]{1,2}|\d{1,3}))\s*\)/gi,
+  )) {
+    const values = m[1].split(',').map((n) => Number(n.trim()));
+    if (values.some((v) => !Number.isInteger(v) || v > 255)) continue;
+    const bytes = Buffer.from(values);
+    if (xorCandidate(out, bytes)) continue;
+    const decoded = bytes.toString('latin1');
+    if (readable(decoded)) out.push(['Lista de bytes', decoded]);
   }
   return out;
 }
@@ -378,7 +411,48 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
   const urls = new Set<string>();
   const seen = new Set<string>();
 
-  const scan = (source: string, layer: number, depth: number) => {
+  const pushLayer = (method: string, from: number, decoded: string): number | null => {
+    if (layers.length >= MAX_LAYERS) return null;
+    // Hash do texto inteiro: camadas aninhadas comecam iguais ("powershell -enc ...").
+    const key = createHash('sha1').update(decoded).digest('hex');
+    if (seen.has(key)) return null;
+    seen.add(key);
+    layers.push({
+      method,
+      from,
+      text: decoded.slice(0, MAX_LAYER_TEXT),
+      truncated: decoded.length > MAX_LAYER_TEXT,
+    });
+    return layers.length;
+  };
+
+  const scan = (raw: string, rawLayer: number, depth: number) => {
+    // Normalizacao (item 5 das novas analises): o texto sem a ofuscacao que nao e codificacao. As
+    // regras e as camadas olham os dois; o normalizado vira camada quando muda o texto.
+    let source = raw;
+    let layer = rawLayer;
+    const normalized = normalizeScript(raw, flavorOf(raw, depth === 0 ? language : null));
+    if (normalized.techniques.length && normalized.text.trim() !== raw.trim()) {
+      const index = pushLayer(normalized.techniques.join(' · '), rawLayer, normalized.text);
+      if (index !== null) {
+        scanRules(raw, rawLayer);
+        source = normalized.text;
+        layer = index;
+      }
+    }
+    scanRules(source, layer);
+    if (depth >= MAX_DEPTH) return;
+    for (const [method, decoded] of decodeCandidates(source)) {
+      const index = pushLayer(method, layer, decoded);
+      if (index === null) {
+        if (layers.length >= MAX_LAYERS) return;
+        continue;
+      }
+      scan(decoded, index, depth + 1);
+    }
+  };
+
+  const scanRules = (source: string, layer: number) => {
     for (const rule of RULES) {
       if (!findings.has(rule.name) && rule.re.test(source)) {
         findings.set(rule.name, { name: rule.name, why: rule.why, kind: rule.kind, layer });
@@ -386,23 +460,16 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
     }
     for (const m of source.matchAll(URL_RE))
       if (urls.size < 50) urls.add(m[0].replace(/[.,;]+$/, ''));
-    if (depth >= MAX_DEPTH) return;
-    for (const [method, decoded] of decodeCandidates(source)) {
-      if (layers.length >= MAX_LAYERS) return;
-      // Hash do texto inteiro: camadas aninhadas comecam iguais ("powershell -enc ...").
-      const key = createHash('sha1').update(decoded).digest('hex');
-      if (seen.has(key)) continue;
-      seen.add(key);
-      layers.push({
-        method,
-        from: layer,
-        text: decoded.slice(0, MAX_LAYER_TEXT),
-        truncated: decoded.length > MAX_LAYER_TEXT,
-      });
-      scan(decoded, layers.length, depth + 1);
-    }
   };
+
+  // Script Encoder (#@~^, .vbe/.jse): o texto decodificado e a primeira camada.
+  const encoded = /#@~\^/.test(text.slice(0, 4000));
+  const plain = encoded ? decodeScriptEncoder(text) : null;
   scan(text, 0, 0);
+  if (plain) {
+    const index = pushLayer('Script Encoder (.vbe/.jse)', 0, plain);
+    if (index !== null) scan(plain, index, 1);
+  }
 
   const list = [...findings.values()];
   const has = (kind: ScriptFinding['kind']) => list.some((f) => f.kind === kind);
@@ -421,6 +488,6 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
     findings: list,
     layers,
     urls: [...urls],
-    encoded: /#@~\^/.test(text.slice(0, 200)),
+    encoded,
   };
 }

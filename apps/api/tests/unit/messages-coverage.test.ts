@@ -73,6 +73,13 @@ const NOT_SENT: [text: string, reason: string][] = [
     DATA,
   ],
   ['o qemu-guest-agent não respondeu na VM (instalado e rodando no template?)', DATA],
+  // Dump de memoria do sandbox (plans/novas-analises, item 3): o motivo fica no dump.
+  ['o processo já terminou', DATA],
+  ['dump de {0} MB, acima do teto (SANDBOX_MEMDUMP_MAX_MB)', DATA],
+  ['resposta inesperada da VM ao tirar o dump', DATA],
+  ['pedaço do dump com tamanho errado', DATA],
+  ['o dump chegou diferente do que a VM gravou (SHA-256)', DATA],
+  ['o agente da VM não respondeu a tempo (VM ocupada)', DATA],
   [
     'o agente da VM não respondeu a tempo, nem repetindo (a amostra pode estar ocupando a VM)',
     DATA,

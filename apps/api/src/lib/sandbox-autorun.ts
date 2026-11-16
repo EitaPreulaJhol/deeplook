@@ -1,4 +1,4 @@
-import { sandboxEnabled } from '../env';
+import { env, sandboxEnabled } from '../env';
 import { recordEvent } from './events';
 import { log, reason } from './log';
 import { prisma } from './prisma';
@@ -134,6 +134,7 @@ type Waiting = {
   vmid: number | null;
   startedAt: Date | null;
   createdAt: Date;
+  memoryDump: boolean;
   entry: { originalFilename: string | null };
 };
 
@@ -229,7 +230,17 @@ async function step(s: Waiting, now: number): Promise<void> {
   const user = ok[1].trim().slice(0, 120);
   await prisma.sandboxSession.update({
     where: { id: s.id },
-    data: { autoRun: 'DONE', autoRunAt: new Date(), autoRunUser: user, autoRunSysmon: sysmon },
+    data: {
+      autoRun: 'DONE',
+      autoRunAt: new Date(),
+      autoRunUser: user,
+      autoRunSysmon: sysmon,
+      // Dump de memoria pedido ao abrir (plans/novas-analises, item 3): depois de a amostra rodar
+      // um tempo (desempacotar, injetar).
+      ...(s.memoryDump && {
+        memoryDumpAt: new Date(Date.now() + env.SANDBOX_MEMDUMP_DELAY_S * 1000),
+      }),
+    },
   });
   // No historico da amostra: quem pediu (o analista do ambiente), em que conta e se com o Sysmon.
   await recordEvent(prisma, {
@@ -261,6 +272,7 @@ export async function autoRunTick(now = Date.now()): Promise<void> {
         vmid: true,
         startedAt: true,
         createdAt: true,
+        memoryDump: true,
         entry: { select: { originalFilename: true } },
       },
     });

@@ -23,6 +23,9 @@ import { startRetention } from './lib/retention';
 import { ensureBucket } from './lib/s3';
 import { initSandbox } from './lib/sandbox';
 import { startAutoRun } from './lib/sandbox-autorun';
+import { startMemdump } from './lib/sandbox-memdump';
+import { startServiceQueues } from './lib/services';
+import { startSigma } from './lib/sigma-store';
 import { startSlaEscalation } from './lib/sla-escalation';
 import { startStatusAlerts } from './lib/status';
 import { startSuricataQueue } from './lib/suricata';
@@ -130,6 +133,10 @@ async function main() {
   void startOletoolsQueue(app.log).catch((err) =>
     app.log.error({ err }, '[oletools] fila não subiu'),
   );
+  // Emulacao, APK e configuracao de familias (plans/novas-analises, itens 2, 4 e 6).
+  void startServiceQueues(app.log).catch((err) =>
+    app.log.error({ err }, '[serviços] filas não subiram'),
+  );
   // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).
   void startQrQueue(app.log).catch((err) => app.log.error({ err }, '[qr] fila não subiu'));
   // Suricata sobre o pcap do sandbox (plano pos-revisao, 5.4).
@@ -150,6 +157,11 @@ async function main() {
       `[sandbox] habilitado (node ${env.PROXMOX_NODE}, template ${env.PROXMOX_TEMPLATE_VMID}, ttl ${env.SANDBOX_TTL_MINUTES}min${env.PROXMOX_MOCK === 'true' ? ', MOCK' : ''}); limpeza inicial em andamento`,
     );
     void initSandbox(app.log);
+    // Regras Sigma (plans/novas-analises, item 1): avalia o que ficou pendente (ou tudo, se as
+    // regras mudaram).
+    void startSigma().catch((err) => app.log.error({ err }, '[sigma] avaliação na subida'));
+    // Dump de memoria dos processos da amostra (plans/novas-analises, item 3).
+    void startMemdump(app.log).catch((err) => app.log.error({ err }, '[memória] não subiu'));
     // Execucao automatica da amostra nos ambientes que a pediram.
     void startAutoRun().catch((err) => app.log.error({ err }, '[sandbox] execução automática'));
   }

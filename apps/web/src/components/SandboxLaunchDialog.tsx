@@ -28,6 +28,7 @@ export function SandboxLaunchDialog({
   openConsole = true,
   ttlMinutes,
   captureEnabled = false,
+  memoryDumpEnabled = false,
 }: {
   entryId: string;
   sampleName: string;
@@ -35,6 +36,8 @@ export function SandboxLaunchDialog({
   ttlMinutes?: number;
   /** Captura de rede configurada: a caixa para desliga-la neste ambiente. */
   captureEnabled?: boolean;
+  /** O dump de memoria esta ligado no servidor (plans/novas-analises, item 3). */
+  memoryDumpEnabled?: boolean;
   /** Abre a janela do console ao iniciar (false dentro da propria janela do console). */
   openConsole?: boolean;
   onClose: () => void;
@@ -47,6 +50,7 @@ export function SandboxLaunchDialog({
   const [autoRun, setAutoRun] = useState(readAutoRun);
   const [minutes, setMinutes] = useState<number | undefined>(ttlMinutes);
   const [capture, setCapture] = useState(true);
+  const [memoryDump, setMemoryDump] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const opener = useOpenSandbox(entryId);
 
@@ -64,7 +68,12 @@ export function SandboxLaunchDialog({
     e.preventDefault();
     setError(null);
     const result = await opener.open(
-      { autoRun, minutes, capture: captureEnabled ? capture : undefined },
+      {
+        autoRun,
+        minutes,
+        capture: captureEnabled ? capture : undefined,
+        memoryDump: memoryDumpEnabled && autoRun ? memoryDump : undefined,
+      },
       openConsole,
     );
     if (result.kind === 'error') {
@@ -104,6 +113,16 @@ export function SandboxLaunchDialog({
                 saveAutoRun(checked);
               }}
             />
+            {memoryDumpEnabled && (
+              <Checkbox
+                id={`sandbox-memdump-${entryId}`}
+                labelText={t('memoryDumpLabel')}
+                helperText={t('memoryDumpHelp')}
+                checked={autoRun && memoryDump}
+                disabled={opener.busy || !autoRun}
+                onChange={(_, { checked }) => setMemoryDump(checked)}
+              />
+            )}
             {captureEnabled && (
               <Checkbox
                 id={`sandbox-capture-${entryId}`}

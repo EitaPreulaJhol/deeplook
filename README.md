@@ -44,8 +44,8 @@ validate the application with Strix. Thank you ❤️.
 │                      │      │      │                                                   │
 │  ┌───────────────────▼┐     │   ┌──▼────────────────────────────────────────────────┐  │
 │  │ capture            │     │   │ analysis services (internal, no internet)         │  │
-│  │ headless browser   │     │   │ capa · ghidra · unpack · oletools                 │  │
-│  └─────────┬──────────┘     │   │ netcap · suricata (netcap profile)                │  │
+│  │ headless browser   │     │   │ capa · ghidra · unpack · oletools · emulate       │  │
+│  └─────────┬──────────┘     │   │ android · extract · netcap · suricata             │  │
 │            │                │   └───────────────────────────────────▲───────────────┘  │
 │  ┌─────────▼──────────┐     │                                       │                  │
 │  │ egress             │     │                                       │                  │
@@ -82,6 +82,11 @@ validate the application with Strix. Thank you ❤️.
   PyInstaller), with the same isolation. See [Identify and unpack](#identify-and-unpack).
 - **oletools**: VBA and XLM 4.0 macros, DDE and RTF objects in Office documents, with the same
   isolation. See [Office documents (oletools)](#office-documents-oletools).
+- **emulate**: emulates Windows executables and shellcode with Speakeasy, with the same isolation.
+  See [Emulation (Speakeasy)](#emulation-speakeasy).
+- **android**: reads APKs with androguard, with the same isolation. See [Android (APK)](#android-apk).
+- **extract**: family configuration with the CAPE extractors, and the sandbox memory dumps, with the
+  same isolation. See [Family configuration (CAPE)](#family-configuration-cape).
 - **capture**: isolated browser that captures a link's page, on an internal network with only the
   API and `egress`. See [Link page capture](#link-page-capture).
 - **egress**: the only way out to the Internet for the capture (and for downloading the Suricata
@@ -116,7 +121,7 @@ validate the application with Strix. Thank you ❤️.
 # 1) Configure the variables (passwords, session secret, admin)
 cp .env.example .env
 # edit .env, mainly: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
-# GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD and
+# GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, EMULATE_TOKEN, ANDROID_TOKEN, EXTRACT_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD and
 # S3_SECRET_KEY (with the netcap profile, also NETCAP_TOKEN and SURICATA_TOKEN)
 # (with SESSION_SECRET, one of the tokens, or the database or MinIO password at the default value, the API will not start)
 
@@ -690,6 +695,86 @@ this link** button (a new link sample that cites the original) and adds to the *
 limits are explicit: the first 5 PDF pages, 40 million pixels per image or page and 20 codes per
 sample. Nothing is executed: the PDF is only rendered, without JavaScript.
 
+## Scripts (PowerShell, batch, VBScript, JScript)
+
+Submitted scripts (`.ps1`, `.bat`, `.cmd`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.hta`, or
+recognized by content) get the **Script** section on the record. It shows the suspicious calls (with
+why), the URLs and the **decoded layers**. Nothing is executed: everything works on the text.
+
+- **Encoding:** `-EncodedCommand`, `FromBase64String` (also with GZip/Deflate), `atob`,
+  `fromCharCode`, `unescape`, `Chr() & Chr()`, loose Base64 blocks and byte lists.
+- **Single-byte XOR:** a Base64 block or byte list that turns into a script with a 1-byte key (a
+  fixed-key `-bxor`) shows up as a layer, with the key.
+- **Script Encoder** (`#@~^`, `.vbe` and `.jse`): the decoded text is the first layer.
+- **Normalization:** the text without the obfuscation that is not encoding becomes the "normalized"
+  layer, with the techniques it undid in its title:
+  - PowerShell: backticks, literal concatenation, the `-f` operator, `[char]` and `[char[]] -join`,
+    `-replace` and `.Replace()`, reversed text and variables assigned once with a literal;
+  - batch: carets, `set` with `%var%` and `!var!`, `%var:~a,b%` substrings (also of Windows
+    variables such as `%COMSPEC%`) and `%var:x=y%` replacement;
+  - VBScript: `Chr()` inside the text, `&`, `StrReverse` and `Replace`;
+  - JScript: `\x41` and `\u0041` escapes, `+`, `.split('').reverse().join('')` and `.replace()`.
+
+The suspicious-call rules look at the original text and at the layers, and each finding says which
+layer it showed up in. The caps are 12 layers, 5 levels and 2 MB of text, with no quadratically
+backtracking regex (the `npm run test:fuzz -- --target deobfuscate` fuzz covers the normalization).
+
+## Emulation (Speakeasy)
+
+Every Windows executable (PE) that arrives goes, in the background, to the `emulate` service. It
+runs [Speakeasy](https://github.com/mandiant/speakeasy) (Mandiant, MIT) in a container with no
+network, non-root, with a read-only root and one container per analysis. Speakeasy **emulates** the
+program: nothing runs on the real processor, and the network, disk and registry the program sees
+are simulated. Every entry point runs (TLS callbacks, the main one and a DLL's exports), within
+`EMULATE_RUN_S` (default 60 s).
+
+The **Emulation (Speakeasy)** section shows:
+
+- the API calls in order, with counts and the arguments of the first call;
+- the network the program tried to reach (DNS, HTTP and sockets);
+- processes created, memory written into another process and remote threads (injection);
+- files written (path, size and SHA-256), files and registry keys touched, and strings built in
+  memory;
+- where the emulation stopped (an API the emulator does not implement, an invalid instruction).
+
+Alerts (injection, network followed by a new program, startup keys, anti-debugging, code generated
+in memory) feed the risk score, and the destinations go to the suggested IOCs. An analyst can also
+emulate **any file as shellcode**, choosing x86 or x64. A program that notices the emulator may stop
+early: the emulation complements the sandbox, it does not replace it.
+
+## Android (APK)
+
+Every APK that arrives goes, in the background, to the `android` service
+([androguard](https://github.com/androguard/androguard), Apache-2.0, same isolation). It only reads
+the manifest, the certificates and the DEX string table, and nothing from the app runs. The **Android
+(APK)** section shows:
+
+- the package, version, minimum and target SDK, and the main activity;
+- the permissions (dangerous ones highlighted) and the exported components with their actions;
+- the certificates (subject, SHA-256, validity, debug certificate) and the v1/v2/v3 signature;
+- sensitive APIs (SMS, accessibility, device admin, `DexClassLoader`, `Runtime.exec`, screen
+  capture, notifications);
+- the URLs, IPs and domains in the code, native libraries and payloads hidden in `assets/`.
+
+The alerts cover typical combinations, such as accessibility plus SMS (banking trojan), device
+admin, code loaded at run time, overlays and an unsigned APK. They feed the risk score, and the
+addresses go to the suggested IOCs.
+
+## Family configuration (CAPE)
+
+Every Windows executable, including the unpacker's child samples and the ones carved from sandbox
+memory, goes to the `extract` service. Its YARA rules (CAPEv2's, kept in `apps/extract/rules` at a
+pinned commit) identify the family, and **that family's** extractor from
+[CAPE-parsers](https://github.com/CAPESandbox/CAPE-parsers) pulls the configuration: C2, keys,
+campaign, mutex and bot ID. The extractors only read the bytes, each one with a time limit.
+
+The **Extracted configuration (CAPE)** section shows the rules that matched and each configuration
+as a table. An extracted configuration is the surest identification there is: it scores +60 in the
+risk score (a family recognized only by the rule scores +35), and the C2s go to the suggested IOCs.
+
+CAPE-parsers and the CAPEv2 rules are **GPL-3.0**, so they stay inside the `extract` container and
+the API only talks to it over HTTP.
+
 ## Identify and unpack
 
 Every executable that arrives (Windows, Linux, macOS, APK and JAR, up to `UNPACK_MAX_MB`) goes through the
@@ -775,6 +860,10 @@ by itself.
 | Signature | does not match · valid | +20 · −15 |
 | Function analysis | groups of risky capa capabilities · indicators in obfuscated strings | +6 per group (cap 30) · +10 |
 | Packing | packed or protected | +10 |
+| Sigma (sandbox) | rules that matched the sample's processes: critical · high · medium | +40 · +30 · +15, plus 5 per extra rule (cap 50) |
+| Emulation | high alerts · medium only | +25, plus 5 per extra alert (cap 35) · +10, plus 3 per extra (cap 16) |
+| Android | high alerts · medium only | +30, plus 5 per extra alert (cap 40) · +10, plus 3 per extra (cap 20) |
+| Configuration | family configuration extracted · family recognized only by the CAPE rule | +60 · +35 |
 
 - **Suggestion:** from 70, *Malicious*; from 35 to 69, *Suspicious*; below that, none.
 - **It never suggests "clean":** the score only adds evidence that the sample is bad. A low score means
@@ -786,6 +875,31 @@ by itself.
   (tags, priority), use the **triage rules** above.
 
 ---
+
+## AI report draft (optional)
+
+Off by default. With `LLM_PROVIDER`, the **new report** editor gets the **AI draft** button. It fills
+in the summary, findings, IOCs, suggested verdict and ATT&CK techniques from what the analyses have
+already said. A banner says the text was generated, and **nothing is saved or published on its
+own**: the analyst reviews and saves.
+
+- **`LLM_PROVIDER=anthropic`:** the Anthropic API through the official SDK, with `LLM_API_KEY`
+  (accepts `_FILE`). The default model is `claude-opus-5-5`, with structured output (JSON Schema)
+  and `medium` effort. On the models that accept it, the server-side fallback
+  (`fallbacks: "default"`) is on, because text about malware sometimes trips the safety classifier.
+- **`LLM_PROVIDER=openai`:** any server compatible with `/v1/chat/completions`, with `LLM_URL` (e.g.
+  `http://ollama:11434/v1`) and `LLM_MODEL`. This is the path for anyone who wants nothing to leave
+  the house.
+- **What goes to the model:** only a JSON with what the analyses produced: the risk score reasons,
+  YARA, capa and ATT&CK, the alerts (document, script, emulation, APK), family configuration, the
+  sample's Sigma detections and the candidate IOCs. The file, memory, screenshots and other
+  analysts' reports **never** go. **System status** shows the provider, the model and the
+  destination.
+- **Controls:**
+  - techniques that do not exist in the bundled ATT&CK are dropped, and the screen says so;
+  - there is a per-analyst limit (`LLM_DAILY_LIMIT`, default 30 in 24 h);
+  - every request goes to the audit log with the model and the destination;
+  - a refusal, a timeout or an off-format answer shows up with the reason.
 
 ## Cases
 
@@ -1158,6 +1272,17 @@ COOKIE_SECURE=true
 | `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | ceiling of one analysis and container memory | `120` / `1g` |
 | `OLETOOLS_REQUEST_TIMEOUT_S` | how long the API waits for an analysis (above `OLETOOLS_TIMEOUT_S`) | `300` |
 | `OLETOOLS_RECYCLE` | a new container for each analysis; `false` = long-lived process | `true` |
+| `EMULATE_URL` / `EMULATE_TOKEN` | emulation service (Speakeasy); empty URL turns it off; token 16+ characters | `http://emulate:3600` / — |
+| `EMULATE_MAX_MB` / `EMULATE_RUN_S` | largest file emulated and emulation time | `32` / `60` |
+| `EMULATE_TIMEOUT_S` / `EMULATE_REQUEST_TIMEOUT_S` / `EMULATE_MEM_LIMIT` | ceiling of one analysis, API wait and container memory | `180` / `300` / `1g` |
+| `ANDROID_URL` / `ANDROID_TOKEN` | APK service (androguard); empty URL turns it off | `http://android:3700` / — |
+| `ANDROID_MAX_MB` / `ANDROID_TIMEOUT_S` / `ANDROID_MEM_LIMIT` | largest APK, ceiling of one analysis and container memory | `100` / `180` / `1g` |
+| `EXTRACT_URL` / `EXTRACT_TOKEN` | configuration and memory service (CAPE); empty URL turns it off | `http://extract:3800` / — |
+| `EXTRACT_MAX_MB` / `EXTRACT_TIMEOUT_S` / `EXTRACT_MEM_LIMIT` | largest file, ceiling of one analysis and container memory | `64` / `300` / `2g` |
+| `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | memory dump: cap per process (`0` turns it off), processes per capture, wait after the automatic run | `512` / `4` / `120` |
+| `LLM_PROVIDER` | AI report draft: `anthropic`, `openai` (compatible server) or empty (off) | — |
+| `LLM_URL` / `LLM_API_KEY` / `LLM_MODEL` | server (required for `openai`), key (required for `anthropic`) and model (default `claude-opus-5-5` on `anthropic`) | — |
+| `LLM_TIMEOUT_S` / `LLM_DAILY_LIMIT` | wait for the model and drafts per analyst in 24 h | `180` / `30` |
 | `COMPOSE_PROFILES` | `netcap` brings up the `netcap` and `suricata` services (sandbox network capture) | — |
 | `MIKROTIK_URL` / `MIKROTIK_USER` / `MIKROTIK_PASSWORD` | RouterOS 7 REST API of the CHR, for the sandbox network capture sniffer; empty turns the capture off | — |
 | `MIKROTIK_VERIFY_TLS` · `MIKROTIK_SNIFFER_INTERFACE` | `true` only if the CHR certificate is trusted; interface the sniffer listens on (empty: all) | `false` · — |
@@ -1600,6 +1725,14 @@ command line (the sample running, the PowerShell it opened).
   and the reason shows on screen.
 - **Previous runs:** every environment the sample had stays in the section, collapsed, with its own
   screenshots, processes, Sysmon, timeline and capture (running again does not hide the previous one).
+- **Compare runs:** with two or more runs, the **Compare runs** block shows, for two of them (the
+  current one is among the choices), what only one did and what both did: processes, DNS queries,
+  network destinations, files created, registry, Sigma detections and Suricata alerts. Before
+  comparing, the API removes what changes for no reason between runs: PIDs, GUIDs, the user's
+  profile and SID (`HKU\S-1-5-21-…` becomes `HKCU`), `%TEMP%`/`%APPDATA%` and temporary names
+  (`tmp1A2B.tmp`). By default the comparison only uses the sample and what it started, and
+  **Everything** includes Windows. It shows what the sample does differently with and without
+  network, with another wait time or on another template.
 - **Off screen:** the timeline exports as **CSV** or **JSON** with the screen's filters (the CSV opens
   in Excel with accents, and anything that would become a formula gets an apostrophe). For analysts,
   the **printed record** and the **reports' Markdown** carry the latest run's summary: when, who, the
@@ -1615,6 +1748,80 @@ command line (the sample running, the PowerShell it opened).
   ([Proxmox guide, section 9](docs/proxmox.md#9-network-capture-through-the-mikrotik-chr-optional)).
   Without them, the sandbox stays the same. The pcap holds the sample traffic, including what it
   downloaded: the backup with the files takes it along.
+
+### Sigma rules over Sysmon
+
+With Sysmon in the template, each collection runs the **new** events through the
+[SigmaHQ](https://github.com/SigmaHQ/sigma) Sigma rules. These are the critical, high and medium
+levels of the `sigma_core+` release, limited to the Windows rules that Sysmon covers: process
+creation, network, files, registry, DNS, image load, remote threads, process access, pipes, WMI,
+drivers and deleted files. For these rules, the Sysmon read also brings events 6 to 10, 15, 17 to 21,
+23, 25 and 26. The summary and the timeline keep the usual five kinds.
+
+- **Where it shows:** each run's **Sigma detections** block shows the level, the rule, the ATT&CK
+  techniques (links to the filtered Global history), the process, how many times it matched and
+  when. Opening a row shows the description, the matching event, the known false positives and the
+  link to the rule at the version in use. By default only the sample's processes and the ones it
+  started are shown, through the same tree as the timeline. **Everything** also shows what matched
+  in the rest of Windows.
+- **Risk score:** only detections on the sample's processes count. Critical is worth 40, high 30 and
+  medium 15, plus 5 for each extra rule, capped at 50.
+- **Evaluation:** each event is evaluated only once. **Evaluate again** redoes the run from scratch.
+  When the rules change (another vendored release), the API evaluates every stored environment
+  again at startup, in the background.
+- **Evaluator:** it lives in the API itself (`src/lib/sigma.ts`), with no new service. It covers:
+  - the modifiers `contains`, `startswith`, `endswith`, `all`, `re`, `base64`, `base64offset`,
+    `wide`, `windash`, `cidr`, `exists`, `gt`/`gte`/`lt`/`lte`, `cased` and `fieldref`;
+  - the `null` value;
+  - conditions with `and`, `or`, `not`, parentheses, `1 of`/`all of` and `them`.
+
+  `keywords`, aggregations and correlations are not supported. A rule that needs them is left out,
+  and the reason goes to the manifest.
+- **Updating the rules:**
+  1. Download the release's `sigma_core+.zip` and the `LICENSE` from the same tag.
+  2. Run `node --import tsx scripts/vendor-sigma.mjs <extracted folder> <tag> <LICENSE>` in
+     `apps/api`.
+  3. The script writes `apps/api/sigma/sigmahq/` and `manifest.json` (version, count and
+     exclusions).
+
+  The rules are under **DRL 1.1**, and each rule's name and link are shown on screen.
+
+### Memory dump of the sample processes
+
+The whole VM memory cannot leave Proxmox without giving DeepLook the QEMU monitor (`Sys.Modify` on
+`/`, almost node administrator) and access to the host disk. Instead, the dump covers the **sample
+processes**, inside the clone, through the same agent as Sysmon:
+
+1. **Processes:** they come from the sample tree in Sysmon and are checked alive in the agent's
+   list, by name and by parent process. Windows reuses PIDs: in the real test, a `conhost` that had
+   belonged to the sample was already the agent's own console. `conhost.exe` is never dumped.
+2. **Dump:** `MiniDumpWriteDump` with the full memory and the region information, compressed with
+   gzip under `%TEMP%`.
+3. **Transfer:** the gzip is read in 768 KB chunks (Base64 in the agent output; at 2 MB the Windows
+   qemu-ga crashes), checked by SHA-256, stored in MinIO and deleted from the VM.
+
+The `extract` service then reads the minidump:
+
+- the **private executable regions** (code that did not come from a file on disk), with the
+  protection, entropy and first bytes;
+- the **PEs inside them** (unpacked or injected), realigned to file layout. Each one becomes a
+  **child sample** and goes through YARA, capa, emulation and configuration like any upload;
+- the **URLs** in private memory;
+- **family configuration** in the regions (the CAPE rules and extractors).
+
+**How to request it:**
+
+- in the opening dialog, the **Capture the sample memory after running it** box (together with the
+  automatic run) schedules the capture `SANDBOX_MEMDUMP_DELAY_S` (default 120 s) after the sample
+  runs;
+- with the environment up, the **Capture memory now** button in the **Memory of the sample
+  processes** block.
+
+The block shows each dump (process, size, suspicious regions, child samples and URLs) and the
+`.dmp.gz` link. The download goes to the audit log. Caps: `SANDBOX_MEMDUMP_MAX_MB` (default 512 MB per
+process; `0` turns it off) and `SANDBOX_MEMDUMP_MAX_PROCESSES` (default 4). In the real test, the dump
+of a small process took about 20 s (11 MB, 4 MB with gzip). Volatility 3 does not read minidumps: the
+region search is `malfind`'s, done on the dump itself.
 
 ### Automatic sample run
 
@@ -1690,6 +1897,12 @@ it.
 | GET | `/api/sandbox/:id/artifacts` | Environment artifacts: screenshots, processes, Sysmon, network traffic and Suricata |
 | GET | `/api/sandbox/:id/timeline` | Sysmon timeline (`scope=sample\|all`, `kinds`, `page`) and the environment markers |
 | GET | `/api/sandbox/:id/timeline/export` | The whole timeline as a download (`format=csv\|json`, `scope`, `kinds`) |
+| GET | `/api/sandbox/:id/sigma` | Sigma detections in the run (rule, level, ATT&CK, process, whether it is the sample's) |
+| POST | `/api/sandbox/:id/sigma/reevaluate` | Evaluates the run's events again from scratch |
+| GET | `/api/sandbox/:id/compare/:other` | Diff between two runs of the same sample (`scope=sample\|all`) |
+| GET | `/api/sandbox/:id/memory` | Memory dumps of the run (processes, regions, child samples) |
+| POST | `/api/sandbox/:id/memory` | Captures the memory of the sample processes now (environment up) |
+| GET | `/api/sandbox/:id/memory/:dumpId/download` | The `.dmp.gz` (audited) |
 | GET | `/api/sandbox/:id/summary` | Run summary: the sample's processes, DNS, connections, files and registry |
 | GET | `/api/entries/:id/sandbox/sessions` | The sample's runs (environments), newest first |
 | GET | `/api/sandbox/:id/artifacts/:artifactId` | One stored screenshot (PNG) |

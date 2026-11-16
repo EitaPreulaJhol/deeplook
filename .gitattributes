@@ -1,5 +1,9 @@
 # Pacotes de regras YARA: copiados sem alterar, nem no fim de linha.
 apps/api/rules/** -text
+# Regras Sigma da SigmaHQ (plans/novas-analises, item 1): idem.
+apps/api/sigma/** -text
+# Regras YARA do CAPEv2 no servico extract (plans/novas-analises, item 2): idem.
+apps/extract/rules/** -text
 
 # Scripts do template Windows do sandbox: CRLF, como o cmd.exe espera.
 scripts/template-windows/*.bat text eol=crlf

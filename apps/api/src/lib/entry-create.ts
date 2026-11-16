@@ -22,6 +22,7 @@ import { enqueueQrIfEligible } from './qr';
 import { createWithinQuota, QuotaExceeded } from './quota';
 import { checkReputationInBackground } from './reputation';
 import { s3 } from './s3';
+import { enqueueServicesIfEligible } from './services';
 import type { StaticInfo } from './static-analysis';
 import { analyzeInThread } from './static-analysis-thread';
 import { tlsh, TLSH_MAX_BYTES } from './tlsh';
@@ -148,6 +149,8 @@ export async function createFileEntry(
   await enqueueCapaIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Documento do Office ou RTF (item 7.14): oletools, em segundo plano.
   await enqueueOletoolsIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
+  // Emulacao (PE), APK e configuracao de familias (plans/novas-analises, itens 2, 4 e 6).
+  await enqueueServicesIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Imagem ou PDF (plano pos-revisao, item 2.2): leitura de QR code, em segundo plano.
   await enqueueQrIfEligible(entry.id, staticInfo?.detectedType?.id, buffer.length, req.log);
   // Identificar (Detect It Easy, 7.9) e desempacotar (7.8): todo executavel vai para a fila, menos a

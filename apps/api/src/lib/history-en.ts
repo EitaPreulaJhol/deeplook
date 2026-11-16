@@ -124,4 +124,5 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['{0} indicador(es)', '{0} indicator(s)'],
   // Download do pcap do sandbox (plano pos-revisao, item 5.4).
   ['ambiente {0} · {1} bytes', 'environment {0} · {1} bytes'],
+  ['ambiente {0} · PID {1} · {2} bytes', 'environment {0} · PID {1} · {2} bytes'],
 ];

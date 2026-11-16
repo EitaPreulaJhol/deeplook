@@ -90,6 +90,10 @@ jobs:
           # Desempacotar e extrair (item 7.8): upx, 7-Zip, innoextract e pyinstxtractor.
           - { app: unpack, dir: unpack, dockerfile: Dockerfile }
           - { app: oletools, dir: oletools, dockerfile: Dockerfile }
+          # Novas analises: emulacao (Speakeasy), APK (androguard) e configuracao/memoria (CAPE).
+          - { app: emulate, dir: emulate, dockerfile: Dockerfile }
+          - { app: android, dir: android, dockerfile: Dockerfile }
+          - { app: extract, dir: extract, dockerfile: Dockerfile }
           # Captura de rede do sandbox (plano pos-revisao, 5.4): netcap (Node) e Suricata (Debian).
           - { app: netcap, dir: netcap, dockerfile: Dockerfile }
           - { app: suricata, dir: suricata, dockerfile: Dockerfile }

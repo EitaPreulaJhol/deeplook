@@ -12,6 +12,7 @@ import { network, type NetworkPolicy } from './lib/network';
 import { requestLogSerializer } from './lib/request-log';
 import { isMissingObject, MISSING_OBJECT_MESSAGE } from './lib/s3';
 import { adminRoutes } from './routes/admin';
+import { aiDraftRoutes } from './routes/ai-draft';
 import { allowlistRoutes } from './routes/allowlist';
 import { antivirusRoutes } from './routes/antivirus';
 import { apiTokenRoutes } from './routes/api-tokens';
@@ -50,6 +51,7 @@ import { reputationRoutes } from './routes/reputation';
 import { riskRoutes } from './routes/risk';
 import { sandboxRoutes } from './routes/sandbox';
 import { searchRoutes } from './routes/search';
+import { serviceAnalysisRoutes } from './routes/service-analysis';
 import { sessionRoutes } from './routes/sessions';
 import { settingsRoutes } from './routes/settings';
 import { statusRoutes } from './routes/status';
@@ -114,6 +116,8 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   unpackRoutes,
   // Office e PDF mais fundo (item 7.14).
   oletoolsRoutes,
+  serviceAnalysisRoutes,
+  aiDraftRoutes,
   // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).
   qrRoutes,
   // Relatorio gerencial (item 77).

@@ -8,6 +8,8 @@ import {
   PUBLIC_S3_SECRETS,
   sandboxEnabled,
 } from '../env';
+import type { ServiceKind } from '../generated/prisma/client';
+import { aiDraftDestination, aiDraftEnabled, aiDraftModel, aiDraftProvider } from './ai-draft';
 import { alertLogEnabled, writeStateAlert } from './alert-log';
 import { lastAuditCheck } from './audit-check';
 import { checkBackupDir } from './backup';
@@ -28,6 +30,7 @@ import { pveTemplateExists, pveVersion } from './proxmox';
 import { enabledServices, SERVICE_NAMES, type ServiceId } from './reputation';
 import { s3 } from './s3';
 import { countActive } from './sandbox';
+import { serviceDef, serviceEnabled } from './services';
 import { slaWhere } from './sla';
 import { STATUS_EN } from './status-en';
 import { suricataEnabled } from './suricata';
@@ -57,6 +60,10 @@ export interface StatusCheck {
     | 'integrity'
     | 'audit'
     | 'oletools'
+    | 'emulate'
+    | 'android'
+    | 'extract'
+    | 'ai'
     | 'backup'
     | 'config';
   name: string;
@@ -674,6 +681,100 @@ async function oletoolsCheck(): Promise<StatusCheck> {
 }
 
 /**
+ * Rascunho por IA (plans/novas-analises, item 7): sem chamada ao provedor (custaria a cada
+ * abertura do status); mostra o que esta configurado e para onde as evidencias vao.
+ */
+function aiCheck(): StatusCheck {
+  const name = 'Rascunho por IA';
+  if (!aiDraftProvider()) {
+    return { id: 'ai', name, level: 'off', summary: 'desligado (LLM_PROVIDER vazio)', details: [] };
+  }
+  if (!aiDraftEnabled()) {
+    return {
+      id: 'ai',
+      name,
+      level: 'warn',
+      summary: 'incompleto (falta LLM_API_KEY, LLM_URL ou LLM_MODEL)',
+      details: [],
+    };
+  }
+  return {
+    id: 'ai',
+    name,
+    level: 'ok',
+    summary: 'ligado: as evidências das análises saem para o provedor',
+    details: [
+      { label: 'Provedor', value: aiDraftProvider()! },
+      { label: 'Modelo', value: aiDraftModel() },
+      { label: 'Destino', value: aiDraftDestination() ?? '?' },
+      { label: 'Limite por analista', value: `${env.LLM_DAILY_LIMIT} em 24 h` },
+    ],
+  };
+}
+
+/**
+ * Servicos novos (plans/novas-analises): emulacao (emulate), APK (android) e configuracao de
+ * familias (extract). O mesmo desenho do oletools: /health, a fila e as analises em 24 h.
+ */
+const SERVICE_CHECKS = {
+  EMULATION: {
+    id: 'emulate',
+    name: 'Emulação (Speakeasy)',
+    summary: 'desligada (EMULATE_URL vazio)',
+  },
+  ANDROID: {
+    id: 'android',
+    name: 'APK/Android (androguard)',
+    summary: 'desligado (ANDROID_URL vazio)',
+  },
+  CONFIG: {
+    id: 'extract',
+    name: 'Configuração e memória (CAPE)',
+    summary: 'desligado (EXTRACT_URL vazio)',
+  },
+} as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
+
+async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
+  const def = serviceDef(kind)!;
+  const { id, name, summary: off } = SERVICE_CHECKS[kind];
+  if (!serviceEnabled(kind)) return { id, name, level: 'off', summary: off, details: [] };
+  const url = def.url().replace(/\/$/, '');
+  const details = [{ label: 'Endereço', value: def.url() }];
+  const health = () =>
+    timed(async () => {
+      const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (!res.ok) throw new Error(`o serviço respondeu ${res.status}`);
+      return (await res.json()) as { state?: string; version?: string | null };
+    });
+  let probe = await health();
+  // Um container por analise: na troca o servico some por um instante (como no capa).
+  if (probe.error) {
+    await new Promise((r) => setTimeout(r, 1500));
+    probe = await health();
+  }
+  if (probe.error) {
+    return { id, name, level: 'error', summary: probe.error, latencyMs: probe.ms, details };
+  }
+  details.push({ label: 'Versão', value: probe.value?.version ?? '?' });
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const [queued, done, failed] = await Promise.all([
+    prisma.serviceAnalysis.count({ where: { kind, status: { in: ['PENDING', 'RUNNING'] } } }),
+    prisma.serviceAnalysis.count({ where: { kind, finishedAt: { gt: since }, status: 'DONE' } }),
+    prisma.serviceAnalysis.count({ where: { kind, finishedAt: { gt: since }, status: 'FAILED' } }),
+  ]);
+  details.push({ label: 'Na fila', value: String(queued) });
+  details.push({ label: 'Análises em 24 h', value: `${done} · ${failed} falha(s)` });
+  return {
+    id,
+    name,
+    level: probe.ms > SLOW_MS ? 'warn' : 'ok',
+    summary: probe.value?.state === 'analisando' ? 'respondendo (analisando)' : 'respondendo',
+    latencyMs: probe.ms,
+    details,
+  };
+}
+
+/**
  * Captura de rede do sandbox (plano pos-revisao, item 5.4): o servico netcap, o sniffer do
  * MikroTik (pela API REST) e as capturas em andamento.
  */
@@ -1116,6 +1217,10 @@ export async function systemStatus() {
     ghidraCheck(),
     unpackCheck(),
     oletoolsCheck(),
+    serviceCheck('EMULATION'),
+    serviceCheck('ANDROID'),
+    serviceCheck('CONFIG'),
+    aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),
     reputationCheck(),

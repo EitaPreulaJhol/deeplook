@@ -1,9 +1,12 @@
 import type { Verdict } from '../generated/prisma/client';
 import { capaRisky } from './capa-risk';
-import { localizeText } from './data-language';
+import { configFamilies, type ConfigResult } from './config-extract';
+import { localizeAlerts, localizeText } from './data-language';
 import type { Lang } from './error-language';
 import { prisma } from './prisma';
 import { SERVICE_NAMES, type ServiceId } from './reputation';
+import { sampleFileName } from './sandbox';
+import { sampleTree } from './sysmon-store';
 import { type Facts, loadFacts } from './triage-rules';
 
 /**
@@ -51,6 +54,13 @@ export type RiskInputs = {
   qrUrls?: string[];
   /** Alertas do Suricata no trafego do sandbox (plano pos-revisao, item 5.4). */
   idsAlerts?: { signature: string; severity: number | null }[];
+  /** Regras Sigma que casaram nos processos da amostra no sandbox (plans/novas-analises, item 1). */
+  sigmaHits?: { title: string; level: string }[];
+  /** Alertas da emulacao e do APK (plans/novas-analises, itens 4 e 6), no idioma do pedido. */
+  emulationAlerts?: { level: string; text: string }[];
+  androidAlerts?: { level: string; text: string }[];
+  /** Familias reconhecidas pela configuracao (item 2): com a configuracao extraida ou so pela regra. */
+  configFamilies?: { family: string; extracted: boolean }[];
 };
 
 /** A regra de teste do DeepLook (apps/suricata/deeplook.rules): confere a captura, nao e risco. */
@@ -204,6 +214,71 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   }
 
+  // Regras Sigma no comportamento da amostra (plans/novas-analises, item 1): so os processos dela
+  // (e descendentes) contam; o ruido do Windows na VM, nao. Pelo nivel mais alto, mais 5 por regra
+  // a mais, com teto de 50.
+  const sigma = input.sigmaHits ?? [];
+  const sigmaWeight = { critical: 40, high: 30, medium: 15 } as Record<string, number>;
+  const sigmaScored = sigma.filter((h) => sigmaWeight[h.level]);
+  if (sigmaScored.length) {
+    const titles = [...new Set(sigmaScored.map((h) => h.title))];
+    const worst = Math.max(...sigmaScored.map((h) => sigmaWeight[h.level]));
+    add(
+      'Sigma',
+      en
+        ? `${titles.length} rule(s) matched the sample's behavior in the sandbox: ${list(titles, lang, 2)}`
+        : `${titles.length} regra(s) casaram no comportamento da amostra no sandbox: ${list(titles, lang, 2)}`,
+      Math.min(50, worst + (titles.length - 1) * 5),
+    );
+  }
+
+  // Emulacao (item 4): o que o programa tentou fazer, sem rodar. Alto pesa mais; o resto, pouco.
+  const scored = (
+    source: string,
+    alerts: { level: string; text: string }[] | undefined,
+    high: [base: number, step: number, cap: number],
+    medium: [base: number, step: number, cap: number],
+  ) => {
+    const hi = (alerts ?? []).filter((a) => a.level === 'high');
+    const me = (alerts ?? []).filter((a) => a.level === 'medium');
+    const [b, st, cap] = hi.length ? high : medium;
+    const used = hi.length ? hi : me;
+    if (!used.length) return;
+    add(
+      source,
+      list(
+        used.map((a) => a.text.replace(/\.$/, '')),
+        lang,
+        2,
+      ),
+      Math.min(cap, b + (used.length - 1) * st),
+    );
+  };
+  scored(tr('Emulação', 'Emulation'), input.emulationAlerts, [25, 5, 35], [10, 3, 16]);
+  // APK (item 6): as combinacoes de banker, spyware e dropper.
+  scored('Android', input.androidAlerts, [30, 5, 40], [10, 3, 20]);
+  // Configuracao de familia (item 2): a configuracao extraida e a identificacao mais certa que ha.
+  const families = input.configFamilies ?? [];
+  const extracted = families.filter((f) => f.extracted).map((f) => f.family);
+  const recognized = families.filter((f) => !f.extracted).map((f) => f.family);
+  if (extracted.length) {
+    add(
+      tr('Configuração', 'Configuration'),
+      en
+        ? `${list(extracted, lang)} configuration extracted`
+        : `configuração de ${list(extracted, lang)} extraída`,
+      60,
+    );
+  } else if (recognized.length) {
+    add(
+      tr('Configuração', 'Configuration'),
+      en
+        ? `a CAPE rule recognizes ${list(recognized, lang)}`
+        : `regra do CAPE reconhece ${list(recognized, lang)}`,
+      35,
+    );
+  }
+
   if (facts.lookalikes.length) {
     add(
       tr('Domínio parecido', 'Lookalike domain'),
@@ -319,6 +394,27 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
           ?.alerts ?? [],
     )
     .filter((a) => a.sid !== IDS_TEST_SID);
+  const sigmaHits = await sampleSigmaHits(entryId);
+  // Emulacao, APK e configuracao (plans/novas-analises, itens 2, 4 e 6).
+  const services = await prisma.serviceAnalysis.findMany({
+    where: { entryId },
+    select: { kind: true, status: true, alerts: true, result: true },
+  });
+  const done = (kind: string) => services.find((x) => x.kind === kind && x.status === 'DONE');
+  const alertsOf = (kind: string) =>
+    localizeAlerts(
+      (done(kind)?.alerts as { level: string; text: string }[] | null | undefined) ?? [],
+      lang,
+    ) ?? [];
+  const config = done('CONFIG')?.result as ConfigResult | undefined;
+  const configFound = config
+    ? configFamilies(config).map((family) => ({
+        family,
+        extracted: config.configs.some((c) => c.family === family),
+      }))
+    : [];
+  const servicePending = (kind: string) =>
+    services.some((x) => x.kind === kind && (x.status === 'PENDING' || x.status === 'RUNNING'));
   const reputation = await prisma.reputationResult.findMany({
     where: { entryId },
     select: { service: true, verdict: true, summary: true, status: true },
@@ -347,6 +443,9 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       (en ? 'document analysis' : 'análise do documento'),
     reputation.some((r) => r.status === 'PENDING') &&
       (en ? 'external reputation' : 'reputação externa'),
+    servicePending('EMULATION') && (en ? 'emulation' : 'emulação'),
+    servicePending('ANDROID') && (en ? 'APK analysis' : 'análise do APK'),
+    servicePending('CONFIG') && (en ? 'configuration extraction' : 'extração de configuração'),
   ].filter((name): name is string => Boolean(name));
   return scoreRisk(
     {
@@ -358,7 +457,44 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       pending,
       qrUrls,
       idsAlerts,
+      sigmaHits,
+      emulationAlerts: alertsOf('EMULATION'),
+      androidAlerts: alertsOf('ANDROID'),
+      configFamilies: configFound,
     },
     lang,
   );
+}
+
+/** As deteccoes Sigma dos processos da amostra, em todos os ambientes dela. */
+export async function sampleSigmaHits(
+  entryId: string,
+): Promise<{ title: string; level: string; techniques: string[] }[]> {
+  const hits = await prisma.sandboxSigmaHit.findMany({
+    where: { session: { entryId } },
+    select: {
+      sessionId: true,
+      processGuid: true,
+      title: true,
+      level: true,
+      techniques: true,
+      session: { select: { entry: { select: { originalFilename: true } } } },
+    },
+  });
+  const trees = new Map<string, Set<string>>();
+  const out: { title: string; level: string; techniques: string[] }[] = [];
+  for (const h of hits) {
+    let tree = trees.get(h.sessionId);
+    if (!tree) {
+      tree = await sampleTree(
+        h.sessionId,
+        sampleFileName({ originalFilename: h.session.entry.originalFilename }),
+      );
+      trees.set(h.sessionId, tree);
+    }
+    if (h.processGuid && tree.has(h.processGuid)) {
+      out.push({ title: h.title, level: h.level, techniques: h.techniques });
+    }
+  }
+  return out;
 }

@@ -9,5 +9,7 @@ apps/api/src/lib/attack-enterprise.json
 apps/api/src/generated
 # Pacotes de regras YARA: o .gitattributes manda copiar sem alterar.
 apps/api/rules
+# Regras Sigma da SigmaHQ (plans/novas-analises, item 1): idem.
+apps/api/sigma
 # Gerado pelos testes (fixtures de PE, imagens de disco, certificados): fora do git.
 apps/api/tests/.tmp

@@ -230,6 +230,49 @@ const EnvSchema = z
       .default(''),
     OLETOOLS_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
     OLETOOLS_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
+    /**
+     * Emulacao de PE e shellcode (plans/novas-analises, item 4): servico emulate (Speakeasy, sem
+     * rede) e o token compartilhado. Vazio = desligado.
+     */
+    EMULATE_URL: z.string().default(''),
+    EMULATE_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    EMULATE_MAX_MB: z.coerce.number().int().min(1).max(200).default(32),
+    EMULATE_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
+    /**
+     * Rascunho do relatorio por IA (plans/novas-analises, item 7), desligado por padrao.
+     * anthropic: a API da Anthropic (LLM_API_KEY obrigatoria; LLM_URL so para um proxy).
+     * openai: um servidor compativel com /v1/chat/completions (LLM_URL obrigatoria, ex.:
+     * http://ollama:11434/v1; LLM_MODEL obrigatorio).
+     */
+    LLM_PROVIDER: z.enum(['', 'anthropic', 'openai']).default(''),
+    LLM_URL: z.string().default(''),
+    LLM_API_KEY: z.string().default(''),
+    LLM_MODEL: z.string().max(100).default(''),
+    LLM_TIMEOUT_S: z.coerce.number().int().min(10).max(900).default(180),
+    /** Rascunhos por analista em 24 h. */
+    LLM_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(30),
+    /** APK/Android (plans/novas-analises, item 6): servico android (androguard, sem rede). */
+    ANDROID_URL: z.string().default(''),
+    ANDROID_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    ANDROID_MAX_MB: z.coerce.number().int().min(1).max(500).default(100),
+    ANDROID_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
+    /**
+     * Configuracao de familias e dumps de memoria (plans/novas-analises, itens 2 e 3): servico
+     * extract (CAPE-parsers e minidump, sem rede).
+     */
+    EXTRACT_URL: z.string().default(''),
+    EXTRACT_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    EXTRACT_MAX_MB: z.coerce.number().int().min(1).max(1024).default(64),
+    EXTRACT_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(400),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -253,6 +296,14 @@ const EnvSchema = z
     SANDBOX_ARTIFACT_INTERVAL_S: z.coerce.number().int().min(0).max(3600).default(60),
     /** Prints guardados por ambiente (o primeiro e os mais recentes ficam). */
     SANDBOX_ARTIFACT_MAX_SHOTS: z.coerce.number().int().min(1).max(500).default(60),
+    /**
+     * Dump de memoria dos processos da amostra (plans/novas-analises, item 3): teto do dump de um
+     * processo (0 desliga), quantos processos por captura e quanto esperar depois da execucao
+     * automatica para capturar sozinho (quando pedido ao abrir o ambiente).
+     */
+    SANDBOX_MEMDUMP_MAX_MB: z.coerce.number().int().min(0).max(4096).default(512),
+    SANDBOX_MEMDUMP_MAX_PROCESSES: z.coerce.number().int().min(1).max(20).default(4),
+    SANDBOX_MEMDUMP_DELAY_S: z.coerce.number().int().min(0).max(3600).default(120),
     /**
      * Captura de rede do sandbox (plano pos-revisao, item 5.4): o sniffer do MikroTik CHR, pela API
      * REST do RouterOS 7, manda por TZSP os pacotes de cada VM ao servico netcap. Sem MIKROTIK_URL
@@ -335,6 +386,9 @@ const KNOWN_SECRETS = new Set([
   'troque-este-token-do-ghidra',
   'troque-este-token-do-unpack',
   'troque-este-token-do-oletools',
+  'troque-este-token-do-emulate',
+  'troque-este-token-do-android',
+  'troque-este-token-do-extract',
 ]);
 /**
  * Senhas do banco e do MinIO que o compose e o .env.example trazem: publicas tambem. Com elas,
@@ -364,6 +418,9 @@ const refused = [
   env.GHIDRA_URL && KNOWN_SECRETS.has(env.GHIDRA_TOKEN) && 'GHIDRA_TOKEN',
   env.UNPACK_URL && KNOWN_SECRETS.has(env.UNPACK_TOKEN) && 'UNPACK_TOKEN',
   env.OLETOOLS_URL && KNOWN_SECRETS.has(env.OLETOOLS_TOKEN) && 'OLETOOLS_TOKEN',
+  env.EMULATE_URL && KNOWN_SECRETS.has(env.EMULATE_TOKEN) && 'EMULATE_TOKEN',
+  env.ANDROID_URL && KNOWN_SECRETS.has(env.ANDROID_TOKEN) && 'ANDROID_TOKEN',
+  env.EXTRACT_URL && KNOWN_SECRETS.has(env.EXTRACT_TOKEN) && 'EXTRACT_TOKEN',
   env.NETCAP_URL && KNOWN_SECRETS.has(env.NETCAP_TOKEN) && 'NETCAP_TOKEN',
   env.SURICATA_URL && KNOWN_SECRETS.has(env.SURICATA_TOKEN) && 'SURICATA_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',

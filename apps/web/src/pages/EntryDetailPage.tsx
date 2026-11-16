@@ -69,6 +69,12 @@ import { SandboxPanel } from '../components/SandboxPanel';
 import { isSandboxActive, isSandboxWorking, useMinutesLeft } from '../components/sandboxStatus';
 import { latestRunSummary, runSummaryMarkdown } from '../components/sandboxSummary';
 import { ScriptSection, ScriptWarning } from '../components/ScriptSection';
+import {
+  AndroidSection,
+  ConfigSection,
+  EmulationSection,
+  useServiceAnalysis,
+} from '../components/ServiceSections';
 import { useDecoder } from '../components/shortcuts';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
@@ -115,6 +121,7 @@ export function EntryDetailPage() {
         /** Teto da duracao e captura configurada (dialogo de inicio). */
         ttlMinutes?: number;
         captureEnabled?: boolean;
+        memoryDumpEnabled?: boolean;
         session: SandboxSession | null;
         sysmonIndicators?: string[];
         networkIndicators?: string[];
@@ -131,6 +138,11 @@ export function EntryDetailPage() {
   // Analise de funcoes (item 7.2): as sugestoes do relatorio usam a mesma consulta da secao.
   const capa = useCapa(id, query.data?.entry.type === 'FILE').data;
   const qr = useQr(id).data;
+  // IOCs dos servicos novos (plans/novas-analises): emulacao, configuracao e APK.
+  const isFile = query.data?.entry.type === 'FILE';
+  const emulation = useServiceAnalysis('emulation', id, isFile).data;
+  const config = useServiceAnalysis('config', id, isFile).data;
+  const android = useServiceAnalysis('android', id, isFile).data;
   // Casos da amostra (analistas; item 55).
   const entryCases = useQuery({
     queryKey: ['entry-cases', id],
@@ -318,6 +330,10 @@ export function EntryDetailPage() {
       ...(sandboxQuery.data?.sysmonIndicators ?? []),
       // Dominios, hosts e IPs do trafego, pelo Suricata (plano pos-revisao, item 5.4).
       ...(sandboxQuery.data?.networkIndicators ?? []),
+      // Destinos da emulacao, C2 da configuracao e enderecos do APK (plans/novas-analises).
+      ...(emulation?.analysis?.iocs ?? []),
+      ...(config?.analysis?.iocs ?? []),
+      ...(android?.analysis?.iocs ?? []),
       ...[entry.emailInfo?.from, ...(entry.emailInfo?.replyTo ?? [])]
         .map((p) => p?.address?.split('@')[1]?.toLowerCase())
         .filter((d): d is string => Boolean(d)),
@@ -577,6 +593,7 @@ export function EntryDetailPage() {
           sampleName={entry.originalFilename || entry.title}
           ttlMinutes={sandboxQuery.data?.ttlMinutes}
           captureEnabled={sandboxQuery.data?.captureEnabled}
+          memoryDumpEnabled={sandboxQuery.data?.memoryDumpEnabled}
           onClose={() => setLaunchOpen(false)}
           onStarted={(result) => {
             changeTab('analise');
@@ -930,6 +947,10 @@ export function EntryDetailPage() {
           )}
           {entry.type === 'FILE' && <UnpackSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <GhidraSection entryId={entry.id} canTriage={canTriage} />}
+          {/* Emulacao, configuracao de familias e APK (plans/novas-analises, itens 4, 2 e 6). */}
+          {entry.type === 'FILE' && <EmulationSection entryId={entry.id} canTriage={canTriage} />}
+          {entry.type === 'FILE' && <ConfigSection entryId={entry.id} canTriage={canTriage} />}
+          {entry.type === 'FILE' && <AndroidSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {entry.type === 'FILE' && <OfficeSection entryId={entry.id} canTriage={canTriage} />}
           {/* QR code na imagem, no PDF ou no print da pagina (plano pos-revisao, item 2.2). */}

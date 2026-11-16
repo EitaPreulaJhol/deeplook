@@ -178,12 +178,15 @@ export async function createSession(
     autoRun = false,
     minutes = env.SANDBOX_TTL_MINUTES,
     capture = true,
+    memoryDump = false,
   }: {
     autoRun?: boolean;
     /** Duracao pedida no dialogo de inicio, ate o SANDBOX_TTL_MINUTES (o painel estende). */
     minutes?: number;
     /** Captura de rede, quando configurada; o analista pode desliga-la para este ambiente. */
     capture?: boolean;
+    /** Dump de memoria da amostra depois da execucao automatica (plans/novas-analises, item 3). */
+    memoryDump?: boolean;
   } = {},
 ): Promise<CreateSessionResult> {
   if (entry.type === 'FILE' && entry.filePurgedAt) {
@@ -230,6 +233,7 @@ export async function createSession(
       expiresAt: new Date(Date.now() + Math.min(minutes, env.SANDBOX_TTL_MINUTES) * 60_000),
       ...(autoRun ? { autoRun: 'PENDING' as const } : {}),
       ...(capture ? {} : { captureOff: true }),
+      ...(autoRun && memoryDump && env.SANDBOX_MEMDUMP_MAX_MB > 0 ? { memoryDump: true } : {}),
     },
   });
 

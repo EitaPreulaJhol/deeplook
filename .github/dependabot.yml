@@ -69,6 +69,25 @@ updates:
       patches:
         update-types: [minor, patch]
 
+  # Novas analises (emulacao, APK e configuracao/memoria): os lockfiles com hash do pip-compile.
+  # O unicorn do emulate fica no 1.0.2 (o Speakeasy o fixa); o CAPE-parsers sobe a mao, junto com
+  # as regras do CAPEv2 em apps/extract/rules (mesma epoca).
+  - package-ecosystem: pip
+    directories:
+      - /apps/emulate
+      - /apps/android
+      - /apps/extract
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      patches:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: unicorn
+      - dependency-name: cape-parsers
+
   # Analise de funcoes (item 7.2): o lockfile com hash do pip-compile (requirements.in). O capa
   # e o FLOSS sobem a mao: as regras e as assinaturas baixadas no Dockerfile (URL, hash e
   # CAPA_RULES_VERSION) tem de ser da mesma versao do capa, e um PR so do pip as deixaria para tras.
@@ -98,6 +117,8 @@ updates:
       - /apps/oletools
       - /apps/netcap
       - /apps/suricata
+      - /apps/android
+      - /apps/extract
     schedule:
       interval: weekly
       day: monday
@@ -117,6 +138,18 @@ updates:
       # 3.14 continuam chegando; liberar o 3.15 quando essas dependencias o suportarem.
       - dependency-name: python
         versions: ['>= 3.15']
+
+  # Emulacao (Speakeasy): fica no Python 3.11, porque o unicorn 1.0.2 importa o distutils, que saiu
+  # no 3.12. So os patches do 3.11.
+  - package-ecosystem: docker
+    directory: /apps/emulate
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: python
+        versions: ['>= 3.12']
 
   # As imagens de terceiros do docker-compose.yml (Postgres e ClamAV), fixadas por tag e digest:
   # o Dependabot abre o PR quando a tag ganha uma imagem nova; a mao, node scripts/pin-images.mjs

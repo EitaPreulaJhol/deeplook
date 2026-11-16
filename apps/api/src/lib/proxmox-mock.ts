@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+
 import { env } from '../env';
 import type { PveMethod } from './proxmox';
 
@@ -36,7 +39,23 @@ const STOP_MS = 600;
 /** Quantas listagens de processos o agente simulado ja fez. */
 let agentRuns = 0;
 /** O que cada execucao do agente pediu (pid -> tipo), para o exec-status responder certo. */
-const agentJobs = new Map<number, 'processes' | 'sysmon' | 'probe' | 'autorun'>();
+const agentJobs = new Map<
+  number,
+  'processes' | 'sysmon' | 'probe' | 'autorun' | 'memdump' | 'memread' | 'memclean'
+>();
+/** O script de cada execucao do agente (o dump de memoria le o deslocamento dele). */
+const agentScripts = new Map<number, string>();
+
+/**
+ * Dump de memoria simulado (plans/novas-analises, item 3): o minidump que a "VM" grava (com gzip
+ * aqui) e os PIDs que ela consegue despejar. Sem `dump`, o dump falha como o MiniDumpWriteDump.
+ */
+export const mockMemory = {
+  dump: null as Buffer | null,
+  gz: null as Buffer | null,
+  cleaned: [] as string[],
+  dumped: [] as number[],
+};
 /** Execucoes automaticas da amostra que o agente simulado recebeu (os testes conferem). */
 export const mockAutoRuns: { vmid: number; script: string }[] = [];
 /**
@@ -151,6 +170,10 @@ export function pveMockReset(): void {
   mockSysmon.broken = false;
   mockSysmon.extra = [];
   mockSysmon.clockAheadMs = 0;
+  mockMemory.dump = null;
+  mockMemory.gz = null;
+  mockMemory.cleaned = [];
+  mockMemory.dumped = [];
   agentRuns = 0;
   agentJobs.clear();
   mockAutoRuns.length = 0;
@@ -334,11 +357,17 @@ export async function pveMock(
       const script = encoded ? Buffer.from(encoded, 'base64').toString('utf16le') : '';
       const kind = !encoded
         ? 'processes'
-        : script.includes('DEEPLOOK_AUTORUN')
-          ? 'autorun'
-          : script.includes('DEEPLOOK_SYSMON_PROBE')
-            ? 'probe'
-            : 'sysmon';
+        : script.includes('DEEPLOOK_MEMDUMP')
+          ? 'memdump'
+          : script.includes('DEEPLOOK_MEMREAD')
+            ? 'memread'
+            : script.includes('DEEPLOOK_MEMCLEAN')
+              ? 'memclean'
+              : script.includes('DEEPLOOK_AUTORUN')
+                ? 'autorun'
+                : script.includes('DEEPLOOK_SYSMON_PROBE')
+                  ? 'probe'
+                  : 'sysmon';
       if (kind === 'autorun' && mockAgentBusy.autorunStart) {
         mockAgentBusy.autorunTries += 1;
         throw new Error(`VM ${vmid} qga command 'guest-exec' failed - got timeout`);
@@ -347,10 +376,37 @@ export async function pveMock(
       if (kind === 'processes') agentRuns += 1;
       agentPid += 1;
       agentJobs.set(agentPid, kind);
+      agentScripts.set(agentPid, script);
       return { pid: agentPid };
     }
     // VM 9998: Windows sem o Sysmon no template (plano pos-revisao, item 5.3).
     const execPid = Number(/pid=(\d+)/.exec(path)?.[1] ?? 0);
+    if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'memdump') {
+      const pid = Number(/\$target = (\d+)/.exec(agentScripts.get(execPid) ?? '')?.[1]);
+      if (!mockMemory.dump) {
+        return { exited: 1, exitcode: 0, 'out-data': 'DUMP_FALHOU|5\r\n' };
+      }
+      mockMemory.gz ??= gzipSync(mockMemory.dump);
+      mockMemory.dumped.push(pid);
+      const sha = createHash('sha256').update(mockMemory.gz).digest('hex');
+      const path = `C:\\Windows\\Temp\\deeplook-mem\\${pid}.dmp.gz`;
+      return {
+        exited: 1,
+        exitcode: 0,
+        'out-data': `DUMP_OK|${mockMemory.dump.length}|${mockMemory.gz.length}|${sha}|${path}\r\n`,
+      };
+    }
+    if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'memread') {
+      const m = /off=(\d+) len=(\d+)/.exec(agentScripts.get(execPid) ?? '');
+      const off = Number(m?.[1] ?? 0);
+      const len = Number(m?.[2] ?? 0);
+      const part = (mockMemory.gz ?? Buffer.alloc(0)).subarray(off, off + len);
+      return { exited: 1, exitcode: 0, 'out-data': `${part.toString('base64')}\r\n` };
+    }
+    if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'memclean') {
+      mockMemory.cleaned.push(agentScripts.get(execPid) ?? '');
+      return { exited: 1, exitcode: 0, 'out-data': '' };
+    }
     if (rest.startsWith('/agent/exec-status') && agentJobs.get(execPid) === 'probe') {
       return { exited: 1, exitcode: 0, 'out-data': vmid === 9998 ? 'SYSMON_AUSENTE' : 'SYSMON_OK' };
     }

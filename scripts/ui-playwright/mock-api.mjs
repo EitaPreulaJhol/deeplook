@@ -1356,6 +1356,53 @@ export async function setupMock(context, state) {
         const summary = state.sandboxSummaries?.[m[1]];
         return summary ? json(route, 200, summary) : json(route, 404, { error: 'Ambiente não encontrado.' });
       }
+      // Novas analises (plans/novas-analises): emulacao, APK, configuracao, Sigma, memoria, diff
+      // entre execucoes e o rascunho por IA. O roteiro define as respostas; sem elas, desligado.
+      m = p.match(/^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config)$/);
+      if (m && req.method() === 'POST') {
+        (state.serviceRequests ??= []).push({ entryId: m[1], kind: m[2], body });
+        return json(route, 202, { ok: true });
+      }
+      if (m) {
+        return json(
+          route,
+          200,
+          state.serviceAnalyses?.[m[1]]?.[m[2]] ?? { enabled: false, auto: false, manual: false, maxMb: 32, analysis: null },
+        );
+      }
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/sigma\/reevaluate$/);
+      if (m) return json(route, 200, { ok: true, hits: state.sandboxSigma?.[m[1]]?.hits.length ?? 0 });
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/sigma$/);
+      if (m) {
+        const sigma = state.sandboxSigma?.[m[1]];
+        return sigma ? json(route, 200, sigma) : json(route, 404, { error: 'Ambiente não encontrado.' });
+      }
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/memory$/);
+      if (m && req.method() === 'POST') {
+        (state.memoryRequests ??= []).push(m[1]);
+        return json(route, 202, { ok: true });
+      }
+      if (m) {
+        return json(
+          route,
+          200,
+          state.sandboxMemory?.[m[1]] ?? { enabled: false, analysis: false, running: false, scheduledAt: null, requested: false, dumps: [] },
+        );
+      }
+      m = p.match(/^\/api\/sandbox\/([\w-]+)\/compare\/([\w-]+)$/);
+      if (m) {
+        const diff = state.sandboxCompare?.[`${m[1]}:${m[2]}`];
+        return diff ? json(route, 200, diff) : json(route, 400, { error: 'Compare duas execuções diferentes da mesma amostra.' });
+      }
+      if (p === '/api/ai/status') {
+        return json(route, 200, state.aiStatus ?? { enabled: false, provider: null, model: null, destination: null, dailyLimit: 30 });
+      }
+      m = p.match(/^\/api\/entries\/(\w+)\/reports\/ai-draft$/);
+      if (m) {
+        return state.aiDraft
+          ? json(route, 200, state.aiDraft)
+          : json(route, 503, { error: 'O rascunho por IA está desligado (LLM_PROVIDER).' });
+      }
       // Linha do tempo (fase 3): o roteiro da todos os eventos; aqui o escopo, os tipos e a pagina.
       m = p.match(/^\/api\/sandbox\/([\w-]+)\/timeline$/);
       if (m) {

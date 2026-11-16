@@ -6,6 +6,7 @@ import type { SandboxRun } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/sandbox';
 import { SandboxArtifacts } from './SandboxArtifacts';
+import { SandboxCompare } from './SandboxCompare';
 import { SANDBOX_STATUS_LABELS } from './sandboxStatus';
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleString(intlLocale());
@@ -50,11 +51,14 @@ export function SandboxHistory({ entryId, currentId }: { entryId: string; curren
     queryFn: () => api.get<{ sessions: SandboxRun[] }>(`/entries/${entryId}/sandbox/sessions`),
     staleTime: 30_000,
   });
-  const previous = (query.data?.sessions ?? []).filter((s) => s.id !== currentId);
+  const sessions = query.data?.sessions ?? [];
+  const previous = sessions.filter((s) => s.id !== currentId);
   if (!previous.length) return null;
   return (
     <div className="dl-sandbox-history">
       <h4>{t('historyTitle', { n: previous.length })}</h4>
+      {/* Diff entre duas execucoes (plans/novas-analises, item 8): a atual entra na escolha. */}
+      <SandboxCompare runs={sessions} />
       {previous.map((run) => (
         <PreviousRun key={run.id} run={run} />
       ))}

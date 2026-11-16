@@ -13,8 +13,16 @@
  * de processos, e o que o proprio guest diz: um malware com privilegio pode apagar o log.
  */
 
-/** Eventos lidos: processo (1), rede (3), arquivo (11), registro (12, 13, 14), DNS (22). */
-export const EVENT_IDS = [1, 3, 11, 12, 13, 14, 22];
+/**
+ * Eventos lidos: processo (1), rede (3), arquivo (11), registro (12, 13, 14), DNS (22). Os outros
+ * servem as regras Sigma (plans/novas-analises, item 1): driver (6), DLL carregada (7), thread
+ * remota (8), leitura crua do disco (9), acesso a processo (10), fluxo alternativo (15), pipe (17,
+ * 18), WMI (19-21), arquivo apagado (23, 26) e adulteracao de processo (25). O resumo e a linha do
+ * tempo continuam so com os cinco primeiros tipos.
+ */
+export const EVENT_IDS = [
+  1, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 25, 26,
+];
 /** Eventos por leitura (os mais antigos primeiro; o resto vem na seguinte). */
 export const SYSMON_READ_MAX = 2000;
 /** Eventos guardados por ambiente. */

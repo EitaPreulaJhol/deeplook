@@ -179,6 +179,14 @@ export const messages = {
     'Captura de rede do ambiente baixada',
     'Environment network capture downloaded',
   ],
+  'act.SANDBOX_MEMDUMP_DOWNLOADED': [
+    'Dump de memória do ambiente baixado',
+    'Environment memory dump downloaded',
+  ],
+  'act.REPORT_AI_DRAFT': [
+    'Rascunho de relatório pedido à IA',
+    'Report draft requested from the AI',
+  ],
   'act.ENTRY_INTEGRITY_FAILED': [
     'Arquivo divergente do SHA-256 da ficha',
     'File does not match the record SHA-256',

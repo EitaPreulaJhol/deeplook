@@ -12,7 +12,7 @@ import { AttackPicker, AttackTechniqueLinks } from './attack';
 import { useConfirm, usePrompt } from './HpsmConfirm';
 import { HpsmField, HpsmForm, HpsmReadonly, HpsmSection, useRequiredFields } from './HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from './HpsmToolbar';
-import { IconAdd } from './icons';
+import { IconAdd, IconPage } from './icons';
 import { IOC_KIND_LABELS, iocHref } from './iocs';
 import { KbLinks, KbPicker, type KbRef } from './KbPicker';
 import { HpsmMessage } from './messages';
@@ -170,6 +170,48 @@ export function EntryReportsTab({
   };
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Rascunho por IA (plans/novas-analises, item 7): so aparece com o LLM_PROVIDER ligado.
+  const aiStatus = useQuery({
+    queryKey: ['ai', 'status'],
+    queryFn: () =>
+      api.get<{ enabled: boolean; model: string | null; destination: string | null }>('/ai/status'),
+    enabled: canTriage,
+    staleTime: 60_000,
+  });
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState<{ model: string; dropped: string[] } | null>(null);
+  const askAi = async () => {
+    if (
+      (summary || findings || iocs) &&
+      !(await confirm({ title: tr('aiDraft'), message: tr('aiReplaceConfirm') }))
+    )
+      return;
+    setAiBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<{
+        draft: {
+          summary: string;
+          findings: string;
+          iocs: string[];
+          verdict: Verdict;
+          attackTechniques: string[];
+        };
+        dropped: string[];
+        model: string;
+      }>(`/entries/${entryId}/reports/ai-draft`);
+      setSummary(r.draft.summary);
+      setFindings(r.draft.findings);
+      setIocs(r.draft.iocs.join('\n'));
+      setVerdict(r.draft.verdict);
+      setAttack(r.draft.attackTechniques);
+      setAiNote({ model: r.model, dropped: r.dropped });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setAiBusy(false);
+    }
+  };
   // Rascunho do relatorio: sair da aba/tela pede confirmacao.
   useUnsavedChanges(Boolean(summary || findings || iocs || attack.length || kb.length));
 
@@ -453,7 +495,23 @@ export function EntryReportsTab({
               disabled={saving}
               onClick={createReport}
             />
+            {aiStatus.data?.enabled && (
+              <HpsmToolbarButton
+                label={aiBusy ? tr('aiDrafting') : tr('aiDraft')}
+                title={tr('aiDraftHint', { destination: aiStatus.data.destination ?? '?' })}
+                icon={IconPage}
+                disabled={aiBusy || saving}
+                onClick={() => void askAi()}
+              />
+            )}
           </HpsmToolbar>
+          {aiNote && (
+            <HpsmMessage kind="warning">
+              {tr('aiDraftWarning', { model: aiNote.model })}
+              {aiNote.dropped.length > 0 &&
+                ` ${tr('aiDraftDropped', { list: aiNote.dropped.join(', ') })}`}
+            </HpsmMessage>
+          )}
           {error && <HpsmMessage kind="error">{error}</HpsmMessage>}
           {reportCheck.message && <HpsmMessage kind="error">{reportCheck.message}</HpsmMessage>}
           <HpsmForm>

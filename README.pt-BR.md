@@ -44,8 +44,8 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 │                      │      │      │                                                   │
 │  ┌───────────────────▼┐     │   ┌──▼────────────────────────────────────────────────┐  │
 │  │ capture            │     │   │ serviços de análise (internos, sem internet)      │  │
-│  │ navegador headless │     │   │ capa · ghidra · unpack · oletools                 │  │
-│  └─────────┬──────────┘     │   │ netcap · suricata (perfil netcap)                 │  │
+│  │ navegador headless │     │   │ capa · ghidra · unpack · oletools · emulate       │  │
+│  └─────────┬──────────┘     │   │ android · extract · netcap · suricata             │  │
 │            │                │   └───────────────────────────────────▲───────────────┘  │
 │  ┌─────────▼──────────┐     │                                       │                  │
 │  │ egress             │     │                                       │                  │
@@ -82,6 +82,11 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
   PyInstaller), no mesmo isolamento. Ver [Identificar e desempacotar](#identificar-e-desempacotar).
 - **oletools**: macros VBA e XLM 4.0, DDE e objetos de RTF dos documentos do Office, no mesmo
   isolamento. Ver [Documentos do Office (oletools)](#documentos-do-office-oletools).
+- **emulate**: emula executáveis do Windows e shellcode com o Speakeasy, no mesmo isolamento. Ver
+  [Emulação (Speakeasy)](#emulação-speakeasy).
+- **android**: lê APKs com o androguard, no mesmo isolamento. Ver [Android (APK)](#android-apk).
+- **extract**: configuração de famílias com os extratores do CAPE e os dumps de memória do sandbox,
+  no mesmo isolamento. Ver [Configuração de famílias (CAPE)](#configuração-de-famílias-cape).
 - **capture**: navegador isolado que captura a página de um link, numa rede interna só com a API e
   o `egress`. Ver [Captura da página de um link](#captura-da-página-de-um-link).
 - **egress**: a única saída para a internet da captura (e do download das regras do Suricata):
@@ -116,7 +121,7 @@ meios de validar a aplicação com o Strix. Obrigado ❤️.
 # 1) Configure as variáveis (senhas, segredo de sessão, admin)
 cp .env.example .env
 # edite o .env, principalmente: POSTGRES_PASSWORD, SESSION_SECRET, CAPTURE_TOKEN, CAPA_TOKEN,
-# GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e
+# GHIDRA_TOKEN, UNPACK_TOKEN, OLETOOLS_TOKEN, EMULATE_TOKEN, ANDROID_TOKEN, EXTRACT_TOKEN, DATA_KEY, ADMIN_PASSWORD, MINIO_ROOT_PASSWORD e
 # S3_SECRET_KEY (com o perfil netcap, também NETCAP_TOKEN e SURICATA_TOKEN)
 # (com SESSION_SECRET, um dos tokens ou a senha do banco ou do MinIO no valor padrão, a API não sobe)
 
@@ -695,6 +700,88 @@ link nova, que cita a de origem) e soma na **pontuação de risco**. Os tetos s�
 primeiras páginas do PDF, 40 milhões de pixels por imagem ou página e 20 códigos por amostra. Nada
 é executado: o PDF só é renderizado, sem JavaScript.
 
+## Scripts (PowerShell, lote, VBScript, JScript)
+
+Scripts enviados (`.ps1`, `.bat`, `.cmd`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.hta`, ou
+reconhecidos pelo conteúdo) ganham a seção **Script** na ficha. Ela mostra as chamadas suspeitas
+(com o porquê), as URLs e as **camadas decodificadas**. Nada é executado: tudo é feito sobre o
+texto.
+
+- **Codificação:** `-EncodedCommand`, `FromBase64String` (também com GZip/Deflate), `atob`,
+  `fromCharCode`, `unescape`, `Chr() & Chr()`, blocos Base64 soltos e listas de bytes.
+- **XOR de um byte:** um bloco Base64 ou uma lista de bytes que vira script com uma chave de 1 byte
+  (o `-bxor` com chave fixa) aparece como camada, com a chave.
+- **Script Encoder** (`#@~^`, `.vbe` e `.jse`): o texto decodificado é a primeira camada.
+- **Normalização:** o texto sem a ofuscação que não é codificação vira a camada "normalizada", com
+  as técnicas desfeitas no título:
+  - PowerShell: crases, concatenação de literais, operador `-f`, `[char]` e `[char[]] -join`,
+    `-replace` e `.Replace()`, texto invertido e variáveis atribuídas uma vez com um literal;
+  - lote: circunflexos, `set` com `%var%` e `!var!`, as fatias `%var:~a,b%` (também das variáveis
+    do Windows, como `%COMSPEC%`) e a troca `%var:x=y%`;
+  - VBScript: `Chr()` no meio do texto, `&`, `StrReverse` e `Replace`;
+  - JScript: escapes `\x41` e `\u0041`, `+`, `.split('').reverse().join('')` e `.replace()`.
+
+As regras de chamadas suspeitas olham o texto original e as camadas. O achado diz em qual camada
+apareceu. Os tetos são de 12 camadas, 5 níveis e 2 MB de texto, e nenhuma regex com retrocesso
+quadrático (o fuzz `npm run test:fuzz -- --target deobfuscate` cobre a normalização).
+
+## Emulação (Speakeasy)
+
+Todo executável do Windows (PE) que chega vai, em segundo plano, para o serviço `emulate`. Ele roda
+o [Speakeasy](https://github.com/mandiant/speakeasy) (Mandiant, MIT) num contêiner sem rede, sem
+root, com a raiz somente leitura e um contêiner por análise. O Speakeasy **emula** o programa: nada
+roda no processador de verdade, e a rede, o disco e o registro que o programa vê são simulados.
+Rodam todos os pontos de entrada (callbacks TLS, o principal e as exportações de uma DLL), dentro de
+`EMULATE_RUN_S` (padrão 60 s).
+
+A seção **Emulação (Speakeasy)** mostra:
+
+- as chamadas de API na ordem, com a contagem e os argumentos da primeira chamada;
+- a rede que o programa tentou alcançar (DNS, HTTP e sockets);
+- os processos criados, a memória escrita em outro processo e as threads remotas (injeção);
+- os arquivos gravados (caminho, tamanho e SHA-256), os arquivos e as chaves de registro tocados e as
+  strings montadas em memória;
+- onde a emulação parou (uma API que o emulador não implementa, uma instrução inválida).
+
+Os alertas (injeção, rede seguida de outro programa, chaves de inicialização, antidepuração, código
+gerado em memória) somam na pontuação de risco, e os destinos vão para os IOCs sugeridos. Um
+analista também pode emular **qualquer arquivo como shellcode**, escolhendo x86 ou x64. Um programa
+que percebe o emulador pode parar cedo: a emulação complementa o sandbox, não o substitui.
+
+## Android (APK)
+
+Todo APK que chega vai, em segundo plano, para o serviço `android`
+([androguard](https://github.com/androguard/androguard), Apache-2.0, no mesmo isolamento). Ele só
+lê o manifesto, os certificados e a tabela de strings dos DEX, e nada do aplicativo roda. A seção
+**Android (APK)** mostra:
+
+- o pacote, a versão, o SDK mínimo e o alvo e a atividade principal;
+- as permissões (as perigosas em destaque) e os componentes exportados, com as ações;
+- os certificados (titular, SHA-256, validade, certificado de depuração) e a assinatura v1/v2/v3;
+- as APIs sensíveis (SMS, acessibilidade, administrador do dispositivo, `DexClassLoader`,
+  `Runtime.exec`, captura de tela, notificações);
+- as URLs, os IPs e os domínios do código, as bibliotecas nativas e as cargas escondidas em
+  `assets/`.
+
+Os alertas cobrem as combinações típicas, como acessibilidade com SMS (trojan bancário),
+administrador do dispositivo, código carregado em tempo de execução, sobreposição de telas e APK sem
+assinatura. Eles somam na pontuação de risco, e os endereços vão para os IOCs sugeridos.
+
+## Configuração de famílias (CAPE)
+
+Todo executável do Windows vai para o serviço `extract`, inclusive as amostras filhas do
+desempacotador e as tiradas da memória do sandbox. As regras YARA dele (as do CAPEv2, guardadas em
+`apps/extract/rules` num commit fixo) identificam a família, e o extrator **daquela família** do
+[CAPE-parsers](https://github.com/CAPESandbox/CAPE-parsers) tira a configuração: C2, chaves,
+campanha, mutex e identificador do bot. Os extratores só leem os bytes, cada um com tempo-limite.
+
+A seção **Configuração extraída (CAPE)** mostra as regras que casaram e cada configuração em
+tabela. Uma configuração extraída é a identificação mais certa que há: vale +60 na pontuação de
+risco (família reconhecida só pela regra vale +35), e os C2 vão para os IOCs sugeridos.
+
+O CAPE-parsers e as regras do CAPEv2 são **GPL-3.0**, por isso ficam dentro do contêiner `extract`,
+e a API só conversa com ele por HTTP.
+
 ## Identificar e desempacotar
 
 Todo executável que chega (Windows, Linux, macOS, APK e JAR, até `UNPACK_MAX_MB`) passa pelo
@@ -783,6 +870,10 @@ para a triagem: **quem dá o veredito continua sendo o analista**, e nada muda s
 | Assinatura | não confere · válida | +20 · −15 |
 | Análise de funções | grupos de capacidades de risco do capa · indicadores em strings ofuscadas | +6 por grupo (teto 30) · +10 |
 | Empacotamento | empacotado ou protegido | +10 |
+| Sigma (sandbox) | regras que casaram nos processos da amostra: crítico · alto · médio | +40 · +30 · +15, mais 5 por regra a mais (teto 50) |
+| Emulação | alertas altos · só médios | +25, mais 5 por alerta a mais (teto 35) · +10, mais 3 por alerta a mais (teto 16) |
+| Android | alertas altos · só médios | +30, mais 5 por alerta a mais (teto 40) · +10, mais 3 por alerta a mais (teto 20) |
+| Configuração | configuração da família extraída · família reconhecida só pela regra do CAPE | +60 · +35 |
 
 - **Sugestão:** a partir de 70, *Malicioso*; de 35 a 69, *Suspeito*; abaixo disso, nenhuma.
 - **Nunca sugere "limpo":** a nota só soma evidência de que a amostra é ruim. Nota baixa quer dizer
@@ -794,6 +885,30 @@ para a triagem: **quem dá o veredito continua sendo o analista**, e nada muda s
   automática (tags, prioridade), use as **regras de triagem** acima.
 
 ---
+
+## Rascunho do relatório por IA (opcional)
+
+Desligado por padrão. Com `LLM_PROVIDER`, o editor de **relatório novo** ganha o botão **Rascunho por
+IA**. Ele preenche o resumo, os achados, os IOCs, o veredito sugerido e as técnicas ATT&CK a partir
+do que as análises já disseram. Uma faixa avisa que o texto foi gerado, e **nada é salvo nem
+publicado sozinho**: o analista revisa e salva.
+
+- **`LLM_PROVIDER=anthropic`:** a API da Anthropic, pelo SDK oficial, com `LLM_API_KEY` (aceita
+  `_FILE`). O modelo padrão é o `claude-opus-5-5`, com saída estruturada (JSON Schema) e esforço
+  `medium`. Com os modelos que aceitam, o fallback do servidor (`fallbacks: "default"`) fica ligado,
+  porque texto sobre malware às vezes cai no classificador de segurança.
+- **`LLM_PROVIDER=openai`:** qualquer servidor compatível com `/v1/chat/completions`, com `LLM_URL`
+  (ex.: `http://ollama:11434/v1`) e `LLM_MODEL`. É o caminho para quem quer que nada saia da casa.
+- **O que vai para o modelo:** só um JSON com o que as análises produziram: os motivos da pontuação
+  de risco, o YARA, o capa e o ATT&CK, os alertas (documento, script, emulação, APK), a configuração
+  de famílias, as detecções Sigma da amostra e os IOCs candidatos. **Nunca** vão o arquivo, a
+  memória, os prints ou os relatórios de outros analistas. O **Status do sistema** diz o provedor, o
+  modelo e o destino.
+- **Controles:**
+  - as técnicas que não existem no ATT&CK embutido saem, e a tela avisa;
+  - há um limite por analista (`LLM_DAILY_LIMIT`, padrão 30 em 24 h);
+  - cada pedido entra na auditoria com o modelo e o destino;
+  - recusa, tempo esgotado e resposta fora do formato aparecem com o motivo.
 
 ## Casos
 
@@ -1171,6 +1286,17 @@ COOKIE_SECURE=true
 | `OLETOOLS_TIMEOUT_S` / `OLETOOLS_MEM_LIMIT` | teto de uma análise e memória do contêiner | `120` / `1g` |
 | `OLETOOLS_REQUEST_TIMEOUT_S` | quanto a API espera por uma análise (acima do `OLETOOLS_TIMEOUT_S`) | `300` |
 | `OLETOOLS_RECYCLE` | um contêiner novo para cada análise; `false` = processo duradouro | `true` |
+| `EMULATE_URL` / `EMULATE_TOKEN` | serviço de emulação (Speakeasy); URL vazia desliga; token com 16+ caracteres | `http://emulate:3600` / — |
+| `EMULATE_MAX_MB` / `EMULATE_RUN_S` | maior arquivo emulado e tempo de emulação | `32` / `60` |
+| `EMULATE_TIMEOUT_S` / `EMULATE_REQUEST_TIMEOUT_S` / `EMULATE_MEM_LIMIT` | teto de uma análise, espera da API e memória do contêiner | `180` / `300` / `1g` |
+| `ANDROID_URL` / `ANDROID_TOKEN` | serviço de APK (androguard); URL vazia desliga | `http://android:3700` / — |
+| `ANDROID_MAX_MB` / `ANDROID_TIMEOUT_S` / `ANDROID_MEM_LIMIT` | maior APK, teto de uma análise e memória do contêiner | `100` / `180` / `1g` |
+| `EXTRACT_URL` / `EXTRACT_TOKEN` | serviço de configuração e memória (CAPE); URL vazia desliga | `http://extract:3800` / — |
+| `EXTRACT_MAX_MB` / `EXTRACT_TIMEOUT_S` / `EXTRACT_MEM_LIMIT` | maior arquivo, teto de uma análise e memória do contêiner | `64` / `300` / `2g` |
+| `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | dump de memória: teto por processo (`0` desliga), processos por captura, espera depois da execução automática | `512` / `4` / `120` |
+| `LLM_PROVIDER` | rascunho do relatório por IA: `anthropic`, `openai` (servidor compatível) ou vazio (desligado) | — |
+| `LLM_URL` / `LLM_API_KEY` / `LLM_MODEL` | servidor (obrigatório no `openai`), chave (obrigatória no `anthropic`) e modelo (padrão `claude-opus-5-5` no `anthropic`) | — |
+| `LLM_TIMEOUT_S` / `LLM_DAILY_LIMIT` | espera do modelo e rascunhos por analista em 24 h | `180` / `30` |
 | `COMPOSE_PROFILES` | `netcap` sobe os serviços `netcap` e `suricata` (captura de rede do sandbox) | — |
 | `MIKROTIK_URL` / `MIKROTIK_USER` / `MIKROTIK_PASSWORD` | API REST do RouterOS 7 do CHR, para o sniffer da captura de rede do sandbox; vazio desliga a captura | — |
 | `MIKROTIK_VERIFY_TLS` · `MIKROTIK_SNIFFER_INTERFACE` | `true` só se o certificado do CHR for confiável; interface em que o sniffer escuta (vazio: todas) | `false` · — |
@@ -1618,6 +1744,14 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
   Linux, nada muda, e o motivo aparece na tela.
 - **Execuções anteriores:** cada ambiente que a amostra já teve fica na seção, recolhido, com os
   próprios prints, processos, Sysmon, linha do tempo e captura (rodar de novo não esconde a anterior).
+- **Comparar execuções:** com duas ou mais execuções, o bloco **Comparar execuções** mostra, para
+  duas delas (a atual entra na escolha), o que só uma fez e o que as duas fizeram: processos,
+  consultas DNS, destinos de rede, arquivos criados, registro, detecções Sigma e alertas do
+  Suricata. Antes da comparação, a API tira o que muda à toa de uma execução para outra: PIDs,
+  GUIDs, o perfil e o SID do usuário (`HKU\S-1-5-21-…` vira `HKCU`), `%TEMP%`/`%APPDATA%` e nomes
+  temporários (`tmp1A2B.tmp`). Por padrão a comparação usa só a amostra e o que ela abriu, e
+  **Tudo** inclui o Windows. Serve para ver o que a amostra faz de diferente com e sem rede, com
+  outro tempo de espera ou em outro template.
 - **Fora da tela:** a linha do tempo sai em **CSV** ou **JSON** com os filtros da tela (o CSV abre
   no Excel com acentos, e o que viraria fórmula ganha um apóstrofo). Para analistas, a **ficha
   impressa** e o **Markdown dos relatórios** trazem o resumo da última execução: quando, quem, a
@@ -1633,6 +1767,80 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
   ([guia do Proxmox, seção 9](docs/proxmox.pt-BR.md#9-captura-de-rede-pelo-mikrotik-chr-opcional)).
   Sem elas, o sandbox segue igual. O pcap tem o tráfego da amostra, inclusive o que ela baixou: o
   backup com os arquivos o leva junto.
+
+### Regras Sigma no Sysmon
+
+Com o Sysmon no template, cada coleta passa os eventos **novos** pelas regras Sigma da
+[SigmaHQ](https://github.com/SigmaHQ/sigma). São os níveis crítico, alto e médio da release
+`sigma_core+`, só as regras de Windows que o Sysmon cobre: criação de processo, rede, arquivos,
+registro, DNS, DLL carregada, thread remota, acesso a processo, pipes, WMI, drivers e arquivos
+apagados. Para essas regras, a leitura do Sysmon também traz os eventos 6 a 10, 15, 17 a 21, 23, 25 e
+26. O resumo e a linha do tempo continuam com os cinco tipos de sempre.
+
+- **Onde aparece:** o bloco **Detecções Sigma** de cada execução mostra o nível, a regra, as
+  técnicas ATT&CK (links para o Histórico Global filtrado), o processo, quantas vezes casou e
+  quando. Ao abrir a linha aparecem a descrição, o evento que casou, os falsos positivos conhecidos
+  e o link da regra na versão usada. Por padrão só aparecem os processos da amostra e os que ela
+  abriu, pela mesma árvore da linha do tempo. **Tudo** mostra também o que casou no resto do
+  Windows.
+- **Pontuação de risco:** só as detecções nos processos da amostra contam. Crítico vale 40, alto 30
+  e médio 15, mais 5 por regra a mais, com teto de 50.
+- **Avaliação:** os eventos são avaliados uma vez só. **Avaliar de novo** refaz a execução do zero.
+  Quando as regras mudam (outra release vendorizada), a API reavalia todos os ambientes guardados
+  na subida, em segundo plano.
+- **Avaliador:** fica na própria API (`src/lib/sigma.ts`), sem serviço novo. Cobre:
+  - os modificadores `contains`, `startswith`, `endswith`, `all`, `re`, `base64`, `base64offset`,
+    `wide`, `windash`, `cidr`, `exists`, `gt`/`gte`/`lt`/`lte`, `cased` e `fieldref`;
+  - o valor `null`;
+  - as condições com `and`, `or`, `not`, parênteses, `1 of`/`all of` e `them`.
+
+  Ficam de fora `keywords`, agregações e correlações. Uma regra assim não entra, e o motivo fica no
+  manifesto.
+- **Atualizar as regras:**
+  1. Baixe o `sigma_core+.zip` da release e o `LICENSE` do mesmo tag.
+  2. Rode `node --import tsx scripts/vendor-sigma.mjs <pasta extraída> <tag> <LICENSE>` em
+     `apps/api`.
+  3. O script grava `apps/api/sigma/sigmahq/` e o `manifest.json` (versão, contagem e exclusões).
+
+  As regras seguem a **DRL 1.1**, e o nome e o link de cada uma aparecem na tela.
+
+### Dump de memória dos processos da amostra
+
+A memória inteira da VM não sai pelo Proxmox sem dar ao DeepLook o monitor do QEMU (`Sys.Modify` em
+`/`, quase administrador do nó) e acesso ao disco do host. Em vez disso, o dump é dos **processos da
+amostra**, dentro do clone, pelo mesmo agente do Sysmon:
+
+1. **Processos:** saem da árvore da amostra no Sysmon e são conferidos vivos na lista do agente,
+   pelo nome e pelo processo pai. O Windows reaproveita PIDs: no teste real, um `conhost` que tinha
+   sido da amostra já era o console do próprio agente. O `conhost.exe` nunca é despejado.
+2. **Dump:** `MiniDumpWriteDump` com a memória inteira e as informações das regiões, compactado com
+   gzip em `%TEMP%`.
+3. **Transferência:** o gzip é lido em pedaços de 768 KB (Base64 na saída do agente; com 2 MB o
+   qemu-ga do Windows cai), conferido pelo SHA-256, guardado no MinIO e apagado da VM.
+
+O serviço `extract` então lê o minidump:
+
+- as **regiões privadas executáveis** (código que não veio de um arquivo do disco), com a proteção,
+  a entropia e os primeiros bytes;
+- os **PEs dentro delas** (desempacotados ou injetados), realinhados para o formato de arquivo. Cada
+  um vira **amostra filha** e passa pelo YARA, pelo capa, pela emulação e pela configuração como
+  qualquer envio;
+- as **URLs** da memória privada;
+- a **configuração de famílias** nas regiões (as regras e os extratores do CAPE).
+
+**Como pedir:**
+
+- na janela de abertura, a caixa **Capturar a memória da amostra depois de executá-la** (junto com
+  a execução automática) agenda a captura para `SANDBOX_MEMDUMP_DELAY_S` (padrão 120 s) depois de a
+  amostra rodar;
+- com o ambiente no ar, o botão **Capturar memória agora**, no bloco **Memória dos processos da
+  amostra**.
+
+O bloco mostra cada dump (processo, tamanho, regiões suspeitas, amostras filhas e URLs) e o link do
+`.dmp.gz`. O download fica na auditoria. Tetos: `SANDBOX_MEMDUMP_MAX_MB` (padrão 512 MB por processo;
+`0` desliga) e `SANDBOX_MEMDUMP_MAX_PROCESSES` (padrão 4). No teste real, o dump de um processo
+pequeno levou cerca de 20 s (11 MB, 4 MB com gzip). O Volatility 3 não lê minidump: a busca das
+regiões é a do `malfind`, feita no próprio dump.
 
 ### Execução automática da amostra
 
@@ -1705,6 +1913,12 @@ histórico da amostra registra a execução e quem a pediu.
 | GET | `/api/sandbox/:id/artifacts/:artifactId` | Um print guardado (PNG) |
 | GET | `/api/sandbox/:id/timeline` | Linha do tempo do Sysmon (`scope=sample\|all`, `kinds`, `page`) e as marcas do ambiente |
 | GET | `/api/sandbox/:id/timeline/export` | A linha do tempo inteira para baixar (`format=csv\|json`, `scope`, `kinds`) |
+| GET | `/api/sandbox/:id/sigma` | Detecções Sigma da execução (regra, nível, ATT&CK, processo, se é da amostra) |
+| POST | `/api/sandbox/:id/sigma/reevaluate` | Avalia de novo, do zero, os eventos da execução |
+| GET | `/api/sandbox/:id/compare/:other` | Diff entre duas execuções da mesma amostra (`scope=sample\|all`) |
+| GET | `/api/sandbox/:id/memory` | Dumps de memória da execução (processos, regiões, amostras filhas) |
+| POST | `/api/sandbox/:id/memory` | Captura agora a memória dos processos da amostra (ambiente no ar) |
+| GET | `/api/sandbox/:id/memory/:dumpId/download` | O `.dmp.gz` (na auditoria) |
 | GET | `/api/sandbox/:id/summary` | Resumo da execução: processos da amostra, DNS, conexões, arquivos e registro |
 | GET | `/api/entries/:id/sandbox/sessions` | Execuções (ambientes) da amostra, a mais recente primeiro |
 | GET | `/api/sandbox/:id/pcap` | Baixa o pcap do ambiente (registrado na auditoria) |

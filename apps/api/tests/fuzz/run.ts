@@ -203,6 +203,16 @@ function syntheticSeeds(): Record<string, Buffer[]> {
     zip: [zip],
     disk: [iso],
     eml: [eml],
+    // Desofuscacao (plans/novas-analises, item 5): um trecho de cada sabor.
+    deobfuscate: [
+      script,
+      Buffer.from(
+        "$a='Do'+'wn'; I`E`X (\"{1}{0}\" -f 'load',$a); [char[]](72,105) -join ''; 'gnirtS'[-1..-6]",
+      ),
+      Buffer.from('@echo off\r\nset a=pow\r\n%a%er^s^hell %COMSPEC:~-7,3% %a:o=0%\r\n'),
+      Buffer.from('x = StrReverse("abc") & Chr(65) & Replace("aXb","X","y")'),
+      Buffer.from("var s='\\x41'+'b'.split('').reverse().join('')+'c'.replace(/c/g,'d')"),
+    ],
     image: [png, jpeg, webp],
     iocs: [csv, stix],
     // O TLSH pede 512 bytes e alguma variacao: as sementes pequenas, repetidas com um contador.

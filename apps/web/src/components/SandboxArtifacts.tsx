@@ -5,7 +5,9 @@ import type { SandboxArtifacts as Artifacts } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/sandbox';
 import { HpsmMessage } from './messages';
+import { SandboxMemory } from './SandboxMemory';
 import { SandboxNetwork } from './SandboxNetwork';
+import { SandboxSigma } from './SandboxSigma';
 import { SandboxSysmon } from './SandboxSysmon';
 import { SandboxTimeline } from './SandboxTimeline';
 
@@ -107,7 +109,12 @@ export function SandboxArtifacts({ sessionId, running }: { sessionId: string; ru
         </>
       )}
       {data.sysmon && <SandboxSysmon sysmon={data.sysmon} />}
+      {data.sysmon?.available && (
+        <SandboxSigma sessionId={sessionId} running={running} intervalS={data.intervalS} />
+      )}
       {data.sysmon?.available && <SandboxTimeline sessionId={sessionId} running={running} />}
+      {/* Dump de memoria dos processos da amostra (plans/novas-analises, item 3). */}
+      <SandboxMemory sessionId={sessionId} running={running} />
       {data.network && <SandboxNetwork sessionId={sessionId} network={data.network} />}
     </div>
   );

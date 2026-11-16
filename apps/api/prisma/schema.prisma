@@ -208,6 +208,8 @@ model Entry {
   /// Analise de funcoes (capa e FLOSS, item 7.2).
   capaAnalysis       CapaAnalysis?
   officeAnalysis     OfficeAnalysis?
+  /// Emulacao, APK e configuracao de familias (plans/novas-analises, itens 2, 4 e 6).
+  serviceAnalyses    ServiceAnalysis[]
   /// QR code na imagem, no PDF ou no print da pagina (plano pos-revisao, item 2.2).
   qrScan             QrScan?
   /// Analise com o Ghidra, sob demanda (item 7.3).
@@ -227,8 +229,8 @@ model Entry {
   emailInfo          Json?
   /// Anexo de um e-mail enviado (amostra pai = o .eml).
   parentEntryId      String?
-  parentEntry        Entry?          @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
-  attachmentsOf      Entry[]         @relation("EntryAttachments")
+  parentEntry        Entry?            @relation("EntryAttachments", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  attachmentsOf      Entry[]           @relation("EntryAttachments")
   /// Arquivo apagado do armazenamento pela retencao (RETENTION_DAYS); ficha,
   /// relatorios, IOCs e hash continuam (src/lib/retention.ts).
   filePurgedAt       DateTime?
@@ -436,6 +438,14 @@ model SandboxSession {
   artifacts     SandboxArtifact[]
   /// Eventos do Sysmon, lidos aos poucos (plans/sandbox-execucoes, fase 2).
   sysmonEvents  SandboxSysmonEvent[]
+  /// Deteccoes das regras Sigma (plans/novas-analises, item 1).
+  sigmaHits     SandboxSigmaHit[]
+  /// Dumps de memoria dos processos da amostra (plans/novas-analises, item 3).
+  memoryDumps   SandboxMemoryDump[]
+  /// O analista pediu a captura da memoria ao abrir (depois da execucao automatica).
+  memoryDump    Boolean               @default(false)
+  /// Quando capturar (a execucao automatica mais SANDBOX_MEMDUMP_DELAY_S); null = ainda nao.
+  memoryDumpAt  DateTime?
   /// Captura de rede pelo MikroTik (plano pos-revisao, item 5.4).
   capture       NetworkCapture?
   /// O analista desligou a captura de rede ao abrir (plans/ajustes-usabilidade, item 5).
@@ -500,24 +510,54 @@ model SandboxArtifact {
 /// a partir do ultimo guardado, entao o comportamento tardio da amostra nao cai fora do teto de uma
 /// leitura. A hora e a do relogio da VM; a diferenca para a da API fica na situacao (SYSMON).
 model SandboxSysmonEvent {
-  id          String         @id @default(cuid())
-  sessionId   String
-  session     SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id           String         @id @default(cuid())
+  sessionId    String
+  session      SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   /// EventRecordID do log: com a hora, identifica o evento (reler a mesma janela nao duplica).
-  recordId    BigInt
+  recordId     BigInt
   /// 1 processo, 3 rede, 11 arquivo, 12-14 registro, 22 DNS.
-  eventId     Int
-  time        DateTime
-  image       String?
-  processGuid String?
+  eventId      Int
+  time         DateTime
+  image        String?
+  processGuid  String?
   /// ParentProcessGuid (so no evento 1): monta a arvore de processos da amostra.
-  parentGuid  String?
+  parentGuid   String?
   /// Os campos do evento (EventData), cada um cortado.
-  data        Json
+  data         Json
+  /// Ja passou pelas regras Sigma (plans/novas-analises, item 1).
+  sigmaChecked Boolean        @default(false)
 
   @@unique([sessionId, recordId, time])
   @@index([sessionId, time])
   @@index([sessionId, processGuid])
+  @@index([sessionId, sigmaChecked])
+}
+
+/// Deteccao de uma regra Sigma nos eventos do Sysmon de um ambiente (plans/novas-analises, item 1):
+/// uma linha por regra e processo, com quantas vezes casou e o primeiro evento.
+model SandboxSigmaHit {
+  id          String         @id @default(cuid())
+  sessionId   String
+  session     SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  ruleId      String
+  title       String
+  /// informational, low, medium, high, critical.
+  level       String
+  /// Tecnicas ATT&CK das tags da regra.
+  techniques  String[]       @default([])
+  /// Processo do evento (ProcessGuid; SourceProcessGuid no acesso e na thread remota); "" sem ele.
+  processGuid String         @default("")
+  image       String?
+  eventId     Int
+  /// O primeiro evento que casou (os campos), para a tela.
+  event       Json
+  count       Int            @default(1)
+  firstAt     DateTime
+  lastAt      DateTime
+  createdAt   DateTime       @default(now())
+
+  @@unique([sessionId, ruleId, processGuid])
+  @@index([sessionId, level])
 }
 
 /// Tipos de evento do historico (auditoria) de uma amostra.
@@ -1076,6 +1116,10 @@ enum AuditAction {
   ENTRY_DOWNLOADED
   /// pcap da captura de rede do sandbox baixado (plano pos-revisao, item 5.4).
   SANDBOX_PCAP_DOWNLOADED
+  /// Dump de memoria de um processo do ambiente baixado (plans/novas-analises, item 3).
+  SANDBOX_MEMDUMP_DOWNLOADED
+  /// Rascunho de relatorio pedido a IA (plans/novas-analises, item 7): o que saiu e para onde.
+  REPORT_AI_DRAFT
   /// Arquivo guardado nao confere com o SHA-256 da ficha (ou sumiu) e voltou a conferir (item 4.2).
   ENTRY_INTEGRITY_FAILED
   ENTRY_INTEGRITY_RESTORED
@@ -1662,4 +1706,88 @@ model NetworkCapture {
 
   @@index([status])
   @@index([idsStatus, idsNextAttemptAt])
+}
+
+/// Analises dos servicos novos (plans/novas-analises): emulacao (emulate), APK (android) e
+/// configuracao de familias (extract). Uma por amostra e tipo, com a mesma fila das outras
+/// (lib/service-analysis.ts): em segundo plano, um por vez por tipo, com tentativas.
+model ServiceAnalysis {
+  id            String                @id @default(cuid())
+  entryId       String
+  entry         Entry                 @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  kind          ServiceKind
+  status        ServiceAnalysisStatus @default(PENDING)
+  /// O que foi pedido (ex.: shellcode e a arquitetura na emulacao).
+  options       Json?
+  /// O resumo que o servico devolveu (sem o campo ok).
+  result        Json?
+  /// Alertas montados aqui a partir do resultado ({ level, text }).
+  alerts        Json?
+  /// Dominios, IPs e URLs do resultado (IOCs sugeridos).
+  iocs          String[]              @default([])
+  error         String?
+  version       String?
+  ms            Int?
+  attempts      Int                   @default(0)
+  nextAttemptAt DateTime              @default(now())
+  createdAt     DateTime              @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@unique([entryId, kind])
+  @@index([kind, status, nextAttemptAt])
+}
+
+enum ServiceKind {
+  EMULATION
+  ANDROID
+  CONFIG
+}
+
+enum ServiceAnalysisStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// Dump de memoria de um processo da amostra no sandbox (plans/novas-analises, item 3): MiniDump
+/// completo tirado na VM pelo agente, guardado com gzip no MinIO e lido pelo servico extract
+/// (regioes suspeitas, PEs fora de imagem, configuracao de familias). Os PEs achados viram amostras
+/// filhas.
+model SandboxMemoryDump {
+  id          String           @id @default(cuid())
+  sessionId   String
+  session     SandboxSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pid         Int
+  image       String?
+  processGuid String?
+  status      MemoryDumpStatus @default(CAPTURING)
+  /// O dump (gzip) no bucket.
+  storageKey  String?
+  /// Tamanho do dump e do gzip, em bytes.
+  size        BigInt?
+  storedSize  BigInt?
+  /// SHA-256 do gzip (conferido na transferencia).
+  sha256      String?
+  error       String?
+  /// O que o extract achou, sem os bytes dos PEs (regioes, URLs, configuracoes).
+  result      Json?
+  /// Amostras filhas criadas com os PEs achados: [{ entryId, sha256, base }].
+  children    Json?
+  attempts    Int              @default(0)
+  createdAt   DateTime         @default(now())
+  storedAt    DateTime?
+  finishedAt  DateTime?
+
+  @@index([sessionId])
+  @@index([status])
+}
+
+enum MemoryDumpStatus {
+  CAPTURING
+  STORED
+  ANALYZING
+  DONE
+  FAILED
 }

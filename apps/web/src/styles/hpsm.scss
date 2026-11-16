@@ -3855,6 +3855,86 @@ li .dl-link,
   margin-block-start: 0.75rem;
 }
 
+/* Emulacao: pedir como shellcode, com a arquitetura (plans/novas-analises, item 4). */
+.dl-emu__shellcode {
+  margin-inline-start: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Dump de memoria (plans/novas-analises, item 3). */
+.dl-memory {
+  margin-block: 0.5rem;
+}
+
+.dl-memory__list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+
+  > li + li {
+    margin-block-start: 0.75rem;
+  }
+}
+
+/* Diff entre execucoes (plans/novas-analises, item 8). */
+.dl-runcompare {
+  margin-block: 0.5rem;
+
+  select {
+    max-inline-size: 100%;
+  }
+}
+
+.dl-runcompare__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.5rem 1rem;
+
+  h5 {
+    margin-block: 0.4rem 0.2rem;
+    font-size: inherit;
+    font-weight: 600;
+  }
+}
+
+.dl-runcompare__list {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+
+  li {
+    overflow-wrap: anywhere;
+  }
+}
+
+.dl-runcompare__both {
+  margin-block-start: 0.4rem;
+}
+
+/* Deteccoes Sigma de uma execucao (plans/novas-analises, item 1). */
+.dl-sigma {
+  margin-block-start: 0.75rem;
+
+  .dl-timeline__filters {
+    align-items: center;
+  }
+}
+
+.dl-sigma__detail td {
+  background: var(--dl-surface-alt);
+}
+
+.dl-sigma__event {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.15rem 0.75rem;
+  margin-block: 0.4rem;
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
 .dl-timeline__filters {
   display: flex;
   flex-wrap: wrap;

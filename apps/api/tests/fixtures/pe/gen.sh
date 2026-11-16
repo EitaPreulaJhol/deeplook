@@ -24,6 +24,8 @@ $X86-gcc -O1 -s -o prog32.exe prog.c -lws2_32 -lwininet
 $X64-gcc -O1 -s -shared -o teste.dll lib.c lib.def
 # Analise de funcoes (item 7.2): strings montadas na pilha e decifradas por XOR, para o FLOSS, e
 # um ELF de verdade para o capa.
+# Emulacao (plans/novas-analises, item 4): o comportamento que o Speakeasy deve ver.
+$X86-gcc -O1 -s -o emulado32.exe emulado.c -lwininet
 $X64-gcc -O1 -s -o ofuscado64.exe ofuscado.c
 $X86-gcc -O1 -s -o ofuscado32.exe ofuscado.c
 cp /usr/bin/true linux.elf
@@ -86,7 +88,8 @@ python3 reference.py "$W" > reference.json
 mkdir -p /out
 cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe rich.exe \
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
-  autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe linux.elf nsis.exe pyinst.bin \
+  autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
+  pyinst.bin \
   inno-6.2.2.exe inno-6.4.3.exe reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi

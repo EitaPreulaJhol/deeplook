@@ -52,6 +52,8 @@ COPY src/secret-files.ts ./src/secret-files.ts
 COPY prisma ./prisma
 # Pacotes de regras YARA (item 143).
 COPY rules ./rules
+# Regras Sigma vendorizadas (plans/novas-analises, item 1).
+COPY sigma ./sigma
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 

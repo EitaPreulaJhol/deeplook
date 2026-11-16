@@ -56,6 +56,8 @@ export interface LaunchOptions {
   autoRun?: boolean;
   minutes?: number;
   capture?: boolean;
+  /** Dump de memoria depois da execucao automatica (plans/novas-analises, item 3). */
+  memoryDump?: boolean;
 }
 
 /** Resultado de abrir o ambiente: o aviso, quando houver (popup bloqueado ou erro da API). */

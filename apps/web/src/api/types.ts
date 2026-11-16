@@ -748,6 +748,8 @@ export type AuditAction =
   | 'ENTRY_DELETED'
   | 'ENTRY_DOWNLOADED'
   | 'SANDBOX_PCAP_DOWNLOADED'
+  | 'SANDBOX_MEMDUMP_DOWNLOADED'
+  | 'REPORT_AI_DRAFT'
   | 'ENTRY_INTEGRITY_FAILED'
   | 'ENTRY_INTEGRITY_RESTORED'
   | 'YARA_RULE_CREATED'
@@ -779,6 +781,40 @@ export interface AuditEvent {
 }
 
 /** Artefatos do sandbox (GET /api/sandbox/:id/artifacts; revisao 3.7). */
+/** GET /api/sandbox/:id/sigma (plans/novas-analises, item 1). */
+export interface SandboxSigmaHit {
+  ruleId: string;
+  title: string;
+  level: 'critical' | 'high' | 'medium' | 'low' | 'informational' | string;
+  techniques: string[];
+  image: string | null;
+  pid: number | null;
+  sample: boolean;
+  eventId: number;
+  event: Record<string, string | null>;
+  count: number;
+  firstAt: string;
+  lastAt: string;
+  description: string | null;
+  author: string | null;
+  falsepositives: string[];
+  references: string[];
+  url: string | null;
+}
+
+export interface SandboxSigma {
+  rules: {
+    name: string | null;
+    release: string | null;
+    license: string | null;
+    url: string | null;
+    count: number;
+  };
+  sample: { name: string; found: boolean };
+  pending: number;
+  hits: SandboxSigmaHit[];
+}
+
 export interface SandboxArtifacts {
   status: SandboxStatus;
   note: string | null;
@@ -890,6 +926,126 @@ export interface SandboxProcess {
 }
 
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
+/** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
+export type ServiceKindId = 'emulation' | 'android' | 'config';
+
+export interface EmulationResult {
+  kind: 'pe' | 'shellcode';
+  arch?: string | null;
+  filetype?: string | null;
+  runtimeS?: number;
+  apiTotal: number;
+  apis: {
+    name: string;
+    count: number;
+    order: number;
+    args: (string | null)[];
+    ret?: string | null;
+  }[];
+  entryPoints: {
+    type?: string | null;
+    start?: string | null;
+    apis: number;
+    error?: string | null;
+  }[];
+  files: { event?: string | null; path: string }[];
+  registry: { event?: string | null; path: string; value?: string | null }[];
+  network: {
+    dns: { query: string; response?: string | null }[];
+    traffic: {
+      server?: string | null;
+      port?: number | null;
+      proto?: string | null;
+      method?: string | null;
+      url?: string | null;
+    }[];
+  };
+  processes: {
+    event?: string | null;
+    pid?: number | null;
+    path?: string | null;
+    cmdline?: string | null;
+    protect?: string | null;
+    size?: number | null;
+  }[];
+  dropped: { path: string; size?: number | null; sha256?: string | null }[];
+  dynamicCode: number;
+  strings: (string | null)[];
+  errors: {
+    entry?: string | null;
+    type?: string | null;
+    api?: string | null;
+    pc?: string | null;
+    instr?: string | null;
+  }[];
+}
+
+export interface AndroidResult {
+  package?: string | null;
+  appName?: string | null;
+  versionName?: string | null;
+  versionCode?: string | null;
+  minSdk?: string | null;
+  targetSdk?: string | null;
+  mainActivity?: string | null;
+  permissions: { name: string; short: string; dangerous: boolean }[];
+  components: { activities: number; services: number; receivers: number; providers: number };
+  exported: {
+    kind: string;
+    name?: string | null;
+    permission?: string | null;
+    actions: (string | null)[];
+  }[];
+  certificates: {
+    subject?: string | null;
+    issuer?: string | null;
+    serial?: string | null;
+    sha256: string;
+    notBefore?: string | null;
+    notAfter?: string | null;
+    selfSigned: boolean;
+    debug: boolean;
+  }[];
+  signed: { v1: boolean; v2: boolean; v3: boolean };
+  apis: string[];
+  urls: (string | null)[];
+  ips: string[];
+  domains: string[];
+  dexFiles: string[];
+  nativeLibs: (string | null)[];
+  hiddenPayloads: (string | null)[];
+  fileCount: number;
+  dexErrors: (string | null)[];
+}
+
+export interface ConfigResult {
+  parsers?: number;
+  matches: { rule: string | null; family: string | null }[];
+  configs: { family: string; config: unknown }[];
+  errors: { family: string; error: string | null }[];
+}
+
+export interface ServiceAnalysisInfo<R> {
+  enabled: boolean;
+  auto: boolean;
+  manual: boolean;
+  maxMb: number;
+  analysis: {
+    status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    options: Record<string, string> | null;
+    result: R | null;
+    alerts: { level: 'high' | 'medium' | 'info'; text: string }[] | null;
+    iocs: string[];
+    error: string | null;
+    version: string | null;
+    ms: number | null;
+    attempts: number;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+  } | null;
+}
+
 export interface OfficeInfo {
   enabled: boolean;
   eligible: boolean;
@@ -1356,6 +1512,71 @@ export interface SandboxRunSummary {
 }
 
 /** Uma execucao (sessao) da amostra no historico: GET /api/entries/:id/sandbox/sessions. */
+/** GET /api/sandbox/:id/memory (plans/novas-analises, item 3). */
+export interface SandboxMemoryDump {
+  id: string;
+  pid: number;
+  image: string | null;
+  status: 'CAPTURING' | 'STORED' | 'ANALYZING' | 'DONE' | 'FAILED';
+  size: number | null;
+  storedSize: number | null;
+  sha256: string | null;
+  error: string | null;
+  result: {
+    arch?: string | null;
+    modules: number;
+    regionsTotal: number;
+    privateScanned: number;
+    privateExecutable: number;
+    regions: {
+      base: string;
+      size: number;
+      protect: string;
+      kind: 'pe' | 'code';
+      entropy: number;
+      head: string;
+      sha256: string;
+      carved?: string;
+      matches?: { rule: string | null; family: string | null }[];
+      configs?: { family: string; config: unknown }[];
+    }[];
+    urls: string[];
+  } | null;
+  children: { entryId: string; sha256: string; base: string }[] | null;
+  createdAt: string;
+  storedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface SandboxMemory {
+  enabled: boolean;
+  analysis: boolean;
+  running: boolean;
+  scheduledAt: string | null;
+  requested: boolean;
+  dumps: SandboxMemoryDump[];
+}
+
+/** GET /api/sandbox/:a/compare/:b (plans/novas-analises, item 8). */
+export type SandboxCompareCategory =
+  'process' | 'dns' | 'network' | 'file' | 'registry' | 'sigma' | 'ids';
+
+export interface SandboxCompare {
+  a: { id: string; startedAt: string; stoppedAt: string | null };
+  b: { id: string; startedAt: string; stoppedAt: string | null };
+  scope: 'sample' | 'all';
+  sample: { name: string; foundA: boolean; foundB: boolean };
+  categories: Record<
+    SandboxCompareCategory,
+    {
+      onlyA: { key: string; example: string; count: number }[];
+      onlyB: { key: string; example: string; count: number }[];
+      both: { key: string; exampleA: string; exampleB: string }[];
+      counts: { onlyA: number; onlyB: number; both: number };
+    }
+  >;
+}
+
 export interface SandboxRun {
   id: string;
   status: SandboxStatus;

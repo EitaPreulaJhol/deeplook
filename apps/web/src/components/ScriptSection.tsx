@@ -71,7 +71,13 @@ export function ScriptSection({ info }: { info?: StaticInfo | null }) {
         <HpsmField label={t('lines')}>
           <HpsmReadonly>
             {script.lines}
-            {script.encoded && ` · ${t('encodedScript')}`}
+            {script.encoded &&
+              ` · ${t(
+                // Analises antigas so marcavam o Script Encoder; as novas trazem o texto como camada.
+                script.layers[0]?.method === 'Script Encoder (.vbe/.jse)'
+                  ? 'encodedScriptDecoded'
+                  : 'encodedScript',
+              )}`}
           </HpsmReadonly>
         </HpsmField>
         <HpsmField label={t('findings')} wide top>

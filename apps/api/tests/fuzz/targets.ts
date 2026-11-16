@@ -5,6 +5,7 @@ import { analyzeDiskImage, extractDiskFile } from '../../src/lib/disk-image';
 import { parseEmail } from '../../src/lib/eml';
 import { cleanEvidenceImage, EvidenceImageError } from '../../src/lib/evidence-image';
 import { ImportError, parseImport } from '../../src/lib/ioc-import';
+import { decodeScriptEncoder, normalizeScript } from '../../src/lib/script-deobfuscate';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
 import { tlsh } from '../../src/lib/tlsh';
 import { extractZipEntry, listZip, ZipError } from '../../src/lib/zip';
@@ -25,6 +26,18 @@ export const TARGETS: Record<string, Target> = {
       // A extensao muda o caminho (script, disfarce de extensao): varia com o conteudo.
       const names = ['a.exe', 'a.pdf', 'a.docx', 'a.ps1', 'a.js', 'a.lnk', 'a.iso', 'a', null];
       return analyzeBuffer(buf, names[buf.length % names.length]);
+    },
+  },
+  // Desofuscacao de scripts (plans/novas-analises, item 5): regex sobre texto hostil, nos quatro
+  // sabores, e o decodificador do Script Encoder.
+  deobfuscate: {
+    expected: never,
+    run: (buf) => {
+      const text = buf.toString('latin1');
+      const out = (['powershell', 'batch', 'vbscript', 'javascript'] as const).map(
+        (f) => normalizeScript(text, f).text.length,
+      );
+      return { out, encoded: decodeScriptEncoder(`#@~^AAAAAA==${text}AAAAAA==^#~@`)?.length };
     },
   },
   zip: {

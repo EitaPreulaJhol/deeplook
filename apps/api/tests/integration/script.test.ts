@@ -97,8 +97,12 @@ async function main() {
   info = analyzeScript(Buffer.from(vbs), 'nota');
   ok('VBScript pelo conteúdo', info?.language === 'vbscript');
   ok(
+    // Desde a normalizacao (plans/novas-analises, item 5), o Chr() & Chr() vira texto na camada
+    // normalizada, junto com o resto da linha.
     'Chr() decodificado',
-    info?.layers.some((l) => l.method === 'Chr() & Chr()' && l.text === word),
+    info?.layers.some(
+      (l) => l.method.includes('Chr() no meio do texto') && l.text.includes(`u = "${word}"`),
+    ),
     info?.layers,
   );
   ok(

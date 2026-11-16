@@ -15,6 +15,7 @@ import {
   pveVerifyTls,
 } from './proxmox';
 import { s3 } from './s3';
+import { evaluateSigma } from './sigma-store';
 import {
   parseSysmonRead,
   SYSMON_READ_MAX,
@@ -464,6 +465,13 @@ export async function collectArtifacts(
   // coleta le so os eventos novos (plans/sandbox-execucoes, fase 2).
   if (result.processes && windows) {
     result.sysmon = await readSysmon(sessionId, node, vmid, session.startedAt ?? session.createdAt);
+    // Regras Sigma sobre os eventos novos (plans/novas-analises, item 1). Falha so vai para o log:
+    // a proxima coleta tenta de novo (os eventos seguem marcados como nao avaliados).
+    if (result.sysmon) {
+      await evaluateSigma(sessionId).catch((err: unknown) =>
+        log.warn(`[sigma] avaliação do ambiente ${sessionId} falhou: ${reason(err)}`),
+      );
+    }
   }
   // A ultima coleta (ao encerrar) e de cortesia: o agente as vezes nao responde com a VM ja
   // desligando (visto no teste real, 5.5). Se o ambiente ja tem listas de processos, a falha dela

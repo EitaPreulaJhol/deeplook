@@ -21,6 +21,9 @@ const GHIDRA = 'dl-ghidra';
 const UNPACK = 'dl-unpack';
 const OLETOOLS = 'dl-oletools';
 const SURICATA = 'dl-suricata';
+const EMULATE = 'dl-emulate';
+const ANDROID = 'dl-android';
+const EXTRACT = 'dl-extract';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -273,6 +276,45 @@ const startOletools = () =>
     tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
   });
 
+// Servicos novos (plans/novas-analises): emulacao, APK e configuracao/memoria.
+const startEmulate = () =>
+  startService({
+    name: EMULATE,
+    dir: 'emulate',
+    port: 53600,
+    inner: 3600,
+    env: 'EMULATE_TOKEN',
+    memory: '1g',
+    pids: 64,
+    tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
+    extra: ['EMULATE_RUN_S=20'],
+  });
+
+const startAndroid = () =>
+  startService({
+    name: ANDROID,
+    dir: 'android',
+    port: 53700,
+    inner: 3700,
+    env: 'ANDROID_TOKEN',
+    memory: '1g',
+    pids: 64,
+    tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
+  });
+
+const startExtract = () =>
+  startService({
+    name: EXTRACT,
+    dir: 'extract',
+    // 53800 e a do Suricata.
+    port: 53900,
+    inner: 3800,
+    env: 'EXTRACT_TOKEN',
+    memory: '2g',
+    pids: 64,
+    tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
+  });
+
 const startUnpack = () =>
   startService({
     name: UNPACK,
@@ -375,7 +417,7 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
-if (files.some((f) => /^pe-|capa|ghidra|unpack/.test(f))) {
+if (files.some((f) => /^pe-|capa|ghidra|unpack|emulate|extract/.test(f))) {
   peFixtures();
 }
 if (files.some((f) => f.includes('capa'))) await startCapa();
@@ -383,6 +425,9 @@ if (files.some((f) => f.includes('ghidra'))) await startGhidra();
 if (files.some((f) => f.includes('unpack'))) await startUnpack();
 if (files.some((f) => f.includes('oletools'))) await startOletools();
 if (files.some((f) => f.includes('suricata'))) await startSuricata();
+if (files.some((f) => f.includes('emulate'))) await startEmulate();
+if (files.some((f) => f.includes('android'))) await startAndroid();
+if (files.some((f) => f.includes('extract'))) await startExtract();
 
 let total = 0;
 const bad = [];
@@ -393,8 +438,10 @@ for (const file of files) {
   for (const line of failed) console.log(`      ${line}`);
   if (status !== 0 || failed.length) bad.push(file);
 }
-if (clean) quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
-else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
+if (clean) {
+  quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
+  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT);
+} else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(
   bad.length
     ? `\n${bad.length} arquivo(s) com falha: ${bad.join(', ')}`

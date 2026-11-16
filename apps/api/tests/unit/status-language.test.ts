@@ -34,6 +34,8 @@ const SAME = new Set([
   'Ghidra {0}',
   ' (StartTLS)',
   'HTTP {0}',
+  // Nome do servico de APK (plans/novas-analises, item 6): igual nos dois idiomas.
+  'APK/Android (androguard)',
 ]);
 
 /** Textos do arquivo que aparecem fora do status (ex.: na Auditoria), e nao vao para STATUS_EN. */

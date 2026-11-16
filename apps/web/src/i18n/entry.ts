@@ -489,6 +489,25 @@ export const messages = {
   ],
   newReport: ['Novo relatório de análise', 'New analysis report'],
   saveReport: ['Salvar relatório', 'Save report'],
+  // Rascunho por IA (plans/novas-analises, item 7)
+  aiDraft: ['Rascunho por IA', 'AI draft'],
+  aiDrafting: ['Gerando rascunho...', 'Generating draft...'],
+  aiDraftHint: [
+    'Preenche o formulário com um rascunho a partir das análises já feitas (as evidências vão para {destination}; o arquivo não vai).',
+    'Fills the form with a draft from the analyses already done (the evidence goes to {destination}; the file does not).',
+  ],
+  aiDraftWarning: [
+    'Texto gerado por IA ({model}) a partir das análises: revise tudo antes de salvar.',
+    'AI-generated text ({model}) from the analyses: review everything before saving.',
+  ],
+  aiDraftDropped: [
+    'Técnicas que não existem no ATT&CK ficaram de fora: {list}.',
+    'Techniques that do not exist in ATT&CK were left out: {list}.',
+  ],
+  aiReplaceConfirm: [
+    'O rascunho por IA substitui o que já está no formulário. Continuar?',
+    'The AI draft replaces what is already in the form. Continue?',
+  ],
   saveHint: ['Salvar (Ctrl+S)', 'Save (Ctrl+S)'],
   template: ['Modelo', 'Template'],
   templateHelp: [

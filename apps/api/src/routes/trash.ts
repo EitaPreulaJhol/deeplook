@@ -11,6 +11,7 @@ import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
 import { activeSessionForEntry } from '../lib/sandbox';
 import { artifactKeysOf } from '../lib/sandbox-artifacts';
+import { memdumpKeysOf } from '../lib/sandbox-memdump';
 import { sendValidationError } from '../lib/validation';
 import { deleteEvidenceObjects } from './evidence';
 
@@ -148,6 +149,8 @@ export async function trashRoutes(app: FastifyInstance) {
         ...evidence.map((e) => e.storageKey),
         // Prints do sandbox (revisao 3.7) e o pcap da captura de rede (plano pos-revisao, 5.4).
         ...(await artifactKeysOf(id)),
+        // Dumps de memoria do sandbox (plans/novas-analises, item 3).
+        ...(await memdumpKeysOf(id)),
         ...(await captureKeysOf(id)),
         ...captures
           .flatMap((c) => [c.screenshotKey, c.htmlKey])
