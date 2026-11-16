@@ -1540,6 +1540,56 @@ npx prisma generate
 
 ---
 
+## Monitoramento (Administração › Monitoramento)
+
+Uma aba só para administradores, atualizada a cada 10 s, para ver a carga da operação e parar o que
+for preciso. Toda ação vai para a auditoria.
+
+- **Ambientes do sandbox:**
+  - **o que mostra:** os ambientes ativos, com quem abriu, a amostra, a fase, desde quando, quanto
+    falta para expirar (laranja nos últimos 10 min) e a CPU e a memória de cada VM;
+  - **limites:** quantos ambientes estão em uso de `SANDBOX_MAX_ACTIVE` e quem está no limite de
+    `SANDBOX_MAX_PER_USER`;
+  - **nó do Proxmox:** CPU, memória e disco. Isso pede a leitura do nó (`Sys.Audit`, o
+    `PVEAuditor` em `/`; ver [docs/proxmox.pt-BR.md](docs/proxmox.pt-BR.md)). Sem ela, a tela avisa
+    e o resto funciona;
+  - **órfãs:** VMs e ISOs órfãs desta instalação, contadas pela mesma regra da limpeza automática,
+    com o botão **Limpar agora**. O template e as VMs sem a etiqueta desta instalação nunca entram;
+  - **encerrar** um, os selecionados ou **todos**. "Todos" pede para digitar o número de ambientes.
+    O encerramento faz a última coleta de artefatos e apaga a VM. Quem abriu recebe um aviso, com o
+    motivo opcional, e a ficha registra "encerrado pela administração".
+- **Filas de análise:** capa, Ghidra, desempacotar, oletools, QR, emulação, APK, configuração, .NET,
+  Suricata e dump de memória.
+  - **cada linha mostra:** pendentes (e as tentativas agendadas), em andamento (e há quanto tempo),
+    concluídas e falhas em 24 h, tempo médio e p95, e o serviço no Status do sistema;
+  - **Pausar:** a fila para de pegar trabalho novo, e o que está em andamento termina. A pausa
+    sobrevive ao reinício da API, e o Status do sistema fica laranja enquanto durar;
+  - **Trabalhos:** a lista dos pendentes, em andamento e falhos.
+    - **Cancelar** um pendente o deixa como falho, com o motivo "cancelado pela administração".
+    - Num trabalho em andamento, a API interrompe o pedido. O serviço percebe a conexão fechada e
+      mata a ferramenta em cerca de 1 s. No unpack, que roda dentro do próprio processo, o container
+      sai e volta limpo (com `UNPACK_RECYCLE`, o padrão).
+    - **Refazer** volta uma falha (ou as das últimas 24 h) para a fila, do zero.
+- **Plataforma:**
+  - a API: memória, atraso do event loop e reinícios do worker da análise estática;
+  - a reavaliação Sigma e as varreduras YARA retroativas;
+  - o tamanho do banco e do MinIO (este calculado a cada 15 min).
+- **Histórico:** uma amostra por minuto, guardada por 7 dias, com gráficos de 24 h (intervalos de
+  15 min) e 7 dias (de 1 h). Mostra os ambientes ativos e o limite, a fila, as análises em andamento,
+  concluídas e falhas, a memória da API, o event loop e o nó do Proxmox. Também traz o tempo de cada
+  fila por dia. Cada gráfico tem a tabela equivalente.
+
+| Método | Rota | Função |
+|---|---|---|
+| GET | `/api/admin/monitor` | A foto: sandbox, filas e plataforma |
+| GET | `/api/admin/monitor/history` | Histórico (`range=24h\|7d`) e tempo das filas por dia |
+| POST | `/api/admin/monitor/sandbox/stop` | Encerra ambientes (`{ ids }` ou `{ all: true }`, `reason` opcional) |
+| POST | `/api/admin/monitor/sandbox/orphans/sweep` | Limpa agora as VMs e ISOs órfãs desta instalação |
+| PATCH | `/api/admin/monitor/queues/:queue` | Pausa ou retoma a fila (`{ paused }`) |
+| GET | `/api/admin/monitor/queues/:queue/jobs` | Trabalhos da fila (`state=pending\|running\|failed`, `page`) |
+| POST | `/api/admin/monitor/queues/:queue/cancel` | Cancela trabalhos (`{ ids }` ou `{ allPending: true }`) |
+| POST | `/api/admin/monitor/queues/:queue/retry` | Refaz falhas (`{ ids }` ou `{ failedSinceHours }`) |
+
 ## Log centralizado de alertas
 
 Com `ALERT_LOG_DIR` no `.env`, a API grava em `deeplook-alerts.jsonl`, nessa pasta, uma linha JSON

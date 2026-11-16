@@ -1526,6 +1526,58 @@ npx prisma generate
 
 ---
 
+## Monitoring (Administration › Monitoring)
+
+An admin-only tab, refreshed every 10 s, to see the operational load and stop what needs stopping.
+Every action goes to the audit log.
+
+- **Sandbox environments:**
+  - **what it shows:** the active environments, with who opened them, the sample, the phase, since
+    when, how long until they expire (orange in the last 10 min) and each VM's CPU and memory;
+  - **limits:** how many environments are in use out of `SANDBOX_MAX_ACTIVE`, and who is at the
+    `SANDBOX_MAX_PER_USER` limit;
+  - **Proxmox node:** CPU, memory and disk. This needs read access to the node (`Sys.Audit`,
+    `PVEAuditor` on `/`; see [docs/proxmox.md](docs/proxmox.md)). Without it, the screen says so and
+    the rest works;
+  - **orphans:** this installation's orphan VMs and ISOs, counted by the same rule as the automatic
+    cleanup, with a **Clean up now** button. The template and VMs without this installation's tag
+    are never included;
+  - **stop** one, the selected ones or **all**. "All" asks you to type the number of environments.
+    Stopping runs the final artifact collection and deletes the VM. Whoever opened it gets a notice,
+    with the optional reason, and the sample records "stopped by administration".
+- **Analysis queues:** capa, Ghidra, unpack, oletools, QR, emulation, APK, configuration, .NET,
+  Suricata and memory dump.
+  - **each row shows:** pending (and scheduled retries), running (and for how long), done and
+    failed in 24 h, average and p95 time, and the service on System status;
+  - **Pause:** the queue stops taking new work, and what is running finishes. The pause survives an
+    API restart, and System status stays orange while it lasts;
+  - **Jobs:** the list of pending, running and failed jobs.
+    - **Cancelling** a pending job leaves it as failed, with the reason "cancelled by
+      administration".
+    - On a running job, the API interrupts the request. The service notices the closed connection
+      and kills the tool in about 1 s. In unpack, which runs inside its own process, the container
+      exits and comes back clean (with `UNPACK_RECYCLE`, the default).
+    - **Retry** sends a failure (or those of the last 24 h) back to the queue, from scratch.
+- **Platform:**
+  - the API: memory, event loop delay and static analysis worker restarts;
+  - the Sigma re-evaluation and YARA retroscans;
+  - the database and MinIO sizes (the latter computed every 15 min).
+- **History:** one sample per minute, kept for 7 days, with 24-hour charts (15-min intervals) and
+  7-day charts (1-hour intervals). It shows active environments and the limit, the queue, running,
+  done and failed analyses, API memory, the event loop and the Proxmox node. It also has each
+  queue's time per day. Every chart has the equivalent table.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/admin/monitor` | The snapshot: sandbox, queues and platform |
+| GET | `/api/admin/monitor/history` | History (`range=24h\|7d`) and queue time per day |
+| POST | `/api/admin/monitor/sandbox/stop` | Stops environments (`{ ids }` or `{ all: true }`, optional `reason`) |
+| POST | `/api/admin/monitor/sandbox/orphans/sweep` | Cleans up this installation's orphan VMs and ISOs now |
+| PATCH | `/api/admin/monitor/queues/:queue` | Pauses or resumes the queue (`{ paused }`) |
+| GET | `/api/admin/monitor/queues/:queue/jobs` | Queue jobs (`state=pending\|running\|failed`, `page`) |
+| POST | `/api/admin/monitor/queues/:queue/cancel` | Cancels jobs (`{ ids }` or `{ allPending: true }`) |
+| POST | `/api/admin/monitor/queues/:queue/retry` | Retries failures (`{ ids }` or `{ failedSinceHours }`) |
+
 ## Centralized alert log
 
 With `ALERT_LOG_DIR` in `.env`, the API writes to `deeplook-alerts.jsonl`, in that folder, one JSON

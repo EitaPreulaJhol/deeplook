@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
+import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 
@@ -287,13 +288,18 @@ async function claim() {
 
 async function drain(): Promise<void> {
   for (;;) {
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused('oletools')) return;
     const job = await claim();
     if (!job) return;
+    const run = startJob('oletools', job.id);
     try {
-      await analyzeJob(job.id, job.entryId, job.attempts);
+      await analyzeJob(job.id, job.entryId, job.attempts, run.signal);
     } catch (err) {
       logger.error({ err }, '[oletools] falha na análise');
       await finish(job.id, { status: 'FAILED', error: 'falha interna na análise' });
+    } finally {
+      run.done();
     }
   }
 }
@@ -302,7 +308,12 @@ function finish(id: string, data: Prisma.OfficeAnalysisUpdateInput) {
   return prisma.officeAnalysis.update({ where: { id }, data: { finishedAt: new Date(), ...data } });
 }
 
-async function analyzeJob(id: string, entryId: string, attempts: number): Promise<void> {
+async function analyzeJob(
+  id: string,
+  entryId: string,
+  attempts: number,
+  signal: AbortSignal,
+): Promise<void> {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
     select: { storageKey: true, bucket: true, filePurgedAt: true },
@@ -328,10 +339,15 @@ async function analyzeJob(id: string, entryId: string, attempts: number): Promis
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
+      signal,
       waitMs: oletoolsTiming.serviceWaitMs,
       retryEveryMs: oletoolsTiming.retryEveryMs,
     });
   } catch (err) {
+    if (signal.aborted) {
+      await finish(id, { status: 'FAILED', error: CANCELLED_REASON });
+      return;
+    }
     const reason = requestFailure(service(), err);
     if (attempts < MAX_ATTEMPTS) {
       await prisma.officeAnalysis.update({
@@ -394,6 +410,7 @@ export async function startOletoolsQueue(log: typeof logger): Promise<void> {
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
+  registerQueueWaker('oletools', wake);
   if (!timer) {
     timer = setInterval(wake, TICK_MS);
     timer.unref();

@@ -24,6 +24,8 @@ export const NOTIFICATION_TYPES: Record<
   CASE_ENTRY_REMOVED: { audience: 'analyst', locked: false },
   CASE_ASSIGNED: { audience: 'analyst', locked: true },
   YARA_PACK_UPDATE: { audience: 'admin', locked: true },
+  // O ambiente da pessoa sumiu da tela: ela precisa saber por que (plans/monitoramento).
+  SANDBOX_STOPPED_BY_ADMIN: { audience: 'analyst', locked: true },
 };
 
 /** Pode ser silenciado: tipo conhecido e nao travado. */

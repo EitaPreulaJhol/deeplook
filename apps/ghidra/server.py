@@ -17,14 +17,37 @@ import gzip
 import hmac
 import json
 import os
+import select
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+# ---- Cancelamento pelo Monitoramento (plans/monitoramento, item 4): quando a API desiste do pedido
+# (fecha a conexao), a ferramenta morre junto, em vez de seguir ate o tempo-limite.
+_request = threading.local()
+
+
+class Cancelled(Exception):
+    """A API fechou a conexao antes da resposta (trabalho cancelado no Monitoramento)."""
+
+
+def client_gone():
+    """A conexao do pedido em andamento fechou (fim de arquivo ou erro ao espiar o socket)."""
+    sock = getattr(_request, "sock", None)
+    if sock is None:
+        return False
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+        return bool(readable) and sock.recv(1, socket.MSG_PEEK) == b""
+    except OSError:
+        return True
 
 
 def secret(name):
@@ -74,15 +97,25 @@ def log(msg):
 
 
 def run(cmd, timeout, logfile):
-    """Roda o Ghidra num grupo de processos proprio; no tempo esgotado, mata o grupo inteiro."""
+    """Roda o Ghidra num grupo de processos proprio; no tempo esgotado ou com a API fora do pedido,
+    mata o grupo inteiro."""
     with open(logfile, "wb") as out:
         proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
-        try:
-            proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
-            return f"tempo esgotado ({timeout} s)"
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                proc.wait(timeout=max(0.05, min(1.0, deadline - time.monotonic())))
+                break
+            except subprocess.TimeoutExpired:
+                # A cada segundo: a API desistiu (cancelado no Monitoramento) ou o tempo acabou.
+                gone = client_gone()
+                if not gone and time.monotonic() < deadline:
+                    continue
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+                if gone:
+                    raise Cancelled() from None
+                return f"tempo esgotado ({timeout} s)"
     # Morto pelo teto do conteiner: o sinal direto ou 137 (128 + 9) pelo script do headless, que
     # espera o Java.
     if proc.returncode in (-signal.SIGKILL, 128 + signal.SIGKILL):
@@ -300,8 +333,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if RECYCLE:
                 _retiring.set()
+            _request.sock = self.connection
             try:
                 result = analyze(data)
+            except Cancelled:
+                log("cancelado: a API fechou a conexão")
+                return
             except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
                 log(f"falha: {exc!r}")
                 result = {"ok": False, "error": "falha interna na análise", "version": VERSION}

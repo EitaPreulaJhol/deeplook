@@ -49,8 +49,11 @@ function postFile(
   headers: Record<string, string>,
   data: Uint8Array,
   timeoutMs: number,
+  cancel?: AbortSignal,
 ): Promise<Response> {
-  const signal = AbortSignal.timeout(timeoutMs);
+  const timeout = AbortSignal.timeout(timeoutMs);
+  // Cancelado pelo Monitoramento: a conexao fecha, e o servico mata a ferramenta (plans/monitoramento, item 4).
+  const signal = cancel ? AbortSignal.any([timeout, cancel]) : timeout;
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const req = (target.protocol === 'https:' ? https : http).request(
@@ -77,8 +80,12 @@ function postFile(
       },
     );
     req.on('error', (err) => {
+      if (cancel?.aborted) {
+        reject(cancelled());
+        return;
+      }
       // Mesmo erro que o fetch dava no prazo esgotado (requestFailure: "sem resposta em N s").
-      if (signal.aborted) {
+      if (timeout.aborted) {
         const timeout = new Error(`sem resposta em ${Math.round(timeoutMs / 1000)} s`);
         timeout.name = 'TimeoutError';
         reject(timeout);
@@ -89,6 +96,13 @@ function postFile(
 }
 
 const base = (url: string) => url.replace(/\/$/, '');
+
+/** O erro do pedido interrompido pela administracao (a fila confere com `job.cancelled()`). */
+function cancelled(): Error {
+  const err = new Error('cancelado');
+  err.name = 'AbortError';
+  return err;
+}
 
 /** O servico esta de pe e livre (nao analisando nem trocando de container). */
 export async function serviceReady(url: string): Promise<boolean> {
@@ -120,6 +134,7 @@ export async function requestAnalysis(
     retryEveryMs,
     query = '',
     path = '/analyze',
+    signal,
   }: {
     waitMs: number;
     retryEveryMs: number;
@@ -127,12 +142,26 @@ export async function requestAnalysis(
     query?: string;
     /** Outra rota do servico (ex.: "/qr" no oletools; plano pos-revisao, item 2.2). */
     path?: string;
+    /** Interrompe a espera e o pedido (Monitoramento; lib/job-control.ts). */
+    signal?: AbortSignal;
   },
 ): Promise<Response> {
   const deadline = Date.now() + waitMs;
-  const pause = () => new Promise((resolve) => setTimeout(resolve, retryEveryMs));
+  const pause = () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', stop);
+        resolve();
+      }, retryEveryMs);
+      const stop = () => {
+        clearTimeout(timer);
+        reject(cancelled());
+      };
+      signal?.addEventListener('abort', stop, { once: true });
+    });
   const down = `o serviço ${service.name} não respondeu`;
   for (;;) {
+    if (signal?.aborted) throw cancelled();
     if (!(await serviceReady(service.url))) {
       if (Date.now() >= deadline) throw new ServiceUnavailable(down);
       await pause();
@@ -147,6 +176,7 @@ export async function requestAnalysis(
         },
         data,
         service.timeoutS * 1000,
+        signal,
       );
       if (res.status !== 503) return res;
       await res.body?.cancel();

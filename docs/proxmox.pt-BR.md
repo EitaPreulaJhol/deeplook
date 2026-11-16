@@ -174,7 +174,13 @@ pveum acl modify /sdn/zones/localnetwork/<bridge> --users deeplook@pve --roles P
 # 3. Storage da ISO e cada storage que tem disco no template.
 pveum acl modify /storage/<iso-storage> --users deeplook@pve --roles PVEDatastoreAdmin
 pveum acl modify /storage/<disco-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+# 4. (Opcional) Leitura do no para o Monitoramento: CPU, memoria e disco do node (Sys.Audit).
+pveum acl modify / --users deeplook@pve --roles PVEAuditor
 ```
+
+> **Monitoramento:** a CPU, a memória e o disco do nó (Administração › Monitoramento) vêm de
+> `GET /nodes/<nó>/status`, que pede `Sys.Audit`, o mesmo `PVEAuditor` em `/` da tabela acima. Sem
+> ele, a tela diz "sem permissão para ler o nó" e o resto funciona normalmente.
 
 Para conferir o que a conta realmente enxerga (o PVE mostra os privilégios
 efetivos por caminho):

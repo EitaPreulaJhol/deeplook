@@ -17,13 +17,35 @@ import hmac
 import importlib.util
 import json
 import os
+import select
 import shutil
+import socket
 import sys
 import tempfile
 import threading
 import time
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+# ---- Cancelamento pelo Monitoramento (plans/monitoramento, item 4). Os desempacotadores rodam
+# dentro deste processo, sem filho para matar: com UNPACK_RECYCLE (padrao), quando a API desiste do
+# pedido (fecha a conexao), o processo sai e o Docker sobe um container limpo, como depois de cada
+# trabalho. Sem a troca de container, o trabalho segue ate o fim (a API ja nao espera a resposta).
+def client_gone(sock):
+    """A conexao do pedido fechou (fim de arquivo ou erro ao espiar o socket)."""
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+        return bool(readable) and sock.recv(1, socket.MSG_PEEK) == b""
+    except OSError:
+        return True
+
+
+def watch_client(sock, done):
+    while not done.wait(1):
+        if client_gone(sock):
+            log("cancelado: a API fechou a conexão; saindo para o Docker subir um container limpo")
+            os._exit(0)
 
 
 def secret(name):
@@ -309,11 +331,16 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if RECYCLE:
                 _retiring.set()
+            done = threading.Event()
+            if RECYCLE:
+                threading.Thread(target=watch_client, args=(self.connection, done), daemon=True).start()
             try:
                 manifest, chosen = analyze(data, work, unpack)
             except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
                 log(f"falha: {exc!r}")
                 manifest, chosen = {"ok": False, "error": "falha interna ao desempacotar"}, []
+            finally:
+                done.set()
             bundle = os.path.join(work, "resposta.zip")
             with zipfile.ZipFile(bundle, "w", zipfile.ZIP_STORED) as z:
                 z.writestr("manifest.json", json.dumps(manifest))

@@ -254,6 +254,8 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
 
   // ---- Motivos de falha das analises em segundo plano (capa, Ghidra, oletools, unpack) ----
   ['falha interna na análise', 'internal analysis failure'],
+  // Trabalho cancelado no Monitoramento (plans/monitoramento, itens 3 e 4).
+  ['cancelado pela administração', 'cancelled by administration'],
   ['falha interna ao desempacotar', 'internal unpacking failure'],
   ['o arquivo não está mais disponível', 'the file is no longer available'],
   ['não foi possível ler o arquivo no armazenamento', 'could not read the file from storage'],

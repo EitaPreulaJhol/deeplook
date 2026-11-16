@@ -79,6 +79,11 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
     ASSIGNMENT_CHANGED: { label: t('act.ASSIGNMENT_CHANGED'), tone: 'blue' },
     BROADCAST_PUBLISHED: { label: t('act.BROADCAST_PUBLISHED'), tone: 'blue' },
     BROADCAST_ENDED: { label: t('act.BROADCAST_ENDED'), tone: 'gray' },
+    SANDBOX_STOPPED: { label: t('act.SANDBOX_STOPPED'), tone: 'orange' },
+    WORKER_PAUSED: { label: t('act.WORKER_PAUSED'), tone: 'orange' },
+    WORKER_RESUMED: { label: t('act.WORKER_RESUMED'), tone: 'blue' },
+    JOB_CANCELLED: { label: t('act.JOB_CANCELLED'), tone: 'orange' },
+    JOB_RETRIED: { label: t('act.JOB_RETRIED'), tone: 'blue' },
   }),
 );
 

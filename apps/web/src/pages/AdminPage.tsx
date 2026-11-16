@@ -22,6 +22,7 @@ import { useAuth } from '../auth/AuthContext';
 import { AdminApiTokensTab } from '../components/AdminApiTokensTab';
 import { AdminAuditTab } from '../components/AdminAuditTab';
 import { AdminBackupTab } from '../components/AdminBackupTab';
+import { AdminMonitorTab } from '../components/AdminMonitorTab';
 import { AdminSettingsTab } from '../components/AdminSettingsTab';
 import { AdminStatusTab } from '../components/AdminStatusTab';
 import { AdminTemplatesTab } from '../components/AdminTemplatesTab';
@@ -78,6 +79,7 @@ export function AdminPage() {
     tabParam === 'keys' ||
     tabParam === 'templates' ||
     tabParam === 'status' ||
+    tabParam === 'monitor' ||
     tabParam === 'audit' ||
     tabParam === 'trash' ||
     tabParam === 'backup' ||
@@ -281,6 +283,8 @@ export function AdminPage() {
           { id: 'tokens', label: t('tabTokens') },
           { id: 'templates', label: t('tabTemplates') },
           { id: 'status', label: t('tabStatus') },
+          // Monitoramento (plans/monitoramento): parar ambientes e analises, e as metricas.
+          { id: 'monitor', label: t('tabMonitor') },
           { id: 'audit', label: t('tabAudit') },
           { id: 'trash', label: t('tabTrash') },
           // Backup em ZIP (item 81).
@@ -303,6 +307,8 @@ export function AdminPage() {
           <AdminAuditTab />
         ) : tab === 'status' ? (
           <AdminStatusTab />
+        ) : tab === 'monitor' ? (
+          <AdminMonitorTab />
         ) : tab === 'templates' ? (
           <AdminTemplatesTab />
         ) : tab === 'users' ? (

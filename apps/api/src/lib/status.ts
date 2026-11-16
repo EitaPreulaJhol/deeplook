@@ -19,6 +19,7 @@ import { clamavAddress, clamavEnabled, clamPing, clamVersion } from './clamav';
 import { pendingRekey } from './data-key-rekey';
 import { createTranslator, type Lang } from './error-language';
 import { ghidraEnabled } from './ghidra';
+import { pausedQueues } from './job-control';
 import { ldapConfig, ldapProbe } from './ldap';
 import { MESSAGES_EN } from './messages-en';
 import { snifferState } from './mikrotik';
@@ -326,18 +327,24 @@ async function queuesCheck(): Promise<StatusCheck> {
       where: slaWhere('late'),
     }),
   ]);
+  // Fila de analise pausada no Monitoramento (plans/monitoramento, item 3): laranja, para ninguem
+  // esquecer.
+  const paused = pausedQueues();
   return {
     id: 'queues',
     name: 'Filas',
-    level: late > 0 ? 'warn' : 'ok',
+    level: late > 0 || paused.length ? 'warn' : 'ok',
     summary:
       late > 0
         ? `${late} amostra${late > 1 ? 's' : ''} atrasada${late > 1 ? 's' : ''}`
-        : 'nenhuma amostra atrasada',
+        : paused.length
+          ? `análise pausada: ${paused.join(', ')}`
+          : 'nenhuma amostra atrasada',
     details: [
       { label: 'Pendentes', value: String(pending) },
       { label: 'Em análise', value: String(review) },
       { label: `Atrasadas (+${env.SLA_LATE_HOURS} h)`, value: String(late) },
+      ...(paused.length ? [{ label: 'Análises pausadas', value: paused.join(', ') }] : []),
     ],
   };
 }
@@ -1277,6 +1284,10 @@ export function resetStatusCache(): void {
 
 // Os erros conhecidos (messages-en.ts) tambem: o motivo de uma falha aparece dentro do status.
 const toEnglish = createTranslator([...STATUS_EN, ...MESSAGES_EN]);
+
+/** Um texto do status (resumo de uma checagem) na lingua de quem pede (Monitoramento). */
+export const localizeStatusText = (text: string, lang: Lang): string =>
+  lang === 'en' ? toEnglish(text) : text;
 
 /**
  * O status no idioma de quem pede (plano pos-revisao, item 1.4): nome, resumo e detalhes de cada

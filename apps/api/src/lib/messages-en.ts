@@ -12,6 +12,13 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['Rota nao encontrada.', 'Route not found.'],
   ['Erro na requisição.', 'Request error.'],
   ['Erro interno do servidor.', 'Internal server error.'],
+  // Monitoramento (plans/monitoramento).
+  ['O sandbox está desligado.', 'The sandbox is turned off.'],
+  ['Fila não encontrada.', 'Queue not found.'],
+  ['Informe os ambientes ou "todos".', 'Give the environments or "all".'],
+  ['Informe os trabalhos ou "todos os pendentes".', 'Give the jobs or "all pending".'],
+  ['Informe os trabalhos ou o período das falhas.', 'Give the jobs or the failure period.'],
+  ['sem resposta', 'no response'],
   [
     'Esta rota não aceita token de API (só envio e consulta de amostras).',
     'This route does not accept an API token (only sample submission and querying).',

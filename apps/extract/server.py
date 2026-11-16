@@ -14,7 +14,10 @@ import hmac
 import json
 import os
 import re
+import select
 import shutil
+import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -49,6 +52,49 @@ def tool_version():
 
 
 # ------------------------------------------------------------------ esqueleto comum
+
+
+# ---- Cancelamento pelo Monitoramento (plans/monitoramento, item 4): quando a API desiste do pedido
+# (fecha a conexao), a ferramenta morre junto, em vez de seguir ate o tempo-limite.
+_request = threading.local()
+
+
+class Cancelled(Exception):
+    """A API fechou a conexao antes da resposta (trabalho cancelado no Monitoramento)."""
+
+
+def client_gone():
+    """A conexao do pedido em andamento fechou (fim de arquivo ou erro ao espiar o socket)."""
+    sock = getattr(_request, "sock", None)
+    if sock is None:
+        return False
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+        return bool(readable) and sock.recv(1, socket.MSG_PEEK) == b""
+    except OSError:
+        return True
+
+
+def run_watched(cmd, timeout, **popen):
+    """subprocess.run com a saida capturada e tempo-limite, num grupo de processos proprio, que
+    tambem para (e mata o grupo inteiro) quando a API fecha a conexao."""
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, **popen
+    )
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            out, err = proc.communicate(timeout=max(0.05, min(1.0, deadline - time.monotonic())))
+            return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            gone = client_gone()
+            if not gone and time.monotonic() < deadline:
+                continue
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.communicate()
+            if gone:
+                raise Cancelled() from None
+            raise subprocess.TimeoutExpired(cmd, timeout) from None
 
 
 def secret(name):
@@ -86,12 +132,10 @@ def analyze(data, work, script, args):
         f.write(data)
     started = time.monotonic()
     try:
-        proc = subprocess.run(
+        proc = run_watched(
             [sys.executable, script, sample, *args],
-            capture_output=True,
-            timeout=TIMEOUT,
+            TIMEOUT,
             cwd=work,
-            start_new_session=True,
         )
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"tempo esgotado ({TIMEOUT} s)", "version": VERSION}
@@ -198,8 +242,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if RECYCLE:
                 _retiring.set()
+            _request.sock = self.connection
             try:
                 result = analyze(data, work, script, args)
+            except Cancelled:
+                log("cancelado: a API fechou a conexão")
+                return
             except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
                 log(f"falha: {exc!r}")
                 result = {"ok": False, "error": "falha interna na análise", "version": VERSION}

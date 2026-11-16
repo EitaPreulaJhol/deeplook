@@ -117,11 +117,18 @@ describe('notificationHref', () => {
 });
 
 describe('NOTIFICATION_TYPE_LABELS', () => {
-  it('cobre os dezesseis tipos de aviso', () => {
-    expect(Object.keys(NOTIFICATION_TYPE_LABELS)).toHaveLength(16);
+  it('cobre os dezessete tipos de aviso', () => {
+    expect(Object.keys(NOTIFICATION_TYPE_LABELS)).toHaveLength(17);
     expect(NOTIFICATION_TYPE_LABELS.ASSIGNED).toBe('Amostra atribuída a você');
     expect(NOTIFICATION_TYPE_LABELS.YARA_PACK_UPDATE).toBe(
       'Atualização dos pacotes de regras YARA',
     );
+  });
+
+  it('ambiente encerrado pela administração: frase, motivo citado e a ficha', () => {
+    const n = mk({ type: 'SANDBOX_STOPPED_BY_ADMIN', detail: 'manutenção' });
+    expect(notificationText(n)).toContain('encerrou o seu ambiente isolado');
+    expect(notificationQuote(n)).toBe('manutenção');
+    expect(notificationHref(n)).toMatch(/^\/entries\//);
   });
 });

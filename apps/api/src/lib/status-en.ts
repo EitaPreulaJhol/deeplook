@@ -124,6 +124,8 @@ export const STATUS_EN: readonly (readonly [pt: string, en: string])[] = [
   ['bucket acessível', 'bucket reachable'],
   ['template das VMs não encontrado', 'VM template not found'],
   ['nenhuma amostra atrasada', 'no overdue samples'],
+  ['análise pausada: {0}', 'analysis paused: {0}'],
+  ['Análises pausadas', 'Paused analyses'],
   ['nenhuma divergência encontrada', 'no mismatch found'],
   [
     'pasta desligada (BACKUP_DIR vazio): o ZIP fica no bucket, no mesmo disco dos dados',

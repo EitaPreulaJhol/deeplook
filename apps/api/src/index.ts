@@ -11,8 +11,10 @@ import { startGhidraQueue } from './lib/ghidra';
 import { startIntegrityScrub } from './lib/integrity-scrub';
 import { reindexIocs } from './lib/ioc-reindex';
 import { backfillReportIocs } from './lib/iocs';
+import { loadPausedQueues } from './lib/job-control';
 import { startLdapSweep } from './lib/ldap-sweep';
 import { setLogger } from './lib/log';
+import { startMonitorSampler } from './lib/monitor';
 import { network } from './lib/network';
 import { startOletoolsQueue } from './lib/oletools';
 import { failInterruptedCaptures } from './lib/page-capture';
@@ -87,6 +89,12 @@ async function main() {
   startAuditCheck(app.log);
   // Log centralizado de alertas (plano pos-revisao, 5.2): componente que cai ou volta.
   startStatusAlerts(app.log);
+  // Monitoramento (plans/monitoramento): a pausa das filas vale antes de elas subirem, e as
+  // metricas ganham uma amostra por minuto.
+  await loadPausedQueues().catch((err) =>
+    app.log.error({ err }, '[monitor] não foi possível ler as filas pausadas'),
+  );
+  startMonitorSampler(app.log);
 
   // Desligamento controlado (item 119): termina o que esta em andamento, com teto.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {

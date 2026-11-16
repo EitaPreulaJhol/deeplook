@@ -1052,6 +1052,8 @@ enum NotificationType {
   CASE_ENTRY_ADDED
   CASE_ENTRY_REMOVED
   CASE_ASSIGNED
+  /// Ambiente do destinatario encerrado pela administracao (plans/monitoramento; detail = motivo).
+  SANDBOX_STOPPED_BY_ADMIN
 }
 
 /// Caixa de entrada (sininho do masthead): criadas junto com os eventos do
@@ -1162,6 +1164,13 @@ enum AuditAction {
   ASSIGNMENT_CHANGED
   BROADCAST_PUBLISHED
   BROADCAST_ENDED
+  /// Monitoramento (plans/monitoramento): ambiente encerrado pela administracao, fila pausada e
+  /// retomada, trabalhos cancelados e refeitos (targetLabel = a fila; detail = quantos e quais).
+  SANDBOX_STOPPED
+  WORKER_PAUSED
+  WORKER_RESUMED
+  JOB_CANCELLED
+  JOB_RETRIED
 }
 
 /// Auditoria administrativa (aba Auditoria da Administracao): quem fez o que,
@@ -1817,4 +1826,16 @@ enum MemoryDumpStatus {
   ANALYZING
   DONE
   FAILED
+}
+
+/// Amostra por minuto das metricas do Monitoramento (plans/monitoramento, item 5): VMs ativas,
+/// fila por servico, concluidos e falhos no minuto, memoria e event loop da API, CPU e memoria do
+/// no do Proxmox. Fica 7 dias (lib/retention.ts).
+model MonitorSample {
+  at    DateTime
+  key   String
+  value Float
+
+  @@id([key, at])
+  @@index([at])
 }

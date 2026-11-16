@@ -8,6 +8,7 @@ import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
 import { createFileEntry } from './entry-create';
+import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
 import { log, reason } from './log';
 import { prisma } from './prisma';
 import { s3 } from './s3';
@@ -430,6 +431,8 @@ export async function memdumpIdle(): Promise<void> {
 
 async function drain(): Promise<void> {
   for (;;) {
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused('memdump')) return;
     const next = await prisma.sandboxMemoryDump.findFirst({
       where: { status: 'STORED', attempts: { lt: MAX_ATTEMPTS } },
       orderBy: { createdAt: 'asc' },
@@ -441,17 +444,20 @@ async function drain(): Promise<void> {
       data: { status: 'ANALYZING', attempts: { increment: 1 } },
     });
     if (!taken.count) continue;
-    await analyze(next.id).catch(async (err: unknown) => {
-      log.warn(`[memória] análise do dump ${next.id}: ${reason(err)}`);
-      await prisma.sandboxMemoryDump.update({
-        where: { id: next.id },
-        data: { status: 'FAILED', error: 'falha interna na análise', finishedAt: new Date() },
-      });
-    });
+    const run = startJob('memdump', next.id);
+    await analyze(next.id, run.signal)
+      .catch(async (err: unknown) => {
+        log.warn(`[memória] análise do dump ${next.id}: ${reason(err)}`);
+        await prisma.sandboxMemoryDump.update({
+          where: { id: next.id },
+          data: { status: 'FAILED', error: 'falha interna na análise', finishedAt: new Date() },
+        });
+      })
+      .finally(() => run.done());
   }
 }
 
-async function analyze(id: string): Promise<void> {
+async function analyze(id: string, signal: AbortSignal): Promise<void> {
   const dump = await prisma.sandboxMemoryDump.findUniqueOrThrow({
     where: { id },
     select: {
@@ -476,11 +482,13 @@ async function analyze(id: string): Promise<void> {
   let res: Response;
   try {
     res = await requestAnalysis(service, data, {
+      signal,
       waitMs: memdumpTiming.serviceWaitMs,
       retryEveryMs: memdumpTiming.retryEveryMs,
       path: '/memdump',
     });
   } catch (err) {
+    if (signal.aborted) return void (await fail(CANCELLED_REASON));
     const why = requestFailure(service, err);
     if (dump.attempts < MAX_ATTEMPTS) {
       await prisma.sandboxMemoryDump.update({
@@ -577,6 +585,7 @@ export async function startMemdump(appLog?: FastifyBaseLogger): Promise<void> {
     );
     timer.unref();
   }
+  registerQueueWaker('memdump', wakeAnalysis);
   wakeAnalysis();
 }
 

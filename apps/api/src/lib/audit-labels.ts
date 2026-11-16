@@ -70,4 +70,12 @@ export const AUDIT_LABELS: Record<AuditAction, readonly [pt: string, en: string]
   ASSIGNMENT_CHANGED: ['Atribuição automática alterada', 'Automatic assignment changed'],
   BROADCAST_PUBLISHED: ['Aviso geral publicado', 'Announcement published'],
   BROADCAST_ENDED: ['Aviso geral encerrado', 'Announcement ended'],
+  SANDBOX_STOPPED: [
+    'Ambiente do sandbox encerrado pela administração',
+    'Sandbox environment stopped by administration',
+  ],
+  WORKER_PAUSED: ['Fila de análise pausada', 'Analysis queue paused'],
+  WORKER_RESUMED: ['Fila de análise retomada', 'Analysis queue resumed'],
+  JOB_CANCELLED: ['Análise cancelada', 'Analysis cancelled'],
+  JOB_RETRIED: ['Análise refeita', 'Analysis retried'],
 };

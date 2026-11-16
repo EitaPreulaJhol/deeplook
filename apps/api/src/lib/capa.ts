@@ -9,6 +9,7 @@ import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
 import { normalizeTechniques, TECHNIQUE_ID } from './attack';
 import { extractIocs, type Ioc } from './iocs';
+import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { applyTriageRulesQuietly } from './triage-rules';
@@ -168,9 +169,10 @@ export function requestCapa(
     waitMs = capaTiming.serviceWaitMs,
     retryEveryMs = capaTiming.retryEveryMs,
     url = env.CAPA_URL,
-  } = {},
+    signal,
+  }: { waitMs?: number; retryEveryMs?: number; url?: string; signal?: AbortSignal } = {},
 ): Promise<Response> {
-  return requestAnalysis(service(url), data, { waitMs, retryEveryMs });
+  return requestAnalysis(service(url), data, { waitMs, retryEveryMs, signal });
 }
 
 /**
@@ -368,7 +370,8 @@ async function claim() {
  */
 async function drain(): Promise<void> {
   for (;;) {
-    if (!(await nextJob())) return;
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused('capa') || !(await nextJob())) return;
     const slot = await reserveReplica();
     if (slot.kind === 'busy') return;
     if (slot.kind === 'down') {
@@ -378,11 +381,14 @@ async function drain(): Promise<void> {
     try {
       const job = await claim();
       if (!job) return;
+      const run = startJob('capa', job.id);
       try {
-        await analyzeJob(job.id, job.entryId, job.attempts, slot);
+        await analyzeJob(job.id, job.entryId, job.attempts, slot, run.signal);
       } catch (err) {
         logger.error({ err }, '[capa] falha na análise');
         await finish(job.id, { status: 'FAILED', error: 'falha interna na análise' });
+      } finally {
+        run.done();
       }
     } finally {
       if (slot.kind === 'replica') reserved.delete(slot.url);
@@ -400,6 +406,7 @@ async function analyzeJob(
   entryId: string,
   attempts: number,
   slot: { kind: 'replica'; url: string } | { kind: 'down' },
+  signal: AbortSignal,
 ): Promise<void> {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
@@ -429,9 +436,13 @@ async function analyzeJob(
     // passou na reserva e o pedido so confirma.
     res =
       slot.kind === 'replica'
-        ? await requestCapa(data, { url: slot.url })
-        : await requestCapa(data, { waitMs: 0 });
+        ? await requestCapa(data, { url: slot.url, signal })
+        : await requestCapa(data, { waitMs: 0, signal });
   } catch (err) {
+    if (signal.aborted) {
+      await finish(id, { status: 'FAILED', error: CANCELLED_REASON });
+      return;
+    }
     const reason = requestFailure(service(), err);
     // Servico fora do ar: tenta de novo mais tarde. Conexao que caiu no meio pode ser o proprio
     // arquivo derrubando o container: conta como tentativa, e na ultima a analise falha.
@@ -497,6 +508,7 @@ export async function startCapaQueue(log: typeof logger): Promise<void> {
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
+  registerQueueWaker('capa', wake);
   if (!timer) {
     timer = setInterval(wake, TICK_MS);
     timer.unref();

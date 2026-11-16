@@ -423,6 +423,7 @@ export const messages = {
   evSandboxClosed: ['Ambiente isolado encerrado', 'Isolated environment closed'],
   closeDiscarded: ['descartado', 'discarded'],
   closeExpired: ['expirou', 'expired'],
+  closeByAdmin: ['encerrado pela administração', 'stopped by administration'],
   evSandboxFailed: [
     'Falha ao preparar o ambiente isolado',
     'Failed to prepare the isolated environment',

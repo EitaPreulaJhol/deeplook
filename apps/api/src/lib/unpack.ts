@@ -7,6 +7,7 @@ import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
 import { sha256Hex } from './crypto';
 import { recordEvent } from './events';
+import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { applyTriageRulesQuietly } from './triage-rules';
@@ -268,13 +269,18 @@ async function claim() {
 
 async function drain(): Promise<void> {
   for (;;) {
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused('unpack')) return;
     const job = await claim();
     if (!job) return;
+    const run = startJob('unpack', job.id);
     try {
-      await unpackJob(job.id, job.entryId, job.attempts);
+      await unpackJob(job.id, job.entryId, job.attempts, run.signal);
     } catch (err) {
       logger?.error({ err }, '[unpack] falha');
       await finish(job.id, { status: 'FAILED', error: 'falha interna ao desempacotar' });
+    } finally {
+      run.done();
     }
   }
 }
@@ -342,7 +348,12 @@ function childFilename(name: string, parentFilename: string | null): string {
     : `${original}.desempacotado`;
 }
 
-async function unpackJob(id: string, entryId: string, attempts: number): Promise<void> {
+async function unpackJob(
+  id: string,
+  entryId: string,
+  attempts: number,
+  signal: AbortSignal,
+): Promise<void> {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
     select: {
@@ -380,11 +391,16 @@ async function unpackJob(id: string, entryId: string, attempts: number): Promise
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
+      signal,
       waitMs: unpackTiming.serviceWaitMs,
       retryEveryMs: unpackTiming.retryEveryMs,
       query: unpack ? '' : '?unpack=0',
     });
   } catch (err) {
+    if (signal.aborted) {
+      await finish(id, { status: 'FAILED', error: CANCELLED_REASON });
+      return;
+    }
     const reason = requestFailure(service(), err);
     if (attempts < MAX_ATTEMPTS) {
       await prisma.unpackJob.update({
@@ -569,6 +585,7 @@ export async function startUnpackQueue(
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
+  registerQueueWaker('unpack', wake);
   if (!timer) {
     timer = setInterval(wake, TICK_MS);
     timer.unref();

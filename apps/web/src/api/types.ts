@@ -808,7 +808,12 @@ export type AuditAction =
   | 'TRIAGE_RULE_CHANGED'
   | 'ASSIGNMENT_CHANGED'
   | 'BROADCAST_PUBLISHED'
-  | 'BROADCAST_ENDED';
+  | 'BROADCAST_ENDED'
+  | 'SANDBOX_STOPPED'
+  | 'WORKER_PAUSED'
+  | 'WORKER_RESUMED'
+  | 'JOB_CANCELLED'
+  | 'JOB_RETRIED';
 
 /** Registro de auditoria (GET /api/admin/audit). */
 export interface AuditEvent {
@@ -1320,7 +1325,8 @@ export interface AppNotification {
     | 'CASE_ENTRY_ADDED'
     | 'CASE_ENTRY_REMOVED'
     | 'CASE_ASSIGNED'
-    | 'YARA_PACK_UPDATE';
+    | 'YARA_PACK_UPDATE'
+    | 'SANDBOX_STOPPED_BY_ADMIN';
   /**
    * Veredito (COMPLETED), trecho da atualizacao (MENTION/COMMENT), horas do
    * prazo (SLA_WARN/SLA_LATE, enviadas pelo sistema: `actor` null), a
@@ -1801,4 +1807,123 @@ export interface EntryEvent {
   createdAt: string;
   /** null = acao do sistema (ex.: expiracao do sandbox). */
   actor: { id: string; displayName: string } | null;
+}
+
+// ---- Monitoramento (plans/monitoramento) ----
+
+export type MonitorQueueId =
+  | 'capa'
+  | 'ghidra'
+  | 'unpack'
+  | 'oletools'
+  | 'qr'
+  | 'emulation'
+  | 'android'
+  | 'config'
+  | 'dotnet'
+  | 'suricata'
+  | 'memdump';
+
+export interface MonitorQueue {
+  id: MonitorQueueId;
+  paused: boolean;
+  ready: number;
+  scheduled: number;
+  running: number;
+  oldestRunningAt: string | null;
+  oldestPendingAt: string | null;
+  done24h: number;
+  failed24h: number;
+  avgMs: number | null;
+  p95Ms: number | null;
+  /** O servico da fila no Status do sistema (de pe, desligado...). */
+  service: { level: StatusLevel; summary: string } | null;
+}
+
+export interface MonitorSession {
+  id: string;
+  status: SandboxStatus;
+  phase: string | null;
+  vmid: number | null;
+  createdAt: string;
+  startedAt: string | null;
+  expiresAt: string;
+  entry: { id: string; title: string };
+  analyst: { id: string; displayName: string };
+  analystAtLimit: boolean;
+  vm: {
+    status: string | null;
+    cpu: number | null;
+    cpus: number | null;
+    mem: number | null;
+    maxmem: number | null;
+    netin: number | null;
+    netout: number | null;
+  } | null;
+}
+
+/** GET /api/admin/monitor. */
+export interface MonitorSnapshot {
+  checkedAt: string;
+  sandbox:
+    | { enabled: false }
+    | {
+        enabled: true;
+        limit: number;
+        perUserLimit: number;
+        sessions: MonitorSession[];
+        node: {
+          available: boolean;
+          reason: 'permission' | 'error' | null;
+          cpu: number | null;
+          memUsed: number | null;
+          memTotal: number | null;
+          diskUsed: number | null;
+          diskTotal: number | null;
+        };
+        orphans: { vms: number; isos: number } | null;
+      };
+  queues: MonitorQueue[];
+  platform: {
+    uptimeS: number;
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    loop: { p50: number; p99: number };
+    workerRestarts: number;
+    sigmaRetro: { current: string | null; queued: number };
+    yaraRetroscans: number;
+    dbBytes: number;
+    storage: { bytes?: number; objects?: number; partial?: boolean; at: string } | null;
+  };
+}
+
+/** GET /api/admin/monitor/history. */
+export interface MonitorHistory {
+  range: '24h' | '7d';
+  since: string;
+  bucketMs: number;
+  series: Record<string, [number, number][]>;
+  durations: Partial<
+    Record<MonitorQueueId, { day: string; n: number; avgMs: number; p95Ms: number }[]>
+  >;
+}
+
+/** GET /api/admin/monitor/queues/:queue/jobs. */
+export interface MonitorJobs {
+  queue: MonitorQueueId;
+  state: 'pending' | 'running' | 'failed';
+  page: number;
+  total: number;
+  jobs: {
+    id: string;
+    state: string;
+    attempts: number;
+    createdAt: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+    error: string | null;
+    entryId: string;
+    entryTitle: string;
+  }[];
 }

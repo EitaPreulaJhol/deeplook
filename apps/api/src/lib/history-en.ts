@@ -127,5 +127,11 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['{0} indicador(es)', '{0} indicator(s)'],
   // Download do pcap do sandbox (plano pos-revisao, item 5.4).
   ['ambiente {0} · {1} bytes', 'environment {0} · {1} bytes'],
+  // Monitoramento (plans/monitoramento): ambiente encerrado e trabalhos cancelados ou refeitos.
+  ['ambiente {0} · {1}', 'environment {0} · {1}'],
+  ['ambiente {0}', 'environment {0}'],
+  ['{0} trabalho(s): {1}', '{0} job(s): {1}'],
+  ['todos os pendentes ({0})', 'all pending ({0})'],
+  ['falhas das últimas {0} h ({1})', 'failures in the last {0} h ({1})'],
   ['ambiente {0} · PID {1} · {2} bytes', 'environment {0} · PID {1} · {2} bytes'],
 ];

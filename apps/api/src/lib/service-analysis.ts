@@ -4,6 +4,13 @@ import type { z } from 'zod';
 import { env } from '../env';
 import { Prisma, type ServiceKind } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
+import {
+  CANCELLED_REASON,
+  isQueuePaused,
+  registerQueueWaker,
+  serviceQueue,
+  startJob,
+} from './job-control';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 
@@ -193,13 +200,18 @@ async function claim(kind: ServiceKind) {
 
 async function drain(def: ServiceDef): Promise<void> {
   for (;;) {
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused(serviceQueue(def.kind))) return;
     const job = await claim(def.kind);
     if (!job) return;
+    const run = startJob(serviceQueue(def.kind), job.id);
     try {
-      await analyzeJob(def, job);
+      await analyzeJob(def, job, run.signal);
     } catch (err) {
       logger.error({ err }, `[${def.name}] falha na análise`);
       await finish(job.id, { status: 'FAILED', error: 'falha interna na análise' });
+    } finally {
+      run.done();
     }
   }
 }
@@ -214,6 +226,7 @@ function finish(id: string, data: Prisma.ServiceAnalysisUpdateInput) {
 async function analyzeJob(
   def: ServiceDef,
   job: { id: string; entryId: string; attempts: number; options: unknown },
+  signal: AbortSignal,
 ): Promise<void> {
   const entry = await prisma.entry.findUnique({
     where: { id: job.entryId },
@@ -241,12 +254,17 @@ async function analyzeJob(
   let res: Response;
   try {
     res = await requestAnalysis(service, data, {
+      signal,
       waitMs: serviceTiming.serviceWaitMs,
       retryEveryMs: serviceTiming.retryEveryMs,
       path: def.path,
       query: def.query(options),
     });
   } catch (err) {
+    if (signal.aborted) {
+      await finish(job.id, { status: 'FAILED', error: CANCELLED_REASON });
+      return;
+    }
     const reason = requestFailure(service, err);
     if (job.attempts < MAX_ATTEMPTS) {
       await prisma.serviceAnalysis.update({
@@ -328,6 +346,9 @@ export async function startServiceQueues(log: typeof logger): Promise<void> {
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
+  for (const kind of ['EMULATION', 'ANDROID', 'CONFIG', 'DOTNET'] as const) {
+    registerQueueWaker(serviceQueue(kind), () => wake(kind));
+  }
   if (!timer) {
     timer = setInterval(wakeAll, TICK_MS);
     timer.unref();

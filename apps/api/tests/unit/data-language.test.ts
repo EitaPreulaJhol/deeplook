@@ -48,6 +48,8 @@ const FILES = [
   'config-extract',
   'service-analysis',
   'sandbox-memdump',
+  // Motivo do trabalho cancelado no Monitoramento (plans/monitoramento).
+  'job-control',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */

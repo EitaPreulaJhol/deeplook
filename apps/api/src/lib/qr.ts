@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
+import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
 import { oletoolsEnabled } from './oletools';
 import { prisma } from './prisma';
 import { s3 } from './s3';
@@ -152,13 +153,18 @@ async function claim() {
 
 async function drain(): Promise<void> {
   for (;;) {
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused('qr')) return;
     const job = await claim();
     if (!job) return;
+    const run = startJob('qr', job.id);
     try {
-      await scanJob(job.id, job.entryId, job.attempts);
+      await scanJob(job.id, job.entryId, job.attempts, run.signal);
     } catch (err) {
       logger.error({ err }, '[qr] falha na leitura');
       await finish(job.id, { status: 'FAILED', error: 'falha interna na análise' });
+    } finally {
+      run.done();
     }
   }
 }
@@ -190,7 +196,12 @@ async function source(
     : null;
 }
 
-async function scanJob(id: string, entryId: string, attempts: number): Promise<void> {
+async function scanJob(
+  id: string,
+  entryId: string,
+  attempts: number,
+  signal: AbortSignal,
+): Promise<void> {
   const from = await source(entryId);
   if (!from) {
     await finish(id, { status: 'FAILED', error: 'o arquivo não está mais disponível' });
@@ -211,11 +222,16 @@ async function scanJob(id: string, entryId: string, attempts: number): Promise<v
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
+      signal,
       path: '/qr',
       waitMs: qrTiming.serviceWaitMs,
       retryEveryMs: qrTiming.retryEveryMs,
     });
   } catch (err) {
+    if (signal.aborted) {
+      await finish(id, { status: 'FAILED', error: CANCELLED_REASON });
+      return;
+    }
     const reason = requestFailure(service(), err);
     if (attempts < MAX_ATTEMPTS) {
       await prisma.qrScan.update({
@@ -286,6 +302,7 @@ export async function startQrQueue(log: typeof logger): Promise<void> {
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
+  registerQueueWaker('qr', wake);
   if (!timer) {
     timer = setInterval(wake, TICK_MS);
     timer.unref();

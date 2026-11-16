@@ -649,6 +649,26 @@ export async function setupMock(context, state) {
         const offset = Number(sp.get('offset') ?? 0);
         return json(route, 200, { total: rows.length, items: rows.slice(offset, offset + Number(sp.get('limit') ?? 50)) });
       }
+      // Monitoramento (plans/monitoramento): a foto, o historico, os trabalhos e as acoes.
+      if (p === '/api/admin/monitor') return json(route, 200, state.monitor);
+      if (p === '/api/admin/monitor/history') {
+        (state.monitorRequests ??= []).push({ kind: 'history', range: url.searchParams.get('range') });
+        return json(route, 200, state.monitorHistory);
+      }
+      const monJobs = p.match(/^\/api\/admin\/monitor\/queues\/(\w+)\/jobs$/);
+      if (monJobs) return json(route, 200, state.monitorJobs?.[`${monJobs[1]}:${url.searchParams.get('state')}`] ?? { queue: monJobs[1], state: url.searchParams.get('state'), page: 1, total: 0, jobs: [] });
+      const monAct = p.match(/^\/api\/admin\/monitor\/(.+)$/);
+      if (monAct && req.method() !== 'GET') {
+        const m = monAct;
+        (state.monitorRequests ??= []).push({ kind: m[1], method: req.method(), body });
+        if (m[1] === 'sandbox/stop') return json(route, 200, { stopped: body.all ? state.monitor.sandbox.sessions.length : body.ids.length, failed: 0 });
+        if (m[1] === 'sandbox/orphans/sweep') return json(route, 200, { vms: 1, isos: 0 });
+        if (m[1].endsWith('/cancel')) return json(route, 200, { pending: body.ids?.length ?? 2, running: 0 });
+        if (m[1].endsWith('/retry')) return json(route, 200, { retried: body.ids?.length ?? 3 });
+        const q = state.monitor.queues.find((x) => `queues/${x.id}` === m[1]);
+        if (q) q.paused = body.paused;
+        return json(route, 200, { queue: m[1], paused: body.paused });
+      }
       if (p === '/api/admin/status') {
         state.statusCalls += 1;
         return json(route, 200, state.systemStatus ?? {

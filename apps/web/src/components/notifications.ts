@@ -64,6 +64,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = locali
   CASE_ENTRY_REMOVED: t('ntlCaseRemoved'),
   CASE_ASSIGNED: t('ntlCaseAssigned'),
   YARA_PACK_UPDATE: t('ntlPacks'),
+  SANDBOX_STOPPED_BY_ADMIN: t('ntlSandboxStopped'),
 }));
 
 /** Frase da notificacao ("Bruno Lima atribuiu a amostra a você"). */
@@ -105,6 +106,8 @@ export function notificationText(n: AppNotification): string {
       return t('ntCaseRemoved', { who, what: n.detail ?? t('ntASample') });
     case 'CASE_ASSIGNED':
       return t('ntCaseAssigned', { who });
+    case 'SANDBOX_STOPPED_BY_ADMIN':
+      return t('ntSandboxStopped', { who });
   }
 }
 
@@ -126,6 +129,8 @@ export function notificationQuote(n: AppNotification): string | null {
     'REPORT_RETURNED',
     'CASE_MENTION',
     'CASE_COMMENT',
+    // O motivo que o admin deu ao encerrar o ambiente (plans/monitoramento).
+    'SANDBOX_STOPPED_BY_ADMIN',
   ];
   return quoted.includes(n.type) ? n.detail : null;
 }

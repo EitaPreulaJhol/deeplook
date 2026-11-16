@@ -645,9 +645,13 @@ export async function recoverStuckSessions(): Promise<number> {
 
 /**
  * Limpa o que sobrou de execucoes anteriores: VMs com a nossa etiqueta e
- * ISOs `deeplook-*` que nao pertencem a nenhuma sessao ativa.
+ * ISOs `deeplook-*` que nao pertencem a nenhuma sessao ativa. Com `dryRun`, so conta (o
+ * Monitoramento mostra as orfas pela mesma regra; plans/monitoramento, item 1).
  */
-export async function reconcileOrphans(): Promise<{ vms: number; isos: number }> {
+export async function reconcileOrphans({ dryRun = false } = {}): Promise<{
+  vms: number;
+  isos: number;
+}> {
   const active = await prisma.sandboxSession.findMany({
     where: { status: { in: ACTIVE_STATUSES } },
     select: { vmid: true, isoVolume: true },
@@ -684,6 +688,10 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
         foreign += 1;
         continue;
       }
+      if (dryRun) {
+        vms += 1;
+        continue;
+      }
       try {
         await pve(`/nodes/${pveNode()}/qemu/${vm.vmid}`, {
           method: 'DELETE',
@@ -709,13 +717,14 @@ export async function reconcileOrphans(): Promise<{ vms: number; isos: number }>
         foreign += 1;
         continue;
       }
-      await deleteIso(item.volid);
+      if (!dryRun) await deleteIso(item.volid);
       isos += 1;
     }
   } catch (err) {
     log.warn(`[sandbox] nao foi possivel listar ISOs: ${reason(err)}`);
   }
 
+  if (dryRun) return { vms, isos };
   if (vms || isos) {
     log.info(`[sandbox] reconciliacao removeu ${vms} VM(s) e ${isos} ISO(s) orfaos.`);
   }

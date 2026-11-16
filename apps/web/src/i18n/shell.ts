@@ -25,6 +25,10 @@ export const messages = {
   ntlCaseRemoved: ['Amostras retiradas do seu caso', 'Samples removed from your case'],
   ntlCaseAssigned: ['Caso atribuído a você', 'Case assigned to you'],
   ntlPacks: ['Atualização dos pacotes de regras YARA', 'YARA rule pack update'],
+  ntlSandboxStopped: [
+    'Ambiente isolado encerrado pela administração',
+    'Isolated environment stopped by administration',
+  ],
   ntSystem: ['O sistema', 'The system'],
   ntAssigned: ['{who} atribuiu a amostra a você', '{who} assigned the sample to you'],
   ntCompleted: ['{who} concluiu a sua amostra', '{who} completed your sample'],
@@ -68,6 +72,10 @@ export const messages = {
   ntCaseRemoved: ['{who} retirou "{what}" do seu caso', '{who} removed "{what}" from your case'],
   ntASample: ['uma amostra', 'a sample'],
   ntCaseAssigned: ['{who} atribuiu o caso a você', '{who} assigned the case to you'],
+  ntSandboxStopped: [
+    '{who} encerrou o seu ambiente isolado desta amostra',
+    '{who} stopped your isolated environment for this sample',
+  ],
   pwdMin8: ['mínimo de 8 caracteres', 'at least 8 characters'],
   pwdMax72: [
     'no máximo 72 bytes (acentos contam 2)',

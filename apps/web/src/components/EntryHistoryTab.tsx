@@ -32,9 +32,11 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(intlLocale());
 }
 
-const SANDBOX_CLOSE_KEYS: Record<string, 'closeDiscarded' | 'closeExpired'> = {
+const SANDBOX_CLOSE_KEYS: Record<string, 'closeDiscarded' | 'closeExpired' | 'closeByAdmin'> = {
   descartado: 'closeDiscarded',
   expirado: 'closeExpired',
+  // Encerrado no Monitoramento (plans/monitoramento).
+  administracao: 'closeByAdmin',
 };
 
 /** Descricao legivel de um evento do historico (tambem usada na ficha impressa). Os detalhes

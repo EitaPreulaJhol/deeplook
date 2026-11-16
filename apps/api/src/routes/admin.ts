@@ -81,6 +81,11 @@ const AuditQuery = z.object({
       'ASSIGNMENT_CHANGED',
       'BROADCAST_PUBLISHED',
       'BROADCAST_ENDED',
+      'SANDBOX_STOPPED',
+      'WORKER_PAUSED',
+      'WORKER_RESUMED',
+      'JOB_CANCELLED',
+      'JOB_RETRIED',
     ])
     .optional(),
   q: z.string().trim().max(100).optional(),

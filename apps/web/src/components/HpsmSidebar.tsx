@@ -364,6 +364,13 @@ const TREE: NavFolder[] = [
         icon: IconScreen,
       },
       {
+        to: '/admin?tab=monitor',
+        get label() {
+          return t('nav.monitor');
+        },
+        icon: IconChart,
+      },
+      {
         to: '/admin?tab=audit',
         get label() {
           return t('nav.audit');

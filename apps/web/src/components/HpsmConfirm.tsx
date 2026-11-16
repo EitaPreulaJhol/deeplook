@@ -22,6 +22,8 @@ const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 interface Pending extends ConfirmOptions {
   resolve: (value: boolean) => void;
+  /** Um dialogo novo por pedido: dois seguidos nao dividem o estado (o texto digitado). */
+  seq: number;
 }
 
 export interface PromptOptions {
@@ -34,6 +36,8 @@ export interface PromptOptions {
   maxLength?: number;
   /** Rotulo do botao de confirmar (padrao "OK"). */
   confirmLabel?: string;
+  /** Aceita o campo vazio (ex.: motivo opcional); o retorno e "" em vez de null. */
+  optional?: boolean;
 }
 
 type PromptFn = (options: PromptOptions) => Promise<string | null>;
@@ -42,22 +46,29 @@ const PromptContext = createContext<PromptFn | null>(null);
 
 interface PendingPrompt extends PromptOptions {
   resolve: (value: string | null) => void;
+  seq: number;
 }
 
 /**
  * Caixa de confirmacao no estilo HPSM ("Deseja realmente...? [Sim] [Nao]").
  * Uso: `if (await confirm({ title, message, danger: true })) { ... }`.
  */
+let dialogSeq = 0;
+
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<Pending | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<PendingPrompt | null>(null);
 
   const confirm = useCallback<ConfirmFn>(
-    (options) => new Promise<boolean>((resolve) => setPending({ ...options, resolve })),
+    (options) =>
+      new Promise<boolean>((resolve) => setPending({ ...options, resolve, seq: ++dialogSeq })),
     [],
   );
   const prompt = useCallback<PromptFn>(
-    (options) => new Promise<string | null>((resolve) => setPendingPrompt({ ...options, resolve })),
+    (options) =>
+      new Promise<string | null>((resolve) =>
+        setPendingPrompt({ ...options, resolve, seq: ++dialogSeq }),
+      ),
     [],
   );
 
@@ -74,8 +85,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       <PromptContext.Provider value={prompt}>
         {children}
-        {pending && <ConfirmDialog {...pending} onClose={finish} />}
-        {pendingPrompt && <PromptDialog {...pendingPrompt} onClose={finishPrompt} />}
+        {/* A chave remonta o dialogo a cada pedido: um prompt aberto logo depois de outro (os dois
+            setState no mesmo render) nao herda o texto digitado no anterior. */}
+        {pending && <ConfirmDialog key={pending.seq} {...pending} onClose={finish} />}
+        {pendingPrompt && (
+          <PromptDialog key={pendingPrompt.seq} {...pendingPrompt} onClose={finishPrompt} />
+        )}
       </PromptContext.Provider>
     </ConfirmContext.Provider>
   );
@@ -178,6 +193,7 @@ function PromptDialog({
   defaultValue = '',
   maxLength = 60,
   confirmLabel = 'OK',
+  optional = false,
   onClose,
 }: PromptOptions & { onClose: (value: string | null) => void }) {
   const titleId = useId();
@@ -199,7 +215,7 @@ function PromptDialog({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (trimmed) onClose(trimmed);
+    if (trimmed || optional) onClose(trimmed);
   };
 
   // Esc = Cancelar; Tab circula so dentro da caixa (modal).
@@ -235,7 +251,7 @@ function PromptDialog({
           <div className="hpsm-modal__prompt">
             {message && <div className="hpsm-modal__message">{message}</div>}
             <label className="hpsm-modal__label" htmlFor={inputId}>
-              {label}:<span className="hpsm-field__req">*</span>
+              {label}:{!optional && <span className="hpsm-field__req">*</span>}
             </label>
             <input
               ref={inputRef}
@@ -243,13 +259,17 @@ function PromptDialog({
               className="hpsm-modal__input"
               value={value}
               maxLength={maxLength}
-              required
+              required={!optional}
               autoComplete="off"
               onChange={(event) => setValue(event.target.value)}
             />
           </div>
           <div className="hpsm-modal__actions">
-            <button type="submit" className="dl-btn dl-btn--primary" disabled={!trimmed}>
+            <button
+              type="submit"
+              className="dl-btn dl-btn--primary"
+              disabled={!trimmed && !optional}
+            >
               {confirmLabel}
             </button>
             <button type="button" className="dl-btn" onClick={() => onClose(null)}>

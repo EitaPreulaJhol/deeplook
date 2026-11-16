@@ -42,6 +42,7 @@ import { iocRoutes } from './routes/iocs';
 import { kbRoutes } from './routes/kb';
 import { managementRoutes } from './routes/management';
 import { meRoutes } from './routes/me';
+import { monitorRoutes } from './routes/monitor';
 import { notificationRoutes } from './routes/notifications';
 import { oletoolsRoutes } from './routes/oletools';
 import { openApiRoutes } from './routes/openapi';
@@ -96,6 +97,7 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   backupRoutes,
   // Status do sistema por maquina, com token de escopo STATUS (item 3.2).
   statusRoutes,
+  monitorRoutes,
   // Configuracoes do sistema (item 140).
   settingsRoutes,
   iocRoutes,

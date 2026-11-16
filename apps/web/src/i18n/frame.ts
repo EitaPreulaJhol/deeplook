@@ -42,6 +42,7 @@ export const messages = {
   'nav.tokens': ['Tokens de API', 'API tokens'],
   'nav.templates': ['Modelos de relatório', 'Report templates'],
   'nav.status': ['Status do sistema', 'System status'],
+  'nav.monitor': ['Monitoramento', 'Monitoring'],
   'nav.audit': ['Auditoria', 'Audit'],
   'nav.trash': ['Lixeira', 'Trash'],
   'nav.backup': ['Backup', 'Backup'],

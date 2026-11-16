@@ -170,7 +170,13 @@ pveum acl modify /sdn/zones/localnetwork/<bridge> --users deeplook@pve --roles P
 # 3. ISO storage and every storage that holds a template disk.
 pveum acl modify /storage/<iso-storage> --users deeplook@pve --roles PVEDatastoreAdmin
 pveum acl modify /storage/<disk-storage> --users deeplook@pve --roles PVEDatastoreAdmin
+# 4. (Optional) Node read access for Monitoring: the node's CPU, memory and disk (Sys.Audit).
+pveum acl modify / --users deeplook@pve --roles PVEAuditor
 ```
+
+> **Monitoring:** the node's CPU, memory and disk (Administration › Monitoring) come from
+> `GET /nodes/<node>/status`, which needs `Sys.Audit`, the same `PVEAuditor` on `/` as in the table
+> above. Without it, the screen says "no permission to read the node" and everything else works.
 
 To check what the account really sees (PVE lists the effective privileges per
 path):

@@ -12,14 +12,37 @@ Nunca executa a amostra: o capa e o FLOSS leem e emulam o codigo dentro do vivis
 import hmac
 import json
 import os
+import select
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+# ---- Cancelamento pelo Monitoramento (plans/monitoramento, item 4): quando a API desiste do pedido
+# (fecha a conexao), a ferramenta morre junto, em vez de seguir ate o tempo-limite.
+_request = threading.local()
+
+
+class Cancelled(Exception):
+    """A API fechou a conexao antes da resposta (trabalho cancelado no Monitoramento)."""
+
+
+def client_gone():
+    """A conexao do pedido em andamento fechou (fim de arquivo ou erro ao espiar o socket)."""
+    sock = getattr(_request, "sock", None)
+    if sock is None:
+        return False
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+        return bool(readable) and sock.recv(1, socket.MSG_PEEK) == b""
+    except OSError:
+        return True
 
 
 def secret(name):
@@ -79,17 +102,27 @@ VERSIONS = {"capa": tool_version("capa"), "floss": tool_version("floss"), "rules
 
 
 def run(cmd, timeout, extra_env=None):
-    """Roda a ferramenta num grupo de processos proprio; no tempo esgotado, mata o grupo inteiro."""
+    """Roda a ferramenta num grupo de processos proprio; no tempo esgotado ou com a API fora do
+    pedido, mata o grupo inteiro."""
     env = {**os.environ, **extra_env} if extra_env else None
     proc = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, env=env
     )
-    try:
-        out, err = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        os.killpg(proc.pid, signal.SIGKILL)
-        proc.communicate()
-        return None, f"tempo esgotado ({timeout} s)"
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            out, err = proc.communicate(timeout=max(0.05, min(1.0, deadline - time.monotonic())))
+            break
+        except subprocess.TimeoutExpired:
+            # A cada segundo: a API desistiu (cancelado no Monitoramento) ou o tempo acabou.
+            gone = client_gone()
+            if not gone and time.monotonic() < deadline:
+                continue
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.communicate()
+            if gone:
+                raise Cancelled() from None
+            return None, f"tempo esgotado ({timeout} s)"
     if proc.returncode != 0:
         # Memoria acabou: o kernel mata a ferramenta com SIGKILL (-9).
         if proc.returncode == -signal.SIGKILL:
@@ -341,8 +374,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if RECYCLE:
                 _retiring.set()
+            _request.sock = self.connection
             try:
                 result = analyze(data)
+            except Cancelled:
+                log("cancelado: a API fechou a conexão")
+                return
             except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
                 log(f"falha: {exc!r}")
                 result = {"ok": False, "error": "falha interna na análise", "versions": VERSIONS}

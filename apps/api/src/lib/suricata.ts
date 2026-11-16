@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
+import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 
@@ -191,13 +192,18 @@ async function claim() {
 
 async function drain(): Promise<void> {
   for (;;) {
+    // Fila pausada pelo Monitoramento: o que esta em andamento termina, nada novo comeca.
+    if (isQueuePaused('suricata')) return;
     const job = await claim();
     if (!job) return;
+    const run = startJob('suricata', job.id);
     try {
-      await analyzeJob(job.id, job.storageKey, job.idsAttempts);
+      await analyzeJob(job.id, job.storageKey, job.idsAttempts, run.signal);
     } catch (err) {
       logger.error({ err }, '[suricata] falha na análise');
       await finish(job.id, { idsStatus: 'FAILED', idsError: 'falha interna na análise' });
+    } finally {
+      run.done();
     }
   }
 }
@@ -209,7 +215,12 @@ function finish(id: string, data: Prisma.NetworkCaptureUpdateInput) {
   });
 }
 
-async function analyzeJob(id: string, key: string | null, attempts: number): Promise<void> {
+async function analyzeJob(
+  id: string,
+  key: string | null,
+  attempts: number,
+  signal: AbortSignal,
+): Promise<void> {
   if (!key) {
     await finish(id, { idsStatus: 'FAILED', idsError: 'o arquivo não está mais disponível' });
     return;
@@ -236,10 +247,15 @@ async function analyzeJob(id: string, key: string | null, attempts: number): Pro
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
+      signal,
       waitMs: suricataTiming.serviceWaitMs,
       retryEveryMs: suricataTiming.retryEveryMs,
     });
   } catch (err) {
+    if (signal.aborted) {
+      await finish(id, { idsStatus: 'FAILED', idsError: CANCELLED_REASON });
+      return;
+    }
     const why = requestFailure(service(), err);
     if (attempts < MAX_ATTEMPTS) {
       await prisma.networkCapture.update({
@@ -317,6 +333,7 @@ export async function startSuricataQueue(log: typeof logger): Promise<void> {
     where: { idsStatus: 'RUNNING' },
     data: { idsStatus: 'PENDING', idsNextAttemptAt: new Date() },
   });
+  registerQueueWaker('suricata', wake);
   if (!timer) {
     timer = setInterval(wake, TICK_MS);
     timer.unref();
