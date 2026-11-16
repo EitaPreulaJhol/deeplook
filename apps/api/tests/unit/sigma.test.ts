@@ -10,8 +10,11 @@ import {
 } from '../../src/lib/sigma';
 import {
   compileTeamRule,
+  isSigmaRuleOn,
   isTeamRule,
   matchSigma,
+  sigmaCollectionOf,
+  sigmaCollections,
   sigmaManifest,
   sigmaRules,
   sigmaRuleUrl,
@@ -157,6 +160,34 @@ test('tags ATT&CK viram técnicas', () => {
   assert.deepEqual(
     attackTechniques(['attack.t1059', 'attack.T1003.001', 'attack.execution', 'cve.2021']),
     ['T1059', 'T1003.001'],
+  );
+});
+
+test('coleções da SigmaHQ: principal e ameaças emergentes ligadas, caça desligada', () => {
+  const collections = sigmaCollections();
+  assert.deepEqual(
+    collections.map((c) => [c.id, c.defaultEnabled]),
+    [
+      ['core', true],
+      ['emerging', true],
+      ['hunting', false],
+    ],
+  );
+  const { rules } = sigmaRules();
+  const of = (id: string) => rules.filter((r) => sigmaCollectionOf(r.id) === id);
+  for (const c of collections) {
+    assert.equal(of(c.id).length, c.rules, c.id);
+    // O caminho e o do repositorio: o link da regra abre o arquivo certo.
+    assert.ok(
+      of(c.id).every((r) => r.path.startsWith(`${c.folder}/`)),
+      c.id,
+    );
+  }
+  assert.ok(of('emerging').every((r) => isSigmaRuleOn(r.id) && r.status !== 'experimental'));
+  assert.ok(of('hunting').every((r) => !isSigmaRuleOn(r.id)));
+  assert.match(
+    sigmaRuleUrl(of('emerging')[0]) ?? '',
+    /^https:\/\/github\.com\/SigmaHQ\/sigma\/blob\/r[\d-]+\/rules-emerging-threats\//,
   );
 });
 

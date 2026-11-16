@@ -66,7 +66,10 @@ async function main() {
       .sort()
       .join() === 'bartblaze,reversinglabs',
   );
-  ok('signature-base opcional', manifest['signature-base'].defaultEnabled === false);
+  ok(
+    'signature-base, ESET e Volexity opcionais',
+    ['signature-base', 'eset', 'volexity'].every((id) => manifest[id]?.defaultEnabled === false),
+  );
   ok(
     'sem a pasta generic da bartblaze',
     !manifest.bartblaze.files.some((f) => f.startsWith('generic/')),

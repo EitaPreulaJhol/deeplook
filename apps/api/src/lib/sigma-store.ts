@@ -4,11 +4,11 @@ import { prisma } from './prisma';
 import { readSetting, writeSetting } from './settings';
 import type { SigmaRule } from './sigma';
 import {
+  isSigmaRuleOn,
   isTeamRule,
   matchSigma,
   reloadSigmaConfig,
   safeMatch,
-  sigmaDisabled,
   sigmaRule,
   sigmaRuleUrl,
   sigmaVersion,
@@ -192,7 +192,7 @@ export function reevaluateSigma(sessionId: string): Promise<number> {
 /** A regra, se esta valendo agora (ligada, e a da equipe ainda existe). */
 function activeRule(ruleId: string): SigmaRule | undefined {
   const rule = sigmaRule(ruleId);
-  return rule && !sigmaDisabled().has(ruleId) ? rule : undefined;
+  return rule && isSigmaRuleOn(ruleId) ? rule : undefined;
 }
 
 /** Regras esperando para serem refeitas sobre os eventos guardados, na ordem. */

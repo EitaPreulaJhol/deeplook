@@ -33,8 +33,16 @@ state.sigmaTest = {
 };
 state.sigmaCatalog = {
   source: { name: 'SigmaHQ', release: 'r2026-07-01', license: 'DRL 1.1', url: 'https://github.com/SigmaHQ/sigma' },
-  total: 1, disabledTotal: 0, page: 1, pageSize: 100,
-  rules: [{ ruleId: 'abc-whoami', title: 'Enumerate All Information With Whoami.EXE', level: 'medium', eventIds: [1], techniques: ['T1033'], path: 'rules/windows/process_creation/whoami.yml', description: null, enabled: true, firedRuns: 7, url: 'https://github.com/SigmaHQ/sigma/blob/r/whoami.yml', evaluating: false }],
+  collections: [
+    { id: 'core', name: 'sigma_core+', folder: 'rules/windows', defaultEnabled: true, rules: 1637 },
+    { id: 'emerging', name: 'Emerging Threats', folder: 'rules-emerging-threats', defaultEnabled: true, rules: 227 },
+    { id: 'hunting', name: 'Threat Hunting', folder: 'rules-threat-hunting/windows', defaultEnabled: false, rules: 92 },
+  ],
+  total: 2, disabledTotal: 92, page: 1, pageSize: 100,
+  rules: [
+    { ruleId: 'abc-whoami', title: 'Enumerate All Information With Whoami.EXE', level: 'medium', eventIds: [1], techniques: ['T1033'], path: 'rules/windows/process_creation/whoami.yml', description: null, collection: 'core', enabled: true, firedRuns: 7, url: 'https://github.com/SigmaHQ/sigma/blob/r/whoami.yml', evaluating: false },
+    { ruleId: 'def-hunt', title: 'Process Execution From A Potentially Suspicious Folder', level: 'medium', eventIds: [1], techniques: ['T1036'], path: 'rules-threat-hunting/windows/process_creation/susp_folder.yml', description: null, collection: 'hunting', enabled: false, firedRuns: 0, url: 'https://github.com/SigmaHQ/sigma/blob/r/susp_folder.yml', evaluating: false },
+  ],
 };
 const ev = (min, cmd, sample = true) => ({ time: t(min), eventId: 1, image: 'C:\\Windows\\System32\\vssadmin.exe', pid: 4600, sample, summary: cmd, data: { CommandLine: cmd } });
 state.huntRuns = {

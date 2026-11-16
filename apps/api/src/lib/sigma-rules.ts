@@ -14,14 +14,32 @@ import { compileSigma, type SigmaEvent, type SigmaRule, SigmaUnsupported } from 
  * Regras da equipe e regras vendorizadas desligadas (plans/caca-e-formatos, item 1): as da equipe
  * vem do banco (SigmaRule), com o id "team:<id>" no lugar do id do YAML; as vendorizadas desligadas
  * ficam na configuracao "sigmaDisabled". reloadSigmaConfig() rele as duas depois de cada mudanca.
+ *
+ * Colecoes: a principal (core+), a de ameacas emergentes e a de caca. A de caca entra desligada
+ * (a SigmaHQ diz que nao e para alertar): a regra dela que o analista ligar vai para "sigmaEnabled".
  */
 
 /** Prefixo do id das regras da equipe nas deteccoes. */
 export const TEAM_PREFIX = 'team:';
 const DISABLED_SETTING = 'sigmaDisabled';
+/** Regras de colecao desligada por padrao (caca) que o analista ligou. */
+const ENABLED_SETTING = 'sigmaEnabled';
 
 /** src/lib ou dist/lib -> apps/api/sigma. */
 const SIGMA_DIR = join(__dirname, '..', '..', 'sigma');
+
+export interface SigmaCollection {
+  id: string;
+  name: string;
+  /** Pasta das regras no repositorio de origem (o caminho de cada regra comeca por ela). */
+  folder: string;
+  /** Pasta em apps/api/sigma. */
+  dir: string;
+  defaultEnabled: boolean;
+  rules: number;
+  files: string[];
+  excluded: { file: string; why: string }[];
+}
 
 export interface SigmaManifest {
   id: string;
@@ -31,12 +49,13 @@ export interface SigmaManifest {
   url: string;
   release: string;
   rules: number;
-  files: string[];
-  excluded: { file: string; why: string }[];
+  collections: SigmaCollection[];
 }
 
 interface Loaded {
   manifest: SigmaManifest | null;
+  /** id da regra -> colecao. */
+  collectionOf: Map<string, SigmaCollection>;
   rules: SigmaRule[];
   byId: Map<string, SigmaRule>;
   /** Regras por EventID; as sem EventID na logsource (service: sysmon) valem para todos. */
@@ -52,11 +71,13 @@ interface Config {
   /** id do banco -> regra compilada (as ligadas). */
   teamById: Map<string, SigmaRule>;
   disabled: Set<string>;
+  enabled: Set<string>;
 }
 let config: Config = {
   team: build(null, []),
   teamById: new Map(),
   disabled: new Set(),
+  enabled: new Set(),
 };
 
 /** Para os testes: outro conjunto de regras (YAML, caminho). */
@@ -64,18 +85,24 @@ export function setSigmaRulesForTests(sources: [yaml: string, path: string][] | 
   loaded = sources ? build(null, sources) : null;
 }
 
-function build(manifest: SigmaManifest | null, sources: [string, string][]): Loaded {
+function build(
+  manifest: SigmaManifest | null,
+  sources: [yaml: string, path: string, collection?: SigmaCollection][],
+): Loaded {
   const rules: SigmaRule[] = [];
+  const collectionOf = new Map<string, SigmaCollection>();
   const failed: { file: string; why: string }[] = [];
-  for (const [yaml, path] of sources) {
+  for (const [yaml, path, collection] of sources) {
     try {
-      rules.push(compileSigma(yaml, path));
+      const rule = compileSigma(yaml, path);
+      rules.push(rule);
+      if (collection) collectionOf.set(rule.id, collection);
     } catch (err) {
       if (!(err instanceof SigmaUnsupported)) throw err;
       failed.push({ file: path, why: err.message });
     }
   }
-  return { ...buildCompiled(rules), manifest, failed };
+  return { ...buildCompiled(rules), manifest, collectionOf, failed };
 }
 
 function buildCompiled(rules: SigmaRule[]): Loaded {
@@ -87,6 +114,7 @@ function buildCompiled(rules: SigmaRule[]): Loaded {
   }
   return {
     manifest: null,
+    collectionOf: new Map(),
     rules,
     byId: new Map(rules.map((r) => [r.id, r])),
     byEvent,
@@ -103,10 +131,18 @@ function load(): Loaded {
     return loaded;
   }
   const manifest = JSON.parse(readFileSync(file, 'utf8')) as SigmaManifest;
-  const base = join(SIGMA_DIR, manifest.id);
   loaded = build(
     manifest,
-    manifest.files.map((f) => [readFileSync(join(base, f), 'utf8'), `rules/windows/${f}`]),
+    manifest.collections.flatMap((c) =>
+      c.files.map(
+        (f) =>
+          [readFileSync(join(SIGMA_DIR, c.dir, f), 'utf8'), `${c.folder}/${f}`, c] as [
+            string,
+            string,
+            SigmaCollection,
+          ],
+      ),
+    ),
   );
   return loaded;
 }
@@ -119,6 +155,27 @@ export function sigmaRules(): { rules: SigmaRule[]; failed: { file: string; why:
 
 export function sigmaManifest(): SigmaManifest | null {
   return load().manifest;
+}
+
+/** As colecoes, sem a lista de arquivos (telas). */
+export function sigmaCollections(): Omit<SigmaCollection, 'files' | 'excluded' | 'dir'>[] {
+  return (load().manifest?.collections ?? []).map(
+    ({ files: _f, excluded: _e, dir: _d, ...collection }) => collection,
+  );
+}
+
+/** A colecao de uma regra vendorizada (pelo id do YAML). */
+export const sigmaCollectionOf = (ruleId: string): string | null =>
+  load().collectionOf.get(ruleId)?.id ?? null;
+
+/**
+ * A regra vendorizada vale agora: nao foi desligada e, na colecao desligada por padrao (caca), foi
+ * ligada. As da equipe desligadas nem carregam, entao valem sempre aqui.
+ */
+export function isSigmaRuleOn(ruleId: string): boolean {
+  if (isTeamRule(ruleId)) return true;
+  if (config.disabled.has(ruleId)) return false;
+  return load().collectionOf.get(ruleId)?.defaultEnabled !== false || config.enabled.has(ruleId);
 }
 
 /** Identifica o conjunto de regras: mudou, as sessoes sao avaliadas de novo. */
@@ -134,14 +191,14 @@ export const sigmaRule = (id: string): SigmaRule | undefined =>
 /** As regras que casam com um evento: as vendorizadas ligadas e as da equipe ligadas. */
 export function matchSigma(event: SigmaEvent): SigmaRule[] {
   const { byEvent, anyEvent } = load();
-  const { team, disabled } = config;
+  const { team } = config;
   const candidates = [
     ...(byEvent.get(event.eventId) ?? []),
     ...anyEvent,
     ...(team.byEvent.get(event.eventId) ?? []),
     ...team.anyEvent,
   ];
-  return candidates.filter((rule) => !disabled.has(rule.id) && safeMatch(rule, event));
+  return candidates.filter((rule) => isSigmaRuleOn(rule.id) && safeMatch(rule, event));
 }
 
 export function safeMatch(rule: SigmaRule, event: SigmaEvent): boolean {
@@ -163,9 +220,10 @@ export function compileTeamRule(source: string, dbId: string): SigmaRule {
 
 /** Rele as regras da equipe (ligadas) e as vendorizadas desligadas. */
 export async function reloadSigmaConfig(): Promise<void> {
-  const [rows, stored] = await Promise.all([
+  const [rows, stored, turnedOn] = await Promise.all([
     prisma.sigmaRule.findMany({ where: { enabled: true }, select: { id: true, source: true } }),
     readSetting(DISABLED_SETTING) as Promise<{ ids?: string[] } | null>,
+    readSetting(ENABLED_SETTING) as Promise<{ ids?: string[] } | null>,
   ]);
   const rules: SigmaRule[] = [];
   for (const row of rows) {
@@ -181,26 +239,37 @@ export async function reloadSigmaConfig(): Promise<void> {
     team,
     teamById: new Map(rules.map((r) => [r.id.slice(TEAM_PREFIX.length), r])),
     disabled: new Set(stored?.ids ?? []),
+    enabled: new Set(turnedOn?.ids ?? []),
   };
 }
 
-/** Liga ou desliga uma regra vendorizada (pelo id do YAML). */
+const readIds = async (key: string) =>
+  new Set(((await readSetting(key)) as { ids?: string[] } | null)?.ids ?? []);
+
+/**
+ * Liga ou desliga uma regra vendorizada (pelo id do YAML). Desligar vai para "sigmaDisabled"; ligar
+ * uma da colecao desligada por padrao (caca) vai para "sigmaEnabled".
+ */
 export async function setVendoredEnabled(ruleId: string, enabled: boolean): Promise<void> {
-  const stored = ((await readSetting(DISABLED_SETTING)) as { ids?: string[] } | null)?.ids ?? [];
-  const ids = new Set(stored);
-  if (enabled) ids.delete(ruleId);
-  else ids.add(ruleId);
-  await writeSetting(DISABLED_SETTING, { ids: [...ids].sort() });
+  const [off, on] = await Promise.all([readIds(DISABLED_SETTING), readIds(ENABLED_SETTING)]);
+  const optIn = load().collectionOf.get(ruleId)?.defaultEnabled === false;
+  if (enabled) {
+    off.delete(ruleId);
+    if (optIn) on.add(ruleId);
+  } else {
+    off.add(ruleId);
+    on.delete(ruleId);
+  }
+  await writeSetting(DISABLED_SETTING, { ids: [...off].sort() });
+  await writeSetting(ENABLED_SETTING, { ids: [...on].sort() });
   await reloadSigmaConfig();
 }
-
-export const sigmaDisabled = (): ReadonlySet<string> => config.disabled;
 
 /** Quantas regras valem agora: as vendorizadas ligadas e as da equipe ligadas. */
 export function activeSigmaCount(): { vendored: number; team: number } {
   const { rules } = load();
   return {
-    vendored: rules.filter((r) => !config.disabled.has(r.id)).length,
+    vendored: rules.filter((r) => isSigmaRuleOn(r.id)).length,
     team: config.team.rules.length,
   };
 }

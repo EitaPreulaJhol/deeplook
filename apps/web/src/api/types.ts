@@ -876,6 +876,8 @@ export interface TeamSigmaRule {
 export interface CatalogSigmaRule extends SigmaRuleSummary {
   path: string;
   description: string | null;
+  /** Colecao da SigmaHQ: core (principal), emerging (ameacas emergentes) ou hunting (caca). */
+  collection: string | null;
   enabled: boolean;
   firedRuns: number;
   url: string | null;

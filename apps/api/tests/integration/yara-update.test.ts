@@ -11,7 +11,12 @@ import { ensureBucket, s3 } from '../../src/lib/s3';
 import { systemStatus } from '../../src/lib/status';
 import { scanContextOf, scanWithYara } from '../../src/lib/yara';
 import { installYaraPacks, loadPackState, packRulesDir, yaraPacks } from '../../src/lib/yara-packs';
-import { checkYaraPack, configurePackSource, runDuePackChecks } from '../../src/lib/yara-update';
+import {
+  checkYaraPack,
+  configurePackSource,
+  readReleaseZip,
+  runDuePackChecks,
+} from '../../src/lib/yara-update';
 import { ZipWriter } from '../../src/lib/zip-writer';
 
 let fails = 0;
@@ -89,6 +94,29 @@ async function main() {
     app.inject({ method: method as 'GET', url, headers: { cookie: c }, payload });
 
   await installYaraPacks();
+
+  // Pacote com as regras espalhadas pela raiz do repositorio (ESET, Volexity): pasta vazia.
+  const eset = yaraPacks().find((p) => p.id === 'eset')!;
+  const rootZipPath = join(process.env.TEST_TMP!, `pack-raiz-${Date.now()}.zip`);
+  const rootZip = await ZipWriter.create(rootZipPath);
+  for (const [name, text] of [
+    ['malware-ioc-abc/LICENSE', 'BSD'],
+    ['malware-ioc-abc/turla/carbon.yar', NEW_RULE],
+    ['malware-ioc-abc/turla/carbon.csv', 'nao e regra'],
+    ['malware-ioc-abc/README.adoc', 'nao e regra'],
+  ]) {
+    await rootZip.add(name, Buffer.byteLength(text), Buffer.from(text));
+  }
+  await rootZip.finish();
+  const fromRoot = readReleaseZip(eset, readFileSync(rootZipPath));
+  rmSync(rootZipPath);
+  ok(
+    'pacote na raiz do repositório: acha as regras em qualquer pasta, e a licença',
+    eset.folder === '' &&
+      [...fromRoot.files.keys()].join() === 'turla/carbon.yar' &&
+      fromRoot.license !== null,
+    { folder: eset.folder, files: [...fromRoot.files.keys()] },
+  );
 
   // Fonte de mentira, com o que cada teste quer devolver.
   let commit: { sha: string; date: Date } | null = null;
@@ -345,7 +373,9 @@ async function main() {
   const panel = (await req('GET', '/api/admin/yara-packs/updates', cAdm)).json();
   ok(
     'painel',
-    panel.autoUpdate === true && panel.packs.length === 3 && panel.releases.length > 0,
+    panel.autoUpdate === true &&
+      panel.packs.length === yaraPacks().length &&
+      panel.releases.length > 0,
     panel.packs,
   );
   ok(

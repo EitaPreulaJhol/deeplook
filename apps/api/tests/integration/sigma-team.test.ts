@@ -267,7 +267,8 @@ async function main() {
   // ---- 7. Desligar uma vendorizada (a do whoami) e religar.
   const vendorId = whoamiHit!.ruleId;
   const off = await call('PATCH', `/api/sigma/catalog/${vendorId}`, { enabled: false });
-  const offList = (await call('GET', '/api/sigma/catalog?state=off')).json();
+  // Na colecao principal: a de caca ja vem desligada.
+  const offList = (await call('GET', '/api/sigma/catalog?state=off&collection=core')).json();
   ok(
     'vendorizada desligada: some das detecções e aparece no filtro',
     off.statusCode === 200 &&
@@ -286,6 +287,39 @@ async function main() {
   await sigmaRetroIdle();
   const back = (await sandboxHits()).find((h) => h.ruleId === vendorId);
   ok('religada: volta com a contagem certa', back?.count === 1, back);
+
+  // Colecao de caca: desligada por padrao; ligar uma regra a poe entre as ativas, e desligar tira.
+  type Catalog = {
+    total: number;
+    collections: { id: string; rules: number; defaultEnabled: boolean }[];
+    rules: { ruleId: string; enabled: boolean; collection: string }[];
+  };
+  const hunting: Catalog = (
+    await call('GET', '/api/sigma/catalog?collection=hunting&state=off')
+  ).json();
+  const huntId = hunting.rules[0]?.ruleId;
+  const huntOnCall = await call('PATCH', `/api/sigma/catalog/${huntId}`, { enabled: true });
+  await sigmaRetroIdle();
+  const huntOn: Catalog = (
+    await call('GET', '/api/sigma/catalog?collection=hunting&state=on')
+  ).json();
+  ok(
+    'caça: desligada por padrão; ligar uma regra a põe entre as ativas',
+    hunting.collections.find((c) => c.id === 'hunting')?.defaultEnabled === false &&
+      hunting.total === hunting.collections.find((c) => c.id === 'hunting')?.rules &&
+      huntOnCall.statusCode === 200 &&
+      huntOn.total === 1 &&
+      huntOn.rules[0].ruleId === huntId &&
+      huntOn.rules[0].collection === 'hunting' &&
+      huntOn.rules[0].enabled,
+    { off: hunting.total, on: huntOn.total },
+  );
+  await call('PATCH', `/api/sigma/catalog/${huntId}`, { enabled: false });
+  await sigmaRetroIdle();
+  ok(
+    'caça: desligar de novo tira das ativas',
+    (await call('GET', '/api/sigma/catalog?collection=hunting&state=on')).json().total === 0,
+  );
   const search = (await call('GET', '/api/sigma/catalog?q=whoami')).json();
   ok(
     'catálogo: busca, com as execuções que disparou e o link',

@@ -106,7 +106,8 @@ export function readReleaseZip(pack: YaraPack, zip: Buffer) {
   if (entries.length > MAX_RULE_FILES * 4) throw new Error('o pacote tem arquivos demais');
   const files = new Map<string, string>();
   let license: string | null = null;
-  const prefix = `${pack.folder}/`;
+  // Pacote com as regras espalhadas pela raiz do repositorio (ESET, Volexity): pasta vazia.
+  const prefix = pack.folder ? `${pack.folder}/` : '';
   for (const entry of entries) {
     // O ZIP do GitHub poe tudo dentro de uma pasta "<repo>-<commit>/".
     const path = entry.path.slice(entry.path.indexOf('/') + 1);

@@ -10,9 +10,11 @@ import { type SigmaRule, SigmaUnsupported } from '../lib/sigma';
 import {
   activeSigmaCount,
   compileTeamRule,
+  isSigmaRuleOn,
   safeMatch,
   setVendoredEnabled,
-  sigmaDisabled,
+  sigmaCollectionOf,
+  sigmaCollections,
   sigmaManifest,
   sigmaRules,
   sigmaRuleUrl,
@@ -36,6 +38,8 @@ const CatalogQuery = z.object({
   q: z.string().trim().max(200).optional(),
   level: z.enum(['critical', 'high', 'medium', 'low', 'informational']).optional(),
   state: z.enum(['all', 'on', 'off']).default('all'),
+  /** Colecao da SigmaHQ (core, emerging, hunting). */
+  collection: z.string().trim().max(40).optional(),
   page: z.coerce.number().int().min(1).max(1000).default(1),
 });
 
@@ -367,15 +371,16 @@ export async function sigmaRoutes(app: FastifyInstance) {
     if (!user) return;
     const parsed = CatalogQuery.safeParse(req.query);
     if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
-    const { q, level, state, page } = parsed.data;
-    const disabled = sigmaDisabled();
+    const { q, level, state, collection, page } = parsed.data;
     const needle = q?.toLowerCase();
     const rank = (l: string) => SIGMA_LEVEL_ORDER.indexOf(l);
-    const all = sigmaRules()
-      .rules.filter(
+    const vendored = sigmaRules().rules;
+    const all = vendored
+      .filter(
         (r) =>
           (!level || r.level === level) &&
-          (state === 'all' || (state === 'off') === disabled.has(r.id)) &&
+          (!collection || sigmaCollectionOf(r.id) === collection) &&
+          (state === 'all' || (state === 'on') === isSigmaRuleOn(r.id)) &&
           (!needle ||
             r.title.toLowerCase().includes(needle) ||
             r.id.toLowerCase() === needle ||
@@ -394,15 +399,17 @@ export async function sigmaRoutes(app: FastifyInstance) {
         license: manifest?.license ?? null,
         url: manifest?.url ?? null,
       },
+      collections: sigmaCollections(),
       total: all.length,
-      disabledTotal: disabled.size,
+      disabledTotal: vendored.filter((r) => !isSigmaRuleOn(r.id)).length,
       page,
       pageSize: CATALOG_PAGE,
       rules: slice.map((r) => ({
         ...summary(r),
         path: r.path,
         description: r.description,
-        enabled: !disabled.has(r.id),
+        collection: sigmaCollectionOf(r.id),
+        enabled: isSigmaRuleOn(r.id),
         firedRuns: fired.get(r.id) ?? 0,
         url: sigmaRuleUrl(r),
         evaluating: retro.current === r.id || retro.queued.includes(r.id),

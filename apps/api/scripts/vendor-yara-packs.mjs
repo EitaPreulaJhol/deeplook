@@ -1,5 +1,6 @@
 // Atualiza os pacotes de regras YARA em apps/api/rules (item 143), a partir de clones:
-//   node scripts/vendor-yara-packs.mjs <pasta com os clones>
+//   node scripts/vendor-yara-packs.mjs <pasta com os clones> [id do pacote...]
+// Com ids, so esses pacotes sao copiados de novo; os outros ficam como estao no packs.json.
 // Copia sem alterar, junto com a licenca e o commit, so o que compila no YARA-X do
 // projeto. A API instala cada pacote uma vez: atualizar aqui nao muda o que ja instalou.
 /* global console, process, TextDecoder */
@@ -11,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const API = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(API, 'rules');
-const clones = process.argv[2];
+const [clones, ...only] = process.argv.slice(2);
 if (!clones) throw new Error('Informe a pasta com os clones.');
 
 const PACKS = [
@@ -56,7 +57,41 @@ const PACKS = [
     // Comparam o tamanho de arquivos do Windows: marcam o legitimo em outra versao.
     ignoreRules: ['Suspicious_Size_'],
   },
+  {
+    id: 'eset',
+    clone: 'malware-ioc',
+    // As regras ficam numa pasta por campanha, na raiz do repositorio.
+    folder: '',
+    name: 'ESET',
+    author: 'ESET Research',
+    license: 'BSD-2-Clause',
+    url: 'https://github.com/eset/malware-ioc',
+    defaultEnabled: false,
+    description:
+      'Campanhas investigadas pela ESET Research: APT (Turla, Lazarus, Gamaredon...) e crime.',
+    skip: () => false,
+  },
+  {
+    id: 'volexity',
+    clone: 'threat-intel',
+    // Uma pasta por artigo do blog, dentro da pasta do ano.
+    folder: '',
+    name: 'Volexity',
+    author: 'Volexity',
+    license: 'BSD-2-Clause',
+    url: 'https://github.com/volexity/threat-intel',
+    defaultEnabled: false,
+    description:
+      'Regras dos artigos da Volexity: APT, exploração de equipamentos de borda e webshells.',
+    skip: () => false,
+  },
 ];
+
+const unknown = only.filter((id) => !PACKS.some((p) => p.id === id));
+if (unknown.length) throw new Error(`Pacote desconhecido: ${unknown.join(', ')}`);
+const previous = only.length
+  ? new Map(JSON.parse(readFileSync(join(OUT, 'packs.json'), 'utf8')).map((p) => [p.id, p]))
+  : new Map();
 
 const require = createRequire(join(API, 'package.json'));
 const main = require.resolve('@virustotal/yara-x');
@@ -65,6 +100,8 @@ yara.initSync({ module: readFileSync(join(dirname(main), 'yara_x_js_bg.wasm')) }
 
 const walk = (dir, out = []) => {
   for (const item of readdirSync(dir, { withFileTypes: true })) {
+    // .git, .github...: nunca sao regras (importa para os pacotes da raiz do repositorio).
+    if (item.name.startsWith('.')) continue;
     const path = join(dir, item.name);
     if (item.isDirectory()) walk(path, out);
     else out.push(path);
@@ -96,6 +133,10 @@ const problem = (bytes) => {
 
 const manifest = [];
 for (const pack of PACKS) {
+  if (only.length && !only.includes(pack.id)) {
+    if (previous.has(pack.id)) manifest.push(previous.get(pack.id));
+    continue;
+  }
   const repo = join(clones, pack.clone);
   const root = join(repo, pack.folder);
   const dest = join(OUT, pack.id);

@@ -513,6 +513,8 @@ function TestResult({ result }: { result: SigmaTestResult }) {
 
 type CatalogPage = {
   source: { name: string | null; release: string | null; license: string | null };
+  /** Ausente numa API anterior as colecoes. */
+  collections?: { id: string; name: string; rules: number; defaultEnabled: boolean }[];
   total: number;
   disabledTotal: number;
   page: number;
@@ -520,19 +522,32 @@ type CatalogPage = {
   rules: CatalogSigmaRule[];
 };
 
-/** O catalogo das vendorizadas: busca, nivel, ligadas ou desligadas e o botao de cada uma. */
+const COLLECTION_LABEL = {
+  core: 'sigmaCollectionCore',
+  emerging: 'sigmaCollectionEmerging',
+  hunting: 'sigmaCollectionHunting',
+} as const;
+/** O nome da colecao na lingua da tela (a desconhecida fica com o nome do manifesto). */
+const collectionName = (id: string | null, fallback = '—') =>
+  id && id in COLLECTION_LABEL
+    ? t(COLLECTION_LABEL[id as keyof typeof COLLECTION_LABEL])
+    : fallback;
+
+/** O catalogo das vendorizadas: busca, nivel, colecao, ligadas ou desligadas e o botao de cada uma. */
 function SigmaCatalog({ onNotice }: { onNotice: (n: { ok: boolean; text: string }) => void }) {
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState('');
   const [state, setState] = useState<'all' | 'on' | 'off'>('all');
+  const [collection, setCollection] = useState('');
   const [page, setPage] = useState(1);
   const params = new URLSearchParams({ state, page: String(page) });
   if (search) params.set('q', search);
   if (level) params.set('level', level);
+  if (collection) params.set('collection', collection);
   const query = useQuery({
-    queryKey: ['sigma-catalog', search, level, state, page],
+    queryKey: ['sigma-catalog', search, level, collection, state, page],
     queryFn: () => api.get<CatalogPage>(`/sigma/catalog?${params}`),
     placeholderData: keepPreviousData,
     refetchInterval: (qq) => (qq.state.data?.rules.some((r) => r.evaluating) ? 3000 : false),
@@ -557,6 +572,9 @@ function SigmaCatalog({ onNotice }: { onNotice: (n: { ok: boolean; text: string 
     <HpsmSection title={t('sigmaCatalog', { release: data?.source.release ?? '' })}>
       {data?.source.license && (
         <p className="dl-hint-muted">{t('sigmaCatalogHelp', { license: data.source.license })}</p>
+      )}
+      {data?.collections?.some((c) => !c.defaultEnabled) && (
+        <p className="dl-hint-muted">{t('sigmaHuntingHelp')}</p>
       )}
       <form
         className="dl-sigma-catalog__filters"
@@ -591,6 +609,31 @@ function SigmaCatalog({ onNotice }: { onNotice: (n: { ok: boolean; text: string 
             <SelectItem key={value} value={value} text={ts(l.key)} />
           ))}
         </Select>
+        {(data?.collections?.length ?? 0) > 1 && (
+          <Select
+            id="sigma-catalog-collection"
+            labelText={t('sigmaCollection')}
+            hideLabel
+            size="sm"
+            value={collection}
+            onChange={(e) => {
+              setCollection(e.target.value);
+              setPage(1);
+            }}
+          >
+            <SelectItem value="" text={t('sigmaAllCollections')} />
+            {data?.collections?.map((c) => {
+              const name = `${collectionName(c.id, c.name)} · ${c.rules}`;
+              return (
+                <SelectItem
+                  key={c.id}
+                  value={c.id}
+                  text={c.defaultEnabled ? name : t('sigmaCollectionOptIn', { name })}
+                />
+              );
+            })}
+          </Select>
+        )}
         <Select
           id="sigma-catalog-state"
           labelText={t('situation')}
@@ -624,6 +667,7 @@ function SigmaCatalog({ onNotice }: { onNotice: (n: { ok: boolean; text: string 
                 <TableRow>
                   <TableHeader scope="col">{t('name')}</TableHeader>
                   <TableHeader scope="col">{t('sigmaLevel')}</TableHeader>
+                  <TableHeader scope="col">{t('sigmaCollection')}</TableHeader>
                   <TableHeader scope="col">{t('sigmaEvents')}</TableHeader>
                   <TableHeader scope="col">ATT&amp;CK</TableHeader>
                   <TableHeader scope="col">{t('sigmaFired')}</TableHeader>
@@ -648,6 +692,7 @@ function SigmaCatalog({ onNotice }: { onNotice: (n: { ok: boolean; text: string 
                     <TableCell>
                       <Level level={r.level} />
                     </TableCell>
+                    <TableCell>{collectionName(r.collection)}</TableCell>
                     <TableCell>{r.eventIds.length ? r.eventIds.join(', ') : '—'}</TableCell>
                     <TableCell>
                       {r.techniques.length ? <AttackTechniqueLinks ids={r.techniques} /> : '—'}

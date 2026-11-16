@@ -623,6 +623,8 @@ O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem ba
 | ReversingLabs (310 conjuntos) | ReversingLabs | MIT | ligado |
 | bartblaze (89, sem a pasta `generic`) | bartblaze | MIT | ligado |
 | signature-base (752) | Florian Roth (Neo23x0) | DRL 1.1 | desligado |
+| ESET (24 arquivos, uma pasta por campanha) | ESET Research | BSD-2-Clause | desligado |
+| Volexity (26 arquivos, um por artigo do blog) | Volexity | BSD-2-Clause | desligado |
 
 - **Ligar e desligar:** em **Administração > Configurações**. Desligar não apaga nada; as regras só
   saem da varredura dos próximos arquivos.
@@ -643,8 +645,10 @@ O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem ba
   - **Fica retido** para um admin aprovar ou descartar o que não passa, com o motivo na tela.
   - **Voltar a versão:** a última aplicada volta com um clique, e aquela versão não é reaplicada sozinha.
   - **Respeita as escolhas:** regra desativada continua desativada, e regra excluída não volta.
-- **Versão de fábrica:** `node scripts/vendor-yara-packs.mjs <pasta com os clones>` atualiza a cópia em
-  `apps/api/rules`, usada só nas instalações novas.
+- **Versão de fábrica:** `node scripts/vendor-yara-packs.mjs <pasta com os clones> [id do pacote...]`
+  atualiza a cópia em `apps/api/rules`, usada só nas instalações novas. Com ids, só esses pacotes são
+  copiados de novo, e os outros ficam como estão no `packs.json`. ESET e Volexity guardam as regras em
+  pastas espalhadas pela raiz do repositório, então a pasta de origem deles é o repositório inteiro.
 - **Amostras antigas:** os pacotes valem para os próximos arquivos. Para as antigas, use "Aplicar às
   amostras".
 
@@ -1854,8 +1858,16 @@ com o processo pai e a linha de comando (a amostra rodando, o PowerShell que ela
 ### Regras Sigma no Sysmon
 
 Com o Sysmon no template, cada coleta passa os eventos **novos** pelas regras Sigma da
-[SigmaHQ](https://github.com/SigmaHQ/sigma). São os níveis crítico, alto e médio da release
-`sigma_core+`, só as regras de Windows que o Sysmon cobre: criação de processo, rede, arquivos,
+[SigmaHQ](https://github.com/SigmaHQ/sigma), em três coleções:
+
+| Coleção | Origem na release | Situação |
+|---|---|---|
+| Principal | `sigma_core+.zip`: níveis crítico, alto e médio | ligada |
+| Ameaças emergentes | `sigma_emerging_threats_addon.zip`, sem as experimentais | ligada |
+| Caça | a pasta `rules-threat-hunting` no mesmo tag, sem as experimentais | desligada; ligue regra a regra |
+
+A SigmaHQ diz que as regras de caça não são para alertar, por isso vêm desligadas. Entram só as
+regras de Windows que o Sysmon cobre: criação de processo, rede, arquivos,
 registro, DNS, DLL carregada, thread remota, acesso a processo, pipes, WMI, drivers e arquivos
 apagados. Para essas regras, a leitura do Sysmon também traz os eventos 6 a 10, 15, 17 a 21, 23, 25 e
 26. O resumo e a linha do tempo continuam com os cinco tipos de sempre.
@@ -1880,10 +1892,13 @@ apagados. Para essas regras, a leitura do Sysmon também traz os eventos 6 a 10,
   Ficam de fora `keywords`, agregações e correlações. Uma regra assim não entra, e o motivo fica no
   manifesto.
 - **Atualizar as regras:**
-  1. Baixe o `sigma_core+.zip` da release e o `LICENSE` do mesmo tag.
-  2. Rode `node --import tsx scripts/vendor-sigma.mjs <pasta extraída> <tag> <LICENSE>` em
-     `apps/api`.
-  3. O script grava `apps/api/sigma/sigmahq/` e o `manifest.json` (versão, contagem e exclusões).
+  1. Baixe e extraia o `sigma_core+.zip` e o `sigma_emerging_threats_addon.zip` da release. Faça o
+     checkout do mesmo tag do repositório (basta um sparse checkout de `rules-threat-hunting`); o
+     `LICENSE` usado é o dele.
+  2. Rode `node --import tsx scripts/vendor-sigma.mjs <tag> <LICENSE> <core+> <ameaças emergentes> <repositório>`
+     em `apps/api`.
+  3. O script grava `apps/api/sigma/sigmahq/`, `sigmahq-et/`, `sigmahq-hunting/` e o `manifest.json`
+     (versão, coleções, contagens e exclusões).
 
   As regras seguem a **DRL 1.1**, e o nome e o link de cada uma aparecem na tela.
 
@@ -1899,8 +1914,8 @@ valem no ambiente:
   execuções guardadas, e a lista mostra "avaliando". Nada conta duas vezes: cada execução é refeita
   com a coleta travada, e os eventos que ainda não foram avaliados passam pela regra na coleta
   normal. Desligar ou excluir tira as detecções dela de todas as execuções.
-- **Catálogo SigmaHQ:** busca por título, id, caminho ou técnica, filtro por nível e por ligada ou
-  desligada, e quantas execuções cada regra disparou. **Desligar** uma regra que só faz ruído no
+- **Catálogo SigmaHQ:** busca por título, id, caminho ou técnica, filtro por nível, por coleção e por
+  ligada ou desligada, e quantas execuções cada regra disparou. **Desligar** uma regra que só faz ruído no
   ambiente tira as detecções dela de todas as execuções. **Ligar** de novo refaz.
 - **Na execução:** a detecção de uma regra da equipe aparece com "da equipe" e leva ao editor, no
   lugar do link do GitHub. Ela pesa no risco pelo nível, como as outras.

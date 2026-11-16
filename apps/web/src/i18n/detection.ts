@@ -533,6 +533,16 @@ export const messages = {
   ],
   sigmaAllLevels: ['Todos os níveis', 'All levels'],
   sigmaStateAll: ['Ligadas e desligadas', 'On and off'],
+  sigmaAllCollections: ['Todas as coleções', 'All collections'],
+  sigmaCollection: ['Coleção', 'Collection'],
+  sigmaCollectionCore: ['Principal', 'Core'],
+  sigmaCollectionEmerging: ['Ameaças emergentes', 'Emerging threats'],
+  sigmaCollectionHunting: ['Caça', 'Threat hunting'],
+  sigmaCollectionOptIn: ['{name} (desligadas por padrão)', '{name} (off by default)'],
+  sigmaHuntingHelp: [
+    'As de caça vêm desligadas: a SigmaHQ as fez para procurar, não para alertar. Ligue as que fizerem sentido no seu ambiente.',
+    'Threat hunting rules come turned off: SigmaHQ wrote them for hunting, not alerting. Turn on the ones that make sense in your environment.',
+  ],
   sigmaStateOn: ['Só as ligadas', 'Only those on'],
   sigmaStateOff: ['Só as desligadas', 'Only those off'],
   sigmaCatalogCount: [

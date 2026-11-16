@@ -620,6 +620,8 @@ DeepLook ships with rules from trusted sources, in `apps/api/rules`, without dow
 | ReversingLabs (310 sets) | ReversingLabs | MIT | enabled |
 | bartblaze (89, without the `generic` folder) | bartblaze | MIT | enabled |
 | signature-base (752) | Florian Roth (Neo23x0) | DRL 1.1 | disabled |
+| ESET (24 files, one folder per campaign) | ESET Research | BSD-2-Clause | disabled |
+| Volexity (26 files, one per blog post) | Volexity | BSD-2-Clause | disabled |
 
 - **Enable and disable:** in **Administration > Settings**. Disabling deletes nothing; the rules are only
   removed from the scan of the next files.
@@ -640,8 +642,10 @@ DeepLook ships with rules from trusted sources, in `apps/api/rules`, without dow
   - **Held back** for an admin to approve or discard what does not pass, with the reason on screen.
   - **Rolling back a version:** the last applied one returns with one click, and that version is not reapplied automatically.
   - **Respects your choices:** a disabled rule stays disabled, and a deleted rule does not come back.
-- **Factory version:** `node scripts/vendor-yara-packs.mjs <folder with the clones>` updates the copy in
-  `apps/api/rules`, used only in new installations.
+- **Factory version:** `node scripts/vendor-yara-packs.mjs <folder with the clones> [pack id...]` updates
+  the copy in `apps/api/rules`, used only in new installations. With ids, only those packs are copied again
+  and the others stay as they are in `packs.json`. ESET and Volexity keep their rules in folders across the
+  repository root, so their source folder is the whole repository.
 - **Old samples:** the packs apply to the next files. For the old ones, use "Apply to samples".
 
 ### Team rules
@@ -1835,8 +1839,16 @@ command line (the sample running, the PowerShell it opened).
 ### Sigma rules over Sysmon
 
 With Sysmon in the template, each collection runs the **new** events through the
-[SigmaHQ](https://github.com/SigmaHQ/sigma) Sigma rules. These are the critical, high and medium
-levels of the `sigma_core+` release, limited to the Windows rules that Sysmon covers: process
+[SigmaHQ](https://github.com/SigmaHQ/sigma) Sigma rules, in three collections:
+
+| Collection | Source in the release | Status |
+|---|---|---|
+| Core | `sigma_core+.zip`: critical, high and medium levels | on |
+| Emerging threats | `sigma_emerging_threats_addon.zip`, without the experimental rules | on |
+| Threat hunting | the `rules-threat-hunting` folder at the same tag, without the experimental rules | off; turn on rule by rule |
+
+SigmaHQ says the threat hunting rules are not meant for alerting, so they come turned off. Only the
+Windows rules that Sysmon covers are included: process
 creation, network, files, registry, DNS, image load, remote threads, process access, pipes, WMI,
 drivers and deleted files. For these rules, the Sysmon read also brings events 6 to 10, 15, 17 to 21,
 23, 25 and 26. The summary and the timeline keep the usual five kinds.
@@ -1861,11 +1873,13 @@ drivers and deleted files. For these rules, the Sysmon read also brings events 6
   `keywords`, aggregations and correlations are not supported. A rule that needs them is left out,
   and the reason goes to the manifest.
 - **Updating the rules:**
-  1. Download the release's `sigma_core+.zip` and the `LICENSE` from the same tag.
-  2. Run `node --import tsx scripts/vendor-sigma.mjs <extracted folder> <tag> <LICENSE>` in
-     `apps/api`.
-  3. The script writes `apps/api/sigma/sigmahq/` and `manifest.json` (version, count and
-     exclusions).
+  1. Download the release's `sigma_core+.zip` and `sigma_emerging_threats_addon.zip` and extract
+     them. Check out the same tag of the repository (a sparse checkout of `rules-threat-hunting` is
+     enough); its `LICENSE` is the one used.
+  2. Run `node --import tsx scripts/vendor-sigma.mjs <tag> <LICENSE> <core+> <emerging threats> <repo>`
+     in `apps/api`.
+  3. The script writes `apps/api/sigma/sigmahq/`, `sigmahq-et/`, `sigmahq-hunting/` and
+     `manifest.json` (version, collections, counts and exclusions).
 
   The rules are under **DRL 1.1**, and each rule's name and link are shown on screen.
 
@@ -1882,8 +1896,8 @@ the environment:
   run, and the list shows "evaluating". Nothing is counted twice: each run is redone with the
   collection locked, and events not evaluated yet go through the rule in the normal collection.
   Turning off or deleting removes its detections from every run.
-- **SigmaHQ catalog:** search by title, id, path or technique, filter by level and by on or off, and
-  how many runs each rule fired on. **Turning off** a rule that only makes noise in the environment
+- **SigmaHQ catalog:** search by title, id, path or technique, filter by level, collection and on or
+  off, and how many runs each rule fired on. **Turning off** a rule that only makes noise in the environment
   removes its detections from every run. **Turning it back on** redoes them.
 - **On the run:** a team rule's detection shows "team rule" and leads to the editor, instead of the
   GitHub link. It weighs on the risk by level, like the others.
