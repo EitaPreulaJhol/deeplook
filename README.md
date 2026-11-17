@@ -856,6 +856,37 @@ recognize as .NET, can be requested by an analyst in the record's **.NET code (I
 - ILSpy is upgraded by hand (the `ilspycmd.linux-x64` NuGet package, with the version and the
   SHA-256 in `apps/dotnet/Dockerfile`).
 
+## Java code (CFR)
+
+Every JAR and every loose `.class` that arrives (up to `JAR_MAX_MB`, default 30 MB) goes, in the
+background, to the `jar` service. It runs [CFR](https://github.com/leibnitz27/cfr) 0.152 (MIT) on a
+headless JRE. CFR only reads the bytecode, and nothing is executed. The container has no network
+and no root, the root is read-only and there is one container per analysis. A ZIP that holds Java
+classes can be requested by an analyst in the record's **Java code (CFR)** section.
+- **Classes:** the Java source CFR builds, with one file per class, viewed and downloaded like the
+  .NET code (same permissions, audited download). The code stays in storage
+  (`jar/<sample>.json.gz`, up to 16 MB of source), not in the database, and goes away with the sample.
+- **Module:** main class, Java agent (`Premain-Class` / `Agent-Class`), bytecode version, the
+  manifest's `Created-By` and the number of classes.
+- **Findings**, by rule over the Java, with the file and the line (imports are ignored):
+  - process start (`Runtime.exec`, `ProcessBuilder`) and class loading from bytes or a URL;
+  - reflection, network access, `Cipher`/`SecretKeySpec`, `Base64`, native code and `Unsafe`;
+  - script engines, JNDI lookups (Log4Shell style) and `ObjectInputStream` deserialization;
+  - startup locations (persistence), screenshots and keystrokes, browser and wallet data;
+  - Telegram/Discord, Minecraft session tokens (account theft) and anti-VM checks.
+- **Obfuscators:** Allatori, Zelix KlassMaster, Stringer, DashO, Skidfuscator, Paramorphism, Radon and
+  Qprotect by their marks; ProGuard-style short names (more than half of the classes with 1 or 2
+  letters); and an "unreadable names" alert for the rest. Classes CFR could not fully decompile are
+  counted in an informational alert.
+- **Embedded files:** PE, ELF, Mach-O, ZIP and scripts inside the JAR become **child samples** (an
+  executable hidden in a JAR is a high alert); large encrypted blobs are a medium alert.
+- **Limits:** 50,000 entries and 192 MB of uncompressed classes (against decompression bombs).
+- **IOCs:** the URLs in the code go to the suggested IOCs.
+- **Risk:** same weights as the .NET code (high 25 + 5 per extra, cap 35; medium 10 + 3, cap 16).
+- **System status:** the **Java decompilation (CFR)** row, with the queue and the analyses in 24 h.
+- CFR is upgraded by hand (the Maven Central JAR, with the version and the SHA-256 in
+  `apps/jarcfr/Dockerfile`).
+
 ## Identify and unpack
 
 Every executable that arrives (Windows, Linux, macOS, APK and JAR, and CABs, up to `UNPACK_MAX_MB`) goes through the
@@ -1366,6 +1397,8 @@ COOKIE_SECURE=true
 | `EXTRACT_MAX_MB` / `EXTRACT_TIMEOUT_S` / `EXTRACT_MEM_LIMIT` | largest file, ceiling of one analysis and container memory | `64` / `300` / `2g` |
 | `DOTNET_URL` / `DOTNET_TOKEN` | .NET decompilation service (ILSpy); empty URL turns it off | `http://dotnet:3900` / — |
 | `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | largest assembly, ceiling of one analysis, ILSpy ceiling and container memory | `30` / `240` / `200` / `2g` |
+| `JAR_URL` / `JAR_TOKEN` | Java decompilation service (CFR); empty URL turns it off | `http://jar:4000` / — |
+| `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | largest JAR, ceiling of one analysis, CFR ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | memory dump: cap per process (`0` turns it off), processes per capture, wait after the automatic run | `512` / `4` / `120` |
 | `LLM_PROVIDER` | AI report draft: `anthropic`, `openai` (compatible server) or empty (off) | — |
 | `LLM_URL` / `LLM_API_KEY` / `LLM_MODEL` | server (required for `openai`), key (required for `anthropic`) and model (default `claude-opus-5-5` on `anthropic`) | — |

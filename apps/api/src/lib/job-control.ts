@@ -21,6 +21,7 @@ export const QUEUE_IDS = [
   'android',
   'config',
   'dotnet',
+  'jar',
   'suricata',
   'memdump',
 ] as const;
@@ -31,8 +32,9 @@ const SERVICE_QUEUES: Record<ServiceKind, QueueId> = {
   ANDROID: 'android',
   CONFIG: 'config',
   DOTNET: 'dotnet',
+  JAR: 'jar',
 };
-/** A fila de um tipo de analise de servico (emulacao, Android, configuracao, .NET). */
+/** A fila de um tipo de analise de servico (emulacao, Android, configuracao, .NET, Java). */
 export const serviceQueue = (kind: ServiceKind): QueueId => SERVICE_QUEUES[kind];
 
 export const isQueueId = (value: string): value is QueueId =>

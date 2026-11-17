@@ -33,6 +33,7 @@ const FILES = [
   'script-deobfuscate',
   'delivery-formats',
   'dotnet',
+  'jar',
   'file-type',
   'reputation',
   'yara-update',
@@ -175,6 +176,14 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
     'o Suricata falhou: {0}',
     'o arquivo não é um pcap',
     'suricata-update falhou: {0}',
+    // Do servico jar (apps/jarcfr/analyze.py; descompilacao de Java).
+    'o arquivo não é um JAR válido (ZIP corrompido)',
+    'JAR com {0} entradas (limite {1})',
+    'o conteúdo descompactado das classes passa do limite (possível bomba de descompressão)',
+    'o JAR não tem nenhuma classe Java',
+    'não é um JAR nem um .class',
+    'o CFR não descompilou o arquivo: {0}',
+    'o CFR não terminou em {0} s',
     // Do servico dotnet (apps/dotnet/analyze.py; plans/caca-e-formatos, item 3).
     'não é um assembly .NET (sem metadados do CLR)',
     'o ILSpy não descompilou o arquivo: {0}',

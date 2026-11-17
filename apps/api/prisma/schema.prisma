@@ -1778,6 +1778,7 @@ enum ServiceKind {
   ANDROID
   CONFIG
   DOTNET
+  JAR
 }
 
 enum ServiceAnalysisStatus {

@@ -64,6 +64,8 @@ export type RiskInputs = {
   emulationAlerts?: { level: string; text: string }[];
   /** Descompilacao de .NET (plans/caca-e-formatos, item 3). */
   dotnetAlerts?: { level: string; text: string }[];
+  /** Descompilacao de Java (JAR e .class). */
+  jarAlerts?: { level: string; text: string }[];
   androidAlerts?: { level: string; text: string }[];
   /** Familias reconhecidas pela configuracao (item 2): com a configuracao extraida ou so pela regra. */
   configFamilies?: { family: string; extracted: boolean }[];
@@ -293,6 +295,8 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
   // .NET descompilado (plans/caca-e-formatos, item 3): os achados no codigo pesam como na emulacao;
   // o ofuscador e os recursos medios, como os medios dela.
   scored('.NET', input.dotnetAlerts, [25, 5, 35], [10, 3, 16]);
+  // Java descompilado: o mesmo peso do .NET (achados no codigo, ofuscador e arquivos embutidos).
+  scored('Java', input.jarAlerts, [25, 5, 35], [10, 3, 16]);
   // APK (item 6): as combinacoes de banker, spyware e dropper.
   scored('Android', input.androidAlerts, [30, 5, 40], [10, 3, 20]);
   // Configuracao de familia (item 2): a configuracao extraida e a identificacao mais certa que ha.
@@ -487,6 +491,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
     servicePending('ANDROID') && (en ? 'APK analysis' : 'análise do APK'),
     servicePending('CONFIG') && (en ? 'configuration extraction' : 'extração de configuração'),
     servicePending('DOTNET') && (en ? '.NET decompilation' : 'descompilação do .NET'),
+    servicePending('JAR') && (en ? 'Java decompilation' : 'descompilação do Java'),
   ].filter((name): name is string => Boolean(name));
   return scoreRisk(
     {
@@ -503,6 +508,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       sigmaHits,
       emulationAlerts: alertsOf('EMULATION'),
       dotnetAlerts: alertsOf('DOTNET'),
+      jarAlerts: alertsOf('JAR'),
       androidAlerts: alertsOf('ANDROID'),
       configFamilies: configFound,
     },

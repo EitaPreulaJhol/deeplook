@@ -366,6 +366,57 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['assíncrona', 'asynchronous'],
   ['objeto {0}', 'object {0}'],
   ['ação {0}', 'action {0}'],
+  // Java (jar.ts e apps/jarcfr/analyze.py)
+  ['inicia outro programa ou comando do sistema', 'starts another program or system command'],
+  [
+    'carrega classes a partir de bytes ou de uma URL (carga em memória)',
+    'loads classes from bytes or from a URL (in-memory loading)',
+  ],
+  ['chama métodos por reflexão', 'calls methods through reflection'],
+  [
+    'acessa a rede (download de carga ou envio de dados)',
+    'accesses the network (payload download or data upload)',
+  ],
+  [
+    'cifra ou decifra conteúdo (carga ou configuração cifrada)',
+    'encrypts or decrypts content (encrypted payload or configuration)',
+  ],
+  [
+    'carrega código nativo ou mexe na memória (Unsafe)',
+    'loads native code or touches memory (Unsafe)',
+  ],
+  ['executa script (JavaScript) em tempo de execução', 'runs a script (JavaScript) at run time'],
+  [
+    'consulta JNDI (vetor de execução remota, como o Log4Shell)',
+    'performs a JNDI lookup (remote execution vector, like Log4Shell)',
+  ],
+  ['desserializa objetos (execução por gadget)', 'deserializes objects (gadget execution)'],
+  ['grava em local de inicialização (persistência)', 'writes to a startup location (persistence)'],
+  ['tira print da tela ou captura teclas', 'takes screenshots or captures keystrokes'],
+  [
+    'lê o token da sessão do Minecraft (roubo de conta)',
+    'reads the Minecraft session token (account theft)',
+  ],
+  ['agente Java ou anexa a outra JVM', 'Java agent or attaches to another JVM'],
+  [
+    'Agente Java ({0}): o JAR se anexa a outra JVM',
+    'Java agent ({0}): the JAR attaches to another JVM',
+  ],
+  [
+    '{0} classe(s) não foram descompiladas por completo (ofuscação ou bytecode incomum)',
+    '{0} class(es) were not fully decompiled (obfuscation or unusual bytecode)',
+  ],
+  ['Arquivo embutido no JAR "{0}" ({1}).', 'File embedded in the JAR "{0}" ({1}).'],
+  ['o arquivo não é um JAR válido (ZIP corrompido)', 'the file is not a valid JAR (corrupt ZIP)'],
+  ['JAR com {0} entradas (limite {1})', 'JAR with {0} entries (limit {1})'],
+  [
+    'o conteúdo descompactado das classes passa do limite (possível bomba de descompressão)',
+    'the uncompressed size of the classes is over the limit (possible decompression bomb)',
+  ],
+  ['o JAR não tem nenhuma classe Java', 'the JAR has no Java classes'],
+  ['não é um JAR nem um .class', 'not a JAR or a .class file'],
+  ['o CFR não descompilou o arquivo: {0}', 'CFR did not decompile the file: {0}'],
+  ['o CFR não terminou em {0} s', 'CFR did not finish in {0} s'],
   // .NET (dotnet.ts e apps/dotnet/analyze.py; plans/caca-e-formatos, item 3)
   [
     'Ofuscado com {0}: a descompilação pode estar ilegível',

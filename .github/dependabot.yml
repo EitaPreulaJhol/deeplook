@@ -122,6 +122,7 @@ updates:
       - /apps/suricata
       - /apps/android
       - /apps/dotnet
+      - /apps/jarcfr
     schedule:
       interval: weekly
       day: monday

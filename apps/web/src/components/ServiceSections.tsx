@@ -8,6 +8,7 @@ import type {
   ConfigResult,
   DotnetResult,
   EmulationResult,
+  JarResult,
   ServiceAnalysisInfo,
   ServiceKindId,
 } from '../api/types';
@@ -480,21 +481,30 @@ export function ConfigSection({ entryId, canTriage }: { entryId: string; canTria
 /** Teto de tipos listados (o filtro acha o resto). */
 const TYPES_SHOWN = 300;
 
+/** Os dois servicos de descompilacao (.NET e Java) mostram o fonte do mesmo jeito. */
+type DecompiledSlug = 'dotnet' | 'jar';
+type Decompiled = Pick<
+  DotnetResult,
+  'types' | 'findings' | 'obfuscators' | 'resources' | 'truncated'
+>;
+
 /** O fonte de um tipo, com o numero das linhas e as linhas dos achados marcadas (texto da amostra). */
-function DotnetSource({
+function DecompiledSource({
   entryId,
+  slug,
   path,
   marks,
 }: {
   entryId: string;
+  slug: DecompiledSlug;
   path: string;
   marks: Map<number, string>;
 }) {
   const query = useQuery({
-    queryKey: ['dotnet-source', entryId, path],
+    queryKey: [`${slug}-source`, entryId, path],
     queryFn: () =>
       api.get<{ path: string; source: string }>(
-        `/entries/${entryId}/dotnet/source?path=${encodeURIComponent(path)}`,
+        `/entries/${entryId}/${slug}/source?path=${encodeURIComponent(path)}`,
       ),
     staleTime: Infinity,
   });
@@ -520,7 +530,24 @@ function DotnetSource({
   );
 }
 
-function DotnetBody({ r, entryId }: { r: DotnetResult; entryId: string }) {
+function DecompiledBody({
+  r,
+  entryId,
+  slug,
+  moduleLabel,
+  module,
+  extra,
+}: {
+  r: Decompiled;
+  entryId: string;
+  slug: DecompiledSlug;
+  moduleLabel: string;
+  /** O resumo do modulo (assembly ou JAR), ja montado. */
+  module: string;
+  /** Campos a mais depois do modulo (o agente Java). */
+  extra?: ReactNode;
+}) {
+  const jar = slug === 'jar';
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState<string | null>(
     () =>
@@ -531,16 +558,14 @@ function DotnetBody({ r, entryId }: { r: DotnetResult; entryId: string }) {
   const marks = new Map(
     r.findings.filter((f) => f.path === open).map((f) => [f.line, f.why] as [number, string]),
   );
-  const module = [r.module.name, r.module.framework, r.module.outputType]
-    .filter(Boolean)
-    .join(' · ');
   return (
     <>
       {module && (
-        <HpsmField label={t('netModule')}>
+        <HpsmField label={moduleLabel}>
           <HpsmReadonly>{module}</HpsmReadonly>
         </HpsmField>
       )}
+      {extra}
       {r.obfuscators.length > 0 && (
         <HpsmField label={t('netObfuscators')}>
           <HpsmReadonly>
@@ -590,15 +615,15 @@ function DotnetBody({ r, entryId }: { r: DotnetResult; entryId: string }) {
           </ul>
         </HpsmField>
       )}
-      <HpsmField label={t('netTypes', { n: r.types.length })} wide top>
+      <HpsmField label={t(jar ? 'jarTypes' : 'netTypes', { n: r.types.length })} wide top>
         {r.truncated && <HpsmMessage kind="warning">{t('netTruncated')}</HpsmMessage>}
         <div className="dl-dotnet">
           <div className="dl-dotnet__types">
             <input
               type="search"
               className="dl-dotnet__filter"
-              aria-label={t('netFilter')}
-              placeholder={t('netFilter')}
+              aria-label={t(jar ? 'jarFilter' : 'netFilter')}
+              placeholder={t(jar ? 'jarFilter' : 'netFilter')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
@@ -619,15 +644,15 @@ function DotnetBody({ r, entryId }: { r: DotnetResult; entryId: string }) {
                 <li className="dl-hint-muted">{t('netMore', { n: types.length - TYPES_SHOWN })}</li>
               )}
             </ul>
-            <a className="dl-link" href={`/api/entries/${entryId}/dotnet/download`} download>
+            <a className="dl-link" href={`/api/entries/${entryId}/${slug}/download`} download>
               {t('netDownload')}
             </a>
           </div>
           <div className="dl-dotnet__code">
             {open ? (
-              <DotnetSource entryId={entryId} path={open} marks={marks} />
+              <DecompiledSource entryId={entryId} slug={slug} path={open} marks={marks} />
             ) : (
-              <p className="dl-hint-muted">{t('netPick')}</p>
+              <p className="dl-hint-muted">{t(jar ? 'jarPick' : 'netPick')}</p>
             )}
           </div>
         </div>
@@ -646,7 +671,56 @@ export function DotnetSection({ entryId, canTriage }: { entryId: string; canTria
       help={t('netHelp')}
       notYet={t('netNotYet')}
       off={t('netOff')}
-      body={(r) => <DotnetBody r={r} entryId={entryId} />}
+      body={(r) => (
+        <DecompiledBody
+          r={r}
+          entryId={entryId}
+          slug="dotnet"
+          moduleLabel={t('netModule')}
+          module={[r.module.name, r.module.framework, r.module.outputType]
+            .filter(Boolean)
+            .join(' · ')}
+        />
+      )}
+    />
+  );
+}
+
+export function JarSection({ entryId, canTriage }: { entryId: string; canTriage: boolean }) {
+  return (
+    <ServiceSection<JarResult>
+      kind="jar"
+      entryId={entryId}
+      canTriage={canTriage}
+      title={t('jarTitle')}
+      help={t('jarHelp')}
+      notYet={t('jarNotYet')}
+      off={t('jarOff')}
+      body={(r) => (
+        <DecompiledBody
+          r={r}
+          entryId={entryId}
+          slug="jar"
+          moduleLabel={t('jarModule')}
+          module={[
+            r.module.mainClass ?? r.module.name,
+            r.module.javaVersion,
+            t('jarClasses', { n: r.module.classes }),
+            r.module.createdBy,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          extra={
+            r.module.agentClass && (
+              <HpsmField label={t('jarAgent')}>
+                <HpsmReadonly>
+                  <StatusText tone="orange">{r.module.agentClass}</StatusText>
+                </HpsmReadonly>
+              </HpsmField>
+            )
+          }
+        />
+      )}
     />
   );
 }

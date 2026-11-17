@@ -1073,6 +1073,23 @@ export const messages = {
     'The project went over the cap: part of the code was not stored.',
   ],
   netMore: ['e mais {n}', 'and {n} more'],
+  // ---- Java (CFR)
+  jarTitle: ['Código Java (CFR)', 'Java code (CFR)'],
+  jarHelp: [
+    'O CFR descompila o bytecode do JAR em Java, um arquivo por classe. Nada é executado; o código descompilado é texto da amostra.',
+    'CFR decompiles the JAR bytecode into Java, one file per class. Nothing is executed; the decompiled code is text from the sample.',
+  ],
+  jarNotYet: ['Ainda não descompilado.', 'Not decompiled yet.'],
+  jarOff: [
+    'A descompilação de Java está desligada (JAR_URL vazio).',
+    'Java decompilation is off (JAR_URL empty).',
+  ],
+  jarModule: ['JAR', 'JAR'],
+  jarClasses: ['{n} classe(s)', '{n} class(es)'],
+  jarAgent: ['Agente Java', 'Java agent'],
+  jarTypes: ['Classes ({n})', 'Classes ({n})'],
+  jarFilter: ['Filtrar classes', 'Filter classes'],
+  jarPick: ['Escolha uma classe para ver o código.', 'Pick a class to see the code.'],
   // ---- Formatos de entrega (plans/caca-e-formatos, item 4)
   dlvTitleOnenote: ['Caderno do OneNote', 'OneNote notebook'],
   dlvTitleHtml: ['Página HTML', 'HTML page'],

@@ -100,7 +100,9 @@ export const STATUS_EN: readonly (readonly [pt: string, en: string])[] = [
   ['Configuração e memória (CAPE)', 'Configuration and memory (CAPE)'],
   ['desligado (EXTRACT_URL vazio)', 'off (EXTRACT_URL empty)'],
   ['Descompilação de .NET (ILSpy)', '.NET decompilation (ILSpy)'],
+  ['Descompilação de Java (CFR)', 'Java decompilation (CFR)'],
   ['desligada (DOTNET_URL vazio)', 'off (DOTNET_URL empty)'],
+  ['desligada (JAR_URL vazio)', 'off (JAR_URL empty)'],
   ['Rascunho por IA', 'AI draft'],
   ['desligado (LLM_PROVIDER vazio)', 'off (LLM_PROVIDER empty)'],
   [

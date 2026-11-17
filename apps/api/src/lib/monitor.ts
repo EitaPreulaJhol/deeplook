@@ -98,6 +98,7 @@ export const QUEUE_TABLES: Record<QueueId, QueueTable> = {
   android: service('android', 'ANDROID', 'android'),
   config: service('config', 'CONFIG', 'extract'),
   dotnet: service('dotnet', 'DOTNET', 'dotnet'),
+  jar: service('jar', 'JAR', 'jar'),
   suricata: {
     id: 'suricata',
     table: 'NetworkCapture',

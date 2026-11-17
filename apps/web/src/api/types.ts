@@ -1062,7 +1062,7 @@ export interface SandboxProcess {
 
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 /** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
-export type ServiceKindId = 'emulation' | 'android' | 'config' | 'dotnet';
+export type ServiceKindId = 'emulation' | 'android' | 'config' | 'dotnet' | 'jar';
 
 export interface EmulationResult {
   kind: 'pe' | 'shellcode';
@@ -1175,6 +1175,40 @@ export interface DotnetResult {
     entryId?: string;
   }[];
   urls: string[];
+  truncated: boolean;
+  sourceKey: string | null;
+}
+
+/** Descompilacao de Java (JAR e .class, CFR). */
+export interface JarResult {
+  module: {
+    name: string | null;
+    mainClass: string | null;
+    agentClass: string | null;
+    javaVersion: string | null;
+    createdBy: string | null;
+    classes: number;
+  };
+  types: { path: string; size: number; lines: number }[];
+  findings: {
+    rule: string;
+    level: 'high' | 'medium';
+    why: string;
+    path: string;
+    line: number;
+    text: string;
+  }[];
+  obfuscators: string[];
+  resources: {
+    name: string;
+    size: number;
+    sha256: string;
+    kind: string | null;
+    entropy: number;
+    entryId?: string;
+  }[];
+  urls: string[];
+  failed: number;
   truncated: boolean;
   sourceKey: string | null;
 }
@@ -1853,6 +1887,7 @@ export type MonitorQueueId =
   | 'android'
   | 'config'
   | 'dotnet'
+  | 'jar'
   | 'suricata'
   | 'memdump';
 

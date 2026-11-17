@@ -671,7 +671,7 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'There is already a team rule with this title.',
   ],
   ['Execução não encontrada.', 'Run not found.'],
-  // Fonte descompilado do .NET (routes/dotnet.ts; plans/caca-e-formatos, item 3)
+  // Fonte descompilado do .NET (routes/decompiled-source.ts; plans/caca-e-formatos, item 3)
   [
     'Somente quem enviou e os analistas veem o código descompilado.',
     'Only the submitter and analysts see the decompiled code.',

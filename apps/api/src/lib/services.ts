@@ -6,6 +6,7 @@ import './emulation';
 import './android';
 import './config-extract';
 import './dotnet';
+import './jar';
 
 export {
   enqueueService,

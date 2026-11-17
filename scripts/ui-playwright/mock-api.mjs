@@ -1415,7 +1415,7 @@ export async function setupMock(context, state) {
           ? json(route, 404, { error: 'Arquivo não encontrado no projeto.' })
           : json(route, 200, { path, source });
       }
-      m = p.match(/^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config|dotnet)$/);
+      m = p.match(/^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config|dotnet|jar)$/);
       if (m && req.method() === 'POST') {
         (state.serviceRequests ??= []).push({ entryId: m[1], kind: m[2], body });
         return json(route, 202, { ok: true });

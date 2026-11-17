@@ -27,7 +27,7 @@ import { caseRoutes } from './routes/cases';
 import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
-import { dotnetRoutes } from './routes/dotnet';
+import { dotnetRoutes, jarRoutes } from './routes/decompiled-source';
 import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
@@ -145,6 +145,7 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   sigmaRoutes,
   sandboxHuntRoutes,
   dotnetRoutes,
+  jarRoutes,
   yaraRoutes,
   hexRoutes,
   adminRoutes,

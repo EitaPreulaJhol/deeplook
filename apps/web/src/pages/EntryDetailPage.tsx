@@ -75,6 +75,7 @@ import {
   ConfigSection,
   DotnetSection,
   EmulationSection,
+  JarSection,
   useServiceAnalysis,
 } from '../components/ServiceSections';
 import { useDecoder } from '../components/shortcuts';
@@ -956,6 +957,7 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && <AndroidSection entryId={entry.id} canTriage={canTriage} />}
           {/* Descompilacao de .NET (plans/caca-e-formatos, item 3). */}
           {entry.type === 'FILE' && <DotnetSection entryId={entry.id} canTriage={canTriage} />}
+          {entry.type === 'FILE' && <JarSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {/* OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */}
           {entry.type === 'FILE' && <DeliverySection info={entry.staticInfo} />}

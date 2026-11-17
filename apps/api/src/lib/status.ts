@@ -65,6 +65,7 @@ export interface StatusCheck {
     | 'android'
     | 'extract'
     | 'dotnet'
+    | 'jar'
     | 'ai'
     | 'backup'
     | 'config';
@@ -746,6 +747,12 @@ const SERVICE_CHECKS = {
     name: 'Descompilação de .NET (ILSpy)',
     summary: 'desligada (DOTNET_URL vazio)',
   },
+  // Descompilacao de Java (JAR e .class).
+  JAR: {
+    id: 'jar',
+    name: 'Descompilação de Java (CFR)',
+    summary: 'desligada (JAR_URL vazio)',
+  },
 } as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
 
 async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
@@ -1235,6 +1242,7 @@ export async function systemStatus() {
     serviceCheck('ANDROID'),
     serviceCheck('CONFIG'),
     serviceCheck('DOTNET'),
+    serviceCheck('JAR'),
     aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),

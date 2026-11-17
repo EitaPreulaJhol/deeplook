@@ -1,14 +1,8 @@
-import { gunzipSync, gzipSync } from 'node:zlib';
-
-import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import type { FastifyBaseLogger } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../env';
+import { createResourceChildren, getSources, putSources, sourceKeysOf } from './decompiled-store';
 import { extractIocs } from './iocs';
-import { log } from './log';
-import { prisma } from './prisma';
-import { s3 } from './s3';
 import { registerService, type ServiceAlert } from './service-analysis';
 
 /**
@@ -68,15 +62,6 @@ export type DotnetStored = Omit<DotnetResult, 'sources' | 'resources'> & {
 };
 
 export const dotnetSourceKey = (entryId: string) => `dotnet/${entryId}.json.gz`;
-
-/** O log da criacao das filhas (createFileEntry pede o formato do Fastify). */
-const childLog = {
-  info: (m: string) => log.info(m),
-  warn: (o: unknown, m?: string) => log.warn(m ?? String(o)),
-  error: (o: unknown, m?: string) => log.error(m ?? String(o)),
-  debug: () => undefined,
-  child: () => childLog,
-} as unknown as FastifyBaseLogger;
 
 /** O porque de cada regra do servico (o texto fica aqui, com a traducao em data-en.ts). */
 const WHY: Record<string, string> = {
@@ -144,48 +129,13 @@ export function dotnetIocs(r: DotnetResult): string[] {
  */
 async function persistDotnet(entryId: string, r: DotnetResult): Promise<DotnetStored> {
   const key = dotnetSourceKey(entryId);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: env.S3_BUCKET,
-      Key: key,
-      Body: gzipSync(JSON.stringify(r.sources)),
-      ContentType: 'application/gzip',
-    }),
+  await putSources(key, r.sources);
+  const resources = await createResourceChildren(
+    entryId,
+    r.resources,
+    (title, res) => `Recurso embutido no assembly .NET "${title}" (${res.name}).`,
+    'dotnet',
   );
-  const parent = await prisma.entry.findUnique({
-    where: { id: entryId },
-    select: { ownerId: true, title: true, tags: { select: { id: true } } },
-  });
-  const { createFileEntry } = await import('./entry-create');
-  const resources: DotnetStored['resources'] = [];
-  for (const { data, ...res } of r.resources) {
-    if (!data || !parent) {
-      resources.push(res);
-      continue;
-    }
-    try {
-      const name = res.name.split('/').pop() || 'recurso.bin';
-      const { entry } = await createFileEntry(
-        { log: childLog },
-        parent.ownerId,
-        {
-          buffer: Buffer.from(data, 'base64'),
-          filename: name,
-          mimetype: 'application/octet-stream',
-          title: name,
-          description: `Recurso embutido no assembly .NET "${parent.title}" (${res.name}).`,
-          tags: parent.tags,
-          parentEntryId: entryId,
-        },
-        { remaining: null },
-        1,
-      );
-      resources.push({ ...res, entryId: entry.id });
-    } catch (err) {
-      log.warn(`[dotnet] falha ao criar a filha ${res.name}: ${String(err)}`);
-      resources.push(res);
-    }
-  }
   const { sources: _sources, ...rest } = r;
   return { ...rest, resources, sourceKey: key };
 }
@@ -197,27 +147,10 @@ export async function dotnetSource(entryId: string, path: string): Promise<strin
 }
 
 /** Todos os fontes guardados, ou null se nao ha (ou o objeto sumiu). */
-export async function dotnetSources(entryId: string): Promise<Record<string, string> | null> {
-  try {
-    const obj = await s3.send(
-      new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: dotnetSourceKey(entryId) }),
-    );
-    const gz = Buffer.from(await obj.Body!.transformToByteArray());
-    return JSON.parse(gunzipSync(gz, { maxOutputLength: 64 * 1024 * 1024 }).toString('utf8'));
-  } catch {
-    return null;
-  }
-}
+export const dotnetSources = (entryId: string) => getSources(dotnetSourceKey(entryId));
 
 /** O objeto do fonte (a lixeira apaga junto com a amostra). */
-export async function dotnetKeysOf(entryId: string): Promise<string[]> {
-  const row = await prisma.serviceAnalysis.findUnique({
-    where: { entryId_kind: { entryId, kind: 'DOTNET' } },
-    select: { result: true },
-  });
-  const key = (row?.result as { sourceKey?: string } | null)?.sourceKey;
-  return key ? [key] : [];
-}
+export const dotnetKeysOf = (entryId: string) => sourceKeysOf(entryId, 'DOTNET');
 
 /** PE com metadados do CLR (a analise estatica achou o .NET). */
 const isDotnet = (staticInfo: unknown) =>

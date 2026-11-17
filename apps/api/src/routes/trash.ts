@@ -7,6 +7,7 @@ import { requireAdmin } from '../lib/auth';
 import { dotnetKeysOf } from '../lib/dotnet';
 import { recordEvent } from '../lib/events';
 import { deleteGhidraProject, deleteGhidraPseudo } from '../lib/ghidra';
+import { jarKeysOf } from '../lib/jar';
 import { captureKeysOf } from '../lib/network-capture';
 import { prisma } from '../lib/prisma';
 import { deleteStoredFile } from '../lib/retention';
@@ -154,6 +155,8 @@ export async function trashRoutes(app: FastifyInstance) {
         ...(await memdumpKeysOf(id)),
         // O fonte descompilado do .NET (plans/caca-e-formatos, item 3).
         ...(await dotnetKeysOf(id)),
+        // O fonte Java descompilado (CFR).
+        ...(await jarKeysOf(id)),
         ...(await captureKeysOf(id)),
         ...captures
           .flatMap((c) => [c.screenshotKey, c.htmlKey])

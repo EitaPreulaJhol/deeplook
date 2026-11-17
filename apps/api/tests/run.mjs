@@ -25,6 +25,7 @@ const EMULATE = 'dl-emulate';
 const ANDROID = 'dl-android';
 const EXTRACT = 'dl-extract';
 const DOTNET = 'dl-dotnet';
+const JAR = 'dl-jar';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -329,6 +330,19 @@ const startDotnet = () =>
     tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
   });
 
+// Descompilacao de Java (CFR numa JRE headless). A JVM usa mais threads que o Python: pids 128.
+const startJar = () =>
+  startService({
+    name: JAR,
+    dir: 'jarcfr',
+    port: 54100,
+    inner: 4000,
+    env: 'JAR_TOKEN',
+    memory: '2g',
+    pids: 128,
+    tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
+  });
+
 const startUnpack = () =>
   startService({
     name: UNPACK,
@@ -431,7 +445,7 @@ await waitFor('MinIO', () =>
 );
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
-if (files.some((f) => /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet/.test(f))) {
+if (files.some((f) => /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar/.test(f))) {
   peFixtures();
 }
 if (files.some((f) => f.includes('capa'))) await startCapa();
@@ -443,6 +457,7 @@ if (files.some((f) => f.includes('emulate'))) await startEmulate();
 if (files.some((f) => f.includes('android'))) await startAndroid();
 if (files.some((f) => f.includes('extract'))) await startExtract();
 if (files.some((f) => f.includes('dotnet'))) await startDotnet();
+if (files.some((f) => f.includes('jar'))) await startJar();
 
 let total = 0;
 const bad = [];
@@ -455,7 +470,7 @@ for (const file of files) {
 }
 if (clean) {
   quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA, DOTNET);
-  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT);
+  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR);
 } else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(
   bad.length

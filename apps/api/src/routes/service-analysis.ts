@@ -16,6 +16,7 @@ const KINDS: Record<string, ServiceKind> = {
   android: 'ANDROID',
   config: 'CONFIG',
   dotnet: 'DOTNET',
+  jar: 'JAR',
 };
 
 /** Opcoes do pedido: so a emulacao tem (shellcode e a arquitetura). */

@@ -8,14 +8,24 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../lib/audit';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { dotnetSource, dotnetSources } from '../lib/dotnet';
+import { jarSource, jarSources } from '../lib/jar';
 import { prisma } from '../lib/prisma';
 import { ZipWriter } from '../lib/zip-writer';
 
 /**
- * O fonte descompilado do .NET (plans/caca-e-formatos, item 3): um tipo por vez, para a tela, e o
- * projeto inteiro em ZIP. Como o pseudo-C do Ghidra: quem enviou e os analistas.
+ * O fonte descompilado (.NET, plans/caca-e-formatos item 3; e Java): uma classe por vez, para a
+ * tela, e o projeto inteiro em ZIP. Como o pseudo-C do Ghidra: quem enviou e os analistas.
  */
-export async function dotnetRoutes(app: FastifyInstance) {
+interface SourceRoutes {
+  /** Parte da URL: /api/entries/:id/<slug>/source. */
+  slug: 'dotnet' | 'jar';
+  source: (entryId: string, path: string) => Promise<string | null>;
+  sources: (entryId: string) => Promise<Record<string, string> | null>;
+  /** O que a auditoria registra no download. */
+  detail: string;
+}
+
+async function sourceRoutes(app: FastifyInstance, cfg: SourceRoutes) {
   const entryFor = async (req: FastifyRequest, reply: FastifyReply) => {
     const user = await requireUser(req, reply);
     if (!user) return null;
@@ -37,26 +47,26 @@ export async function dotnetRoutes(app: FastifyInstance) {
     return { user, entry };
   };
 
-  app.get('/api/entries/:id/dotnet/source', async (req, reply) => {
+  app.get(`/api/entries/:id/${cfg.slug}/source`, async (req, reply) => {
     const found = await entryFor(req, reply);
     if (!found) return;
     const path = String((req.query as { path?: string }).path ?? '');
     if (!path || path.length > 500) {
       return reply.code(400).send({ error: 'Informe qual arquivo do projeto (parâmetro path).' });
     }
-    const source = await dotnetSource(found.entry.id, path);
+    const source = await cfg.source(found.entry.id, path);
     if (source === null)
       return reply.code(404).send({ error: 'Arquivo não encontrado no projeto.' });
     return reply.send({ path, source });
   });
 
-  app.get('/api/entries/:id/dotnet/download', async (req, reply) => {
+  app.get(`/api/entries/:id/${cfg.slug}/download`, async (req, reply) => {
     const found = await entryFor(req, reply);
     if (!found) return;
-    const sources = await dotnetSources(found.entry.id);
+    const sources = await cfg.sources(found.entry.id);
     if (!sources)
       return reply.code(404).send({ error: 'Não há código descompilado desta amostra.' });
-    const dir = await mkdtemp(join(tmpdir(), 'dotnet-'));
+    const dir = await mkdtemp(join(tmpdir(), `${cfg.slug}-`));
     const file = join(dir, 'projeto.zip');
     try {
       const zip = await ZipWriter.create(file);
@@ -74,14 +84,33 @@ export async function dotnetRoutes(app: FastifyInstance) {
       actorId: found.user.id,
       targetUserId: found.entry.ownerId,
       targetLabel: found.entry.title,
-      detail: 'código .NET descompilado (.zip)',
+      detail: cfg.detail,
     });
     const stream = createReadStream(file);
     stream.on('close', () => void rm(dir, { recursive: true, force: true }));
     return reply
       .header('Content-Type', 'application/zip')
       .header('X-Content-Type-Options', 'nosniff')
-      .header('Content-Disposition', `attachment; filename="deeplook-${found.entry.id}-dotnet.zip"`)
+      .header(
+        'Content-Disposition',
+        `attachment; filename="deeplook-${found.entry.id}-${cfg.slug}.zip"`,
+      )
       .send(stream);
   });
 }
+
+export const dotnetRoutes = (app: FastifyInstance) =>
+  sourceRoutes(app, {
+    slug: 'dotnet',
+    source: dotnetSource,
+    sources: dotnetSources,
+    detail: 'código .NET descompilado (.zip)',
+  });
+
+export const jarRoutes = (app: FastifyInstance) =>
+  sourceRoutes(app, {
+    slug: 'jar',
+    source: jarSource,
+    sources: jarSources,
+    detail: 'código Java descompilado (.zip)',
+  });

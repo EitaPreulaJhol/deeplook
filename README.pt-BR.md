@@ -863,6 +863,37 @@ um analista na seção **Código .NET (ILSpy)** da ficha.
 - O ILSpy sobe à mão (o pacote `ilspycmd.linux-x64` do NuGet, com a versão e o SHA-256 no
   `apps/dotnet/Dockerfile`).
 
+## Código Java (CFR)
+
+Todo JAR e todo `.class` solto que chega (até `JAR_MAX_MB`, padrão 30 MB) vai, em segundo plano,
+para o serviço `jar`. Ele roda o [CFR](https://github.com/leibnitz27/cfr) 0.152 (MIT) numa JRE
+headless. O CFR só lê o bytecode, e nada é executado. O contêiner não tem rede nem root, a raiz é
+somente leitura e há um contêiner por análise. Um ZIP que tenha classes Java pode ser pedido por um
+analista na seção **Código Java (CFR)** da ficha.
+- **Classes:** o fonte Java que o CFR monta, com um arquivo por classe, visto e baixado como o
+  código .NET (mesmas permissões, download na auditoria). O código fica no armazenamento
+  (`jar/<amostra>.json.gz`, até 16 MB de fonte), e não no banco, e sai junto com a amostra.
+- **Módulo:** classe principal, agente Java (`Premain-Class` / `Agent-Class`), versão do bytecode,
+  o `Created-By` do manifesto e o número de classes.
+- **Achados**, por regra sobre o Java, com o arquivo e a linha (os `import` são ignorados):
+  - início de processo (`Runtime.exec`, `ProcessBuilder`) e carga de classes a partir de bytes ou URL;
+  - reflexão, acesso à rede, `Cipher`/`SecretKeySpec`, `Base64`, código nativo e `Unsafe`;
+  - motores de script, consultas JNDI (estilo Log4Shell) e desserialização com `ObjectInputStream`;
+  - locais de inicialização (persistência), prints de tela e teclas, dados de navegador e carteira;
+  - Telegram/Discord, token de sessão do Minecraft (roubo de conta) e antiVM.
+- **Ofuscadores:** Allatori, Zelix KlassMaster, Stringer, DashO, Skidfuscator, Paramorphism, Radon e
+  Qprotect pelas marcas; nomes curtos no estilo ProGuard (mais da metade das classes com 1 ou 2
+  letras); e um alerta de "nomes ilegíveis" para o resto. As classes que o CFR não descompilou por
+  completo entram num alerta informativo.
+- **Arquivos embutidos:** PE, ELF, Mach-O, ZIP e scripts dentro do JAR viram **amostras filhas**
+  (executável escondido num JAR é alerta alto); blobs grandes e cifrados são alerta médio.
+- **Limites:** 50 mil entradas e 192 MB de classes descompactadas (contra bomba de descompressão).
+- **IOCs:** as URLs do código vão para os IOCs sugeridos.
+- **Risco:** os mesmos pesos do código .NET (alto 25 + 5 por extra, teto 35; médio 10 + 3, teto 16).
+- **Status do sistema:** a linha **Descompilação de Java (CFR)**, com a fila e as análises em 24 h.
+- O CFR é atualizado à mão (o JAR do Maven Central, com a versão e o SHA-256 em
+  `apps/jarcfr/Dockerfile`).
+
 ## Identificar e desempacotar
 
 Todo executável que chega (Windows, Linux, macOS, APK e JAR, e os CABs, até `UNPACK_MAX_MB`) passa pelo
@@ -1380,6 +1411,8 @@ COOKIE_SECURE=true
 | `EXTRACT_MAX_MB` / `EXTRACT_TIMEOUT_S` / `EXTRACT_MEM_LIMIT` | maior arquivo, teto de uma análise e memória do contêiner | `64` / `300` / `2g` |
 | `DOTNET_URL` / `DOTNET_TOKEN` | serviço de descompilação de .NET (ILSpy); URL vazia desliga | `http://dotnet:3900` / — |
 | `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | maior assembly, teto de uma análise, teto do ILSpy e memória do contêiner | `30` / `240` / `200` / `2g` |
+| `JAR_URL` / `JAR_TOKEN` | serviço de descompilação de Java (CFR); URL vazia desliga | `http://jar:4000` / — |
+| `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | maior JAR, teto de uma análise, teto do CFR e memória do contêiner | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | dump de memória: teto por processo (`0` desliga), processos por captura, espera depois da execução automática | `512` / `4` / `120` |
 | `LLM_PROVIDER` | rascunho do relatório por IA: `anthropic`, `openai` (servidor compatível) ou vazio (desligado) | — |
 | `LLM_URL` / `LLM_API_KEY` / `LLM_MODEL` | servidor (obrigatório no `openai`), chave (obrigatória no `anthropic`) e modelo (padrão `claude-opus-5-5` no `anthropic`) | — |
