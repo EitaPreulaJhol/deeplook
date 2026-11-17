@@ -1,5 +1,7 @@
 /** Tipo real do arquivo pela assinatura dos primeiros bytes (nunca pela extensao). */
 
+import { listZip } from './zip';
+
 export interface DetectedType {
   id: string;
   label: string;
@@ -31,9 +33,26 @@ export function detectType(buf: Buffer): DetectedType | null {
     startsWith(buf, [0xfe, 0xed, 0xfa, 0xce]) ||
     startsWith(buf, [0xfe, 0xed, 0xfa, 0xcf]) ||
     startsWith(buf, [0xcf, 0xfa, 0xed, 0xfe]) ||
-    startsWith(buf, [0xce, 0xfa, 0xed, 0xfe])
+    startsWith(buf, [0xce, 0xfa, 0xed, 0xfe]) ||
+    // Universal (fat): CAFEBABE/CAFEBABF; o CAFEBABE tambem abre um .class (ver abaixo).
+    startsWith(buf, [0xca, 0xfe, 0xba, 0xbf]) ||
+    (startsWith(buf, [0xca, 0xfe, 0xba, 0xbe]) && isFatMachO(buf))
   ) {
     return t('macho', 'Executável macOS (Mach-O)', ['', 'dylib', 'bundle', 'app'], true);
+  }
+  // .class: CAFEBABE + minor/major (major >= 45), nao um nfat_arch pequeno.
+  if (startsWith(buf, [0xca, 0xfe, 0xba, 0xbe]) && buf.length >= 8)
+    return t('java-class', 'Classe Java (.class)', ['class'], true);
+  // CRX (extensao do Chrome): "Cr24" + versao + cabecalho, depois um ZIP.
+  if (ascii(buf, 'Cr24')) return t('crx', 'Extensão do Chrome (CRX)', ['crx'], true);
+  // ASAR (Electron): pickle de 4 bytes + tamanhos, depois o JSON {"files":...}.
+  if (startsWith(buf, [0x04, 0x00, 0x00, 0x00]) && ascii(buf, '{"files"', 16))
+    return t('asar', 'Pacote Electron (ASAR)', ['asar'], true);
+  // .pyc: versao (2 bytes LE) + \r\n. Py3 usa 3000..3999; Py2.7 usa 62211.
+  if (buf.length >= 16 && buf[2] === 0x0d && buf[3] === 0x0a) {
+    const v = buf.readUInt16LE(0);
+    if ((v >= 3000 && v < 4000) || (v >= 62000 && v < 62300))
+      return t('pyc', 'Bytecode Python (.pyc)', ['pyc', 'pyo'], true);
   }
   if (ascii(buf, '%PDF-')) return t('pdf', 'Documento PDF', ['pdf']);
   if (startsWith(buf, [0x50, 0x4b, 0x03, 0x04])) {
@@ -45,6 +64,17 @@ export function detectType(buf: Buffer): DetectedType | null {
       return t('xlsx', 'Planilha Excel (OOXML)', ['xlsx', 'xlsm', 'xltx', 'xltm']);
     if (head.includes('ppt/'))
       return t('pptx', 'Apresentação PowerPoint (OOXML)', ['pptx', 'pptm', 'potx']);
+    // Os mais especificos antes do JAR: um XPI/MSIX tambem pode ter META-INF/.
+    const names = zipNames(buf);
+    const has = (n: string) => (names ? names.has(n) : head.includes(n));
+    if (has('AppxManifest.xml') || has('AppxBlockMap.xml'))
+      return t('msix', 'Pacote MSIX/AppX', ['msix', 'appx', 'msixbundle', 'appxbundle'], true);
+    if (
+      has('install.rdf') ||
+      has('META-INF/mozilla.rsa') ||
+      (has('manifest.json') && head.includes('gecko'))
+    )
+      return t('xpi', 'Extensão do Firefox (XPI)', ['xpi'], true);
     if (head.includes('META-INF/MANIFEST.MF')) return t('jar', 'Pacote Java (JAR)', ['jar'], true);
     if (head.includes('AndroidManifest.xml'))
       return t('apk', 'Aplicativo Android (APK)', ['apk'], true);
@@ -84,5 +114,27 @@ export function detectType(buf: Buffer): DetectedType | null {
   if (text.startsWith('<!doctype html') || text.startsWith('<html')) {
     return t('html', 'Página HTML', ['html', 'htm', 'hta', 'xhtml']);
   }
+  // ClickOnce: manifesto XML de implantacao (.application) ou de aplicativo (.manifest).
+  if (text.startsWith('<?xml') || text.startsWith('<assembly')) {
+    const xml = buf.toString('latin1', 0, Math.min(buf.length, 4096)).toLowerCase();
+    if (/urn:schemas-microsoft-com:asm\.v/.test(xml) && xml.includes('<deployment'))
+      return t('clickonce', 'Manifesto ClickOnce', ['application', 'manifest'], true);
+  }
   return null;
+}
+
+/** Mach-O universal: nfat_arch (big-endian) e pequeno; no .class o campo e minor/major (>= 45). */
+function isFatMachO(buf: Buffer): boolean {
+  if (buf.length < 8) return false;
+  const n = buf.readUInt32BE(4);
+  return n >= 1 && n < 45;
+}
+
+/** Nomes do diretorio central; null se nao der para ler (ZIP64/corrompido), e ai vale a busca no inicio. */
+function zipNames(buf: Buffer): Set<string> | null {
+  try {
+    return new Set(listZip(buf).map((e) => e.path));
+  } catch {
+    return null;
+  }
 }
