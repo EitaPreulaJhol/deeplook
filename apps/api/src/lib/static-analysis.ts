@@ -7,6 +7,7 @@ import { type DetectedType, detectType, EXE_EXTS } from './file-type';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
 import { analyzeLnk, type LnkInfo } from './lnk-analysis';
+import { type MachoInfo, parseMacho } from './macho-analysis';
 import { parsePe, type PeInfo } from './pe-analysis';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
 
@@ -46,6 +47,7 @@ export interface StaticInfo {
   pe: PeInfo | null;
   /** Executavel Linux (item 168): secoes, bibliotecas, simbolos importados e alertas. */
   elf?: ElfInfo | null;
+  macho?: MachoInfo | null;
   /** PDF, Office (OOXML/OLE) e RTF: macros, scripts, links e objetos (item 70). */
   document?: DocumentInfo | null;
   /** PowerShell, JS, VBS, BAT e HTA: chamadas suspeitas e camadas decodificadas (item 83). */
@@ -244,6 +246,15 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       elf = null;
     }
   }
+  // Executavel macOS (comum ou universal).
+  let macho: MachoInfo | null = null;
+  if (detectedType?.id === 'macho') {
+    try {
+      macho = parseMacho(buf)?.info ?? null;
+    } catch {
+      macho = null;
+    }
+  }
   // Documentos (item 70): macros, scripts, links e objetos; os links viram sugestao.
   const document = analyzeDocument(buf, detectedType?.id);
   // OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4): so o resumo; os bytes do que
@@ -291,6 +302,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     strings,
     pe,
     elf,
+    macho,
     document,
     script,
     delivery,

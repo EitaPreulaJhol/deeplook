@@ -110,6 +110,24 @@ function syntheticSeeds(): Record<string, Buffer[]> {
   elf.writeUInt16LE(64, 52);
   elf.writeUInt16LE(56, 54);
   elf.writeUInt16LE(64, 58);
+  // Mach-O 64 bits: cabecalho, um segmento com uma secao e uma biblioteca (cmdsize conferido).
+  const macho = Buffer.alloc(32 + 152 + 56, 0);
+  macho.writeUInt32LE(0xfeedfacf, 0);
+  macho.writeUInt32LE(0x01000007, 4); // x86-64
+  macho.writeUInt32LE(2, 12); // executavel
+  macho.writeUInt32LE(2, 16); // ncmds
+  macho.writeUInt32LE(152 + 56, 20); // sizeofcmds
+  macho.writeUInt32LE(0x19, 32); // LC_SEGMENT_64
+  macho.writeUInt32LE(152, 36);
+  macho.write('__TEXT', 40, 'latin1');
+  macho.writeUInt32LE(5, 32 + 60); // initprot
+  macho.writeUInt32LE(1, 32 + 64); // nsects
+  macho.write('__text', 32 + 72, 'latin1');
+  macho.write('__TEXT', 32 + 88, 'latin1');
+  macho.writeUInt32LE(0xc, 32 + 152); // LC_LOAD_DYLIB
+  macho.writeUInt32LE(56, 32 + 156);
+  macho.writeUInt32LE(24, 32 + 160);
+  macho.write('/usr/lib/libSystem.B.dylib', 32 + 152 + 24, 'latin1');
   const lnk = Buffer.alloc(256);
   le32(0x4c, 0x00021401, 0, 0xc0, 0x46000000).copy(lnk);
   lnk.writeUInt32LE(0xff, 0x14);
@@ -199,7 +217,7 @@ function syntheticSeeds(): Record<string, Buffer[]> {
   iso.writeUInt8(255, 17 * 2048);
   iso.write('CD001', 17 * 2048 + 1, 'latin1');
   return {
-    static: [pe, elf, lnk, ole, pdf, rtf, script, zip, iso],
+    static: [pe, elf, macho, lnk, ole, pdf, rtf, script, zip, iso],
     zip: [zip],
     disk: [iso],
     eml: [eml],

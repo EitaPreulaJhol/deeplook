@@ -21,6 +21,7 @@ const FILES = [
   'pe-dotnet',
   'pe-authenticode',
   'elf-analysis',
+  'macho-analysis',
   'lnk-analysis',
   'disk-image',
   'doc-analysis',
@@ -54,6 +55,21 @@ const FILES = [
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
 const SAME = new Set([
+  // Mach-O (macho-analysis.ts): nomes de plataforma e de entitlements da Apple, iguais nos dois idiomas.
+  'ARM64 (32 bits)',
+  'Mac Catalyst',
+  'iOS Simulator',
+  'tvOS Simulator',
+  'watchOS Simulator',
+  'com.apple.security.cs.allow-unsigned-executable-memory',
+  'com.apple.security.cs.allow-jit',
+  'com.apple.security.cs.disable-library-validation',
+  'com.apple.security.cs.allow-dyld-environment-variables',
+  'com.apple.security.cs.disable-executable-page-protection',
+  'com.apple.security.get-task-allow',
+  'com.apple.security.cs.debugger',
+  'com.apple.private.tcc.allow',
+  'com.apple.rootless.install',
   // Comando do PowerShell da execucao automatica (sandbox-autorun.ts).
   'Start-Sleep -Seconds 2',
   'try {',

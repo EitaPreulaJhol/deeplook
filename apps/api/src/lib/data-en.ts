@@ -149,6 +149,38 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['biblioteca compartilhada', 'shared library'],
   ['{0} seções declaradas (lidas {1})', '{0} sections declared ({1} read)'],
 
+  // ---- Mach-O (macho-analysis.ts) ----
+  ['comandos de carga fora do arquivo', 'load commands outside the file'],
+  ['comando de carga corrompido', 'corrupted load command'],
+  ['sem segmentos de memória', 'no memory segments'],
+  [
+    'injeção em outro processo (task_for_pid e mach_vm_write)',
+    'injection into another process (task_for_pid and mach_vm_write)',
+  ],
+  [
+    '{0} funções de risco importadas (ver lista abaixo)',
+    '{0} risky functions imported (see the list below)',
+  ],
+  ['sem assinatura de código', 'no code signature'],
+  [
+    'assinatura ad-hoc (sem certificado de desenvolvedor)',
+    'ad-hoc signature (no developer certificate)',
+  ],
+  ['entitlements que afrouxam a proteção: {0}', 'entitlements that weaken the protection: {0}'],
+  ['conteúdo criptografado (LC_ENCRYPTION_INFO)', 'encrypted content (LC_ENCRYPTION_INFO)'],
+  [
+    'código com entropia alta (possível empacotamento ou criptografia)',
+    'high-entropy code (possible packing or encryption)',
+  ],
+  ['biblioteca de VM fixa', 'fixed VM library'],
+  ['pré-carregado', 'preloaded'],
+  ['biblioteca dinâmica', 'dynamic library'],
+  ['carregador dinâmico', 'dynamic loader'],
+  ['stub de biblioteca', 'library stub'],
+  ['símbolos de depuração (dSYM)', 'debug symbols (dSYM)'],
+  ['extensão de kernel', 'kernel extension'],
+  ['plataforma {0}', 'platform {0}'],
+
   // ---- Atalho (lnk-analysis.ts) ----
   [
     'Abre um interpretador de comandos ou binário do sistema usado em ataques.',

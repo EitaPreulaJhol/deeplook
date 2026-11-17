@@ -29,12 +29,12 @@ export function localizeText<T extends string | null | undefined>(text: T, lang:
  * (null = em qualquer lugar). O contexto importa: `text` em `script.layers` e o conteudo
  * decodificado da amostra, e `name` em `imports` e o nome de uma funcao.
  */
-const TEXT_KEYS = new Map<string, string | null>([
+const TEXT_KEYS = new Map<string, string | string[] | null>([
   ['text', 'alerts'],
   ['why', 'findings'],
   ['name', 'findings'],
   ['method', 'layers'],
-  ['type', 'elf'],
+  ['type', ['elf', 'macho']],
   ['note', null],
   ['error', null],
   ['label', null],
@@ -53,7 +53,9 @@ function walk(value: unknown, key: string | null, parent: string | null): unknow
   if (typeof value === 'string') {
     const where = key === null ? undefined : TEXT_KEYS.get(key);
     const human =
-      (where !== undefined && (where === null || where === parent)) ||
+      (where !== undefined &&
+        (where === null ||
+          (Array.isArray(where) ? where.includes(parent ?? '') : where === parent))) ||
       (key === null && parent !== null && LIST_KEYS.has(parent));
     return human ? toEnglish(value) : value;
   }

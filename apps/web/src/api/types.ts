@@ -706,6 +706,8 @@ export interface StaticInfo {
   /** PDF, Office e RTF (item 70). */
   /** Executavel Linux (item 168). */
   elf?: ElfInfo | null;
+  /** Executavel macOS (macho-analysis.ts). */
+  macho?: MachoInfo | null;
   document?: DocumentInfo | null;
   delivery?: DeliveryInfo | null;
   script?: ScriptInfo | null;
@@ -1301,6 +1303,36 @@ export interface ElfInfo {
   rwxSegments: number;
   packer: string | null;
   alerts: string[];
+}
+
+/** Executavel macOS, comum ou universal (StaticInfo.macho). */
+export interface MachoInfo {
+  fat: boolean;
+  architectures: string[];
+  architecture: string;
+  class: 32 | 64;
+  endian: 'little' | 'big';
+  type: string;
+  platform: string | null;
+  uuid: string | null;
+  entry: string | null;
+  sections: { segment: string; name: string; size: number; entropy: number }[];
+  libraries: string[];
+  rpaths: string[];
+  importedSymbols: number;
+  suspiciousSymbols: string[];
+  signature: {
+    present: boolean;
+    adhoc: boolean;
+    runtime: boolean;
+    identifier: string | null;
+    entitlements: string[];
+  };
+  rwxSegments: number;
+  encrypted: boolean;
+  packer: string | null;
+  alerts: string[];
+  risk: 'high' | 'medium' | 'low';
 }
 
 /** Tipos de aviso da caixa de entrada. */

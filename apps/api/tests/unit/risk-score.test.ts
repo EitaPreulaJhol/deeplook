@@ -186,6 +186,14 @@ test('documento e script: o risco alto vale mais que a macro, e não somam duas 
   assert.equal(scoreRisk(input({ lookalikes: ['empresa.com', 'empresa.com'] })).score, 35);
 });
 
+test('Mach-O: alto pesa 30, médio 10, baixo não pesa', () => {
+  const at = (machoRisk: string) => scoreRisk(input({}, { machoRisk }));
+  assert.equal(weightOf(at('high'), 'Mach-O'), 30);
+  assert.equal(weightOf(at('medium'), 'Mach-O'), 10);
+  assert.equal(at('low').score, 0);
+  assert.equal(scoreRisk(input()).score, 0);
+});
+
 test('limiares, ordem dos motivos e análises pendentes', () => {
   assert.equal(
     scoreRisk(input({ yara: ['A'] })).suggestedVerdict,

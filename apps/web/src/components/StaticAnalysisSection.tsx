@@ -112,6 +112,7 @@ export function StaticAnalysisSection({
 
   const pe = info.pe;
   const elf = info.elf;
+  const macho = info.macho;
   const mismatch = info.extensionMismatch;
   const entropy = ENTROPY[info.entropyLevel];
   const suggested = info.iocCandidates;
@@ -355,6 +356,161 @@ export function StaticAnalysisSection({
                         <code>{s.name || t('noName')}</code>
                       </TableCell>
                       <TableCell>{s.type}</TableCell>
+                      <TableCell>{formatFileSize(s.size)}</TableCell>
+                      <TableCell>
+                        {s.entropy >= 7.2 ? (
+                          <StatusText tone="orange">{s.entropy.toFixed(2)}</StatusText>
+                        ) : (
+                          s.entropy.toFixed(2)
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </div>
+      )}
+
+      {macho && (
+        <div className="dl-static-block">
+          <h4 className="dl-static-title">{t('machoTitle')}</h4>
+          <HpsmForm columns={2}>
+            {macho.alerts.length > 0 && (
+              <HpsmField label={t('alerts')} wide top>
+                <ul className="dl-doc-alerts">
+                  {macho.alerts.map((alert) => (
+                    <li key={alert}>
+                      <StatusText tone="orange">{alert}</StatusText>
+                    </li>
+                  ))}
+                </ul>
+              </HpsmField>
+            )}
+            <HpsmField label={t('machoArchs')}>
+              <HpsmReadonly>
+                {macho.architectures.join(', ')}
+                {macho.fat ? ` · ${t('machoUniversal')}` : ''}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('architecture')}>
+              <HpsmReadonly>
+                {macho.architecture} · {macho.class} bits · {macho.endian}-endian
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('type')}>
+              <HpsmReadonly>
+                {macho.type}
+                {macho.encrypted ? ` · ${t('machoEncrypted')}` : ''}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('machoPlatform')}>
+              <HpsmReadonly>{macho.platform ?? '—'}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('machoSignature')}>
+              <HpsmReadonly>
+                {!macho.signature.present ? (
+                  <StatusText tone="orange">{t('machoUnsigned')}</StatusText>
+                ) : (
+                  <>
+                    {macho.signature.adhoc ? (
+                      <StatusText tone="orange">{t('machoAdhoc')}</StatusText>
+                    ) : (
+                      t('machoSignedDev')
+                    )}
+                    {macho.signature.runtime ? ` · ${t('machoRuntime')}` : ''}
+                    {macho.signature.identifier && (
+                      <>
+                        {' · '}
+                        <code>{macho.signature.identifier}</code>
+                      </>
+                    )}
+                  </>
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="UUID">
+              <HpsmReadonly>{macho.uuid ? <code>{macho.uuid}</code> : '—'}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('packer')}>
+              <HpsmReadonly>
+                {macho.packer ? (
+                  <StatusText tone="orange">{macho.packer}</StatusText>
+                ) : (
+                  t('noneRecognized')
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('libraries')} wide>
+              <HpsmReadonly>
+                {macho.libraries.length ? (
+                  <span className="dl-static-chips">
+                    {macho.libraries.map((lib) => (
+                      <code key={lib}>{lib}</code>
+                    ))}
+                  </span>
+                ) : (
+                  t('noneDeclared')
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            {macho.rpaths.length > 0 && (
+              <HpsmField label={t('machoRpaths')} wide>
+                <HpsmReadonly>
+                  <span className="dl-static-chips">
+                    {macho.rpaths.map((path) => (
+                      <code key={path}>{path}</code>
+                    ))}
+                  </span>
+                </HpsmReadonly>
+              </HpsmField>
+            )}
+            {macho.signature.entitlements.length > 0 && (
+              <HpsmField label={t('machoEntitlements')} wide>
+                <HpsmReadonly>
+                  <span className="dl-static-chips">
+                    {macho.signature.entitlements.map((e) => (
+                      <code key={e}>{e}</code>
+                    ))}
+                  </span>
+                </HpsmReadonly>
+              </HpsmField>
+            )}
+            <HpsmField
+              label={t('suspiciousFns')}
+              wide
+              help={t('importedTotal', { n: macho.importedSymbols })}
+            >
+              <HpsmReadonly>
+                {macho.suspiciousSymbols.length ? (
+                  <span className="dl-static-chips">
+                    {macho.suspiciousSymbols.map((fn) => (
+                      <code key={fn}>{fn}</code>
+                    ))}
+                  </span>
+                ) : (
+                  t('noneWatchlist')
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+          </HpsmForm>
+          {macho.sections.length > 0 && (
+            <TableContainer>
+              <Table size="xs" aria-label={t('machoSectionsAria')}>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader scope="col">{t('section')}</TableHeader>
+                    <TableHeader scope="col">{t('size')}</TableHeader>
+                    <TableHeader scope="col">{t('entropy')}</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {macho.sections.map((s, i) => (
+                    <TableRow key={`${s.segment}-${s.name}-${i}`}>
+                      <TableCell>
+                        <code>{s.segment || s.name ? `${s.segment},${s.name}` : t('noName')}</code>
+                      </TableCell>
                       <TableCell>{formatFileSize(s.size)}</TableCell>
                       <TableCell>
                         {s.entropy >= 7.2 ? (

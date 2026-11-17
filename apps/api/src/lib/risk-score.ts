@@ -51,6 +51,8 @@ export type RiskInputs = {
   documentRisk: string | null;
   /** OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */
   deliveryRisk?: string | null;
+  /** Executavel macOS (macho-analysis.ts): assinatura, injecao, empacotamento. */
+  machoRisk?: string | null;
   pending: string[];
   /** Enderecos de QR codes lidos na amostra (plano pos-revisao, item 2.2). */
   qrUrls?: string[];
@@ -164,6 +166,24 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   else if (input.deliveryRisk === 'medium')
     add(delivery, tr('arquivo embutido suspeito', 'suspicious embedded file'), 15);
+  if (input.machoRisk === 'high')
+    add(
+      'Mach-O',
+      tr(
+        'comportamento de alto risco no executável macOS',
+        'high-risk behavior in the macOS executable',
+      ),
+      30,
+    );
+  else if (input.machoRisk === 'medium')
+    add(
+      'Mach-O',
+      tr(
+        'sinais de risco no executável macOS (assinatura, entitlements)',
+        'risk signals in the macOS executable (signature, entitlements)',
+      ),
+      10,
+    );
   const document = tr('Documento', 'Document');
   if (input.documentRisk === 'high')
     add(document, tr('documento de alto risco', 'high-risk document'), 35);
@@ -441,6 +461,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
     script?: { risk?: string } | null;
     document?: { risk?: string } | null;
     delivery?: { risk?: string } | null;
+    macho?: { risk?: string } | null;
     pe?: {
       signature?: {
         signatureValid?: boolean;
@@ -475,6 +496,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       scriptRisk: st.script?.risk ?? null,
       documentRisk: st.document?.risk ?? null,
       deliveryRisk: st.delivery?.risk ?? null,
+      machoRisk: st.macho?.risk ?? null,
       pending,
       qrUrls,
       idsAlerts,
