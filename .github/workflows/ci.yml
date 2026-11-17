@@ -322,5 +322,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       # Le o lockfile e consulta o registro: nao precisa instalar nada.
+      # Igual a `npm audit --audit-level=high`, menos as excecoes com motivo em scripts/audit-gate.mjs.
       - name: Auditoria (reprova em alta ou critica)
-        run: npm audit --audit-level=high
+        run: node ../../scripts/audit-gate.mjs
