@@ -17,3 +17,5 @@ apps/api/sigma
 apps/api/tests/.tmp
 # Listas do LOLDrivers e do LOLRMM geradas por apps/api/scripts/vendor-lol.mjs (uma linha so).
 apps/api/src/lib/lol/*.json
+# Dados do AVclass gerados por apps/api/scripts/vendor-avclass.mjs (uma linha so).
+apps/api/src/lib/avclass.json

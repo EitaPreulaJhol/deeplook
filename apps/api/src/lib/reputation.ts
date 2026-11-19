@@ -2,6 +2,7 @@ import { isIP } from 'node:net';
 
 import { env } from '../env';
 import type { Prisma, ReputationKind, ReputationStatus, Verdict } from '../generated/prisma/client';
+import { avclass } from './avclass';
 import { crtsh, EnrichmentHttpError, rdap, vtdns } from './link-enrichment';
 import { prisma } from './prisma';
 
@@ -151,6 +152,9 @@ async function virustotal(kind: ReputationKind, value: string): Promise<Lookup> 
         last_analysis_stats?: Record<string, number>;
         popular_threat_classification?: { suggested_threat_label?: string };
         reputation?: number;
+        last_analysis_results?: Record<string, { category?: string; result?: string | null }>;
+        md5?: string;
+        sha1?: string;
       };
     };
   };
@@ -170,12 +174,31 @@ async function virustotal(kind: ReputationKind, value: string): Promise<Lookup> 
   const label = attrs.popular_threat_classification?.suggested_threat_label;
   const verdict: Verdict =
     malicious >= 5 ? 'MALICIOUS' : malicious + suspicious > 0 ? 'SUSPICIOUS' : 'CLEAN';
+  // Familia por consenso dos rotulos dos antivirus (AVclass; plans/analise-estatica-ampliada, item 6).
+  const labels = Object.entries(attrs.last_analysis_results ?? {})
+    .filter(([, r]) => (r.category === 'malicious' || r.category === 'suspicious') && r.result)
+    .map(([engine, r]) => [engine, String(r.result)] as [string, string]);
+  const consensus =
+    kind === 'HASH' && labels.length
+      ? avclass(labels, [attrs.md5 ?? '', attrs.sha1 ?? '', value].filter(Boolean))
+      : null;
+  const family = consensus?.family
+    ? `família ${consensus.family} (${consensus.tags.find((t) => t.tag === consensus.family)?.votes} antivírus)`
+    : null;
   return {
     status: 'FOUND',
     verdict,
-    summary: `${malicious}/${total} motores detectaram${label ? ` · ${label}` : ''}`,
+    summary: [`${malicious}/${total} motores detectaram`, label, family]
+      .filter(Boolean)
+      .join(' · '),
     link: `https://www.virustotal.com/gui/${gui}/${encodeURIComponent(value)}`,
-    details: { stats, reputation: attrs.reputation ?? null, label: label ?? null },
+    details: {
+      stats,
+      reputation: attrs.reputation ?? null,
+      label: label ?? null,
+      ...(consensus ? { avclass: consensus as unknown as Prisma.InputJsonValue } : {}),
+      ...(labels.length ? { labels: labels.slice(0, 100) } : {}),
+    },
   };
 }
 

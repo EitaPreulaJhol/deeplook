@@ -74,6 +74,28 @@ async function main() {
         });
       }
       if (p.startsWith('/idb/')) return json(404, { detail: 'No information available' });
+      // VirusTotal com os rotulos dos antivirus (familia por consenso, item 6).
+      if (p === `/vt/files/${BAD}`) {
+        const r = (result: string) => ({ category: 'malicious', result });
+        return json(200, {
+          data: {
+            attributes: {
+              md5: 'd41d8cd98f00b204e9800998ecf8427e',
+              last_analysis_stats: { malicious: 6, undetected: 60 },
+              last_analysis_results: {
+                Kaspersky: r('HEUR:Trojan-PSW.MSIL.Agensla.gen'),
+                'ESET-NOD32': r('a variant of MSIL/Spy.AgentTesla.F'),
+                Microsoft: r('Trojan:MSIL/AgentTesla.JQK!MTB'),
+                Fortinet: r('MSIL/AgentTesla.FFW!tr'),
+                Ikarus: r('Trojan-Spy.AgentTesla'),
+                Symantec: r('Trojan.Gen.MBT'),
+                ClamAV: { category: 'undetected', result: null },
+              },
+            },
+          },
+        });
+      }
+      if (p.startsWith('/vt/files/')) return json(404, {});
       json(404, {});
     });
   });
@@ -83,6 +105,7 @@ async function main() {
     hashlookup: `${base}/hl`,
     yaraify: `${base}/yf/`,
     internetdb: `${base}/idb`,
+    virustotal: `${base}/vt`,
   });
   for (const key of Object.keys(MIN_INTERVAL_MS))
     MIN_INTERVAL_MS[key as keyof typeof MIN_INTERVAL_MS] = 0;
@@ -138,6 +161,7 @@ async function main() {
     risk?.reasons,
   );
 
+  env.VT_API_KEY = 'chave-vt';
   const bad = await file('fatura.exe', BAD);
   await checkReputation(bad.id);
   const b = await results(bad.id);
@@ -149,6 +173,13 @@ async function main() {
     b.yaraify,
   );
   ok('hashlookup: hash fora da base é "não encontrado"', b.hashlookup?.status === 'NOT_FOUND');
+  ok(
+    'VirusTotal: família por consenso dos antivírus (AVclass)',
+    b.virustotal?.summary === '6/66 motores detectaram · família agenttesla (5 antivírus)' &&
+      (b.virustotal.details as { avclass?: { family?: string } }).avclass?.family === 'agenttesla',
+    b.virustotal,
+  );
+  env.VT_API_KEY = '';
 
   const ip = await prisma.entry.create({
     data: {

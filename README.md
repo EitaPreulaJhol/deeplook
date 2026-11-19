@@ -1179,6 +1179,12 @@ the card and in a summary at the top, for example "malicious in 2 of 3 services"
 | Link: **domain only** | VirusTotal, URLhaus, ThreatFox |
 | Link whose host is an IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB, InternetDB (Shodan) |
 
+- **Family by consensus** (on VirusTotal): the antivirus labels go through
+  [AVclass](https://github.com/malicialab/avclass) (MIT), which drops the generic ones ("Trojan",
+  "Generic", "Agent"), replaces aliases with the family name ("Agensla" → agenttesla) and only accepts
+  what two or more antivirus engines say. The family shows in the VirusTotal summary ("family
+  agenttesla (5 antivirus)"). The data lives in `apps/api/src/lib/avclass.json` and is updated by
+  `node apps/api/scripts/vendor-avclass.mjs <avclass/data folder>`.
 - **YARAify** (abuse.ch, the same `ABUSECH_AUTH_KEY`): the public YARA rules and ClamAV that ran over
   the sample there, including over what their unpacker took out of it. ClamAV is malicious; a rule
   alone, suspicious.
@@ -2383,6 +2389,8 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Thank you!
 - **YARA rule packs:** each pack in `apps/api/rules/` keeps its authors' license (`LICENSE` in the
   pack's folder; summary in the YARA rules section).
+- **AVclass:** the taxonomy and alias rules from [malicialab/avclass](https://github.com/malicialab/avclass),
+  under the MIT license, converted into `apps/api/src/lib/avclass.json`.
 - **LOLDrivers and LOLRMM:** the lists from [magicsword-io](https://github.com/magicsword-io), under the
   Apache-2.0 license, converted into `apps/api/src/lib/lol/`.
 - **Visual Studio versions of the Rich header:** the `comp_id.txt` table from

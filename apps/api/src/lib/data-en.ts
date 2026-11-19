@@ -758,7 +758,8 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['chave recusada pelo serviço', 'key refused by the service'],
   ['limite de consultas do serviço atingido', 'service query limit reached'],
   ['o serviço não respondeu a tempo', 'the service did not answer in time'],
-  ['{0}/{1} motores detectaram{2}', '{0}/{1} engines detected{2}'],
+  ['{0}/{1} motores detectaram', '{0}/{1} engines detected'],
+  ['família {0} ({1} antivírus)', 'family {0} ({1} antivirus)'],
   ['visto em {0}', 'seen on {0}'],
   [
     '{0} URL(s) de malware conhecida(s) neste host · {1} online',
