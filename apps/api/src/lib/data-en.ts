@@ -484,8 +484,8 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['só identificado: não é executável', 'only identified: not an executable'],
   [
-    'UPX sem a marca UPX! (disfarçado): o upx não desempacota sem ela',
-    'UPX without the UPX! mark (disguised): upx does not unpack without it',
+    'UPX de 64 bits sem a marca UPX! (disfarçado): o upx não desempacota sem ela e o unipacker só emula 32 bits',
+    '64-bit UPX without the UPX! mark (disguised): upx does not unpack without it and unipacker only emulates 32 bits',
   ],
   [
     'protegido com {0} (Detect It Easy): precisa de um desempacotador que execute a amostra',

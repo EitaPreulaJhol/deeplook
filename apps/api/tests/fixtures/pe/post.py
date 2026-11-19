@@ -71,18 +71,19 @@ with zipfile.ZipFile(buf, 'w') as z:
 open(f'{W}/overlay.exe', 'wb').write(open(f'{W}/prog64.exe', 'rb').read() + buf.getvalue())
 
 # UPX disfarcado: secoes renomeadas e a marca UPX! apagada; sobra o codigo do entry point.
-shutil.copy(f'{W}/upx64.exe', f'{W}/upx-disfarcado.exe')
-data = bytearray(open(f'{W}/upx-disfarcado.exe', 'rb').read())
-pe = pefile.PE(data=bytes(data))
-for sec, name in zip(pe.sections, [b'.text', b'.data', b'.rsrc', b'.idata']):
-    off = sec.get_file_offset()
-    data[off:off + 8] = name.ljust(8, b'\0')
-head = min(s.PointerToRawData for s in pe.sections if s.PointerToRawData) + 0x1000
-i = data.find(b'UPX!')
-while 0 <= i < head:
-    data[i:i + 4] = b'\0\0\0\0'
-    i = data.find(b'UPX!', i + 4)
-open(f'{W}/upx-disfarcado.exe', 'wb').write(bytes(data))
+# O de 32 bits (item 17): o unipacker so emula PE32.
+for src, dst in [('upx64.exe', 'upx-disfarcado.exe'), ('upx32.exe', 'upx32-disfarcado.exe')]:
+    data = bytearray(open(f'{W}/{src}', 'rb').read())
+    pe = pefile.PE(data=bytes(data))
+    for sec, name in zip(pe.sections, [b'.text', b'.data', b'.rsrc', b'.idata']):
+        off = sec.get_file_offset()
+        data[off:off + 8] = name.ljust(8, b'\0')
+    head = min(s.PointerToRawData for s in pe.sections if s.PointerToRawData) + 0x1000
+    i = data.find(b'UPX!')
+    while 0 <= i < head:
+        data[i:i + 4] = b'\0\0\0\0'
+        i = data.find(b'UPX!', i + 4)
+    open(f'{W}/{dst}', 'wb').write(bytes(data))
 
 # Assinado e depois adulterado: um byte do codigo trocado.
 data = bytearray(open(f'{W}/assinado.exe', 'rb').read())

@@ -104,6 +104,14 @@ def load_plugins():
 
 
 PLUGINS = load_plugins()
+
+
+def recognizes(plugin, data, detections):
+    """O plugin reconhece pelos bytes ou, se tiver detect_ident (item 17), pelo que o DIE viu."""
+    if plugin.detect(data):
+        return True
+    ident = getattr(plugin, "detect_ident", None)
+    return bool(ident and ident(data, detections))
 from common import UnpackError, run  # noqa: E402 - so existe depois de load_plugins pôr a pasta no path
 
 
@@ -275,12 +283,15 @@ def analyze(data, work, unpack=True):
     }
     if looks_go(data, detections):
         ident["go"] = go_info(sample)
-    plugin = next((p for p in PLUGINS if p.detect(data)), None) if unpack else None
+    plugin = next((p for p in PLUGINS if recognizes(p, data, detections)), None) if unpack else None
     if plugin is None:
         return {"ok": True, "unpacker": None, "files": [], "skipped": [], "note": None, **ident}, []
     started = time.monotonic()
     try:
-        result = plugin.unpack(sample, outdir, TIMEOUT)
+        if hasattr(plugin, "detect_ident"):
+            result = plugin.unpack(sample, outdir, TIMEOUT, detections=detections)
+        else:
+            result = plugin.unpack(sample, outdir, TIMEOUT)
     except UnpackError as exc:
         return {
             "ok": False,
@@ -325,7 +336,7 @@ def analyze(data, work, unpack=True):
             "size": size,
             "detections": child_detections,
             "dieError": child_error,
-            "candidate": any(p.detect(head) for p in PLUGINS),
+            "candidate": any(recognizes(p, head, child_detections) for p in PLUGINS),
         }
         if looks_go(head, child_detections):
             child["go"] = go_info(path)

@@ -1048,6 +1048,13 @@ Setup` or `Delphi`; empty = any packer or protector).
 | Embedded archive | 7-Zip 25 | what is in the ZIP, 7z, RAR or CAB attached to the executable |
 | CAB | 7-Zip 25 | what is in a standalone CAB (an MSI's media, for example) |
 
+- **Unpacking by emulation** (unipacker 1.0.8, GPL-2.0, installed in the image, outside the
+  repository): when Detect It Easy names ASPack, FSG, MEW, MPRESS, PEtite, PECompact, YZPack or the
+  disguised UPX (without the `UPX!` mark, which `upx -d` refuses), the packer stub is emulated in
+  unicorn up to the jump into the program, and the dump comes out with the import table rebuilt.
+  Nothing runs on the processor. PE32 only: unipacker does not emulate 64 bits, and the 64-bit
+  disguised UPX keeps the reason on the record. The test covers the disguised UPX; the other packers
+  are commercial and have no sample in the repository.
 - **Magika** (1.1.0, Apache-2.0, by Google): the file type by machine learning, with its confidence.
   Besides executables, every file with no type by signature (text, script, unknown) from 16 bytes to
   10 MB joins the queue only to be identified. When Magika, at 90% or more, disagrees with the

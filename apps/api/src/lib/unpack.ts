@@ -418,7 +418,8 @@ function notUnpacked(
       status: 'FAILED',
       unpacker: 'upx',
       label: 'UPX',
-      error: 'UPX sem a marca UPX! (disfarçado): o upx não desempacota sem ela',
+      error:
+        'UPX de 64 bits sem a marca UPX! (disfarçado): o upx não desempacota sem ela e o unipacker só emula 32 bits',
     };
   }
   const protector = detections.find((d) => d.type.toLowerCase() === 'protector');

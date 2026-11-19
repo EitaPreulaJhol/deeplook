@@ -28,7 +28,11 @@ def unpack(path: str, outdir: str, timeout: int) -> dict:
     Reconheceu mas não conseguiu: levante UnpackError("motivo legível")."""
 ```
 
-- `run(cmd, timeout, cwd=None)` roda uma ferramenta num grupo de processos próprio e mata o grupo
+Um plugin que dependa do que o DIE viu (o `u15_unipacker`, item 17, escolhe o desempacotador pelo
+empacotador que o DIE nomeou) define também `detect_ident(data, detections) -> bool`; o servidor
+o chama quando o `detect` diz não e, se ele reconhecer, passa `detections=` ao `unpack`.
+
+- `run(cmd, timeout, cwd=None, env=None)` roda uma ferramenta num grupo de processos próprio e mata o grupo
   inteiro no tempo esgotado; devolve `(código, saída)`.
 - `files_under(pasta)` lista os arquivos comuns (sem links simbólicos).
 - O servidor aplica os tetos (`UNPACK_MAX_FILES`, `UNPACK_MAX_TOTAL_MB`), limpa os nomes e monta a

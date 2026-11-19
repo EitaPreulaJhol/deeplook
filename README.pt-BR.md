@@ -1056,6 +1056,13 @@ Setup` ou `Delphi`; vazio = qualquer empacotador ou protetor).
 | Arquivo embutido | 7-Zip 25 | o que há no ZIP, 7z, RAR ou CAB anexado ao executável |
 | CAB | 7-Zip 25 | o que há num CAB solto (a mídia de um MSI, por exemplo) |
 
+- **Desempacotar por emulação** (unipacker 1.0.8, GPL-2.0, instalado na imagem, fora do
+  repositório): quando o Detect It Easy aponta ASPack, FSG, MEW, MPRESS, PEtite, PECompact, YZPack ou
+  o UPX disfarçado (sem a marca `UPX!`, que o `upx -d` recusa), o stub do empacotador é emulado no
+  unicorn até o salto para o programa, e o despejo sai com a tabela de importação refeita. Nada roda
+  no processador. Só PE32: o unipacker não emula 64 bits, e o UPX disfarçado de 64 bits segue com o
+  motivo na ficha. O teste cobre o UPX disfarçado; os outros empacotadores são comerciais e ficam sem
+  amostra no repositório.
 - **Magika** (1.1.0, Apache-2.0, do Google): o tipo do arquivo por aprendizado de máquina, com a
   confiança. Além dos executáveis, todo arquivo sem tipo pela assinatura (texto, script, desconhecido)
   de 16 bytes a 10 MB vai à fila só para identificar. Quando o Magika, com 90% ou mais, discorda do

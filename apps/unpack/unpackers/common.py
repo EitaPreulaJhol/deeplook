@@ -9,10 +9,15 @@ class UnpackError(Exception):
     """O desempacotador reconheceu o arquivo, mas nao conseguiu: a mensagem vai para a ficha."""
 
 
-def run(cmd, timeout, cwd=None):
+def run(cmd, timeout, cwd=None, env=None):
     """Roda a ferramenta num grupo de processos proprio; no tempo esgotado, mata o grupo inteiro."""
     proc = subprocess.Popen(
-        cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
     )
     try:
         out, _ = proc.communicate(timeout=timeout)

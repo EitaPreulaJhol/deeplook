@@ -36,6 +36,17 @@ RUN dpkg-deb -x /tmp/die.deb /tmp/die \
   && cp /tmp/die/usr/bin/diec /opt/die/usr/bin/ \
   && cp -r /tmp/die/usr/lib/die/db /tmp/die/usr/lib/die/db_custom /opt/die/usr/lib/die/
 
+# unipacker (item 17): wheels conferidos pelo hash do lockfile, instalados numa pasta propria (so o
+# processo do unipacker a ve). O mesmo Debian da imagem final: o mesmo Python 3.13.
+FROM debian:trixie-slim AS unipacker
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip
+COPY requirements.txt /tmp/
+RUN pip wheel --no-cache-dir --require-hashes --wheel-dir /wheels \
+    -r /tmp/requirements.txt \
+  && pip install --break-system-packages --no-cache-dir --no-index --no-deps \
+    --target /opt/unipacker /wheels/*.whl \
+  && chmod -R a+rX /opt/unipacker
+
 FROM debian:trixie-slim
 # upx 4.2, 7-Zip 25 (abre NSIS, ZIP, 7z, RAR, CAB e autoextraiveis) e innoextract 1.9 (Inno Setup
 # ate a 6.2). As correcoes de seguranca que o Debian ja publicou entram pelo upgrade.
@@ -51,6 +62,7 @@ COPY --from=fetch /opt/die/ /
 COPY --from=fetch /opt/autoit-ripper.whl /tmp/autoit-ripper.whl
 COPY --from=fetch /opt/goresym.zip /tmp/goresym.zip
 COPY --from=fetch /opt/magika/magika /opt/magika/magika
+COPY --from=unipacker /opt/unipacker /opt/unipacker
 RUN python3 -m zipfile -e /tmp/goresym.zip /opt/goresym \
   && rm /tmp/goresym.zip \
   && chmod 755 /opt/goresym /opt/goresym/GoReSym

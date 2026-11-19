@@ -468,9 +468,24 @@ async function main() {
   await unpackIdle();
   const disguisedJob = await job(disguised);
   ok(
-    'UPX disfarçado: reconhecido pelo 7.1, mas o upx não desempacota sem a marca',
+    'UPX disfarçado de 64 bits: reconhecido pelo 7.1, mas o upx não desempacota sem a marca',
     disguisedJob?.status === 'FAILED' && /sem a marca UPX!/.test(disguisedJob.error ?? ''),
     disguisedJob,
+  );
+  // Item 17: o de 32 bits sai pelo unipacker (emulado), com as importacoes do original.
+  const disguised32 = await upload(ana, 'disfarcado32.exe', file('upx32-disfarcado.exe'));
+  await unpackIdle();
+  const disguised32Job = await job(disguised32);
+  const [emulated] = await children(disguised32);
+  ok(
+    'UPX disfarçado de 32 bits: o unipacker emula o stub e devolve o programa com as importações',
+    disguised32Job?.status === 'DONE' &&
+      disguised32Job.unpacker === 'unipacker' &&
+      disguised32Job.note === 'UPX emulado' &&
+      importSet((emulated?.staticInfo as any)?.pe?.imports) ===
+        importSet(analyzeBuffer(file('prog32.exe')).pe?.imports) &&
+      emulated.originalFilename === 'disfarcado32.desempacotado.exe',
+    { disguised32Job, imports: (emulated?.staticInfo as any)?.pe?.imports },
   );
 
   const overlay = await upload(ana, 'dropper.exe', file('overlay.exe'));

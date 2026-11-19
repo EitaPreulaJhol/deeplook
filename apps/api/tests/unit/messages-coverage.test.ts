@@ -61,7 +61,10 @@ const NOT_SENT: [text: string, reason: string][] = [
   ['o capa não produziu resultado', DATA],
   ['a análise falhou', DATA],
   ['falha interna ao desempacotar', DATA],
-  ['UPX sem a marca UPX! (disfarçado): o upx não desempacota sem ela', DATA],
+  [
+    'UPX de 64 bits sem a marca UPX! (disfarçado): o upx não desempacota sem ela e o unipacker só emula 32 bits',
+    DATA,
+  ],
   ['sem manifest.json', DATA],
   ['falha ao criar as amostras filhas ({0} de {1} criadas)', DATA],
   ['não é OLE', DATA],
