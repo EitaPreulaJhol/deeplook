@@ -1184,9 +1184,18 @@ externa** da ficha e num resumo no topo, por exemplo "malicioso em 2 de 3 servi�
 
 | Indicador | Serviços |
 |---|---|
-| Arquivo: **só o SHA-256** | VirusTotal, MalwareBazaar, ThreatFox |
+| Arquivo: **só o SHA-256** | VirusTotal, MalwareBazaar, ThreatFox, YARAify, hashlookup (CIRCL) |
 | Link: **só o domínio** | VirusTotal, URLhaus, ThreatFox |
-| Link cujo host é um IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB |
+| Link cujo host é um IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB, InternetDB (Shodan) |
+
+- **YARAify** (abuse.ch, a mesma `ABUSECH_AUTH_KEY`): as regras YARA públicas e o ClamAV que rodaram
+  sobre a amostra lá, inclusive sobre o que o desempacotador deles tirou dela. ClamAV é malicioso;
+  regra sozinha, suspeito.
+- **hashlookup** (CIRCL, sem chave, liga com `HASHLOOKUP_ENABLED=true`): o arquivo está num conjunto de
+  arquivos conhecidos (NSRL, pacotes de distribuições). Conta como reputação limpa, −10 no risco, e
+  separa o arquivo legítimo que sai de um instalador.
+- **InternetDB** (Shodan, sem chave, liga com `INTERNETDB_ENABLED=true`): portas abertas, tags e CVEs do
+  IP, atualizado por semana. É informação; a tag `c2` ou `malware` da Shodan vira suspeito.
 
 - **O que sai do servidor:** só o indicador. O arquivo nunca sai, nem a URL completa (com
   caminho, e-mail ou token da vítima).
@@ -1460,6 +1469,8 @@ COOKIE_SECURE=true
 | `ABUSECH_AUTH_KEY` | chave da abuse.ch: liga MalwareBazaar, URLhaus e ThreatFox | — |
 | `ABUSEIPDB_API_KEY` | chave do AbuseIPDB (IPs) | — |
 | `RDAP_ENABLED` | `true`: consulta o registro do domínio (RDAP) dos links; só o domínio sai | `false` |
+| `HASHLOOKUP_ENABLED` | `true`: consulta o SHA-256 no hashlookup da CIRCL (arquivo conhecido) | `false` |
+| `INTERNETDB_ENABLED` | `true`: consulta o IP dos links no InternetDB da Shodan | `false` |
 | `CT_ENABLED` | `true`: consulta os certificados do host no crt.sh (Certificate Transparency) | `false` |
 | `PASSIVE_DNS_ENABLED` | `false`: não pede as resoluções do domínio ao VirusTotal (com a `VT_API_KEY`) | `true` |
 | `CLAMAV_HOST` | host do `clamd` (serviço `clamav` do compose); vazio desliga o antivírus | `clamav` |

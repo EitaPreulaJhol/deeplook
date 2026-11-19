@@ -20,7 +20,11 @@ export type ServiceId =
   // Enriquecimento de links (revisao de novembro, 3.3; lib/link-enrichment.ts).
   | 'rdap'
   | 'crtsh'
-  | 'vtdns';
+  | 'vtdns'
+  // Reputacao por hash e por IP (plans/analise-estatica-ampliada, item 5).
+  | 'hashlookup'
+  | 'yaraify'
+  | 'internetdb';
 
 export const SERVICE_NAMES: Record<ServiceId, string> = {
   virustotal: 'VirusTotal',
@@ -31,6 +35,9 @@ export const SERVICE_NAMES: Record<ServiceId, string> = {
   rdap: 'Registro (RDAP)',
   crtsh: 'Certificados (crt.sh)',
   vtdns: 'DNS passivo (VirusTotal)',
+  hashlookup: 'Arquivo conhecido (CIRCL hashlookup)',
+  yaraify: 'YARAify',
+  internetdb: 'Shodan InternetDB',
 };
 
 /** Enderecos das APIs (o teste de integracao aponta para um servidor local). */
@@ -40,6 +47,9 @@ export const ENDPOINTS = {
   urlhaus: 'https://urlhaus-api.abuse.ch/v1',
   threatfox: 'https://threatfox-api.abuse.ch/api/v1/',
   abuseipdb: 'https://api.abuseipdb.com/api/v2',
+  hashlookup: 'https://hashlookup.circl.lu',
+  yaraify: 'https://yaraify-api.abuse.ch/api/v1/',
+  internetdb: 'https://internetdb.shodan.io',
 };
 
 /** Intervalo minimo entre chamadas por servico (VirusTotal gratuito: 4/min). */
@@ -54,6 +64,9 @@ export const MIN_INTERVAL_MS: Record<ServiceId, number> = {
   crtsh: 3_000,
   // Mesma chave e mesma cota do VirusTotal: entra na fila dele (QUEUE_OF).
   vtdns: 15_000,
+  hashlookup: 1_000,
+  yaraify: 1_000,
+  internetdb: 1_000,
 };
 
 /** Servicos que dividem a cota (e a fila) de outro. */
@@ -63,9 +76,9 @@ const TIMEOUT_MS = 15_000;
 
 /** Quais servicos consultam cada tipo de indicador. */
 const BY_KIND: Record<ReputationKind, ServiceId[]> = {
-  HASH: ['virustotal', 'malwarebazaar', 'threatfox'],
+  HASH: ['virustotal', 'malwarebazaar', 'threatfox', 'yaraify', 'hashlookup'],
   DOMAIN: ['virustotal', 'urlhaus', 'threatfox', 'rdap', 'crtsh', 'vtdns'],
-  IP: ['virustotal', 'urlhaus', 'threatfox', 'abuseipdb', 'rdap', 'vtdns'],
+  IP: ['virustotal', 'urlhaus', 'threatfox', 'abuseipdb', 'rdap', 'vtdns', 'internetdb'],
 };
 
 function keyOf(service: ServiceId): string {
@@ -75,6 +88,8 @@ function keyOf(service: ServiceId): string {
   if (service === 'crtsh') return env.CT_ENABLED === 'true' ? 'on' : '';
   if (service === 'vtdns') return env.PASSIVE_DNS_ENABLED === 'true' ? env.VT_API_KEY : '';
   if (service === 'abuseipdb') return env.ABUSEIPDB_API_KEY;
+  if (service === 'hashlookup') return env.HASHLOOKUP_ENABLED === 'true' ? 'on' : '';
+  if (service === 'internetdb') return env.INTERNETDB_ENABLED === 'true' ? 'on' : '';
   return env.ABUSECH_AUTH_KEY;
 }
 
@@ -284,6 +299,132 @@ async function abuseipdb(_kind: ReputationKind, value: string): Promise<Lookup> 
   };
 }
 
+/**
+ * CIRCL hashlookup: o hash num conjunto de arquivos conhecidos (NSRL, pacotes de distribuicoes). E o
+ * atenuante: o arquivo legitimo que sai de um instalador. O servico nao marca malicioso; a
+ * confianca (hashlookup:trust) vai de 0 a 100, e 50 e "sem opiniao".
+ */
+async function hashlookup(_kind: ReputationKind, value: string): Promise<Lookup> {
+  let body: Record<string, unknown>;
+  try {
+    body = (await call(`${ENDPOINTS.hashlookup}/lookup/sha256/${encodeURIComponent(value)}`, {
+      headers: { accept: 'application/json' },
+    })) as Record<string, unknown>;
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) return notFound();
+    throw err;
+  }
+  const trust = typeof body['hashlookup:trust'] === 'number' ? body['hashlookup:trust'] : null;
+  const product = (body.ProductCode as { ProductName?: string } | undefined)?.ProductName ?? null;
+  const source = typeof body.source === 'string' ? body.source : null;
+  const name = typeof body.FileName === 'string' ? body.FileName.split('/').pop() : null;
+  return {
+    status: 'FOUND',
+    verdict: trust === null || trust >= 50 ? 'CLEAN' : 'UNKNOWN',
+    summary: [
+      source ? `arquivo conhecido (${source})` : 'arquivo conhecido',
+      product,
+      name,
+      trust !== null && `confiança ${trust}`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    link: `${ENDPOINTS.hashlookup}/lookup/sha256/${value}`,
+    details: { source, product, fileName: name ?? null, trust },
+  };
+}
+
+/**
+ * YARAify (abuse.ch): as regras YARA publicas e o ClamAV que rodaram sobre a amostra la (e sobre o
+ * que o unpacker deles tirou dela). Regra privada aparece como "xxx" e fica de fora.
+ */
+async function yaraify(_kind: ReputationKind, value: string): Promise<Lookup> {
+  const body = (await call(ENDPOINTS.yaraify, {
+    method: 'POST',
+    headers: { ...abusechHeaders(), 'content-type': 'application/json' },
+    body: JSON.stringify({ query: 'lookup_hash', search_term: value }),
+  })) as {
+    query_status?: string;
+    data?: {
+      tasks?: {
+        clamav_results?: string[] | null;
+        static_results?: { rule_name?: string }[] | null;
+        unpack_results?: { unpacked_yara_matches?: { rule_name?: string }[] | null }[] | null;
+      }[];
+    };
+  };
+  if (body.query_status !== 'ok' || !body.data) return notFound();
+  const tasks = body.data.tasks ?? [];
+  const rules = [
+    ...new Set(
+      tasks
+        .flatMap((t) => [
+          ...(t.static_results ?? []),
+          ...(t.unpack_results ?? []).flatMap((u) => u.unpacked_yara_matches ?? []),
+        ])
+        .map((r) => r.rule_name ?? '')
+        .filter((r) => r && r !== 'xxx'),
+    ),
+  ];
+  const clamav = [...new Set(tasks.flatMap((t) => t.clamav_results ?? []).filter(Boolean))];
+  const verdict: Verdict = clamav.length ? 'MALICIOUS' : rules.length ? 'SUSPICIOUS' : 'UNKNOWN';
+  return {
+    status: 'FOUND',
+    verdict,
+    summary: [
+      `${rules.length} regra(s) YARA`,
+      rules.slice(0, 3).join(', '),
+      clamav.length && `ClamAV: ${clamav.slice(0, 2).join(', ')}`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    link: `https://yaraify.abuse.ch/sample/${value}/`,
+    details: { rules: rules.slice(0, 50), clamav: clamav.slice(0, 20) },
+  };
+}
+
+/** Shodan InternetDB: portas abertas, CPEs, tags e CVEs do IP (sem chave, atualizado por semana). */
+async function internetdb(_kind: ReputationKind, value: string): Promise<Lookup> {
+  let body: {
+    ports?: number[];
+    cpes?: string[];
+    tags?: string[];
+    vulns?: string[];
+    hostnames?: string[];
+  };
+  try {
+    body = (await call(`${ENDPOINTS.internetdb}/${encodeURIComponent(value)}`, {
+      headers: { accept: 'application/json' },
+    })) as typeof body;
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) return notFound('sem informação');
+    throw err;
+  }
+  const ports = body.ports ?? [];
+  const tags = body.tags ?? [];
+  const vulns = body.vulns ?? [];
+  return {
+    status: 'FOUND',
+    // So informacao: porta aberta nao e malicia. Tag de C2 ou malware da Shodan vira suspeito.
+    verdict: tags.some((t) => /c2|malware|compromised/i.test(t)) ? 'SUSPICIOUS' : 'UNKNOWN',
+    summary: [
+      ports.length ? `porta(s) ${ports.slice(0, 8).join(', ')}` : 'nenhuma porta aberta',
+      tags.length && `tags ${tags.slice(0, 5).join(', ')}`,
+      vulns.length && `${vulns.length} CVE(s)`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    link: `https://www.shodan.io/host/${value}`,
+    details: {
+      ports: ports.slice(0, 100),
+      cpes: (body.cpes ?? []).slice(0, 50),
+      tags,
+      vulns: vulns.slice(0, 100),
+      hostnames: (body.hostnames ?? []).slice(0, 50),
+    },
+  };
+}
+
 const CLIENTS: Record<ServiceId, (kind: ReputationKind, value: string) => Promise<Lookup>> = {
   virustotal,
   malwarebazaar,
@@ -293,6 +434,9 @@ const CLIENTS: Record<ServiceId, (kind: ReputationKind, value: string) => Promis
   rdap: (kind, value) => rdap(kind, value) as Promise<Lookup>,
   crtsh: (kind, value) => crtsh(kind, value) as Promise<Lookup>,
   vtdns: (kind, value) => vtdns(kind, value) as Promise<Lookup>,
+  hashlookup,
+  yaraify,
+  internetdb,
 };
 
 // ---- Fila por servico (respeita o intervalo minimo) ----

@@ -166,6 +166,13 @@ const EnvSchema = z
     RDAP_ENABLED: z.enum(['true', 'false']).default('false'),
     CT_ENABLED: z.enum(['true', 'false']).default('false'),
     PASSIVE_DNS_ENABLED: z.enum(['true', 'false']).default('true'),
+    /**
+     * Reputacao sem chave (plans/analise-estatica-ampliada, item 5): o hashlookup da CIRCL (arquivo
+     * conhecido, como o NSRL) recebe o SHA-256, e o InternetDB da Shodan, o IP. Como o RDAP, so
+     * ligam por opcao explicita. O YARAify usa a ABUSECH_AUTH_KEY.
+     */
+    HASHLOOKUP_ENABLED: z.enum(['true', 'false']).default('false'),
+    INTERNETDB_ENABLED: z.enum(['true', 'false']).default('false'),
     /** Antivirus ClamAV (contenor clamav, protocolo clamd). Vazio = desligado. */
     CLAMAV_HOST: z.string().default(''),
     CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),

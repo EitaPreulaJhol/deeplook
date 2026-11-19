@@ -1175,9 +1175,18 @@ the card and in a summary at the top, for example "malicious in 2 of 3 services"
 
 | Indicator | Services |
 |---|---|
-| File: **SHA-256 only** | VirusTotal, MalwareBazaar, ThreatFox |
+| File: **SHA-256 only** | VirusTotal, MalwareBazaar, ThreatFox, YARAify, hashlookup (CIRCL) |
 | Link: **domain only** | VirusTotal, URLhaus, ThreatFox |
-| Link whose host is an IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB |
+| Link whose host is an IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB, InternetDB (Shodan) |
+
+- **YARAify** (abuse.ch, the same `ABUSECH_AUTH_KEY`): the public YARA rules and ClamAV that ran over
+  the sample there, including over what their unpacker took out of it. ClamAV is malicious; a rule
+  alone, suspicious.
+- **hashlookup** (CIRCL, no key, turned on by `HASHLOOKUP_ENABLED=true`): the file is in a set of known
+  files (NSRL, distribution packages). It counts as clean reputation, −10 in the risk, and sets apart
+  the legitimate file that comes out of an installer.
+- **InternetDB** (Shodan, no key, turned on by `INTERNETDB_ENABLED=true`): open ports, tags and CVEs of
+  the IP, updated weekly. It is information; Shodan's `c2` or `malware` tag becomes suspicious.
 
 - **What leaves the server:** only the indicator. The file never leaves, nor the full URL (with the
   victim's path, email or token).
@@ -1447,6 +1456,8 @@ COOKIE_SECURE=true
 | `ABUSECH_AUTH_KEY` | abuse.ch key: enables MalwareBazaar, URLhaus and ThreatFox | — |
 | `ABUSEIPDB_API_KEY` | AbuseIPDB key (IPs) | — |
 | `RDAP_ENABLED` | `true`: looks up the links' domain registration (RDAP); only the domain leaves | `false` |
+| `HASHLOOKUP_ENABLED` | `true`: looks up the SHA-256 in CIRCL's hashlookup (known file) | `false` |
+| `INTERNETDB_ENABLED` | `true`: looks up the links' IP in Shodan's InternetDB | `false` |
 | `CT_ENABLED` | `true`: looks up the host's certificates on crt.sh (Certificate Transparency) | `false` |
 | `PASSIVE_DNS_ENABLED` | `false`: does not ask VirusTotal for the domain's resolutions (with `VT_API_KEY`) | `true` |
 | `CLAMAV_HOST` | `clamd` host (`clamav` service of compose); empty turns the antivirus off | `clamav` |

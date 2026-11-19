@@ -124,6 +124,11 @@ const SAME = new Set([
   '{0} build {1}',
   'expand 32-byte k',
   'expand 16-byte k',
+  // Reputacao (item 5): nomes e rotulos iguais nos dois idiomas.
+  'Shodan InternetDB',
+  'ClamAV: {0}',
+  'tags {0}',
+  '{0} CVE(s)',
   // Padrao de linha de comando (lol/lolbins.ts), nao texto para gente.
   '\\bpython[23]?\\s+-c\\s+["\'][^"\'\\r\\n]{0,200}socket\\.socket{0}(?:pty\\.spawn|subprocess|os\\.dup2)',
   // PATHEXT do Windows (script-deobfuscate.ts): valor de variavel de ambiente.
