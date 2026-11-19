@@ -44,3 +44,8 @@ release/
 # Biblioteca de icones Silk (origem dos de apps/web/public/icons): so local, fora do Git.
 icons/
 sbom/
+
+# YARA Forge instalado no servidor pelo apps/api/scripts/vendor-yara-forge.mjs (licencas por
+# conjunto, algumas GPL ou sem licenca): fica fora do repositorio.
+apps/api/rules/yara-forge/
+apps/api/rules/local-packs.json

@@ -398,6 +398,11 @@ export async function checkYaraPack(
 ): Promise<CheckOutcome> {
   const pack = yaraPacks().find((p) => p.id === id);
   if (!pack) throw new Error('Pacote não encontrado.');
+  if (pack.autoUpdate === false) {
+    throw new Error(
+      'Este pacote é atualizado no servidor, pelo script scripts/vendor-yara-forge.mjs.',
+    );
+  }
   if (busy) throw new Error('Já há uma verificação em andamento. Tente de novo em instantes.');
   busy = true;
   const state = await loadPackState();
@@ -611,7 +616,7 @@ export async function runDuePackChecks(
   const state = await loadPackState();
   for (const pack of yaraPacks()) {
     const on = state.enabled[pack.id] ?? pack.defaultEnabled;
-    if (!on || !state.installed.includes(pack.id)) continue;
+    if (!on || !state.installed.includes(pack.id) || pack.autoUpdate === false) continue;
     const last = state.lastCheck[pack.id] ? Date.parse(state.lastCheck[pack.id]) : 0;
     if (now - last < CHECK_EVERY_DAYS * 86_400_000) continue;
     try {

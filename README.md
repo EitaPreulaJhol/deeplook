@@ -739,6 +739,15 @@ DeepLook ships with rules from trusted sources, in `apps/api/rules`, without dow
   the copy in `apps/api/rules`, used only in new installations. With ids, only those packs are copied again
   and the others stay as they are in `packs.json`. ESET and Volexity keep their rules in folders across the
   repository root, so their source folder is the whole repository.
+- **YARA Forge (optional, on the server):** the core package of [YARA Forge](https://github.com/YARAHQ/yara-forge)
+  brings together rules from dozens of repositories, filtered by quality and score. Each set keeps its
+  own license (GPL, DRL, MIT, and some with no declared license), so the package does not ship in the
+  repository: whoever wants it runs `node apps/api/scripts/vendor-yara-forge.mjs --tag <release>` (or with
+  the downloaded `.zip`). The script splits the rules by source repository, drops the sets that are
+  already dedicated packs (signature-base, ESET, Volexity, ReversingLabs, bartblaze), keeps only what
+  compiles and writes `apps/api/rules/yara-forge/` and `apps/api/rules/local-packs.json`, both outside
+  Git. Then `docker compose build api` and enable the pack in Settings. It does not update by itself:
+  to update, run the script again.
 - **Old samples:** the packs apply to the next files. For the old ones, use "Apply to samples".
 
 ### Team rules

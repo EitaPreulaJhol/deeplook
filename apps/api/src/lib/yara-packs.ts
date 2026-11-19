@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { prisma } from './prisma';
@@ -29,14 +29,31 @@ export interface YaraPack {
   excluded: { file: string; why: string }[];
   /** Regras ignoradas no resultado, por prefixo (item 147); o arquivo nao muda. */
   ignoreRules?: string[];
+  /**
+   * false: o pacote nao se atualiza pelo GitHub (o YARA Forge, instalado neste servidor por
+   * scripts/vendor-yara-forge.mjs; plans/analise-estatica-ampliada, item 13).
+   */
+  autoUpdate?: boolean;
 }
 
 /** src/lib ou dist/lib -> apps/api/rules. */
 const RULES_DIR = join(__dirname, '..', '..', 'rules');
 
 let manifest: YaraPack[] | null = null;
+/** Para os testes: le os manifestos de novo. */
+export const resetYaraPackManifest = () => {
+  manifest = null;
+};
 export function yaraPacks(): YaraPack[] {
-  manifest ??= JSON.parse(readFileSync(join(RULES_DIR, 'packs.json'), 'utf8')) as YaraPack[];
+  if (!manifest) {
+    const official = JSON.parse(readFileSync(join(RULES_DIR, 'packs.json'), 'utf8')) as YaraPack[];
+    // Pacotes instalados neste servidor, fora do Git (o YARA Forge, item 13).
+    const localPath = join(RULES_DIR, 'local-packs.json');
+    const local = existsSync(localPath)
+      ? (JSON.parse(readFileSync(localPath, 'utf8')) as YaraPack[])
+      : [];
+    manifest = [...official, ...local.filter((p) => !official.some((o) => o.id === p.id))];
+  }
   return manifest;
 }
 

@@ -741,6 +741,15 @@ O DeepLook já vem com regras de fontes confiáveis, em `apps/api/rules`, sem ba
   atualiza a cópia em `apps/api/rules`, usada só nas instalações novas. Com ids, só esses pacotes são
   copiados de novo, e os outros ficam como estão no `packs.json`. ESET e Volexity guardam as regras em
   pastas espalhadas pela raiz do repositório, então a pasta de origem deles é o repositório inteiro.
+- **YARA Forge (opcional, no servidor):** o pacote core do [YARA Forge](https://github.com/YARAHQ/yara-forge)
+  junta regras de dezenas de repositórios, filtradas por qualidade e pontuação. Cada conjunto mantém a
+  licença dele (GPL, DRL, MIT, e alguns sem licença declarada), e por isso o pacote não vem no
+  repositório: quem quiser roda `node apps/api/scripts/vendor-yara-forge.mjs --tag <release>` (ou com o
+  `.zip` baixado). O script separa as regras por repositório de origem, tira os conjuntos que já são
+  pacotes dedicados (signature-base, ESET, Volexity, ReversingLabs, bartblaze), deixa só o que compila
+  e grava `apps/api/rules/yara-forge/` e `apps/api/rules/local-packs.json`, ambos fora do Git. Depois,
+  `docker compose build api` e ligar o pacote em Configurações. Ele não se atualiza sozinho: para
+  atualizar, rode o script de novo.
 - **Amostras antigas:** os pacotes valem para os próximos arquivos. Para as antigas, use "Aplicar às
   amostras".
 
