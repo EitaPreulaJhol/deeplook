@@ -126,6 +126,13 @@ const SAME = new Set([
   'expand 16-byte k',
   // Reputacao (item 5): nomes e rotulos iguais nos dois idiomas.
   'Shodan InternetDB',
+  // Rotulos de regra de shell e Python (item 11): nomes de comando.
+  'Shell (sh/bash)',
+  'chmod +x',
+  'subprocess/os.system',
+  'pty.spawn/os.dup2',
+  'ctypes VirtualAlloc',
+  'b64decode + {0}',
   'ClamAV: {0}',
   'tags {0}',
   '{0} CVE(s)',

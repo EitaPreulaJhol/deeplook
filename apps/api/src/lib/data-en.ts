@@ -60,6 +60,45 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'Compilado na configuração Debug (caminho do PDB).',
     'Built in the Debug configuration (PDB path).',
   ],
+  // ---- Shell e Python (script-analysis.ts; item 11) ----
+  ['executa o que acabou de receber ou decodificar', 'runs what it has just received or decoded'],
+  ['torna o arquivo baixado executável', 'makes the downloaded file executable'],
+  [
+    'abre uma conexão direto do shell (shell reversa)',
+    'opens a connection straight from the shell (reverse shell)',
+  ],
+  ['apaga rastros / desliga defesas', 'wipes traces / turns off defenses'],
+  [
+    'apaga o histórico ou os logs, ou desliga o firewall',
+    'wipes the history or the logs, or turns off the firewall',
+  ],
+  ['binário por arquitetura', 'binary per architecture'],
+  [
+    'baixa um binário para cada arquitetura (botnet de IoT, como o Mirai)',
+    'downloads one binary per architecture (IoT botnet, like Mirai)',
+  ],
+  ['roda um minerador de criptomoeda', 'runs a cryptocurrency miner'],
+  [
+    'executa código que só existe depois de decodificado',
+    'runs code that only exists after decoding',
+  ],
+  ['carrega bytecode escondido', 'loads hidden bytecode'],
+  ['baixa ou envia conteúdo pela internet', 'downloads or sends content over the internet'],
+  [
+    'abre conexão de rede e entrega um shell (shell reversa)',
+    'opens a network connection and hands over a shell (reverse shell)',
+  ],
+  ['põe código na memória e o executa (shellcode)', 'puts code in memory and runs it (shellcode)'],
+  [
+    'código protegido pelo PyArmor (não dá para ler o original)',
+    'code protected by PyArmor (the original cannot be read)',
+  ],
+  ['dados de navegador ou carteira', 'browser or wallet data'],
+  [
+    'lê senhas, cookies ou carteiras (ladrão de dados)',
+    'reads passwords, cookies or wallets (data stealer)',
+  ],
+  ['persistência', 'persistence'],
   // ---- PDF (doc-analysis.ts, delivery-formats.ts; item 8) ----
   ['Link com javascript:.', 'Link with javascript:.'],
   [

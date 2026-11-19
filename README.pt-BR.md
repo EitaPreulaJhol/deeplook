@@ -823,6 +823,17 @@ As regras de chamadas suspeitas olham o texto original e as camadas. O achado di
 apareceu. Os tetos são de 12 camadas, 5 níveis e 2 MB de texto, e nenhuma regex com retrocesso
 quadrático (o fuzz `npm run test:fuzz -- --target deobfuscate` cobre a normalização).
 
+**Shell e Python** (`.sh`, `.bash`, `.py`, ou pelo shebang e pelo jeito do conteúdo), com regras
+próprias:
+- shell: `curl`/`wget`, `| sh` e `eval`, `chmod +x`, `/dev/tcp` (shell reversa), cron, systemd e
+  `rc.local`, apagar histórico e logs, desligar firewall, um binário por arquitetura (botnet de IoT,
+  como o Mirai) e minerador. As camadas `echo … | base64 -d`, `$'\x41…'` e `printf '\x41…'` são
+  decodificadas;
+- Python: `exec`/`eval` de algo decodificado, `marshal.loads`, `subprocess`/`os.system`,
+  `urllib`/`requests`, `pty.spawn`/`os.dup2`, shellcode por `ctypes`, PyArmor, dados de navegador e
+  carteira, e persistência. As camadas `b64decode` (com `zlib`), `bytes.fromhex` e rot13 são
+  decodificadas.
+
 **AutoIt.** O script que sai de um executável compilado com o AutoIt (ver [Identificar e
 desempacotar](#identificar-e-desempacotar)) ganha regras próprias, que só valem nele (em outra
 linguagem, `Run(` é um nome qualquer):

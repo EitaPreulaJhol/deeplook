@@ -25,7 +25,16 @@ import {
  * script grava ou poe na memoria) vira camada quando e texto e achado quando e PE.
  */
 
-export type ScriptLanguage = 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta' | 'autoit';
+export type ScriptLanguage =
+  | 'powershell'
+  | 'javascript'
+  | 'vbscript'
+  | 'batch'
+  | 'hta'
+  | 'autoit'
+  // plans/analise-estatica-ampliada, item 11.
+  | 'shell'
+  | 'python';
 
 export interface ScriptFinding {
   /** Chamada/trecho achado (ex.: "DownloadString"). */
@@ -80,6 +89,12 @@ const EXT: Record<string, ScriptLanguage> = {
   cmd: 'batch',
   hta: 'hta',
   au3: 'autoit',
+  sh: 'shell',
+  bash: 'shell',
+  zsh: 'shell',
+  ksh: 'shell',
+  py: 'python',
+  pyw: 'python',
 };
 
 const LABEL: Record<ScriptLanguage, string> = {
@@ -89,6 +104,8 @@ const LABEL: Record<ScriptLanguage, string> = {
   batch: 'Lote (BAT/CMD)',
   hta: 'HTA (aplicativo HTML)',
   autoit: 'AutoIt',
+  shell: 'Shell (sh/bash)',
+  python: 'Python',
 };
 export const scriptLabel = (l: ScriptLanguage) => LABEL[l];
 
@@ -97,6 +114,122 @@ export const scriptLabel = (l: ScriptLanguage) => LABEL[l];
  * com `[^\n]*`, uma linha longa de palavras repetidas custa o quadrado do tamanho.
  */
 type Rule = { re: RegExp; name: string; why: string; kind: ScriptFinding['kind'] };
+
+/** So no shell do Linux (plans/analise-estatica-ampliada, item 11): droppers e botnets de IoT. */
+const SHELL_RULES: Rule[] = [
+  {
+    re: /(?<![\w-])(?:curl|wget|tftp|ftpget|busybox\s+(?:wget|tftp))\s/i,
+    name: 'curl/wget',
+    why: 'baixa conteúdo da internet',
+    kind: 'download',
+  },
+  {
+    re: /\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b|\b(?:ba)?sh\s+-c\s|(?<![\w-])eval\s+["'`$(]/i,
+    name: '| sh / eval',
+    why: 'executa o que acabou de receber ou decodificar',
+    kind: 'execute',
+  },
+  {
+    re: /\bchmod\s+(?:[ugoa]*\+x|0?[0-7]?[157][0-7]{2})\s/i,
+    name: 'chmod +x',
+    why: 'torna o arquivo baixado executável',
+    kind: 'execute',
+  },
+  {
+    re: /\/dev\/(?:tcp|udp)\/[\w.-]+\/\d+/i,
+    name: '/dev/tcp',
+    why: 'abre uma conexão direto do shell (shell reversa)',
+    kind: 'execute',
+  },
+  {
+    re: /\bcrontab\b|\/etc\/cron|systemctl\s+enable|\/etc\/systemd\/system\/|\/etc\/rc\.local|\/etc\/init\.d\/|\.bashrc|\.profile\b|authorized_keys/i,
+    name: 'cron/systemd/rc.local',
+    why: 'fica ativo depois de reiniciar (persistência)',
+    kind: 'persistence',
+  },
+  {
+    re: /history\s+-c|unset\s+HISTFILE|HISTFILE=\/dev\/null|rm\s+-rf?\s+\/var\/log|iptables\s+-F|setenforce\s+0|ufw\s+disable|chattr\s+[+-]i\b/i,
+    name: 'apaga rastros / desliga defesas',
+    why: 'apaga o histórico ou os logs, ou desliga o firewall',
+    kind: 'evasion',
+  },
+  {
+    re: /\b(?:mips|mpsl|arm[4-7]?|x86|m68k|sh4|ppc|spc)\b[^\n]{0,300}\b(?:mips|mpsl|arm[4-7]?|m68k|sh4|ppc|spc)\b/i,
+    name: 'binário por arquitetura',
+    why: 'baixa um binário para cada arquitetura (botnet de IoT, como o Mirai)',
+    kind: 'other',
+  },
+  {
+    re: /base64\s+(?:-d|--decode)|\bxxd\s+-r|\$'(?:\\x[0-9a-f]{2}){4}/i,
+    name: "base64 -d / $'\\x..'",
+    why: 'decodifica texto escondido',
+    kind: 'obfuscation',
+  },
+  {
+    re: /\bxmrig\b|stratum\+(?:tcp|ssl):\/\//i,
+    name: 'minerador',
+    why: 'roda um minerador de criptomoeda',
+    kind: 'other',
+  },
+];
+
+/** So no Python (item 11). */
+const PYTHON_RULES: Rule[] = [
+  {
+    re: /\b(?:exec|eval)\s*\([^\n]{0,1000}\b(?:b64decode|b32decode|decompress|loads|fromhex|decode)\b/i,
+    name: 'exec(b64decode(...))',
+    why: 'executa código que só existe depois de decodificado',
+    kind: 'execute',
+  },
+  {
+    re: /\bmarshal\.loads\b/,
+    name: 'marshal.loads',
+    why: 'carrega bytecode escondido',
+    kind: 'obfuscation',
+  },
+  {
+    re: /\bsubprocess\.(?:Popen|call|run|check_output)\b|\bos\.(?:system|popen)\s*\(/,
+    name: 'subprocess/os.system',
+    why: 'inicia outro programa ou comando do sistema',
+    kind: 'execute',
+  },
+  {
+    re: /\burllib\.request\.(?:urlopen|urlretrieve)\b|\brequests\.(?:get|post)\s*\(|\burlretrieve\s*\(/,
+    name: 'urllib/requests',
+    why: 'baixa ou envia conteúdo pela internet',
+    kind: 'download',
+  },
+  {
+    re: /\bpty\.spawn\s*\(|\bos\.dup2\s*\(/,
+    name: 'pty.spawn/os.dup2',
+    why: 'abre conexão de rede e entrega um shell (shell reversa)',
+    kind: 'execute',
+  },
+  {
+    re: /\b(?:VirtualAlloc|CreateThread|RtlMoveMemory|WriteProcessMemory)\b/,
+    name: 'ctypes VirtualAlloc',
+    why: 'põe código na memória e o executa (shellcode)',
+    kind: 'execute',
+  },
+  {
+    re: /__pyarmor__|\bpytransform\b/,
+    name: 'PyArmor',
+    why: 'código protegido pelo PyArmor (não dá para ler o original)',
+    kind: 'obfuscation',
+  },
+  {
+    re: /Login Data|Local State|cookies\.sqlite|wallet\.dat|Exodus|Electrum/,
+    name: 'dados de navegador ou carteira',
+    why: 'lê senhas, cookies ou carteiras (ladrão de dados)',
+    kind: 'other',
+  },
+  {
+    re: /CurrentVersion\\+Run|\bcrontab\b|Start Menu\\+Programs\\+Startup|\.bashrc/,
+    name: 'persistência',
+    why: 'fica ativo depois de reiniciar (persistência)',
+    kind: 'persistence',
+  },
+];
 
 /** So no AutoIt (o script.au3 do executavel compilado). */
 const AUTOIT_RULES: Rule[] = [
@@ -421,6 +554,47 @@ function decodeCandidates(text: string): [string, string][] {
     if (readable(decoded))
       out.push([packed ? `Base64 + ${packed.method}` : 'Base64 (bloco)', decoded]);
   }
+  // Shell (item 11): echo <base64> | base64 -d, $'\x41...' e printf '\x41...'.
+  for (const m of text.matchAll(
+    /echo\s+(?:-n\s+)?["']?([A-Za-z0-9+/]{16,}={0,2})["']?\s*\|\s*base64\s+(?:-d|--decode)/gi,
+  )) {
+    const bytes = b64(m[1]);
+    const packed = inflate(bytes);
+    const decoded = bytesToText(packed ? packed.data : bytes);
+    if (readable(decoded)) out.push(['echo | base64 -d', decoded]);
+  }
+  for (const m of text.matchAll(/(?:\$'|printf\s+["'])((?:\\x[0-9a-f]{2}|\\[0-7]{3}){4,})/gi)) {
+    const decoded = m[1].replace(/\\x([0-9a-f]{2})|\\([0-7]{3})/gi, (_, hex, oct) =>
+      String.fromCharCode(hex ? parseInt(hex, 16) : parseInt(oct, 8)),
+    );
+    if (readable(decoded)) out.push(["$'\\x..' / printf", decoded]);
+  }
+  // Python (item 11): b64decode('...') com zlib.decompress, bytes.fromhex('...') e rot13.
+  for (const m of text.matchAll(/b(?:64|32)decode\s*\(\s*b?["']([A-Za-z0-9+/=\s]{16,})["']/gi)) {
+    const bytes = b64(m[1]);
+    const packed = inflate(bytes);
+    const decoded = bytesToText(packed ? packed.data : bytes);
+    if (readable(decoded))
+      out.push([packed ? `b64decode + ${packed.method}` : 'b64decode', decoded]);
+  }
+  for (const m of text.matchAll(/fromhex\s*\(\s*["']([0-9a-f\s]{32,})["']/gi)) {
+    const bytes = Buffer.from(m[1].replace(/\s+/g, ''), 'hex');
+    const packed = inflate(bytes);
+    const decoded = bytesToText(packed ? packed.data : bytes);
+    if (readable(decoded)) out.push(['bytes.fromhex', decoded]);
+  }
+  for (const m of text.matchAll(
+    /codecs\.decode\s*\(\s*["']([^"'\n]{12,})["']\s*,\s*["']rot_?13["']/gi,
+  )) {
+    out.push([
+      'rot13',
+      m[1].replace(/[a-z]/gi, (c) =>
+        String.fromCharCode(
+          ((c.toLowerCase().charCodeAt(0) - 97 + 13) % 26) + (c <= 'Z' ? 65 : 97),
+        ),
+      ),
+    ]);
+  }
   // Lista de bytes (0x41,0x42,... ou 65,66,...) com 16 ou mais: texto direto ou com XOR.
   for (const m of text.matchAll(
     /\(\s*((?:(?:0x[0-9a-f]{1,2}|\d{1,3})\s*,\s*){15,20000}(?:0x[0-9a-f]{1,2}|\d{1,3}))\s*\)/gi,
@@ -447,6 +621,17 @@ function detectLanguage(text: string, filename?: string | null): ScriptLanguage 
   )
     return 'autoit';
   if (/^\s*@?echo\s+off/m.test(head)) return 'batch';
+  // Shell e Python (item 11): o shebang, ou o jeito tipico de dropper.
+  if (/^#!\s*\S*\/(?:env\s+)?(?:ba|z|da|k)?sh\b/.test(head)) return 'shell';
+  if (/^#!\s*\S*\/(?:env\s+)?python/.test(head)) return 'python';
+  if (
+    /^\s*(?:import\s+(?:os|sys|base64|socket|subprocess|zlib|marshal|ctypes)\b|from\s+\w+\s+import\s)/m.test(
+      head,
+    )
+  )
+    return 'python';
+  if (/(?:^|;)\s*(?:cd\s+\/tmp|wget\s|curl\s)[^\n]*(?:chmod\s|\|\s*(?:ba)?sh\b)/m.test(head))
+    return 'shell';
   if (/^\s*(?:\$[a-z_]+\s*=|function\s+[a-z]+-[a-z]+|param\s*\(|\[cmdletbinding)/m.test(head))
     return 'powershell';
   if (/\b(?:dim|set)\s+\w+\s*=\s*createobject/.test(head) || /^\s*on error resume next/m.test(head))
@@ -503,8 +688,17 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
     let source = raw;
     let layer = rawLayer;
     // O AutoIt concatena com & e usa StringReverse/StringReplace: normaliza como VBScript.
-    const rootFlavor = language === 'autoit' ? 'vbscript' : language;
-    const normalized = normalizeScript(raw, flavorOf(raw, depth === 0 ? rootFlavor : null));
+    // Python escapa e concatena como o JavaScript; o shell nao tem normalizacao (o circunflexo e o
+    // % do lote mudariam o texto).
+    const rootFlavor =
+      language === 'autoit' ? 'vbscript' : language === 'python' ? 'javascript' : language;
+    const normalized =
+      language === 'shell' && depth === 0
+        ? { text: raw, techniques: [] }
+        : normalizeScript(
+            raw,
+            flavorOf(raw, depth === 0 ? (rootFlavor as Parameters<typeof flavorOf>[1]) : null),
+          );
     if (normalized.techniques.length && normalized.text.trim() !== raw.trim()) {
       const index = pushLayer(normalized.techniques.join(' · '), rawLayer, normalized.text);
       if (index !== null) {
@@ -525,7 +719,14 @@ export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo
     }
   };
 
-  const rules = language === 'autoit' ? [...AUTOIT_RULES, ...RULES] : RULES;
+  const rules =
+    language === 'autoit'
+      ? [...AUTOIT_RULES, ...RULES]
+      : language === 'shell'
+        ? [...SHELL_RULES, ...RULES]
+        : language === 'python'
+          ? [...PYTHON_RULES, ...RULES]
+          : RULES;
   const scanRules = (source: string, layer: number) => {
     for (const rule of rules) {
       if (!findings.has(rule.name) && rule.re.test(source)) {

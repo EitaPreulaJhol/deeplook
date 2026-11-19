@@ -637,7 +637,8 @@ export interface DiskImageInfo {
 
 /** Script (item 83): PowerShell, JS, VBS, BAT e HTA. */
 export interface ScriptInfo {
-  language: 'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta' | 'autoit';
+  language:
+    'powershell' | 'javascript' | 'vbscript' | 'batch' | 'hta' | 'autoit' | 'shell' | 'python';
   lines: number;
   risk: 'high' | 'medium' | 'low';
   findings: {

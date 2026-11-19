@@ -818,6 +818,16 @@ The suspicious-call rules look at the original text and at the layers, and each 
 layer it showed up in. The caps are 12 layers, 5 levels and 2 MB of text, with no quadratically
 backtracking regex (the `npm run test:fuzz -- --target deobfuscate` fuzz covers the normalization).
 
+**Shell and Python** (`.sh`, `.bash`, `.py`, or by the shebang and the shape of the content), with
+their own rules:
+- shell: `curl`/`wget`, `| sh` and `eval`, `chmod +x`, `/dev/tcp` (reverse shell), cron, systemd and
+  `rc.local`, wiping history and logs, turning off the firewall, one binary per architecture (IoT
+  botnet, like Mirai) and miners. The `echo … | base64 -d`, `$'\x41…'` and `printf '\x41…'` layers are
+  decoded;
+- Python: `exec`/`eval` of something decoded, `marshal.loads`, `subprocess`/`os.system`,
+  `urllib`/`requests`, `pty.spawn`/`os.dup2`, shellcode through `ctypes`, PyArmor, browser and wallet
+  data, and persistence. The `b64decode` (with `zlib`), `bytes.fromhex` and rot13 layers are decoded.
+
 **AutoIt.** The script that comes out of an executable compiled with AutoIt (see [Identify and
 unpack](#identify-and-unpack)) gets its own rules, which only apply to it (in another language,
 `Run(` is just a name):
