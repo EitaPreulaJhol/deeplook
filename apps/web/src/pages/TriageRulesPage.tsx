@@ -50,7 +50,8 @@ type Condition =
   | 'PACKED'
   | 'PE_ALERT'
   | 'HIDDEN_IOC'
-  | 'DIE_DETECTION';
+  | 'DIE_DETECTION'
+  | 'MAGIKA';
 
 interface TriageRule {
   id: string;
@@ -131,6 +132,11 @@ const CONDITIONS: Record<
       required: false,
       hint: tr('cDieHint'),
     },
+  },
+  // Item 22.
+  MAGIKA: {
+    label: tr('cMagika'),
+    value: { required: false, hint: tr('cMagikaHint') },
   },
 }));
 

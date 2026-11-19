@@ -41,6 +41,11 @@ export const messages = {
     'trecho, ex.: Themida, Inno Setup, Delphi (vazio = qualquer empacotador ou protetor)',
     'excerpt, e.g.: Themida, Inno Setup, Delphi (empty = any packer or protector)',
   ],
+  cMagika: ['Magika identificou', 'Magika identified'],
+  cMagikaHint: [
+    'rótulo, ex.: powershell, javascript (vazio = diverge do tipo detectado ou da extensão)',
+    'label, e.g.: powershell, javascript (empty = disagrees with the detected type or the extension)',
+  ],
   nameRange: ['Nome (3 a 80 caracteres)', 'Name (3 to 80 characters)'],
   value: ['Valor', 'Value'],
   tagsOrPriority: ['Tags ou prioridade', 'Tags or priority'],

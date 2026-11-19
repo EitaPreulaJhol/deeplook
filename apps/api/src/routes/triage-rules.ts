@@ -28,6 +28,7 @@ const CONDITIONS = [
   'PE_ALERT',
   'HIDDEN_IOC',
   'DIE_DETECTION',
+  'MAGIKA',
 ] as const;
 
 const TAG = z

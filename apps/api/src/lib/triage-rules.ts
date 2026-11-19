@@ -31,6 +31,7 @@ export const CONDITION_LABEL: Record<TriageCondition, string> = {
   PE_ALERT: 'alerta do executável',
   HIDDEN_IOC: 'indicador em string escondida',
   DIE_DETECTION: 'Detect It Easy detectou',
+  MAGIKA: 'Magika identificou',
 };
 
 /** Condicoes que usam o campo "valor" (vazio = qualquer, onde fizer sentido). */
@@ -49,6 +50,7 @@ export const OPTIONAL_VALUE: TriageCondition[] = [
   'PE_ALERT',
   'HIDDEN_IOC',
   'DIE_DETECTION',
+  'MAGIKA',
 ];
 
 /** "regra YARA casou (Emotet)" / "documento com macro". */
@@ -83,6 +85,8 @@ export type Facts = {
   hiddenIocs: string[];
   /** Detect It Easy (item 7.9): tipo e o texto completo ("Packer: UPX(4.24)[NRV, brute]"). */
   die: { type: string; string: string }[];
+  /** Magika (item 22): o rotulo e se diverge do tipo detectado (ou da extensao). */
+  magika?: { label: string; mismatch: boolean } | null;
   /** Alertas do oletools (item 7.14; revisao 3.2): macros, XLM, DDE, objetos de RTF. */
   officeAlerts: { level: string; text: string }[];
 };
@@ -162,6 +166,9 @@ function matches(rule: { condition: TriageCondition; value: string | null }, f: 
       return value
         ? f.die.some((d) => plain(d.string).includes(plain(value)))
         : f.die.some((d) => ['packer', 'protector'].includes(d.type.toLowerCase()));
+    case 'MAGIKA':
+      // Rotulo do Magika (powershell, javascript); vazio = diverge do tipo ou da extensao.
+      return value ? f.magika?.label.toLowerCase() === value : Boolean(f.magika?.mismatch);
     case 'HIDDEN_IOC':
       return value
         ? f.hiddenIocs.some((v) => v.toLowerCase().includes(value) || domainMatches(v, value))
@@ -187,7 +194,7 @@ export async function loadFacts(entryId: string) {
       antivirus: { select: { status: true, signature: true } },
       lookalikeHits: { select: { companyDomain: true } },
       capaAnalysis: { select: { status: true, capa: true, attack: true, iocCandidates: true } },
-      unpackJob: { select: { detections: true } },
+      unpackJob: { select: { detections: true, magika: true } },
       officeAnalysis: { select: { status: true, alerts: true } },
     },
   });
@@ -243,6 +250,10 @@ export async function loadFacts(entryId: string) {
       type: d.type,
       string: d.string,
     })),
+    magika: (() => {
+      const m = entry.unpackJob?.magika as { label?: string; mismatch?: unknown } | null;
+      return m?.label ? { label: m.label, mismatch: Boolean(m.mismatch) } : null;
+    })(),
     officeAlerts:
       entry.officeAnalysis?.status === 'DONE'
         ? ((entry.officeAnalysis.alerts ?? []) as { level: string; text: string }[])

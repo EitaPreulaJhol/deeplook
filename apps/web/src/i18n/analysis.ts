@@ -73,6 +73,16 @@ export const messages = {
     'Caminhos que o compilador grava nas mensagens de erro: costumam trazer o usuário e o projeto de quem compilou.',
     'Paths the compiler writes in the error messages: they usually carry the user and project of whoever built it.',
   ],
+  magikaHelp: [
+    'Tipo do arquivo pelo Magika (Google), que reconhece pelo conteúdo o que não tem assinatura: scripts, texto e código. No texto sem tipo, a análise de scripts usa a linguagem que ele disse.',
+    'File type by Magika (Google), which recognizes by content what has no signature: scripts, text and code. In untyped text, the script analysis uses the language it reported.',
+  ],
+  magikaScore: ['confiança {n}%', 'confidence {n}%'],
+  magikaVsType: [
+    'diverge do tipo detectado ({expected})',
+    'disagrees with the detected type ({expected})',
+  ],
+  magikaVsExt: ['diverge da extensão (.{expected})', 'disagrees with the extension (.{expected})'],
   goTitle: ['Go (GoReSym)', 'Go (GoReSym)'],
   goVersion: ['Versão do Go', 'Go version'],
   goModule: ['Módulo principal', 'Main module'],

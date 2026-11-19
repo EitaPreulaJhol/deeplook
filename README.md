@@ -1048,6 +1048,13 @@ Setup` or `Delphi`; empty = any packer or protector).
 | Embedded archive | 7-Zip 25 | what is in the ZIP, 7z, RAR or CAB attached to the executable |
 | CAB | 7-Zip 25 | what is in a standalone CAB (an MSI's media, for example) |
 
+- **Magika** (1.1.0, Apache-2.0, by Google): the file type by machine learning, with its confidence.
+  Besides executables, every file with no type by signature (text, script, unknown) from 16 bytes to
+  10 MB joins the queue only to be identified. When Magika, at 90% or more, disagrees with the
+  detected type or the extension (the `invoice.pdf` that is PowerShell), the record warns and the
+  **Magika identified** triage condition (empty) matches; with a value, it matches the label
+  (`powershell`). In text the static analysis did not recognize as a script, the script analysis runs
+  in the language it reported.
 - **Go** (GoReSym 3.4.1, MIT, by Mandiant): in a Go executable, even without symbols, the record shows
   the Go version, the main module (which becomes a pivot in Related: the same project links the
   variants), the dependencies with versions, the build settings, the program's own functions (without

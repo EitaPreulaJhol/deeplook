@@ -40,6 +40,7 @@ export async function unpackRoutes(app: FastifyInstance) {
         dieVersion: true,
         dieError: true,
         go: true,
+        magika: true,
         error: true,
         ms: true,
         attempts: true,

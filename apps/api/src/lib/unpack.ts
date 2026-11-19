@@ -8,9 +8,17 @@ import { type AnalysisService, requestAnalysis, requestFailure } from './analysi
 import { sha256Hex } from './crypto';
 import { recordEvent } from './events';
 import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
+import {
+  type Magika,
+  magikaMismatch,
+  magikaSchema,
+  scriptFilenameFor,
+  scriptLanguageOf,
+} from './magika';
 import { type Pivot, replacePivots } from './pivots';
 import { prisma } from './prisma';
 import { s3 } from './s3';
+import { analyzeScript } from './script-analysis';
 import { applyTriageRulesQuietly } from './triage-rules';
 import { extractZipEntry, listZip, ZipError } from './zip';
 
@@ -49,6 +57,8 @@ export function unpackEnabled(): boolean {
  */
 // O CAB solto (plans/caca-e-formatos, item 4) e a midia que sai de um MSI: o 7-Zip o abre.
 const KINDS = new Set(['pe', 'elf', 'macho', 'apk', 'jar', 'cab']);
+/** Teto do arquivo sem tipo que vai so para a identificacao (Magika). */
+const MAGIKA_MAX_MB = 10;
 
 /** Vai para o servico? Executavel (ou pacote Android/Java) dentro do teto. */
 export function identifiable(
@@ -56,7 +66,12 @@ export function identifiable(
   size: number,
 ): boolean {
   const kind = staticInfo?.detectedType?.id;
-  return Boolean(kind && KINDS.has(kind) && size > 0 && size <= env.UNPACK_MAX_MB * 1024 * 1024);
+  if (size <= 0) return false;
+  // Sem tipo pela assinatura (texto, script, desconhecido): so o Magika e o DIE, ate 10 MB (item 22).
+  if (!staticInfo?.detectedType) {
+    return size >= 16 && size <= Math.min(env.UNPACK_MAX_MB, MAGIKA_MAX_MB) * 1024 * 1024;
+  }
+  return Boolean(kind && KINDS.has(kind) && size <= env.UNPACK_MAX_MB * 1024 * 1024);
 }
 
 /** Quantas geracoes de desempacotamento ha acima da amostra (pais que tem um UnpackJob). */
@@ -113,6 +128,7 @@ const ident = {
   dieVersion: z.string().max(20).nullish(),
   dieError: z.string().max(300).nullish(),
   go: goSchema.optional(),
+  magika: magikaSchema.nullish(),
 };
 
 const manifestSchema = z.union([
@@ -133,6 +149,7 @@ const manifestSchema = z.union([
           dieError: z.string().max(300).nullish(),
           candidate: z.boolean().optional(),
           go: goSchema.optional(),
+          magika: magikaSchema.nullish(),
         }),
       )
       .max(100),
@@ -176,6 +193,49 @@ export interface Identified {
   dieError: string | null;
   candidate: boolean;
   go?: GoInfo;
+  magika?: Magika | null;
+}
+
+/**
+ * O Magika na amostra (item 22): grava o tipo com a divergencia (contra o tipo detectado ou, sem ele,
+ * contra a extensao) e, no texto que a analise estatica nao reconheceu como script, roda a analise
+ * de scripts na linguagem que o Magika disse.
+ */
+async function recordMagika(
+  entryId: string,
+  magika: Magika | null | undefined,
+  staticInfo: unknown,
+  filename: string | null,
+  data: Uint8Array | null,
+): Promise<Prisma.InputJsonValue | undefined> {
+  if (magika === undefined) return undefined;
+  if (magika === null) return Prisma.DbNull as unknown as Prisma.InputJsonValue;
+  const st = (staticInfo ?? {}) as {
+    detectedType?: { extensions?: string[] } | null;
+    script?: unknown;
+  };
+  const mismatch = magikaMismatch(
+    magika,
+    st.detectedType?.extensions ? { extensions: st.detectedType.extensions } : null,
+    filename,
+  );
+  const language = scriptLanguageOf(magika);
+  if (language && data && !st.script && !st.detectedType) {
+    const script = analyzeScript(Buffer.from(data), scriptFilenameFor(language));
+    if (script) {
+      await prisma.entry.update({
+        where: { id: entryId },
+        data: {
+          staticInfo: {
+            ...(staticInfo as object),
+            script,
+            scriptBy: 'magika',
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
+  }
+  return { ...magika, mismatch } as unknown as Prisma.InputJsonValue;
 }
 
 /**
@@ -245,8 +305,11 @@ export async function recordIdentified(
   entryId: string,
   identified: Identified,
   staticInfo: unknown,
+  filename: string | null = null,
+  data: Uint8Array | null = null,
 ): Promise<void> {
   const outcome = notUnpacked(identified.detections, staticInfo, true);
+  const magika = await recordMagika(entryId, identified.magika, staticInfo, filename, data);
   await prisma.unpackJob.upsert({
     where: { entryId },
     create: {
@@ -258,6 +321,7 @@ export async function recordIdentified(
       ...(identified.go !== undefined
         ? { go: (identified.go ?? Prisma.DbNull) as Prisma.InputJsonValue }
         : {}),
+      ...(magika !== undefined ? { magika } : {}),
       attempts: 0,
       finishedAt: new Date(),
     },
@@ -425,8 +489,12 @@ async function unpackJob(
     return;
   }
 
-  // Duas geracoes de desempacotamento acima: so identificar.
-  const unpack = (await unpackDepth(entryId)) < MAX_DEPTH;
+  // Duas geracoes de desempacotamento acima, ou arquivo que nao e executavel (so o Magika e o DIE,
+  // item 22): so identificar.
+  const executableKind = KINDS.has(
+    (entry.staticInfo as { detectedType?: { id?: string } | null } | null)?.detectedType?.id ?? '',
+  );
+  const unpack = executableKind && (await unpackDepth(entryId)) < MAX_DEPTH;
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
@@ -485,7 +553,15 @@ async function unpackJob(
     return;
   }
 
+  const magika = await recordMagika(
+    entryId,
+    manifest.magika,
+    entry.staticInfo,
+    entry.originalFilename,
+    data,
+  );
   const identified = {
+    ...(magika !== undefined ? { magika } : {}),
     detections: (manifest.detections ?? []) as unknown as Prisma.InputJsonValue,
     dieVersion: manifest.dieVersion ?? null,
     dieError: manifest.dieError ?? null,
@@ -511,6 +587,7 @@ async function unpackJob(
   if (!manifest.unpacker || !unpack) {
     await finish(id, {
       ...notUnpacked(manifest.detections ?? [], entry.staticInfo, unpack),
+      ...(executableKind ? {} : { note: 'só identificado: não é executável' }),
       ...identified,
     });
     await applyTriageRulesQuietly(entryId);
@@ -561,6 +638,7 @@ async function unpackJob(
             dieError: file.dieError ?? null,
             candidate: file.candidate ?? true,
             ...(file.go !== undefined ? { go: file.go } : {}),
+            ...(file.magika !== undefined ? { magika: file.magika } : {}),
           }
         : undefined,
       description: `Extraído de "${entry.title}" pelo desempacotador ${label}${

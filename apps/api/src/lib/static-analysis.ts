@@ -50,6 +50,8 @@ export interface StaticInfo {
   size: number;
   bytesAnalyzed: number;
   detectedType: DetectedType | null;
+  /** 'magika': a analise de scripts veio depois, pela linguagem que o Magika disse (item 22). */
+  scriptBy?: 'magika';
   /** Extensao do nome nao bate com o conteudo (`dangerous`: executavel disfarcado). */
   extensionMismatch: { declared: string; expected: string[]; dangerous: boolean } | null;
   entropy: number;

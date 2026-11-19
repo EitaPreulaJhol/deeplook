@@ -322,6 +322,17 @@ export interface UnpackInfo {
     dieError: string | null;
     /** GoReSym (item 14); ausente fora do Go. */
     go?: GoInfo | null;
+    /** Magika (item 22): o tipo por aprendizado de maquina e se diverge. */
+    magika?: {
+      label: string;
+      description: string;
+      group: string;
+      mime: string;
+      extensions: string[];
+      isText: boolean;
+      score: number;
+      mismatch: { basis: 'type' | 'extension'; expected: string[] } | null;
+    } | null;
     error: string | null;
     ms: number | null;
     attempts: number;

@@ -1056,6 +1056,12 @@ Setup` ou `Delphi`; vazio = qualquer empacotador ou protetor).
 | Arquivo embutido | 7-Zip 25 | o que há no ZIP, 7z, RAR ou CAB anexado ao executável |
 | CAB | 7-Zip 25 | o que há num CAB solto (a mídia de um MSI, por exemplo) |
 
+- **Magika** (1.1.0, Apache-2.0, do Google): o tipo do arquivo por aprendizado de máquina, com a
+  confiança. Além dos executáveis, todo arquivo sem tipo pela assinatura (texto, script, desconhecido)
+  de 16 bytes a 10 MB vai à fila só para identificar. Quando o Magika, com 90% ou mais, discorda do
+  tipo detectado ou da extensão (o `fatura.pdf` que é PowerShell), a ficha avisa e a condição de
+  triagem **Magika identificou** (vazia) casa; com valor, casa o rótulo (`powershell`). No texto que
+  a análise estática não reconheceu como script, a análise de scripts roda na linguagem que ele disse.
 - **Go** (GoReSym 3.4.1, MIT, da Mandiant): num executável Go, mesmo sem símbolos, a ficha mostra a
   versão do Go, o módulo principal (que vira pivô em Relacionadas: o mesmo projeto liga as variantes),
   as dependências com versão, a configuração do build, as funções do próprio programa (sem a biblioteca

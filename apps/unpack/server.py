@@ -118,6 +118,34 @@ def die_version():
 DIE_VERSION = die_version()
 
 GORESYM = os.environ.get("GORESYM", "/opt/goresym/GoReSym")
+MAGIKA = os.environ.get("MAGIKA", "/opt/magika/magika")
+MAGIKA_TIMEOUT = 60
+
+
+def magika(path):
+    """Magika (item 22): {label, description, group, mime, score, isText} ou None."""
+    try:
+        code, out = run([MAGIKA, "--json", path], MAGIKA_TIMEOUT)
+        doc = json.loads(out[out.index("["):])
+    except (UnpackError, ValueError):
+        return None
+    try:
+        result = doc[0]["result"]
+        if result.get("status") != "ok":
+            return None
+        value = result["value"]
+        output = value["output"]
+    except (IndexError, KeyError, TypeError):
+        return None
+    return {
+        "label": str(output.get("label", ""))[:40],
+        "description": str(output.get("description", ""))[:120],
+        "group": str(output.get("group", ""))[:40],
+        "mime": str(output.get("mime_type", ""))[:120],
+        "extensions": [str(e)[:20] for e in (output.get("extensions") or [])][:10],
+        "isText": bool(output.get("is_text")),
+        "score": round(float(value.get("score") or 0), 4),
+    }
 GO_TIMEOUT = 60
 MAX_GO_DEPS = 200
 MAX_GO_FUNCTIONS = 500
@@ -239,7 +267,12 @@ def analyze(data, work, unpack=True):
     with open(sample, "wb") as f:
         f.write(data)
     detections, die_error = identify(sample)
-    ident = {"detections": detections, "dieError": die_error, "dieVersion": DIE_VERSION}
+    ident = {
+        "detections": detections,
+        "dieError": die_error,
+        "dieVersion": DIE_VERSION,
+        "magika": magika(sample),
+    }
     if looks_go(data, detections):
         ident["go"] = go_info(sample)
     plugin = next((p for p in PLUGINS if p.detect(data)), None) if unpack else None

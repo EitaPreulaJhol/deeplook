@@ -139,7 +139,7 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
   };
   const busy = job?.status === 'PENDING' || job?.status === 'RUNNING';
   const button =
-    canTriage && info.enabled && !busy && !extracted ? (
+    canTriage && info.enabled && info.applicable && !busy && !extracted ? (
       <button type="button" className="dl-link-button" disabled={asking} onClick={request}>
         {asking ? t('requesting') : job ? t('analyzeAgain') : t('identifyUnpack')}
       </button>
@@ -203,6 +203,24 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
             </HpsmReadonly>
           )}
         </HpsmField>
+        {job.magika && (
+          <HpsmField label="Magika" wide help={t('magikaHelp')}>
+            <HpsmReadonly>
+              {job.magika.description} (<code>{job.magika.label}</code>) ·{' '}
+              {t('magikaScore', { n: Math.round(job.magika.score * 100) })}
+              {job.magika.mismatch && (
+                <>
+                  {' · '}
+                  <StatusText tone="orange">
+                    {t(job.magika.mismatch.basis === 'type' ? 'magikaVsType' : 'magikaVsExt', {
+                      expected: job.magika.mismatch.expected.join(', '),
+                    })}
+                  </StatusText>
+                </>
+              )}
+            </HpsmReadonly>
+          </HpsmField>
+        )}
       </HpsmForm>
       {job.go && <GoBlock go={job.go} />}
       {files.length > 0 && (

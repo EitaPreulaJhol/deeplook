@@ -1,4 +1,4 @@
-# Identificar e desempacotar (itens 7.8 e 7.9): Detect It Easy, upx, 7-Zip, innoextract,
+# Identificar e desempacotar (itens 7.8 e 7.9): Detect It Easy, Magika, GoReSym, upx, 7-Zip, innoextract,
 # pyinstxtractor e autoit-ripper. Sem rede, sem root e com a raiz somente leitura no compose; um
 # container por trabalho (server.py). Nada e executado.
 FROM debian:trixie-slim AS fetch
@@ -22,6 +22,15 @@ ADD --checksum=sha256:47ed1299fe0fcdf3549e4077573db9651c228144b22a372729eb014548
 ADD --checksum=sha256:a557124857f95a589f8ce3525119c2d18c7c7fc7c4225c92ff94e3effb38748d \
   https://github.com/mandiant/GoReSym/releases/download/v3.4.1/GoReSym-linux.zip \
   /opt/goresym.zip
+# Magika 1.1.0 (Apache-2.0, Google; item 22): tipo do arquivo por aprendizado de maquina, bom no que
+# nao tem magica (scripts, texto, codigo). O CLI em Rust traz o modelo embutido.
+ADD --checksum=sha256:6b4c1010c84d1f4f06205ccef4597f1690bcd7744f46d841eee26426bc100485 \
+  https://github.com/google/magika/releases/download/cli/v1.1.0/magika-cli-x86_64-unknown-linux-gnu.tar.xz \
+  /tmp/magika.tar.xz
+RUN apt-get update && apt-get install -y --no-install-recommends xz-utils \
+  && mkdir -p /opt/magika \
+  && tar -xJf /tmp/magika.tar.xz -C /opt/magika --strip-components=1 \
+  && chmod 755 /opt/magika /opt/magika/magika
 RUN dpkg-deb -x /tmp/die.deb /tmp/die \
   && mkdir -p /opt/die/usr/bin /opt/die/usr/lib/die \
   && cp /tmp/die/usr/bin/diec /opt/die/usr/bin/ \
@@ -41,6 +50,7 @@ COPY --from=fetch --chmod=755 /opt/pyinstxtractor /opt/pyinstxtractor
 COPY --from=fetch /opt/die/ /
 COPY --from=fetch /opt/autoit-ripper.whl /tmp/autoit-ripper.whl
 COPY --from=fetch /opt/goresym.zip /tmp/goresym.zip
+COPY --from=fetch /opt/magika/magika /opt/magika/magika
 RUN python3 -m zipfile -e /tmp/goresym.zip /opt/goresym \
   && rm /tmp/goresym.zip \
   && chmod 755 /opt/goresym /opt/goresym/GoReSym
