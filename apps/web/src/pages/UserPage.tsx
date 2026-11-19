@@ -21,6 +21,7 @@ import { IconKey, IconRefresh, IconSettings } from '../components/icons';
 import { HpsmMessage } from '../components/messages';
 import { NotificationsTab } from '../components/NotificationsTab';
 import { PageHeader } from '../components/PageHeader';
+import { PasskeysTab } from '../components/PasskeysTab';
 import { SessionsTab } from '../components/SessionsTab';
 import { useSaveShortcut } from '../components/shortcuts';
 import { roleLabel } from '../components/tags';
@@ -37,6 +38,7 @@ const TABS = localized(() => [
   { id: 'preferencias', label: tr('tabPrefs') },
   { id: 'notificacoes', label: tr('tabNotifications') },
   { id: '2fa', label: '2FA' },
+  { id: 'passkeys', label: 'Passkeys' },
   { id: 'sessoes', label: tr('tabSessions') },
   { id: 'indicadores', label: tr('tabIndicators') },
 ]);
@@ -46,7 +48,9 @@ export function UserPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   // "Tokens de API" so aparece com o acesso liberado por um admin.
-  const tabs = user?.apiAccess ? [...TABS, { id: 'tokens', label: tr('tabTokens') }] : TABS;
+  // Conta do AD entra pelo AD: sem a aba de passkeys.
+  const base = user?.ldap ? TABS.filter((x) => x.id !== 'passkeys') : TABS;
+  const tabs = user?.apiAccess ? [...base, { id: 'tokens', label: tr('tabTokens') }] : base;
   const tabParam = searchParams.get('tab');
   const tab = tabs.some((t) => t.id === tabParam) ? (tabParam as string) : 'dados';
 
@@ -92,6 +96,7 @@ export function UserPage() {
         {tab === 'preferencias' && <PreferencesTab />}
         {tab === 'notificacoes' && <NotificationsTab />}
         {tab === '2fa' && <TwoFactorTab />}
+        {tab === 'passkeys' && <PasskeysTab />}
         {tab === 'sessoes' && <SessionsTab />}
         {tab === 'indicadores' && <WatchesTab />}
         {tab === 'tokens' && <ApiTokensTab />}

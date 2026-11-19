@@ -133,6 +133,8 @@ export const messages = {
     'Ask an administrator to reset your password.',
   ],
   'login.submit': ['Entrar', 'Sign in'],
+  'login.or': ['ou', 'or'],
+  'login.passkey': ['Entrar com passkey', 'Sign in with a passkey'],
   'login.submitting': ['Entrando...', 'Signing in...'],
   'login.failed': ['Falha ao entrar.', 'Sign-in failed.'],
   'login.captchaFailed': ['Não foi possível trocar a imagem.', 'Could not change the image.'],

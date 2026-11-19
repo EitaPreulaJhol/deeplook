@@ -286,6 +286,26 @@ Opcional, por usuário, em **Minha Conta > 2FA**:
   continuam valendo, e o admin pode desativar o 2FA para a pessoa ativar de novo.
 - **Tokens de API** não passam pelo 2FA (são para scripts).
 
+## Passkeys (login alternativo)
+
+Opcional, por usuário, em **Minha Conta > Passkeys**. Uma passkey (WebAuthn) deixa a pessoa entrar com a
+biometria, o PIN ou a chave de segurança do aparelho, sem digitar a senha:
+
+- **Cadastro:** só depois de entrar, com a conta já criada. Pede de novo a senha (e o código do 2FA, se a
+  conta usa 2FA), porque a passkey entra sem senha. Até 10 por conta; cada uma tem nome, data de cadastro e
+  último uso. Remover uma impede que ela entre.
+- **Entrar:** a tela de login tem **Entrar com passkey**. O aparelho lista as contas dele e a pessoa escolhe
+  uma; não se digita o e-mail. A senha continua valendo como antes.
+- **Senha e 2FA:** a passkey exige a verificação do usuário (biometria ou PIN), então vale por senha e
+  segundo fator: entrando com ela, o código do 2FA não é pedido. Conta do AD entra pelo AD e não tem passkeys.
+- **Admin:** redefinir a senha de um usuário também remove as passkeys dele. Todo cadastro, remoção e
+  login recusado vai para a auditoria.
+- **Endereço:** a passkey fica amarrada ao endereço em que foi cadastrada, e os navegadores só a oferecem
+  em HTTPS (ou `localhost`). Defina `WEBAUTHN_ORIGIN` (ex.: `https://deeplook.empresa.com`; vários,
+  separados por vírgula) para fixar o endereço aceito; vazio, vale o da própria página. `WEBAUTHN_RP_ID`
+  muda o domínio da credencial (padrão: o host do primeiro endereço). Trocar o domínio faz as passkeys
+  cadastradas deixarem de funcionar.
+
 ## Acesso por API (tokens pessoais)
 
 Scripts podem enviar e consultar amostras com um token pessoal, sem passar pelo navegador.
@@ -1353,6 +1373,7 @@ COOKIE_SECURE=true
 | `BACKUP_DIR` | pasta do host onde o ZIP do backup é gravado (disco externo, NAS); precisa ser gravável pelo uid 1000 e ter o arquivo `.deeplook-backups`. Vazio: o ZIP fica no bucket, no mesmo disco dos dados | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | de quantos em quantos minutos o servidor confere o SHA-256 dos arquivos guardados; `0` desliga | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | quanto ler por rodada da conferência periódica (um arquivo maior que isso ainda é conferido, sozinho) | `512` |
+| `WEBAUTHN_ORIGIN` · `WEBAUTHN_RP_ID` | passkeys: endereço(s) do DeepLook como o navegador o mostra e o domínio da credencial (vazio: o endereço da própria página e o host dele) | — · — |
 | `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | login pelo AD (vazio desliga); `ldaps://` ou `ldap://` + StartTLS; PEM da CA que assina o certificado do AD | — · `false` · — |
 | `LDAP_BIND_DN` · `LDAP_BIND_PASSWORD` · `LDAP_BASE_DN` | conta de serviço e base da busca | — |
 | `LDAP_USER_FILTER` · `LDAP_ATTR_NAME` · `LDAP_ATTR_MAIL` | filtro (`{login}` = o digitado) e atributos de nome e e-mail | padrão do AD · `displayName` · `mail` |

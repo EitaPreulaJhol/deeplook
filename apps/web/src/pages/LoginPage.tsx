@@ -4,13 +4,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { passkeyCancelled, passkeysSupported } from '../auth/passkeys';
 import { AuthField } from '../components/AuthField';
 import { AuthLayout } from '../components/AuthLayout';
 import { HpsmMessage } from '../components/messages';
 import { t } from '../i18n';
 
 export function LoginPage() {
-  const { login, verifyTwoFactor } = useAuth();
+  const { login, verifyTwoFactor, loginWithPasskey } = useAuth();
   const navigate = useNavigate();
   // Aviso vindo de outra tela (ex.: "Senha alterada. Entre novamente...").
   const { state } = useLocation() as { state: { notice?: string } | null };
@@ -95,6 +96,21 @@ export function LoginPage() {
       ) {
         setChallenge(null);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Login alternativo: a passkey que a pessoa cadastrou em Minha Conta.
+  const passkeyLogin = async () => {
+    setError(null);
+    setNotice(null);
+    setLoading(true);
+    try {
+      await loginWithPasskey();
+      navigate('/');
+    } catch (err) {
+      if (!passkeyCancelled(err)) setError((err as Error).message || t('login.failed'));
     } finally {
       setLoading(false);
     }
@@ -217,6 +233,19 @@ export function LoginPage() {
             {loading ? t('login.submitting') : t('login.submit')}
           </button>
         </div>
+        {passkeysSupported() && (
+          <div className="dl-auth__alt">
+            <span className="dl-auth__hint">{t('login.or')}</span>
+            <button
+              type="button"
+              className="dl-btn dl-auth__passkey"
+              disabled={loading}
+              onClick={() => void passkeyLogin()}
+            >
+              {t('login.passkey')}
+            </button>
+          </div>
+        )}
       </form>
     </AuthLayout>
   );

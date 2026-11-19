@@ -285,6 +285,28 @@ Optional, per user, in **My Account > 2FA**:
   disable 2FA for the person so they can enable it again.
 - **API tokens** do not go through 2FA (they are for scripts).
 
+## Passkeys (alternative sign-in)
+
+Optional, per user, in **My Account > Passkeys**. A passkey (WebAuthn) lets someone sign in with the
+device's biometrics, PIN or security key, without typing the password:
+
+- **Registering:** only after signing in, with the account already created. It asks again for the
+  password (and the 2FA code, if the account uses 2FA), because a passkey signs in without a password.
+  Up to 10 per account; each has a name, a creation date and the last use. Removing one stops it from
+  signing in.
+- **Signing in:** the login screen has **Sign in with a passkey**. The device lists its accounts and
+  the person picks one; no e-mail is typed. The password keeps working as before.
+- **Password and 2FA:** the passkey requires the user verification (biometrics or PIN), so it counts as
+  password and second factor: signing in with it does not ask for the 2FA code. AD accounts sign in
+  through AD and have no passkeys.
+- **Admin:** resetting a user's password also removes their passkeys. Every registration, removal and
+  refused sign-in goes to the audit log.
+- **Address:** a passkey is bound to the address where it was registered, and browsers only offer it over
+  HTTPS (or `localhost`). Set `WEBAUTHN_ORIGIN` (e.g. `https://deeplook.company.com`; several, separated
+  by commas) to fix the accepted address; empty, the page's own address is used. `WEBAUTHN_RP_ID` changes
+  the credential's domain (default: the host of the first address). Changing the domain makes the
+  registered passkeys stop working.
+
 ## API access (personal tokens)
 
 Scripts can submit and query samples with a personal token, without going through the browser.
@@ -1339,6 +1361,7 @@ COOKIE_SECURE=true
 | `BACKUP_DIR` | host folder where the backup ZIP is written (external disk, NAS); must be writable by uid 1000 and contain the `.deeplook-backups` file. Empty: the ZIP stays in the bucket, on the same disk as the data | — |
 | `INTEGRITY_SCRUB_INTERVAL_MINUTES` | how often, in minutes, the server checks the SHA-256 of the stored files; `0` turns it off | `60` |
 | `INTEGRITY_SCRUB_MAX_MB` | how much to read per round of the periodic check (a file larger than that is still checked, on its own) | `512` |
+| `WEBAUTHN_ORIGIN` · `WEBAUTHN_RP_ID` | passkeys: address(es) of DeepLook as the browser shows it, and the credential's domain (empty: the page's own address and its host) | — · — |
 | `LDAP_URL` · `LDAP_STARTTLS` · `LDAP_TLS_CA` | AD login (empty turns it off); `ldaps://` or `ldap://` + StartTLS; PEM of the CA that signs the AD certificate | — · `false` · — |
 | `LDAP_BIND_DN` · `LDAP_BIND_PASSWORD` · `LDAP_BASE_DN` | service account and search base | — |
 | `LDAP_USER_FILTER` · `LDAP_ATTR_NAME` · `LDAP_ATTR_MAIL` | filter (`{login}` = what was typed) and the name and email attributes | AD default · `displayName` · `mail` |

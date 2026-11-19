@@ -375,3 +375,18 @@
   border-radius: 2px;
   background: #f3f4f6;
 }
+
+/* Login alternativo com passkey: abaixo do botao Entrar, na coluna dos campos. */
+.dl-auth__alt {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-inline-start: calc(var(--dl-auth-label-w) + 0.5rem);
+  margin-block-start: 0.5rem;
+  padding-block-start: 0.75rem;
+  border-block-start: 1px solid var(--dl-border);
+
+  .dl-auth__hint {
+    margin: 0;
+  }
+}

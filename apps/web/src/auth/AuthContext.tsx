@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useMemo } from 'react';
 import { api } from '../api/client';
 import type { CurrentUser, Preferences } from '../api/types';
 import { t } from '../i18n/shell';
+import { signInWithPasskey } from './passkeys';
 import { DEFAULT_PREFERENCES } from './preferences';
 
 export interface RegisterInput {
@@ -30,6 +31,8 @@ interface AuthContextValue {
     challenge: string,
     code: string,
   ) => Promise<{ recoveryRemaining: number | null }>;
+  /** Entra com uma passkey (login alternativo, sem senha nem codigo do 2FA). */
+  loginWithPasskey: () => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -103,6 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [queryClient],
   );
+
+  const loginWithPasskey = useCallback(async () => {
+    const user = await signInWithPasskey();
+    // Sem senha digitada: a troca obrigatoria (se houver) pede a senha atual na propria tela.
+    temporaryPassword = null;
+    queryClient.setQueryData(['me'], user);
+  }, [queryClient]);
 
   const register = useCallback(
     async (input: RegisterInput) => {
@@ -205,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading: meQuery.isLoading,
       login,
       verifyTwoFactor,
+      loginWithPasskey,
       register,
       logout,
       refresh,
@@ -219,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meQuery.isLoading,
       login,
       verifyTwoFactor,
+      loginWithPasskey,
       register,
       logout,
       refresh,
