@@ -900,6 +900,8 @@ model UnpackJob {
   go            Json?
   /// Magika (item 22): { label, description, group, mime, extensions, isText, score, mismatch }.
   magika        Json?
+  /// Forca bruta de codificacao (item 18): [{ method, offset, text }], URLs achadas sob XOR/ROL/ADD.
+  decoded       Json?
   error         String?
   ms            Int?
   attempts      Int          @default(0)

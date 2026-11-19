@@ -482,7 +482,7 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'só identificado: já há duas gerações desempacotadas acima',
     'only identified: there are already two unpacked generations above',
   ],
-  ['só identificado: não é executável', 'only identified: not an executable'],
+  ['nada embutido (não é executável)', 'nothing embedded (not an executable)'],
   [
     'UPX de 64 bits sem a marca UPX! (disfarçado): o upx não desempacota sem ela e o unipacker só emula 32 bits',
     '64-bit UPX without the UPX! mark (disguised): upx does not unpack without it and unipacker only emulates 32 bits',

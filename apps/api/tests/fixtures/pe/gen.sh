@@ -172,7 +172,7 @@ osslsigncode sign -certs self.pem -key self.key -h sha256 -in prog32.exe \
 python3 post.py "$W"
 python3 reference.py "$W" > reference.json
 mkdir -p /out
-cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe upx32-disfarcado.exe rich.exe \
+cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe upx32-disfarcado.exe xor-solto.bin xor4-dropper.exe embutido.bin rich.exe \
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \

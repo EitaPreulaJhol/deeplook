@@ -322,6 +322,8 @@ export interface UnpackInfo {
     dieError: string | null;
     /** GoReSym (item 14); ausente fora do Go. */
     go?: GoInfo | null;
+    /** Forca bruta de codificacao (item 18): URLs achadas sob XOR/ROL/ADD. */
+    decoded?: { method: string; offset: number; text: string }[] | null;
     /** Magika (item 22): o tipo por aprendizado de maquina e se diverge. */
     magika?: {
       label: string;

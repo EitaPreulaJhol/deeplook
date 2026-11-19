@@ -41,6 +41,7 @@ export async function unpackRoutes(app: FastifyInstance) {
         dieError: true,
         go: true,
         magika: true,
+        decoded: true,
         error: true,
         ms: true,
         attempts: true,

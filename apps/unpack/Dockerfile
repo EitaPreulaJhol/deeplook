@@ -36,6 +36,13 @@ RUN dpkg-deb -x /tmp/die.deb /tmp/die \
   && cp /tmp/die/usr/bin/diec /opt/die/usr/bin/ \
   && cp -r /tmp/die/usr/lib/die/db /tmp/die/usr/lib/die/db_custom /opt/die/usr/lib/die/
 
+# binwalk 3.1.0 (MIT; item 18): so a varredura de assinaturas (o carving e o do server). Compilado do
+# crates.io com o Cargo.lock publicado (--locked), que confere o hash de cada dependencia.
+FROM rust:1.91-slim-trixie AS binwalk
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libfontconfig1-dev \
+    liblzma-dev libbz2-dev zlib1g-dev \
+  && cargo install binwalk --version 3.1.0 --locked --root /opt/binwalk
+
 # unipacker (item 17): wheels conferidos pelo hash do lockfile, instalados numa pasta propria (so o
 # processo do unipacker a ve). O mesmo Debian da imagem final: o mesmo Python 3.13.
 FROM debian:trixie-slim AS unipacker
@@ -53,7 +60,7 @@ FROM debian:trixie-slim
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends upx-ucl 7zip innoextract python3 python3-pefile \
-    libqt5core5t64 libqt5script5 libglib2.0-0t64 \
+    libqt5core5t64 libqt5script5 libglib2.0-0t64 libfontconfig1 liblzma5 libbz2-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --system --uid 10003 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin unpack
 # 755: o --chmod vale tambem para a pasta, que sem o x nao se atravessa.
@@ -63,6 +70,7 @@ COPY --from=fetch /opt/autoit-ripper.whl /tmp/autoit-ripper.whl
 COPY --from=fetch /opt/goresym.zip /tmp/goresym.zip
 COPY --from=fetch /opt/magika/magika /opt/magika/magika
 COPY --from=unipacker /opt/unipacker /opt/unipacker
+COPY --from=binwalk /opt/binwalk/bin/binwalk /usr/local/bin/binwalk
 RUN python3 -m zipfile -e /tmp/goresym.zip /opt/goresym \
   && rm /tmp/goresym.zip \
   && chmod 755 /opt/goresym /opt/goresym/GoReSym

@@ -222,6 +222,22 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
           </HpsmField>
         )}
       </HpsmForm>
+      {job.decoded && job.decoded.length > 0 && (
+        <HpsmForm columns={2}>
+          <HpsmField label={t('decodedTitle')} wide help={t('decodedHelp')}>
+            <ul className="dl-die-list">
+              {job.decoded.map((d) => (
+                <li key={`${d.offset}-${d.text}`}>
+                  <StatusText tone="orange">{d.text}</StatusText>{' '}
+                  <code>
+                    {d.method} @ 0x{d.offset.toString(16)}
+                  </code>
+                </li>
+              ))}
+            </ul>
+          </HpsmField>
+        </HpsmForm>
+      )}
       {job.go && <GoBlock go={job.go} />}
       {files.length > 0 && (
         <ul className="dl-unpack-files">

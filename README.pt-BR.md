@@ -1056,6 +1056,13 @@ Setup` ou `Delphi`; vazio = qualquer empacotador ou protetor).
 | Arquivo embutido | 7-Zip 25 | o que há no ZIP, 7z, RAR ou CAB anexado ao executável |
 | CAB | 7-Zip 25 | o que há num CAB solto (a mídia de um MSI, por exemplo) |
 
+- **Carving e força bruta de codificação**: quando nenhum desempacotador reconhece o executável (e,
+  sozinho, no arquivo sem tipo), o binwalk 3.1 (MIT) procura PE, ELF, ZIP, 7z, RAR, CAB, PDF e OLE
+  dentro dele (o PE que vem num recurso, o anexado depois do fim), e cada um vira filha. A força
+  bruta tenta XOR, ROL e ADD de 1 byte e XOR de 2 a 4 bytes sobre os primeiros 8 MB: o PE e o ZIP
+  codificados viram filhas com a chave no nome (`xor-0x5a_pe_0x309.exe`), e as URLs codificadas vão
+  para a ficha, com a chave e a posição, e para a condição de triagem **indicador em string
+  escondida**.
 - **Desempacotar por emulação** (unipacker 1.0.8, GPL-2.0, instalado na imagem, fora do
   repositório): quando o Detect It Easy aponta ASPack, FSG, MEW, MPRESS, PEtite, PECompact, YZPack ou
   o UPX disfarçado (sem a marca `UPX!`, que o `upx -d` recusa), o stub do empacotador é emulado no

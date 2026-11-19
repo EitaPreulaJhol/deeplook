@@ -194,7 +194,7 @@ export async function loadFacts(entryId: string) {
       antivirus: { select: { status: true, signature: true } },
       lookalikeHits: { select: { companyDomain: true } },
       capaAnalysis: { select: { status: true, capa: true, attack: true, iocCandidates: true } },
-      unpackJob: { select: { detections: true, magika: true } },
+      unpackJob: { select: { detections: true, magika: true, decoded: true } },
       officeAnalysis: { select: { status: true, alerts: true } },
     },
   });
@@ -245,7 +245,11 @@ export async function loadFacts(entryId: string) {
     ),
     packer: st.pe?.packer ?? null,
     peAlerts: st.pe?.alerts ?? [],
-    hiddenIocs: ((capa?.iocCandidates ?? []) as { value: string }[]).map((i) => i.value),
+    // FLOSS (capa) e as URLs que a forca bruta decodificou (item 18).
+    hiddenIocs: [
+      ...((capa?.iocCandidates ?? []) as { value: string }[]).map((i) => i.value),
+      ...((entry.unpackJob?.decoded ?? []) as { text: string }[]).map((d) => d.text),
+    ],
     die: ((entry.unpackJob?.detections ?? []) as { type: string; string: string }[]).map((d) => ({
       type: d.type,
       string: d.string,

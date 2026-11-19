@@ -1048,6 +1048,12 @@ Setup` or `Delphi`; empty = any packer or protector).
 | Embedded archive | 7-Zip 25 | what is in the ZIP, 7z, RAR or CAB attached to the executable |
 | CAB | 7-Zip 25 | what is in a standalone CAB (an MSI's media, for example) |
 
+- **Carving and encoding brute force**: when no unpacker recognizes the executable (and, alone, in
+  a file with no type), binwalk 3.1 (MIT) looks for PE, ELF, ZIP, 7z, RAR, CAB, PDF and OLE inside it
+  (the PE in a resource, the one appended after the end), and each becomes a child. The brute force
+  tries 1-byte XOR, ROL and ADD and 2- to 4-byte XOR over the first 8 MB: encoded PEs and ZIPs become
+  children with the key in the name (`xor-0x5a_pe_0x309.exe`), and encoded URLs go to the record,
+  with the key and position, and to the **indicator in a hidden string** triage condition.
 - **Unpacking by emulation** (unipacker 1.0.8, GPL-2.0, installed in the image, outside the
   repository): when Detect It Easy names ASPack, FSG, MEW, MPRESS, PEtite, PECompact, YZPack or the
   disguised UPX (without the `UPX!` mark, which `upx -d` refuses), the packer stub is emulated in

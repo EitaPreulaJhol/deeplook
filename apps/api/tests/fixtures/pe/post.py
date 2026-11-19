@@ -1,4 +1,5 @@
 """Variantes dos PEs de teste (item 7.1): Rich header, checksum, overlay e UPX disfarcado."""
+import hashlib
 import io
 import shutil
 import struct
@@ -123,3 +124,36 @@ pe.FILE_HEADER.TimeDateStamp = 4102444800
 dbg.Type = 16
 pe.write(f'{W}/pdb-repro.exe')
 print('post ok')
+
+
+# Carving e forca bruta (item 18). Bytes "aleatorios" deterministicos: o hash encadeado.
+def filler(n, seed):
+    out, h = b'', seed
+    while len(out) < n:
+        h = hashlib.sha256(h).digest()
+        out += h
+    return out[:n]
+
+
+def xor_key(buf, key, at):
+    return bytes(b ^ key[(at + i) % len(key)] for i, b in enumerate(buf))
+
+
+def rol3(buf):
+    return bytes(((b << 3) | (b >> 5)) & 0xFF for b in buf)
+
+
+prog32 = open(f'{W}/prog32.exe', 'rb').read()
+url = b'\0\0https://c2.exemplo.invalid/gate.php?id=7\0\0'
+# Arquivo sem tipo: o PE com XOR 0x5a e a URL com ROL 3.
+head = filler(777, b'xor-solto')
+open(f'{W}/xor-solto.bin', 'wb').write(head + xor_key(prog32, b'\x5a', 0) + filler(100, b'meio') + rol3(url))
+# Executavel com o PE anexado com XOR de 4 bytes (alinhado a posicao no arquivo).
+prog64 = open(f'{W}/prog64.exe', 'rb').read()
+at = len(prog64) + 64
+open(f'{W}/xor4-dropper.exe', 'wb').write(
+    prog64 + filler(64, b'pad') + xor_key(prog32, b'\x11\x22\x33\x44', at)
+)
+# Arquivo sem tipo com o PE em claro no meio (o binwalk acha).
+open(f'{W}/embutido.bin', 'wb').write(filler(1000, b'embutido') + prog32 + filler(500, b'fim'))
+

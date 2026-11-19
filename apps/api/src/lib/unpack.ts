@@ -129,6 +129,17 @@ const ident = {
   dieError: z.string().max(300).nullish(),
   go: goSchema.optional(),
   magika: magikaSchema.nullish(),
+  /** Forca bruta de codificacao (item 18): URLs achadas sob XOR/ROL/ADD, com a chave. */
+  decoded: z
+    .array(
+      z.object({
+        method: z.string().max(40),
+        offset: z.number().int().nonnegative(),
+        text: z.string().max(400),
+      }),
+    )
+    .max(50)
+    .optional(),
 };
 
 const manifestSchema = z.union([
@@ -495,14 +506,16 @@ async function unpackJob(
   const executableKind = KINDS.has(
     (entry.staticInfo as { detectedType?: { id?: string } | null } | null)?.detectedType?.id ?? '',
   );
-  const unpack = executableKind && (await unpackDepth(entryId)) < MAX_DEPTH;
+  // Fora do executavel, so o carving e a forca bruta (item 18).
+  const unpack = (await unpackDepth(entryId)) < MAX_DEPTH;
+  const query = !unpack ? '?unpack=0' : executableKind ? '' : '?unpack=carve';
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
       signal,
       waitMs: unpackTiming.serviceWaitMs,
       retryEveryMs: unpackTiming.retryEveryMs,
-      query: unpack ? '' : '?unpack=0',
+      query,
     });
   } catch (err) {
     if (signal.aborted) {
@@ -566,6 +579,9 @@ async function unpackJob(
     detections: (manifest.detections ?? []) as unknown as Prisma.InputJsonValue,
     dieVersion: manifest.dieVersion ?? null,
     dieError: manifest.dieError ?? null,
+    ...(manifest.decoded?.length
+      ? { decoded: manifest.decoded as unknown as Prisma.InputJsonValue }
+      : {}),
     ...(manifest.go !== undefined
       ? { go: (manifest.go ?? Prisma.DbNull) as Prisma.InputJsonValue }
       : {}),
@@ -588,7 +604,7 @@ async function unpackJob(
   if (!manifest.unpacker || !unpack) {
     await finish(id, {
       ...notUnpacked(manifest.detections ?? [], entry.staticInfo, unpack),
-      ...(executableKind ? {} : { note: 'só identificado: não é executável' }),
+      ...(executableKind || !unpack ? {} : { note: 'nada embutido (não é executável)' }),
       ...identified,
     });
     await applyTriageRulesQuietly(entryId);

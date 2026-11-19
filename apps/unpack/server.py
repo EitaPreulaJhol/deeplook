@@ -113,6 +113,7 @@ def recognizes(plugin, data, detections):
     ident = getattr(plugin, "detect_ident", None)
     return bool(ident and ident(data, detections))
 from common import UnpackError, run  # noqa: E402 - so existe depois de load_plugins pôr a pasta no path
+import carve as CARVE  # noqa: E402 - idem (item 18: carving e forca bruta de codificacao)
 
 
 def die_version():
@@ -268,7 +269,8 @@ def inside(root, path):
 
 
 def analyze(data, work, unpack=True):
-    """Devolve (manifest, [(nome no zip, caminho)]). unpack=False: so identifica."""
+    """Devolve (manifest, [(nome no zip, caminho)]). unpack=False: so identifica; "carve": so o
+    carving e a forca bruta (arquivo que nao e executavel)."""
     sample = os.path.join(work, "amostra")
     outdir = os.path.join(work, "saida")
     os.mkdir(outdir)
@@ -283,12 +285,30 @@ def analyze(data, work, unpack=True):
     }
     if looks_go(data, detections):
         ident["go"] = go_info(sample)
-    plugin = next((p for p in PLUGINS if recognizes(p, data, detections)), None) if unpack else None
+    plugin = (
+        next((p for p in PLUGINS if recognizes(p, data, detections)), None)
+        if unpack is True
+        else None
+    )
+    started = time.monotonic()
+    result = None
+    # Nenhum desempacotador: o que estiver embutido, em claro ou codificado (item 18).
+    if plugin is None and unpack:
+        try:
+            carved = CARVE.carve(sample, data, outdir, TIMEOUT)
+        except Exception as exc:  # noqa: BLE001 - o carving nunca derruba a identificacao
+            log(f"carving falhou: {exc}")
+            carved = {"files": [], "decoded": [], "note": None}
+        if carved["decoded"]:
+            ident["decoded"] = carved["decoded"]
+        if carved["files"]:
+            plugin, result = CARVE, carved
     if plugin is None:
         return {"ok": True, "unpacker": None, "files": [], "skipped": [], "note": None, **ident}, []
-    started = time.monotonic()
     try:
-        if hasattr(plugin, "detect_ident"):
+        if result is not None:
+            pass
+        elif hasattr(plugin, "detect_ident"):
             result = plugin.unpack(sample, outdir, TIMEOUT, detections=detections)
         else:
             result = plugin.unpack(sample, outdir, TIMEOUT)
@@ -430,8 +450,10 @@ class Handler(BaseHTTPRequestHandler):
         if path != "/analyze":
             self.refuse(404, "não encontrado", length)
             return
-        # ?unpack=0: so identificar (a API manda assim a partir da segunda geracao).
-        unpack = "unpack=0" not in query.split("&")
+        # ?unpack=0: so identificar (a API manda assim a partir da segunda geracao); ?unpack=carve:
+        # so o carving (arquivo que nao e executavel, item 18).
+        params = query.split("&")
+        unpack = False if "unpack=0" in params else "carve" if "unpack=carve" in params else True
         auth = self.headers.get("authorization", "")
         if not hmac.compare_digest(auth.encode(), f"Bearer {TOKEN}".encode()):
             self.refuse(401, "token inválido", length)

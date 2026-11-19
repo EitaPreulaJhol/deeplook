@@ -83,6 +83,11 @@ export const messages = {
     'disagrees with the detected type ({expected})',
   ],
   magikaVsExt: ['diverge da extensão (.{expected})', 'disagrees with the extension (.{expected})'],
+  decodedTitle: ['Endereços codificados', 'Encoded addresses'],
+  decodedHelp: [
+    'URLs escondidas sob XOR, ROL ou ADD (de 1 byte, ou XOR de 2 a 4 bytes), com a chave e a posição no arquivo. Os executáveis e ZIPs codificados do mesmo jeito viram amostras filhas.',
+    'URLs hidden under XOR, ROL or ADD (1 byte, or XOR of 2 to 4 bytes), with the key and the position in the file. Executables and ZIPs encoded the same way become child samples.',
+  ],
   goTitle: ['Go (GoReSym)', 'Go (GoReSym)'],
   goVersion: ['Versão do Go', 'Go version'],
   goModule: ['Módulo principal', 'Main module'],

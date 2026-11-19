@@ -258,7 +258,7 @@ async function main() {
   ok(
     'Magika: PowerShell disfarçado de PDF, divergência da extensão e scripts pela linguagem dele',
     magikaJob?.status === 'DONE' &&
-      magikaJob.note === 'só identificado: não é executável' &&
+      magikaJob.note === 'nada embutido (não é executável)' &&
       magika?.label === 'powershell' &&
       magika.score >= 0.9 &&
       magika.mismatch?.basis === 'extension' &&
@@ -488,6 +488,49 @@ async function main() {
     { disguised32Job, imports: (emulated?.staticInfo as any)?.pe?.imports },
   );
 
+  // Item 18: carving (binwalk) e forca bruta de codificacao.
+  const prog32Sha = sha(file('prog32.exe'));
+  const loose = await upload(ana, 'dados.bin', file('xor-solto.bin'));
+  await unpackIdle();
+  const looseJob = await job(loose);
+  const looseKids = await children(loose);
+  const looseFacts = await loadFacts(loose);
+  ok(
+    'força bruta: PE sob XOR 0x5a num arquivo sem tipo vira filha; a URL sob ROL 3 vai para a ficha e a triagem',
+    looseJob?.unpacker === 'carve' &&
+      looseKids.some(
+        (k) => k.sha256 === prog32Sha && k.originalFilename?.startsWith('xor-0x5a_pe_0x309'),
+      ) &&
+      ((looseJob.decoded ?? []) as { method: string; text: string }[]).some(
+        (d) => d.method === 'rol 3' && d.text === 'https://c2.exemplo.invalid/gate.php?id=7',
+      ) &&
+      Boolean(looseFacts?.facts.hiddenIocs.includes('https://c2.exemplo.invalid/gate.php?id=7')),
+    { looseJob, looseKids: looseKids.map((k) => [k.originalFilename, k.sha256]) },
+  );
+  const xor4 = await upload(ana, 'dropper4.exe', file('xor4-dropper.exe'));
+  await unpackIdle();
+  const xor4Job = await job(xor4);
+  const xor4Kids = await children(xor4);
+  ok(
+    'força bruta: PE anexado sob XOR de 4 bytes, com a chave no nome da filha',
+    xor4Job?.unpacker === 'carve' &&
+      /chave: xor 0x11223344/.test(xor4Job.note ?? '') &&
+      xor4Kids.some(
+        (k) => k.sha256 === prog32Sha && k.originalFilename?.startsWith('xor-0x11223344_pe_'),
+      ),
+    { xor4Job, xor4Kids: xor4Kids.map((k) => [k.originalFilename, k.sha256]) },
+  );
+  const embedded = await upload(ana, 'embutido.bin', file('embutido.bin'));
+  await unpackIdle();
+  const embeddedJob = await job(embedded);
+  const embeddedKids = await children(embedded);
+  ok(
+    'carving: o binwalk acha o PE em claro no meio de um arquivo sem tipo',
+    embeddedJob?.unpacker === 'carve' &&
+      embeddedKids.some((k) => k.sha256 === prog32Sha && k.originalFilename === 'pe_0x3e8.exe'),
+    { embeddedJob, embeddedKids: embeddedKids.map((k) => [k.originalFilename, k.sha256]) },
+  );
+
   const overlay = await upload(ana, 'dropper.exe', file('overlay.exe'));
   await unpackIdle();
   ok(
@@ -502,7 +545,7 @@ async function main() {
   });
 
   // Rotas.
-  const plain = await upload(bob, 'comum.exe', file('prog64.exe'));
+  const plain = await upload(bob, 'comum.exe', file('prog32.exe'));
   await unpackIdle();
   const plainState = (await get(bob, plain)).json();
   ok(
@@ -762,7 +805,7 @@ async function main() {
     return realCreator(child);
   });
   stopUnpackQueue();
-  target = await upload(ana, 'meio.exe', file('prog64.exe'));
+  target = await upload(ana, 'meio.exe', file('prog32.exe'));
   await unpackIdle();
   await hostile(
     'falha ao criar a segunda filha: a primeira fica na lista e o trabalho falha com o motivo',
