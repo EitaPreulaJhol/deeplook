@@ -1187,6 +1187,11 @@ links (só como texto) e o corpo em texto; o HTML nunca é exibido. Cada anexo v
 amostra própria ("Anexo de: …"), com antivírus, reputação e YARA. A leitura usa a
 `postal-mime` (sem dependências).
 
+O **`.msg` do Outlook** (o "Encaminhar como anexo", comum nos relatos de empresa) também entra, pelo
+nome ou pelo conteúdo. Os cabeçalhos de transporte que ele guarda passam pelo mesmo leitor do `.eml`
+(remetente, SPF/DKIM/DMARC, saltos e links), e os anexos viram amostras, inclusive os de um e-mail
+anexado dentro dele. Sem cabeçalhos (rascunho salvo), os campos vêm das propriedades do Outlook.
+
 ## Base de conhecimento
 
 Artigos em Markdown sobre famílias de malware, golpes, técnicas e procedimentos

@@ -47,6 +47,14 @@ qpdf --encrypt "" dono 128 --use-aes=y -- anexo.pdf anexo-aes128.pdf
 qpdf --encrypt "" dono 256 -- anexo.pdf anexo-aes256.pdf
 qpdf --encrypt segredo dono 256 -- anexo.pdf anexo-senha.pdf
 qpdf --object-streams=generate anexo.pdf anexo-objstm.pdf
+# Outlook .msg (item 10): os exemplos do Email::Outlook::Message (o msgconvert), do CPAN, conferidos
+# pelo SHA-256 (o mesmo do pacote do Debian). Um com cabecalhos de transporte e um JPEG anexado, um
+# rascunho sem cabecalhos.
+curl -sSLf -o eom.tar.gz https://cpan.metacpan.org/authors/id/M/MV/MVZ/Email-Outlook-Message-0.921.tar.gz
+echo "fb4abeea14cda51c1e60bc211cf9521bbbaae74b84118ca6d58f0a7223680388  eom.tar.gz" | sha256sum -c --quiet
+tar xzf eom.tar.gz Email-Outlook-Message-0.921/t/files
+cp Email-Outlook-Message-0.921/t/files/plain_jpeg_attached.msg outlook-anexo.msg
+cp Email-Outlook-Message-0.921/t/files/plain_unsent.msg outlook-rascunho.msg
 
 # Desempacotar e extrair (item 7.8): instalador NSIS com o prog64.exe dentro, um programa PyInstaller
 # (Linux; o formato do arquivo e o mesmo do Windows) e os instaladores oficiais do Inno Setup 6.2.2
@@ -156,7 +164,8 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
   inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
   pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp anexo.pdf anexo-rc4.pdf \
-  anexo-aes128.pdf anexo-aes256.pdf anexo-senha.pdf anexo-objstm.pdf reference.json /out/
+  anexo-aes128.pdf anexo-aes256.pdf anexo-senha.pdf anexo-objstm.pdf outlook-anexo.msg \
+  outlook-rascunho.msg reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

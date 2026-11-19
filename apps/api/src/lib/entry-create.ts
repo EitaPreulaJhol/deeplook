@@ -10,12 +10,13 @@ import { enqueueCapaIfEligible } from './capa';
 import { scanInBackground } from './clamav';
 import { sha256Hex } from './crypto';
 import { analyzeDelivery, CHILD_FAILED } from './delivery-formats';
-import { isEmailFile, parseEmail } from './eml';
+import { isEmailFile, isOutlookFile, parseEmail } from './eml';
 import { recordEvent } from './events';
 import { normalizeUrl, urlKey } from './ioc-normalize';
 import { notifyWatchers, sampleIndicators } from './ioc-watch';
 import { rememberUrls } from './iocs';
 import { scanLookalikesQuietly } from './lookalike';
+import { isMsg, parseMsg } from './msg';
 import { enqueueOletoolsIfEligible } from './oletools';
 import { relationHashes } from './pe-analysis';
 import { staticPivots } from './pivots';
@@ -182,8 +183,10 @@ export async function createFileEntry(
   }
   // E-mail (.eml): le e transforma cada anexo numa amostra filha (ate 3 niveis
   // de e-mail encaminhado como anexo).
-  if (isEmailFile(filename, mimetype) && depth < 3) {
-    await readEmail(req, ownerId, entry, buffer, input, quota, depth);
+  // Outlook (.msg; plans/analise-estatica-ampliada, item 10): pelo nome ou pelo conteudo OLE.
+  const outlook = (isOutlookFile(filename, mimetype) || buffer[0] === 0xd0) && isMsg(buffer);
+  if ((isEmailFile(filename, mimetype) || outlook) && depth < 3) {
+    await readEmail(req, ownerId, entry, buffer, input, quota, depth, outlook);
   }
   return { entry };
 }
@@ -281,10 +284,13 @@ async function readEmail(
   input: { title: string; tags: { id: string }[] },
   quota: { remaining: number | null },
   depth: number,
+  outlook = false,
 ) {
   let parsed;
   try {
-    parsed = await parseEmail(buffer, env.MAX_UPLOAD_MB * 1024 * 1024);
+    parsed = outlook
+      ? await parseMsg(buffer, env.MAX_UPLOAD_MB * 1024 * 1024)
+      : await parseEmail(buffer, env.MAX_UPLOAD_MB * 1024 * 1024);
   } catch (err) {
     req.log.warn({ err }, 'Falha ao ler o e-mail');
     return;

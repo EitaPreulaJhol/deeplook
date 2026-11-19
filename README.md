@@ -1179,6 +1179,11 @@ sender, Reply-To, recipients, SPF/DKIM/DMARC, the path of the servers, the links
 body as text; the HTML is never displayed. Each attachment becomes its own sample ("Attachment of: …"),
 with antivirus, reputation and YARA. Parsing uses `postal-mime` (no dependencies).
 
+**Outlook `.msg`** files ("Forward as attachment", common in company reports) are read too, by name or
+by content. The transport headers they keep go through the same reader as the `.eml` (sender,
+SPF/DKIM/DMARC, hops and links), and the attachments become samples, including those of an email
+attached inside it. Without headers (a saved draft), the fields come from the Outlook properties.
+
 ## Knowledge base
 
 Articles in Markdown about malware families, scams, techniques and procedures

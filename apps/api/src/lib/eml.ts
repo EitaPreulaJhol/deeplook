@@ -77,6 +77,8 @@ export interface EmailInfo {
     entryId?: string;
     skipped?: string;
   }[];
+  /** No .msg: assuntos dos e-mails anexados dentro dele (os anexos deles tambem viram amostras). */
+  forwarded?: string[];
 }
 
 export interface ParsedEmail {
@@ -87,6 +89,11 @@ export interface ParsedEmail {
 /** .eml pelo nome ou pelo tipo declarado. */
 export function isEmailFile(filename: string, mimetype: string | null | undefined): boolean {
   return /\.eml$/i.test(filename) || mimetype === 'message/rfc822';
+}
+
+/** .msg do Outlook pelo nome ou pelo tipo declarado (o conteudo e conferido em msg.ts). */
+export function isOutlookFile(filename: string, mimetype: string | null | undefined): boolean {
+  return /\.msg$/i.test(filename) || mimetype === 'application/vnd.ms-outlook';
 }
 
 function party(address: Address | undefined): EmailParty | null {
