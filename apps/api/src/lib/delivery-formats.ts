@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { Cfb, type CfbEntry } from './doc-analysis';
 import { detectType } from './file-type';
 import { readPdf } from './pdf-objects';
+import { analyzeSmallFormat, type SmallFormat } from './small-formats';
 
 /**
  * Formatos de entrega (plans/caca-e-formatos, item 4): OneNote, HTML smuggling e MSI. Os tres
@@ -38,7 +39,9 @@ export interface MsiCustomAction {
 }
 
 export interface DeliveryInfo {
-  format: 'onenote' | 'html' | 'msi' | 'pdf';
+  format: 'onenote' | 'html' | 'msi' | 'pdf' | SmallFormat;
+  /** Destinos dos formatos pequenos (URL, pasta remota, comando, chave do registro; item 12). */
+  targets?: string[];
   risk: 'high' | 'medium' | 'low';
   alerts: { level: DeliveryAlertLevel; text: string }[];
   files: DeliveryFile[];
@@ -726,6 +729,20 @@ export function analyzeDelivery(
     if (isOneNote(buf)) return analyzeOneNote(buf);
     if (detectedId === 'pdf') return analyzePdfAttachments(buf);
     if (detectedId === 'ole') return analyzeMsi(buf);
+    // Formatos pequenos de texto e XML (item 12): antes do HTML, que pegaria o XML.
+    const small = analyzeSmallFormat(buf, filename);
+    if (small) {
+      return {
+        info: {
+          format: small.format,
+          risk: riskOf(small.alerts),
+          alerts: small.alerts,
+          files: [],
+          targets: small.targets,
+        },
+        payloads: [],
+      };
+    }
     if (isHtmlLike(buf, filename, detectedId ?? null)) return analyzeHtml(buf);
   } catch {
     return null;

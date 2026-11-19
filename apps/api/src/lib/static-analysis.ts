@@ -16,6 +16,7 @@ import { type MachoInfo, parseMacho } from './macho-analysis';
 import { readPdf } from './pdf-objects';
 import { parsePe, type PeInfo } from './pe-analysis';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
+import { analyzeSmallFormat } from './small-formats';
 
 export type { DetectedType, PeInfo };
 export { detectType, parsePe };
@@ -317,6 +318,11 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       const code = htmlScripts(buf);
       if (code) script = analyzeScript(Buffer.from(code), 'pagina.js');
     }
+    // Console MMC e scriptlet (item 12): o script embutido.
+    if (!script && delivery?.targets) {
+      const code = analyzeSmallFormat(buf, filename)?.script;
+      if (code) script = analyzeScript(Buffer.from(code), 'embutido.js');
+    }
     // PDF: o JavaScript dos /JS (item 8), decifrado se for o caso.
     if (!script && detectedType?.id === 'pdf' && document?.pdf?.scripts) {
       const code = readPdf(buf).scripts.join('\n\n');
@@ -353,6 +359,8 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       ...(script?.urls ?? []),
       lnk?.arguments ?? '',
       ...(delivery?.msi?.customActions.map((a) => a.target ?? '') ?? []),
+      // Destinos dos formatos pequenos (item 12): URL e pasta remota (\\host\x vira o host).
+      ...(delivery?.targets ?? []).map((t) => t.replace(/^\\\\([^\\@]+)(?:@[^\\]*)?\\.*$/, '$1')),
     ].join('\n'),
   );
   // Abuso conhecido (item 4): driver, ferramenta de acesso remoto, binario do sistema.
@@ -374,6 +382,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
         ...(script?.layers ?? []).map((l) => l.text),
         [lnk?.target, lnk?.arguments].filter(Boolean).join(' '),
         ...(delivery?.msi?.customActions.map((a) => a.target ?? '') ?? []),
+        ...(delivery?.targets ?? []),
       ],
     });
   } catch {

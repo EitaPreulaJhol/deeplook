@@ -60,6 +60,64 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'Compilado na configuração Debug (caminho do PDB).',
     'Built in the Debug configuration (PDB path).',
   ],
+  // ---- Formatos pequenos (small-formats.ts) e XLL (pe-analysis.ts; item 12) ----
+  [
+    'Suplemento do Excel (XLL): o Excel executa o xlAutoOpen ao abrir o arquivo.',
+    'Excel add-in (XLL): Excel runs xlAutoOpen when the file is opened.',
+  ],
+  [
+    'O atalho aponta para uma pasta remota ({0}): o Windows manda o hash NTLM de quem abre.',
+    'The shortcut points to a remote folder ({0}): Windows sends the NTLM hash of whoever opens it.',
+  ],
+  ['O atalho aponta para fora da máquina: {0}', 'The shortcut points outside the machine: {0}'],
+  [
+    'O ícone fica numa pasta remota ({0}): o Windows manda o hash NTLM de quem abre.',
+    'The icon lives in a remote folder ({0}): Windows sends the NTLM hash of whoever opens it.',
+  ],
+  ['O ícone vem de fora da máquina: {0}', 'The icon comes from outside the machine: {0}'],
+  [
+    'A biblioteca ou a busca abre uma pasta remota ({0}): o Windows manda o hash NTLM de quem abre.',
+    'The library or search opens a remote folder ({0}): Windows sends the NTLM hash of whoever opens it.',
+  ],
+  [
+    'A biblioteca ou a busca abre um local fora da máquina: {0}',
+    'The library or search opens a location outside the machine: {0}',
+  ],
+  [
+    'Console MMC com res://apds.dll (GrimResource): executa script ao abrir.',
+    'MMC console with res://apds.dll (GrimResource): runs a script when opened.',
+  ],
+  ['Console MMC com script embutido.', 'MMC console with an embedded script.'],
+  ['Console MMC: abre ferramentas administrativas.', 'MMC console: opens administrative tools.'],
+  ['Arquivo de comando do Explorer (.scf).', 'Explorer command file (.scf).'],
+  ['Instala pacote MSIX baixado de {0}', 'Installs an MSIX package downloaded from {0}'],
+  [
+    'Consulta web do Excel: busca {0} ao abrir (usada para entregar DDE).',
+    'Excel web query: fetches {0} when opened (used to deliver DDE).',
+  ],
+  [
+    'Planilha SYLK com EXEC/CALL: roda comando ao abrir.',
+    'SYLK spreadsheet with EXEC/CALL: runs a command when opened.',
+  ],
+  [
+    'Planilha SYLK (formato antigo usado para driblar filtros).',
+    'SYLK spreadsheet (old format used to slip past filters).',
+  ],
+  ['Altera chave de inicialização ou de defesa: {0}', 'Changes a startup or defense key: {0}'],
+  ['{0} chave(s) do registro alterada(s).', '{0} registry key(s) changed.'],
+  [
+    'INF com RegisterOCXs/RunPreSetupCommands: executa comando (abuso do cmstp).',
+    'INF with RegisterOCXs/RunPreSetupCommands: runs a command (cmstp abuse).',
+  ],
+  ['Arquivo de instalação INF.', 'INF setup file.'],
+  [
+    'Scriptlet COM (.sct): roda script quando registrado (regsvr32 /i).',
+    'COM scriptlet (.sct): runs a script when registered (regsvr32 /i).',
+  ],
+  [
+    'Atalho de Configurações com DeepLink: executa o comando ao abrir.',
+    'Settings shortcut with a DeepLink: runs the command when opened.',
+  ],
   // ---- Shell e Python (script-analysis.ts; item 11) ----
   ['executa o que acabou de receber ou decodificar', 'runs what it has just received or decoded'],
   ['torna o arquivo baixado executável', 'makes the downloaded file executable'],

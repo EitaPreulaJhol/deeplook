@@ -881,6 +881,13 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
       text: `O nome original declarado na versão é ${res.version!.OriginalFilename}.`,
     });
   }
+  // Suplemento do Excel (item 12): DLL com xlAutoOpen, que o Excel roda ao abrir o .xll.
+  if (exports?.symbols.some((s) => s.name === 'xlAutoOpen')) {
+    alerts.push({
+      level: 'high',
+      text: 'Suplemento do Excel (XLL): o Excel executa o xlAutoOpen ao abrir o arquivo.',
+    });
+  }
   if (signature?.selfSigned) {
     alerts.push({ level: 'medium', text: 'Assinado com certificado autoassinado.' });
   }

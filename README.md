@@ -871,6 +871,18 @@ risk shows at the top of the record.
   `javascript:` links. A PDF encrypted with an **empty user password** (it opens without asking, but the
   usual reading sees only encrypted bytes) is decrypted first: RC4 and AES-128 (revisions 2 to 4) and
   AES-256 (revision 6). With a real password it stays as it is, with the notice.
+- **Small formats**, which Windows opens with one click and which carry no payload, only the target
+  or the command. The section shows the targets, which also go to the suggested IOCs:
+  - `.msc` (GrimResource with `res://apds.dll` and an embedded script, which goes through the script
+    analysis);
+  - `.url`/`.website` and `.scf`, with a target or icon in a remote folder, which leaks the NTLM hash;
+  - `.library-ms` and `.search-ms`, with a remote folder (WebDAV);
+  - `.appinstaller`, which installs an MSIX downloaded from the URL;
+  - `.iqy` (Excel web query) and `.slk` with `EXEC`;
+  - `.reg` with a startup or defense key;
+  - `.inf` with `RegisterOCXs` (cmstp abuse), `.sct` (scriptlet) and `.settingcontent-ms`.
+
+  `.xll`, a PE with `xlAutoOpen`, gets the high alert in the executable analysis.
 - **Limits:** 40 files and 128 MB per sample (the rest shows as "skipped", with the reason), three
   nesting levels and files up to 64 MB. A payload encrypted another way (XOR, reversed Base64) is
   not decoded. With Blob and download on the page, the alert says the payload was not decoded.

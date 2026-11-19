@@ -58,6 +58,8 @@ const FILES = [
   // Listas de abuso (item 4).
   'lol/index',
   'lol/lolbins',
+  // Formatos pequenos de entrega (item 12).
+  'small-formats',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */

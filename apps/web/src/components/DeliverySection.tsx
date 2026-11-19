@@ -12,6 +12,18 @@ const TITLE: Record<DeliveryInfo['format'], () => string> = {
   html: () => t('dlvTitleHtml'),
   msi: () => t('dlvTitleMsi'),
   pdf: () => t('dlvTitlePdf'),
+  msc: () => t('dlvTitleMsc'),
+  url: () => t('dlvTitleUrl'),
+  scf: () => t('dlvTitleScf'),
+  'library-ms': () => t('dlvTitleLibrary'),
+  'search-ms': () => t('dlvTitleSearch'),
+  appinstaller: () => t('dlvTitleAppinstaller'),
+  iqy: () => t('dlvTitleIqy'),
+  slk: () => t('dlvTitleSlk'),
+  reg: () => t('dlvTitleReg'),
+  inf: () => t('dlvTitleInf'),
+  sct: () => t('dlvTitleSct'),
+  settingcontent: () => t('dlvTitleSettings'),
 };
 
 const RISK: Record<DeliveryInfo['risk'], { label: string; tone: StatusTone }> = localized(() => ({
@@ -105,8 +117,22 @@ export function DeliverySection({ info }: { info?: StaticInfo | null }) {
         </HpsmField>
       </HpsmForm>
 
-      <h4 className="dl-subsection-title">{t('dlvFiles', { n: d.files.length })}</h4>
-      {d.files.length === 0 ? (
+      {d.targets && (
+        <>
+          <h4 className="dl-subsection-title">{t('dlvTargets', { n: d.targets.length })}</h4>
+          <ul className="dl-doc-alerts">
+            {d.targets.map((target) => (
+              <li key={target}>
+                <code>{target}</code>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {!d.targets && (
+        <h4 className="dl-subsection-title">{t('dlvFiles', { n: d.files.length })}</h4>
+      )}
+      {d.targets ? null : d.files.length === 0 ? (
         <p className="dl-hint-muted">{t('dlvNoFiles')}</p>
       ) : (
         <table className="dl-risk__reasons" aria-label={t('dlvFiles', { n: d.files.length })}>

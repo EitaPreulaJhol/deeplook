@@ -657,7 +657,26 @@ export interface ScriptInfo {
 /** Analise de documento (item 70): PDF, Office e RTF. */
 /** OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */
 export interface DeliveryInfo {
-  format: 'onenote' | 'html' | 'msi' | 'pdf';
+  format:
+    | 'onenote'
+    | 'html'
+    | 'msi'
+    | 'pdf'
+    // Formatos pequenos (item 12).
+    | 'msc'
+    | 'url'
+    | 'scf'
+    | 'library-ms'
+    | 'search-ms'
+    | 'appinstaller'
+    | 'iqy'
+    | 'slk'
+    | 'reg'
+    | 'inf'
+    | 'sct'
+    | 'settingcontent';
+  /** Destinos dos formatos pequenos: URL, pasta remota, comando, chave do registro. */
+  targets?: string[];
   risk: 'high' | 'medium' | 'low';
   alerts: { level: 'high' | 'medium' | 'info'; text: string }[];
   files: {

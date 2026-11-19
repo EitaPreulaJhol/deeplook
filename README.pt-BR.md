@@ -876,6 +876,17 @@ topo da ficha.
   `ImportData`, `RichMedia`, imagem `JBIG2` e link `javascript:`. O PDF cifrado com a **senha de usuário
   vazia** (abre sem pedir senha, mas a leitura comum vê só bytes cifrados) é decifrado antes: RC4 e
   AES-128 (revisões 2 a 4) e AES-256 (revisão 6). Com senha de verdade, fica como está, com o aviso.
+- **Formatos pequenos**, que o Windows abre com um clique e não trazem carga, só o destino ou o
+  comando. A seção mostra os destinos, que também vão para os IOCs sugeridos:
+  - `.msc` (GrimResource com `res://apds.dll` e script embutido, que passa pela análise de scripts);
+  - `.url`/`.website` e `.scf`, com destino ou ícone numa pasta remota, que vaza o hash NTLM;
+  - `.library-ms` e `.search-ms`, com pasta remota (WebDAV);
+  - `.appinstaller`, que instala um MSIX baixado da URL;
+  - `.iqy` (consulta web do Excel) e `.slk` com `EXEC`;
+  - `.reg` com chave de inicialização ou de defesa;
+  - `.inf` com `RegisterOCXs` (abuso do cmstp), `.sct` (scriptlet) e `.settingcontent-ms`.
+
+  O `.xll`, um PE com `xlAutoOpen`, ganha o alerta alto na análise do executável.
 - **Limites:** 40 arquivos e 128 MB por amostra (o resto aparece como "pulado", com o motivo), três
   níveis de aninhamento e arquivos de até 64 MB. Carga cifrada de outro jeito (XOR, Base64 invertido)
   não é decodificada. Com Blob e download na página, o alerta avisa que a carga não foi decodificada.
