@@ -69,11 +69,14 @@ export function StaticAnalysisSection({
   entryId,
   info,
   canTriage,
+  canDownload = false,
   purged = false,
 }: {
   entryId: string;
   info?: StaticInfo | null;
   canTriage: boolean;
+  /** Quem enviou e os analistas baixam os recursos do executavel (item 30). */
+  canDownload?: boolean;
   /** Arquivo expurgado pela retencao: nao ha o que (re)analisar. */
   purged?: boolean;
 }) {
@@ -263,7 +266,7 @@ export function StaticAnalysisSection({
               </Table>
             </TableContainer>
           </div>
-          <PeExtraBlocks pe={pe} />
+          <PeExtraBlocks pe={pe} entryId={entryId} canDownload={canDownload} />
         </div>
       )}
 

@@ -53,7 +53,8 @@ const RT: Record<number, string> = {
   24: 'MANIFEST',
 };
 
-interface Leaf {
+/** Recurso com a posicao no arquivo (offset -1: fora dos bytes do arquivo). */
+export interface ResourceLeaf {
   typeId: number | null;
   type: string;
   name: string;
@@ -62,19 +63,17 @@ interface Leaf {
   size: number;
 }
 
-export function analyzeResources(pe: PeImage): {
-  resources: PeResource[];
-  truncated: boolean;
-  version: Record<string, string> | null;
-  manifest: { executionLevel: string | null; uiAccess: boolean } | null;
-} {
-  const empty = { resources: [], truncated: false, version: null, manifest: null };
+/**
+ * As folhas da arvore de recursos, na ordem da lista da ficha (os MAX_LISTED primeiros), e o total.
+ * O download de um recurso (item 30) usa o indice dessa lista.
+ */
+export function resourceLeaves(pe: PeImage): { leaves: ResourceLeaf[]; total: number } {
   const dir = pe.dir(2);
   const root = dir ? pe.rvaToOffset(dir.rva) : -1;
-  if (!dir || root < 0) return empty;
+  if (!dir || root < 0) return { leaves: [], total: 0 };
   const { buf, u16, u32 } = pe;
 
-  const leaves: Leaf[] = [];
+  const leaves: ResourceLeaf[] = [];
   let visited = 0;
   let total = 0;
   const seen = new Set<number>();
@@ -125,6 +124,18 @@ export function analyzeResources(pe: PeImage): {
     }
   };
   walk(root, 0, []);
+  return { leaves, total };
+}
+
+export function analyzeResources(pe: PeImage): {
+  resources: PeResource[];
+  truncated: boolean;
+  version: Record<string, string> | null;
+  manifest: { executionLevel: string | null; uiAccess: boolean } | null;
+} {
+  const { leaves, total } = resourceLeaves(pe);
+  if (!leaves.length) return { resources: [], truncated: false, version: null, manifest: null };
+  const { buf } = pe;
 
   let budget = ENTROPY_BUDGET;
   const resources: PeResource[] = leaves.map((leaf) => {

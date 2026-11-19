@@ -531,7 +531,13 @@ addition to sections, imports and packer:
   name...), **manifest**, **exports** (with forwarders), **TLS callbacks**, **appended data** (overlay, apart
   from the signature) and **checksum**.
 - **.NET**: runtime, assembly, references, the native functions called via **P/Invoke**, sensitive calls
-  (`Assembly.Load`, `WebClient`, `Process.Start`...) and obfuscator markers.
+  (`Assembly.Load`, `WebClient`, `Process.Start`...), obfuscator markers and the **resources embedded**
+  in the assembly (name, size, entropy and content).
+- **Download the resources separately**: the submitter and analysts download each resource in the
+  list (Win32 and .NET), or all of them at once. Icons and cursors come out reassembled as `.ico` and
+  `.cur` (the executable keeps them in pieces), and bitmaps as `.bmp`, with the file header rebuilt:
+  they open in any viewer. Images come out as files; the rest (executable, binary, script) comes inside
+  the ZIP with the password `infected`, like the sample. Every download goes to the Audit log.
 - **UPX** is also recognized by the entry code, with the sections renamed.
 
 Samples submitted earlier get the new analysis in the background, one at a time, after the

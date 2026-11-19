@@ -589,6 +589,14 @@ export interface PeInfo {
     obfuscator: string | null;
     types: number;
     methods: number;
+    /** Recursos embutidos no assembly (item 30); ausente nas analises antigas. */
+    resources?: {
+      name: string;
+      size: number;
+      entropy: number;
+      content: string | null;
+      public: boolean;
+    }[];
   } | null;
   alerts?: PeAlert[];
 }

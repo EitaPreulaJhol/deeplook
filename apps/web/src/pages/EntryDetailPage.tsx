@@ -939,6 +939,7 @@ export function EntryDetailPage() {
               entryId={entry.id}
               info={entry.staticInfo}
               canTriage={canTriage}
+              canDownload={canDownload && !entry.filePurgedAt}
               purged={Boolean(entry.filePurgedAt)}
             />
           )}

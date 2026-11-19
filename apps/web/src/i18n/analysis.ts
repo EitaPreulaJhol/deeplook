@@ -66,6 +66,16 @@ export const messages = {
   stampDebug: ['debug', 'debug'],
   stampExports: ['exportações', 'exports'],
   stampResources: ['recursos', 'resources'],
+  resDownload: ['Baixar', 'Download'],
+  resDownloadAll: ['Baixar todos (.zip com senha)', 'Download all (password .zip)'],
+  resDownloadHelp: [
+    'Ícones, cursores e bitmaps saem como arquivo (.ico, .cur, .bmp). O resto sai dentro do ZIP com a senha infected. Tudo fica na Auditoria.',
+    'Icons, cursors and bitmaps come out as files (.ico, .cur, .bmp). The rest comes inside the ZIP with the password infected. Everything goes to the Audit log.',
+  ],
+  staticNetResources: ['Recursos .NET ({n})', '.NET resources ({n})'],
+  netResourcesAria: ['Recursos embutidos no assembly', 'Resources embedded in the assembly'],
+  netPublic: ['público', 'public'],
+  netPrivate: ['privado', 'private'],
   richAbsent: [
     'Ausente (não foi compilado com o Visual Studio)',
     'Absent (not compiled with Visual Studio)',

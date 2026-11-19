@@ -533,7 +533,13 @@ mostra, além de seções, imports e empacotador:
   (empresa, nome original...), **manifesto**, **exports** (com encaminhamentos), **TLS
   callbacks**, **dados anexados** (overlay, fora a assinatura) e **checksum**.
 - **.NET**: runtime, assembly, referências, as funções nativas chamadas por **P/Invoke**,
-  chamadas sensíveis (`Assembly.Load`, `WebClient`, `Process.Start`...) e marcas de ofuscador.
+  chamadas sensíveis (`Assembly.Load`, `WebClient`, `Process.Start`...), marcas de ofuscador e os
+  **recursos embutidos** no assembly (nome, tamanho, entropia e conteúdo).
+- **Baixar os recursos separados**: quem enviou e os analistas baixam cada recurso da lista (Win32 e
+  .NET), ou todos de uma vez. O ícone e o cursor saem remontados como `.ico` e `.cur` (o executável os
+  guarda aos pedaços), e o bitmap sai como `.bmp`, com o cabeçalho de arquivo refeito: abrem em
+  qualquer visualizador. Imagens saem como arquivo; o resto (executável, binário, script) sai dentro
+  do ZIP com a senha `infected`, como a amostra. Cada download vai para a Auditoria.
 - O **UPX** é reconhecido também pelo código de entrada, com as seções renomeadas.
 
 As amostras enviadas antes ganham a análise nova em segundo plano, uma de cada vez, depois que

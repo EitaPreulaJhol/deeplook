@@ -218,6 +218,9 @@ function syntheticSeeds(): Record<string, Buffer[]> {
   iso.write('CD001', 17 * 2048 + 1, 'latin1');
   return {
     static: [pe, elf, macho, lnk, ole, pdf, rtf, script, zip, iso],
+    // Recursos do PE (plans/analise-estatica-ampliada, item 30): o PE minimo; os de verdade (com
+    // icone, cursor, bitmap e recurso .NET) vem de tests/.tmp/pe.
+    resources: [pe],
     zip: [zip],
     disk: [iso],
     eml: [eml],
@@ -270,7 +273,9 @@ function generatedSeeds(): Record<string, Buffer[]> {
   };
   const pe = read('pe', (n) => /\.(exe|dll|elf|bin)$/.test(n));
   const disk = read('disk', (n) => /\.(iso|img|vhd|raw|lnk)$/.test(n));
-  return { static: [...pe, ...disk], disk, tlsh: pe.slice(0, 3) };
+  // O icone.exe e o dotnet-loader.exe inteiros: os recursos ficam no fim, depois do corte.
+  const resources = read('pe', (n) => /^(icone|dotnet-loader|prog64)\.exe$/.test(n));
+  return { static: [...pe, ...disk], disk, tlsh: pe.slice(0, 3), resources };
 }
 
 const INTERESTING = [

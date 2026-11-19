@@ -367,7 +367,16 @@ function RichTable({ rich }: { rich: NonNullable<PeInfo['rich']> }) {
   );
 }
 
-function DotnetBlock({ dotnet }: { dotnet: NonNullable<PeInfo['dotnet']> }) {
+function DotnetBlock({
+  dotnet,
+  entryId,
+  canDownload,
+}: {
+  dotnet: NonNullable<PeInfo['dotnet']>;
+  entryId: string;
+  canDownload: boolean;
+}) {
+  const resources = dotnet.resources ?? [];
   const chips = (items: string[], empty: string) =>
     items.length ? (
       <span className="dl-static-chips">
@@ -422,12 +431,89 @@ function DotnetBlock({ dotnet }: { dotnet: NonNullable<PeInfo['dotnet']> }) {
           <HpsmReadonly>{chips(dotnet.assemblyRefs, t('noneF'))}</HpsmReadonly>
         </HpsmField>
       </HpsmForm>
+      {resources.length > 0 && (
+        <details className="dl-static-strings">
+          <summary>{t('staticNetResources', { n: resources.length })}</summary>
+          <TableContainer>
+            <Table size="xs" aria-label={t('netResourcesAria')}>
+              <TableHead>
+                <TableRow>
+                  <TableHeader scope="col">{t('name')}</TableHeader>
+                  <TableHeader scope="col">{t('size')}</TableHeader>
+                  <TableHeader scope="col">{t('entropy')}</TableHeader>
+                  <TableHeader scope="col">{t('content')}</TableHeader>
+                  {canDownload && <TableHeader scope="col">{t('resDownload')}</TableHeader>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {resources.map((r, i) => (
+                  <TableRow key={`${r.name}-${i}`}>
+                    <TableCell>
+                      <code>{r.name}</code> · {r.public ? t('netPublic') : t('netPrivate')}
+                    </TableCell>
+                    <TableCell>{formatFileSize(r.size)}</TableCell>
+                    <TableCell>
+                      {r.entropy >= 7.2 ? (
+                        <StatusText tone="orange">{r.entropy.toFixed(2)}</StatusText>
+                      ) : (
+                        r.entropy.toFixed(2)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {r.content ? (
+                        RISKY_CONTENT.has(r.content) ? (
+                          <StatusText tone="orange">{r.content}</StatusText>
+                        ) : (
+                          r.content
+                        )
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    {canDownload && (
+                      <TableCell>
+                        <a
+                          className="dl-link"
+                          href={`/api/entries/${entryId}/resources/${i}?source=dotnet`}
+                          download
+                        >
+                          {t('resDownload')}
+                        </a>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {canDownload && (
+            <p className="dl-static-empty">
+              <a
+                className="dl-link"
+                href={`/api/entries/${entryId}/resources?source=dotnet`}
+                download
+              >
+                {t('resDownloadAll')}
+              </a>
+            </p>
+          )}
+        </details>
+      )}
     </div>
   );
 }
 
 /** Blocos abaixo das tabelas de secoes e imports. */
-export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
+export function PeExtraBlocks({
+  pe,
+  entryId,
+  canDownload = false,
+}: {
+  pe: PeInfo;
+  entryId: string;
+  /** Quem enviou e os analistas baixam cada recurso (item 30). */
+  canDownload?: boolean;
+}) {
   if (pe.imphash === undefined) return null;
   const resources = pe.resources ?? [];
   const version = pe.version ? Object.entries(pe.version) : [];
@@ -443,7 +529,7 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
         </div>
       )}
       {pe.debug !== undefined && <DebugBlock pe={pe} />}
-      {pe.dotnet && <DotnetBlock dotnet={pe.dotnet} />}
+      {pe.dotnet && <DotnetBlock dotnet={pe.dotnet} entryId={entryId} canDownload={canDownload} />}
       {(version.length > 0 || resources.length > 0) && (
         <div className="dl-static-tables">
           {version.length > 0 && (
@@ -476,6 +562,7 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
                     <TableHeader scope="col">{t('size')}</TableHeader>
                     <TableHeader scope="col">{t('entropy')}</TableHeader>
                     <TableHeader scope="col">{t('content')}</TableHeader>
+                    {canDownload && <TableHeader scope="col">{t('resDownload')}</TableHeader>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -500,11 +587,30 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
                           '—'
                         )}
                       </TableCell>
+                      {canDownload && (
+                        <TableCell>
+                          <a
+                            className="dl-link"
+                            href={`/api/entries/${entryId}/resources/${i}`}
+                            download
+                          >
+                            {t('resDownload')}
+                          </a>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               {pe.resourcesTruncated && <p className="dl-static-empty">{t('resourcesCut')}</p>}
+              {canDownload && (
+                <p className="dl-static-empty">
+                  <a className="dl-link" href={`/api/entries/${entryId}/resources`} download>
+                    {t('resDownloadAll')}
+                  </a>{' '}
+                  · {t('resDownloadHelp')}
+                </p>
+              )}
             </TableContainer>
           )}
         </div>

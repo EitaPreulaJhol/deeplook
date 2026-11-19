@@ -6,6 +6,10 @@ import { analyzeDiskImage, extractDiskFile } from '../../src/lib/disk-image';
 import { parseEmail } from '../../src/lib/eml';
 import { cleanEvidenceImage, EvidenceImageError } from '../../src/lib/evidence-image';
 import { ImportError, parseImport } from '../../src/lib/ioc-import';
+import { openPe } from '../../src/lib/pe-analysis';
+import { analyzeDotnet } from '../../src/lib/pe-dotnet';
+import { resourceFile } from '../../src/lib/pe-resource-file';
+import { resourceLeaves } from '../../src/lib/pe-resources';
 import { decodeScriptEncoder, normalizeScript } from '../../src/lib/script-deobfuscate';
 import { analyzeBuffer } from '../../src/lib/static-analysis';
 import { tlsh } from '../../src/lib/tlsh';
@@ -52,6 +56,18 @@ export const TARGETS: Record<string, Target> = {
         analyzeDelivery(buf, 'x.msi', 'ole'),
       ];
       return out.map((r) => r?.info.files.length ?? -1);
+    },
+  },
+  // Recursos baixados separados (plans/analise-estatica-ampliada, item 30): o .ico, o .cur e o
+  // .bmp sao remontados a partir de tamanhos e ids que o arquivo controla.
+  resources: {
+    expected: never,
+    run: (buf) => {
+      const image = openPe(buf)?.image;
+      if (!image) return null;
+      const { leaves } = resourceLeaves(image);
+      const sizes = leaves.map((_, i) => resourceFile(image, leaves, i)?.data.length ?? -1);
+      return { sizes, dotnet: analyzeDotnet(image)?.resourceData.length ?? -1 };
     },
   },
   zip: {

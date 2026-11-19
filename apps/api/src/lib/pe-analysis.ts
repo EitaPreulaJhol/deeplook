@@ -19,9 +19,9 @@ import { analyzeResources, type PeResource } from './pe-resources';
 /**
  * Versao da analise de PE gravada em `pe.rev`: o pe-backfill reanalisa em segundo plano o que foi
  * analisado numa versao anterior (1: item 7.1; 2: diretorio de debug e ferramentas do Rich header,
- * plans/analise-estatica-ampliada, item 1).
+ * plans/analise-estatica-ampliada, item 1; 3: recursos .NET, item 30).
  */
-export const PE_REVISION = 2;
+export const PE_REVISION = 3;
 
 const MAX_DLLS = 64;
 const MAX_FUNCTIONS = 4096;
@@ -374,8 +374,24 @@ function matchesAt(buf: Buffer, offset: number, bytes: (number | null)[]): boole
   return bytes.every((b, i) => b === null || buf[offset + i] === b);
 }
 
-/** Le o PE com checagem de limites em cada acesso (arquivo pode ser hostil). */
-export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
+/** Cabecalho COFF e opcional ja lidos por openPe. */
+interface PeHeader {
+  peOff: number;
+  machine: number;
+  timestamp: number | null;
+  characteristics: number;
+  opt: number;
+  optSize: number;
+  entryRva: number;
+  subsystem: number | null;
+  dirCount: number;
+}
+
+/**
+ * So os cabecalhos e a tabela de secoes, sem nada caro (entropia, checksum): o que a analise e as
+ * rotas que extraem um pedaco do PE (recursos, item 30) precisam para converter RVA em posicao.
+ */
+export function openPe(buf: Buffer): { image: PeImage; header: PeHeader } | null {
   const u16 = (o: number) => (o >= 0 && o + 2 <= buf.length ? buf.readUInt16LE(o) : null);
   const u32 = (o: number) => (o >= 0 && o + 4 <= buf.length ? buf.readUInt32LE(o) : null);
   // NUL procurado so dentro de `max` bytes (item 168): antes, o resto do arquivo inteiro.
@@ -400,17 +416,12 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
   const magic = u16(opt);
   const is64 = magic === 0x20b;
   if (magic !== 0x10b && magic !== 0x20b) return null;
-  const entryRva = u32(opt + 16) ?? 0;
-  const subsystem = u16(opt + 68);
   const dirsAt = opt + (is64 ? 112 : 96);
   const dirCount = Math.min(u32(opt + (is64 ? 108 : 92)) ?? 0, 16);
   const sizeOfHeaders = u32(opt + 60) ?? 0;
 
-  const sections: (PeSection & RawSection)[] = [];
+  const sections: RawSection[] = [];
   const secTable = opt + optSize;
-  // Orcamento de entropia (item 168): 96 secoes apontando para o arquivo inteiro releriam
-  // tudo 96 vezes; acabado o orcamento, cada secao entra por uma amostra do comeco.
-  let budget = ENTROPY_BUDGET;
   for (let i = 0; i < Math.min(nSections, 96); i++) {
     const s = secTable + i * 40;
     const name = (cstr(s, 8) ?? '').replace(/[^\x20-\x7e]/g, '');
@@ -427,18 +438,7 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
       chars === null
     )
       break;
-    const span = Math.min(rawSize, buf.length - rawPtr, budget > 0 ? budget : ENTROPY_SAMPLE);
-    if (rawPtr < buf.length) budget -= span;
-    sections.push({
-      name,
-      virtualSize,
-      rawSize,
-      entropy: rawPtr < buf.length ? entropy(buf, rawPtr, rawPtr + span) : 0,
-      flags: sectionFlags(chars),
-      va,
-      rawPtr,
-      characteristics: chars,
-    });
+    sections.push({ name, virtualSize, rawSize, va, rawPtr, characteristics: chars });
   }
   const sectionOf = (rva: number) =>
     sections.find((s) => rva >= s.va && rva < s.va + Math.max(s.virtualSize, s.rawSize));
@@ -456,18 +456,65 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
     const size = u32(dirsAt + index * 8 + 4);
     return rva && size ? { rva, size } : null;
   };
-  const image: PeImage = {
-    buf,
-    is64,
-    sections,
-    rvaToOffset,
-    dir,
-    dirEntryOffset: (index) => dirsAt + index * 8,
-    checksumOffset: opt + 64,
-    u16,
-    u32,
-    cstr,
+  return {
+    image: {
+      buf,
+      is64,
+      sections,
+      rvaToOffset,
+      dir,
+      dirEntryOffset: (index) => dirsAt + index * 8,
+      checksumOffset: opt + 64,
+      u16,
+      u32,
+      cstr,
+    },
+    header: {
+      peOff,
+      machine,
+      timestamp,
+      characteristics,
+      opt,
+      optSize,
+      entryRva: u32(opt + 16) ?? 0,
+      subsystem: u16(opt + 68),
+      dirCount,
+    },
   };
+}
+
+/** Le o PE com checagem de limites em cada acesso (arquivo pode ser hostil). */
+export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
+  const opened = openPe(buf);
+  if (!opened) return null;
+  const { image } = opened;
+  const {
+    peOff,
+    machine,
+    timestamp,
+    characteristics,
+    opt,
+    optSize,
+    entryRva,
+    subsystem,
+    dirCount,
+  } = opened.header;
+  const { is64, u16, u32, cstr, rvaToOffset, dir } = image;
+
+  // Orcamento de entropia (item 168): 96 secoes apontando para o arquivo inteiro releriam
+  // tudo 96 vezes; acabado o orcamento, cada secao entra por uma amostra do comeco.
+  let budget = ENTROPY_BUDGET;
+  const sections: (PeSection & RawSection)[] = image.sections.map((s) => {
+    const span = Math.min(s.rawSize, buf.length - s.rawPtr, budget > 0 ? budget : ENTROPY_SAMPLE);
+    if (s.rawPtr < buf.length) budget -= span;
+    return {
+      ...s,
+      entropy: s.rawPtr < buf.length ? entropy(buf, s.rawPtr, s.rawPtr + span) : 0,
+      flags: sectionFlags(s.characteristics),
+    };
+  });
+  const sectionOf = (rva: number) =>
+    sections.find((s) => rva >= s.va && rva < s.va + Math.max(s.virtualSize, s.rawSize));
 
   // ---------------------------------------------------------------- imports e imphash
   const imports: PeImport[] = [];

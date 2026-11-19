@@ -34,6 +34,10 @@ cp /usr/bin/true linux.elf
 # Diretorio de debug (plans/analise-estatica-ampliada, item 1): o ld grava o CodeView (RSDS) com o
 # nome do PDB; o post.py poe o caminho inteiro, como o do link.exe, e troca as datas.
 $X64-gcc -O1 -o pdb.exe tiny.c -Wl,--pdb=Ladrao.pdb
+# Recursos para baixar separados (item 30): icone com duas imagens, cursor e bitmap com paleta.
+python3 icones.py "$W"
+$X64-windres icones.rc -O coff -o icones.o
+$X64-gcc -O1 -s -o icone.exe tiny.c icones.o
 
 # Desempacotar e extrair (item 7.8): instalador NSIS com o prog64.exe dentro, um programa PyInstaller
 # (Linux; o formato do arquivo e o mesmo do Windows) e os instaladores oficiais do Inno Setup 6.2.2
@@ -142,7 +146,7 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
   inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
-  pdb-repro.exe reference.json /out/
+  pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

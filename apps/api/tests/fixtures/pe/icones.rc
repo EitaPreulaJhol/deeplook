@@ -1,0 +1,4 @@
+LANGUAGE 0x16, 0x01
+1 ICON "teste.ico"
+2 CURSOR "teste.cur"
+3 BITMAP "teste.bmp"

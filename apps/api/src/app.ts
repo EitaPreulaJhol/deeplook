@@ -51,6 +51,7 @@ import { qrRoutes } from './routes/qr';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
 import { reputationRoutes } from './routes/reputation';
+import { resourceRoutes } from './routes/resources';
 import { riskRoutes } from './routes/risk';
 import { sandboxRoutes } from './routes/sandbox';
 import { sandboxHuntRoutes } from './routes/sandbox-hunt';
@@ -151,6 +152,8 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   jarRoutes,
   yaraRoutes,
   hexRoutes,
+  // Recursos do executavel, baixados separados (plans/analise-estatica-ampliada, item 30).
+  resourceRoutes,
   adminRoutes,
   apiTokenRoutes,
   trashRoutes,

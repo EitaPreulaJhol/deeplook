@@ -232,3 +232,76 @@ export function sampleZipStream(options: SampleZipOptions): {
   });
   return { stream, length, zip64 };
 }
+
+/**
+ * ZIP com senha de varios arquivos pequenos, montado em memoria (recursos do executavel,
+ * plans/analise-estatica-ampliada, item 30). Mesma cifra do download da amostra; aqui o CRC ja e
+ * conhecido, entao vai no cabecalho local e o byte de conferencia da senha e o alto do CRC. Nomes
+ * repetidos ganham um sufixo. Sem ZIP64: quem chama limita o total bem abaixo de 4 GB.
+ */
+export function sampleZipBuffer(
+  files: { name: string; data: Buffer }[],
+  options: { password?: string; mtime?: Date } = {},
+): Buffer {
+  const { time, date } = dosDateTime(options.mtime ?? new Date());
+  const password = Buffer.from(options.password ?? SAMPLE_ZIP_PASSWORD, 'utf8');
+  const flags = 0x0001 | 0x0800;
+  const used = new Set<string>();
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const file of files) {
+    const base = zipEntryName(file.name);
+    const dot = base.lastIndexOf('.');
+    let name = base;
+    for (let n = 2; used.has(name.toLowerCase()); n++) {
+      name = dot > 0 ? `${base.slice(0, dot)}-${n}${base.slice(dot)}` : `${base}-${n}`;
+    }
+    used.add(name.toLowerCase());
+    const nameBytes = Buffer.from(name, 'utf8');
+    const crc = crc32(file.data) >>> 0;
+    const cipher = new ZipCrypto(password);
+    const header = randomBytes(CRYPT_HEADER);
+    header[CRYPT_HEADER - 1] = crc >>> 24;
+    const body = Buffer.concat([cipher.encrypt(header), cipher.encrypt(file.data)]);
+
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(NEEDS, 4);
+    local.writeUInt16LE(flags, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(time, 10);
+    local.writeUInt16LE(date, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(body.length, 18);
+    local.writeUInt32LE(file.data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    local.writeUInt16LE(0, 28);
+    locals.push(local, nameBytes, body);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(MADE_BY, 4);
+    central.writeUInt16LE(NEEDS, 6);
+    central.writeUInt16LE(flags, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(time, 12);
+    central.writeUInt16LE(date, 14);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(body.length, 20);
+    central.writeUInt32LE(file.data.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE((0o100644 << 16) >>> 0, 38);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, nameBytes);
+    offset += 30 + nameBytes.length + body.length;
+  }
+  const centralLength = centrals.reduce((n, b) => n + b.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralLength, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, ...centrals, end]);
+}

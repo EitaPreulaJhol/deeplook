@@ -1,3 +1,5 @@
+import { entropy } from './entropy';
+import { detectType } from './file-type';
 import type { PeAlert, PeImage } from './pe-analysis';
 
 /**
@@ -26,6 +28,27 @@ export interface DotnetInfo {
   obfuscator: string | null;
   types: number;
   methods: number;
+  /**
+   * Recursos embutidos no assembly (ManifestResource), que podem ser baixados separados
+   * (plans/analise-estatica-ampliada, item 30). Ausente nas analises anteriores.
+   */
+  resources?: DotnetResource[];
+}
+
+export interface DotnetResource {
+  name: string;
+  size: number;
+  entropy: number;
+  /** Conteudo reconhecido pela assinatura (pe, zip, png...). */
+  content: string | null;
+  public: boolean;
+}
+
+/** Onde estao os bytes de cada recurso .NET (na ordem de `resources`). */
+export interface DotnetResourceData {
+  name: string;
+  offset: number;
+  size: number;
 }
 
 const CLR_FLAGS: [number, string][] = [
@@ -181,7 +204,14 @@ const OBFUSCATORS: [string, string][] = [
   ['CryptoObfuscator', 'Crypto Obfuscator'],
 ];
 
-export function analyzeDotnet(pe: PeImage): { info: DotnetInfo; alerts: PeAlert[] } | null {
+/** Recursos listados e bytes somados na entropia deles (o resto entra por amostra). */
+const MAX_RESOURCES = 200;
+const RESOURCE_ENTROPY_BUDGET = 32 * 1024 * 1024;
+const RESOURCE_ENTROPY_SAMPLE = 64 * 1024;
+
+export function analyzeDotnet(
+  pe: PeImage,
+): { info: DotnetInfo; alerts: PeAlert[]; resourceData: DotnetResourceData[] } | null {
   const dir = pe.dir(14);
   const cli = dir ? pe.rvaToOffset(dir.rva) : -1;
   if (!dir || cli < 0) return null;
@@ -201,11 +231,11 @@ export function analyzeDotnet(pe: PeImage): { info: DotnetInfo; alerts: PeAlert[
     types: 0,
     methods: 0,
   };
-  if (md < 0 || u32(md) !== 0x424a5342) return { info: base, alerts: [] };
+  if (md < 0 || u32(md) !== 0x424a5342) return { info: base, alerts: [], resourceData: [] };
   const mdSize = Math.min(u32(cli + 12) ?? 0, buf.length - md);
   const mdEnd = md + mdSize;
   const verLen = u32(md + 12) ?? 0;
-  if (verLen > 256 || md + 16 + verLen > mdEnd) return { info: base, alerts: [] };
+  if (verLen > 256 || md + 16 + verLen > mdEnd) return { info: base, alerts: [], resourceData: [] };
   base.runtime = buf.toString('latin1', md + 16, md + 16 + verLen).replace(/\0.*$/s, '') || null;
 
   // Cabecalhos dos streams: offset, tamanho e nome (NUL, alinhado a 4).
@@ -224,7 +254,7 @@ export function analyzeDotnet(pe: PeImage): { info: DotnetInfo; alerts: PeAlert[
   }
   const tables = streams.get('#~') ?? streams.get('#-');
   const strings = streams.get('#Strings');
-  if (!tables) return { info: base, alerts: [] };
+  if (!tables) return { info: base, alerts: [], resourceData: [] };
 
   const t = tables.at;
   const heapSizes = buf[t + 6];
@@ -236,7 +266,7 @@ export function analyzeDotnet(pe: PeImage): { info: DotnetInfo; alerts: PeAlert[
     const present = id < 32 ? (validLo >>> id) & 1 : (validHi >>> (id - 32)) & 1;
     if (!present) continue;
     const n = u32(q);
-    if (n === null) return { info: base, alerts: [] };
+    if (n === null) return { info: base, alerts: [], resourceData: [] };
     rows[id] = n;
     q += 4;
   }
@@ -321,6 +351,35 @@ export function analyzeDotnet(pe: PeImage): { info: DotnetInfo; alerts: PeAlert[
   }
   base.suspicious = [...suspicious].sort();
 
+  // Recursos embutidos (ManifestResource sem Implementation): no diretorio de recursos do CLR,
+  // cada um com 4 bytes de tamanho antes dos dados.
+  const resourceData: DotnetResourceData[] = [];
+  const resRva = u32(cli + 24) ?? 0;
+  const resSize = u32(cli + 28) ?? 0;
+  const resAt = resRva ? pe.rvaToOffset(resRva) : -1;
+  base.resources = [];
+  let budget = RESOURCE_ENTROPY_BUDGET;
+  for (let r = 1; r <= count(0x28) && resourceData.length < MAX_RESOURCES; r++) {
+    if (cell(0x28, r, 3) !== 0 || resAt < 0) continue;
+    const offset = cell(0x28, r, 0) ?? -1;
+    const len = offset >= 0 && offset + 4 <= resSize ? u32(resAt + offset) : null;
+    if (len === null || offset + 4 + len > resSize) continue;
+    const at = resAt + offset + 4;
+    if (at + len > buf.length) continue;
+    const name = str(cell(0x28, r, 2)) || `recurso-${r}`;
+    const span = Math.min(len, budget > 0 ? budget : RESOURCE_ENTROPY_SAMPLE);
+    budget -= span;
+    const data = buf.subarray(at, at + span);
+    resourceData.push({ name, offset: at, size: len });
+    base.resources.push({
+      name,
+      size: len,
+      entropy: data.length ? entropy(data, 0, data.length) : 0,
+      content: data.length ? (detectType(data)?.id ?? null) : null,
+      public: ((cell(0x28, r, 1) ?? 0) & 0x7) === 1,
+    });
+  }
+
   const names = new Set<string>();
   for (let r = 1; r <= count(0x01); r++) names.add(str(cell(0x01, r, 1)));
   for (let r = 1; r <= count(0x02); r++) names.add(str(cell(0x02, r, 1)));
@@ -355,5 +414,5 @@ export function analyzeDotnet(pe: PeImage): { info: DotnetInfo; alerts: PeAlert[
       });
     }
   }
-  return { info: base, alerts };
+  return { info: base, alerts, resourceData };
 }

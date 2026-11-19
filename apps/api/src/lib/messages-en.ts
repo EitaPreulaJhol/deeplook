@@ -475,6 +475,17 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['mesmas importações', 'same imports'],
   ['página parecida {0}%', 'similar page {0}%'],
   ['mesmo caminho de PDB', 'same PDB path'],
+  [
+    'Somente quem enviou e os analistas baixam os recursos.',
+    'Only the submitter and analysts download the resources.',
+  ],
+  ['A amostra não é um executável do Windows.', 'The sample is not a Windows executable.'],
+  ['Recurso não encontrado neste arquivo.', 'Resource not found in this file.'],
+  ['Este arquivo não tem recursos.', 'This file has no resources.'],
+  [
+    'Os recursos somam mais de {0} MB: baixe um de cada vez.',
+    'The resources add up to more than {0} MB: download them one at a time.',
+  ],
   ['mesma compilação (GUID do PDB)', 'same build (PDB GUID)'],
   ['Somente analistas veem o conteúdo do arquivo.', 'Only analysts see the file content.'],
   ['Links não têm conteúdo.', 'Links have no content.'],
