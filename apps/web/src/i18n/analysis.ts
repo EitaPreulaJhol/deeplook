@@ -67,6 +67,26 @@ export const messages = {
   stampExports: ['exportações', 'exports'],
   stampResources: ['recursos', 'resources'],
   resDownload: ['Baixar', 'Download'],
+  rustCrates: ['Crates ({n})', 'Crates ({n})'],
+  rustSources: ['Fontes do projeto', 'Project sources'],
+  rustSourcesHelp: [
+    'Caminhos que o compilador grava nas mensagens de erro: costumam trazer o usuário e o projeto de quem compilou.',
+    'Paths the compiler writes in the error messages: they usually carry the user and project of whoever built it.',
+  ],
+  goTitle: ['Go (GoReSym)', 'Go (GoReSym)'],
+  goVersion: ['Versão do Go', 'Go version'],
+  goModule: ['Módulo principal', 'Main module'],
+  goModuleHelp: [
+    'O caminho do projeto que o compilador do Go grava. Amostras do mesmo projeto aparecem em Relacionadas.',
+    'The project path the Go compiler writes. Samples of the same project appear in Related.',
+  ],
+  goSettings: ['Configuração do build', 'Build settings'],
+  goDeps: ['Dependências ({n})', 'Dependencies ({n})'],
+  goFunctions: [
+    'Funções do programa, sem a biblioteca padrão ({n})',
+    'Program functions, without the standard library ({n})',
+  ],
+  goFiles: ['Arquivos-fonte do projeto ({n})', 'Project source files ({n})'],
   chTitle: ['Canais de exfiltração', 'Exfiltration channels'],
   chIntro: [
     'Para onde a amostra manda dados, achado nas strings, no código e nas análises. Nada foi consultado: um token dá o controle do bot a quem o usa.',

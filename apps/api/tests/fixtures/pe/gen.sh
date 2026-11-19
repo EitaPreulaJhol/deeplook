@@ -55,6 +55,10 @@ echo "fb4abeea14cda51c1e60bc211cf9521bbbaae74b84118ca6d58f0a7223680388  eom.tar.
 tar xzf eom.tar.gz Email-Outlook-Message-0.921/t/files
 cp Email-Outlook-Message-0.921/t/files/plain_jpeg_attached.msg outlook-anexo.msg
 cp Email-Outlook-Message-0.921/t/files/plain_unsent.msg outlook-rascunho.msg
+# Executavel Go (item 14): o proprio GoReSym 3.4.1 (MIT), conferido pelo SHA-256 do zip oficial.
+curl -sSLf -o goresym.zip https://github.com/mandiant/GoReSym/releases/download/v3.4.1/GoReSym-linux.zip
+echo "a557124857f95a589f8ce3525119c2d18c7c7fc7c4225c92ff94e3effb38748d  goresym.zip" | sha256sum -c --quiet
+python3 -c "import zipfile; open('go.elf', 'wb').write(zipfile.ZipFile('goresym.zip').read('GoReSym'))"
 # Office cifrado (item 9): os exemplos de teste do msoffcrypto-tool (MIT), cifrados pelo proprio
 # Office com a senha Password1234_: um .docx (ECMA-376 agile) e um .xls (RC4 CryptoAPI). A cifragem
 # do msoffcrypto-tool 6.1 gera arquivos que nem ele decifra, e por isso nao e usada aqui.
@@ -175,7 +179,7 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
   pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp anexo.pdf anexo-rc4.pdf \
   anexo-aes128.pdf anexo-aes256.pdf anexo-senha.pdf anexo-objstm.pdf outlook-anexo.msg \
-  outlook-rascunho.msg office-cifrado.docx office-cifrado.xls reference.json /out/
+  outlook-rascunho.msg office-cifrado.docx office-cifrado.xls go.elf reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

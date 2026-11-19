@@ -568,6 +568,7 @@ export const messages = {
     'Mesmas funções do ELF (telfhash, distância {n})',
     'Same ELF functions (telfhash, distance {n})',
   ],
+  rGoModule: ['Mesmo projeto Go ({value})', 'Same Go project ({value})'],
   rSymhash: [
     'Mesmos símbolos do Mach-O (symhash {value}…)',
     'Same Mach-O symbols (symhash {value}…)',

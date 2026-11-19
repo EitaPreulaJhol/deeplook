@@ -15,6 +15,7 @@ import { type LolInfo, lolOf } from './lol';
 import { type MachoInfo, parseMacho } from './macho-analysis';
 import { readPdf } from './pdf-objects';
 import { parsePe, type PeInfo } from './pe-analysis';
+import { type RustInfo, rustInfo } from './rust-info';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
 import { analyzeSmallFormat } from './small-formats';
 
@@ -35,10 +36,11 @@ const MAX_LIST = 20;
 /**
  * Revisao da analise estatica (`rev`): o backfill refaz em segundo plano os executaveis analisados
  * numa revisao anterior (1: criptografia e codificacao, plans/analise-estatica-ampliada, item 7;
- * 2: canais de exfiltracao, item 3; 3: LOLDrivers, LOLRMM e binarios do sistema, item 4).
+ * 2: canais de exfiltracao, item 3; 3: LOLDrivers, LOLRMM e binarios do sistema, item 4;
+ * 4: Rust, item 14).
  * O PE tem tambem a dele (PE_REVISION).
  */
-export const STATIC_REVISION = 3;
+export const STATIC_REVISION = 4;
 
 export interface StaticInfo {
   version: 1;
@@ -91,6 +93,8 @@ export interface StaticInfo {
    * emulacao, configuracao) chegam depois e sao juntados na rota /channels.
    */
   channels?: Channel[];
+  /** Executavel Rust: crates com versao, commit do rustc e fontes do projeto (item 14). */
+  rust?: RustInfo | null;
   /** Driver do LOLDrivers, ferramenta do LOLRMM e binario do sistema abusado (item 4). */
   lol?: LolInfo | null;
   /**
@@ -410,6 +414,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     crypto,
     channels,
     lol,
+    rust: pe || elf || macho ? rustInfo(rawStrings) : null,
     iocCandidates: capPerKind(iocCandidates, CANDIDATES_PER_KIND),
   };
 }

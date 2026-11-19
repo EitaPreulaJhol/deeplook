@@ -17,6 +17,11 @@ ADD --checksum=sha256:e43fddb7d8eb2e985dffb7952bd1102b77d85a9a4467c1821ecefd8f41
 ADD --checksum=sha256:47ed1299fe0fcdf3549e4077573db9651c228144b22a372729eb014548332fcd \
   https://github.com/horsicq/DIE-engine/releases/download/3.21/die_3.21_Debian_13_amd64.deb \
   /tmp/die.deb
+# GoReSym 3.4.1 (MIT, Mandiant; plans/analise-estatica-ampliada, item 14): le o pclntab do Go, mesmo
+# sem simbolos. Binario estatico; o zip oficial conferido pelo SHA-256.
+ADD --checksum=sha256:a557124857f95a589f8ce3525119c2d18c7c7fc7c4225c92ff94e3effb38748d \
+  https://github.com/mandiant/GoReSym/releases/download/v3.4.1/GoReSym-linux.zip \
+  /opt/goresym.zip
 RUN dpkg-deb -x /tmp/die.deb /tmp/die \
   && mkdir -p /opt/die/usr/bin /opt/die/usr/lib/die \
   && cp /tmp/die/usr/bin/diec /opt/die/usr/bin/ \
@@ -35,6 +40,10 @@ RUN apt-get update \
 COPY --from=fetch --chmod=755 /opt/pyinstxtractor /opt/pyinstxtractor
 COPY --from=fetch /opt/die/ /
 COPY --from=fetch /opt/autoit-ripper.whl /tmp/autoit-ripper.whl
+COPY --from=fetch /opt/goresym.zip /tmp/goresym.zip
+RUN python3 -m zipfile -e /tmp/goresym.zip /opt/goresym \
+  && rm /tmp/goresym.zip \
+  && chmod 755 /opt/goresym /opt/goresym/GoReSym
 RUN python3 -m zipfile -e /tmp/autoit-ripper.whl /opt/autoit-ripper \
   && rm /tmp/autoit-ripper.whl \
   && chmod -R a+rX /opt/autoit-ripper

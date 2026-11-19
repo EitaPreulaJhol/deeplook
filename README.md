@@ -1048,6 +1048,12 @@ Setup` or `Delphi`; empty = any packer or protector).
 | Embedded archive | 7-Zip 25 | what is in the ZIP, 7z, RAR or CAB attached to the executable |
 | CAB | 7-Zip 25 | what is in a standalone CAB (an MSI's media, for example) |
 
+- **Go** (GoReSym 3.4.1, MIT, by Mandiant): in a Go executable, even without symbols, the record shows
+  the Go version, the main module (which becomes a pivot in Related: the same project links the
+  variants), the dependencies with versions, the build settings, the program's own functions (without
+  the standard library) and the project source files, which usually carry the builder's folder.
+- **Rust** (in the static analysis): the crates with versions, the `rustc` commit and the project
+  sources, taken from the paths the compiler writes in panic messages.
 - **Nothing is executed:** the tools only read and extract. Container with no network, non-root, no
   capabilities, read-only root and `/tmp` in memory without execution; one container per job.
 - **Limits:** up to `UNPACK_MAX_FILES` files and `UNPACK_MAX_TOTAL_MB` combined per sample (the rest

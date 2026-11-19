@@ -1056,6 +1056,12 @@ Setup` ou `Delphi`; vazio = qualquer empacotador ou protetor).
 | Arquivo embutido | 7-Zip 25 | o que há no ZIP, 7z, RAR ou CAB anexado ao executável |
 | CAB | 7-Zip 25 | o que há num CAB solto (a mídia de um MSI, por exemplo) |
 
+- **Go** (GoReSym 3.4.1, MIT, da Mandiant): num executável Go, mesmo sem símbolos, a ficha mostra a
+  versão do Go, o módulo principal (que vira pivô em Relacionadas: o mesmo projeto liga as variantes),
+  as dependências com versão, a configuração do build, as funções do próprio programa (sem a biblioteca
+  padrão) e os arquivos-fonte do projeto, que costumam trazer a pasta de quem compilou.
+- **Rust** (na análise estática): os crates com versão, o commit do `rustc` e os fontes do projeto,
+  tirados dos caminhos que o compilador grava nas mensagens de panic.
 - **Nada é executado**: as ferramentas só leem e extraem. Contêiner sem rede, sem root, sem
   capacidades, raiz somente leitura e `/tmp` em memória sem execução; um contêiner por trabalho.
 - **Limites**: até `UNPACK_MAX_FILES` arquivos e `UNPACK_MAX_TOTAL_MB` somados por amostra (o resto

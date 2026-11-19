@@ -82,6 +82,8 @@ function describePivot(pivot: PivotKind, value: string, distance?: number): stri
       return t('rTelfhash', { n: distance ?? 0 });
     case 'SYMHASH':
       return t('rSymhash', { value: value.slice(0, 12) });
+    case 'GO_MODULE':
+      return t('rGoModule', { value });
   }
 }
 

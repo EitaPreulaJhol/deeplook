@@ -26,6 +26,8 @@ export const PIVOT_KINDS = {
   TELFHASH: { weight: 40, match: 'tlsh', max: 50 },
   /** symhash de cada arquitetura do Mach-O (so com 5 ou mais simbolos). */
   SYMHASH: { weight: 30, match: 'exact' },
+  /** Modulo principal de um executavel Go, pelo GoReSym (item 14): o caminho do projeto. */
+  GO_MODULE: { weight: 50, match: 'exact' },
 } as const satisfies Record<
   string,
   { weight: number; match: 'exact' | 'hamming' | 'tlsh'; max?: number }
@@ -36,7 +38,7 @@ export interface Pivot {
   kind: PivotKind;
   value: string;
 }
-export type PivotSource = 'static';
+export type PivotSource = 'static' | 'unpack';
 
 /** Exportacoes com nome abaixo disto: tabela generica demais (DllMain, uma funcao so). */
 const MIN_EXPORTS = 3;

@@ -94,6 +94,8 @@ function reasonLabel(reason: RelatedReason): string | null {
           return 'mesmas funções do ELF (telfhash)';
         case 'SYMHASH':
           return 'mesmos símbolos do Mach-O';
+        case 'GO_MODULE':
+          return 'mesmo projeto em Go';
       }
       return null;
     case 'SHARED_TAGS':

@@ -211,6 +211,25 @@ async function main() {
       payload: {},
     });
 
+  // Go pelo GoReSym (plans/analise-estatica-ampliada, item 14): o proprio GoReSym como amostra.
+  const goId = await upload(bob, 'ferramenta', file('go.elf'));
+  await unpackIdle();
+  const goJob = (await job(goId))?.go as any;
+  const goPivot = await prisma.entryPivot.findFirst({
+    where: { entryId: goId, kind: 'GO_MODULE' },
+  });
+  ok(
+    'Go: versão, módulo, dependências, funções do autor e o módulo como pivô',
+    /^1\.\d+/.test(goJob?.version ?? '') &&
+      goJob.main?.path === 'github.com/mandiant/GoReSym' &&
+      goJob.deps.some((d: { path: string }) => d.path === 'github.com/elliotchance/orderedmap') &&
+      goJob.functionCount > 0 &&
+      goJob.functions.every((f: string) => !f.startsWith('runtime.')) &&
+      goPivot?.value === 'github.com/mandiant/GoReSym' &&
+      goPivot.source === 'unpack',
+    { go: goJob && { ...goJob, functions: goJob.functions.slice(0, 5) }, goPivot },
+  );
+
   const before = restarts();
   const upx = await upload(bob, 'setup.exe', file('upx64.exe'), 'campanha-x');
   await unpackIdle();

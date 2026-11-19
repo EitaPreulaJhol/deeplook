@@ -289,6 +289,22 @@ export interface DieDetection {
 }
 
 /** GET /api/entries/:id/unpack (itens 7.8 e 7.9). */
+/** O que o GoReSym tira de um executavel Go (item 14). */
+export interface GoInfo {
+  version: string;
+  buildId: string | null;
+  arch: string | null;
+  os: string | null;
+  path: string | null;
+  main: { path: string; version: string } | null;
+  deps: { path: string; version: string }[];
+  settings: { key: string; value: string }[];
+  packages: string[];
+  functions: string[];
+  functionCount: number;
+  files: string[];
+}
+
 export interface UnpackInfo {
   enabled: boolean;
   /** Executavel do Windows ou do Linux (a secao aparece). */
@@ -304,6 +320,8 @@ export interface UnpackInfo {
     detections: DieDetection[] | null;
     dieVersion: string | null;
     dieError: string | null;
+    /** GoReSym (item 14); ausente fora do Go. */
+    go?: GoInfo | null;
     error: string | null;
     ms: number | null;
     attempts: number;
@@ -771,6 +789,12 @@ export interface StaticInfo {
   elf?: ElfInfo | null;
   /** Executavel macOS (macho-analysis.ts). */
   macho?: MachoInfo | null;
+  /** Executavel Rust: crates, commit do rustc e fontes do projeto (item 14). */
+  rust?: {
+    crates: { name: string; version: string }[];
+    rustc: string | null;
+    sources: string[];
+  } | null;
   /** Abuso conhecido: LOLDrivers, LOLRMM e binarios do sistema (item 4). */
   lol?: {
     driver: {
@@ -1565,7 +1589,14 @@ export type RelatedReason =
 
 /** Pivos que ligam amostras (EntryPivot na API). */
 export type PivotKind =
-  'PDB_PATH' | 'PDB_ID' | 'AUTHENTIHASH' | 'EXPHASH' | 'ICON_DHASH' | 'TELFHASH' | 'SYMHASH';
+  | 'PDB_PATH'
+  | 'PDB_ID'
+  | 'AUTHENTIHASH'
+  | 'EXPHASH'
+  | 'ICON_DHASH'
+  | 'TELFHASH'
+  | 'SYMHASH'
+  | 'GO_MODULE';
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {

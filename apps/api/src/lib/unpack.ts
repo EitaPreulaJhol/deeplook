@@ -8,6 +8,7 @@ import { type AnalysisService, requestAnalysis, requestFailure } from './analysi
 import { sha256Hex } from './crypto';
 import { recordEvent } from './events';
 import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
+import { type Pivot, replacePivots } from './pivots';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { applyTriageRulesQuietly } from './triage-rules';
@@ -88,10 +89,30 @@ const detectionSchema = z.object({
   string: z.string().max(240),
 });
 export type Detection = z.infer<typeof detectionSchema>;
+/** GoReSym (plans/analise-estatica-ampliada, item 14): o que o pclntab do Go revela. */
+const goSchema = z
+  .object({
+    version: z.string().max(40),
+    buildId: z.string().max(200).nullable(),
+    arch: z.string().max(20).nullable(),
+    os: z.string().max(20).nullable(),
+    path: z.string().max(300).nullable(),
+    main: z.object({ path: z.string().max(300), version: z.string().max(120) }).nullable(),
+    deps: z.array(z.object({ path: z.string().max(300), version: z.string().max(120) })).max(200),
+    settings: z.array(z.object({ key: z.string().max(80), value: z.string().max(300) })).max(50),
+    packages: z.array(z.string().max(200)).max(200),
+    functions: z.array(z.string().max(200)).max(500),
+    functionCount: z.number().int().nonnegative(),
+    files: z.array(z.string().max(300)).max(200),
+  })
+  .nullable();
+export type GoInfo = z.infer<typeof goSchema>;
+
 const ident = {
   detections: z.array(detectionSchema).max(50).optional(),
   dieVersion: z.string().max(20).nullish(),
   dieError: z.string().max(300).nullish(),
+  go: goSchema.optional(),
 };
 
 const manifestSchema = z.union([
@@ -111,6 +132,7 @@ const manifestSchema = z.union([
           detections: z.array(detectionSchema).max(50).optional(),
           dieError: z.string().max(300).nullish(),
           candidate: z.boolean().optional(),
+          go: goSchema.optional(),
         }),
       )
       .max(100),
@@ -153,6 +175,19 @@ export interface Identified {
   dieVersion: string | null;
   dieError: string | null;
   candidate: boolean;
+  go?: GoInfo;
+}
+
+/**
+ * O GoReSym na amostra (item 14): grava no trabalho e o modulo principal vira pivo (o caminho do
+ * projeto, "github.com/autor/projeto", liga as variantes do mesmo malware).
+ */
+async function recordGo(entryId: string, go: GoInfo | undefined) {
+  if (go === undefined) return;
+  const module = go?.main?.path || go?.path;
+  const pivots: Pivot[] =
+    module && module !== 'command-line-arguments' ? [{ kind: 'GO_MODULE', value: module }] : [];
+  await replacePivots(prisma, entryId, 'unpack', pivots);
 }
 type ChildCreator = (child: UnpackedChild) => Promise<{ id: string }>;
 
@@ -220,11 +255,15 @@ export async function recordIdentified(
       detections: identified.detections as unknown as Prisma.InputJsonValue,
       dieVersion: identified.dieVersion,
       dieError: identified.dieError,
+      ...(identified.go !== undefined
+        ? { go: (identified.go ?? Prisma.DbNull) as Prisma.InputJsonValue }
+        : {}),
       attempts: 0,
       finishedAt: new Date(),
     },
     update: {},
   });
+  await recordGo(entryId, identified.go);
   await applyTriageRulesQuietly(entryId);
 }
 
@@ -450,7 +489,11 @@ async function unpackJob(
     detections: (manifest.detections ?? []) as unknown as Prisma.InputJsonValue,
     dieVersion: manifest.dieVersion ?? null,
     dieError: manifest.dieError ?? null,
+    ...(manifest.go !== undefined
+      ? { go: (manifest.go ?? Prisma.DbNull) as Prisma.InputJsonValue }
+      : {}),
   };
+  await recordGo(entryId, manifest.go);
   if (!manifest.ok) {
     await finish(id, {
       status: 'FAILED',
@@ -517,6 +560,7 @@ async function unpackJob(
             dieVersion: manifest.dieVersion ?? null,
             dieError: file.dieError ?? null,
             candidate: file.candidate ?? true,
+            ...(file.go !== undefined ? { go: file.go } : {}),
           }
         : undefined,
       description: `Extraído de "${entry.title}" pelo desempacotador ${label}${

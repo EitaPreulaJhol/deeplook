@@ -117,6 +117,81 @@ def die_version():
 
 DIE_VERSION = die_version()
 
+GORESYM = os.environ.get("GORESYM", "/opt/goresym/GoReSym")
+GO_TIMEOUT = 60
+MAX_GO_DEPS = 200
+MAX_GO_FUNCTIONS = 500
+MAX_GO_FILES = 200
+
+
+def is_std(package):
+    """Pacote da biblioteca padrao (ou do runtime): o primeiro trecho do caminho nao tem ponto."""
+    first = package.split("/", 1)[0]
+    return package != "main" and "." not in first
+
+
+def looks_go(data, detections):
+    """Go pelo DIE (compilador) ou pela marca do build ID que o linker do Go grava."""
+    if any("go" == (d.get("name") or "").lower() or "golang" in (d.get("name") or "").lower()
+           for d in detections):
+        return True
+    return b"\xff Go build ID: " in data or b"Go buildinf:" in data
+
+
+def go_info(path):
+    """GoReSym (plans/analise-estatica-ampliada, item 14): versao do Go, modulo principal, dependencias,
+    configuracao do build, as funcoes do proprio programa (sem a biblioteca padrao) e os arquivos-fonte
+    do projeto. Funciona com o binario sem simbolos (le o pclntab). None se nao for Go."""
+    try:
+        code, out = run([GORESYM, "-p", path], GO_TIMEOUT)
+    except UnpackError:
+        return None
+    try:
+        doc = json.loads(out[out.index("{"):])
+    except ValueError:
+        return None
+    if code != 0 or not doc.get("Version"):
+        return None
+    build = doc.get("BuildInfo") or {}
+    main = build.get("Main") or {}
+    functions = [
+        f.get("FullName", "")[:200]
+        for f in doc.get("UserFunctions") or []
+        if not is_std(f.get("PackageName") or "")
+    ]
+    packages = sorted({
+        (f.get("PackageName") or "")[:200]
+        for f in doc.get("UserFunctions") or []
+        if not is_std(f.get("PackageName") or "")
+    })
+    toolchain = ("/go/src/", "/hostedtoolcache/", "/usr/local/go/", "/usr/lib/go", "/pkg/mod/")
+    files = [
+        str(p)[:300] for p in doc.get("Files") or []
+        if not any(t in str(p).replace("\\", "/") for t in toolchain)
+    ]
+    return {
+        "version": str(doc.get("Version"))[:40],
+        "buildId": (str(doc.get("BuildId")) or "")[:200] or None,
+        "arch": str(doc.get("Arch") or "")[:20] or None,
+        "os": str(doc.get("OS") or "")[:20] or None,
+        "path": (build.get("Path") or "")[:300] or None,
+        "main": {"path": (main.get("Path") or "")[:300], "version": (main.get("Version") or "")[:120]}
+        if main.get("Path") else None,
+        "deps": [
+            {"path": (d.get("Path") or "")[:300], "version": (d.get("Version") or "")[:120]}
+            for d in (build.get("Deps") or [])[:MAX_GO_DEPS]
+        ],
+        "settings": [
+            {"key": (s.get("Key") or "")[:80], "value": (s.get("Value") or "")[:300]}
+            for s in (build.get("Settings") or [])[:50]
+            if s.get("Key") != "DefaultGODEBUG"
+        ],
+        "packages": packages[:200],
+        "functions": functions[:MAX_GO_FUNCTIONS],
+        "functionCount": len(functions),
+        "files": files[:MAX_GO_FILES],
+    }
+
 
 def identify(path):
     """Detect It Easy (diec -j): [{filetype, type, name, version, info, string}] ou o motivo."""
@@ -165,6 +240,8 @@ def analyze(data, work, unpack=True):
         f.write(data)
     detections, die_error = identify(sample)
     ident = {"detections": detections, "dieError": die_error, "dieVersion": DIE_VERSION}
+    if looks_go(data, detections):
+        ident["go"] = go_info(sample)
     plugin = next((p for p in PLUGINS if p.detect(data)), None) if unpack else None
     if plugin is None:
         return {"ok": True, "unpacker": None, "files": [], "skipped": [], "note": None, **ident}, []
@@ -209,16 +286,17 @@ def analyze(data, work, unpack=True):
         with open(path, "rb") as f:
             head = f.read()
         child_detections, child_error = identify(path)
-        files.append(
-            {
-                "name": name,
-                "entry": entry,
-                "size": size,
-                "detections": child_detections,
-                "dieError": child_error,
-                "candidate": any(p.detect(head) for p in PLUGINS),
-            }
-        )
+        child = {
+            "name": name,
+            "entry": entry,
+            "size": size,
+            "detections": child_detections,
+            "dieError": child_error,
+            "candidate": any(p.detect(head) for p in PLUGINS),
+        }
+        if looks_go(head, child_detections):
+            child["go"] = go_info(path)
+        files.append(child)
     if len(skipped) > MAX_SKIPPED:
         rest = skipped[MAX_SKIPPED:]
         skipped = skipped[:MAX_SKIPPED] + [

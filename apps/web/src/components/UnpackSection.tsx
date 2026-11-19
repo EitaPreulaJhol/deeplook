@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { UnpackInfo } from '../api/types';
+import type { GoInfo, UnpackInfo } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/analysis';
 import { formatFileSize } from './HpsmFileDrop';
@@ -49,6 +49,64 @@ function situation(job: NonNullable<UnpackInfo['job']>): { tone: StatusTone; tex
     tone: made ? 'green' : 'none',
     text: t('extractedFiles', { n: made, date: fmtDate(job.finishedAt) }),
   };
+}
+
+/** O executavel Go pelo GoReSym (item 14): versao, modulo, dependencias, build e funcoes do autor. */
+function GoBlock({ go }: { go: GoInfo }) {
+  const chips = (items: string[]) => (
+    <span className="dl-static-chips">
+      {items.map((x) => (
+        <code key={x}>{x}</code>
+      ))}
+    </span>
+  );
+  return (
+    <div className="dl-static-block">
+      <h4 className="dl-static-title">{t('goTitle')}</h4>
+      <HpsmForm columns={2}>
+        <HpsmField label={t('goVersion')}>
+          <HpsmReadonly>
+            {go.version}
+            {go.os && go.arch && ` · ${go.os}/${go.arch}`}
+          </HpsmReadonly>
+        </HpsmField>
+        <HpsmField label={t('goModule')} help={t('goModuleHelp')}>
+          <HpsmReadonly>
+            {go.main ? (
+              <>
+                <code>{go.main.path}</code> {go.main.version}
+              </>
+            ) : (
+              (go.path ?? '—')
+            )}
+          </HpsmReadonly>
+        </HpsmField>
+        {go.settings.length > 0 && (
+          <HpsmField label={t('goSettings')} wide>
+            <HpsmReadonly>{chips(go.settings.map((s) => `${s.key}=${s.value}`))}</HpsmReadonly>
+          </HpsmField>
+        )}
+      </HpsmForm>
+      {go.deps.length > 0 && (
+        <details className="dl-static-strings">
+          <summary>{t('goDeps', { n: go.deps.length })}</summary>
+          {chips(go.deps.map((d) => `${d.path} ${d.version}`))}
+        </details>
+      )}
+      {go.functionCount > 0 && (
+        <details className="dl-static-strings">
+          <summary>{t('goFunctions', { n: go.functionCount })}</summary>
+          {chips(go.functions)}
+        </details>
+      )}
+      {go.files.length > 0 && (
+        <details className="dl-static-strings">
+          <summary>{t('goFiles', { n: go.files.length })}</summary>
+          {chips(go.files)}
+        </details>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -146,6 +204,7 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
           )}
         </HpsmField>
       </HpsmForm>
+      {job.go && <GoBlock go={job.go} />}
       {files.length > 0 && (
         <ul className="dl-unpack-files">
           {files.map((f, i) => {

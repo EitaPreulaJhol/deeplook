@@ -701,6 +701,38 @@ export function StaticAnalysisSection({
       )}
 
       {info.lol && <LolBlock lol={info.lol} />}
+      {info.rust && (
+        <div className="dl-static-block">
+          <h4 className="dl-static-title">Rust</h4>
+          <HpsmForm columns={2}>
+            <HpsmField label={t('rustCrates', { n: info.rust.crates.length })} wide>
+              <HpsmReadonly>
+                <span className="dl-static-chips">
+                  {info.rust.crates.map((c) => (
+                    <code key={`${c.name}-${c.version}`}>
+                      {c.name} {c.version}
+                    </code>
+                  ))}
+                </span>
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label="rustc">
+              <HpsmReadonly>{info.rust.rustc ? <code>{info.rust.rustc}</code> : '—'}</HpsmReadonly>
+            </HpsmField>
+            {info.rust.sources.length > 0 && (
+              <HpsmField label={t('rustSources')} wide help={t('rustSourcesHelp')}>
+                <HpsmReadonly>
+                  <span className="dl-static-chips">
+                    {info.rust.sources.map((s) => (
+                      <code key={s}>{s}</code>
+                    ))}
+                  </span>
+                </HpsmReadonly>
+              </HpsmField>
+            )}
+          </HpsmForm>
+        </div>
+      )}
       {info.crypto && (info.crypto.constants.length > 0 || info.crypto.alphabets.length > 0) && (
         <CryptoBlock crypto={info.crypto} />
       )}

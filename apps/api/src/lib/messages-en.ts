@@ -492,6 +492,11 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['ícone parecido', 'similar icon'],
   ['mesmas funções do ELF (telfhash)', 'same ELF functions (telfhash)'],
   ['mesmos símbolos do Mach-O', 'same Mach-O symbols'],
+  ['mesmo projeto em Go', 'same Go project'],
+  [
+    'Este pacote é atualizado no servidor, pelo script scripts/vendor-yara-forge.mjs.',
+    'This pack is updated on the server, by the scripts/vendor-yara-forge.mjs script.',
+  ],
   ['Somente analistas veem o conteúdo do arquivo.', 'Only analysts see the file content.'],
   ['Links não têm conteúdo.', 'Links have no content.'],
   ['cole a lista ou escolha um arquivo', 'paste the list or choose a file'],
