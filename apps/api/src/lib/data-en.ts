@@ -45,6 +45,22 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['sem nome', 'no name'],
   ['Assinatura presente, mas não conferida: {0}', 'Signature present, but not checked: {0}'],
   [
+    'A data do cabeçalho ({0}) não bate com a do diretório de debug ({1}): a data de compilação foi alterada.',
+    'The header date ({0}) does not match the debug directory date ({1}): the compile date was changed.',
+  ],
+  [
+    'A data do cabeçalho ({0}) não bate com a da tabela de exportações ({1}): a data de compilação foi alterada.',
+    'The header date ({0}) does not match the export table date ({1}): the compile date was changed.',
+  ],
+  [
+    'Os recursos têm data posterior à compilação ({0}): foram editados depois.',
+    'The resources are dated after the compilation ({0}): they were edited later.',
+  ],
+  [
+    'Compilado na configuração Debug (caminho do PDB).',
+    'Built in the Debug configuration (PDB path).',
+  ],
+  [
     'O ponto de entrada está na seção {0}, que não é executável.',
     'The entry point is in section {0}, which is not executable.',
   ],

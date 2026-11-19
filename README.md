@@ -512,6 +512,17 @@ addition to sections, imports and packer:
   tab links samples with the same imphash or the same Rich header. The imphash only links with its own
   table: .NET (all of which imports only `_CorExeMain`) and packer tables (fewer than 10 functions) are
   left out, otherwise they would link samples with no relation at all.
+- **Rich header tools**: each entry with its tool (C, C++, ASM, linker...) and Visual Studio version,
+  from the [richprint](https://github.com/dishather/richprint) table (BSD-2-Clause, in
+  `apps/api/src/lib/rich-products.json`; `node apps/api/scripts/vendor-richprint.mjs` updates it).
+- **Debug info (PDB)**: the PDB path the linker wrote, with the **user** and the **project** taken from
+  it (`C:\Users\<user>\...\<project>\obj\Release\...`), the build identity (GUID and age, as on the
+  symbol server) and the entry types (POGO, REPRO...). The same path or the same build links samples
+  in the **Related** tab.
+- **Recorded dates**: the header's, the debug directory's, the exports' and the resources'. Whoever
+  forges the date usually changes only the header one, and the difference becomes the **compile date
+  changed** alert (timestomping). A reproducible build (REPRO), which writes a hash instead of a date,
+  and Delphi's fixed date do not raise it.
 - **Authenticode signature**: who signed, who issued, validity, fingerprint, timestamp and the chain that
   came in the file. The status says whether the file was **altered after being signed** and whether the
   signature matches the certificate. The chain is **not** checked against Windows' trusted roots (the API
@@ -2297,6 +2308,9 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Thank you!
 - **YARA rule packs:** each pack in `apps/api/rules/` keeps its authors' license (`LICENSE` in the
   pack's folder; summary in the YARA rules section).
+- **Visual Studio versions of the Rich header:** the `comp_id.txt` table from
+  [richprint](https://github.com/dishather/richprint), by dishather, under the BSD-2-Clause license, converted
+  into `apps/api/src/lib/rich-products.json`.
 
 ## License
 

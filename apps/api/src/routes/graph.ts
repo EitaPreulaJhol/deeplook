@@ -78,6 +78,14 @@ function reasonLabel(reason: RelatedReason): string | null {
       return 'mesmo Rich header';
     case 'SIMILAR_PAGE':
       return `página parecida ${reason.detail}%`;
+    case 'SAME_PIVOT':
+      switch (reason.detail.pivot) {
+        case 'PDB_PATH':
+          return 'mesmo caminho de PDB';
+        case 'PDB_ID':
+          return 'mesma compilação (GUID do PDB)';
+      }
+      return null;
     case 'SHARED_TAGS':
       return null;
   }

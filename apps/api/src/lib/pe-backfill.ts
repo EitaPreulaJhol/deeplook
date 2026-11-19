@@ -2,7 +2,8 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
-import { relationHashes } from './pe-analysis';
+import { PE_REVISION, relationHashes } from './pe-analysis';
+import { replacePivots, staticPivots } from './pivots';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 import { analyzeInThread } from './static-analysis-thread';
@@ -10,10 +11,11 @@ import { analyzeInThread } from './static-analysis-thread';
 const PAGE = 20;
 
 /**
- * Executaveis do Windows analisados antes do item 7.1: refaz a analise estatica em segundo plano,
- * um arquivo por vez e na thread de analise, para a ficha ganhar imphash, Rich header, recursos e
- * assinatura e a aba Relacionadas poder liga-los. A marca de "ja feito" e a chave `imphash` no PE
- * (null quando nao ha); arquivo expurgado ou ilegivel ganha so essa marca, para nao repetir.
+ * Executaveis do Windows analisados numa versao anterior da analise de PE (item 7.1: imphash, Rich
+ * header, recursos e assinatura; plans/analise-estatica-ampliada: debug, pivos...): refaz a analise
+ * estatica em segundo plano, um arquivo por vez e na thread de analise, para a ficha ganhar o que
+ * falta e a aba Relacionadas poder liga-los. A marca de "ja feito" e `pe.rev` (PE_REVISION);
+ * arquivo expurgado ou ilegivel ganha so essa marca, para nao repetir.
  */
 export async function backfillPeAnalysis(log: {
   info: (msg: string) => void;
@@ -35,7 +37,7 @@ export async function backfillPeAnalysis(log: {
         FROM "Entry"
         WHERE "type" = 'FILE'
           AND jsonb_typeof("staticInfo"->'pe') = 'object'
-          AND NOT ("staticInfo"->'pe' ? 'imphash')
+          AND COALESCE(("staticInfo"->'pe'->>'rev')::int, 0) < ${PE_REVISION}
         ORDER BY "createdAt" DESC
         LIMIT ${PAGE}`;
       if (!page.length) break;
@@ -55,13 +57,15 @@ export async function backfillPeAnalysis(log: {
             const pe = staticInfo.pe
               ? { ...staticInfo.pe, imphash: staticInfo.pe.imphash ?? null }
               : null;
+            const fresh = { ...staticInfo, pe };
             await prisma.entry.update({
               where: { id: entry.id },
               data: {
-                staticInfo: { ...staticInfo, pe } as unknown as Prisma.InputJsonValue,
+                staticInfo: fresh as unknown as Prisma.InputJsonValue,
                 ...relationHashes(pe),
               },
             });
+            await replacePivots(prisma, entry.id, 'static', staticPivots(fresh));
             analyzed = Boolean(pe);
           } catch {
             analyzed = false;
@@ -70,7 +74,9 @@ export async function backfillPeAnalysis(log: {
         if (!analyzed) {
           await prisma.$executeRaw`
             UPDATE "Entry"
-            SET "staticInfo" = jsonb_set("staticInfo", '{pe,imphash}', 'null'::jsonb)
+            SET "staticInfo" = jsonb_set(
+              jsonb_set("staticInfo", '{pe,imphash}', COALESCE("staticInfo"->'pe'->'imphash', 'null'::jsonb)),
+              '{pe,rev}', to_jsonb(${PE_REVISION}::int))
             WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'pe') = 'object'`;
         }
         done += 1;

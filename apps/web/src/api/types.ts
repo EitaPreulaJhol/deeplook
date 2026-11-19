@@ -513,7 +513,15 @@ export interface PeInfo {
   rich?: {
     hash: string;
     checksumValid: boolean;
-    entries: { product: number; build: number; count: number }[];
+    entries: {
+      product: number;
+      build: number;
+      count: number;
+      /** Ferramenta ([C], [C++], [LNK]...) e versao do Visual Studio (analises novas). */
+      tool?: string | null;
+      version?: string | null;
+    }[];
+    linker?: string | null;
   } | null;
   exports?: {
     dll: string | null;
@@ -536,6 +544,27 @@ export interface PeInfo {
   resourcesTruncated?: boolean;
   version?: Record<string, string> | null;
   manifest?: { executionLevel: string | null; uiAccess: boolean } | null;
+  /** Diretorio de debug (plans/analise-estatica-ampliada, item 1). */
+  debug?: {
+    pdbPath: string | null;
+    pdbFormat: 'RSDS' | 'NB10' | null;
+    pdbGuid: string | null;
+    pdbAge: number | null;
+    pdbId: string | null;
+    types: string[];
+    repro: boolean;
+    timestamp: number | null;
+    user: string | null;
+    project: string | null;
+    debugBuild: boolean;
+  } | null;
+  /** TimeDateStamp de cada lugar que o grava (segundos). */
+  timestamps?: {
+    header: number | null;
+    debug: number | null;
+    exports: number | null;
+    resources: number | null;
+  };
   signature?: {
     digestAlgorithm: string | null;
     digestMatches: boolean | null;
@@ -1458,7 +1487,12 @@ export type RelatedReason =
   | { kind: 'SAME_IMPHASH'; detail: string }
   /** Mesmo Rich header (item 7.1). */
   | { kind: 'SAME_RICH'; detail: string }
-  | { kind: 'SIMILAR_PAGE'; detail: number };
+  | { kind: 'SIMILAR_PAGE'; detail: number }
+  /** Mesmo pivo: PDB, authentihash... (plans/analise-estatica-ampliada). */
+  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string } };
+
+/** Pivos que ligam amostras (EntryPivot na API). */
+export type PivotKind = 'PDB_PATH' | 'PDB_ID';
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {

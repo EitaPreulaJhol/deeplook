@@ -6,6 +6,8 @@ package-lock.json
 *.png
 *.svg
 apps/api/src/lib/attack-enterprise.json
+# Tabela do richprint gerada por apps/api/scripts/vendor-richprint.mjs (uma linha so).
+apps/api/src/lib/rich-products.json
 apps/api/src/generated
 # Pacotes de regras YARA: o .gitattributes manda copiar sem alterar.
 apps/api/rules

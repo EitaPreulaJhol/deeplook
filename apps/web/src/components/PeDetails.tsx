@@ -117,6 +117,7 @@ export function PeHeaderFields({ pe }: { pe: PeInfo }) {
               ) : (
                 <StatusText tone="orange">{t('edited')}</StatusText>
               )}
+              {pe.rich.linker && ` ${t('richLinker', { version: pe.rich.linker })}`}
             </>
           ) : (
             t('richAbsent')
@@ -247,6 +248,125 @@ function SignatureBlock({ signature }: { signature: NonNullable<PeInfo['signatur
   );
 }
 
+const fmtStamp = (seconds: number | null) =>
+  seconds ? new Date(seconds * 1000).toLocaleString(intlLocale()) : '—';
+
+/** Diretorio de debug: caminho do PDB, GUID e as datas gravadas pelo linker (item 1). */
+function DebugBlock({ pe }: { pe: PeInfo }) {
+  const debug = pe.debug;
+  const stamps = pe.timestamps;
+  return (
+    <div className="dl-static-block">
+      <h4 className="dl-static-title">{t('debugTitle')}</h4>
+      {!debug ? (
+        <p className="dl-static-empty">{t('debugNone')}</p>
+      ) : (
+        <HpsmForm columns={2}>
+          <HpsmField label={t('pdbPath')} help={t('pdbPathHelp')} wide>
+            <HpsmReadonly>
+              {debug.pdbPath ? (
+                <>
+                  <code>{debug.pdbPath}</code>{' '}
+                  <CopyButton value={debug.pdbPath} label={t('pdbPath')} />
+                </>
+              ) : (
+                '—'
+              )}
+            </HpsmReadonly>
+          </HpsmField>
+          <HpsmField label={t('pdbId')} help={t('pdbIdHelp')}>
+            <HpsmReadonly>
+              {debug.pdbId ? (
+                <>
+                  <code>{debug.pdbId}</code> <CopyButton value={debug.pdbId} label={t('pdbId')} />
+                </>
+              ) : debug.pdbFormat === 'NB10' ? (
+                `NB10 · age ${debug.pdbAge}`
+              ) : (
+                '—'
+              )}
+            </HpsmReadonly>
+          </HpsmField>
+          <HpsmField label={t('pdbUser')}>
+            <HpsmReadonly>{debug.user ? <code>{debug.user}</code> : '—'}</HpsmReadonly>
+          </HpsmField>
+          <HpsmField label={t('pdbProject')}>
+            <HpsmReadonly>
+              {debug.project ? <code>{debug.project}</code> : '—'}
+              {debug.debugBuild && (
+                <>
+                  {' '}
+                  <StatusText tone="orange">{t('debugBuildYes')}</StatusText>
+                </>
+              )}
+            </HpsmReadonly>
+          </HpsmField>
+          <HpsmField label={t('debugTypes')}>
+            <HpsmReadonly>
+              {debug.types.join(', ') || '—'}
+              {debug.repro && ` · ${t('reproBuild')}`}
+            </HpsmReadonly>
+          </HpsmField>
+        </HpsmForm>
+      )}
+      {stamps && (
+        <HpsmForm columns={2}>
+          <HpsmField label={t('stampsTitle')} help={t('stampsHelp')} wide>
+            <HpsmReadonly>
+              {(
+                [
+                  ['stampHeader', stamps.header],
+                  ['stampDebug', stamps.debug],
+                  ['stampExports', stamps.exports],
+                  ['stampResources', stamps.resources],
+                ] as const
+              )
+                .filter(([, v]) => v)
+                .map(
+                  ([key, v]) =>
+                    `${t(key)}: ${debug?.repro && key !== 'stampResources' ? '—' : fmtStamp(v)}`,
+                )
+                .join(' · ') || '—'}
+            </HpsmReadonly>
+          </HpsmField>
+        </HpsmForm>
+      )}
+    </div>
+  );
+}
+
+/** Ferramentas do Rich header, com a versao do Visual Studio de cada uma (item 1). */
+function RichTable({ rich }: { rich: NonNullable<PeInfo['rich']> }) {
+  if (!rich.entries.length || rich.entries[0].tool === undefined) return null;
+  return (
+    <details className="dl-static-strings">
+      <summary>{t('richTable', { n: rich.entries.length })}</summary>
+      <TableContainer>
+        <Table size="xs" aria-label={t('richTable', { n: rich.entries.length })}>
+          <TableHead>
+            <TableRow>
+              <TableHeader scope="col">{t('richTool')}</TableHeader>
+              <TableHeader scope="col">{t('richVersion')}</TableHeader>
+              <TableHeader scope="col">{t('richCount')}</TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rich.entries.map((e, i) => (
+              <TableRow key={`${e.product}-${e.build}-${i}`}>
+                <TableCell>{e.tool ? <code>{e.tool}</code> : '—'}</TableCell>
+                <TableCell>
+                  {e.version ?? t('richUnknown', { product: e.product, build: e.build })}
+                </TableCell>
+                <TableCell>{e.count}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </details>
+  );
+}
+
 function DotnetBlock({ dotnet }: { dotnet: NonNullable<PeInfo['dotnet']> }) {
   const chips = (items: string[], empty: string) =>
     items.length ? (
@@ -322,6 +442,7 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
           <p className="dl-static-empty">{t('noSignature')}</p>
         </div>
       )}
+      {pe.debug !== undefined && <DebugBlock pe={pe} />}
       {pe.dotnet && <DotnetBlock dotnet={pe.dotnet} />}
       {(version.length > 0 || resources.length > 0) && (
         <div className="dl-static-tables">
@@ -416,6 +537,7 @@ export function PeExtraBlocks({ pe }: { pe: PeInfo }) {
           {pe.exports.truncated && <p className="dl-static-empty">{t('listCut')}</p>}
         </details>
       )}
+      {pe.rich && <RichTable rich={pe.rich} />}
       {named.length > 0 && (
         <details className="dl-static-strings">
           <summary>

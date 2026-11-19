@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { entropy } from './entropy';
 import { ascii, detectType } from './file-type';
 import { analyzeAuthenticode, type SignatureInfo } from './pe-authenticode';
+import { analyzeDebug, type PeDebug, richTool } from './pe-debug';
 import { analyzeDotnet, type DotnetInfo } from './pe-dotnet';
 // Ordinais conhecidos do ws2_32, wsock32 e oleaut32, copiados do `ordlookup` do pefile (MIT):
 // o imphash do pefile (e do VirusTotal) troca o ordinal pelo nome, e o nosso tem de bater.
@@ -14,6 +15,13 @@ import { analyzeResources, type PeResource } from './pe-resources';
  * overlay, checksum, recursos, assinatura e .NET (item 7.1). Le so bytes, com checagem de
  * limites em cada acesso: o arquivo pode ter sido montado para travar ou derrubar o parser.
  */
+
+/**
+ * Versao da analise de PE gravada em `pe.rev`: o pe-backfill reanalisa em segundo plano o que foi
+ * analisado numa versao anterior (1: item 7.1; 2: diretorio de debug e ferramentas do Rich header,
+ * plans/analise-estatica-ampliada, item 1).
+ */
+export const PE_REVISION = 2;
 
 const MAX_DLLS = 64;
 const MAX_FUNCTIONS = 4096;
@@ -55,6 +63,9 @@ export interface RichEntry {
   product: number;
   build: number;
   count: number;
+  /** Ferramenta ([C], [C++], [LNK], [ASM], [RES]...) e versao do Visual Studio (richprint). */
+  tool?: string | null;
+  version?: string | null;
 }
 
 export interface RichInfo {
@@ -63,6 +74,8 @@ export interface RichInfo {
   /** A chave confere com o cabecalho DOS e as entradas (falso: editado ou copiado). */
   checksumValid: boolean;
   entries: RichEntry[];
+  /** Versao do linker (a entrada [LNK]): o Visual Studio que montou o executavel. */
+  linker?: string | null;
 }
 
 export interface PeExports {
@@ -110,7 +123,18 @@ export interface PeInfo {
   manifest?: { executionLevel: string | null; uiAccess: boolean } | null;
   signature?: SignatureInfo | null;
   dotnet?: DotnetInfo | null;
+  /** Diretorio de debug: PDB, tipos de entrada e pistas (plans/analise-estatica-ampliada, item 1). */
+  debug?: PeDebug | null;
+  /** TimeDateStamp de cada lugar que o grava (segundos; null quando nao ha ou e zero). */
+  timestamps?: {
+    header: number | null;
+    debug: number | null;
+    exports: number | null;
+    resources: number | null;
+  };
   alerts?: PeAlert[];
+  /** Versao da analise (PE_REVISION); ausente nas analises anteriores ao item 1. */
+  rev?: number;
 }
 
 /** Secao como esta no arquivo, para converter RVA em posicao. */
@@ -205,6 +229,11 @@ const PACKER_ENTRY: { name: string; bytes: (number | null)[] }[] = [
 /** Bytes do entry point onde se procura o codigo do empacotador (a DLL tem um preambulo). */
 const PACKER_ENTRY_WINDOW = 64;
 
+/** Data fixa que o Delphi grava no cabecalho (19/06/1992), sem relacao com a compilacao. */
+const DELPHI_TIMESTAMP = 0x2a425e19;
+/** Diferenca aceita entre as datas do linker (um build lento passa de minutos). */
+const STAMP_TOLERANCE_S = 24 * 3600;
+
 const SCN_EXECUTE = 0x20000000;
 const SCN_READ = 0x40000000;
 const SCN_WRITE = 0x80000000;
@@ -281,7 +310,9 @@ export function parseRich(buf: Buffer, peOffset: number): RichInfo | null {
     const compId = (buf.readUInt32LE(o) ^ key) >>> 0;
     const count = (buf.readUInt32LE(o + 4) ^ key) >>> 0;
     pairs.push([compId, count]);
-    entries.push({ product: compId >>> 16, build: compId & 0xffff, count });
+    const product = compId >>> 16;
+    const build = compId & 0xffff;
+    entries.push({ product, build, count, ...richTool(product, build) });
   }
   // Chave do linker da Microsoft: soma rotacionada do cabecalho DOS (sem o e_lfanew) e dos pares.
   let check = 0x80;
@@ -295,6 +326,7 @@ export function parseRich(buf: Buffer, peOffset: number): RichInfo | null {
     hash: createHash('md5').update(clear).digest('hex'),
     checksumValid: dans && check === key,
     entries,
+    linker: entries.find((e) => e.tool === 'LNK')?.version ?? null,
   };
 }
 
@@ -610,6 +642,7 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
 
   // ---------------------------------------------------------------- recursos, assinatura, .NET
   const res = analyzeResources(image);
+  const debug = analyzeDebug(image);
   const signature = analyzeAuthenticode(image);
   const net = analyzeDotnet(image);
   const dotnet = net?.info ?? null;
@@ -700,9 +733,50 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
       text: `Só ${totalFunctions} funções importadas, com GetProcAddress e LoadLibrary: as demais são resolvidas na execução.`,
     });
   }
-  const compiled = timestamp ? new Date(timestamp * 1000) : null;
-  if (compiled && compiled.getTime() > Date.now() + 24 * 3600 * 1000) {
+  // Datas gravadas pelo linker em mais de um lugar (item 1): o cabecalho e o mais facil de
+  // trocar, e a diferenca denuncia a troca (timestomping). Compilacao reprodutivel (REPRO) grava
+  // um hash no lugar da data, e o Delphi grava sempre a mesma data no cabecalho.
+  const stampAt = (o: number) => {
+    const v = o >= 0 ? u32(o) : null;
+    return v && v !== 0xffffffff ? v : null;
+  };
+  const resourceDir = dir(2);
+  const timestamps = {
+    header: timestamp || null,
+    debug: debug?.timestamp ?? null,
+    exports: exportAt >= 0 ? stampAt(exportAt + 4) : null,
+    resources: resourceDir ? stampAt(rvaToOffset(resourceDir.rva) + 4) : null,
+  };
+  const repro = Boolean(debug?.repro);
+  const delphiStamp = timestamp === DELPHI_TIMESTAMP;
+  const compiled = timestamp && !repro ? new Date(timestamp * 1000) : null;
+  if (compiled && !delphiStamp && compiled.getTime() > Date.now() + 24 * 3600 * 1000) {
     alerts.push({ level: 'medium', text: 'A data de compilação está no futuro: foi forjada.' });
+  }
+  if (timestamp && !repro && !delphiStamp) {
+    const day = (v: number | null) => (v ? new Date(v * 1000).toISOString().slice(0, 10) : '');
+    const differs = (v: number | null) => v !== null && Math.abs(v - timestamp) > STAMP_TOLERANCE_S;
+    if (differs(timestamps.debug)) {
+      alerts.push({
+        level: 'medium',
+        text: `A data do cabeçalho (${day(timestamp)}) não bate com a do diretório de debug (${day(timestamps.debug)}): a data de compilação foi alterada.`,
+      });
+    }
+    if (differs(timestamps.exports)) {
+      alerts.push({
+        level: 'medium',
+        text: `A data do cabeçalho (${day(timestamp)}) não bate com a da tabela de exportações (${day(timestamps.exports)}): a data de compilação foi alterada.`,
+      });
+    }
+    if (differs(timestamps.resources) && timestamps.resources! > timestamp) {
+      alerts.push({
+        level: 'info',
+        text: `Os recursos têm data posterior à compilação (${day(timestamps.resources)}): foram editados depois.`,
+      });
+    }
+  }
+  if (debug?.debugBuild) {
+    alerts.push({ level: 'info', text: 'Compilado na configuração Debug (caminho do PDB).' });
   }
   const rich = parseRich(buf, peOff);
   if (rich && !rich.checksumValid) {
@@ -793,6 +867,9 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
     manifest: res.manifest,
     signature,
     dotnet,
+    debug,
+    timestamps,
     alerts: alerts.sort((a, b) => order[a.level] - order[b.level]),
+    rev: PE_REVISION,
   };
 }

@@ -13,6 +13,7 @@ FILES = [
     'prog64.exe', 'prog32.exe', 'teste.dll', 'dotnet.exe', 'upx64.exe', 'upx32.exe',
     'upx-disfarcado.exe', 'rich.exe', 'rich-forjado.exe', 'checksum-ok.exe',
     'checksum-errado.exe', 'overlay.exe', 'assinado.exe', 'adulterado.exe', 'autoassinado.exe', 'upx-dll.dll',
+    'pdb.exe',
 ]
 d = lambda b: b.decode('latin1') if isinstance(b, bytes) else b
 
@@ -145,5 +146,16 @@ for name in FILES:
     r['certTable'] = {'offset': sec.VirtualAddress, 'size': sec.Size} if sec.Size else None
     r['signature'] = signature(path)
     r['dotnet'] = dotnet(path) if pe.OPTIONAL_HEADER.DATA_DIRECTORY[14].Size else None
+    r['debug'] = []
+    for e in getattr(pe, 'DIRECTORY_ENTRY_DEBUG', []):
+        cv = getattr(e, 'entry', None)
+        item = {'type': e.struct.Type, 'timestamp': e.struct.TimeDateStamp}
+        if cv is not None and getattr(cv, 'CvSignature', None) == b'RSDS':
+            g = cv
+            item['guid'] = f'{g.Signature_Data1:08X}-{g.Signature_Data2:04X}-{g.Signature_Data3:04X}-' \
+                f'{g.Signature_Data4:02X}{g.Signature_Data5:02X}-{bytes(g.Signature_Data6).hex().upper()}'
+            item['age'] = g.Age
+            item['path'] = d(g.PdbFileName).rstrip('\0')
+        r['debug'].append(item)
     out[name] = r
 print(json.dumps(out, indent=1, sort_keys=True))

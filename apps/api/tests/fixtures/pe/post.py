@@ -91,4 +91,34 @@ text = pe.sections[0]
 mid = text.PointerToRawData + text.SizeOfRawData // 2
 data[mid] ^= 0xFF
 open(f'{W}/adulterado.exe', 'wb').write(bytes(data))
+# Diretorio de debug (plans/analise-estatica-ampliada, item 1): datas coerentes no pdb.exe; no
+# timestomp, so o cabecalho muda (como faz quem forja a data); no repro, a entrada vira REPRO e o
+# cabecalho ganha um "hash" que, lido como data, cai no futuro.
+# O ld grava so o nome do PDB; o link.exe grava o caminho inteiro. O registro CodeView e regravado
+# com o caminho completo, no espaco que sobra na secao .buildid (512 bytes no arquivo).
+pe = pefile.PE(f'{W}/pdb.exe')
+dbg = pe.DIRECTORY_ENTRY_DEBUG[0].struct
+data = bytearray(pe.__data__)
+cv = data[dbg.PointerToRawData:dbg.PointerToRawData + 24]
+assert cv[:4] == b'RSDS'
+path = rb'C:\Users\joao\source\repos\Ladrao\obj\Release\Ladrao.pdb'
+record = bytes(cv) + path + b'\0'
+sec = next(s for s in pe.sections if s.contains_rva(dbg.AddressOfRawData))
+used = dbg.AddressOfRawData - sec.VirtualAddress + len(record)
+assert used <= sec.SizeOfRawData
+data[dbg.PointerToRawData:dbg.PointerToRawData + len(record)] = record
+open(f'{W}/pdb.exe', 'wb').write(bytes(data))
+pe = pefile.PE(f'{W}/pdb.exe')
+dbg = pe.DIRECTORY_ENTRY_DEBUG[0].struct
+dbg.SizeOfData = len(record)
+sec = next(s for s in pe.sections if s.contains_rva(dbg.AddressOfRawData))
+sec.Misc_VirtualSize = max(sec.Misc_VirtualSize, used)
+pe.FILE_HEADER.TimeDateStamp = 1700000000
+dbg.TimeDateStamp = 1700000000
+pe.write(f'{W}/pdb.exe')
+pe.FILE_HEADER.TimeDateStamp = 1500000000
+pe.write(f'{W}/pdb-timestomp.exe')
+pe.FILE_HEADER.TimeDateStamp = 4102444800
+dbg.Type = 16
+pe.write(f'{W}/pdb-repro.exe')
 print('post ok')

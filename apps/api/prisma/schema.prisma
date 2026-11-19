@@ -271,6 +271,7 @@ model Entry {
   caseEvents      CaseEvent[]
   yaraRetroHits   YaraRetroscanHit[]
   pageCaptures    PageCapture[]
+  pivots          EntryPivot[]
 
   @@index([ownerId])
   @@index([assigneeId])
@@ -820,6 +821,23 @@ model GhidraAnalysis {
 
 /// Uma funcao do pseudo-C completo do Ghidra (plans/ghidra-pseudo-c). O codigo fica no texto do
 /// MinIO (GhidraAnalysis.pseudoKey), lido por Range com cOffset e cLength (bytes UTF-8).
+/// Valores que ligam amostras na aba Relacionadas, alem das colunas imphash, richHash e tlsh
+/// (plans/analise-estatica-ampliada): caminho e GUID do PDB, authentihash, ExportHash, modulo Go,
+/// DocumentID do XMP... Cada origem (a analise estatica, um servico) regrava so os seus.
+model EntryPivot {
+  id      String @id @default(cuid())
+  entryId String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  /// PDB_PATH, PDB_ID... (lib/pivots.ts).
+  kind    String
+  value   String
+  /// Quem gravou: "static" (analise estatica) ou o nome do servico.
+  source  String
+
+  @@unique([entryId, kind, value])
+  @@index([kind, value])
+}
+
 model GhidraFunction {
   id           String         @id @default(cuid())
   analysisId   String

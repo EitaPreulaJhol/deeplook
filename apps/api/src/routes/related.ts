@@ -7,6 +7,7 @@ import { baseDomain } from '../lib/domains';
 import { urlKey } from '../lib/ioc-normalize';
 import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
 import { phashDistance, phashSimilarity } from '../lib/phash';
+import { PIVOT_KINDS, type PivotKind } from '../lib/pivots';
 import { prisma } from '../lib/prisma';
 import { tlshDistance, tlshSimilarity } from '../lib/tlsh';
 
@@ -33,7 +34,9 @@ export type RelatedReason =
   /** Mesmo Rich header: mesmo ambiente de compilacao, ou cabecalho copiado (item 7.1). */
   | { kind: 'SAME_RICH'; detail: string }
   /** Pagina com a mesma aparencia (hash perceptual do print, revisao 3.4): similaridade em %. */
-  | { kind: 'SIMILAR_PAGE'; detail: number };
+  | { kind: 'SIMILAR_PAGE'; detail: number }
+  /** Mesmo pivo (EntryPivot: PDB, authentihash...; plans/analise-estatica-ampliada). */
+  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string } };
 
 /** Peso de cada motivo na ordenacao (arquivo identico pesa mais que uma tag). */
 function weight(reason: RelatedReason): number {
@@ -60,6 +63,8 @@ function weight(reason: RelatedReason): number {
       // Mesma aparencia em outro dominio e indicio forte de mesmo kit; no mesmo dominio, o
       // motivo do dominio ja pesa por si.
       return Math.round(reason.detail * 0.6);
+    case 'SAME_PIVOT':
+      return PIVOT_KINDS[reason.detail.pivot]?.weight ?? 20;
   }
 }
 
@@ -262,6 +267,44 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
   for (const item of sharedTags) {
     const common = item.tags.filter((t) => myTags.has(t.id)).map((t) => t.name);
     if (common.length) add(item, { kind: 'SHARED_TAGS', detail: common.sort() });
+  }
+
+  // Pivos em comum (EntryPivot): o mesmo PDB, authentihash... O mesmo arquivo ja e "Mesmo arquivo".
+  const myPivots = await prisma.entryPivot.findMany({
+    where: { entryId: entry.id },
+    select: { kind: true, value: true },
+  });
+  if (myPivots.length) {
+    const hits = await prisma.entryPivot.findMany({
+      where: {
+        entryId: { not: entry.id },
+        OR: myPivots.map((p) => ({ kind: p.kind, value: p.value })),
+        entry: entry.sha256 ? { NOT: { sha256: entry.sha256 } } : {},
+      },
+      select: { entryId: true, kind: true, value: true },
+      orderBy: { entry: { createdAt: 'desc' } },
+      take: CANDIDATES * myPivots.length,
+    });
+    if (hits.length) {
+      const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
+      const missing = [...new Set(hits.map((h) => h.entryId))].filter((eid) => !known.has(eid));
+      if (missing.length) {
+        const extra = await prisma.entry.findMany({
+          where: { id: { in: missing } },
+          include: listInclude,
+        });
+        for (const item of extra) known.set(item.id, item);
+      }
+      for (const hit of hits) {
+        const item = known.get(hit.entryId);
+        if (item && hit.kind in PIVOT_KINDS) {
+          add(item, {
+            kind: 'SAME_PIVOT',
+            detail: { pivot: hit.kind as PivotKind, value: hit.value },
+          });
+        }
+      }
+    }
   }
 
   // IOCs em comum: as amostras que ainda nao vieram por outro motivo sao lidas

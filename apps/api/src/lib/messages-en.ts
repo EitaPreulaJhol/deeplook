@@ -474,6 +474,8 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['indicador em comum', 'shared indicator'],
   ['mesmas importações', 'same imports'],
   ['página parecida {0}%', 'similar page {0}%'],
+  ['mesmo caminho de PDB', 'same PDB path'],
+  ['mesma compilação (GUID do PDB)', 'same build (PDB GUID)'],
   ['Somente analistas veem o conteúdo do arquivo.', 'Only analysts see the file content.'],
   ['Links não têm conteúdo.', 'Links have no content.'],
   ['cole a lista ou escolha um arquivo', 'paste the list or choose a file'],

@@ -31,6 +31,9 @@ $X86-gcc -O1 -s -o emulado32.exe emulado.c -lwininet
 $X64-gcc -O1 -s -o ofuscado64.exe ofuscado.c
 $X86-gcc -O1 -s -o ofuscado32.exe ofuscado.c
 cp /usr/bin/true linux.elf
+# Diretorio de debug (plans/analise-estatica-ampliada, item 1): o ld grava o CodeView (RSDS) com o
+# nome do PDB; o post.py poe o caminho inteiro, como o do link.exe, e troca as datas.
+$X64-gcc -O1 -o pdb.exe tiny.c -Wl,--pdb=Ladrao.pdb
 
 # Desempacotar e extrair (item 7.8): instalador NSIS com o prog64.exe dentro, um programa PyInstaller
 # (Linux; o formato do arquivo e o mesmo do Windows) e os instaladores oficiais do Inno Setup 6.2.2
@@ -138,7 +141,8 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
-  inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class reference.json /out/
+  inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
+  pdb-repro.exe reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

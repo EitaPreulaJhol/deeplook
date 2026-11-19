@@ -18,6 +18,7 @@ import { rememberUrls } from './iocs';
 import { scanLookalikesQuietly } from './lookalike';
 import { enqueueOletoolsIfEligible } from './oletools';
 import { relationHashes } from './pe-analysis';
+import { staticPivots } from './pivots';
 import { prisma } from './prisma';
 import { enqueueQrIfEligible } from './qr';
 import { createWithinQuota, QuotaExceeded } from './quota';
@@ -122,6 +123,9 @@ export async function createFileEntry(
         sha256,
         tlsh: fuzzy,
         ...relationHashes(staticInfo?.pe),
+        pivots: {
+          create: staticPivots(staticInfo).map((p) => ({ ...p, source: 'static' })),
+        },
         staticInfo: staticInfo ? (staticInfo as unknown as Prisma.InputJsonValue) : undefined,
         parentEntryId: input.parentEntryId ?? null,
         tags: { connect: input.tags },

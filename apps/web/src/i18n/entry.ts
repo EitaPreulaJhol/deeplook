@@ -559,6 +559,8 @@ export const messages = {
   rSimilar: ['Arquivo parecido (TLSH): {score}%', 'Similar file (TLSH): {score}%'],
   rImphash: ['Mesmas importações (imphash {hash}…)', 'Same imports (imphash {hash}…)'],
   rRich: ['Mesmo Rich header ({hash}…)', 'Same Rich header ({hash}…)'],
+  rPdbPath: ['Mesmo caminho de PDB ({value})', 'Same PDB path ({value})'],
+  rPdbId: ['Mesma compilação (PDB {value}…)', 'Same build (PDB {value}…)'],
   rSimilarPage: [
     'Página com a mesma aparência (captura): {score}%',
     'Page with the same look (capture): {score}%',

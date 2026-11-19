@@ -15,7 +15,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { RelatedEntry, RelatedReason } from '../api/types';
+import type { PivotKind, RelatedEntry, RelatedReason } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/entry';
 import { saveEntrySequence } from './entryNav';
@@ -59,6 +59,19 @@ export function describeReason(reason: RelatedReason): string {
       return t('rRich', { hash: reason.detail.slice(0, 12) });
     case 'SIMILAR_PAGE':
       return t('rSimilarPage', { score: reason.detail });
+    case 'SAME_PIVOT':
+      return describePivot(reason.detail.pivot, reason.detail.value);
+  }
+}
+
+/** Motivo de um pivo em comum (EntryPivot). */
+function describePivot(pivot: PivotKind, value: string): string {
+  switch (pivot) {
+    case 'PDB_PATH':
+      // So o fim do caminho: a pasta do projeto e o arquivo.
+      return t('rPdbPath', { value: value.split('\\').slice(-3).join('\\') });
+    case 'PDB_ID':
+      return t('rPdbId', { value: value.slice(0, 12) });
   }
 }
 

@@ -28,6 +28,7 @@ import { rememberUrls } from '../lib/iocs';
 import { scanLookalikesQuietly } from '../lib/lookalike';
 import { excerpt, notify, resolveMentions } from '../lib/notifications';
 import { relationHashes } from '../lib/pe-analysis';
+import { replacePivots, staticPivots } from '../lib/pivots';
 import type { Tx } from '../lib/prisma';
 import { prisma } from '../lib/prisma';
 import { QuotaExceeded, quotaMessage, uploadQuota } from '../lib/quota';
@@ -984,6 +985,7 @@ export async function entryRoutes(app: FastifyInstance) {
         ...relationHashes(staticInfo.pe),
       },
     });
+    await replacePivots(prisma, id, 'static', staticPivots(staticInfo));
     await scanLookalikesQuietly(id);
     // A analise nova pode casar regras de triagem do executavel (item 7.4).
     await applyTriageRules(id).catch((err: unknown) =>

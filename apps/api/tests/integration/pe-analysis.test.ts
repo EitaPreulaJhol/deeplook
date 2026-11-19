@@ -6,7 +6,7 @@ import { buildApp } from '../../src/app';
 import { env } from '../../src/env';
 import type { Prisma } from '../../src/generated/prisma/client';
 import { hashPassword } from '../../src/lib/crypto';
-import { parsePe, peChecksum, relationHashes } from '../../src/lib/pe-analysis';
+import { parsePe, PE_REVISION, peChecksum, relationHashes } from '../../src/lib/pe-analysis';
 import { backfillPeAnalysis } from '../../src/lib/pe-backfill';
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
@@ -256,6 +256,58 @@ async function main() {
       has(alerts('rich-forjado.exe'), 'medium', 'Rich header não confere'),
   );
   ok('sem Rich header no MinGW', prog.rich === null);
+  // Ferramenta e versao de cada entrada (plans/analise-estatica-ampliada, item 1): o build 30795
+  // nao esta no richprint, entao vale a familia do produto.
+  const richLinker = rich.rich!.entries.find((e) => e.product === 0x102)!;
+  ok(
+    'Rich header: ferramenta e versão do Visual Studio por entrada',
+    richLinker.tool === 'LNK' &&
+      richLinker.version === 'VS2015+ (14.0+) build 30795' &&
+      rich.rich!.entries.find((e) => e.product === 0x105)?.tool === 'C++' &&
+      rich.rich!.entries.find((e) => e.product === 1)?.tool === 'IMP' &&
+      rich.rich!.linker === 'VS2015+ (14.0+) build 30795',
+    rich.rich,
+  );
+
+  // Diretorio de debug (item 1): o CodeView que o ld grava, conferido contra o pefile.
+  const pdbRef = REF['pdb.exe'].debug.find((e: Ref) => e.type === 2);
+  const pdb = parsePe(file('pdb.exe'), 'pdb.exe')!;
+  ok(
+    'debug: caminho, GUID e age do PDB iguais aos do pefile',
+    pdb.debug?.pdbFormat === 'RSDS' &&
+      pdb.debug.pdbPath === pdbRef.path &&
+      pdb.debug.pdbGuid === pdbRef.guid &&
+      pdb.debug.pdbAge === pdbRef.age &&
+      pdb.debug.pdbId ===
+        `${pdbRef.guid.replace(/-/g, '')}${pdbRef.age.toString(16).toUpperCase()}`,
+    { ours: pdb.debug, ref: pdbRef },
+  );
+  ok(
+    'debug: usuário e projeto tirados do caminho',
+    pdb.debug?.user === 'joao' && pdb.debug.project === 'Ladrao' && !pdb.debug.debugBuild,
+    pdb.debug,
+  );
+  ok(
+    'debug: datas coerentes não geram alerta',
+    pdb.timestamps?.header === 1700000000 &&
+      pdb.timestamps.debug === 1700000000 &&
+      !alerts('pdb.exe').some((a) => a.includes('não bate')),
+    pdb.timestamps,
+  );
+  ok(
+    'debug: data do cabeçalho trocada é apontada (timestomping)',
+    has(alerts('pdb-timestomp.exe'), 'medium', 'não bate com a do diretório de debug'),
+    alerts('pdb-timestomp.exe'),
+  );
+  const repro = parsePe(file('pdb-repro.exe'), 'x.exe')!;
+  ok(
+    'debug: REPRO não tem data, e o "hash" no cabeçalho não vira data no futuro',
+    repro.debug?.repro === true &&
+      repro.compiledAt === null &&
+      !alerts('pdb-repro.exe').some((a) => a.includes('futuro') || a.includes('não bate')),
+    { debug: repro.debug, alerts: alerts('pdb-repro.exe') },
+  );
+  ok('sem diretório de debug no binário com strip', prog.debug === null, prog.debug);
 
   const overlay = parsePe(file('overlay.exe'), 'x.exe')!;
   ok(
@@ -634,6 +686,65 @@ async function main() {
       'imphash' in (rowPurged!.staticInfo as any).pe &&
       (rowPurged!.staticInfo as any).pe.imphash === null &&
       (await backfillPeAnalysis(log)) === 0,
+  );
+
+  // Pivos do PDB (plans/analise-estatica-ampliada, item 1): o pdb.exe e o pdb-timestomp.exe sao a
+  // mesma compilacao (so a data do cabecalho mudou) e ligam pelo caminho e pelo GUID do PDB.
+  const pdbA = await upload('pdb.exe', file('pdb.exe'));
+  const pdbB = await upload('outro.exe', file('pdb-timestomp.exe'));
+  const pivotsA = await prisma.entryPivot.findMany({
+    where: { entryId: pdbA },
+    orderBy: { kind: 'asc' },
+  });
+  ok(
+    'envio grava os pivôs do PDB (caminho normalizado e GUID + age)',
+    pivotsA.length === 2 &&
+      pivotsA[0].kind === 'PDB_ID' &&
+      pivotsA[0].value === parsePe(file('pdb.exe'))!.debug!.pdbId &&
+      pivotsA[1].kind === 'PDB_PATH' &&
+      pivotsA[1].value.endsWith('\\users\\joao\\source\\repos\\ladrao\\obj\\release\\ladrao.pdb') &&
+      pivotsA.every((p) => p.source === 'static'),
+    pivotsA,
+  );
+  const pdbRel = (await related(pdbA)).find((i) => i.entry.id === pdbB);
+  const pivotKinds = (pdbRel?.reasons ?? [])
+    .filter((r) => r.kind === 'SAME_PIVOT')
+    .map((r) => (r.detail as { pivot: string }).pivot)
+    .sort();
+  ok('Relacionadas: mesmo PDB (caminho e compilação)', same(pivotKinds, ['PDB_ID', 'PDB_PATH']), {
+    pdbRel,
+  });
+  const graph = await app.inject({
+    method: 'GET',
+    url: `/api/entries/${pdbA}/graph`,
+    headers: { cookie: c },
+  });
+  ok(
+    'mapa: ligação pelo PDB',
+    graph.statusCode === 200 && graph.body.includes('mesma compilação (GUID do PDB)'),
+    graph.body.slice(0, 300),
+  );
+  // Analise antiga: o backfill refaz e regrava os pivos; a reanalise manual tambem.
+  await makeOld(pdbB);
+  await prisma.entryPivot.deleteMany({ where: { entryId: pdbB } });
+  await backfillPeAnalysis(log);
+  const rowPdbB = await prisma.entry.findUnique({ where: { id: pdbB } });
+  ok(
+    'backfill: análise da versão anterior ganha o debug, a revisão e os pivôs',
+    (rowPdbB?.staticInfo as any)?.pe?.rev === PE_REVISION &&
+      (rowPdbB?.staticInfo as any)?.pe?.debug?.pdbPath &&
+      (await prisma.entryPivot.count({ where: { entryId: pdbB } })) === 2,
+  );
+  await prisma.entryPivot.deleteMany({ where: { entryId: pdbB } });
+  await app.inject({
+    method: 'POST',
+    url: `/api/entries/${pdbB}/static-analysis`,
+    headers: { cookie: c },
+    payload: {},
+  });
+  ok(
+    'reanálise manual regrava os pivôs',
+    (await prisma.entryPivot.count({ where: { entryId: pdbB } })) === 2,
   );
 
   await app.close();

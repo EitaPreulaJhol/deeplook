@@ -512,6 +512,18 @@ mostra, além de seções, imports e empacotador:
   **Relacionadas** liga amostras com o mesmo imphash ou o mesmo Rich header. O imphash só liga
   com tabela própria: .NET (todo ele importa só `_CorExeMain`) e tabelas de empacotador
   (menos de 10 funções) ficam de fora, senão ligariam amostras sem relação nenhuma.
+- **Ferramentas do Rich header**: cada entrada com a ferramenta (C, C++, ASM, linker...) e a
+  versão do Visual Studio, pela tabela do [richprint](https://github.com/dishather/richprint)
+  (BSD-2-Clause, em `apps/api/src/lib/rich-products.json`; `node apps/api/scripts/vendor-richprint.mjs`
+  a atualiza).
+- **Depuração (PDB)**: o caminho do PDB que o linker gravou, com o **usuário** e o **projeto** tirados
+  dele (`C:\Users\<usuário>\...\<projeto>\obj\Release\...`), a identificação da compilação (GUID e age,
+  como no servidor de símbolos) e os tipos de entrada (POGO, REPRO...). O mesmo caminho ou a mesma
+  compilação ligam amostras na aba **Relacionadas**.
+- **Datas gravadas**: a do cabeçalho, a do diretório de debug, a das exportações e a dos recursos. Quem
+  forja a data costuma trocar só a do cabeçalho, e a diferença vira o alerta de **data de compilação
+  alterada** (timestomping). A compilação reprodutível (REPRO), que grava um hash no lugar da data, e a
+  data fixa do Delphi não alertam.
 - **Assinatura Authenticode**: quem assinou, quem emitiu, validade, impressão digital, carimbo
   de tempo e a cadeia que veio no arquivo. A situação diz se o arquivo foi **alterado depois de
   assinado** e se a assinatura confere com o certificado. A cadeia **não** é conferida contra
@@ -2310,6 +2322,9 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Obrigado!
 - **Pacotes de regras YARA:** cada pacote em `apps/api/rules/` mantém a licença dos autores (`LICENSE`
   na pasta do pacote; resumo na seção Regras YARA).
+- **Versões do Visual Studio no Rich header:** a tabela `comp_id.txt` do
+  [richprint](https://github.com/dishather/richprint), de dishather, sob a licença BSD-2-Clause, convertida
+  em `apps/api/src/lib/rich-products.json`.
 
 ## Licença
 
