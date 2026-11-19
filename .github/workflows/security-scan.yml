@@ -6,6 +6,8 @@
 #   - as tres imagens do projeto, montadas aqui;
 #   - as de terceiros, como o compose as resolve (docker compose config --images);
 #   - os Dockerfiles (trivy config).
+# Cada imagem do projeto tambem gera um SBOM em CycloneDX, guardado como artefato do job
+# (sbom-<imagem>, 90 dias); o mesmo comando roda local: node scripts/trivy.mjs sbom <imagem> <arquivo>.
 #
 # Roda toda segunda-feira, a mao e em PR que mexa em Dockerfile, compose ou na configuracao
 # do Trivy. Reprova em severidade ALTA ou CRITICA com correcao disponivel (trivy.yaml); a
@@ -111,6 +113,22 @@ jobs:
 
       - name: Varredura
         run: node scripts/trivy.mjs image "deeplook-${{ matrix.app }}"
+
+      # SBOM (CycloneDX) da imagem montada: o inventario de pacotes do sistema e das
+      # dependencias de aplicacao, para saber o que uma imagem traz quando sair um CVE novo.
+      # Roda mesmo se a varredura reprovou, que e quando o inventario mais interessa.
+      - name: SBOM (CycloneDX)
+        if: ${{ !cancelled() }}
+        run: node scripts/trivy.mjs sbom "deeplook-${{ matrix.app }}" "sbom/${{ matrix.app }}.cdx.json"
+
+      - name: Guardar o SBOM
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-${{ matrix.app }}
+          path: sbom/${{ matrix.app }}.cdx.json
+          if-no-files-found: error
+          retention-days: 90
 
   # ---------------------------------------------------------------------------
   # Erros de configuracao nos Dockerfiles (usuario root, segredo na imagem...).

@@ -4,13 +4,15 @@
 //   node scripts/trivy.mjs image deeplook-api          imagem construida (docker build -t ...)
 //   node scripts/trivy.mjs image postgres:16-alpine    imagem de terceiros (o Trivy baixa)
 //   node scripts/trivy.mjs config apps                 erros de configuracao nos Dockerfiles
+//   node scripts/trivy.mjs sbom deeplook-api sbom/api.cdx.json
+//                                                      SBOM (CycloneDX) da imagem, sem reprovar por CVE
 //
 // O banco de vulnerabilidades fica em ~/.cache/trivy (TRIVY_CACHE_DIR muda). A versao do
 // Trivy fica fixada aqui; TRIVY_IMAGE troca (item 6.4 do plano de melhorias).
 import { spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -28,6 +30,32 @@ if (!args.length) {
 }
 
 mkdirSync(CACHE, { recursive: true });
+
+// SBOM: inventario de pacotes da imagem em CycloneDX. Nao usa o trivy.yaml: ali ficam os limites
+// de CVE (exit-code, skip-dirs), e o inventario deve listar tudo o que a imagem traz.
+let trivyArgs = ['--config', 'trivy.yaml', ...args];
+let outMount = [];
+if (args[0] === 'sbom') {
+  const [, image, outFile] = args;
+  if (!image || !outFile) {
+    console.error('uso: node scripts/trivy.mjs sbom <imagem> <arquivo.cdx.json>');
+    process.exit(2);
+  }
+  const out = resolve(outFile);
+  mkdirSync(dirname(out), { recursive: true });
+  outMount = ['-v', `${dirname(out)}:/out`];
+  trivyArgs = [
+    'image',
+    '--format',
+    'cyclonedx',
+    '--scanners',
+    'license',
+    '--output',
+    `/out/${basename(out)}`,
+    image,
+  ];
+}
+
 const res = spawnSync(
   'docker',
   [
@@ -40,16 +68,17 @@ const res = spawnSync(
     `${CACHE}:/root/.cache/`,
     '-v',
     `${ROOT}:/work:ro`,
+    ...outMount,
     '-w',
-    '/work',
+    // No SBOM o trivy.yaml (limites de CVE, skip-dirs) nao pode valer: o diretorio de trabalho
+    // fica fora do repositorio, onde o Trivy nao o procura.
+    outMount.length ? '/out' : '/work',
     '-e',
     `TRIVY_DB_REPOSITORY=${DB_REPOSITORY}`,
     '-e',
     'TRIVY_NO_PROGRESS=true',
     TRIVY_IMAGE,
-    '--config',
-    'trivy.yaml',
-    ...args,
+    ...trivyArgs,
   ],
   { stdio: 'inherit' },
 );

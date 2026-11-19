@@ -2184,6 +2184,7 @@ npm test                            # decodificação do TZSP, gravação do pca
 # da raiz do repositório
 node scripts/check-playwright-version.mjs   # pacote, imagem e testes na mesma versão do Playwright
 node scripts/trivy.mjs image deeplook-api   # CVE numa imagem (o mesmo comando do CI)
+node scripts/trivy.mjs sbom deeplook-api sbom/api.cdx.json   # SBOM (CycloneDX) de uma imagem; o CI guarda um por imagem como artefato
 ```
 
 - **Unitários da API** (`apps/api/tests/unit`, `node:test`): o que não precisa de banco nem de

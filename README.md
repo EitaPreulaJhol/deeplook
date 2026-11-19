@@ -2171,6 +2171,7 @@ npm test                            # TZSP decoding, pcap writing and the servic
 # from the repository root
 node scripts/check-playwright-version.mjs   # package, image and tests on the same Playwright version
 node scripts/trivy.mjs image deeplook-api   # CVE in an image (the same command as CI)
+node scripts/trivy.mjs sbom deeplook-api sbom/api.cdx.json   # SBOM (CycloneDX) of an image; CI keeps one per image as an artifact
 ```
 
 - **API unit tests** (`apps/api/tests/unit`, `node:test`): what needs neither the database nor MinIO,
