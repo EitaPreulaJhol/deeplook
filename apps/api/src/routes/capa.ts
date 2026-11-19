@@ -5,6 +5,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { capaEligible, capaEnabled, enqueueCapa } from '../lib/capa';
 import { localizeText } from '../lib/data-language';
 import { requestLang } from '../lib/error-language';
+import { scrubForViewer } from '../lib/exfil-store';
 import { prisma } from '../lib/prisma';
 
 const analysisSelect = {
@@ -71,8 +72,13 @@ export async function capaRoutes(app: FastifyInstance) {
       enabled: capaEnabled(),
       eligible: state.eligible,
       maxMb: env.CAPA_MAX_MB,
+      // As strings do FLOSS sem a credencial dos canais, para quem nao e analista (item 3).
       analysis: analysis
-        ? { ...analysis, error: localizeText(analysis.error, requestLang(req)), ahead }
+        ? await scrubForViewer(id, isAnalyst(user), {
+            ...analysis,
+            error: localizeText(analysis.error, requestLang(req)),
+            ahead,
+          })
         : null,
     });
   });

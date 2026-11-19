@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { createResourceChildren, getSources, putSources, sourceKeysOf } from './decompiled-store';
+import { type Channel, findChannels } from './exfil';
 import { extractIocs } from './iocs';
 import { registerService, type ServiceAlert } from './service-analysis';
 
@@ -59,6 +60,8 @@ export type DotnetResult = z.infer<typeof dotnetSchema>;
 export type DotnetStored = Omit<DotnetResult, 'sources' | 'resources'> & {
   resources: Omit<DotnetResult['resources'][number], 'data'>[];
   sourceKey: string | null;
+  /** Canais de exfiltracao no codigo (item 3); ausente nas analises anteriores. */
+  channels?: Channel[];
 };
 
 export const dotnetSourceKey = (entryId: string) => `dotnet/${entryId}.json.gz`;
@@ -137,7 +140,9 @@ async function persistDotnet(entryId: string, r: DotnetResult): Promise<DotnetSt
     'dotnet',
   );
   const { sources: _sources, ...rest } = r;
-  return { ...rest, resources, sourceKey: key };
+  // Canais de exfiltracao no codigo inteiro (plans/analise-estatica-ampliada, item 3).
+  const channels = findChannels(Object.values(r.sources).join('\n'), 'dotnet');
+  return { ...rest, resources, sourceKey: key, channels };
 }
 
 /** O fonte de um tipo (o caminho do .cs no projeto), ou null. */

@@ -24,6 +24,7 @@ import { broadcastRoutes } from './routes/broadcasts';
 import { capaRoutes } from './routes/capa';
 import { captureRoutes } from './routes/captures';
 import { caseRoutes } from './routes/cases';
+import { channelRoutes } from './routes/channels';
 import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
@@ -154,6 +155,8 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   hexRoutes,
   // Recursos do executavel, baixados separados (plans/analise-estatica-ampliada, item 30).
   resourceRoutes,
+  // Canais de exfiltracao (plans/analise-estatica-ampliada, item 3).
+  channelRoutes,
   adminRoutes,
   apiTokenRoutes,
   trashRoutes,

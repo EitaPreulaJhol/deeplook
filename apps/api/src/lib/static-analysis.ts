@@ -4,6 +4,7 @@ import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
 import { type ElfInfo, parseElf } from './elf-analysis';
 import { entropy } from './entropy';
+import { type Channel, findChannels, mergeChannels } from './exfil';
 import { type DetectedType, detectType, EXE_EXTS } from './file-type';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
@@ -28,10 +29,11 @@ const MAX_LIST = 20;
 
 /**
  * Revisao da analise estatica (`rev`): o backfill refaz em segundo plano os executaveis analisados
- * numa revisao anterior (1: criptografia e codificacao, plans/analise-estatica-ampliada, item 7).
+ * numa revisao anterior (1: criptografia e codificacao, plans/analise-estatica-ampliada, item 7;
+ * 2: canais de exfiltracao, item 3).
  * O PE tem tambem a dele (PE_REVISION).
  */
-export const STATIC_REVISION = 1;
+export const STATIC_REVISION = 2;
 
 export interface StaticInfo {
   version: 1;
@@ -78,6 +80,12 @@ export interface StaticInfo {
    * Mach-O; plans/analise-estatica-ampliada, item 7).
    */
   crypto?: CryptoInfo | null;
+  /**
+   * Canais de exfiltracao e segredos nas strings e nas camadas de script (item 3): token do
+   * Telegram, webhook do Discord, SMTP, FTP, paste, tunel. Os dos servicos (FLOSS, .NET, Java,
+   * emulacao, configuracao) chegam depois e sao juntados na rota /channels.
+   */
+  channels?: Channel[];
   /**
    * Indicadores encontrados nas strings: so sugestao (nao entram no indice). Ate
    * CANDIDATES_PER_KIND de cada tipo.
@@ -239,8 +247,10 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     registry: [],
     suspicious: [],
   };
+  let rawStrings: string[] = [];
   try {
-    strings = categorize(extractStrings(buf, end));
+    rawStrings = extractStrings(buf, end);
+    strings = categorize(rawStrings);
   } catch {
     /* strings sao um extra: segue sem elas */
   }
@@ -303,8 +313,20 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
   const diskImage = image
     ? { ...image, files: image.files.map(({ path, size, hidden }) => ({ path, size, hidden })) }
     : null;
+  // Canais de exfiltracao (item 3): as strings e o texto decodificado das camadas de script.
+  let channels: Channel[];
+  try {
+    channels = mergeChannels([
+      findChannels(rawStrings.join('\n'), 'strings'),
+      findChannels((script?.layers ?? []).map((l) => l.text).join('\n'), 'script'),
+    ]);
+  } catch {
+    channels = [];
+  }
   const iocCandidates = extractIocs(
     [
+      // Destino do canal que e host proprio (SMTP, tunel): o do Telegram e do Discord e legitimo.
+      ...channels.filter((c) => c.kind === 'smtp' || c.kind === 'tunnel').map((c) => c.host ?? ''),
       ...strings.urls,
       ...strings.ips,
       ...strings.emails,
@@ -334,6 +356,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     lnk,
     diskImage,
     crypto,
+    channels,
     iocCandidates: capPerKind(iocCandidates, CANDIDATES_PER_KIND),
   };
 }

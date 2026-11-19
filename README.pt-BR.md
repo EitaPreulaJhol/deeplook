@@ -562,6 +562,29 @@ As amostras enviadas antes ganham a análise nova em segundo plano, uma de cada 
 a API sobe; um analista também pode pedir **Analisar de novo** na ficha. A comparação de
 amostras (A × B) mostra imphash, Rich header e quem assinou.
 
+## Canais de exfiltração
+
+Para onde a amostra manda o que rouba e com que credencial: é o C2 e a prova ao mesmo tempo. A seção
+**Canais de exfiltração** da ficha junta o que as análises acharam nas strings, nas camadas
+decodificadas dos scripts, nas strings do FLOSS, no código do ILSpy e do CFR, na emulação e na
+configuração do CAPE:
+- token de bot do Telegram e o `chat_id`;
+- webhook do Discord e do Slack, e webhooks de coleta (webhook.site, Pipedream);
+- servidor SMTP, e o usuário e a senha de e-mail quando o código os passa juntos
+  (`NetworkCredential`, `PasswordAuthentication`);
+- FTP (com a credencial na URL, quando há);
+- sites de paste (Pastebin, paste.ee, rentry, gist), túneis (ngrok, Cloudflare Tunnel, serveo,
+  playit) e chaves de nuvem e de API (AWS, Google, GitHub, Slack).
+
+Detalhes:
+- **Nada é consultado.** Um token dá o controle do bot a quem o usa, e o chat costuma guardar os
+  dados das vítimas.
+- **A credencial inteira é só para analistas.** Para os outros, o token, a senha e o segredo do
+  webhook saem cortados em qualquer lugar da ficha: na lista, nas camadas do script, nas URLs, nos
+  IOCs sugeridos e nas strings do FLOSS.
+- **Risco:** canal com credencial soma +30 (+5 por tipo a mais, teto 40). Túnel ou webhook sem
+  credencial soma +10. O host próprio (SMTP, túnel) vai para os IOCs sugeridos.
+
 ## Análise de funções (capa e FLOSS)
 
 Cada executável do Windows ou do Linux enviado (até `CAPA_MAX_MB`, 32 MB) entra numa fila, e o
@@ -1044,6 +1067,7 @@ para a triagem: **quem dá o veredito continua sendo o analista**, e nada muda s
 | .NET | alertas altos · só médios | +25, mais 5 por alerta a mais (teto 35) · +10, mais 3 por alerta a mais (teto 16) |
 | Android | alertas altos · só médios | +30, mais 5 por alerta a mais (teto 40) · +10, mais 3 por alerta a mais (teto 20) |
 | Configuração | configuração da família extraída · família reconhecida só pela regra do CAPE | +60 · +35 |
+| Canais de exfiltração | canal com credencial · túnel ou webhook sem credencial | +30, mais 5 por tipo a mais (teto 40) · +10 |
 
 - **Sugestão:** a partir de 70, *Malicioso*; de 35 a 69, *Suspeito*; abaixo disso, nenhuma.
 - **Nunca sugere "limpo":** a nota só soma evidência de que a amostra é ruim. Nota baixa quer dizer

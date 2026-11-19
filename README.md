@@ -560,6 +560,29 @@ Samples submitted earlier get the new analysis in the background, one at a time,
 API starts; an analyst can also request **Analyze again** on the card. The sample comparison (A × B) shows
 the imphash, the Rich header and who signed.
 
+## Exfiltration channels
+
+Where the sample sends what it steals and with which credential: it is the C2 and the evidence at
+once. The record's **Exfiltration channels** section brings together what the analyses found in the
+strings, the decoded script layers, the FLOSS strings, the ILSpy and CFR code, the emulation and the
+CAPE configuration:
+- Telegram bot token and the `chat_id`;
+- Discord and Slack webhooks, and collection webhooks (webhook.site, Pipedream);
+- SMTP server, and the email user and password when the code passes them together
+  (`NetworkCredential`, `PasswordAuthentication`);
+- FTP (with the credential in the URL, when there is one);
+- paste sites (Pastebin, paste.ee, rentry, gist), tunnels (ngrok, Cloudflare Tunnel, serveo, playit)
+  and cloud and API keys (AWS, Google, GitHub, Slack).
+
+Details:
+- **Nothing is queried.** A token gives control of the bot to whoever uses it, and the chat usually
+  holds the victims' data.
+- **The whole credential is for analysts only.** For everyone else, the token, the password and the
+  webhook secret come out cut anywhere in the record: in the list, the script layers, the URLs, the
+  suggested IOCs and the FLOSS strings.
+- **Risk:** a channel with a credential adds +30 (+5 per extra kind, cap 40). A tunnel or webhook
+  without a credential adds +10. The channel's own host (SMTP, tunnel) goes to the suggested IOCs.
+
 ## Function analysis (capa and FLOSS)
 
 Every Windows or Linux executable uploaded (up to `CAPA_MAX_MB`, 32 MB) goes into a queue, and the
@@ -1035,6 +1058,7 @@ by itself.
 | .NET | high alerts · medium only | +25, plus 5 per extra alert (cap 35) · +10, plus 3 per extra (cap 16) |
 | Android | high alerts · medium only | +30, plus 5 per extra alert (cap 40) · +10, plus 3 per extra (cap 20) |
 | Configuration | family configuration extracted · family recognized only by the CAPE rule | +60 · +35 |
+| Exfiltration channels | channel with a credential · tunnel or webhook without a credential | +30, plus 5 per extra kind (cap 40) · +10 |
 
 - **Suggestion:** from 70, *Malicious*; from 35 to 69, *Suspicious*; below that, none.
 - **It never suggests "clean":** the score only adds evidence that the sample is bad. A low score means

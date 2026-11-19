@@ -103,6 +103,7 @@ async function main() {
       failed: number;
       sourceKey: string;
       sources?: unknown;
+      channels?: { kind: string }[];
     };
   };
   const analysis = async (id: string, lang?: string) =>
@@ -130,6 +131,16 @@ async function main() {
       (r) => rules.has(r),
     ),
     [...rules],
+  );
+  // Canais de exfiltracao no codigo inteiro (plans/analise-estatica-ampliada, item 3).
+  const channels = (await get(`/api/entries/${bad}/channels`, cAna)).json().channels as {
+    kind: string;
+    source: string;
+  }[];
+  ok(
+    'JAR: o webhook do Discord no código vira canal de exfiltração',
+    channels.some((c) => c.kind === 'discord-webhook' && c.source === 'jar'),
+    channels,
   );
   ok(
     'JAR: o import não conta como uso (nada na linha 1 a 12)',
@@ -187,7 +198,7 @@ async function main() {
   ok(
     'IOCs: a URL da carga e o webhook',
     a?.iocs.includes('http://carga.exemplo.test/stage2.jar') &&
-      a.iocs.includes('https://discord.com/api/webhooks/123/abcdef'),
+      a.iocs.some((i) => i.startsWith('https://discord.com/api/webhooks/123456789012345678/')),
     a?.iocs,
   );
 

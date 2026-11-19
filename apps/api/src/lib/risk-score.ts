@@ -3,6 +3,7 @@ import { capaRisky } from './capa-risk';
 import { configFamilies, type ConfigResult } from './config-extract';
 import { localizeAlerts, localizeText } from './data-language';
 import type { Lang } from './error-language';
+import { channelsOf } from './exfil-store';
 import { prisma } from './prisma';
 import { SERVICE_NAMES, type ServiceId } from './reputation';
 import { sampleFileName } from './sandbox';
@@ -69,6 +70,8 @@ export type RiskInputs = {
   androidAlerts?: { level: string; text: string }[];
   /** Familias reconhecidas pela configuracao (item 2): com a configuracao extraida ou so pela regra. */
   configFamilies?: { family: string; extracted: boolean }[];
+  /** Canais de exfiltracao (plans/analise-estatica-ampliada, item 3): tipo e se leva credencial. */
+  channels?: { kind: string; credential: boolean }[];
 };
 
 /** A regra de teste do DeepLook (apps/suricata/deeplook.rules): confere a captura, nao e risco. */
@@ -321,6 +324,33 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   }
 
+  // Canais de exfiltracao (item 3): com credencial (token do bot, webhook, senha) e a prova de
+  // que o programa manda dados para alguem; sem credencial, so o tunel e o webhook generico contam.
+  const channels = input.channels ?? [];
+  const withCredential = [...new Set(channels.filter((c) => c.credential).map((c) => c.kind))];
+  const exits = [
+    ...new Set(
+      channels
+        .filter((c) => !c.credential && (c.kind === 'tunnel' || c.kind === 'webhook'))
+        .map((c) => c.kind),
+    ),
+  ];
+  if (withCredential.length) {
+    add(
+      tr('Canais de exfiltração', 'Exfiltration channels'),
+      en
+        ? `channel with a credential in the sample: ${list(withCredential, lang)}`
+        : `canal com credencial na amostra: ${list(withCredential, lang)}`,
+      Math.min(40, 30 + 5 * (withCredential.length - 1)),
+    );
+  } else if (exits.length) {
+    add(
+      tr('Canais de exfiltração', 'Exfiltration channels'),
+      en ? `exit through ${list(exits, lang)}` : `saída por ${list(exits, lang)}`,
+      10,
+    );
+  }
+
   if (facts.lookalikes.length) {
     add(
       tr('Domínio parecido', 'Lookalike domain'),
@@ -511,6 +541,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       jarAlerts: alertsOf('JAR'),
       androidAlerts: alertsOf('ANDROID'),
       configFamilies: configFound,
+      channels: (await channelsOf(entryId)) ?? [],
     },
     lang,
   );

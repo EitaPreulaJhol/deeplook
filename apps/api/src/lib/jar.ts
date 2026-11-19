@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { createResourceChildren, getSources, putSources, sourceKeysOf } from './decompiled-store';
+import { type Channel, findChannels } from './exfil';
 import { extractIocs } from './iocs';
 import { registerService, type ServiceAlert } from './service-analysis';
 
@@ -64,6 +65,8 @@ export type JarResult = z.infer<typeof jarSchema>;
 export type JarStored = Omit<JarResult, 'sources' | 'resources'> & {
   resources: Omit<JarResult['resources'][number], 'data'>[];
   sourceKey: string | null;
+  /** Canais de exfiltracao no codigo (item 3); ausente nas analises anteriores. */
+  channels?: Channel[];
 };
 
 export const jarSourceKey = (entryId: string) => `jar/${entryId}.json.gz`;
@@ -167,7 +170,9 @@ async function persistJar(entryId: string, r: JarResult): Promise<JarStored> {
     'jar',
   );
   const { sources: _sources, ...rest } = r;
-  return { ...rest, resources, sourceKey: key };
+  // Canais de exfiltracao no codigo inteiro (plans/analise-estatica-ampliada, item 3).
+  const channels = findChannels(Object.values(r.sources).join('\n'), 'jar');
+  return { ...rest, resources, sourceKey: key, channels };
 }
 
 /** O fonte de uma classe (o caminho do .java), ou null. */

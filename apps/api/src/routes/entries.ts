@@ -22,6 +22,7 @@ import { extractDiskFile } from '../lib/disk-image';
 import { createFileEntry, createUrlEntry } from '../lib/entry-create';
 import { requestLang } from '../lib/error-language';
 import { recordEvent, recordTriageChanges } from '../lib/events';
+import { scrubForViewer } from '../lib/exfil-store';
 import { localizeEntryEvents } from '../lib/history-language';
 import { hashingStream, judge, recordIntegrity } from '../lib/integrity';
 import { rememberUrls } from '../lib/iocs';
@@ -1289,7 +1290,12 @@ export async function entryRoutes(app: FastifyInstance) {
     const entry = {
       ...withLinks,
       // Alertas e motivos da analise no idioma de quem pede (plano pos-revisao, item 1.4).
-      staticInfo: localizeStaticInfo(withLinks.staticInfo, requestLang(req)),
+      // Credencial dos canais de exfiltracao so inteira para analistas (item 3).
+      staticInfo: await scrubForViewer(
+        id,
+        isAnalyst(user),
+        localizeStaticInfo(withLinks.staticInfo, requestLang(req)),
+      ),
       duplicateOf: linked(found.duplicateOf),
       parentEntry: linked(found.parentEntry),
     };

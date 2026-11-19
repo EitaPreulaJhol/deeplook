@@ -5,6 +5,7 @@ import type { ServiceKind } from '../generated/prisma/client';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { localizeAlerts, localizeText } from '../lib/data-language';
 import { requestLang } from '../lib/error-language';
+import { scrubForViewer } from '../lib/exfil-store';
 import { prisma } from '../lib/prisma';
 import { serviceAutoEligible } from '../lib/service-analysis';
 import { enqueueService, serviceDef, serviceEnabled } from '../lib/services';
@@ -81,6 +82,8 @@ export async function serviceAnalysisRoutes(app: FastifyInstance) {
       maxMb: def.maxMb(),
       analysis: analysis && {
         ...analysis,
+        // Credencial dos canais de exfiltracao so inteira para analistas (item 3).
+        result: await scrubForViewer(id, isAnalyst(user), analysis.result),
         alerts: localizeAlerts(analysis.alerts as { level: string; text: string }[] | null, lang),
         error: localizeText(analysis.error, lang),
       },

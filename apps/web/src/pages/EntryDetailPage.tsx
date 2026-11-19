@@ -11,6 +11,7 @@ import { AntivirusSection, useAntivirus } from '../components/AntivirusSection';
 import { attackHref } from '../components/attack';
 import { CapaSection, useCapa } from '../components/CapaSection';
 import { caseHref } from '../components/cases';
+import { ChannelsSection } from '../components/ChannelsSection';
 import { copyText } from '../components/CopyButton';
 import { DeliverySection, DeliveryWarning } from '../components/DeliverySection';
 import { DiskImageSection, LnkSection, LnkWarning } from '../components/DiskSections';
@@ -934,6 +935,7 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && canTriage && (
             <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />
           )}
+          {entry.type === 'FILE' && <ChannelsSection entryId={entry.id} />}
           {entry.type === 'FILE' && (
             <StaticAnalysisSection
               entryId={entry.id}

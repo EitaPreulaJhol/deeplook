@@ -281,3 +281,26 @@ test('QR code com link (plano pós-revisão, item 2.2): um motivo, com os domín
   assert.equal(en.reasons[0].text, '3 QR code(s) with a link: boleto.example, outro.example');
   assert.equal(scoreRisk(input({}, { qrUrls: [] })).score, 0);
 });
+
+test('canais de exfiltração: com credencial pesa 30 (+5 por tipo, teto 40); túnel sozinho, 10', () => {
+  const one = scoreRisk(input({}, { channels: [{ kind: 'telegram-bot', credential: true }] }));
+  assert.equal(one.score, 30);
+  const three = scoreRisk(
+    input(
+      {},
+      {
+        channels: [
+          { kind: 'telegram-bot', credential: true },
+          { kind: 'discord-webhook', credential: true },
+          { kind: 'cloud-key', credential: true },
+        ],
+      },
+    ),
+  );
+  assert.equal(three.score, 40);
+  assert.equal(
+    scoreRisk(input({}, { channels: [{ kind: 'tunnel', credential: false }] })).score,
+    10,
+  );
+  assert.equal(scoreRisk(input({}, { channels: [{ kind: 'paste', credential: false }] })).score, 0);
+});
