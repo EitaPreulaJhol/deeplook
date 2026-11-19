@@ -234,7 +234,13 @@ async function extractDelivery(
   const info = staticInfo.delivery;
   if (!result || !info) return;
   const where =
-    info.format === 'onenote' ? 'do OneNote' : info.format === 'msi' ? 'do MSI' : 'da página HTML';
+    info.format === 'onenote'
+      ? 'do OneNote'
+      : info.format === 'msi'
+        ? 'do MSI'
+        : info.format === 'pdf'
+          ? 'do PDF'
+          : 'da página HTML';
   for (const [i, file] of info.files.entries()) {
     const data = result.payloads[i];
     if (file.skipped || !data?.length || result.info.files[i]?.sha256 !== file.sha256) continue;

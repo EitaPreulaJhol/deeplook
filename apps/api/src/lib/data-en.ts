@@ -60,6 +60,28 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'Compilado na configuração Debug (caminho do PDB).',
     'Built in the Debug configuration (PDB path).',
   ],
+  // ---- PDF (doc-analysis.ts, delivery-formats.ts; item 8) ----
+  ['Link com javascript:.', 'Link with javascript:.'],
+  [
+    'Envia os dados do formulário para fora (SubmitForm): típico de phishing em PDF.',
+    'Sends the form data out (SubmitForm): typical of PDF phishing.',
+  ],
+  [
+    'Abre outro documento ou anexo (GoToR/GoToE).',
+    'Opens another document or attachment (GoToR/GoToE).',
+  ],
+  ['Importa dados de fora (ImportData).', 'Imports outside data (ImportData).'],
+  ['Conteúdo RichMedia (Flash ou vídeo).', 'RichMedia content (Flash or video).'],
+  [
+    'Imagem JBIG2: formato de exploits conhecidos do leitor de PDF.',
+    'JBIG2 image: a format of known PDF reader exploits.',
+  ],
+  [
+    'Cifrado ({0}) com senha de usuário vazia: decifrado para a análise.',
+    'Encrypted ({0}) with an empty user password: decrypted for the analysis.',
+  ],
+  ['PDF com {0} embutido ({1})', 'PDF with an embedded {0} ({1})'],
+  ['Arquivo embutido no PDF: {0}', 'File embedded in the PDF: {0}'],
   // ---- Abuso conhecido (lol/index.ts) ----
   ['Driver malicioso conhecido (LOLDrivers): {0}.', 'Known malicious driver (LOLDrivers): {0}.'],
   [

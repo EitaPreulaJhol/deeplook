@@ -221,6 +221,8 @@ function syntheticSeeds(): Record<string, Buffer[]> {
     // Recursos do PE (plans/analise-estatica-ampliada, item 30): o PE minimo; os de verdade (com
     // icone, cursor, bitmap e recurso .NET) vem de tests/.tmp/pe.
     resources: [pe],
+    // PDF minimo; os de verdade (cifrados, com ObjStm e anexo) vem de tests/.tmp/pe.
+    pdf: [pdf],
     zip: [zip],
     disk: [iso],
     eml: [eml],
@@ -275,7 +277,8 @@ function generatedSeeds(): Record<string, Buffer[]> {
   const disk = read('disk', (n) => /\.(iso|img|vhd|raw|lnk)$/.test(n));
   // O icone.exe e o dotnet-loader.exe inteiros: os recursos ficam no fim, depois do corte.
   const resources = read('pe', (n) => /^(icone|dotnet-loader|prog64)\.exe$/.test(n));
-  return { static: [...pe, ...disk], disk, tlsh: pe.slice(0, 3), resources };
+  const pdf = read('pe', (n) => /\.pdf$/.test(n));
+  return { static: [...pe, ...disk, ...pdf], disk, tlsh: pe.slice(0, 3), resources, pdf };
 }
 
 const INTERESTING = [

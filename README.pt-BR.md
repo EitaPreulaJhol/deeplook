@@ -858,6 +858,13 @@ topo da ficha.
   **médio**. Os itens da tabela Binary, o script embutido numa ação (como `.js` ou `.vbs`) e os CABs
   de mídia viram filhas, e o `unpack` abre o CAB. A linha de comando das ações também entra nos IOCs
   sugeridos.
+- **PDF**: cada arquivo anexado (`/EmbeddedFile`) vira filha, com o nome da especificação; executável,
+  pacote ou script anexado é **alto**. O JavaScript dos `/JS` (em string ou em stream, também dentro de
+  objetos comprimidos em ObjStm) passa pela [análise de scripts](#scripts-powershell-batch-vbscript-jscript-autoit).
+  A análise do PDF também aponta `SubmitForm` (envia o formulário para fora), `GoToR`/`GoToE`,
+  `ImportData`, `RichMedia`, imagem `JBIG2` e link `javascript:`. O PDF cifrado com a **senha de usuário
+  vazia** (abre sem pedir senha, mas a leitura comum vê só bytes cifrados) é decifrado antes: RC4 e
+  AES-128 (revisões 2 a 4) e AES-256 (revisão 6). Com senha de verdade, fica como está, com o aviso.
 - **Limites:** 40 arquivos e 128 MB por amostra (o resto aparece como "pulado", com o motivo), três
   níveis de aninhamento e arquivos de até 64 MB. Carga cifrada de outro jeito (XOR, Base64 invertido)
   não é decodificada. Com Blob e download na página, o alerta avisa que a carga não foi decodificada.

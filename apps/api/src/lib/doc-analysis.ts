@@ -1,5 +1,6 @@
 import { inflateSync } from 'node:zlib';
 
+import { type PdfRead, readPdf } from './pdf-objects';
 import { extractZipEntry, listZip, type ZipEntry } from './zip';
 
 /**
@@ -36,6 +37,24 @@ export interface DocumentInfo {
     forms: boolean;
     xfa: boolean;
     encrypted: boolean;
+    // plans/analise-estatica-ampliada, item 8 (ausentes nas analises anteriores):
+    /** Envia o formulario (/SubmitForm), abre outro documento (/GoToR, /GoToE), importa dados. */
+    submitForm?: boolean;
+    remoteGoTo?: boolean;
+    importData?: boolean;
+    /** Conteudo RichMedia (Flash, video) e imagem JBIG2 (formato de exploits conhecidos). */
+    richMedia?: boolean;
+    jbig2?: boolean;
+    /** Objetos comprimidos em ObjStm (escondem objetos de quem le so o texto do arquivo). */
+    objectStreams?: number;
+    /** Link /URI com javascript:. */
+    javascriptUri?: boolean;
+    /** Cifra do /Encrypt e se foi decifrado com a senha de usuario vazia. */
+    encryption?: { method: string; revision: number; decrypted: boolean } | null;
+    /** Blocos de JavaScript extraidos (o codigo vai para a analise de scripts). */
+    scripts?: number;
+    /** Nomes dos arquivos embutidos (os bytes viram amostras filhas). */
+    embeddedNames?: string[];
   };
   office?: {
     macros: boolean;
@@ -199,7 +218,14 @@ function pdfString(text: string, from: number): string {
 }
 
 export function analyzePdf(buf: Buffer): DocumentInfo {
-  const text = pdfText(buf);
+  // Objetos, JavaScript, anexos e a decifragem com a senha vazia (item 8).
+  let read: PdfRead | null;
+  try {
+    read = readPdf(buf);
+  } catch {
+    read = null;
+  }
+  const text = read?.encryption?.decrypted ? read.text : pdfText(buf);
   const has = (re: RegExp) => re.test(text);
   const count = (re: RegExp) => (text.match(re) ?? []).length;
   const links: string[] = [];
@@ -220,6 +246,22 @@ export function analyzePdf(buf: Buffer): DocumentInfo {
     forms: has(/\/AcroForm\b/),
     xfa: has(/\/XFA\b/),
     encrypted: has(/\/Encrypt\b/),
+    submitForm: has(/\/SubmitForm\b/),
+    remoteGoTo: has(/\/GoTo[RE]\b/),
+    importData: has(/\/ImportData\b/),
+    richMedia: has(/\/RichMedia\b/),
+    jbig2: has(/\/JBIG2Decode\b/),
+    objectStreams: count(/\/Type\s*\/ObjStm\b/g),
+    javascriptUri: links.some((l) => /^javascript:/i.test(l)),
+    encryption: read?.encryption
+      ? {
+          method: read.encryption.method,
+          revision: read.encryption.revision,
+          decrypted: read.encryption.decrypted,
+        }
+      : null,
+    scripts: read?.scripts.length ?? 0,
+    embeddedNames: (read?.embedded ?? []).map((e) => e.name).slice(0, 40),
   };
   const alerts: DocumentInfo['alerts'] = [];
   if (pdf.javascript) alerts.push({ level: 'high', text: 'Contém JavaScript.' });
@@ -234,11 +276,35 @@ export function analyzePdf(buf: Buffer): DocumentInfo {
     alerts.push({ level: 'medium', text: `${pdf.embeddedFiles} arquivo(s) embutido(s).` });
   }
   if (pdf.xfa) alerts.push({ level: 'medium', text: 'Formulário XFA (pode conter scripts).' });
-  if (pdf.encrypted)
+  if (pdf.javascriptUri) alerts.push({ level: 'high', text: 'Link com javascript:.' });
+  if (pdf.submitForm) {
+    alerts.push({
+      level: 'medium',
+      text: 'Envia os dados do formulário para fora (SubmitForm): típico de phishing em PDF.',
+    });
+  }
+  if (pdf.remoteGoTo) {
+    alerts.push({ level: 'medium', text: 'Abre outro documento ou anexo (GoToR/GoToE).' });
+  }
+  if (pdf.importData) alerts.push({ level: 'medium', text: 'Importa dados de fora (ImportData).' });
+  if (pdf.richMedia) alerts.push({ level: 'medium', text: 'Conteúdo RichMedia (Flash ou vídeo).' });
+  if (pdf.jbig2) {
+    alerts.push({
+      level: 'medium',
+      text: 'Imagem JBIG2: formato de exploits conhecidos do leitor de PDF.',
+    });
+  }
+  if (pdf.encryption?.decrypted) {
+    alerts.push({
+      level: 'info',
+      text: `Cifrado (${pdf.encryption.method}) com senha de usuário vazia: decifrado para a análise.`,
+    });
+  } else if (pdf.encrypted) {
     alerts.push({
       level: 'info',
       text: 'Criptografado: parte do conteúdo pode não ter sido lida.',
     });
+  }
   if (links.length) alerts.push({ level: 'info', text: `${links.length} link(s) no documento.` });
   return { format: 'pdf', risk: riskOf(alerts), alerts, pdf, links: uniq(links) };
 }

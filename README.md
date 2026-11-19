@@ -853,6 +853,14 @@ risk shows at the top of the record.
   the Binary table is **medium**. The Binary table items, the script embedded in an action (as `.js`
   or `.vbs`) and the media CABs become children, and `unpack` opens the CAB. The actions' command
   lines also go into the suggested IOCs.
+- **PDF**: each attached file (`/EmbeddedFile`) becomes a child, with the name from its specification;
+  an attached executable, archive or script is **high**. The JavaScript in the `/JS` entries (as a
+  string or a stream, also inside objects compressed in ObjStm) goes through the
+  [script analysis](#scripts-powershell-batch-vbscript-jscript-autoit). The PDF analysis also flags
+  `SubmitForm` (sends the form out), `GoToR`/`GoToE`, `ImportData`, `RichMedia`, `JBIG2` images and
+  `javascript:` links. A PDF encrypted with an **empty user password** (it opens without asking, but the
+  usual reading sees only encrypted bytes) is decrypted first: RC4 and AES-128 (revisions 2 to 4) and
+  AES-256 (revision 6). With a real password it stays as it is, with the notice.
 - **Limits:** 40 files and 128 MB per sample (the rest shows as "skipped", with the reason), three
   nesting levels and files up to 64 MB. A payload encrypted another way (XOR, reversed Base64) is
   not decoded. With Blob and download on the page, the alert says the payload was not decoded.

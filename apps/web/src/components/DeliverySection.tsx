@@ -11,6 +11,7 @@ const TITLE: Record<DeliveryInfo['format'], () => string> = {
   onenote: () => t('dlvTitleOnenote'),
   html: () => t('dlvTitleHtml'),
   msi: () => t('dlvTitleMsi'),
+  pdf: () => t('dlvTitlePdf'),
 };
 
 const RISK: Record<DeliveryInfo['risk'], { label: string; tone: StatusTone }> = localized(() => ({

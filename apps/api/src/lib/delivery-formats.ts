@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { Cfb, type CfbEntry } from './doc-analysis';
 import { detectType } from './file-type';
+import { readPdf } from './pdf-objects';
 
 /**
  * Formatos de entrega (plans/caca-e-formatos, item 4): OneNote, HTML smuggling e MSI. Os tres
@@ -37,7 +38,7 @@ export interface MsiCustomAction {
 }
 
 export interface DeliveryInfo {
-  format: 'onenote' | 'html' | 'msi';
+  format: 'onenote' | 'html' | 'msi' | 'pdf';
   risk: 'high' | 'medium' | 'low';
   alerts: { level: DeliveryAlertLevel; text: string }[];
   files: DeliveryFile[];
@@ -687,6 +688,34 @@ function analyzeMsi(buf: Buffer): DeliveryResult | null {
 // ------------------------------------------------------------------ entrada
 
 /** OneNote, HTML ou MSI; null se nao for um deles (ou se a leitura falhar). */
+/**
+ * Arquivos embutidos num PDF (plans/analise-estatica-ampliada, item 8): cada /EmbeddedFile vira
+ * amostra filha, com o nome da especificacao. Executavel, pacote ou script embutido e alerta alto
+ * (o PDF so serve de envelope); o resto, informacao. Sem anexo, nao ha secao.
+ */
+function analyzePdfAttachments(buf: Buffer): DeliveryResult | null {
+  const read = readPdf(buf);
+  if (!read.embedded.length) return null;
+  const out = new Collector();
+  const alerts: DeliveryInfo['alerts'] = [];
+  for (const e of read.embedded) {
+    const { id, ext } = typeOf(e.data);
+    const name = /\.[\w-]{1,10}$/.test(e.name) ? e.name : `${e.name}.${ext}`;
+    const file = out.add(name, e.data, `objeto ${e.object}`, id);
+    if (!file) continue;
+    const risky = id !== null && (PAYLOAD_TYPES.has(id) || RISKY_SCRIPTS.has(id));
+    alerts.push(
+      risky
+        ? { level: 'high', text: `PDF com ${id} embutido (${file.name})` }
+        : { level: 'info', text: `Arquivo embutido no PDF: ${file.name}` },
+    );
+  }
+  return {
+    info: { format: 'pdf', risk: riskOf(alerts), alerts, files: out.files },
+    payloads: out.payloads,
+  };
+}
+
 export function analyzeDelivery(
   buf: Buffer,
   filename: string | null | undefined,
@@ -695,6 +724,7 @@ export function analyzeDelivery(
   if (buf.length > MAX_INPUT) return null;
   try {
     if (isOneNote(buf)) return analyzeOneNote(buf);
+    if (detectedId === 'pdf') return analyzePdfAttachments(buf);
     if (detectedId === 'ole') return analyzeMsi(buf);
     if (isHtmlLike(buf, filename, detectedId ?? null)) return analyzeHtml(buf);
   } catch {

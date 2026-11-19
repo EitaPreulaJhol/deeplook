@@ -656,7 +656,7 @@ export interface ScriptInfo {
 /** Analise de documento (item 70): PDF, Office e RTF. */
 /** OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */
 export interface DeliveryInfo {
-  format: 'onenote' | 'html' | 'msi';
+  format: 'onenote' | 'html' | 'msi' | 'pdf';
   risk: 'high' | 'medium' | 'low';
   alerts: { level: 'high' | 'medium' | 'info'; text: string }[];
   files: {

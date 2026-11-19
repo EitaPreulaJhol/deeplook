@@ -1234,6 +1234,7 @@ export const messages = {
   dlvTitleOnenote: ['Caderno do OneNote', 'OneNote notebook'],
   dlvTitleHtml: ['Página HTML', 'HTML page'],
   dlvTitleMsi: ['Instalador MSI', 'MSI installer'],
+  dlvTitlePdf: ['Arquivos embutidos no PDF', 'Files embedded in the PDF'],
   dlvWarn: [
     'Atenção: {alert}. O que estava escondido virou amostra filha; não abra o arquivo fora do ambiente isolado.',
     'Warning: {alert}. What was hidden became a child sample; do not open the file outside the isolated environment.',

@@ -8,7 +8,7 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
   binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 mingw-w64-x86-64-dev mingw-w64-i686-dev \
   osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
-  msitools gcab default-jdk-headless g++ python3-dev \
+  msitools gcab default-jdk-headless g++ python3-dev qpdf \
   ca-certificates >/dev/null
 pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 \
   autoit-ripper==1.2.0 py-tlsh==5.0.0 pyelftools==0.33 >/dev/null
@@ -38,6 +38,15 @@ $X64-gcc -O1 -o pdb.exe tiny.c -Wl,--pdb=Ladrao.pdb
 python3 icones.py "$W"
 $X64-windres icones.rc -O coff -o icones.o
 $X64-gcc -O1 -s -o icone.exe tiny.c icones.o
+# PDF (plans/analise-estatica-ampliada, item 8): JavaScript, SubmitForm e um executavel anexado;
+# o qpdf cifra com a senha de usuario vazia (RC4 128, AES-128 e AES-256), com senha de verdade, e
+# comprime os objetos em ObjStm.
+python3 pdfgen.py anexo.pdf payload.bin
+qpdf --allow-weak-crypto --encrypt "" dono 128 --use-aes=n -- anexo.pdf anexo-rc4.pdf
+qpdf --encrypt "" dono 128 --use-aes=y -- anexo.pdf anexo-aes128.pdf
+qpdf --encrypt "" dono 256 -- anexo.pdf anexo-aes256.pdf
+qpdf --encrypt segredo dono 256 -- anexo.pdf anexo-senha.pdf
+qpdf --object-streams=generate anexo.pdf anexo-objstm.pdf
 
 # Desempacotar e extrair (item 7.8): instalador NSIS com o prog64.exe dentro, um programa PyInstaller
 # (Linux; o formato do arquivo e o mesmo do Windows) e os instaladores oficiais do Inno Setup 6.2.2
@@ -146,7 +155,8 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
   inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
-  pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp reference.json /out/
+  pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp anexo.pdf anexo-rc4.pdf \
+  anexo-aes128.pdf anexo-aes256.pdf anexo-senha.pdf anexo-objstm.pdf reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

@@ -6,6 +6,7 @@ import { analyzeDiskImage, extractDiskFile } from '../../src/lib/disk-image';
 import { parseEmail } from '../../src/lib/eml';
 import { cleanEvidenceImage, EvidenceImageError } from '../../src/lib/evidence-image';
 import { ImportError, parseImport } from '../../src/lib/ioc-import';
+import { readPdf } from '../../src/lib/pdf-objects';
 import { openPe } from '../../src/lib/pe-analysis';
 import { analyzeDotnet } from '../../src/lib/pe-dotnet';
 import { resourceFile } from '../../src/lib/pe-resource-file';
@@ -68,6 +69,14 @@ export const TARGETS: Record<string, Target> = {
       const { leaves } = resourceLeaves(image);
       const sizes = leaves.map((_, i) => resourceFile(image, leaves, i)?.data.length ?? -1);
       return { sizes, dotnet: analyzeDotnet(image)?.resourceData.length ?? -1 };
+    },
+  },
+  // Objetos do PDF, ObjStm e decifragem com a senha vazia (plans/analise-estatica-ampliada, item 8).
+  pdf: {
+    expected: never,
+    run: (buf) => {
+      const r = readPdf(buf);
+      return { objects: r.objects.length, scripts: r.scripts.length, files: r.embedded.length };
     },
   },
   zip: {

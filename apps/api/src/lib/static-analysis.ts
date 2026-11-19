@@ -13,6 +13,7 @@ import { extractIocs } from './iocs';
 import { analyzeLnk, type LnkInfo } from './lnk-analysis';
 import { type LolInfo, lolOf } from './lol';
 import { type MachoInfo, parseMacho } from './macho-analysis';
+import { readPdf } from './pdf-objects';
 import { parsePe, type PeInfo } from './pe-analysis';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
 
@@ -315,6 +316,11 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     if (!script && delivery?.format === 'html') {
       const code = htmlScripts(buf);
       if (code) script = analyzeScript(Buffer.from(code), 'pagina.js');
+    }
+    // PDF: o JavaScript dos /JS (item 8), decifrado se for o caso.
+    if (!script && detectedType?.id === 'pdf' && document?.pdf?.scripts) {
+      const code = readPdf(buf).scripts.join('\n\n');
+      if (code) script = analyzeScript(Buffer.from(code), 'pdf.js');
     }
   } catch {
     script = null;
