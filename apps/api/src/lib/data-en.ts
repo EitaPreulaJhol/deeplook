@@ -60,6 +60,20 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'Compilado na configuração Debug (caminho do PDB).',
     'Built in the Debug configuration (PDB path).',
   ],
+  // ---- Abuso conhecido (lol/index.ts) ----
+  ['Driver malicioso conhecido (LOLDrivers): {0}.', 'Known malicious driver (LOLDrivers): {0}.'],
+  [
+    'Driver vulnerável conhecido (LOLDrivers): {0}. É usado para desligar o antivírus a partir do kernel (BYOVD).',
+    'Known vulnerable driver (LOLDrivers): {0}. It is used to turn off the antivirus from the kernel (BYOVD).',
+  ],
+  [
+    'Ferramenta de acesso remoto legítima (LOLRMM): {0}. Entregue por e-mail ou link, é golpe comum.',
+    'Legitimate remote access tool (LOLRMM): {0}. Delivered by email or link, it is a common scam.',
+  ],
+  [
+    'Binário do sistema usado para baixar ou executar carga: {0}.',
+    'System binary used to download or run a payload: {0}.',
+  ],
   // ---- Criptografia e codificacao (crypto-scan.ts) ----
   ['S-box inversa', 'inverse S-box'],
   ['tabela Te0', 'Te0 table'],

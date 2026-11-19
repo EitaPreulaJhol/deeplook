@@ -522,6 +522,21 @@ addition to sections, imports and packer:
   - in Linux executables, Trend Micro's **telfhash** (the TLSH of the global functions, distance up to 50),
     and in macOS ones, the **symhash** of each architecture (the MD5 of the imported symbols, as
     VirusTotal computes it).
+- **Known abuse**, in every file:
+  - a **[LOLDrivers](https://www.loldrivers.io) driver** (vulnerable, used to turn off the antivirus from
+    the kernel, or malicious), by authentihash or SHA-256: high alert;
+  - a **legitimate remote access tool from [LOLRMM](https://lolrmm.io)** (AnyDesk, ScreenConnect,
+    TeamViewer...), by product, original name, signer or the relay domains in the strings. On its own
+    it is only information; delivered inside another file (email attachment, archive), it is the fake
+    support scam and counts in the risk;
+  - a **system binary used to download or run a payload** (certutil, mshta, regsvr32, rundll32,
+    bitsadmin, remote msiexec, wmic, msbuild..., and Linux reverse shells), in the command line of the
+    script, the shortcut, the MSI actions or the executable's strings. It only counts with the argument
+    that gives the abuse away, with a link to the LOLBAS or GTFOBins page.
+
+  The LOLDrivers and LOLRMM lists (Apache-2.0) live in `apps/api/src/lib/lol/` and are updated by
+  `node apps/api/scripts/vendor-lol.mjs <drivers.json> <rmm_tools.json>`. LOLBAS and GTFOBins are
+  GPL-3.0: the binary list is written in the project itself (`lolbins.ts`).
 - **Cryptography and encoding** (in every PE, ELF and Mach-O): the constants of AES (S-box and tables),
   ChaCha/Salsa20, RC5/RC6, TEA, Blowfish, MD5, SHA-1, SHA-256 and CRC32, with their offset in the file,
   and embedded RSA keys (CryptoAPI or CNG blob, PEM), which become an alert. A **custom Base64
@@ -1059,6 +1074,9 @@ by itself.
 | Android | high alerts · medium only | +30, plus 5 per extra alert (cap 40) · +10, plus 3 per extra (cap 20) |
 | Configuration | family configuration extracted · family recognized only by the CAPE rule | +60 · +35 |
 | Exfiltration channels | channel with a credential · tunnel or webhook without a credential | +30, plus 5 per extra kind (cap 40) · +10 |
+| LOLDrivers | malicious driver · vulnerable | +60 · +40 |
+| LOLRMM | remote access tool delivered inside another file | +25 |
+| System binaries | LOLBin abuse | +15, plus 5 per extra binary (cap 25) |
 
 - **Suggestion:** from 70, *Malicious*; from 35 to 69, *Suspicious*; below that, none.
 - **It never suggests "clean":** the score only adds evidence that the sample is bad. A low score means
@@ -2354,6 +2372,8 @@ powershell -ExecutionPolicy Bypass -File scripts/ui-playwright/run.ps1
   [Creative Commons Attribution 2.5](https://creativecommons.org/licenses/by/2.5/). Thank you!
 - **YARA rule packs:** each pack in `apps/api/rules/` keeps its authors' license (`LICENSE` in the
   pack's folder; summary in the YARA rules section).
+- **LOLDrivers and LOLRMM:** the lists from [magicsword-io](https://github.com/magicsword-io), under the
+  Apache-2.0 license, converted into `apps/api/src/lib/lol/`.
 - **Visual Studio versions of the Rich header:** the `comp_id.txt` table from
   [richprint](https://github.com/dishather/richprint), by dishather, under the BSD-2-Clause license, converted
   into `apps/api/src/lib/rich-products.json`.

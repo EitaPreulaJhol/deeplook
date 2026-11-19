@@ -179,6 +179,7 @@ export async function loadFacts(entryId: string) {
     select: {
       priority: true,
       urlDomain: true,
+      parentEntryId: true,
       staticInfo: true,
       emailInfo: true,
       tags: { select: { name: true } },

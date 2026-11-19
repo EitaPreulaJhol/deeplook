@@ -15,3 +15,5 @@ apps/api/rules
 apps/api/sigma
 # Gerado pelos testes (fixtures de PE, imagens de disco, certificados): fora do git.
 apps/api/tests/.tmp
+# Listas do LOLDrivers e do LOLRMM geradas por apps/api/scripts/vendor-lol.mjs (uma linha so).
+apps/api/src/lib/lol/*.json

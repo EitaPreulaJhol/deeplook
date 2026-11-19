@@ -72,6 +72,16 @@ export type RiskInputs = {
   configFamilies?: { family: string; extracted: boolean }[];
   /** Canais de exfiltracao (plans/analise-estatica-ampliada, item 3): tipo e se leva credencial. */
   channels?: { kind: string; credential: boolean }[];
+  /**
+   * Abuso conhecido (item 4): driver do LOLDrivers, ferramenta do LOLRMM e se a amostra chegou
+   * dentro de outra (anexo, ZIP, filha), e os binarios do sistema abusados.
+   */
+  lol?: {
+    driver: 'malicious' | 'vulnerable' | null;
+    rmm: string[];
+    delivered: boolean;
+    lolbins: string[];
+  };
 };
 
 /** A regra de teste do DeepLook (apps/suricata/deeplook.rules): confere a captura, nao e risco. */
@@ -351,6 +361,34 @@ export function scoreRisk(input: RiskInputs, lang: Lang = 'pt-BR'): RiskScore {
     );
   }
 
+  // Abuso conhecido (item 4).
+  const lol = input.lol;
+  if (lol?.driver === 'malicious') {
+    add('LOLDrivers', tr('driver malicioso conhecido', 'known malicious driver'), 60);
+  } else if (lol?.driver === 'vulnerable') {
+    add(
+      'LOLDrivers',
+      tr('driver vulnerável conhecido (BYOVD)', 'known vulnerable driver (BYOVD)'),
+      40,
+    );
+  }
+  if (lol?.rmm.length && lol.delivered) {
+    add(
+      'LOLRMM',
+      en
+        ? `${list(lol.rmm, lang)} delivered inside another file (attachment, archive)`
+        : `${list(lol.rmm, lang)} entregue dentro de outro arquivo (anexo, pacote)`,
+      25,
+    );
+  }
+  if (lol?.lolbins.length) {
+    add(
+      tr('Binários do sistema', 'System binaries'),
+      en ? `abused: ${list(lol.lolbins, lang)}` : `abusados: ${list(lol.lolbins, lang)}`,
+      Math.min(25, 15 + 5 * (lol.lolbins.length - 1)),
+    );
+  }
+
   if (facts.lookalikes.length) {
     add(
       tr('Domínio parecido', 'Lookalike domain'),
@@ -496,6 +534,11 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
     document?: { risk?: string } | null;
     delivery?: { risk?: string } | null;
     macho?: { risk?: string } | null;
+    lol?: {
+      driver?: { category: 'malicious' | 'vulnerable' } | null;
+      rmm?: { name: string }[];
+      lolbins?: { name: string }[];
+    } | null;
     pe?: {
       signature?: {
         signatureValid?: boolean;
@@ -542,6 +585,14 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
       androidAlerts: alertsOf('ANDROID'),
       configFamilies: configFound,
       channels: (await channelsOf(entryId)) ?? [],
+      lol: st.lol
+        ? {
+            driver: st.lol.driver?.category ?? null,
+            rmm: [...new Set((st.lol.rmm ?? []).map((r) => r.name))],
+            delivered: Boolean(entry.parentEntryId),
+            lolbins: [...new Set((st.lol.lolbins ?? []).map((b) => b.name))],
+          }
+        : undefined,
     },
     lang,
   );

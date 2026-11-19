@@ -304,3 +304,22 @@ test('canais de exfiltração: com credencial pesa 30 (+5 por tipo, teto 40); t�
   );
   assert.equal(scoreRisk(input({}, { channels: [{ kind: 'paste', credential: false }] })).score, 0);
 });
+
+test('abuso conhecido: driver, ferramenta de acesso remoto entregue em outro arquivo e LOLBins', () => {
+  const lol = (over: object) => ({
+    driver: null,
+    rmm: [],
+    delivered: false,
+    lolbins: [],
+    ...over,
+  });
+  assert.equal(scoreRisk(input({}, { lol: lol({ driver: 'malicious' }) })).score, 60);
+  assert.equal(scoreRisk(input({}, { lol: lol({ driver: 'vulnerable' }) })).score, 40);
+  assert.equal(scoreRisk(input({}, { lol: lol({ rmm: ['AnyDesk'] }) })).score, 0);
+  assert.equal(scoreRisk(input({}, { lol: lol({ rmm: ['AnyDesk'], delivered: true }) })).score, 25);
+  assert.equal(scoreRisk(input({}, { lol: lol({ lolbins: ['certutil'] }) })).score, 15);
+  assert.equal(
+    scoreRisk(input({}, { lol: lol({ lolbins: ['certutil', 'mshta', 'wmic', 'hh'] }) })).score,
+    25,
+  );
+});

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { type CryptoInfo, scanCrypto } from './crypto-scan';
 import { analyzeDelivery, type DeliveryInfo, htmlScripts } from './delivery-formats';
 import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
@@ -9,6 +11,7 @@ import { type DetectedType, detectType, EXE_EXTS } from './file-type';
 import type { Ioc } from './iocs';
 import { extractIocs } from './iocs';
 import { analyzeLnk, type LnkInfo } from './lnk-analysis';
+import { type LolInfo, lolOf } from './lol';
 import { type MachoInfo, parseMacho } from './macho-analysis';
 import { parsePe, type PeInfo } from './pe-analysis';
 import { analyzeScript, type ScriptInfo } from './script-analysis';
@@ -30,10 +33,10 @@ const MAX_LIST = 20;
 /**
  * Revisao da analise estatica (`rev`): o backfill refaz em segundo plano os executaveis analisados
  * numa revisao anterior (1: criptografia e codificacao, plans/analise-estatica-ampliada, item 7;
- * 2: canais de exfiltracao, item 3).
+ * 2: canais de exfiltracao, item 3; 3: LOLDrivers, LOLRMM e binarios do sistema, item 4).
  * O PE tem tambem a dele (PE_REVISION).
  */
-export const STATIC_REVISION = 2;
+export const STATIC_REVISION = 3;
 
 export interface StaticInfo {
   version: 1;
@@ -86,12 +89,22 @@ export interface StaticInfo {
    * emulacao, configuracao) chegam depois e sao juntados na rota /channels.
    */
   channels?: Channel[];
+  /** Driver do LOLDrivers, ferramenta do LOLRMM e binario do sistema abusado (item 4). */
+  lol?: LolInfo | null;
   /**
    * Indicadores encontrados nas strings: so sugestao (nao entram no indice). Ate
    * CANDIDATES_PER_KIND de cada tipo.
    */
   iocCandidates: Ioc[];
 }
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+};
 
 function declaredExtension(filename: string | null | undefined): string {
   const name = (filename ?? '').toLowerCase();
@@ -336,6 +349,30 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       ...(delivery?.msi?.customActions.map((a) => a.target ?? '') ?? []),
     ].join('\n'),
   );
+  // Abuso conhecido (item 4): driver, ferramenta de acesso remoto, binario do sistema.
+  let lol: LolInfo | null;
+  try {
+    const driver = pe?.subsystem === 'Nativo (driver)' || /\.sys$/i.test(filename ?? '');
+    lol = lolOf({
+      sha256: driver ? createHash('sha256').update(buf).digest('hex') : null,
+      authentihash: pe?.authentihash ?? null,
+      driver,
+      version: pe?.version ?? null,
+      signer: pe?.signature?.signer?.subject ?? null,
+      hosts: iocCandidates
+        .filter((i) => i.kind === 'DOMAIN' || i.kind === 'URL')
+        .map((i) => (i.kind === 'URL' ? hostOf(i.value) : i.value))
+        .filter((h): h is string => Boolean(h)),
+      texts: [
+        ...rawStrings,
+        ...(script?.layers ?? []).map((l) => l.text),
+        [lnk?.target, lnk?.arguments].filter(Boolean).join(' '),
+        ...(delivery?.msi?.customActions.map((a) => a.target ?? '') ?? []),
+      ],
+    });
+  } catch {
+    lol = null;
+  }
   return {
     version: 1,
     rev: STATIC_REVISION,
@@ -357,6 +394,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     diskImage,
     crypto,
     channels,
+    lol,
     iocCandidates: capPerKind(iocCandidates, CANDIDATES_PER_KIND),
   };
 }

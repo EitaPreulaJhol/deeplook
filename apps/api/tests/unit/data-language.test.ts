@@ -55,6 +55,9 @@ const FILES = [
   // plans/analise-estatica-ampliada: debug do PE e criptografia (itens 1 e 7).
   'pe-debug',
   'crypto-scan',
+  // Listas de abuso (item 4).
+  'lol/index',
+  'lol/lolbins',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
@@ -121,6 +124,8 @@ const SAME = new Set([
   '{0} build {1}',
   'expand 32-byte k',
   'expand 16-byte k',
+  // Padrao de linha de comando (lol/lolbins.ts), nao texto para gente.
+  '\\bpython[23]?\\s+-c\\s+["\'][^"\'\\r\\n]{0,200}socket\\.socket{0}(?:pty\\.spawn|subprocess|os\\.dup2)',
   // PATHEXT do Windows (script-deobfuscate.ts): valor de variavel de ambiente.
   '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC',
 ]);

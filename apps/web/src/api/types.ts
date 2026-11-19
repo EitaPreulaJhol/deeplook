@@ -749,6 +749,26 @@ export interface StaticInfo {
   elf?: ElfInfo | null;
   /** Executavel macOS (macho-analysis.ts). */
   macho?: MachoInfo | null;
+  /** Abuso conhecido: LOLDrivers, LOLRMM e binarios do sistema (item 4). */
+  lol?: {
+    driver: {
+      id: string;
+      category: 'malicious' | 'vulnerable';
+      name: string;
+      cves: string[];
+      usecase: string;
+      by: 'sha256' | 'authentihash';
+    } | null;
+    rmm: { name: string; by: 'product' | 'filename' | 'signer' | 'domain'; evidence: string }[];
+    lolbins: {
+      name: string;
+      platform: 'windows' | 'linux';
+      uses: string[];
+      evidence: string;
+      url: string;
+    }[];
+    alerts: PeAlert[];
+  } | null;
   /** Constantes de criptografia, chaves RSA e alfabetos Base64 proprios (item 7). */
   crypto?: {
     constants: { algorithm: string; what: string; offset: number }[];

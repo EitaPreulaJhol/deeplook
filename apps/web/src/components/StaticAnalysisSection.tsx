@@ -59,6 +59,92 @@ export function DisguisedFileWarning({ info }: { info?: StaticInfo | null }) {
   );
 }
 
+const LOL_USES: Record<string, string> = localized(() => ({
+  download: t('lolUseDownload'),
+  execute: t('lolUseExecute'),
+  decode: t('lolUseDecode'),
+  'awl-bypass': t('lolUseAwl'),
+  persistence: t('lolUsePersistence'),
+  'reverse-shell': t('lolUseReverseShell'),
+  copy: t('lolUseCopy'),
+  privilege: t('lolUsePrivilege'),
+}));
+
+const RMM_BY: Record<string, string> = localized(() => ({
+  product: t('lolByProduct'),
+  filename: t('lolByFilename'),
+  signer: t('lolBySigner'),
+  domain: t('lolByDomain'),
+}));
+
+/** Abuso conhecido (item 4): driver do LOLDrivers, ferramenta do LOLRMM e binarios do sistema. */
+function LolBlock({ lol }: { lol: NonNullable<StaticInfo['lol']> }) {
+  return (
+    <div className="dl-static-block">
+      <h4 className="dl-static-title">{t('lolTitle')}</h4>
+      <HpsmForm columns={2}>
+        <PeAlerts alerts={lol.alerts} />
+        {lol.driver && (
+          <HpsmField label="LOLDrivers" wide>
+            <HpsmReadonly>
+              <a
+                className="dl-link"
+                href={`https://www.loldrivers.io/drivers/${lol.driver.id}/`}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                {lol.driver.name}
+              </a>{' '}
+              · {lol.driver.category === 'malicious' ? t('lolMalicious') : t('lolVulnerable')}
+              {lol.driver.cves.length > 0 && ` · ${lol.driver.cves.join(', ')}`}
+              {lol.driver.usecase && ` · ${lol.driver.usecase}`}
+            </HpsmReadonly>
+          </HpsmField>
+        )}
+        {lol.rmm.length > 0 && (
+          <HpsmField label="LOLRMM" wide help={t('lolRmmHelp')}>
+            <HpsmReadonly>
+              {lol.rmm.map((r) => (
+                <span key={r.name} className="dl-static-chips">
+                  <strong>{r.name}</strong> ({RMM_BY[r.by] ?? r.by}: <code>{r.evidence}</code>)
+                </span>
+              ))}
+            </HpsmReadonly>
+          </HpsmField>
+        )}
+      </HpsmForm>
+      {lol.lolbins.length > 0 && (
+        <TableContainer>
+          <Table size="xs" aria-label={t('lolBinsAria')}>
+            <TableHead>
+              <TableRow>
+                <TableHeader scope="col">{t('lolBin')}</TableHeader>
+                <TableHeader scope="col">{t('lolUses')}</TableHeader>
+                <TableHeader scope="col">{t('lolEvidence')}</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lol.lolbins.map((b) => (
+                <TableRow key={`${b.platform}-${b.name}`}>
+                  <TableCell>
+                    <a className="dl-link" href={b.url} target="_blank" rel="noreferrer noopener">
+                      {b.name}
+                    </a>
+                  </TableCell>
+                  <TableCell>{b.uses.map((u) => LOL_USES[u] ?? u).join(', ')}</TableCell>
+                  <TableCell>
+                    <code>{b.evidence}</code>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </div>
+  );
+}
+
 /** Criptografia e codificacao (item 7): constantes, chaves RSA e alfabetos Base64 proprios. */
 function CryptoBlock({ crypto }: { crypto: NonNullable<StaticInfo['crypto']> }) {
   const hex = (n: number) => `0x${n.toString(16)}`;
@@ -614,6 +700,7 @@ export function StaticAnalysisSection({
         </div>
       )}
 
+      {info.lol && <LolBlock lol={info.lol} />}
       {info.crypto && (info.crypto.constants.length > 0 || info.crypto.alphabets.length > 0) && (
         <CryptoBlock crypto={info.crypto} />
       )}
