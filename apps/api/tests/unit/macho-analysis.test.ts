@@ -1,6 +1,7 @@
 // Mach-O (comum e universal) montado byte a byte: cabecalho, segmentos, bibliotecas, simbolos,
 // assinatura de codigo e entitlements, sem banco e sem toolchain de macOS.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 
 import { parseMacho } from '../../src/lib/macho-analysis';
@@ -343,4 +344,28 @@ test('arquivo corrompido ou mentiroso nunca lanca', () => {
     }
     assert.doesNotThrow(() => parseMacho(bad));
   }
+});
+
+test('symhash: MD5 dos simbolos externos indefinidos (com o _), em ordem de bytes, por arquitetura', () => {
+  const imports = ['printf', 'ptrace', 'Zeta', 'exit'];
+  // A lista ordenada como bytes: maiusculas antes de minusculas.
+  const expected = createHash('md5')
+    .update(['_Zeta', '_exit', '_printf', '_ptrace'].join(','))
+    .digest('hex');
+  const thin = parseMacho(macho({ imports }))!.info;
+  assert.equal(thin.symhash, expected);
+  assert.deepEqual(thin.symhashes, [{ architecture: 'x86-64', symhash: expected }]);
+  const other = createHash('md5').update('_a,_b').digest('hex');
+  const universal = parseMacho(
+    fat([
+      { cpu: CPU_X86_64, data: macho({ imports }) },
+      { cpu: CPU_ARM64, data: macho({ cpu: CPU_ARM64, imports: ['b', 'a'] }) },
+    ]),
+  )!.info;
+  assert.deepEqual(universal.symhashes, [
+    { architecture: 'x86-64', symhash: expected },
+    { architecture: 'ARM64', symhash: other },
+  ]);
+  // Sem simbolos externos: sem symhash.
+  assert.equal(parseMacho(macho({ imports: [] }))!.info.symhash, null);
 });

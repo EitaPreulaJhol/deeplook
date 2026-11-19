@@ -67,6 +67,28 @@ export const messages = {
   stampExports: ['exportações', 'exports'],
   stampResources: ['recursos', 'resources'],
   resDownload: ['Baixar', 'Download'],
+  authentihashHelp: [
+    'SHA-256 do Authenticode: não muda com a assinatura. Liga o mesmo programa assinado por outro certificado (e é o hash do LOLDrivers).',
+    'Authenticode SHA-256: it does not change with the signature. It links the same program signed by another certificate (and it is the LOLDrivers hash).',
+  ],
+  exphashHelp: [
+    'MD5 dos nomes exportados, como o do pefile. Liga DLLs com a mesma tabela de exportações (3 nomes ou mais).',
+    'MD5 of the exported names, as pefile computes it. It links DLLs with the same export table (3 names or more).',
+  ],
+  iconHash: ['Ícone principal', 'Main icon'],
+  iconHashHelp: [
+    'dHash de 64 bits da maior imagem do primeiro ícone. Amostras com o ícone igual ou quase igual (até 4 bits) aparecem em Relacionadas.',
+    '64-bit dHash of the largest image of the first icon. Samples with the same or nearly the same icon (up to 4 bits) appear in Related.',
+  ],
+  telfhashHelp: [
+    'telfhash (Trend Micro): o TLSH das funções globais. Liga variantes do mesmo malware de Linux (distância até 50).',
+    'telfhash (Trend Micro): the TLSH of the global functions. It links variants of the same Linux malware (distance up to 50).',
+  ],
+  telfhashNone: ['sem tabela de símbolos', 'no symbol table'],
+  symhashHelp: [
+    'MD5 dos símbolos importados, como o do VirusTotal. Um por arquitetura no binário universal.',
+    'MD5 of the imported symbols, as VirusTotal computes it. One per architecture in a universal binary.',
+  ],
   resDownloadAll: ['Baixar todos (.zip com senha)', 'Download all (password .zip)'],
   resDownloadHelp: [
     'Ícones, cursores e bitmaps saem como arquivo (.ico, .cur, .bmp). O resto sai dentro do ZIP com a senha infected. Tudo fica na Auditoria.',

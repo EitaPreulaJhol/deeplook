@@ -4,6 +4,7 @@ import type { IocKind, Prisma } from '../generated/prisma/client';
 import { allowedBy, loadAllowlist } from '../lib/allowlist';
 import { ownerForViewer, requireUser, visibleEntries } from '../lib/auth';
 import { baseDomain } from '../lib/domains';
+import { iconDistance } from '../lib/icon-hash';
 import { urlKey } from '../lib/ioc-normalize';
 import { linkHostIndicator, linkIndicator } from '../lib/ioc-watch';
 import { phashDistance, phashSimilarity } from '../lib/phash';
@@ -20,6 +21,8 @@ const SIMILAR_SCAN = 20_000;
 /** Capturas comparadas pelo hash perceptual (as mais recentes) e a similaridade minima. */
 const PAGE_SCAN = 5_000;
 export const PAGE_MIN_SIMILARITY = 90;
+/** Pivo por distancia com mais amostras que isto com o mesmo valor: generico demais para ligar. */
+const GENERIC_PIVOT = 50;
 
 export type RelatedReason =
   | { kind: 'SAME_SHA256' }
@@ -35,8 +38,11 @@ export type RelatedReason =
   | { kind: 'SAME_RICH'; detail: string }
   /** Pagina com a mesma aparencia (hash perceptual do print, revisao 3.4): similaridade em %. */
   | { kind: 'SIMILAR_PAGE'; detail: number }
-  /** Mesmo pivo (EntryPivot: PDB, authentihash...; plans/analise-estatica-ampliada). */
-  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string } };
+  /**
+   * Mesmo pivo (EntryPivot: PDB, authentihash...; plans/analise-estatica-ampliada). `distance` nos
+   * que se comparam por proximidade (bits do icone, distancia do telfhash); 0 e igual.
+   */
+  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string; distance?: number } };
 
 /** Peso de cada motivo na ordenacao (arquivo identico pesa mais que uma tag). */
 function weight(reason: RelatedReason): number {
@@ -63,8 +69,13 @@ function weight(reason: RelatedReason): number {
       // Mesma aparencia em outro dominio e indicio forte de mesmo kit; no mesmo dominio, o
       // motivo do dominio ja pesa por si.
       return Math.round(reason.detail * 0.6);
-    case 'SAME_PIVOT':
-      return PIVOT_KINDS[reason.detail.pivot]?.weight ?? 20;
+    case 'SAME_PIVOT': {
+      const spec = PIVOT_KINDS[reason.detail.pivot];
+      if (!spec) return 20;
+      // Por distancia: o peso cai ate a metade no limite.
+      const d = reason.detail.distance ?? 0;
+      return 'max' in spec ? Math.round(spec.weight * (1 - d / (2 * spec.max))) : spec.weight;
+    }
   }
 }
 
@@ -270,40 +281,76 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
   }
 
   // Pivos em comum (EntryPivot): o mesmo PDB, authentihash... O mesmo arquivo ja e "Mesmo arquivo".
+  // Os exatos numa consulta so; os por distancia (icone, telfhash) contra os mais recentes.
   const myPivots = await prisma.entryPivot.findMany({
     where: { entryId: entry.id },
     select: { kind: true, value: true },
   });
-  if (myPivots.length) {
+  const pivotHits: { entryId: string; kind: PivotKind; value: string; distance?: number }[] = [];
+  const otherFile = entry.sha256 ? { NOT: { sha256: entry.sha256 } } : {};
+  const exact = myPivots.filter((p) => PIVOT_KINDS[p.kind as PivotKind]?.match === 'exact');
+  if (exact.length) {
     const hits = await prisma.entryPivot.findMany({
       where: {
         entryId: { not: entry.id },
-        OR: myPivots.map((p) => ({ kind: p.kind, value: p.value })),
-        entry: entry.sha256 ? { NOT: { sha256: entry.sha256 } } : {},
+        OR: exact.map((p) => ({ kind: p.kind, value: p.value })),
+        entry: otherFile,
       },
       select: { entryId: true, kind: true, value: true },
       orderBy: { entry: { createdAt: 'desc' } },
-      take: CANDIDATES * myPivots.length,
+      take: CANDIDATES * exact.length,
     });
-    if (hits.length) {
-      const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
-      const missing = [...new Set(hits.map((h) => h.entryId))].filter((eid) => !known.has(eid));
-      if (missing.length) {
-        const extra = await prisma.entry.findMany({
-          where: { id: { in: missing } },
-          include: listInclude,
-        });
-        for (const item of extra) known.set(item.id, item);
-      }
-      for (const hit of hits) {
-        const item = known.get(hit.entryId);
-        if (item && hit.kind in PIVOT_KINDS) {
-          add(item, {
-            kind: 'SAME_PIVOT',
-            detail: { pivot: hit.kind as PivotKind, value: hit.value },
-          });
-        }
-      }
+    for (const h of hits) pivotHits.push({ ...h, kind: h.kind as PivotKind });
+  }
+  for (const mine of myPivots) {
+    const spec = PIVOT_KINDS[mine.kind as PivotKind];
+    if (!spec || spec.match === 'exact') continue;
+    // Icone que dezenas de amostras usam (o padrao do Visual Studio, de um instalador) nao liga.
+    const twins = await prisma.entryPivot.count({
+      where: { kind: mine.kind, value: mine.value },
+    });
+    if (twins > GENERIC_PIVOT) continue;
+    const others = await prisma.entryPivot.findMany({
+      where: { kind: mine.kind, entryId: { not: entry.id }, entry: otherFile },
+      select: { entryId: true, value: true },
+      orderBy: { entry: { createdAt: 'desc' } },
+      take: SIMILAR_SCAN,
+    });
+    const near = others
+      .map((o) => ({
+        ...o,
+        distance:
+          spec.match === 'hamming'
+            ? iconDistance(mine.value, o.value)
+            : tlshDistance(mine.value, o.value),
+      }))
+      .filter((o): o is typeof o & { distance: number } => o.distance !== null)
+      .filter((o) => o.distance <= spec.max)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, CANDIDATES);
+    for (const o of near) pivotHits.push({ ...o, kind: mine.kind as PivotKind });
+  }
+  if (pivotHits.length) {
+    const known = new Map([...found.values()].map((r) => [r.entry.id, r.entry]));
+    const missing = [...new Set(pivotHits.map((h) => h.entryId))].filter((eid) => !known.has(eid));
+    if (missing.length) {
+      const extra = await prisma.entry.findMany({
+        where: { id: { in: missing } },
+        include: listInclude,
+      });
+      for (const item of extra) known.set(item.id, item);
+    }
+    for (const hit of pivotHits) {
+      const item = known.get(hit.entryId);
+      if (!item) continue;
+      add(item, {
+        kind: 'SAME_PIVOT',
+        detail: {
+          pivot: hit.kind,
+          value: hit.value,
+          ...(hit.distance !== undefined ? { distance: hit.distance } : {}),
+        },
+      });
     }
   }
 

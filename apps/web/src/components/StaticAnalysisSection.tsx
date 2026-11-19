@@ -301,6 +301,20 @@ export function StaticAnalysisSection({
             <HpsmField label={t('loader')} help={t('loaderHelp')}>
               <HpsmReadonly>{elf.interpreter ? <code>{elf.interpreter}</code> : '—'}</HpsmReadonly>
             </HpsmField>
+            {elf.telfhash !== undefined && (
+              <HpsmField label="telfhash" help={t('telfhashHelp')} wide>
+                <HpsmReadonly>
+                  {elf.telfhash ? (
+                    <>
+                      <code>{elf.telfhash}</code>{' '}
+                      <CopyButton value={elf.telfhash} label="telfhash" />
+                    </>
+                  ) : (
+                    t('telfhashNone')
+                  )}
+                </HpsmReadonly>
+              </HpsmField>
+            )}
             <HpsmField label={t('packer')}>
               <HpsmReadonly>
                 {elf.packer ? (
@@ -411,6 +425,20 @@ export function StaticAnalysisSection({
             <HpsmField label={t('machoPlatform')}>
               <HpsmReadonly>{macho.platform ?? '—'}</HpsmReadonly>
             </HpsmField>
+            {macho.symhashes !== undefined && (
+              <HpsmField label="symhash" help={t('symhashHelp')} wide>
+                <HpsmReadonly>
+                  {macho.symhashes.length
+                    ? macho.symhashes.map((s) => (
+                        <span key={s.architecture} className="dl-static-chips">
+                          <code>{s.symhash}</code> {s.architecture}{' '}
+                          <CopyButton value={s.symhash} label="symhash" />
+                        </span>
+                      ))
+                    : '—'}
+                </HpsmReadonly>
+              </HpsmField>
+            )}
             <HpsmField label={t('machoSignature')}>
               <HpsmReadonly>
                 {!macho.signature.present ? (

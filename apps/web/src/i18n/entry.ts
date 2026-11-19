@@ -561,6 +561,17 @@ export const messages = {
   rRich: ['Mesmo Rich header ({hash}…)', 'Same Rich header ({hash}…)'],
   rPdbPath: ['Mesmo caminho de PDB ({value})', 'Same PDB path ({value})'],
   rPdbId: ['Mesma compilação (PDB {value}…)', 'Same build (PDB {value}…)'],
+  rAuthentihash: ['Mesmo código (authentihash {value}…)', 'Same code (authentihash {value}…)'],
+  rExphash: ['Mesmas exportações (exphash {value}…)', 'Same exports (exphash {value}…)'],
+  rIcon: ['Ícone parecido ({n} bit(s) de diferença)', 'Similar icon ({n} bit(s) apart)'],
+  rTelfhash: [
+    'Mesmas funções do ELF (telfhash, distância {n})',
+    'Same ELF functions (telfhash, distance {n})',
+  ],
+  rSymhash: [
+    'Mesmos símbolos do Mach-O (symhash {value}…)',
+    'Same Mach-O symbols (symhash {value}…)',
+  ],
   rSimilarPage: [
     'Página com a mesma aparência (captura): {score}%',
     'Page with the same look (capture): {score}%',

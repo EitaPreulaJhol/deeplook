@@ -512,6 +512,16 @@ mostra, além de seções, imports e empacotador:
   **Relacionadas** liga amostras com o mesmo imphash ou o mesmo Rich header. O imphash só liga
   com tabela própria: .NET (todo ele importa só `_CorExeMain`) e tabelas de empacotador
   (menos de 10 funções) ficam de fora, senão ligariam amostras sem relação nenhuma.
+- **Hashes de pivô**, cada um na aba **Relacionadas**:
+  - **authentihash**: o SHA-256 do Authenticode, que não muda com a assinatura. Liga o mesmo programa
+    assinado por outro certificado, e é o hash que o LOLDrivers e o VirusTotal publicam;
+  - **exphash**: o MD5 dos nomes exportados, igual ao do `pefile` (só com 3 nomes ou mais);
+  - **ícone principal**: um dHash de 64 bits da maior imagem do primeiro ícone. Liga o ícone igual ou
+    quase igual (até 4 bits de diferença); um ícone que mais de 50 amostras usam (o padrão do Visual
+    Studio, o de um instalador) não liga;
+  - nos executáveis Linux, o **telfhash** da Trend Micro (o TLSH das funções globais, distância até 50),
+    e nos de macOS, o **symhash** de cada arquitetura (o MD5 dos símbolos importados, como o do
+    VirusTotal).
 - **Ferramentas do Rich header**: cada entrada com a ferramenta (C, C++, ASM, linker...) e a
   versão do Visual Studio, pela tabela do [richprint](https://github.com/dishather/richprint)
   (BSD-2-Clause, em `apps/api/src/lib/rich-products.json`; `node apps/api/scripts/vendor-richprint.mjs`

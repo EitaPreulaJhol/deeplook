@@ -60,18 +60,28 @@ export function describeReason(reason: RelatedReason): string {
     case 'SIMILAR_PAGE':
       return t('rSimilarPage', { score: reason.detail });
     case 'SAME_PIVOT':
-      return describePivot(reason.detail.pivot, reason.detail.value);
+      return describePivot(reason.detail.pivot, reason.detail.value, reason.detail.distance);
   }
 }
 
 /** Motivo de um pivo em comum (EntryPivot). */
-function describePivot(pivot: PivotKind, value: string): string {
+function describePivot(pivot: PivotKind, value: string, distance?: number): string {
   switch (pivot) {
     case 'PDB_PATH':
       // So o fim do caminho: a pasta do projeto e o arquivo.
       return t('rPdbPath', { value: value.split('\\').slice(-3).join('\\') });
     case 'PDB_ID':
       return t('rPdbId', { value: value.slice(0, 12) });
+    case 'AUTHENTIHASH':
+      return t('rAuthentihash', { value: value.slice(0, 12) });
+    case 'EXPHASH':
+      return t('rExphash', { value: value.slice(0, 12) });
+    case 'ICON_DHASH':
+      return t('rIcon', { n: distance ?? 0 });
+    case 'TELFHASH':
+      return t('rTelfhash', { n: distance ?? 0 });
+    case 'SYMHASH':
+      return t('rSymhash', { value: value.slice(0, 12) });
   }
 }
 

@@ -1,4 +1,5 @@
 import { entropy } from './entropy';
+import { tlsh } from './tlsh';
 
 /**
  * Leitura de executavel Linux (ELF, item 168): cabecalho, segmentos, secoes, bibliotecas
@@ -14,6 +15,21 @@ const MAX_SECTIONS = 64;
 const MAX_NEEDED = 64;
 /** Simbolos lidos (como os imports do PE). */
 const MAX_SYMBOLS = 4096;
+/** Simbolos lidos para o telfhash. */
+const MAX_TELFHASH_SYMBOLS = 50_000;
+/** As exclusoes do telfhash (Trend Micro, Apache-2.0): funcoes que o compilador troca ou acrescenta. */
+const TELFHASH_SKIP = new Set([
+  '__libc_start_main',
+  'main',
+  'abort',
+  'cachectl',
+  'cacheflush',
+  'puts',
+  'atol',
+  'malloc_trim',
+]);
+const TELFHASH_SKIP_RE = /^[_.]|64$|^str|^mem/;
+
 /** Bytes somados no calculo de entropia das secoes: secoes que se sobrepoem nao repetem o arquivo. */
 const ENTROPY_BUDGET = 64 * 1024 * 1024;
 /** Amostra de cada secao quando o orcamento acaba. */
@@ -47,6 +63,12 @@ export interface ElfInfo {
   rwxSegments: number;
   packer: string | null;
   alerts: string[];
+  /**
+   * telfhash da Trend Micro (plans/analise-estatica-ampliada, item 2): o TLSH da lista ordenada das
+   * funcoes globais. Null sem tabela de simbolos (o original desmonta as chamadas; aqui nao) ou com
+   * poucas funcoes. Ausente nas analises anteriores.
+   */
+  telfhash?: string | null;
 }
 
 export interface ElfResult {
@@ -288,6 +310,38 @@ export function parseElf(buf: Buffer): ElfResult | null {
     }
   }
 
+  // telfhash: a primeira tabela de simbolos nao vazia (dinamica ou completa, na ordem das secoes),
+  // so funcoes globais de visibilidade padrao, sem as exclusoes, em minusculas e ordenadas.
+  let telfhash: string | null = null;
+  const symtab = sections.find(
+    (s) => (s.type === SHT_DYNSYM || s.type === SHT_SYMTAB) && s.size && s.offset !== null,
+  );
+  const strtab = symtab ? sections[symtab.link] : undefined;
+  if (symtab && strtab && strtab.offset !== null && strtab.size !== null) {
+    const symSize = is64 ? 24 : 16;
+    const count = Math.min(Math.floor(symtab.size! / symSize), MAX_TELFHASH_SYMBOLS);
+    const names: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const o = symtab.offset! + i * symSize;
+      if (!fits(o, symSize)) break;
+      const info = buf[o + (is64 ? 4 : 12)];
+      const other = buf[o + (is64 ? 5 : 13)];
+      // STT_FUNC (2), STB_GLOBAL (1), STV_DEFAULT (0).
+      if ((info & 0xf) !== 2 || info >> 4 !== 1 || (other & 3) !== 0) continue;
+      const nameOff = u32(o)!;
+      if (!nameOff || nameOff >= strtab.size) continue;
+      const name = cstr(strtab.offset + nameOff, 512) ?? '';
+      if (!name || TELFHASH_SKIP.has(name) || TELFHASH_SKIP_RE.test(name)) continue;
+      names.push(name.toLowerCase());
+    }
+    names.sort();
+    // O original codifica em ASCII ignorando o resto.
+    const digest = names.length
+      ? tlsh(Buffer.from(names.join(',').replace(/[\u0080-\uffff]/g, ''), 'latin1'), 50)
+      : null;
+    telfhash = digest ? `T1${digest}` : null;
+  }
+
   // Secoes com entropia, dentro do orcamento.
   let budget = ENTROPY_BUDGET;
   const shown: ElfSection[] = [];
@@ -340,6 +394,7 @@ export function parseElf(buf: Buffer): ElfResult | null {
       rwxSegments,
       packer,
       alerts,
+      telfhash,
     },
     symbols,
   };

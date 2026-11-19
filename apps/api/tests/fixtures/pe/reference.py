@@ -146,6 +146,7 @@ for name in FILES:
     r['certTable'] = {'offset': sec.VirtualAddress, 'size': sec.Size} if sec.Size else None
     r['signature'] = signature(path)
     r['dotnet'] = dotnet(path) if pe.OPTIONAL_HEADER.DATA_DIRECTORY[14].Size else None
+    r['exphash'] = pe.get_exphash() or None
     r['debug'] = []
     for e in getattr(pe, 'DIRECTORY_ENTRY_DEBUG', []):
         cv = getattr(e, 'entry', None)
@@ -158,4 +159,31 @@ for name in FILES:
             item['path'] = d(g.PdbFileName).rstrip('\0')
         r['debug'].append(item)
     out[name] = r
+
+
+def telfhash(path):
+    """O extract_symbols e o get_hash do telfhash (Trend Micro, Apache-2.0), com o pyelftools e o
+    py-tlsh oficiais: o pacote telfhash depende do nose, que nao instala no Python 3.13."""
+    import tlsh
+    from elftools.elf.elffile import ELFFile
+    skip = {'__libc_start_main', 'main', 'abort', 'cachectl', 'cacheflush', 'puts', 'atol',
+            'malloc_trim'}
+    skip_re = [re.compile(x) for x in (r'^[_\.].*$', '^.*64$', '^str.*$', '^mem.*$')]
+    with open(path, 'rb') as fh:
+        elf = ELFFile(fh)
+        table = next((s for s in elf.iter_sections() if s['sh_size'] > 0
+                      and s['sh_type'] in ('SHT_DYNSYM', 'SHT_SYMTAB')), None)
+        names = []
+        for sym in table.iter_symbols():
+            if (sym.entry['st_info']['type'] != 'STT_FUNC' or sym.entry['st_info']['bind'] != 'STB_GLOBAL'
+                    or sym.entry['st_other']['visibility'] != 'STV_DEFAULT' or not sym.name):
+                continue
+            if sym.name in skip or any(x.search(sym.name) for x in skip_re):
+                continue
+            names.append(sym.name.lower())
+    names.sort()
+    return tlsh.forcehash(','.join(names).encode('ascii', 'ignore'))
+
+
+out['linux.elf'] = {'telfhash': telfhash(f'{W}/linux.elf')}
 print(json.dumps(out, indent=1, sort_keys=True))

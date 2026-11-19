@@ -191,3 +191,25 @@ export function resourceFile(
     }
   }
 }
+
+/**
+ * A imagem do icone principal (o que o Explorer mostra): o primeiro GROUP_ICON na ordem do
+ * diretorio, e dele a maior imagem (a de mais cores, no empate). Null sem icone.
+ */
+export function mainIconImage(pe: PeImage, leaves: ResourceLeaf[]): Buffer | null {
+  const group = leaves.find((l) => l.typeId === RT_GROUP_ICON);
+  const grp = group && bytesOf(pe, group);
+  if (!group || !grp || grp.length < 6) return null;
+  const count = Math.min(grp.readUInt16LE(4), MAX_GROUP);
+  let best: { id: number; size: number; bits: number } | null = null;
+  for (let i = 0; i < count && 6 + i * 14 + 14 <= grp.length; i++) {
+    const e = 6 + i * 14;
+    const size = grp[e] || 256;
+    const bits = grp.readUInt16LE(e + 6);
+    if (!best || size > best.size || (size === best.size && bits > best.bits)) {
+      best = { id: grp.readUInt16LE(e + 12), size, bits };
+    }
+  }
+  const image = best && member(leaves, RT_ICON, best.id, group.lang);
+  return image ? bytesOf(pe, image) : null;
+}

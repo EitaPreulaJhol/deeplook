@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { entropy } from './entropy';
 
 /**
@@ -67,6 +69,13 @@ export interface MachoInfo {
   packer: string | null;
   alerts: string[];
   risk: 'high' | 'medium' | 'low';
+  /**
+   * symhash (plans/analise-estatica-ampliada, item 2): MD5 dos simbolos externos indefinidos, em
+   * ordem de bytes, separados por virgula, como o do VirusTotal. Um por arquitetura no universal; o
+   * de cima e o da arquitetura descrita. Ausente nas analises anteriores.
+   */
+  symhash?: string | null;
+  symhashes?: { architecture: string; symhash: string }[];
 }
 
 export interface MachoResult {
@@ -221,6 +230,49 @@ function listSlices(buf: Buffer): { fat: boolean; slices: Slice[] } | null {
   }
   if (![0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe].includes(magic)) return null;
   return { fat: false, slices: [{ offset: 0, size: buf.length, cpu: -1 }] };
+}
+
+/** Simbolos externos lidos no symhash (o maior binario conhecido tem uns 49 mil). */
+const MAX_SYMHASH_SYMBOLS = 1_000_000;
+/** Soma dos nomes no symhash. */
+const MAX_SYMHASH_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Os nomes dos simbolos externos indefinidos (n_type exatamente N_EXT: sem bits de N_STAB e com o
+ * tipo N_UNDF), cada um ate o NUL ou o fim da tabela de strings, e o MD5 da lista ordenada.
+ */
+function symhashOf(
+  buf: Buffer,
+  symtab: { symoff: number; nsyms: number; stroff: number; strsize: number },
+  is64: boolean,
+  le: boolean,
+): string | null {
+  const nlistSize = is64 ? 16 : 12;
+  const end = Math.min(buf.length, symtab.stroff + symtab.strsize);
+  const names: Buffer[] = [];
+  let total = 0;
+  const count = Math.min(symtab.nsyms, MAX_SYMHASH_SYMBOLS);
+  for (let i = 0; i < count; i++) {
+    const o = symtab.symoff + i * nlistSize;
+    if (o + nlistSize > buf.length) break;
+    if ((buf[o + 4] & 0xef) !== 0x01) continue;
+    const strx = le ? buf.readUInt32LE(o) : buf.readUInt32BE(o);
+    const at = symtab.stroff + strx;
+    if (strx >= symtab.strsize || at >= end) continue;
+    const stop = buf.indexOf(0, at);
+    const name = buf.subarray(at, stop < 0 || stop > end ? end : stop);
+    total += name.length;
+    if (total > MAX_SYMHASH_BYTES) return null;
+    names.push(name);
+  }
+  if (!names.length) return null;
+  names.sort(Buffer.compare);
+  const h = createHash('md5');
+  names.forEach((name, i) => {
+    if (i) h.update(',');
+    h.update(name);
+  });
+  return h.digest('hex');
 }
 
 interface SliceResult {
@@ -510,6 +562,7 @@ function parseSlice(buf: Buffer, slice: Slice): SliceResult | null {
       encrypted,
       packer,
       alerts,
+      symhash: symtab ? symhashOf(buf, symtab, is64, le) : null,
     },
     symbols,
     levels,
@@ -538,6 +591,9 @@ export function parseMacho(buf: Buffer): MachoResult | null {
       risk: levels.has('high') ? 'high' : levels.has('medium') ? 'medium' : 'low',
       // Alertas das outras fatias tambem contam (o malware pode esconder o ruim numa so).
       alerts: [...new Set(parsed.flatMap((r) => r.info.alerts))],
+      symhashes: parsed
+        .filter((r) => r.info.symhash)
+        .map((r) => ({ architecture: r.info.architecture, symhash: r.info.symhash! })),
     },
     symbols: main.symbols,
   };

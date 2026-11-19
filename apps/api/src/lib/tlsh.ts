@@ -37,10 +37,14 @@ function lValue(length: number): number {
   return Math.floor(Math.log(length) / 0.09531018 - 62.5472) % 256;
 }
 
-/** Digest TLSH (70 hex, sem o "T1") ou null se o conteudo for curto/simples demais. */
-export function tlsh(data: Uint8Array): string | null {
+/**
+ * Digest TLSH (70 hex, sem o "T1") ou null se o conteudo for curto/simples demais. `minLength`
+ * menor serve ao telfhash (plans/analise-estatica-ampliada, item 2), que usa o `forcehash` da
+ * biblioteca oficial: o mesmo calculo, aceitando a partir de 50 bytes.
+ */
+export function tlsh(data: Uint8Array, minLength = TLSH_MIN_LENGTH): string | null {
   const length = data.length;
-  if (length < TLSH_MIN_LENGTH) return null;
+  if (length < minLength) return null;
   const buckets = new Uint32Array(256);
   let checksum = 0;
   let c1 = 0;

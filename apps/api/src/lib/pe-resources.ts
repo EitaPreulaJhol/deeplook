@@ -132,9 +132,13 @@ export function analyzeResources(pe: PeImage): {
   truncated: boolean;
   version: Record<string, string> | null;
   manifest: { executionLevel: string | null; uiAccess: boolean } | null;
+  /** As folhas com a posicao no arquivo (para o icone principal; nao vao na ficha). */
+  leaves: ResourceLeaf[];
 } {
   const { leaves, total } = resourceLeaves(pe);
-  if (!leaves.length) return { resources: [], truncated: false, version: null, manifest: null };
+  if (!leaves.length) {
+    return { resources: [], truncated: false, version: null, manifest: null, leaves };
+  }
   const { buf } = pe;
 
   let budget = ENTROPY_BUDGET;
@@ -165,6 +169,7 @@ export function analyzeResources(pe: PeImage): {
     truncated: total > leaves.length,
     version: versionData ? parseVersionInfo(versionData) : null,
     manifest: manifestData ? parseManifest(manifestData) : null,
+    leaves,
   };
 }
 

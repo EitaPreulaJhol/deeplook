@@ -84,6 +84,16 @@ function reasonLabel(reason: RelatedReason): string | null {
           return 'mesmo caminho de PDB';
         case 'PDB_ID':
           return 'mesma compilação (GUID do PDB)';
+        case 'AUTHENTIHASH':
+          return 'mesmo código (authentihash)';
+        case 'EXPHASH':
+          return 'mesmas exportações';
+        case 'ICON_DHASH':
+          return 'ícone parecido';
+        case 'TELFHASH':
+          return 'mesmas funções do ELF (telfhash)';
+        case 'SYMHASH':
+          return 'mesmos símbolos do Mach-O';
       }
       return null;
     case 'SHARED_TAGS':

@@ -193,6 +193,19 @@ function imageHash(pe: PeImage, algorithm: string, certAt: number, certSize: num
   return h.digest();
 }
 
+/**
+ * Authentihash (plans/analise-estatica-ampliada, item 2): o SHA-256 do Authenticode, que nao muda
+ * com a assinatura (nem com quem assinou). Liga a mesma compilacao assinada por certificados
+ * diferentes, e e o hash que o LOLDrivers e o VirusTotal publicam.
+ */
+export function authentihash(pe: PeImage): string {
+  const cert = pe.dir(4);
+  const inFile = cert && cert.rva < pe.buf.length && cert.rva + cert.size <= pe.buf.length;
+  return inFile
+    ? imageHash(pe, 'sha256', cert.rva, cert.size).toString('hex')
+    : imageHash(pe, 'sha256', pe.buf.length, 0).toString('hex');
+}
+
 /** Carimbo de tempo: contra-assinatura antiga (signingTime) ou RFC 3161 (genTime do TSTInfo). */
 function timestampOf(buf: Buffer, unsigned: Map<string, Node[]>): string | null {
   const counter = unsigned.get(OID.counterSignature)?.[0];

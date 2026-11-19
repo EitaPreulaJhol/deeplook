@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto';
 
 import { entropy } from './entropy';
 import { ascii, detectType } from './file-type';
-import { analyzeAuthenticode, type SignatureInfo } from './pe-authenticode';
+import { iconHash } from './icon-hash';
+import { analyzeAuthenticode, authentihash, type SignatureInfo } from './pe-authenticode';
 import { analyzeDebug, type PeDebug, richTool } from './pe-debug';
 import { analyzeDotnet, type DotnetInfo } from './pe-dotnet';
 // Ordinais conhecidos do ws2_32, wsock32 e oleaut32, copiados do `ordlookup` do pefile (MIT):
 // o imphash do pefile (e do VirusTotal) troca o ordinal pelo nome, e o nosso tem de bater.
 import ORDINALS from './pe-ordinals.json';
+import { mainIconImage } from './pe-resource-file';
 import { analyzeResources, type PeResource } from './pe-resources';
 
 /**
@@ -19,9 +21,10 @@ import { analyzeResources, type PeResource } from './pe-resources';
 /**
  * Versao da analise de PE gravada em `pe.rev`: o pe-backfill reanalisa em segundo plano o que foi
  * analisado numa versao anterior (1: item 7.1; 2: diretorio de debug e ferramentas do Rich header,
- * plans/analise-estatica-ampliada, item 1; 3: recursos .NET, item 30).
+ * plans/analise-estatica-ampliada, item 1; 3: recursos .NET, item 30; 4: authentihash, exphash e
+ * hash do icone, item 2).
  */
-export const PE_REVISION = 3;
+export const PE_REVISION = 4;
 
 const MAX_DLLS = 64;
 const MAX_FUNCTIONS = 4096;
@@ -133,6 +136,14 @@ export interface PeInfo {
     resources: number | null;
   };
   alerts?: PeAlert[];
+  /**
+   * Hashes que ligam amostras (plans/analise-estatica-ampliada, item 2): o authentihash (SHA-256 do
+   * Authenticode, igual com ou sem assinatura), o exphash (MD5 das exportacoes, como o do pefile) e
+   * o dHash de 64 bits do icone principal.
+   */
+  authentihash?: string;
+  exphash?: string | null;
+  icon?: { hash: string; width: number; height: number } | null;
   /** Versao da analise (PE_REVISION); ausente nas analises anteriores ao item 1. */
   rev?: number;
 }
@@ -580,6 +591,8 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
 
   // ---------------------------------------------------------------- exports
   let exports: PeExports | null = null;
+  // Nomes na ordem da tabela de nomes, como o get_exphash do pefile os percorre.
+  const exportNames: string[] = [];
   const exportDir = dir(0);
   const exportAt = exportDir ? rvaToOffset(exportDir.rva) : -1;
   if (exportDir && exportAt >= 0) {
@@ -597,6 +610,7 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
         const rva = u32(nameTable + i * 4);
         if (index === null || rva === null) break;
         const name = cstr(rvaToOffset(rva), 256);
+        if (name) exportNames.push(name);
         if (name && !nameOf.has(index)) nameOf.set(index, name);
       }
     }
@@ -883,6 +897,7 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
     });
   }
 
+  const iconImage = mainIconImage(image, res.leaves);
   const order = { high: 0, medium: 1, info: 2 };
   return {
     machine: MACHINES[machine] ?? `0x${machine.toString(16)}`,
@@ -916,6 +931,13 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
     dotnet,
     debug,
     timestamps,
+    authentihash: authentihash(image),
+    exphash: exportNames.length
+      ? createHash('md5')
+          .update(exportNames.map((n) => n.toLowerCase()).join(','))
+          .digest('hex')
+      : null,
+    icon: iconImage ? iconHash(iconImage) : null,
     alerts: alerts.sort((a, b) => order[a.level] - order[b.level]),
     rev: PE_REVISION,
   };

@@ -8,10 +8,10 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
   binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 mingw-w64-x86-64-dev mingw-w64-i686-dev \
   osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
-  msitools gcab default-jdk-headless \
+  msitools gcab default-jdk-headless g++ python3-dev \
   ca-certificates >/dev/null
 pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 \
-  autoit-ripper==1.2.0 >/dev/null
+  autoit-ripper==1.2.0 py-tlsh==5.0.0 pyelftools==0.33 >/dev/null
 W=/work
 rm -rf "$W" && mkdir -p "$W" && cp /f/pe/* "$W" && cd "$W"
 

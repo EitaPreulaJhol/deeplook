@@ -14,8 +14,9 @@ const PAGE = 20;
  * Executaveis do Windows analisados numa versao anterior da analise de PE (item 7.1: imphash, Rich
  * header, recursos e assinatura; plans/analise-estatica-ampliada: debug, pivos...): refaz a analise
  * estatica em segundo plano, um arquivo por vez e na thread de analise, para a ficha ganhar o que
- * falta e a aba Relacionadas poder liga-los. A marca de "ja feito" e `pe.rev` (PE_REVISION);
- * arquivo expurgado ou ilegivel ganha so essa marca, para nao repetir.
+ * falta e a aba Relacionadas poder liga-los. A marca de "ja feito" e `pe.rev` (PE_REVISION); no
+ * ELF e no Mach-O, a chave do hash de pivo (telfhash, symhash; item 2). Arquivo expurgado ou
+ * ilegivel ganha so essas marcas, para nao repetir.
  */
 export async function backfillPeAnalysis(log: {
   info: (msg: string) => void;
@@ -36,8 +37,14 @@ export async function backfillPeAnalysis(log: {
         SELECT "id", "storageKey", "bucket", "originalFilename", "filePurgedAt"
         FROM "Entry"
         WHERE "type" = 'FILE'
-          AND jsonb_typeof("staticInfo"->'pe') = 'object'
-          AND COALESCE(("staticInfo"->'pe'->>'rev')::int, 0) < ${PE_REVISION}
+          AND (
+            (jsonb_typeof("staticInfo"->'pe') = 'object'
+              AND COALESCE(("staticInfo"->'pe'->>'rev')::int, 0) < ${PE_REVISION})
+            OR (jsonb_typeof("staticInfo"->'elf') = 'object'
+              AND NOT ("staticInfo"->'elf' ? 'telfhash'))
+            OR (jsonb_typeof("staticInfo"->'macho') = 'object'
+              AND NOT ("staticInfo"->'macho' ? 'symhash'))
+          )
         ORDER BY "createdAt" DESC
         LIMIT ${PAGE}`;
       if (!page.length) break;
@@ -66,25 +73,34 @@ export async function backfillPeAnalysis(log: {
               },
             });
             await replacePivots(prisma, entry.id, 'static', staticPivots(fresh));
-            analyzed = Boolean(pe);
+            analyzed = Boolean(pe || fresh.elf || fresh.macho);
           } catch {
             analyzed = false;
           }
         }
         if (!analyzed) {
+          // Marca de "ja tentado" em cada formato, para o arquivo nao voltar a fila.
           await prisma.$executeRaw`
             UPDATE "Entry"
             SET "staticInfo" = jsonb_set(
               jsonb_set("staticInfo", '{pe,imphash}', COALESCE("staticInfo"->'pe'->'imphash', 'null'::jsonb)),
               '{pe,rev}', to_jsonb(${PE_REVISION}::int))
             WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'pe') = 'object'`;
+          await prisma.$executeRaw`
+            UPDATE "Entry"
+            SET "staticInfo" = jsonb_set("staticInfo", '{elf,telfhash}', 'null'::jsonb)
+            WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'elf') = 'object'`;
+          await prisma.$executeRaw`
+            UPDATE "Entry"
+            SET "staticInfo" = jsonb_set("staticInfo", '{macho,symhash}', 'null'::jsonb)
+            WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'macho') = 'object'`;
         }
         done += 1;
         // Deixa a API respirar entre um arquivo e outro.
         await new Promise((r) => setImmediate(r));
       }
     }
-    if (done) log.info(`[pe] ${done} executável(is) antigo(s) reanalisado(s).`);
+    if (done) log.info(`[pe] ${done} executável(is) de análise anterior reanalisado(s).`);
   } catch (err) {
     log.error({ err }, '[pe] falha ao reanalisar os executáveis antigos');
   }

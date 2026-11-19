@@ -512,6 +512,16 @@ addition to sections, imports and packer:
   tab links samples with the same imphash or the same Rich header. The imphash only links with its own
   table: .NET (all of which imports only `_CorExeMain`) and packer tables (fewer than 10 functions) are
   left out, otherwise they would link samples with no relation at all.
+- **Pivot hashes**, each one in the **Related** tab:
+  - **authentihash**: the Authenticode SHA-256, which does not change with the signature. It links the
+    same program signed by another certificate, and it is the hash LOLDrivers and VirusTotal publish;
+  - **exphash**: the MD5 of the exported names, the same as `pefile`'s (only with 3 names or more);
+  - **main icon**: a 64-bit dHash of the largest image of the first icon. It links the same or nearly the
+    same icon (up to 4 bits apart); an icon used by more than 50 samples (Visual Studio's default, an
+    installer's) does not link;
+  - in Linux executables, Trend Micro's **telfhash** (the TLSH of the global functions, distance up to 50),
+    and in macOS ones, the **symhash** of each architecture (the MD5 of the imported symbols, as
+    VirusTotal computes it).
 - **Rich header tools**: each entry with its tool (C, C++, ASM, linker...) and Visual Studio version,
   from the [richprint](https://github.com/dishather/richprint) table (BSD-2-Clause, in
   `apps/api/src/lib/rich-products.json`; `node apps/api/scripts/vendor-richprint.mjs` updates it).

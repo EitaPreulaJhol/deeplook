@@ -124,6 +124,40 @@ export function PeHeaderFields({ pe }: { pe: PeInfo }) {
           )}
         </HpsmReadonly>
       </HpsmField>
+      {pe.authentihash && (
+        <HpsmField label="Authentihash" help={t('authentihashHelp')}>
+          <HpsmReadonly>
+            <code>{pe.authentihash}</code>{' '}
+            <CopyButton value={pe.authentihash} label="authentihash" />
+          </HpsmReadonly>
+        </HpsmField>
+      )}
+      {pe.exphash !== undefined && (
+        <HpsmField label="Exphash" help={t('exphashHelp')}>
+          <HpsmReadonly>
+            {pe.exphash ? (
+              <>
+                <code>{pe.exphash}</code> <CopyButton value={pe.exphash} label="exphash" />
+              </>
+            ) : (
+              '—'
+            )}
+          </HpsmReadonly>
+        </HpsmField>
+      )}
+      {pe.icon !== undefined && (
+        <HpsmField label={t('iconHash')} help={t('iconHashHelp')}>
+          <HpsmReadonly>
+            {pe.icon ? (
+              <>
+                <code>{pe.icon.hash}</code> · {pe.icon.width}×{pe.icon.height}
+              </>
+            ) : (
+              t('noneM')
+            )}
+          </HpsmReadonly>
+        </HpsmField>
+      )}
       <HpsmField label={t('entryPoint')}>
         <HpsmReadonly>
           {pe.entryPoint ? (

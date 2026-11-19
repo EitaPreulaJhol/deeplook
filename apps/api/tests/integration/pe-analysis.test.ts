@@ -86,7 +86,8 @@ function checksumReference(d: Buffer, off: number): number {
 
 async function main() {
   // ------------------------------------------------------------ 1. contra o gabarito
-  for (const [name, r] of Object.entries(REF)) {
+  // O gabarito do ELF (telfhash) fica para a parte dos pivos.
+  for (const [name, r] of Object.entries(REF).filter(([n]) => n !== 'linux.elf')) {
     const pe = parsePe(file(name), name)!;
     ok(`${name}: imphash igual ao do pefile`, pe.imphash === r.imphash, [pe.imphash, r.imphash]);
     ok(`${name}: Rich hash igual ao do pefile`, (pe.rich?.hash ?? null) === r.richHash, [
@@ -308,6 +309,38 @@ async function main() {
     { debug: repro.debug, alerts: alerts('pdb-repro.exe') },
   );
   ok('sem diretório de debug no binário com strip', prog.debug === null, prog.debug);
+
+  // Pivos novos (plans/analise-estatica-ampliada, item 2), contra as referencias de mercado.
+  const signedPe = parsePe(file('assinado.exe'), 'x.exe')!;
+  ok(
+    'authentihash = o digest que o osslsigncode grava na assinatura',
+    signedPe.authentihash === REF['assinado.exe'].signature.digest,
+    { ours: signedPe.authentihash, ref: REF['assinado.exe'].signature },
+  );
+  ok(
+    'authentihash não muda com a assinatura e muda com um byte do código',
+    prog.authentihash === signedPe.authentihash &&
+      parsePe(file('adulterado.exe'), 'x.exe')!.authentihash !== signedPe.authentihash,
+  );
+  ok(
+    'exphash igual ao get_exphash do pefile',
+    dll.exphash === REF['teste.dll'].exphash && prog.exphash === null,
+    { ours: dll.exphash, ref: REF['teste.dll'].exphash },
+  );
+  const iconPe = parsePe(file('icone.exe'), 'x.exe')!;
+  ok(
+    'hash do ícone principal: a maior imagem do primeiro grupo (o PNG de 32x32)',
+    /^[0-9a-f]{16}$/.test(iconPe.icon?.hash ?? '') &&
+      iconPe.icon!.width === 32 &&
+      prog.icon === null,
+    iconPe.icon,
+  );
+  const elfInfo = analyzeBuffer(file('linux.elf'), 'true').elf!;
+  ok(
+    'telfhash igual ao do telfhash oficial (pyelftools + py-tlsh)',
+    elfInfo.telfhash === REF['linux.elf'].telfhash,
+    { ours: elfInfo.telfhash, ref: REF['linux.elf'].telfhash },
+  );
 
   const overlay = parsePe(file('overlay.exe'), 'x.exe')!;
   ok(
@@ -693,7 +726,7 @@ async function main() {
   const pdbA = await upload('pdb.exe', file('pdb.exe'));
   const pdbB = await upload('outro.exe', file('pdb-timestomp.exe'));
   const pivotsA = await prisma.entryPivot.findMany({
-    where: { entryId: pdbA },
+    where: { entryId: pdbA, kind: { startsWith: 'PDB_' } },
     orderBy: { kind: 'asc' },
   });
   ok(
@@ -705,6 +738,32 @@ async function main() {
       pivotsA[1].value.endsWith('\\users\\joao\\source\\repos\\ladrao\\obj\\release\\ladrao.pdb') &&
       pivotsA.every((p) => p.source === 'static'),
     pivotsA,
+  );
+  // O mesmo programa assinado e sem assinatura: o authentihash liga os dois.
+  const signedId = await upload('assinado.exe', file('assinado.exe'));
+  const signedRel = (await related(signedId)).find((i) => i.entry.id === a);
+  ok(
+    'Relacionadas: mesmo código (authentihash) entre o assinado e o original',
+    (signedRel?.reasons ?? []).some(
+      (r) => r.kind === 'SAME_PIVOT' && (r.detail as { pivot: string }).pivot === 'AUTHENTIHASH',
+    ),
+    signedRel?.reasons,
+  );
+  // O mesmo icone em outro executavel (o icone.exe com outro byte no fim): icone parecido, 0 bits.
+  const iconA = await upload('icone.exe', file('icone.exe'));
+  const iconCopy = Buffer.from(file('icone.exe'));
+  iconCopy[iconCopy.length - 1] ^= 0x01;
+  const iconB = await upload('icone2.exe', iconCopy);
+  const iconRel = (await related(iconA)).find((i) => i.entry.id === iconB);
+  ok(
+    'Relacionadas: ícone parecido (distância 0)',
+    (iconRel?.reasons ?? []).some(
+      (r) =>
+        r.kind === 'SAME_PIVOT' &&
+        (r.detail as { pivot: string; distance?: number }).pivot === 'ICON_DHASH' &&
+        (r.detail as { distance?: number }).distance === 0,
+    ),
+    iconRel?.reasons,
   );
   const pdbRel = (await related(pdbA)).find((i) => i.entry.id === pdbB);
   const pivotKinds = (pdbRel?.reasons ?? [])
@@ -733,7 +792,7 @@ async function main() {
     'backfill: análise da versão anterior ganha o debug, a revisão e os pivôs',
     (rowPdbB?.staticInfo as any)?.pe?.rev === PE_REVISION &&
       (rowPdbB?.staticInfo as any)?.pe?.debug?.pdbPath &&
-      (await prisma.entryPivot.count({ where: { entryId: pdbB } })) === 2,
+      (await prisma.entryPivot.count({ where: { entryId: pdbB } })) === 3,
   );
   await prisma.entryPivot.deleteMany({ where: { entryId: pdbB } });
   await app.inject({
@@ -744,7 +803,7 @@ async function main() {
   });
   ok(
     'reanálise manual regrava os pivôs',
-    (await prisma.entryPivot.count({ where: { entryId: pdbB } })) === 2,
+    (await prisma.entryPivot.count({ where: { entryId: pdbB } })) === 3,
   );
 
   await app.close();

@@ -558,6 +558,10 @@ export interface PeInfo {
     project: string | null;
     debugBuild: boolean;
   } | null;
+  /** Hashes de pivo (item 2): authentihash, exphash e o dHash do icone principal. */
+  authentihash?: string;
+  exphash?: string | null;
+  icon?: { hash: string; width: number; height: number } | null;
   /** TimeDateStamp de cada lugar que o grava (segundos). */
   timestamps?: {
     header: number | null;
@@ -1376,6 +1380,8 @@ export interface ElfInfo {
   rwxSegments: number;
   packer: string | null;
   alerts: string[];
+  /** telfhash da Trend Micro (item 2); null sem tabela de simbolos. */
+  telfhash?: string | null;
 }
 
 /** Executavel macOS, comum ou universal (StaticInfo.macho). */
@@ -1406,6 +1412,9 @@ export interface MachoInfo {
   packer: string | null;
   alerts: string[];
   risk: 'high' | 'medium' | 'low';
+  /** symhash (item 2): o da arquitetura descrita e um por arquitetura. */
+  symhash?: string | null;
+  symhashes?: { architecture: string; symhash: string }[];
 }
 
 /** Tipos de aviso da caixa de entrada. */
@@ -1497,10 +1506,11 @@ export type RelatedReason =
   | { kind: 'SAME_RICH'; detail: string }
   | { kind: 'SIMILAR_PAGE'; detail: number }
   /** Mesmo pivo: PDB, authentihash... (plans/analise-estatica-ampliada). */
-  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string } };
+  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string; distance?: number } };
 
 /** Pivos que ligam amostras (EntryPivot na API). */
-export type PivotKind = 'PDB_PATH' | 'PDB_ID';
+export type PivotKind =
+  'PDB_PATH' | 'PDB_ID' | 'AUTHENTIHASH' | 'EXPHASH' | 'ICON_DHASH' | 'TELFHASH' | 'SYMHASH';
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {
