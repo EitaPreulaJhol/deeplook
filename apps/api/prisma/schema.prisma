@@ -107,6 +107,7 @@ model User {
   trashedEntries    Entry[]                 @relation("EntryDeletedBy")
   apiTokens         ApiToken[]
   recoveryCodes     TwoFactorRecoveryCode[]
+  passkeys          Passkey[]
   iocWatches        IocWatch[]
   iocUrlLookups     IocUrlLookup[]
   yaraRules         YaraRule[]              @relation("YaraRuleAuthor")
@@ -1134,6 +1135,8 @@ enum AuditAction {
   TWO_FACTOR_DISABLED
   TWO_FACTOR_RECOVERY_CODES
   TWO_FACTOR_RECOVERY_USED
+  PASSKEY_ADDED
+  PASSKEY_REMOVED
   ENTRY_TRASHED
   ENTRY_RESTORED
   ENTRY_DELETED
@@ -1301,6 +1304,41 @@ model TwoFactorRecoveryCode {
   createdAt DateTime  @default(now())
 
   @@index([userId, codeHash])
+}
+
+/// Passkey (WebAuthn) cadastrada pela propria pessoa em Minha Conta; serve so para ENTRAR (login
+/// alternativo, com verificacao do usuario obrigatoria: vale por senha e segundo fator).
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// ID da credencial (base64url), o que o navegador devolve ao entrar.
+  credentialId String    @unique
+  publicKey    Bytes
+  /// Contador de assinaturas: um valor que nao sobe indica credencial clonada.
+  counter      Int       @default(0)
+  transports   String[]
+  /// 'singleDevice' ou 'multiDevice' (sincronizada) e se esta com copia de seguranca.
+  deviceType   String
+  backedUp     Boolean   @default(false)
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+}
+
+/// Desafio de uso unico do WebAuthn (cadastro ou entrada), valido por poucos minutos.
+model PasskeyChallenge {
+  id        String   @id @default(cuid())
+  challenge String
+  /// 'register' (com userId) ou 'login' (sem usuario: a credencial diz quem e).
+  purpose   String
+  userId    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 /// Prioridade da amostra: P1 Critica, P2 Alta, P3 Media (padrao), P4 Baixa.

@@ -172,6 +172,8 @@ export const messages = {
     'Login com código de recuperação',
     'Sign-in with a recovery code',
   ],
+  'act.PASSKEY_ADDED': ['Passkey cadastrada', 'Passkey added'],
+  'act.PASSKEY_REMOVED': ['Passkey removida', 'Passkey removed'],
   'act.ENTRY_TRASHED': ['Amostra movida para a lixeira', 'Sample moved to trash'],
   'act.ENTRY_RESTORED': ['Amostra restaurada', 'Sample restored'],
   'act.ENTRY_DELETED': ['Amostra excluída definitivamente', 'Sample permanently deleted'],

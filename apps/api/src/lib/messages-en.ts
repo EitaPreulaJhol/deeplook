@@ -265,6 +265,18 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['Confirme o código da imagem para continuar.', 'Confirm the image code to continue.'],
   ['Credenciais inválidas.', 'Invalid credentials.'],
+  [
+    'Passkeys indisponíveis neste endereço. Use o endereço do DeepLook com HTTPS.',
+    'Passkeys are not available at this address. Use the DeepLook address over HTTPS.',
+  ],
+  ['A verificação expirou. Tente de novo.', 'The verification expired. Try again.'],
+  [
+    'Contas do AD entram pelo AD, sem passkey.',
+    'AD accounts sign in through AD, without a passkey.',
+  ],
+  ['Limite de {0} passkeys por conta.', 'Limit of {0} passkeys per account.'],
+  ['Não foi possível cadastrar esta passkey.', 'This passkey could not be registered.'],
+  ['Passkey não encontrada.', 'Passkey not found.'],
   ['A verificação expirou. Entre novamente.', 'The verification expired. Sign in again.'],
   [
     'O 2FA desta conta precisa ser reconfigurado. Use um código de recuperação ou peça a um administrador para desativá-lo.',

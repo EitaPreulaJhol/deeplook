@@ -67,6 +67,13 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['LDAP_USER_FILTER sem {login}', 'LDAP_USER_FILTER without {login}'],
   ['faltam LDAP_BASE_DN e LDAP_BIND_DN', 'LDAP_BASE_DN and LDAP_BIND_DN are missing'],
   ['código 2FA incorreto', 'wrong 2FA code'],
+  ['passkey desconhecida', 'unknown passkey'],
+  ['assinatura da passkey recusada', 'passkey signature refused'],
+  ['conta do AD com passkey', 'AD account with a passkey'],
+  [
+    'contador da passkey não avançou (credencial clonada?)',
+    'passkey counter did not advance (cloned credential?)',
+  ],
   [
     '2FA ilegível (DATA_KEY ou SESSION_SECRET trocado?)',
     'unreadable 2FA (DATA_KEY or SESSION_SECRET changed?)',

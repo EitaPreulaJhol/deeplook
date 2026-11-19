@@ -126,6 +126,8 @@ services:
       # Conferencia de integridade dos arquivos guardados (item 4.2); 0 minutos desliga.
       INTEGRITY_SCRUB_INTERVAL_MINUTES: ${INTEGRITY_SCRUB_INTERVAL_MINUTES:-60}
       INTEGRITY_SCRUB_MAX_MB: ${INTEGRITY_SCRUB_MAX_MB:-512}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-}
       LDAP_URL: ${LDAP_URL:-}
       LDAP_STARTTLS: ${LDAP_STARTTLS:-false}
       LDAP_TLS_CA: ${LDAP_TLS_CA:-}

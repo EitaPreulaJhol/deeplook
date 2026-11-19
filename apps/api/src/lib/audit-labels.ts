@@ -29,6 +29,8 @@ export const AUDIT_LABELS: Record<AuditAction, readonly [pt: string, en: string]
   TWO_FACTOR_DISABLED: ['2FA desativado', '2FA turned off'],
   TWO_FACTOR_RECOVERY_CODES: ['Códigos de recuperação gerados', 'Recovery codes generated'],
   TWO_FACTOR_RECOVERY_USED: ['Login com código de recuperação', 'Sign-in with a recovery code'],
+  PASSKEY_ADDED: ['Passkey cadastrada', 'Passkey added'],
+  PASSKEY_REMOVED: ['Passkey removida', 'Passkey removed'],
   ENTRY_TRASHED: ['Amostra movida para a lixeira', 'Sample moved to trash'],
   ENTRY_RESTORED: ['Amostra restaurada', 'Sample restored'],
   ENTRY_DELETED: ['Amostra excluída definitivamente', 'Sample permanently deleted'],

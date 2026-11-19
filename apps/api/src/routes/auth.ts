@@ -46,7 +46,7 @@ const LoginSchema = z.object({
   captchaAnswer: z.string().max(20).optional(),
 });
 
-function publicUser(u: {
+export function publicUser(u: {
   id: string;
   email: string;
   displayName: string;
@@ -539,7 +539,9 @@ export async function authRoutes(app: FastifyInstance) {
   );
 
   // Tela de login (item 94): com o AD ligado, o campo aceita o usuario do AD.
-  app.get('/api/auth/options', async (_req, reply) => reply.send({ ldap: Boolean(ldapConfig()) }));
+  app.get('/api/auth/options', async (_req, reply) =>
+    reply.send({ ldap: Boolean(ldapConfig()), passkeys: true }),
+  );
 
   // Validade atual sem renovar (o front confere antes de avisar/encerrar,
   // pois outra janela pode ter renovado a sessao).

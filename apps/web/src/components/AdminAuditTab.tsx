@@ -50,6 +50,8 @@ export const AUDIT_ACTIONS: Record<AuditAction, { label: string; tone: StatusTon
     TWO_FACTOR_DISABLED: { label: t('act.TWO_FACTOR_DISABLED'), tone: 'orange' },
     TWO_FACTOR_RECOVERY_CODES: { label: t('act.TWO_FACTOR_RECOVERY_CODES'), tone: 'blue' },
     TWO_FACTOR_RECOVERY_USED: { label: t('act.TWO_FACTOR_RECOVERY_USED'), tone: 'orange' },
+    PASSKEY_ADDED: { label: t('act.PASSKEY_ADDED'), tone: 'green' },
+    PASSKEY_REMOVED: { label: t('act.PASSKEY_REMOVED'), tone: 'orange' },
     ENTRY_TRASHED: { label: t('act.ENTRY_TRASHED'), tone: 'orange' },
     ENTRY_RESTORED: { label: t('act.ENTRY_RESTORED'), tone: 'green' },
     ENTRY_DELETED: { label: t('act.ENTRY_DELETED'), tone: 'red' },

@@ -55,6 +55,8 @@ const AuditQuery = z.object({
       'TWO_FACTOR_DISABLED',
       'TWO_FACTOR_RECOVERY_CODES',
       'TWO_FACTOR_RECOVERY_USED',
+      'PASSKEY_ADDED',
+      'PASSKEY_REMOVED',
       'ENTRY_TRASHED',
       'ENTRY_RESTORED',
       'ENTRY_DELETED',
@@ -344,6 +346,8 @@ export async function adminRoutes(app: FastifyInstance) {
       // Troca obrigatoria no proximo login: a temporaria foi vista pelo admin.
       await tx.user.update({ where: { id }, data: { passwordHash, mustChangePassword: true } });
       await tx.session.deleteMany({ where: { userId: id } });
+      // A passkey entra sem senha: quem teve a conta redefinida perde as que ja existiam.
+      await tx.passkey.deleteMany({ where: { userId: id } });
       // Quem redefine suspeita da conta: os tokens tambem caem (item 108).
       await tx.apiToken.updateMany({
         where: { userId: id, revokedAt: null },

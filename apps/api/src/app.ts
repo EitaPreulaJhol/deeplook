@@ -46,6 +46,7 @@ import { monitorRoutes } from './routes/monitor';
 import { notificationRoutes } from './routes/notifications';
 import { oletoolsRoutes } from './routes/oletools';
 import { openApiRoutes } from './routes/openapi';
+import { passkeyRoutes } from './routes/passkeys';
 import { qrRoutes } from './routes/qr';
 import { relatedRoutes } from './routes/related';
 import { reportRoutes } from './routes/reports';
@@ -121,6 +122,8 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   unpackRoutes,
   // Office e PDF mais fundo (item 7.14).
   oletoolsRoutes,
+  // Passkeys (WebAuthn): login alternativo, cadastrado em Minha Conta.
+  passkeyRoutes,
   serviceAnalysisRoutes,
   aiDraftRoutes,
   // QR code em imagens, PDFs e no print da pagina (plano pos-revisao, item 2.2).

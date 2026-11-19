@@ -122,6 +122,14 @@ const EnvSchema = z
     INTEGRITY_SCRUB_INTERVAL_MINUTES: z.coerce.number().int().min(0).max(10080).default(60),
     INTEGRITY_SCRUB_MAX_MB: z.coerce.number().int().min(1).max(102400).default(512),
     /**
+     * Passkeys (WebAuthn), opcional: enderecos do DeepLook como o navegador os mostra (varios,
+     * separados por virgula; ex.: https://deeplook.empresa.com). O dominio da credencial (RP ID)
+     * e o host do primeiro, salvo WEBAUTHN_RP_ID. Vazio = usa o endereco da propria pagina
+     * (cabecalho Origin), que a credencial ja amarra ao dominio onde foi criada.
+     */
+    WEBAUTHN_ORIGIN: z.string().default(''),
+    WEBAUTHN_RP_ID: z.string().default(''),
+    /**
      * Login pelo AD/LDAP (item 94), opcional: vazio = desligado. So com TLS
      * (ldaps:// ou ldap:// + LDAP_STARTTLS=true) e certificado verificado
      * (LDAP_TLS_CA = PEM da CA, se nao for uma CA do sistema).
