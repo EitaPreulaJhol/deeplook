@@ -59,6 +59,61 @@ export function DisguisedFileWarning({ info }: { info?: StaticInfo | null }) {
   );
 }
 
+/** Criptografia e codificacao (item 7): constantes, chaves RSA e alfabetos Base64 proprios. */
+function CryptoBlock({ crypto }: { crypto: NonNullable<StaticInfo['crypto']> }) {
+  const hex = (n: number) => `0x${n.toString(16)}`;
+  return (
+    <div className="dl-static-block">
+      <h4 className="dl-static-title">{t('cryptoTitle')}</h4>
+      <HpsmForm columns={2}>
+        <PeAlerts alerts={crypto.alerts} />
+      </HpsmForm>
+      {crypto.constants.length > 0 && (
+        <TableContainer>
+          <Table size="xs" aria-label={t('cryptoConstantsAria')}>
+            <TableHead>
+              <TableRow>
+                <TableHeader scope="col">{t('cryptoAlgorithm')}</TableHeader>
+                <TableHeader scope="col">{t('cryptoWhat')}</TableHeader>
+                <TableHeader scope="col">{t('cryptoOffset')}</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {crypto.constants.map((c) => (
+                <TableRow key={`${c.algorithm}-${c.what}-${c.offset}`}>
+                  <TableCell>{c.algorithm}</TableCell>
+                  <TableCell>{c.what}</TableCell>
+                  <TableCell>
+                    <code>{hex(c.offset)}</code>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+      {crypto.alphabets.map((a) => (
+        <details key={a.alphabet} className="dl-static-strings" open>
+          <summary>{t('cryptoAlphabet', { offset: hex(a.offset), n: a.decoded.length })}</summary>
+          <p>
+            <code>{a.alphabet}</code>{' '}
+            <CopyButton value={a.alphabet} label={t('cryptoAlphabetLabel')} />
+          </p>
+          {a.decoded.length > 0 && (
+            <ul>
+              {a.decoded.map((d) => (
+                <li key={d.source}>
+                  <code>{d.source}</code> → <code>{d.text}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+        </details>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Secao "Analise estatica" da aba Detalhes: tipo real, entropia, cabecalho PE
  * (secoes, imports, funcoes suspeitas, empacotador), strings por categoria e
@@ -557,6 +612,10 @@ export function StaticAnalysisSection({
             </TableContainer>
           )}
         </div>
+      )}
+
+      {info.crypto && (info.crypto.constants.length > 0 || info.crypto.alphabets.length > 0) && (
+        <CryptoBlock crypto={info.crypto} />
       )}
 
       <div className="dl-static-block">

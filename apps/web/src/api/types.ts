@@ -749,6 +749,12 @@ export interface StaticInfo {
   elf?: ElfInfo | null;
   /** Executavel macOS (macho-analysis.ts). */
   macho?: MachoInfo | null;
+  /** Constantes de criptografia, chaves RSA e alfabetos Base64 proprios (item 7). */
+  crypto?: {
+    constants: { algorithm: string; what: string; offset: number }[];
+    alphabets: { alphabet: string; offset: number; decoded: { source: string; text: string }[] }[];
+    alerts: PeAlert[];
+  } | null;
   document?: DocumentInfo | null;
   delivery?: DeliveryInfo | null;
   script?: ScriptInfo | null;

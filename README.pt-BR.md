@@ -522,6 +522,12 @@ mostra, além de seções, imports e empacotador:
   - nos executáveis Linux, o **telfhash** da Trend Micro (o TLSH das funções globais, distância até 50),
     e nos de macOS, o **symhash** de cada arquitetura (o MD5 dos símbolos importados, como o do
     VirusTotal).
+- **Criptografia e codificação** (em todo PE, ELF e Mach-O): as constantes de AES (S-box e tabelas),
+  ChaCha/Salsa20, RC5/RC6, TEA, Blowfish, MD5, SHA-1, SHA-256 e CRC32, com a posição no arquivo, e
+  as chaves RSA embutidas (blob do CryptoAPI ou do CNG, PEM), que viram alerta. Um **alfabeto Base64
+  próprio** (64 caracteres únicos que não são o padrão) também vira alerta, e as strings do arquivo
+  que ele decodifica em texto ou num executável aparecem ao lado: é o texto que a extração comum não
+  vê.
 - **Ferramentas do Rich header**: cada entrada com a ferramenta (C, C++, ASM, linker...) e a
   versão do Visual Studio, pela tabela do [richprint](https://github.com/dishather/richprint)
   (BSD-2-Clause, em `apps/api/src/lib/rich-products.json`; `node apps/api/scripts/vendor-richprint.mjs`

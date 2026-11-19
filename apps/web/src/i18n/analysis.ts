@@ -67,6 +67,19 @@ export const messages = {
   stampExports: ['exportações', 'exports'],
   stampResources: ['recursos', 'resources'],
   resDownload: ['Baixar', 'Download'],
+  cryptoTitle: ['Criptografia e codificação', 'Cryptography and encoding'],
+  cryptoConstantsAria: [
+    'Constantes de criptografia encontradas no arquivo',
+    'Cryptography constants found in the file',
+  ],
+  cryptoAlgorithm: ['Algoritmo', 'Algorithm'],
+  cryptoWhat: ['Constante', 'Constant'],
+  cryptoOffset: ['Posição', 'Offset'],
+  cryptoAlphabet: [
+    'Alfabeto Base64 próprio em {offset} · {n} string(s) decodificada(s)',
+    'Custom Base64 alphabet at {offset} · {n} string(s) decoded',
+  ],
+  cryptoAlphabetLabel: ['alfabeto', 'alphabet'],
   authentihashHelp: [
     'SHA-256 do Authenticode: não muda com a assinatura. Liga o mesmo programa assinado por outro certificado (e é o hash do LOLDrivers).',
     'Authenticode SHA-256: it does not change with the signature. It links the same program signed by another certificate (and it is the LOLDrivers hash).',

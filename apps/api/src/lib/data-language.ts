@@ -30,8 +30,11 @@ export function localizeText<T extends string | null | undefined>(text: T, lang:
  * decodificado da amostra, e `name` em `imports` e o nome de uma funcao.
  */
 const TEXT_KEYS = new Map<string, string | string[] | null>([
-  ['text', 'alerts'],
+  // `text` de `decoded` (item 7): so o marcador "[executável (MZ)]" tem par; o resto e da amostra.
+  ['text', ['alerts', 'decoded']],
   ['why', 'findings'],
+  // Constantes de criptografia (item 7): "S-box", "valores iniciais"...
+  ['what', 'constants'],
   ['name', 'findings'],
   ['method', 'layers'],
   ['type', ['elf', 'macho']],

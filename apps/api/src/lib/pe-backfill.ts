@@ -6,6 +6,7 @@ import { PE_REVISION, relationHashes } from './pe-analysis';
 import { replacePivots, staticPivots } from './pivots';
 import { prisma } from './prisma';
 import { s3 } from './s3';
+import { STATIC_REVISION } from './static-analysis';
 import { analyzeInThread } from './static-analysis-thread';
 
 const PAGE = 20;
@@ -14,9 +15,9 @@ const PAGE = 20;
  * Executaveis do Windows analisados numa versao anterior da analise de PE (item 7.1: imphash, Rich
  * header, recursos e assinatura; plans/analise-estatica-ampliada: debug, pivos...): refaz a analise
  * estatica em segundo plano, um arquivo por vez e na thread de analise, para a ficha ganhar o que
- * falta e a aba Relacionadas poder liga-los. A marca de "ja feito" e `pe.rev` (PE_REVISION); no
- * ELF e no Mach-O, a chave do hash de pivo (telfhash, symhash; item 2). Arquivo expurgado ou
- * ilegivel ganha so essas marcas, para nao repetir.
+ * falta e a aba Relacionadas poder liga-los. As marcas de "ja feito" sao `pe.rev` (PE_REVISION) e,
+ * para PE, ELF e Mach-O, o `rev` da analise inteira (STATIC_REVISION). Arquivo expurgado ou
+ * ilegivel ganha so as marcas, para nao repetir.
  */
 export async function backfillPeAnalysis(log: {
   info: (msg: string) => void;
@@ -40,10 +41,10 @@ export async function backfillPeAnalysis(log: {
           AND (
             (jsonb_typeof("staticInfo"->'pe') = 'object'
               AND COALESCE(("staticInfo"->'pe'->>'rev')::int, 0) < ${PE_REVISION})
-            OR (jsonb_typeof("staticInfo"->'elf') = 'object'
-              AND NOT ("staticInfo"->'elf' ? 'telfhash'))
-            OR (jsonb_typeof("staticInfo"->'macho') = 'object'
-              AND NOT ("staticInfo"->'macho' ? 'symhash'))
+            OR ((jsonb_typeof("staticInfo"->'pe') = 'object'
+                OR jsonb_typeof("staticInfo"->'elf') = 'object'
+                OR jsonb_typeof("staticInfo"->'macho') = 'object')
+              AND COALESCE(("staticInfo"->>'rev')::int, 0) < ${STATIC_REVISION})
           )
         ORDER BY "createdAt" DESC
         LIMIT ${PAGE}`;
@@ -88,12 +89,8 @@ export async function backfillPeAnalysis(log: {
             WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'pe') = 'object'`;
           await prisma.$executeRaw`
             UPDATE "Entry"
-            SET "staticInfo" = jsonb_set("staticInfo", '{elf,telfhash}', 'null'::jsonb)
-            WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'elf') = 'object'`;
-          await prisma.$executeRaw`
-            UPDATE "Entry"
-            SET "staticInfo" = jsonb_set("staticInfo", '{macho,symhash}', 'null'::jsonb)
-            WHERE "id" = ${entry.id} AND jsonb_typeof("staticInfo"->'macho') = 'object'`;
+            SET "staticInfo" = jsonb_set("staticInfo", '{rev}', to_jsonb(${STATIC_REVISION}::int))
+            WHERE "id" = ${entry.id}`;
         }
         done += 1;
         // Deixa a API respirar entre um arquivo e outro.

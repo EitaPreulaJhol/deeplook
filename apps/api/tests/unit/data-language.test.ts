@@ -52,6 +52,9 @@ const FILES = [
   'sandbox-memdump',
   // Motivo do trabalho cancelado no Monitoramento (plans/monitoramento).
   'job-control',
+  // plans/analise-estatica-ampliada: debug do PE e criptografia (itens 1 e 7).
+  'pe-debug',
+  'crypto-scan',
 ].map((name) => `src/lib/${name}.ts`);
 
 /** Iguais nos dois idiomas: nomes tecnicos, de APIs e de ferramentas. */
@@ -114,6 +117,10 @@ const SAME = new Set([
   'using Microsoft.Win32.SafeHandles;',
   'public static class DeepLookDump {',
   'Remove-Item -LiteralPath {0} -ErrorAction SilentlyContinue',
+  // Versao do Visual Studio no Rich header (pe-debug.ts) e constantes do ChaCha (crypto-scan.ts).
+  '{0} build {1}',
+  'expand 32-byte k',
+  'expand 16-byte k',
   // PATHEXT do Windows (script-deobfuscate.ts): valor de variavel de ambiente.
   '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC',
 ]);

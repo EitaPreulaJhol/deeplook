@@ -1,3 +1,4 @@
+import { type CryptoInfo, scanCrypto } from './crypto-scan';
 import { analyzeDelivery, type DeliveryInfo, htmlScripts } from './delivery-formats';
 import { analyzeDiskImage, type DiskImageInfo } from './disk-image';
 import { analyzeDocument, type DocumentInfo } from './doc-analysis';
@@ -25,8 +26,17 @@ export type { PeSection } from './pe-analysis';
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_LIST = 20;
 
+/**
+ * Revisao da analise estatica (`rev`): o backfill refaz em segundo plano os executaveis analisados
+ * numa revisao anterior (1: criptografia e codificacao, plans/analise-estatica-ampliada, item 7).
+ * O PE tem tambem a dele (PE_REVISION).
+ */
+export const STATIC_REVISION = 1;
+
 export interface StaticInfo {
   version: 1;
+  /** STATIC_REVISION da analise; ausente nas anteriores ao item 7. */
+  rev?: number;
   analyzedAt: string;
   size: number;
   bytesAnalyzed: number;
@@ -63,6 +73,11 @@ export interface StaticInfo {
   diskImage?:
     | (Omit<DiskImageInfo, 'files'> & { files: { path: string; size: number; hidden: boolean }[] })
     | null;
+  /**
+   * Constantes de criptografia, chaves RSA e alfabetos Base64 proprios, nos executaveis (PE, ELF e
+   * Mach-O; plans/analise-estatica-ampliada, item 7).
+   */
+  crypto?: CryptoInfo | null;
   /**
    * Indicadores encontrados nas strings: so sugestao (nao entram no indice). Ate
    * CANDIDATES_PER_KIND de cada tipo.
@@ -255,6 +270,15 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
       macho = null;
     }
   }
+  // Criptografia e codificacao nos executaveis (item 7).
+  let crypto: CryptoInfo | null = null;
+  if (pe || elf || macho) {
+    try {
+      crypto = scanCrypto(buf);
+    } catch {
+      crypto = null;
+    }
+  }
   // Documentos (item 70): macros, scripts, links e objetos; os links viram sugestao.
   const document = analyzeDocument(buf, detectedType?.id);
   // OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4): so o resumo; os bytes do que
@@ -292,6 +316,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
   );
   return {
     version: 1,
+    rev: STATIC_REVISION,
     analyzedAt: new Date().toISOString(),
     size: buf.length,
     bytesAnalyzed: end,
@@ -308,6 +333,7 @@ function analyzeContent(buf: Buffer, filename?: string | null): StaticInfo {
     delivery,
     lnk,
     diskImage,
+    crypto,
     iocCandidates: capPerKind(iocCandidates, CANDIDATES_PER_KIND),
   };
 }
