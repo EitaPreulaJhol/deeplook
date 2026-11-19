@@ -172,8 +172,61 @@ def rtf_report(data):
         return {"objects": [], "error": text(f"{type(exc).__name__}: {exc}", 300)}
 
 
+# Senha do Excel que o proprio Office usa sem perguntar (planilha "protegida" so para a estrutura):
+# o malware cifra com ela para o filtro nao ler as macros, e o Excel abre sem pedir nada.
+VELVET = "VelvetSweatshop"
+MAX_DECRYPTED = 32 * 1024 * 1024
+
+
+def decrypt_report(path, passwords):
+    """Office cifrado (item 9): tenta a VelvetSweatshop e as senhas candidatas com o msoffcrypto.
+    O documento decifrado volta em Base64 e vira amostra filha na API."""
+    import base64
+    import io
+
+    import msoffcrypto
+
+    try:
+        with open(path, "rb") as f:
+            if not msoffcrypto.OfficeFile(f).is_encrypted():
+                return None
+    except Exception:  # noqa: BLE001 - nao e um Office que o msoffcrypto le
+        return None
+    for password in [VELVET, *passwords]:
+        try:
+            with open(path, "rb") as f:
+                office = msoffcrypto.OfficeFile(f)
+                try:
+                    office.load_key(password=password, verify_password=True)
+                except TypeError:
+                    # Os formatos antigos (.doc, .xls, .ppt) nao tem a opcao; a conferencia e a
+                    # assinatura do resultado, abaixo.
+                    office.load_key(password=password)
+                out = io.BytesIO()
+                office.decrypt(out)
+            data = out.getvalue()
+        except Exception:  # noqa: BLE001 - senha errada ou formato que ele nao decifra
+            continue
+        # Decifrado de verdade: um ZIP (OOXML) ou um OLE (formato antigo); lixo e senha errada.
+        if not data or len(data) > MAX_DECRYPTED:
+            continue
+        if not (data.startswith(b"PK\x03\x04") or data.startswith(b"\xd0\xcf\x11\xe0")):
+            continue
+        return {
+            "encrypted": True,
+            "password": password,
+            "size": len(data),
+            "data": base64.b64encode(data).decode("ascii"),
+        }
+    return {"encrypted": True, "password": None, "size": 0, "data": None}
+
+
 def main():
     path = sys.argv[1]
+    passwords = []
+    if len(sys.argv) > 2:
+        with open(sys.argv[2], encoding="utf-8") as f:
+            passwords = [p for p in f.read().split("\n") if p]
     with open(path, "rb") as f:
         data = f.read()
     from oletools import olevba
@@ -185,6 +238,7 @@ def main():
         "dde": dde_report(path),
         "oleid": oleid_report(path),
         "rtf": rtf_report(data),
+        "decrypted": decrypt_report(path, passwords),
     }
     sys.stdout.write(json.dumps(result))
 

@@ -55,6 +55,16 @@ echo "fb4abeea14cda51c1e60bc211cf9521bbbaae74b84118ca6d58f0a7223680388  eom.tar.
 tar xzf eom.tar.gz Email-Outlook-Message-0.921/t/files
 cp Email-Outlook-Message-0.921/t/files/plain_jpeg_attached.msg outlook-anexo.msg
 cp Email-Outlook-Message-0.921/t/files/plain_unsent.msg outlook-rascunho.msg
+# Office cifrado (item 9): os exemplos de teste do msoffcrypto-tool (MIT), cifrados pelo proprio
+# Office com a senha Password1234_: um .docx (ECMA-376 agile) e um .xls (RC4 CryptoAPI). A cifragem
+# do msoffcrypto-tool 6.1 gera arquivos que nem ele decifra, e por isso nao e usada aqui.
+MSOC=https://raw.githubusercontent.com/nolze/msoffcrypto-tool/bdb71ea5dfbdee2f3cd86f8852e74be7a6f15667/tests/inputs
+curl -sSLf -o office-cifrado.docx "$MSOC/example_password.docx"
+curl -sSLf -o office-cifrado.xls "$MSOC/rc4cryptoapi_password.xls"
+printf '%s\n' \
+  "0605624697328060fdc75ca9929ea20b9d63ebed9387ff1a97aaf9979757234a  office-cifrado.docx" \
+  "b804cba40c27ea88f2ea994b6b7d75145661532f9356e7246d2499f63d58abfe  office-cifrado.xls" \
+  | sha256sum -c --quiet
 
 # Desempacotar e extrair (item 7.8): instalador NSIS com o prog64.exe dentro, um programa PyInstaller
 # (Linux; o formato do arquivo e o mesmo do Windows) e os instaladores oficiais do Inno Setup 6.2.2
@@ -165,7 +175,7 @@ cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado
   inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
   pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp anexo.pdf anexo-rc4.pdf \
   anexo-aes128.pdf anexo-aes256.pdf anexo-senha.pdf anexo-objstm.pdf outlook-anexo.msg \
-  outlook-rascunho.msg reference.json /out/
+  outlook-rascunho.msg office-cifrado.docx office-cifrado.xls reference.json /out/
 # Arquivos com o dono de quem roda os testes (senao o proximo rm do runner falha).
 if [ -n "$OWNER" ]; then chown -R "$OWNER" /out; fi
 echo "pe ok"

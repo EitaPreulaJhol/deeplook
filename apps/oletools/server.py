@@ -11,6 +11,7 @@ Mesmo esqueleto do apps/unpack/server.py (token, recusa lendo o corpo, /health c
 container por trabalho): mudou um, confira o outro.
 """
 
+import base64
 import hmac
 import json
 import os
@@ -23,6 +24,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -110,15 +112,24 @@ def oletools_version():
 VERSION = oletools_version()
 
 
-def analyze(data, work, script=ANALYZER):
-    """Roda o script (analyze.py ou qr.py) num processo filho, com o tempo-limite; devolve o JSON."""
+def analyze(data, work, script=ANALYZER, passwords=None):
+    """Roda o script (analyze.py ou qr.py) num processo filho, com o tempo-limite; devolve o JSON.
+
+    `passwords`: senhas candidatas para o Office cifrado (plans/analise-estatica-ampliada, item 9),
+    gravadas num arquivo ao lado da amostra (uma por linha), nunca na linha de comando."""
     sample = os.path.join(work, "documento")
     with open(sample, "wb") as f:
         f.write(data)
+    extra = []
+    if passwords:
+        listed = os.path.join(work, "senhas")
+        with open(listed, "w", encoding="utf-8") as f:
+            f.write("\n".join(passwords))
+        extra = [listed]
     started = time.monotonic()
     try:
         proc = run_watched(
-            [sys.executable, script, sample],
+            [sys.executable, script, sample, *extra],
             TIMEOUT,
             cwd=work,
         )
@@ -187,7 +198,17 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("content-length", "-1"))
         except ValueError:
             length = -1
-        script = SCRIPTS.get(self.path)
+        path, _, query = self.path.partition("?")
+        script = SCRIPTS.get(path)
+        # Senhas candidatas (item 9): ?passwords=<base64 de uma por linha>, ate 20 de ate 64.
+        passwords = []
+        for key, value in urllib.parse.parse_qsl(query):
+            if key == "passwords":
+                try:
+                    decoded = base64.b64decode(value, validate=True).decode("utf-8")
+                except (ValueError, UnicodeDecodeError):
+                    decoded = ""
+                passwords = [p for p in decoded.split("\n") if 0 < len(p) <= 64][:20]
         if script is None:
             self.refuse(404, "não encontrado", length)
             return
@@ -214,7 +235,7 @@ class Handler(BaseHTTPRequestHandler):
                 _retiring.set()
             _request.sock = self.connection
             try:
-                result = analyze(data, work, script)
+                result = analyze(data, work, script, passwords)
             except Cancelled:
                 log("cancelado: a API fechou a conexão")
                 return

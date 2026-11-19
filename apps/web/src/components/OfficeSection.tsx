@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
 import type { OfficeInfo } from '../api/types';
@@ -114,6 +115,26 @@ export function OfficeSection({ entryId, canTriage }: { entryId: string; canTria
             )}
           </HpsmReadonly>
         </HpsmField>
+        {analysis.result?.decrypted && (
+          <HpsmField label={t('officeEncrypted')} wide>
+            <HpsmReadonly>
+              {analysis.result.decrypted.password ? (
+                <>
+                  <StatusText tone="orange">
+                    {t('officeDecrypted', { password: analysis.result.decrypted.password })}
+                  </StatusText>{' '}
+                  {analysis.result.decrypted.entryId && (
+                    <Link className="dl-link" to={`/entries/${analysis.result.decrypted.entryId}`}>
+                      {t('officeDecryptedLink')}
+                    </Link>
+                  )}
+                </>
+              ) : (
+                t('officeNotDecrypted')
+              )}
+            </HpsmReadonly>
+          </HpsmField>
+        )}
         {(analysis.alerts ?? []).length > 0 && (
           <HpsmField label={t('alerts')} wide top>
             <ul className="dl-office__alerts">

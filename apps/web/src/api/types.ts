@@ -468,6 +468,8 @@ export interface EmailInfo {
     size: number;
     entryId?: string;
     skipped?: string;
+    /** ZIP cifrado aberto com uma senha do corpo do e-mail (item 9). */
+    password?: string;
   }[];
 }
 
@@ -1363,6 +1365,13 @@ export interface OfficeInfo {
           size: number;
         }[];
         error: string | null;
+      } | null;
+      /** Office cifrado (item 9): a senha que abriu e a amostra com o documento decifrado. */
+      decrypted?: {
+        encrypted: boolean;
+        password: string | null;
+        size: number;
+        entryId?: string;
       } | null;
     } | null;
     alerts: { level: 'high' | 'medium' | 'info'; text: string }[] | null;

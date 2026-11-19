@@ -150,6 +150,14 @@ export function EmailSection({ info }: { info: EmailInfo }) {
                     <StatusText tone="gray">{t('notSubmitted', { reason: a.skipped })}</StatusText>
                   </>
                 )}
+                {a.password && (
+                  <>
+                    {' '}
+                    <StatusText tone="orange">
+                      {t('zipOpenedWith', { password: a.password })}
+                    </StatusText>
+                  </>
+                )}
               </li>
             ))}
           </ul>

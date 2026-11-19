@@ -76,6 +76,8 @@ export interface EmailInfo {
     size: number;
     entryId?: string;
     skipped?: string;
+    /** ZIP cifrado aberto com uma senha candidata (item 9). */
+    password?: string;
   }[];
   /** No .msg: assuntos dos e-mails anexados dentro dele (os anexos deles tambem viram amostras). */
   forwarded?: string[];

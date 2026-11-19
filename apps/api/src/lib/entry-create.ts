@@ -18,6 +18,7 @@ import { rememberUrls } from './iocs';
 import { scanLookalikesQuietly } from './lookalike';
 import { isMsg, parseMsg } from './msg';
 import { enqueueOletoolsIfEligible } from './oletools';
+import { openEncryptedZip, passwordCandidates } from './passwords';
 import { relationHashes } from './pe-analysis';
 import { staticPivots } from './pivots';
 import { prisma } from './prisma';
@@ -299,6 +300,12 @@ async function readEmail(
   // Sem titulo proprio (veio o nome do arquivo): o assunto identifica melhor.
   const title =
     input.title === entry.originalFilename && info.subject ? `E-mail: ${info.subject}` : undefined;
+  // Grava o e-mail antes dos anexos: a analise de um anexo cifrado procura a senha no corpo
+  // (plans/analise-estatica-ampliada, item 9) e pode comecar antes do fim deste laco.
+  await prisma.entry.update({
+    where: { id: entry.id },
+    data: { emailInfo: info as unknown as Prisma.InputJsonValue },
+  });
   for (const file of files) {
     const item = info.attachments.find(
       (a) => a.filename === file.filename && !a.entryId && !a.skipped,
@@ -324,6 +331,33 @@ async function readEmail(
         depth + 1,
       );
       if (item) item.entryId = child.id;
+      // ZIP com senha (item 9): a senha costuma vir no corpo do e-mail. O que estava dentro vira
+      // amostra filha do ZIP, com a senha que abriu na descricao.
+      const opened = await openEncryptedZip(
+        file.content,
+        passwordCandidates([info.subject, info.body].join('\n')),
+        env.MAX_UPLOAD_MB * 1024 * 1024,
+      );
+      if (opened && item) {
+        item.password = opened.password;
+        for (const inner of opened.files) {
+          await createFileEntry(
+            req,
+            ownerId,
+            {
+              buffer: inner.data,
+              filename: inner.name,
+              mimetype: 'application/octet-stream',
+              title: inner.name,
+              description: `Extraído do ZIP "${file.filename}" com a senha "${opened.password}".`,
+              tags: input.tags,
+              parentEntryId: child.id,
+            },
+            { remaining: null },
+            depth + 2,
+          ).catch((err: unknown) => req.log.warn({ err }, 'Falha ao extrair o ZIP do anexo'));
+        }
+      }
     } catch (err) {
       if (!(err instanceof QuotaExceeded)) throw err;
       quota.remaining = 0;

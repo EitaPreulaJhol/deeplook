@@ -149,6 +149,8 @@ const SAME = new Set([
 const ALERT_TEXT = new Set(['Atualização de regras YARA retida']);
 
 const USER_TEXT = new Set([
+  // Descricao da filha do Office decifrado (plans/analise-estatica-ampliada, item 9).
+  'Documento "{0}" decifrado com a senha "{1}".',
   '{0} (desempacotado)',
   'Extraído de "{0}" pelo desempacotador {1}{2}.',
   // Titulo e descricao do PE achado na memoria do sandbox (plans/novas-analises, item 3).

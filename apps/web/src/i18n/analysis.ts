@@ -763,6 +763,10 @@ export const messages = {
   empty: ['(vazio)', '(empty)'],
   attachments: ['Anexos ({n})', 'Attachments ({n})'],
   notSubmitted: ['não enviado: {reason}', 'not submitted: {reason}'],
+  zipOpenedWith: [
+    'ZIP aberto com a senha "{password}" do corpo',
+    'ZIP opened with the password "{password}" from the body',
+  ],
   scanning: ['Escaneando...', 'Scanning...'],
   clean: ['Limpo', 'Clean'],
   avInfected: ['Infectado: {signature}', 'Infected: {signature}'],
@@ -889,6 +893,16 @@ export const messages = {
   suspicious: ['Suspeita', 'Suspicious'],
   noRiskCombo: ['Sem combinação de risco', 'No risky combination'],
   noVba: ['Sem macros VBA', 'No VBA macros'],
+  officeEncrypted: ['Documento cifrado', 'Encrypted document'],
+  officeDecrypted: [
+    'decifrado com a senha "{password}"',
+    'decrypted with the password "{password}"',
+  ],
+  officeDecryptedLink: ['abrir o documento decifrado', 'open the decrypted document'],
+  officeNotDecrypted: [
+    'nenhuma senha conhecida abriu (nem a VelvetSweatshop nem as do e-mail de origem)',
+    'no known password opened it (neither VelvetSweatshop nor those from the source email)',
+  ],
   ddeFields: ['Campos DDE', 'DDE fields'],
   rtfObjects: ['Objetos no RTF', 'Objects in the RTF'],
   noClass: ['sem classe', 'no class'],

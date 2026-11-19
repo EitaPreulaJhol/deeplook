@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
 import { type AnalysisService, requestAnalysis, requestFailure } from './analysis-service';
+import { createResourceChildren } from './decompiled-store';
 import { CANCELLED_REASON, isQueuePaused, registerQueueWaker, startJob } from './job-control';
+import { passwordCandidates } from './passwords';
 import { prisma } from './prisma';
 import { s3 } from './s3';
 
@@ -127,6 +129,24 @@ const resultSchema = z.object({
         )
         .max(60),
       error: toolError,
+    })
+    .nullable()
+    .optional(),
+  /**
+   * Office cifrado (plans/analise-estatica-ampliada, item 9): a senha que abriu (VelvetSweatshop ou
+   * uma candidata tirada do e-mail) e o documento decifrado em Base64, que vira amostra filha (no
+   * banco fica so o id dela).
+   */
+  decrypted: z
+    .object({
+      encrypted: z.boolean(),
+      password: text(64).nullable(),
+      size: z.number().int().nonnegative(),
+      data: z
+        .string()
+        .max(48 * 1024 * 1024)
+        .nullable(),
+      entryId: z.string().optional(),
     })
     .nullable()
     .optional(),
@@ -316,7 +336,14 @@ async function analyzeJob(
 ): Promise<void> {
   const entry = await prisma.entry.findUnique({
     where: { id: entryId },
-    select: { storageKey: true, bucket: true, filePurgedAt: true },
+    select: {
+      storageKey: true,
+      bucket: true,
+      filePurgedAt: true,
+      originalFilename: true,
+      // A senha do anexo cifrado costuma vir no corpo do e-mail de onde ele saiu (item 9).
+      parentEntry: { select: { emailInfo: true } },
+    },
   });
   if (!entry?.storageKey || entry.filePurgedAt) {
     await finish(id, { status: 'FAILED', error: 'o arquivo não está mais disponível' });
@@ -338,10 +365,17 @@ async function analyzeJob(
 
   let res: Response;
   try {
+    const mail = entry.parentEntry?.emailInfo as { subject?: string; body?: string } | null;
+    const candidates = mail ? passwordCandidates(`${mail.subject ?? ''}\n${mail.body ?? ''}`) : [];
     res = await requestAnalysis(service(), data, {
       signal,
       waitMs: oletoolsTiming.serviceWaitMs,
       retryEveryMs: oletoolsTiming.retryEveryMs,
+      ...(candidates.length
+        ? {
+            query: `?passwords=${encodeURIComponent(Buffer.from(candidates.join('\n')).toString('base64'))}`,
+          }
+        : {}),
     });
   } catch (err) {
     if (signal.aborted) {
@@ -387,6 +421,32 @@ async function analyzeJob(
       ms: result.ms ?? null,
     });
     return;
+  }
+  // O documento decifrado vira amostra filha, com a analise inteira (macros, oletools, YARA).
+  if (result.decrypted?.data) {
+    const [child] = await createResourceChildren(
+      entryId,
+      [
+        {
+          name: (entry.originalFilename ?? 'documento.bin').replace(
+            /(\.\w{1,8})?$/,
+            '-decifrado$1',
+          ),
+          data: result.decrypted.data,
+        } as {
+          name: string;
+          data?: string;
+          entryId?: string;
+        },
+      ],
+      (title) => `Documento "${title}" decifrado com a senha "${result.decrypted!.password}".`,
+      'oletools',
+    );
+    result.decrypted = {
+      ...result.decrypted,
+      data: null,
+      ...(child.entryId ? { entryId: child.entryId } : {}),
+    };
   }
   await finish(id, {
     status: 'DONE',

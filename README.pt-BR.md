@@ -1187,6 +1187,13 @@ links (só como texto) e o corpo em texto; o HTML nunca é exibido. Cada anexo v
 amostra própria ("Anexo de: …"), com antivírus, reputação e YARA. A leitura usa a
 `postal-mime` (sem dependências).
 
+**Anexo cifrado:** o golpe manda o anexo com senha para o filtro não abrir, e a senha vai no corpo
+("senha: 1234", "Password - X"). As senhas citadas no corpo e no assunto (mais `infected`, `malware`,
+`virus`, `1234`...) abrem o **ZIP com senha** anexado, cujo conteúdo vira amostra filha (a senha que
+abriu aparece no anexo), e o **Office cifrado**: o serviço `oletools` tenta a `VelvetSweatshop` (a que
+o Excel usa sem perguntar) e essas senhas com o `msoffcrypto`. O documento decifrado vira amostra filha,
+com a análise inteira.
+
 O **`.msg` do Outlook** (o "Encaminhar como anexo", comum nos relatos de empresa) também entra, pelo
 nome ou pelo conteúdo. Os cabeçalhos de transporte que ele guarda passam pelo mesmo leitor do `.eml`
 (remetente, SPF/DKIM/DMARC, saltos e links), e os anexos viram amostras, inclusive os de um e-mail

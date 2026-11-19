@@ -446,7 +446,9 @@ await waitFor('MinIO', () =>
 if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
 if (
-  files.some((f) => /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar|eml-msg/.test(f))
+  files.some((f) =>
+    /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar|eml-msg|oletools-decrypt/.test(f),
+  )
 ) {
   peFixtures();
 }

@@ -1179,6 +1179,13 @@ sender, Reply-To, recipients, SPF/DKIM/DMARC, the path of the servers, the links
 body as text; the HTML is never displayed. Each attachment becomes its own sample ("Attachment of: …"),
 with antivirus, reputation and YARA. Parsing uses `postal-mime` (no dependencies).
 
+**Encrypted attachment:** the scam sends the attachment with a password so the filter cannot open
+it, and the password goes in the body ("password: 1234", "senha - X"). The passwords cited in the body
+and subject (plus `infected`, `malware`, `virus`, `1234`...) open a **password ZIP** attachment, whose
+content becomes a child sample (the password that worked shows on the attachment), and **encrypted
+Office**: the `oletools` service tries `VelvetSweatshop` (the one Excel uses without asking) and those
+passwords with `msoffcrypto`. The decrypted document becomes a child sample, with the full analysis.
+
 **Outlook `.msg`** files ("Forward as attachment", common in company reports) are read too, by name or
 by content. The transport headers they keep go through the same reader as the `.eml` (sender,
 SPF/DKIM/DMARC, hops and links), and the attachments become samples, including those of an email
