@@ -199,7 +199,9 @@ jobs:
     name: Testes de integracao da API
     runs-on: ubuntu-latest
     # Sobe containers, gera imagens de disco e certificados: mais lento que o resto.
-    timeout-minutes: 45
+    # As imagens dos servicos (o Ghidra com as bases do Function ID e o BinExport, ml, pydec, jsdeob)
+    # sao construidas do zero a cada rodada.
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: apps/api

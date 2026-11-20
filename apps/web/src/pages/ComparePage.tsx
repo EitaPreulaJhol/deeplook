@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
-import { api } from '../api/client';
+import { api, type ApiError } from '../api/client';
 import type { EntryStatus, Priority, Verdict } from '../api/types';
 import { HpsmSection } from '../components/HpsmForm';
 import { HpsmToolbar, HpsmToolbarButton } from '../components/HpsmToolbar';
@@ -390,6 +390,9 @@ function FunctionsDiff({ a, b }: { a: string; b: string }) {
     staleTime: Infinity,
   });
   if (query.isLoading) return <HpsmLoading text={t('fnLoading')} />;
+  // Sem a analise do Ghidra nas duas (409) ou com o Ghidra desligado (503): nada a comparar aqui.
+  const status = (query.error as ApiError | null)?.status;
+  if (status === 409 || status === 503) return null;
   if (query.isError) {
     return (
       <HpsmSection title={t('fnTitle')}>

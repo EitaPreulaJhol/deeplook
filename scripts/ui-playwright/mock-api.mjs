@@ -1061,6 +1061,12 @@ export async function setupMock(context, state) {
         return json(route, 200, { ok: true });
       }
       // Comparar amostras: o roteiro define as listas; os lados vem de `entries`.
+      // BinDiff (item 24): as amostras do mock nao tem a analise do Ghidra, como na API real.
+      if (p === '/api/entries/compare/functions') {
+        return json(route, 409, {
+          error: 'As duas amostras precisam da análise do Ghidra concluída (com o BinExport).',
+        });
+      }
       if (p === '/api/entries/compare') {
         state.lastCompare = url.search;
         const ea = entries.find((e) => e.id === url.searchParams.get('a'));
