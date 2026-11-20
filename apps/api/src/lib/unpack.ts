@@ -302,11 +302,13 @@ const service = (): AnalysisService => ({
   timeoutS: env.UNPACK_REQUEST_TIMEOUT_S,
 });
 
-async function enqueue(entryId: string): Promise<void> {
+async function enqueue(entryId: string, passwords?: string[]): Promise<void> {
+  const pw = passwords?.length ? { passwords: passwords as unknown as Prisma.InputJsonValue } : {};
   await prisma.unpackJob.upsert({
     where: { entryId },
-    create: { entryId },
+    create: { entryId, ...pw },
     update: {
+      ...pw,
       status: 'PENDING',
       unpacker: null,
       label: null,
@@ -322,6 +324,23 @@ async function enqueue(entryId: string): Promise<void> {
     },
   });
   wake();
+}
+
+/**
+ * 7z ou RAR anexado a e-mail (item 9): vai para o unpack com as senhas candidatas do corpo da
+ * mensagem; o 7-Zip tenta uma a uma.
+ */
+export async function enqueuePasswordArchive(
+  entryId: string,
+  passwords: string[],
+  log: { error: (o: object, m: string) => void },
+): Promise<void> {
+  try {
+    if (!unpackEnabled() || !passwords.length) return;
+    await enqueue(entryId, passwords.slice(0, 20));
+  } catch (err) {
+    log.error({ err }, '[unpack] falha ao enfileirar o arquivo com senha');
+  }
 }
 
 /** Na chegada: todo executavel (ou pacote) dentro do teto, com o servico ligado. */
@@ -431,7 +450,11 @@ async function drain(): Promise<void> {
 }
 
 function finish(id: string, data: Prisma.UnpackJobUpdateInput) {
-  return prisma.unpackJob.update({ where: { id }, data: { finishedAt: new Date(), ...data } });
+  // As senhas candidatas (item 9) nao ficam guardadas depois do trabalho.
+  return prisma.unpackJob.update({
+    where: { id },
+    data: { finishedAt: new Date(), passwords: Prisma.DbNull, ...data },
+  });
 }
 
 /**
@@ -534,12 +557,24 @@ async function unpackJob(
 
   // Duas geracoes de desempacotamento acima, ou arquivo que nao e executavel (so o Magika e o DIE,
   // item 22): so identificar.
-  const executableKind = KINDS.has(
-    (entry.staticInfo as { detectedType?: { id?: string } | null } | null)?.detectedType?.id ?? '',
-  );
+  // Senhas candidatas (item 9): o 7z/RAR com senha vai como desempacotavel.
+  const passwords = (
+    (await prisma.unpackJob.findUnique({ where: { id }, select: { passwords: true } }))
+      ?.passwords as string[] | null
+  )?.filter((p) => typeof p === 'string');
+  const executableKind =
+    Boolean(passwords?.length) ||
+    KINDS.has(
+      (entry.staticInfo as { detectedType?: { id?: string } | null } | null)?.detectedType?.id ??
+        '',
+    );
   // Fora do executavel, so o carving e a forca bruta (item 18).
   const unpack = (await unpackDepth(entryId)) < MAX_DEPTH;
-  const query = !unpack ? '?unpack=0' : executableKind ? '' : '?unpack=carve';
+  const pwQuery = passwords?.length
+    ? `passwords=${Buffer.from(JSON.stringify(passwords)).toString('base64url')}`
+    : '';
+  const base = !unpack ? '?unpack=0' : executableKind ? '' : '?unpack=carve';
+  const query = pwQuery ? (base ? `${base}&${pwQuery}` : `?${pwQuery}`) : base;
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {

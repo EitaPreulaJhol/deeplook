@@ -554,6 +554,11 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['{0} arquivo(s) no pacote', '{0} file(s) in the package'],
   ['{0} emulado', '{0} emulated'],
+  ['aberto com a senha "{0}"', 'opened with the password "{0}"'],
+  [
+    'nenhuma das {0} senhas candidatas abriu o arquivo',
+    'none of the {0} candidate passwords opened the file',
+  ],
   [
     'falha ao criar as amostras filhas ({0} de {1} criadas)',
     'failed to create the child samples ({0} of {1} created)',

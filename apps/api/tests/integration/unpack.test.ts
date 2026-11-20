@@ -581,6 +581,45 @@ async function main() {
     xpiJob,
   );
 
+  // Item 9: 7z com senha (e cabecalho cifrado) anexado a um e-mail; a senha vem no corpo.
+  const seven = file('senha.7z');
+  const mail = Buffer.from(
+    [
+      'From: "Cobranca" <cobranca@evil.test>',
+      'To: vitima@empresa.test',
+      'Subject: Boleto',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="b7"',
+      '',
+      '--b7',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Segue o boleto. Senha do arquivo: Fatura2026',
+      '',
+      '--b7',
+      'Content-Type: application/x-7z-compressed; name="boleto.7z"',
+      'Content-Disposition: attachment; filename="boleto.7z"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      seven.toString('base64').replace(/.{76}/g, '$&\r\n'),
+      '--b7--',
+    ].join('\r\n'),
+  );
+  const mailId = await upload(ana, 'boleto.eml', mail);
+  await unpackIdle();
+  const [archive] = await children(mailId);
+  const archiveJob = archive && (await job(archive.id));
+  const inside = archive ? await children(archive.id) : [];
+  ok(
+    '7z com senha anexado: a senha do corpo abre, o de dentro vira filha e as senhas não ficam guardadas',
+    archiveJob?.status === 'DONE' &&
+      archiveJob.unpacker === 'password-archive' &&
+      archiveJob.note === 'aberto com a senha "Fatura2026"' &&
+      archiveJob.passwords === null &&
+      inside.some((k) => k.sha256 === prog32Sha),
+    { archiveJob, inside: inside.map((k) => [k.originalFilename, k.sha256]) },
+  );
+
   const overlay = await upload(ana, 'dropper.exe', file('overlay.exe'));
   await unpackIdle();
   ok(

@@ -32,7 +32,13 @@ import type { StaticInfo } from './static-analysis';
 import { analyzeInThread } from './static-analysis-thread';
 import { tlsh, TLSH_MAX_BYTES } from './tlsh';
 import { applyTriageRules } from './triage-rules';
-import { enqueueIdentify, type Identified, recordIdentified, type UnpackedChild } from './unpack';
+import {
+  enqueueIdentify,
+  enqueuePasswordArchive,
+  type Identified,
+  recordIdentified,
+  type UnpackedChild,
+} from './unpack';
 import { yaraScanInBackground } from './yara';
 
 /**
@@ -344,6 +350,15 @@ async function readEmail(
         passwordCandidates([info.subject, info.body].join('\n')),
         env.MAX_UPLOAD_MB * 1024 * 1024,
       );
+      // 7z e RAR com senha (item 9): o 7-Zip do servico unpack tenta as senhas candidatas.
+      const head = file.content.subarray(0, 6).toString('latin1');
+      if (head === '7z\xbc\xaf\x27\x1c' || head === 'Rar!\x1a\x07') {
+        await enqueuePasswordArchive(
+          child.id,
+          passwordCandidates([info.subject, info.body].join('\n')),
+          req.log,
+        );
+      }
       if (opened && item) {
         item.password = opened.password;
         for (const inner of opened.files) {

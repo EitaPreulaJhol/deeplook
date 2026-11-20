@@ -7,7 +7,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
   binutils-mingw-w64-x86-64 binutils-mingw-w64-i686 mingw-w64-x86-64-dev mingw-w64-i686-dev \
-  osslsigncode upx-ucl mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
+  osslsigncode upx-ucl 7zip mono-mcs python3-pefile python3-pip openssl nsis binutils curl libpython3.13 \
   msitools gcab default-jdk-headless g++ python3-dev qpdf \
   ca-certificates >/dev/null
 pip install --quiet --break-system-packages dnfile==0.15.1 pyinstaller==6.22.3 \
@@ -58,6 +58,8 @@ echo "fb4abeea14cda51c1e60bc211cf9521bbbaae74b84118ca6d58f0a7223680388  eom.tar.
 tar xzf eom.tar.gz Email-Outlook-Message-0.921/t/files
 cp Email-Outlook-Message-0.921/t/files/plain_jpeg_attached.msg outlook-anexo.msg
 cp Email-Outlook-Message-0.921/t/files/plain_unsent.msg outlook-rascunho.msg
+# 7z com senha e com o cabecalho cifrado (item 9): a senha vai no corpo do e-mail do teste.
+7z a -bd -bso0 -p'Fatura2026' -mhe=on senha.7z prog32.exe
 # Executavel Go (item 14): o proprio GoReSym 3.4.1 (MIT), conferido pelo SHA-256 do zip oficial.
 curl -sSLf -o goresym.zip https://github.com/mandiant/GoReSym/releases/download/v3.4.1/GoReSym-linux.zip
 echo "a557124857f95a589f8ce3525119c2d18c7c7fc7c4225c92ff94e3effb38748d  goresym.zip" | sha256sum -c --quiet
@@ -175,7 +177,7 @@ osslsigncode sign -certs self.pem -key self.key -h sha256 -in prog32.exe \
 python3 post.py "$W"
 python3 reference.py "$W" > reference.json
 mkdir -p /out
-cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe upx32-disfarcado.exe xor-solto.bin xor4-dropper.exe embutido.bin app.asar extensao.crx extensao.xpi metadados.docx modelo-a.pdf modelo-b.pdf xlm.xlsm rich.exe \
+cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe upx32-disfarcado.exe xor-solto.bin xor4-dropper.exe embutido.bin app.asar extensao.crx extensao.xpi metadados.docx modelo-a.pdf modelo-b.pdf xlm.xlsm senha.7z rich.exe \
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
   autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe carga-memoria.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \

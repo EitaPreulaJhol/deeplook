@@ -217,6 +217,8 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
     '{0} arquivo(s) no pacote; {1} sem código (imagens, estilos, traduções) ficam de fora',
     '{0} arquivo(s) no pacote',
     '{0} emulado',
+    'aberto com a senha "{0}"',
+    'nenhuma das {0} senhas candidatas abriu o arquivo',
     // Do servico jar (apps/jarcfr/analyze.py; descompilacao de Java).
     'o arquivo não é um JAR válido (ZIP corrompido)',
     'JAR com {0} entradas (limite {1})',

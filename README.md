@@ -1330,6 +1330,9 @@ and subject (plus `infected`, `malware`, `virus`, `1234`...) open a **password Z
 content becomes a child sample (the password that worked shows on the attachment), and **encrypted
 Office**: the `oletools` service tries `VelvetSweatshop` (the one Excel uses without asking) and those
 passwords with `msoffcrypto`. The decrypted document becomes a child sample, with the full analysis.
+**Password 7z and RAR** attachments (including encrypted names) go to the `unpack` service with the same
+passwords; 7-Zip tries them one by one, and what opens becomes a child sample, with the password in the
+note. The passwords are not kept after the job.
 
 **Outlook `.msg`** files ("Forward as attachment", common in company reports) are read too, by name or
 by content. The transport headers they keep go through the same reader as the `.eml` (sender,

@@ -15,6 +15,7 @@ container por trabalho): mudou um, confira o outro.
 
 import hmac
 import importlib.util
+import base64
 import json
 import os
 import select
@@ -455,6 +456,18 @@ class Handler(BaseHTTPRequestHandler):
         # so o carving (arquivo que nao e executavel, item 18).
         params = query.split("&")
         unpack = False if "unpack=0" in params else "carve" if "unpack=carve" in params else True
+        # ?passwords=<JSON em base64url> (item 9): senhas candidatas para o 7z/RAR com senha.
+        passwords = []
+        for p in params:
+            if p.startswith("passwords="):
+                try:
+                    raw = base64.urlsafe_b64decode(p[10:] + "=" * (-len(p[10:]) % 4))
+                    passwords = [str(x)[:64] for x in json.loads(raw)][:20]
+                except (ValueError, TypeError):
+                    passwords = []
+        for plugin in PLUGINS:
+            if hasattr(plugin, "CANDIDATES"):
+                plugin.CANDIDATES = [x for x in passwords if x and "\n" not in x]
         auth = self.headers.get("authorization", "")
         if not hmac.compare_digest(auth.encode(), f"Bearer {TOKEN}".encode()):
             self.refuse(401, "token inválido", length)

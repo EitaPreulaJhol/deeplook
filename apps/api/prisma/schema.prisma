@@ -907,6 +907,8 @@ model UnpackJob {
   decoded       Json?
   /// ASAR, CRX e XPI (item 20): { kind, files, crxVersion?, extension?, app? }.
   webPackage    Json?
+  /// Senhas candidatas para o 7z/RAR com senha anexado a e-mail (item 9); sai quando o trabalho acaba.
+  passwords     Json?
   error         String?
   ms            Int?
   attempts      Int          @default(0)

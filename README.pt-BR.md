@@ -1337,7 +1337,9 @@ amostra própria ("Anexo de: …"), com antivírus, reputação e YARA. A leitur
 `virus`, `1234`...) abrem o **ZIP com senha** anexado, cujo conteúdo vira amostra filha (a senha que
 abriu aparece no anexo), e o **Office cifrado**: o serviço `oletools` tenta a `VelvetSweatshop` (a que
 o Excel usa sem perguntar) e essas senhas com o `msoffcrypto`. O documento decifrado vira amostra filha,
-com a análise inteira.
+com a análise inteira. O **7z e o RAR com senha** (inclusive com os nomes cifrados) vão para o serviço
+`unpack` com as mesmas senhas; o 7-Zip tenta uma a uma, e o que abrir vira amostra filha, com a senha
+na nota. As senhas não ficam guardadas depois do trabalho.
 
 O **`.msg` do Outlook** (o "Encaminhar como anexo", comum nos relatos de empresa) também entra, pelo
 nome ou pelo conteúdo. Os cabeçalhos de transporte que ele guarda passam pelo mesmo leitor do `.eml`
