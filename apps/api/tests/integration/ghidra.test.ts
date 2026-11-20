@@ -17,6 +17,7 @@ import {
   ghidraProjectKey,
   ghidraPseudoKey,
   ghidraTiming,
+  queueBsimDeletion,
   startGhidraQueue,
   stopGhidraQueue,
 } from '../../src/lib/ghidra';
@@ -294,9 +295,24 @@ async function main() {
     { status: diff.statusCode, dj: { ...dj, functions: dj.functions?.slice(0, 3) } },
   );
   // O mesmo fonte em 32 bits: funcoes alteradas e funcoes so de um lado, com o nome.
+  // Item 23: o assinado sai da lixeira de vez; a proxima analise do Ghidra o tira da base do BSim.
+  const signedSha = createHash('sha256').update(file('assinado.exe')).digest('hex');
+  await prisma.entry.update({ where: { id: signedId }, data: { deletedAt: new Date() } });
+  await queueBsimDeletion(signedId);
+  const queued = await prisma.bsimDeletion.count({ where: { sha256: signedSha } });
   const v32 = await upload(ana, 'versao32.exe', file('prog32.exe'));
   await ask(ana, v32);
   await ghidraIdle();
+  const v32Bsim = ((await row(v32)) as any)?.summary?.bsim;
+  ok(
+    'BSim: a amostra apagada sai da base na análise seguinte, e a fila esvazia',
+    queued === 1 &&
+      (v32Bsim?.deleted ?? []).includes(signedSha) &&
+      (await prisma.bsimDeletion.count()) === 0 &&
+      !(v32Bsim?.shared ?? []).some((x: { sha256: string }) => x.sha256 === signedSha) &&
+      (v32Bsim?.shared ?? []).some((x: { sha256: string }) => x.sha256 === prog64Sha),
+    { queued, bsim: v32Bsim && { ...v32Bsim, matches: undefined } },
+  );
   const d32 = (
     await app.inject({
       method: 'GET',

@@ -1,6 +1,7 @@
 // BSim (plans/analise-estatica-ampliada, item 23): funcoes parecidas em outras amostras.
 //
 //   -postScript BSimDeepLook.java <base, sem a extensao> <saida.json> <sha256 da amostra> <prazo ms>
+//     [sha256,sha256,... das amostras apagadas, que saem da base antes]
 //
 // Numa base H2 em arquivo (no volume do servico), uma por instalacao:
 //   1. as funcoes do autor (fora as de biblioteca do Function ID e as muito pequenas) sao consultadas
@@ -91,6 +92,23 @@ public class BSimDeepLook extends GhidraScript {
 				throw new Exception("abrir a base BSim: " + db.getLastError().message);
 			}
 			String md5 = currentProgram.getExecutableMD5();
+
+			// 0. As amostras apagadas de vez na DeepLook saem da base (pelo nome, que e o SHA-256).
+			List<String> deleted = new ArrayList<>();
+			if (args.length > 4 && !args[4].isEmpty()) {
+				for (String gone : args[4].split(",")) {
+					if (!gone.matches("[0-9a-f]{64}") || gone.equals(sha256)) {
+						continue;
+					}
+					QueryDelete drop = new QueryDelete();
+					ExeSpecifier which = new ExeSpecifier();
+					which.exename = gone;
+					drop.exelist.add(which);
+					drop.execute(db);
+					deleted.add(gone);
+				}
+			}
+			result.put("deleted", deleted);
 
 			// 1. Consulta, antes de inserir (a propria amostra nao aparece).
 			List<Map<String, Object>> matches = new ArrayList<>();

@@ -6,7 +6,7 @@ import { audit } from '../lib/audit';
 import { requireAdmin } from '../lib/auth';
 import { dotnetKeysOf } from '../lib/dotnet';
 import { recordEvent } from '../lib/events';
-import { deleteGhidraProject, deleteGhidraPseudo } from '../lib/ghidra';
+import { deleteGhidraProject, deleteGhidraPseudo, queueBsimDeletion } from '../lib/ghidra';
 import { jarKeysOf } from '../lib/jar';
 import { captureKeysOf } from '../lib/network-capture';
 import { prisma } from '../lib/prisma';
@@ -146,6 +146,8 @@ export async function trashRoutes(app: FastifyInstance) {
       await deleteStoredFile(entry);
       // O projeto do Ghidra (item 7.3) tem os bytes da amostra; o pseudo-C completo
       // (plans/ghidra-pseudo-c) fica fora de samples/ e so sai aqui.
+      // As assinaturas do BSim (item 23) saem na proxima analise do Ghidra.
+      await queueBsimDeletion(id);
       await deleteGhidraProject(id);
       await deleteGhidraPseudo(id);
       await deleteEvidenceObjects([

@@ -718,8 +718,10 @@ Detalhes:
   autor (sem as de biblioteca) numa base H2 no volume `ghidra-bsim` e, antes, consulta as de todas
   as amostras já analisadas. A ficha mostra as funções parecidas (com a similaridade), e a aba
   Relacionadas ganha **Código em comum** (N funções), nos dois sentidos. Acha a mesma função
-  recompilada, em outra versão ou em outra arquitetura. Reanalisar troca as assinaturas da amostra;
-  as de amostras apagadas ficam na base (são só assinaturas de funções), mas não aparecem.
+  recompilada, em outra versão ou em outra arquitetura. Reanalisar troca as assinaturas da amostra.
+  A amostra apagada de vez (fora da lixeira) sai da base na análise seguinte do Ghidra: a base só é
+  aberta dentro do serviço, então a remoção espera na fila até lá (a não ser que outra amostra viva
+  tenha o mesmo arquivo).
 - **BinDiff na comparação A × B:** cada análise grava também o `.BinExport` (BinExport, Apache-2.0,
   compilado no build para este Ghidra) ao lado do projeto. Com as duas amostras analisadas, a
   comparação ganha **Funções (BinDiff)**: similaridade geral, quantas iguais, alteradas e só de um

@@ -717,8 +717,9 @@ Details:
   queries those of every sample already analyzed. The record shows the similar functions (with the
   similarity), and the Related tab gains **Shared code** (N functions), both ways. It finds the same
   function recompiled, in another version or another architecture. Reanalyzing replaces the sample's
-  signatures; those of deleted samples stay in the database (only function signatures) but are not
-  shown.
+  signatures. A sample deleted for good (out of the trash) leaves the database on the next Ghidra
+  analysis: the database is only opened inside the service, so the removal waits in a queue until then
+  (unless another live sample has the same file).
 - **BinDiff in the A × B comparison:** each analysis also stores the `.BinExport` (BinExport,
   Apache-2.0, built at image build for this Ghidra) next to the project. With both samples analyzed,
   the comparison gains **Functions (BinDiff)**: overall similarity, how many are equal, changed and

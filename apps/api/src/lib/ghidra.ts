@@ -128,6 +128,7 @@ const summarySchema = z.object({
         .max(300)
         .optional(),
       error: z.string().max(300).optional(),
+      deleted: z.array(z.string().max(64)).max(100).optional(),
     })
     .optional(),
   libraries: z
@@ -549,12 +550,14 @@ async function analyzeJob(
     return;
   }
 
+  const deletions = await pendingBsimDeletions();
   let res: Response;
   try {
     res = await requestAnalysis(service(), data, {
       signal,
       waitMs: ghidraTiming.serviceWaitMs,
       retryEveryMs: ghidraTiming.retryEveryMs,
+      query: deletions.length ? `?bsimDelete=${deletions.join(',')}` : '',
     });
   } catch (err) {
     if (signal.aborted) {
@@ -640,6 +643,7 @@ async function analyzeJob(
     }
   }
   const pseudo = await preparePseudo(entryId, result.pseudo, result.pseudoError);
+  await confirmBsimDeletions(result.summary).catch(() => undefined);
   try {
     // O indice e a analise concluida juntos: nunca uma analise DONE com metade das funcoes.
     await prisma.$transaction(
@@ -789,4 +793,50 @@ export async function bindiffFunctions(
   bindiffCache.set(cacheKey, parsed.data);
   if (bindiffCache.size > 50) bindiffCache.delete(bindiffCache.keys().next().value!);
   return { result: parsed.data };
+}
+
+// ------------------------------------------------------------------ BSim: amostras apagadas (item 23)
+
+/**
+ * A amostra sai da lixeira de vez: o SHA-256 entra na fila para sair da base do BSim na proxima
+ * analise do Ghidra. Nao entra se ela nunca foi para a base ou se outra amostra viva tem o mesmo
+ * arquivo (as assinaturas sao do arquivo, e continuam valendo para ela).
+ */
+export async function queueBsimDeletion(entryId: string): Promise<void> {
+  // A amostra esta na lixeira: o filtro do cliente (lib/prisma.ts) a esconderia sem o deletedAt.
+  const entry = await prisma.entry.findFirst({
+    where: { id: entryId, deletedAt: { not: null } },
+    select: { sha256: true, ghidraAnalysis: { select: { summary: true } } },
+  });
+  const inserted = (entry?.ghidraAnalysis?.summary as { bsim?: { inserted?: number } } | null)?.bsim
+    ?.inserted;
+  if (!entry?.sha256 || !inserted) return;
+  const twins = await prisma.entry.count({
+    where: { sha256: entry.sha256, id: { not: entryId }, deletedAt: null },
+  });
+  if (twins) return;
+  await prisma.bsimDeletion.upsert({
+    where: { sha256: entry.sha256 },
+    create: { sha256: entry.sha256 },
+    update: {},
+  });
+}
+
+/** Ate 50 da fila; o hash que voltou a ter amostra viva sai da fila sem apagar nada. */
+async function pendingBsimDeletions(): Promise<string[]> {
+  const rows = await prisma.bsimDeletion.findMany({ orderBy: { createdAt: 'asc' }, take: 50 });
+  if (!rows.length) return [];
+  const alive = await prisma.entry.findMany({
+    where: { sha256: { in: rows.map((r) => r.sha256) }, deletedAt: null },
+    select: { sha256: true },
+  });
+  const back = new Set(alive.map((a) => a.sha256).filter((s): s is string => Boolean(s)));
+  if (back.size) await prisma.bsimDeletion.deleteMany({ where: { sha256: { in: [...back] } } });
+  return rows.map((r) => r.sha256).filter((s) => !back.has(s));
+}
+
+/** O servico confirmou: as que sairam da base saem da fila. */
+async function confirmBsimDeletions(summary: unknown): Promise<void> {
+  const deleted = (summary as { bsim?: { deleted?: string[] } } | null)?.bsim?.deleted ?? [];
+  if (deleted.length) await prisma.bsimDeletion.deleteMany({ where: { sha256: { in: deleted } } });
 }

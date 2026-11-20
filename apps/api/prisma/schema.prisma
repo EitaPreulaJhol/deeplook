@@ -1917,3 +1917,11 @@ model MonitorSample {
   @@id([key, at])
   @@index([at])
 }
+
+/// Amostra apagada de vez cujas assinaturas ainda estao na base do BSim do Ghidra (item 23): a
+/// proxima analise do Ghidra as tira (a base so e aberta dentro do servico) e a linha sai.
+model BsimDeletion {
+  sha256    String   @id
+  createdAt DateTime @default(now())
+}
+

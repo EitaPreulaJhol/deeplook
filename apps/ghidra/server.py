@@ -18,6 +18,7 @@ import hmac
 import hashlib
 import json
 import os
+import re
 import select
 import shutil
 import signal
@@ -182,7 +183,7 @@ def bindiff(body):
         shutil.rmtree(work, ignore_errors=True)
 
 
-def bsim_pass(project, work, data):
+def bsim_pass(project, work, data, deletions=()):
     """Funcoes parecidas em outras amostras e as assinaturas desta (BSimDeepLook.java). Um passo a
     parte: falhar aqui nao derruba a analise. None quando o volume nao existe."""
     if not os.path.isdir(BSIM_DIR) or not os.access(BSIM_DIR, os.W_OK):
@@ -194,6 +195,7 @@ def bsim_pass(project, work, data):
         headless(
             project, "-process", "amostra", "-noanalysis", "-postScript", "BSimDeepLook.java",
             os.path.join(BSIM_DIR, "deeplook"), out, hashlib.sha256(data).hexdigest(), str(deadline_ms),
+            ",".join(deletions),
         ),
         BSIM_TIMEOUT,
         logfile,
@@ -320,7 +322,7 @@ def first_pass(work, budget, light):
     return error or script_error(logfile)
 
 
-def analyze(data):
+def analyze(data, deletions=()):
     started = time.monotonic()
     work = tempfile.mkdtemp(prefix="ghidra-", dir="/tmp")
     try:
@@ -362,7 +364,7 @@ def analyze(data):
                 with open(gzf, "rb") as f:
                     gzf_b64 = base64.b64encode(f.read()).decode()
         binexport_b64, binexport_error = binexport_pass(project, work)
-        bsim = bsim_pass(project, work, data)
+        bsim = bsim_pass(project, work, data, deletions)
         if bsim is not None:
             summary["bsim"] = bsim
         # Depois da segunda passada, com o Java fora da memoria.
@@ -432,9 +434,16 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("content-length", "-1"))
         except ValueError:
             length = -1
-        if self.path not in ("/analyze", "/bindiff"):
+        path, _, query = self.path.partition("?")
+        if path not in ("/analyze", "/bindiff"):
             self.refuse(404, "não encontrado", length)
             return
+        # ?bsimDelete=sha,sha (item 23): amostras apagadas de vez, que saem da base do BSim.
+        deletions = []
+        for part in query.split("&"):
+            key, _, value = part.partition("=")
+            if key == "bsimDelete":
+                deletions = [v for v in value.split(",") if re.fullmatch(r"[0-9a-f]{64}", v)][:100]
         auth = self.headers.get("authorization", "")
         if not hmac.compare_digest(auth.encode(), f"Bearer {TOKEN}".encode()):
             self.refuse(401, "token inválido", length)
@@ -453,7 +462,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(data) != length:
                 self.send(400, {"error": "corpo incompleto"})
                 return
-            if self.path == "/bindiff":
+            if path == "/bindiff":
                 # Comparacao de dois .BinExport (item 24): rapida, mas o container tambem e trocado.
                 if RECYCLE:
                     _retiring.set()
@@ -471,7 +480,7 @@ class Handler(BaseHTTPRequestHandler):
                 _retiring.set()
             _request.sock = self.connection
             try:
-                result = analyze(data)
+                result = analyze(data, deletions)
             except Cancelled:
                 log("cancelado: a API fechou a conexão")
                 return
