@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -87,6 +88,33 @@ async function main() {
       draftInfo.body.includes('The body is in plain text') &&
       draftInfo.received.length === 0,
     draftInfo,
+  );
+
+  // E-mail anexado dentro do .msg (o "Encaminhar como anexo"): o anexo do e-mail de dentro vira
+  // amostra, e o assunto dele aparece como encaminhado.
+  const nested = await upload('encaminhado.msg', file('outlook-aninhado.msg'));
+  const nestedInfo = (await prisma.entry.findUnique({ where: { id: nested } }))?.emailInfo as any;
+  const nestedKids = await prisma.entry.findMany({
+    where: { parentEntryId: nested },
+    select: { originalFilename: true, sha256: true },
+  });
+  ok(
+    '.msg com e-mail anexado: o anexo de dentro vira amostra e o assunto entra como encaminhado',
+    nestedInfo?.subject === 'ENC: Fatura em atraso' &&
+      JSON.stringify(nestedInfo.forwarded) === JSON.stringify(['Fatura em atraso']) &&
+      nestedKids.some(
+        (k) =>
+          k.originalFilename === 'fatura.exe' &&
+          k.sha256 === createHash('sha256').update(file('prog32.exe')).digest('hex'),
+      ),
+    {
+      nestedInfo: nestedInfo && {
+        subject: nestedInfo.subject,
+        forwarded: nestedInfo.forwarded,
+        attachments: nestedInfo.attachments,
+      },
+      nestedKids,
+    },
   );
 
   await app.close();
