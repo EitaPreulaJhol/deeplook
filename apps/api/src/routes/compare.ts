@@ -175,14 +175,14 @@ export async function compareRoutes(app: FastifyInstance) {
     const index = async (entryId: string) => {
       const rows = await prisma.ghidraFunction.findMany({
         where: { analysis: { entryId } },
-        select: { entry: true },
+        select: { entry: true, name: true, library: true },
       });
-      const map = new Map<string, string>();
+      const map = new Map<string, { entry: string; name: string; library: boolean }>();
       for (const row of rows) {
         try {
           map.set(
             BigInt(row.entry.startsWith('0x') ? row.entry : `0x${row.entry}`).toString(),
-            row.entry,
+            row,
           );
         } catch {
           // Chave fora do formato: fica sem link.
@@ -191,9 +191,9 @@ export async function compareRoutes(app: FastifyInstance) {
       return map;
     };
     const [ia, ib] = await Promise.all([index(a), index(b)]);
-    const key = (map: Map<string, string>, address: string) => {
+    const key = (map: Awaited<ReturnType<typeof index>>, address: string) => {
       try {
-        return map.get(BigInt(address).toString()) ?? null;
+        return map.get(BigInt(address).toString())?.entry ?? null;
       } catch {
         return null;
       }
@@ -204,6 +204,32 @@ export async function compareRoutes(app: FastifyInstance) {
       entry2: key(ib, f.address2),
     }));
     const equal = functions.filter((f) => f.similarity >= 0.999).length;
+    // So de um lado: as funcoes do indice do Ghidra que o BinDiff nao casou (sem as de biblioteca,
+    // que poluem a lista com o runtime do compilador).
+    const matched = (addresses: string[]) => {
+      const set = new Set<string>();
+      for (const a of addresses) {
+        try {
+          set.add(BigInt(a).toString());
+        } catch {
+          // ignora
+        }
+      }
+      return set;
+    };
+    const used1 = matched(r.functions.map((f) => f.address1));
+    const used2 = matched(r.functions.map((f) => f.address2));
+    const only = (
+      map: Map<string, { entry: string; name: string; library: boolean }>,
+      used: Set<string>,
+    ) =>
+      [...map.entries()]
+        .filter(([k, v]) => !used.has(k) && !v.library)
+        .map(([, v]) => ({ entry: v.entry, name: v.name }))
+        .slice(0, 500);
+    // Com a lista cortada pelo BinDiff (truncated), o "so de um lado" ficaria inflado: sai vazio.
+    const onlyAList = r.truncated ? [] : only(ia, used1);
+    const onlyBList = r.truncated ? [] : only(ib, used2);
     return reply.send({
       similarity: r.similarity,
       confidence: r.confidence,
@@ -213,6 +239,8 @@ export async function compareRoutes(app: FastifyInstance) {
       onlyA: r.primary ? Math.max(0, r.primary.functions - r.matched) : null,
       onlyB: r.secondary ? Math.max(0, r.secondary.functions - r.matched) : null,
       truncated: r.truncated,
+      onlyAList,
+      onlyBList,
       // As alteradas primeiro (a menor similaridade no topo), depois as iguais.
       functions,
     });

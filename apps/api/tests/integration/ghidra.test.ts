@@ -293,6 +293,27 @@ async function main() {
       ),
     { status: diff.statusCode, dj: { ...dj, functions: dj.functions?.slice(0, 3) } },
   );
+  // O mesmo fonte em 32 bits: funcoes alteradas e funcoes so de um lado, com o nome.
+  const v32 = await upload(ana, 'versao32.exe', file('prog32.exe'));
+  await ask(ana, v32);
+  await ghidraIdle();
+  const d32 = (
+    await app.inject({
+      method: 'GET',
+      url: `/api/entries/compare/functions?a=${inj}&b=${v32}`,
+      headers: { cookie: ana },
+    })
+  ).json();
+  ok(
+    'BinDiff 64 × 32 bits: alteradas e as listas de um lado só, sem as de biblioteca',
+    d32.matched > 0 &&
+      d32.changed > 0 &&
+      d32.onlyAList.length + d32.onlyBList.length > 0 &&
+      [...d32.onlyAList, ...d32.onlyBList].every(
+        (f: { entry: string; name: string }) => f.entry && f.name,
+      ),
+    { ...d32, functions: undefined },
+  );
   const noAnalysis = await upload(ana, 'sem-analise.exe', file('prog32.exe'));
   ok(
     'BinDiff sem a análise de um lado: 409 com o motivo',

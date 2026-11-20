@@ -343,6 +343,8 @@ interface FunctionsDiffResult {
   onlyA: number | null;
   onlyB: number | null;
   truncated: boolean;
+  onlyAList: { entry: string; name: string }[];
+  onlyBList: { entry: string; name: string }[];
   functions: {
     address1: string;
     name1: string;
@@ -437,6 +439,29 @@ function FunctionsDiff({ a, b }: { a: string; b: string }) {
             ))}
           </tbody>
         </table>
+      )}
+      {(d.onlyAList.length > 0 || d.onlyBList.length > 0) && (
+        <div className="dl-compare-list">
+          {(
+            [
+              ['a', t('onlyA'), d.onlyAList],
+              ['b', t('onlyB'), d.onlyBList],
+            ] as const
+          ).map(([side, label, list]) => (
+            <div key={side} className={`dl-compare-list__col dl-compare-list__col--${side}`}>
+              <h3 className="dl-compare-list__head">
+                {label} ({list.length})
+              </h3>
+              <ul>
+                {list.slice(0, 200).map((f) => (
+                  <li key={f.entry} className="dl-mono">
+                    {f.name} ({f.entry})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
       {open !== null && changed[open] && (
         <div className="dl-compare-list">
