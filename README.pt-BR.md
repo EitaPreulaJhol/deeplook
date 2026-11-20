@@ -1056,6 +1056,11 @@ Setup` ou `Delphi`; vazio = qualquer empacotador ou protetor).
 | Arquivo embutido | 7-Zip 25 | o que há no ZIP, 7z, RAR ou CAB anexado ao executável |
 | CAB | 7-Zip 25 | o que há num CAB solto (a mídia de um MSI, por exemplo) |
 
+- **Pacotes da web** (ASAR do Electron, extensão do Chrome CRX2/CRX3 e do Firefox XPI): o código
+  (JS, HTML, scripts), os binários nativos (`.node`, PE, ELF) e os manifestos viram filhas, com o
+  código do próprio app antes das dependências; imagens, estilos e traduções ficam de fora. A ficha
+  mostra o manifesto da extensão (permissões, sites, scripts injetados, segundo plano, URL de
+  atualização, id do Firefox), com as permissões perigosas em laranja, ou o `package.json` do app.
 - **Carving e força bruta de codificação**: quando nenhum desempacotador reconhece o executável (e,
   sozinho, no arquivo sem tipo), o binwalk 3.1 (MIT) procura PE, ELF, ZIP, 7z, RAR, CAB, PDF e OLE
   dentro dele (o PE que vem num recurso, o anexado depois do fim), e cada um vira filha. A força

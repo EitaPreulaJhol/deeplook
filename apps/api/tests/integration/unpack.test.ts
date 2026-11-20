@@ -531,6 +531,56 @@ async function main() {
     { embeddedJob, embeddedKids: embeddedKids.map((k) => [k.originalFilename, k.sha256]) },
   );
 
+  // Item 20: ASAR, CRX e XPI. Codigo, binarios nativos e manifestos viram filhas; o resto nao.
+  const names = async (id: string) =>
+    (await children(id)).map((k) => k.originalFilename ?? '').sort();
+  const asarId = await upload(ana, 'app.asar', file('app.asar'));
+  await unpackIdle();
+  const asarJob = await job(asarId);
+  const asarPkg = asarJob?.webPackage as any;
+  ok(
+    'ASAR: os scripts, o package.json e o .node viram filhas; a imagem fica de fora',
+    asarJob?.unpacker === 'webpkg' &&
+      JSON.stringify(await names(asarId)) ===
+        JSON.stringify(['index.js', 'main.js', 'nativo.node', 'package.json', 'rede.js']) &&
+      asarPkg?.kind === 'asar' &&
+      asarPkg.files === 6 &&
+      asarPkg.app?.main === 'main.js',
+    { asarJob, kids: await names(asarId) },
+  );
+  const crxId = await upload(ana, 'cupons.crx', file('extensao.crx'));
+  await unpackIdle();
+  const crxJob = await job(crxId);
+  const crx = (crxJob?.webPackage as any)?.extension;
+  ok(
+    'CRX3: o manifesto na ficha (permissões, hosts, scripts injetados) e as perigosas marcadas',
+    crxJob?.unpacker === 'webpkg' &&
+      (crxJob.webPackage as any).crxVersion === 3 &&
+      JSON.stringify(await names(crxId)) ===
+        JSON.stringify(['fundo.js', 'injeta.js', 'manifest.json']) &&
+      crx?.manifestVersion === 3 &&
+      crx.hostPermissions.includes('<all_urls>') &&
+      crx.contentScripts[0]?.js[0] === 'injeta.js' &&
+      crx.background[0] === 'fundo.js' &&
+      crx.updateUrl === 'https://atualiza.exemplo.invalid/crx.xml' &&
+      ['<all_urls>', 'cookies', 'scripting'].every((p: string) => crx.risky.includes(p)) &&
+      !crx.risky.includes('storage'),
+    crxJob,
+  );
+  const xpiId = await upload(ana, 'bloqueador.xpi', file('extensao.xpi'));
+  await unpackIdle();
+  const xpiJob = await job(xpiId);
+  const xpi = (xpiJob?.webPackage as any)?.extension;
+  ok(
+    'XPI: hosts que vêm nas permissões do Manifest V2 e o id do Firefox',
+    xpiJob?.unpacker === 'webpkg' &&
+      xpi?.geckoId === 'bloqueador@exemplo.invalid' &&
+      JSON.stringify(xpi.hostPermissions) === JSON.stringify(['<all_urls>']) &&
+      !xpi.permissions.includes('<all_urls>') &&
+      xpi.risky.includes('webRequestBlocking'),
+    xpiJob,
+  );
+
   const overlay = await upload(ana, 'dropper.exe', file('overlay.exe'));
   await unpackIdle();
   ok(

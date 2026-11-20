@@ -56,7 +56,7 @@ export function unpackEnabled(): boolean {
  * desempacotadores so agem em executavel do Windows ou do Linux.
  */
 // O CAB solto (plans/caca-e-formatos, item 4) e a midia que sai de um MSI: o 7-Zip o abre.
-const KINDS = new Set(['pe', 'elf', 'macho', 'apk', 'jar', 'cab']);
+const KINDS = new Set(['pe', 'elf', 'macho', 'apk', 'jar', 'cab', 'asar', 'crx', 'xpi']);
 /** Teto do arquivo sem tipo que vai so para a identificacao (Magika). */
 const MAGIKA_MAX_MB = 10;
 
@@ -123,6 +123,35 @@ const goSchema = z
   .nullable();
 export type GoInfo = z.infer<typeof goSchema>;
 
+const list = (n: number, max = 200) => z.array(z.string().max(max)).max(n);
+const webPackageSchema = z.object({
+  kind: z.enum(['asar', 'crx', 'xpi']),
+  files: z.number().int().nonnegative(),
+  crxVersion: z.number().int().optional(),
+  extension: z
+    .object({
+      name: z.string().max(200),
+      version: z.string().max(40),
+      manifestVersion: z.number().int().nullable(),
+      permissions: list(60),
+      hostPermissions: list(60),
+      contentScripts: z.array(z.object({ matches: list(20), js: list(20) })).max(20),
+      background: list(50),
+      updateUrl: z.string().max(300).nullable(),
+      geckoId: z.string().max(200).nullable(),
+      externallyConnectable: list(50),
+      risky: list(60),
+    })
+    .nullish(),
+  app: z
+    .object({
+      name: z.string().max(200),
+      version: z.string().max(40),
+      main: z.string().max(300).nullable(),
+    })
+    .optional(),
+});
+
 const ident = {
   detections: z.array(detectionSchema).max(50).optional(),
   dieVersion: z.string().max(20).nullish(),
@@ -174,6 +203,8 @@ const manifestSchema = z.union([
       )
       .max(10_000),
     ms: z.number().int().nonnegative().optional(),
+    // ASAR, CRX e XPI (item 20): o manifesto da extensao e o package.json do app.
+    webPackage: webPackageSchema.optional(),
   }),
   z.object({
     ...ident,
@@ -581,6 +612,9 @@ async function unpackJob(
     dieError: manifest.dieError ?? null,
     ...(manifest.decoded?.length
       ? { decoded: manifest.decoded as unknown as Prisma.InputJsonValue }
+      : {}),
+    ...(manifest.ok && manifest.webPackage
+      ? { webPackage: manifest.webPackage as unknown as Prisma.InputJsonValue }
       : {}),
     ...(manifest.go !== undefined
       ? { go: (manifest.go ?? Prisma.DbNull) as Prisma.InputJsonValue }

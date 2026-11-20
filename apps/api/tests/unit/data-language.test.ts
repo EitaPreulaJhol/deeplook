@@ -204,6 +204,11 @@ test('data-en.ts não tem pares que o código não usa mais', () => {
     'o Suricata falhou: {0}',
     'o arquivo não é um pcap',
     'suricata-update falhou: {0}',
+    // Do servico unpack (apps/unpack/unpackers; plans/analise-estatica-ampliada, itens 17, 18 e 20).
+    '{0} arquivo(s) embutido(s); chave: {1}',
+    '{0} arquivo(s) no pacote; {1} sem código (imagens, estilos, traduções) ficam de fora',
+    '{0} arquivo(s) no pacote',
+    '{0} emulado',
     // Do servico jar (apps/jarcfr/analyze.py; descompilacao de Java).
     'o arquivo não é um JAR válido (ZIP corrompido)',
     'JAR com {0} entradas (limite {1})',

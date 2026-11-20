@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { api } from '../api/client';
-import type { GoInfo, UnpackInfo } from '../api/types';
+import type { GoInfo, UnpackInfo, WebPackage } from '../api/types';
 import { intlLocale } from '../i18n';
 import { t } from '../i18n/analysis';
 import { formatFileSize } from './HpsmFileDrop';
@@ -49,6 +49,92 @@ function situation(job: NonNullable<UnpackInfo['job']>): { tone: StatusTone; tex
     tone: made ? 'green' : 'none',
     text: t('extractedFiles', { n: made, date: fmtDate(job.finishedAt) }),
   };
+}
+
+/** ASAR, CRX ou XPI (item 20): o manifesto da extensao (permissoes, hosts, scripts) ou o app. */
+function WebPackageBlock({ pkg }: { pkg: WebPackage }) {
+  const risky = new Set(pkg.extension?.risky ?? []);
+  const chips = (items: string[]) =>
+    items.length ? (
+      <span className="dl-static-chips">
+        {items.map((x) => (
+          <code key={x}>{risky.has(x) ? <StatusText tone="orange">{x}</StatusText> : x}</code>
+        ))}
+      </span>
+    ) : (
+      '—'
+    );
+  const ext = pkg.extension;
+  return (
+    <div className="dl-static-block">
+      <h4 className="dl-static-title">
+        {t(pkg.kind === 'asar' ? 'pkgAsar' : pkg.kind === 'crx' ? 'pkgCrx' : 'pkgXpi')}
+        {pkg.crxVersion ? ` (CRX${pkg.crxVersion})` : ''}
+      </h4>
+      <HpsmForm columns={2}>
+        {pkg.app && (
+          <>
+            <HpsmField label={t('pkgApp')}>
+              <HpsmReadonly>
+                {pkg.app.name} {pkg.app.version}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('pkgMain')}>
+              <HpsmReadonly>{pkg.app.main ? <code>{pkg.app.main}</code> : '—'}</HpsmReadonly>
+            </HpsmField>
+          </>
+        )}
+        {ext && (
+          <>
+            <HpsmField label={t('pkgExtension')}>
+              <HpsmReadonly>
+                {ext.name} {ext.version}
+                {ext.manifestVersion ? ` · Manifest V${ext.manifestVersion}` : ''}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('pkgUpdate')}>
+              <HpsmReadonly>
+                {ext.updateUrl ? <code>{ext.updateUrl}</code> : '—'}
+                {ext.geckoId && (
+                  <>
+                    {' · '}
+                    <code>{ext.geckoId}</code>
+                  </>
+                )}
+              </HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('pkgPermissions')} wide help={t('pkgPermissionsHelp')}>
+              <HpsmReadonly>{chips(ext.permissions)}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('pkgHosts')} wide>
+              <HpsmReadonly>{chips(ext.hostPermissions)}</HpsmReadonly>
+            </HpsmField>
+            {ext.contentScripts.length > 0 && (
+              <HpsmField label={t('pkgContentScripts')} wide>
+                <ul className="dl-die-list">
+                  {ext.contentScripts.map((cs, i) => (
+                    <li key={i}>
+                      {chips(cs.js)} → {chips(cs.matches)}
+                    </li>
+                  ))}
+                </ul>
+              </HpsmField>
+            )}
+            {ext.background.length > 0 && (
+              <HpsmField label={t('pkgBackground')} wide>
+                <HpsmReadonly>{chips(ext.background)}</HpsmReadonly>
+              </HpsmField>
+            )}
+            {ext.externallyConnectable.length > 0 && (
+              <HpsmField label={t('pkgExternal')} wide>
+                <HpsmReadonly>{chips(ext.externallyConnectable)}</HpsmReadonly>
+              </HpsmField>
+            )}
+          </>
+        )}
+      </HpsmForm>
+    </div>
+  );
 }
 
 /** O executavel Go pelo GoReSym (item 14): versao, modulo, dependencias, build e funcoes do autor. */
@@ -238,6 +324,7 @@ export function UnpackSection({ entryId, canTriage }: { entryId: string; canTria
           </HpsmField>
         </HpsmForm>
       )}
+      {job.webPackage && <WebPackageBlock pkg={job.webPackage} />}
       {job.go && <GoBlock go={job.go} />}
       {files.length > 0 && (
         <ul className="dl-unpack-files">

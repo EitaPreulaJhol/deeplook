@@ -42,6 +42,7 @@ export async function unpackRoutes(app: FastifyInstance) {
         go: true,
         magika: true,
         decoded: true,
+        webPackage: true,
         error: true,
         ms: true,
         attempts: true,

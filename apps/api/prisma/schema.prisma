@@ -902,6 +902,8 @@ model UnpackJob {
   magika        Json?
   /// Forca bruta de codificacao (item 18): [{ method, offset, text }], URLs achadas sob XOR/ROL/ADD.
   decoded       Json?
+  /// ASAR, CRX e XPI (item 20): { kind, files, crxVersion?, extension?, app? }.
+  webPackage    Json?
   error         String?
   ms            Int?
   attempts      Int          @default(0)

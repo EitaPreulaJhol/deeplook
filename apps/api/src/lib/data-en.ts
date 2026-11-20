@@ -496,6 +496,14 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'packed with {0} (Detect It Easy): no static unpacker for it',
   ],
   ['maior que {0} MB', 'larger than {0} MB'],
+  // Notas do servico unpack (itens 17, 18 e 20).
+  ['{0} arquivo(s) embutido(s); chave: {1}', '{0} embedded file(s); key: {1}'],
+  [
+    '{0} arquivo(s) no pacote; {1} sem código (imagens, estilos, traduções) ficam de fora',
+    '{0} file(s) in the package; {1} without code (images, styles, translations) are left out',
+  ],
+  ['{0} arquivo(s) no pacote', '{0} file(s) in the package'],
+  ['{0} emulado', '{0} emulated'],
   [
     'falha ao criar as amostras filhas ({0} de {1} criadas)',
     'failed to create the child samples ({0} of {1} created)',

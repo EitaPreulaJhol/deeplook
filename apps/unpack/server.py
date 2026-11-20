@@ -375,6 +375,7 @@ def analyze(data, work, unpack=True):
         "unpacker": plugin.NAME,
         "label": plugin.LABEL,
         "note": result.get("note"),
+        **({"webPackage": result["package"]} if result.get("package") else {}),
         "files": files,
         "skipped": skipped,
         "ms": int((time.monotonic() - started) * 1000),

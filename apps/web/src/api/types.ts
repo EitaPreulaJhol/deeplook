@@ -289,6 +289,27 @@ export interface DieDetection {
 }
 
 /** GET /api/entries/:id/unpack (itens 7.8 e 7.9). */
+/** Pacote da web aberto pelo unpack (item 20): o manifesto da extensao ou o package.json. */
+export interface WebPackage {
+  kind: 'asar' | 'crx' | 'xpi';
+  files: number;
+  crxVersion?: number;
+  extension?: {
+    name: string;
+    version: string;
+    manifestVersion: number | null;
+    permissions: string[];
+    hostPermissions: string[];
+    contentScripts: { matches: string[]; js: string[] }[];
+    background: string[];
+    updateUrl: string | null;
+    geckoId: string | null;
+    externallyConnectable: string[];
+    risky: string[];
+  } | null;
+  app?: { name: string; version: string; main: string | null };
+}
+
 /** O que o GoReSym tira de um executavel Go (item 14). */
 export interface GoInfo {
   version: string;
@@ -322,6 +343,8 @@ export interface UnpackInfo {
     dieError: string | null;
     /** GoReSym (item 14); ausente fora do Go. */
     go?: GoInfo | null;
+    /** ASAR, CRX e XPI (item 20). */
+    webPackage?: WebPackage | null;
     /** Forca bruta de codificacao (item 18): URLs achadas sob XOR/ROL/ADD. */
     decoded?: { method: string; offset: number; text: string }[] | null;
     /** Magika (item 22): o tipo por aprendizado de maquina e se diverge. */
