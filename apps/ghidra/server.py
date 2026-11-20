@@ -93,6 +93,95 @@ BSIM_DIR = os.environ.get("GHIDRA_BSIM_DIR", "/bsim")
 BSIM_TIMEOUT = int(os.environ.get("GHIDRA_BSIM_TIMEOUT_S", "300"))
 
 
+def binexport_pass(project, work):
+    """O .BinExport (item 24), para o BinDiff comparar duas amostras depois. (base64, motivo)."""
+    if not os.path.isdir(f"{GHIDRA}/Ghidra/Extensions/BinExport"):
+        return None, None
+    out = os.path.join(work, "amostra.BinExport")
+    logfile = os.path.join(work, "passo-binexport.log")
+    error = run(
+        headless(project, "-process", "amostra", "-noanalysis", "-postScript", "ExportBinExport.java", out),
+        PACK_TIMEOUT,
+        logfile,
+    ) or script_error(logfile)
+    if error or not os.path.exists(out):
+        return None, (error or "o BinExport não foi gerado")[:300]
+    if os.path.getsize(out) > MAX_BINEXPORT:
+        return None, f"BinExport acima de {MAX_BINEXPORT // (1024 * 1024)} MB"
+    with open(out, "rb") as f:
+        return base64.b64encode(f.read()).decode(), None
+
+
+BINDIFF = os.environ.get("BINDIFF", "/opt/bindiff/bin/bindiff")
+BINDIFF_TIMEOUT = int(os.environ.get("GHIDRA_BINDIFF_TIMEOUT_S", "300"))
+MAX_BINEXPORT = int(os.environ.get("GHIDRA_MAX_BINEXPORT_MB", "32")) * 1024 * 1024
+MAX_DIFF_ROWS = 5000
+
+
+def bindiff(body):
+    """Compara dois .BinExport (item 24). Corpo: 4 bytes com o tamanho do primeiro (big endian), o
+    primeiro e o segundo. Devolve as funcoes casadas, com a similaridade, e os totais de cada lado."""
+    import sqlite3
+    import struct
+
+    if len(body) < 4:
+        return {"ok": False, "error": "corpo inválido"}
+    size = struct.unpack(">I", body[:4])[0]
+    if size <= 0 or 4 + size >= len(body):
+        return {"ok": False, "error": "corpo inválido"}
+    work = tempfile.mkdtemp(prefix="bindiff-", dir="/tmp")
+    try:
+        a = os.path.join(work, "a.BinExport")
+        b = os.path.join(work, "b.BinExport")
+        with open(a, "wb") as f:
+            f.write(body[4:4 + size])
+        with open(b, "wb") as f:
+            f.write(body[4 + size:])
+        out = os.path.join(work, "saida")
+        os.mkdir(out)
+        error = run(
+            [BINDIFF, "--logo=false", "--primary", a, "--secondary", b, "--output_dir", out,
+             "--output_format", "bin"],
+            BINDIFF_TIMEOUT,
+            os.path.join(work, "bindiff.log"),
+        )
+        found = [p for p in os.listdir(out) if p.endswith(".BinDiff")]
+        if error or not found:
+            with open(os.path.join(work, "bindiff.log"), encoding="utf-8", errors="replace") as f:
+                tail = [line for line in f.read().splitlines() if line.strip()][-1:] or ["sem detalhe"]
+            return {"ok": False, "error": (error or f"o BinDiff falhou: {tail[0]}")[:300]}
+        db = sqlite3.connect(os.path.join(out, found[0]))
+        try:
+            meta = db.execute("SELECT similarity, confidence FROM metadata").fetchone() or (None, None)
+            files = db.execute("SELECT id, functions, libfunctions FROM file ORDER BY id").fetchall()
+            rows = db.execute(
+                "SELECT address1, name1, address2, name2, similarity, confidence FROM function "
+                "ORDER BY similarity ASC, address1 LIMIT ?",
+                (MAX_DIFF_ROWS,),
+            ).fetchall()
+            total = db.execute("SELECT COUNT(*) FROM function").fetchone()[0]
+        finally:
+            db.close()
+        side = lambda i: {"functions": files[i][1], "libraryFunctions": files[i][2]} if len(files) > i else None  # noqa: E731
+        return {
+            "ok": True,
+            "version": VERSION,
+            "similarity": round(meta[0], 4) if meta[0] is not None else None,
+            "confidence": round(meta[1], 4) if meta[1] is not None else None,
+            "primary": side(0),
+            "secondary": side(1),
+            "matched": total,
+            "truncated": total > len(rows),
+            "functions": [
+                {"address1": hex(r[0]), "name1": (r[1] or "")[:300], "address2": hex(r[2]),
+                 "name2": (r[3] or "")[:300], "similarity": round(r[4], 4), "confidence": round(r[5], 4)}
+                for r in rows
+            ],
+        }
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def bsim_pass(project, work, data):
     """Funcoes parecidas em outras amostras e as assinaturas desta (BSimDeepLook.java). Um passo a
     parte: falhar aqui nao derruba a analise. None quando o volume nao existe."""
@@ -272,6 +361,7 @@ def analyze(data):
             else:
                 with open(gzf, "rb") as f:
                     gzf_b64 = base64.b64encode(f.read()).decode()
+        binexport_b64, binexport_error = binexport_pass(project, work)
         bsim = bsim_pass(project, work, data)
         if bsim is not None:
             summary["bsim"] = bsim
@@ -284,6 +374,8 @@ def analyze(data):
             "summary": summary,
             "gzf": gzf_b64,
             "gzfError": gzf_error,
+            "binexport": binexport_b64,
+            "binexportError": binexport_error,
             "pseudo": pseudo_b64,
             "pseudoError": pseudo_error,
             "ms": int((time.monotonic() - started) * 1000),
@@ -340,7 +432,7 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("content-length", "-1"))
         except ValueError:
             length = -1
-        if self.path != "/analyze":
+        if self.path not in ("/analyze", "/bindiff"):
             self.refuse(404, "não encontrado", length)
             return
         auth = self.headers.get("authorization", "")
@@ -360,6 +452,17 @@ class Handler(BaseHTTPRequestHandler):
             data = self.rfile.read(length)
             if len(data) != length:
                 self.send(400, {"error": "corpo incompleto"})
+                return
+            if self.path == "/bindiff":
+                # Comparacao de dois .BinExport (item 24): rapida, mas o container tambem e trocado.
+                if RECYCLE:
+                    _retiring.set()
+                try:
+                    result = bindiff(data)
+                except Exception as exc:  # noqa: BLE001 - falha vira resposta legivel
+                    log(f"falha no BinDiff: {exc!r}")
+                    result = {"ok": False, "error": "falha interna no BinDiff", "version": VERSION}
+                self.send(200, result)
                 return
             if kind_of(data[:4]) is None:
                 self.send(415, {"error": "só executáveis do Windows (PE) e Linux (ELF)"})

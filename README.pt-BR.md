@@ -713,6 +713,11 @@ Detalhes:
   Relacionadas ganha **Código em comum** (N funções), nos dois sentidos. Acha a mesma função
   recompilada, em outra versão ou em outra arquitetura. Reanalisar troca as assinaturas da amostra;
   as de amostras apagadas ficam na base (são só assinaturas de funções), mas não aparecem.
+- **BinDiff na comparação A × B:** cada análise grava também o `.BinExport` (BinExport, Apache-2.0,
+  compilado no build para este Ghidra) ao lado do projeto. Com as duas amostras analisadas, a
+  comparação ganha **Funções (BinDiff)**: similaridade geral, quantas iguais, alteradas e só de um
+  lado, e a lista das alteradas com a similaridade; o clique abre o pseudo-C dos dois lados. O
+  BinDiff 8 (Apache-2.0) roda no serviço `ghidra`.
 
 ## Regras YARA
 

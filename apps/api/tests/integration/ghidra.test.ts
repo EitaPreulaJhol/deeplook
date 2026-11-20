@@ -274,6 +274,37 @@ async function main() {
       Number(sharedCode(await relatedOf(inj), signedId)) >= 3,
   );
 
+  // Item 24: BinDiff. O mesmo programa assinado: tudo casa, quase tudo igual; sem a analise de um
+  // dos lados, 409.
+  const diff = await app.inject({
+    method: 'GET',
+    url: `/api/entries/compare/functions?a=${inj}&b=${signedId}`,
+    headers: { cookie: ana },
+  });
+  const dj = diff.json();
+  ok(
+    'BinDiff: as funções do original e do assinado casam, iguais, com o pseudo-C dos dois lados',
+    diff.statusCode === 200 &&
+      dj.matched > 10 &&
+      dj.equal >= dj.matched - 2 &&
+      (dj.similarity ?? 0) > 0.95 &&
+      dj.functions.some(
+        (f: { entry1: string | null; entry2: string | null }) => f.entry1 && f.entry2,
+      ),
+    { status: diff.statusCode, dj: { ...dj, functions: dj.functions?.slice(0, 3) } },
+  );
+  const noAnalysis = await upload(ana, 'sem-analise.exe', file('prog32.exe'));
+  ok(
+    'BinDiff sem a análise de um lado: 409 com o motivo',
+    (
+      await app.inject({
+        method: 'GET',
+        url: `/api/entries/compare/functions?a=${inj}&b=${noAnalysis}`,
+        headers: { cookie: ana },
+      })
+    ).statusCode === 409,
+  );
+
   // Item 25: o runtime do MinGW-w64 reconhecido pelas bases do Function ID montadas no build.
   ok(
     'Function ID: funções do runtime do MinGW-w64 reconhecidas, com a biblioteca',

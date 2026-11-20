@@ -40,6 +40,9 @@ export function ghidraEnabled(): boolean {
 
 /** Onde o projeto .gzf da amostra fica no MinIO (sob samples/, como o arquivo). */
 export const ghidraProjectKey = (entryId: string) => `samples/ghidra/${entryId}.gzf`;
+/** O .BinExport (item 24), ao lado do projeto: tambem tem o codigo da amostra. */
+export const ghidraBinExportKey = (entryId: string) => `samples/ghidra/${entryId}.BinExport`;
+const MAX_BINEXPORT_BYTES = 32 * 1024 * 1024;
 
 /**
  * Onde o pseudo-C completo fica no MinIO: FORA de samples/. E texto derivado, como o resumo:
@@ -221,6 +224,12 @@ const resultSchema = z.union([
       .max(Math.ceil(MAX_GZF_BYTES / 3) * 4)
       .nullable(),
     gzfError: text(400).nullable(),
+    // O .BinExport em base64 (item 24); um servico antigo nao manda.
+    binexport: z
+      .string()
+      .max(Math.ceil(MAX_BINEXPORT_BYTES / 3) * 4)
+      .nullish(),
+    binexportError: text(400).nullish(),
     // Pseudo-C completo (JSON com gzip, em base64); um servico antigo nao manda.
     pseudo: z.string().nullish(),
     pseudoError: text(400).nullish(),
@@ -250,13 +259,15 @@ function withoutNul<T>(value: T): T {
 export async function deleteGhidraProject(entryId: string): Promise<void> {
   const row = await prisma.ghidraAnalysis.findUnique({
     where: { entryId },
-    select: { gzfKey: true },
+    select: { gzfKey: true, binexportKey: true },
   });
-  if (!row?.gzfKey) return;
-  await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: row.gzfKey }));
+  if (!row?.gzfKey && !row?.binexportKey) return;
+  for (const key of [row.gzfKey, row.binexportKey]) {
+    if (key) await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+  }
   await prisma.ghidraAnalysis.update({
     where: { entryId },
-    data: { gzfKey: null, gzfSize: null },
+    data: { gzfKey: null, gzfSize: null, binexportKey: null },
   });
 }
 
@@ -435,6 +446,8 @@ export async function enqueueGhidra(entryId: string, requestedById: string): Pro
     gzfKey: null,
     gzfSize: null,
     gzfError: null,
+    binexportKey: null,
+    binexportError: null,
     error: null,
     version: null,
     ms: null,
@@ -609,6 +622,23 @@ async function analyzeJob(
       gzfError = 'não foi possível gravar o projeto no armazenamento';
     }
   }
+  let binexportKey: string | null = null;
+  let binexportError = result.binexportError ?? null;
+  if (result.binexport) {
+    try {
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: env.S3_BUCKET,
+          Key: ghidraBinExportKey(entryId),
+          Body: Buffer.from(result.binexport, 'base64'),
+          ContentType: 'application/octet-stream',
+        }),
+      );
+      binexportKey = ghidraBinExportKey(entryId);
+    } catch {
+      binexportError = 'não foi possível gravar o BinExport no armazenamento';
+    }
+  }
   const pseudo = await preparePseudo(entryId, result.pseudo, result.pseudoError);
   try {
     // O indice e a analise concluida juntos: nunca uma analise DONE com metade das funcoes.
@@ -629,6 +659,8 @@ async function analyzeJob(
             gzfKey,
             gzfSize,
             gzfError,
+            binexportKey,
+            binexportError,
             ...pseudo.fields,
             error: null,
             version: result.version,
@@ -672,4 +704,89 @@ export async function startGhidraQueue(log: typeof logger): Promise<void> {
 export function stopGhidraQueue(): void {
   if (timer) clearInterval(timer);
   timer = null;
+}
+
+// ------------------------------------------------------------------ BinDiff (item 24)
+
+const bindiffSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    similarity: z.number().nullable(),
+    confidence: z.number().nullable(),
+    primary: z
+      .object({ functions: z.number().int(), libraryFunctions: z.number().int() })
+      .nullable(),
+    secondary: z
+      .object({ functions: z.number().int(), libraryFunctions: z.number().int() })
+      .nullable(),
+    matched: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    functions: z
+      .array(
+        z.object({
+          address1: text(40),
+          name1: text(300),
+          address2: text(40),
+          name2: text(300),
+          similarity: z.number(),
+          confidence: z.number(),
+        }),
+      )
+      .max(5000),
+  }),
+  z.object({ ok: z.literal(false), error: text(400) }),
+]);
+export type BindiffResult = Extract<z.infer<typeof bindiffSchema>, { ok: true }>;
+
+/** As ultimas comparacoes (o BinDiff e rapido, mas cada pedido troca o container do servico). */
+const bindiffCache = new Map<string, BindiffResult>();
+
+async function readObject(key: string): Promise<Buffer> {
+  const obj = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+  return Buffer.from(await obj.Body!.transformToByteArray());
+}
+
+/**
+ * As funcoes de A e de B pelo BinDiff (item 24): as casadas, com a similaridade, e os totais. As duas
+ * amostras precisam da analise do Ghidra concluida (com o .BinExport). Erro legivel no lugar.
+ */
+export async function bindiffFunctions(
+  a: string,
+  b: string,
+): Promise<{ result: BindiffResult } | { error: string; status: number }> {
+  const rows = await prisma.ghidraAnalysis.findMany({
+    where: { entryId: { in: [a, b] }, status: 'DONE' },
+    select: { entryId: true, binexportKey: true, finishedAt: true },
+  });
+  const ra = rows.find((r) => r.entryId === a);
+  const rb = rows.find((r) => r.entryId === b);
+  if (!ra?.binexportKey || !rb?.binexportKey) {
+    return {
+      status: 409,
+      error: 'As duas amostras precisam da análise do Ghidra concluída (com o BinExport).',
+    };
+  }
+  if (!ghidraEnabled()) return { status: 503, error: 'O Ghidra está desligado.' };
+  const cacheKey = `${a}:${ra.finishedAt?.getTime()}:${b}:${rb.finishedAt?.getTime()}`;
+  const cached = bindiffCache.get(cacheKey);
+  if (cached) return { result: cached };
+  const [ba, bb] = await Promise.all([readObject(ra.binexportKey), readObject(rb.binexportKey)]);
+  const head = Buffer.alloc(4);
+  head.writeUInt32BE(ba.length);
+  let res: Response;
+  try {
+    res = await requestAnalysis(service(), Buffer.concat([head, ba, bb]), {
+      path: '/bindiff',
+      waitMs: ghidraTiming.serviceWaitMs,
+      retryEveryMs: ghidraTiming.retryEveryMs,
+    });
+  } catch (err) {
+    return { status: 503, error: requestFailure(service(), err) };
+  }
+  const parsed = bindiffSchema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) return { status: 502, error: 'resposta do serviço em formato inesperado' };
+  if (!parsed.data.ok) return { status: 502, error: parsed.data.error };
+  bindiffCache.set(cacheKey, parsed.data);
+  if (bindiffCache.size > 50) bindiffCache.delete(bindiffCache.keys().next().value!);
+  return { result: parsed.data };
 }

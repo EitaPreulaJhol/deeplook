@@ -795,6 +795,9 @@ model GhidraAnalysis {
   /// de fora, e a retencao e a lixeira o apagam junto com o arquivo).
   gzfKey            String?
   gzfSize           Int?
+  /// O .BinExport (item 24), para o BinDiff na comparacao A x B; sob samples/, como o .gzf.
+  binexportKey      String?
+  binexportError    String?
   gzfError          String?
   /// Pseudo-C de todas as funcoes (plans/ghidra-pseudo-c): um texto so no MinIO, FORA de samples/
   /// (e derivado, como o resumo: fica depois do expurgo da retencao e entra no backup sem

@@ -5,6 +5,7 @@ import { findTechnique } from '../lib/attack';
 import { isAnalyst, requireUser } from '../lib/auth';
 import { localizeText } from '../lib/data-language';
 import { type Lang, requestLang } from '../lib/error-language';
+import { bindiffFunctions } from '../lib/ghidra';
 import { prisma } from '../lib/prisma';
 import type { StaticInfo } from '../lib/static-analysis';
 import { sendValidationError } from '../lib/validation';
@@ -149,6 +150,71 @@ export async function compareRoutes(app: FastifyInstance) {
       b: pb.entry,
       sameContent: Boolean(pa.entry.sha256 && pa.entry.sha256 === pb.entry.sha256),
       lists,
+    });
+  });
+
+  /**
+   * As funcoes de A e de B pelo BinDiff (plans/analise-estatica-ampliada, item 24): iguais,
+   * alteradas (com a similaridade) e quantas so de um lado. Cada casada leva a chave da funcao no
+   * indice do Ghidra de cada amostra, para a tela abrir o pseudo-C dos dois lados.
+   */
+  app.get('/api/entries/compare/functions', async (req, reply) => {
+    const user = await requireUser(req, reply);
+    if (!user) return;
+    if (!isAnalyst(user)) {
+      return reply.code(403).send({ error: 'Somente analistas comparam amostras.' });
+    }
+    const parsed = Query.safeParse(req.query);
+    if (!parsed.success) return sendValidationError(reply, parsed.error, 'Parâmetros inválidos.');
+    const { a, b } = parsed.data;
+    if (a === b) return reply.code(400).send({ error: 'Escolha duas amostras diferentes.' });
+    const found = await bindiffFunctions(a, b);
+    if ('error' in found) return reply.code(found.status).send({ error: found.error });
+    const r = found.result;
+    // Endereco (numero) -> chave da funcao no indice de cada analise.
+    const index = async (entryId: string) => {
+      const rows = await prisma.ghidraFunction.findMany({
+        where: { analysis: { entryId } },
+        select: { entry: true },
+      });
+      const map = new Map<string, string>();
+      for (const row of rows) {
+        try {
+          map.set(
+            BigInt(row.entry.startsWith('0x') ? row.entry : `0x${row.entry}`).toString(),
+            row.entry,
+          );
+        } catch {
+          // Chave fora do formato: fica sem link.
+        }
+      }
+      return map;
+    };
+    const [ia, ib] = await Promise.all([index(a), index(b)]);
+    const key = (map: Map<string, string>, address: string) => {
+      try {
+        return map.get(BigInt(address).toString()) ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const functions = r.functions.map((f) => ({
+      ...f,
+      entry1: key(ia, f.address1),
+      entry2: key(ib, f.address2),
+    }));
+    const equal = functions.filter((f) => f.similarity >= 0.999).length;
+    return reply.send({
+      similarity: r.similarity,
+      confidence: r.confidence,
+      matched: r.matched,
+      equal,
+      changed: r.matched - equal,
+      onlyA: r.primary ? Math.max(0, r.primary.functions - r.matched) : null,
+      onlyB: r.secondary ? Math.max(0, r.secondary.functions - r.matched) : null,
+      truncated: r.truncated,
+      // As alteradas primeiro (a menor similaridade no topo), depois as iguais.
+      functions,
     });
   });
 }

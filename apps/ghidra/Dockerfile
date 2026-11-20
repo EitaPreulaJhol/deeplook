@@ -21,11 +21,14 @@ ADD --checksum=sha256:cbfc3906b19b8f55dd7cfd6dfe0aa4532e834250d7f080bd8d211a3e24
 # Fora o que o modo headless nao usa: documentacao, extensoes opcionais, o servidor de
 # repositorios (e o yajsw, o wrapper que o roda como servico, com um netty de CVE critica), o
 # depurador e a pasta docker. O FunctionID fica: e ele que reconhece as funcoes de biblioteca
-# (MSVC) e poupa o analista de le-las.
+# (MSVC) e poupa o analista de le-las. Do depurador fica so o ProposedUtils, pelo protobuf que o
+# BinExport (item 24) usa.
 RUN unzip -q /tmp/ghidra.zip -d /opt \
   && mv /opt/ghidra_12.2_PUBLIC /opt/ghidra \
   && cd /opt/ghidra \
+  && mv Ghidra/Debug/ProposedUtils /tmp/ProposedUtils \
   && rm -rf docs Extensions server docker Ghidra/Debug Ghidra/Features/GhidraServer/data/yajsw-* \
+  && mkdir -p Ghidra/Debug && mv /tmp/ProposedUtils Ghidra/Debug/ProposedUtils \
   && lib=Ghidra/Framework/Generic/lib \
   && rm "$lib/guava-32.1.3-jre.jar" "$lib/failureaccess-1.0.1.jar" \
   && install -m 644 /tmp/guava-33.7.2-jre.jar /tmp/failureaccess-1.0.3.jar "$lib/" \
@@ -45,6 +48,31 @@ COPY fid /fid
 ENV HOME=/tmp GHIDRA_HEADLESS_MAXMEM=3G
 RUN sh /fid/build.sh /opt/fid && chmod -R a+rX /opt/fid
 
+# BinExport (Apache-2.0, Google; item 24) compilado para este Ghidra: a release so tem o do 11.0.3.
+# O commit fixo (o git confere o conteudo) e o Gradle conferido pelo SHA-256 publicado; o toolchain
+# vai para o Java 25, o do Ghidra 12.
+FROM debian:trixie-slim AS binexport
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openjdk-25-jdk-headless git ca-certificates unzip
+ADD --checksum=sha256:72f44c9f8ebcb1af43838f45ee5c4aa9c5444898b3468ab3f4af7b6076c5bc3f \
+  https://services.gradle.org/distributions/gradle-9.2.1-bin.zip /tmp/gradle.zip
+COPY --from=fetch /opt/ghidra /opt/ghidra
+ARG BINEXPORT_COMMIT=9648cacb21a71aa6c21b3fca504f146c39164a53
+RUN unzip -q /tmp/gradle.zip -d /opt \
+  && git clone --filter=blob:none https://github.com/google/binexport.git /src \
+  && cd /src && git checkout --quiet "$BINEXPORT_COMMIT" && cd java \
+  && sed -i 's/JavaLanguageVersion.of(21)/JavaLanguageVersion.of(25)/' build.gradle \
+  && GHIDRA_INSTALL_DIR=/opt/ghidra /opt/gradle-9.2.1/bin/gradle --no-daemon -q \
+  && mkdir -p /opt/ext && unzip -q dist/*_BinExport.zip -d /opt/ext \
+  && rm -f /opt/ext/BinExport/lib/*-src.zip
+# BinDiff 8 (Apache-2.0, Google): so o binario de linha de comando e a configuracao, do .deb oficial.
+ADD --checksum=sha256:821990e3974a9df6733794370e485486ac276ba5d777a06b4ebe575f092f4dda \
+  https://github.com/google/bindiff/releases/download/v8/bindiff_8_amd64.deb /tmp/bindiff.deb
+RUN dpkg-deb -x /tmp/bindiff.deb /tmp/bindiff \
+  && mkdir -p /opt/bindiff/bin /opt/bindiff/etc \
+  && cp /tmp/bindiff/opt/bindiff/bin/bindiff /opt/bindiff/bin/ \
+  && cp /tmp/bindiff/etc/opt/bindiff/bindiff.json /opt/bindiff/etc/
+
 FROM debian:trixie-slim
 # JDK, nao JRE: o Ghidra compila os scripts. Os jmods (337 MB) so servem ao jlink e saem. As
 # correcoes de seguranca que o Debian ja publicou entram pelo upgrade.
@@ -56,6 +84,9 @@ RUN apt-get update \
   && install -d -o ghidra -g ghidra -m 700 /bsim
 COPY --from=fetch /opt/ghidra /opt/ghidra
 COPY --from=fid /opt/fid /opt/fid
+COPY --from=binexport /opt/ext/BinExport /opt/ghidra/Ghidra/Extensions/BinExport
+COPY --from=binexport /opt/bindiff/bin/bindiff /opt/bindiff/bin/bindiff
+COPY --from=binexport /opt/bindiff/etc/bindiff.json /etc/opt/bindiff/bindiff.json
 # O descompilador nativo com teto de memoria por processo (decompile-limit.sh).
 COPY decompile-limit.sh /tmp/
 RUN d=/opt/ghidra/Ghidra/Features/Decompiler/os/linux_x86_64 \

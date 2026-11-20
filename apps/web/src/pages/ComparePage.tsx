@@ -8,7 +8,7 @@ import {
   TableRow,
 } from '@carbon/react';
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { api } from '../api/client';
@@ -294,6 +294,7 @@ export function ComparePage() {
           </HpsmSection>
 
           {lists.length === 0 && <HpsmMessage kind="info">{t('nothingToCompare')}</HpsmMessage>}
+          <FunctionsDiff a={a} b={b} />
           {lists.map(({ key, title }) => {
             const l = d.lists[key];
             const column = (label: string, items: string[], tone: string) => (
@@ -330,5 +331,125 @@ export function ComparePage() {
         </>
       )}
     </>
+  );
+}
+
+interface FunctionsDiffResult {
+  similarity: number | null;
+  confidence: number | null;
+  matched: number;
+  equal: number;
+  changed: number;
+  onlyA: number | null;
+  onlyB: number | null;
+  truncated: boolean;
+  functions: {
+    address1: string;
+    name1: string;
+    address2: string;
+    name2: string;
+    similarity: number;
+    confidence: number;
+    entry1: string | null;
+    entry2: string | null;
+  }[];
+}
+
+/** O pseudo-C de uma funcao de uma amostra (o indice do Ghidra dela). */
+function FunctionCode({ entryId, entry }: { entryId: string; entry: string | null }) {
+  const query = useQuery({
+    queryKey: ['ghidra-fn', entryId, entry],
+    queryFn: () =>
+      api.get<{ c: string | null }>(
+        `/entries/${entryId}/ghidra/functions/${encodeURIComponent(entry!)}`,
+      ),
+    enabled: Boolean(entry),
+    staleTime: Infinity,
+  });
+  if (!entry) return <p className="dl-static-empty">{t('fnNoCode')}</p>;
+  if (query.isError)
+    return <HpsmMessage kind="error">{(query.error as Error).message}</HpsmMessage>;
+  return <pre className="dl-doc-macros__code">{query.data?.c ?? t('fnLoading')}</pre>;
+}
+
+/**
+ * As funcoes pelo BinDiff (item 24): iguais, alteradas e so de um lado; a alterada abre o pseudo-C
+ * dos dois lados. So aparece com as duas amostras analisadas pelo Ghidra.
+ */
+function FunctionsDiff({ a, b }: { a: string; b: string }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const query = useQuery({
+    queryKey: ['compare-functions', a, b],
+    queryFn: () =>
+      api.get<FunctionsDiffResult>(
+        `/entries/compare/functions?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`,
+      ),
+    retry: false,
+    staleTime: Infinity,
+  });
+  if (query.isLoading) return <HpsmLoading text={t('fnLoading')} />;
+  if (query.isError) {
+    return (
+      <HpsmSection title={t('fnTitle')}>
+        <HpsmMessage kind="info">{(query.error as Error).message}</HpsmMessage>
+      </HpsmSection>
+    );
+  }
+  const d = query.data!;
+  const changed = d.functions.filter((f) => f.similarity < 0.999);
+  return (
+    <HpsmSection title={t('fnTitle')}>
+      <p>
+        {t('fnSummary', {
+          similarity: d.similarity === null ? '—' : Math.round(d.similarity * 100),
+          equal: d.equal,
+          changed: d.changed,
+          onlyA: d.onlyA ?? '—',
+          onlyB: d.onlyB ?? '—',
+        })}
+      </p>
+      {changed.length > 0 && (
+        <table className="dl-import__table">
+          <thead>
+            <tr>
+              <th>{t('fnInA')}</th>
+              <th>{t('fnInB')}</th>
+              <th>{t('fnSimilarity')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {changed.slice(0, 200).map((f, i) => (
+              <tr key={`${f.address1}-${f.address2}`}>
+                <td className="dl-mono">
+                  <button
+                    type="button"
+                    className="dl-link-button"
+                    onClick={() => setOpen(open === i ? null : i)}
+                  >
+                    {f.name1} ({f.address1})
+                  </button>
+                </td>
+                <td className="dl-mono">
+                  {f.name2} ({f.address2})
+                </td>
+                <td>{Math.round(f.similarity * 100)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {open !== null && changed[open] && (
+        <div className="dl-compare-list">
+          <div className="dl-compare-list__col dl-compare-list__col--a">
+            <h3 className="dl-compare-list__head">A · {changed[open].name1}</h3>
+            <FunctionCode entryId={a} entry={changed[open].entry1} />
+          </div>
+          <div className="dl-compare-list__col dl-compare-list__col--b">
+            <h3 className="dl-compare-list__head">B · {changed[open].name2}</h3>
+            <FunctionCode entryId={b} entry={changed[open].entry2} />
+          </div>
+        </div>
+      )}
+    </HpsmSection>
   );
 }

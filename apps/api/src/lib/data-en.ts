@@ -467,6 +467,7 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     '{0} module(s) were not fully decompiled: the disassembly comes along',
   ],
   ['No código Python: {0} ({1})', 'In the Python code: {0} ({1})'],
+  ['não foi possível gravar o BinExport no armazenamento', 'could not store the BinExport'],
   [
     'PE escrito na memória pelo próprio programa ({0}, {1}): desempacotado ou decifrado',
     'PE written into memory by the program itself ({0}, {1}): unpacked or decrypted',

@@ -123,6 +123,16 @@ export const messages = {
     'Both have the same content (same SHA-256): one may be a duplicate of the other.',
   ],
   sideBySide: ['Lado a lado', 'Side by side'],
+  fnTitle: ['Funções (BinDiff)', 'Functions (BinDiff)'],
+  fnSummary: [
+    'Similaridade geral {similarity}% · {equal} igual(is) · {changed} alterada(s) · {onlyA} só em A · {onlyB} só em B',
+    'Overall similarity {similarity}% · {equal} equal · {changed} changed · {onlyA} only in A · {onlyB} only in B',
+  ],
+  fnInA: ['Em A', 'In A'],
+  fnInB: ['Em B', 'In B'],
+  fnSimilarity: ['Similaridade', 'Similarity'],
+  fnNoCode: ['Sem o pseudo-C desta função.', 'No pseudo-C for this function.'],
+  fnLoading: ['Carregando…', 'Loading…'],
   fieldsAria: ['Campos lado a lado', 'Fields side by side'],
   differs: ['(difere)', '(differs)'],
   nothingToCompare: [

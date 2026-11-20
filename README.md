@@ -712,6 +712,11 @@ Details:
   function recompiled, in another version or another architecture. Reanalyzing replaces the sample's
   signatures; those of deleted samples stay in the database (only function signatures) but are not
   shown.
+- **BinDiff in the A × B comparison:** each analysis also stores the `.BinExport` (BinExport,
+  Apache-2.0, built at image build for this Ghidra) next to the project. With both samples analyzed,
+  the comparison gains **Functions (BinDiff)**: overall similarity, how many are equal, changed and
+  only on one side, and the list of changed ones with their similarity; a click opens the pseudo-C of
+  both sides. BinDiff 8 (Apache-2.0) runs in the `ghidra` service.
 
 ## YARA rules
 

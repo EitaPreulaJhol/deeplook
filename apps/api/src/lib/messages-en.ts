@@ -498,6 +498,11 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['mesmo modelo de documento (XMP)', 'same document template (XMP)'],
   ['código em comum', 'shared code'],
   [
+    'As duas amostras precisam da análise do Ghidra concluída (com o BinExport).',
+    'Both samples need a finished Ghidra analysis (with the BinExport).',
+  ],
+  ['O Ghidra está desligado.', 'Ghidra is off.'],
+  [
     'Este pacote é atualizado no servidor, pelo script scripts/vendor-yara-forge.mjs.',
     'This pack is updated on the server, by the scripts/vendor-yara-forge.mjs script.',
   ],
