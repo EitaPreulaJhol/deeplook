@@ -38,7 +38,7 @@ RUN dpkg-deb -x /tmp/die.deb /tmp/die \
 
 # binwalk 3.1.0 (MIT; item 18): so a varredura de assinaturas (o carving e o do server). Compilado do
 # crates.io com o Cargo.lock publicado (--locked), que confere o hash de cada dependencia.
-FROM rust:1.91-slim-trixie AS binwalk
+FROM rust:1.99-slim-trixie AS binwalk
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libfontconfig1-dev \
     liblzma-dev libbz2-dev zlib1g-dev \
   && cargo install binwalk --version 3.1.0 --locked --root /opt/binwalk
