@@ -467,6 +467,9 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     '{0} module(s) were not fully decompiled: the disassembly comes along',
   ],
   ['No código Python: {0} ({1})', 'In the Python code: {0} ({1})'],
+  ['nota {0}/10', 'score {0}/10'],
+  ['família {0}', 'family {0}'],
+  ['{0} análise(s)', '{0} analysis(es)'],
   [
     'Ícone de documento ({0}) num executável: isca para abrir achando que é um documento.',
     'Document icon ({0}) in an executable: a lure to be opened as if it were a document.',

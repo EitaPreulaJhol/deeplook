@@ -1365,7 +1365,7 @@ the card and in a summary at the top, for example "malicious in 2 of 3 services"
 
 | Indicator | Services |
 |---|---|
-| File: **SHA-256 only** | VirusTotal, MalwareBazaar, ThreatFox, YARAify, hashlookup (CIRCL) |
+| File: **SHA-256 only** | VirusTotal, MalwareBazaar, ThreatFox, YARAify, hashlookup (CIRCL), Triage |
 | Link: **domain only** | VirusTotal, URLhaus, ThreatFox |
 | Link whose host is an IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB, InternetDB (Shodan) |
 
@@ -1384,6 +1384,10 @@ the card and in a summary at the top, for example "malicious in 2 of 3 services"
 - **InternetDB** (Shodan, no key, turned on by `INTERNETDB_ENABLED=true`): open ports, tags and CVEs of
   the IP, updated weekly. It is information; Shodan's `c2` or `malware` tag becomes suspicious.
 
+- **Triage** (Recorded Future, with `TRIAGE_API_KEY`, free at tria.ge): the sample already analyzed in
+  their public sandbox, with the 1 to 10 score (8 or more is malicious; 6 and 7, suspicious), the family
+  and tags of the latest analysis, and a link to it. UnpacMe and InQuest Labs were left out: their
+  response formats could not be verified (docs unreachable and no current official client).
 - **What leaves the server:** only the indicator. The file never leaves, nor the full URL (with the
   victim's path, email or token).
 - **24 h cache** per service and indicator; analysts have "Check again".

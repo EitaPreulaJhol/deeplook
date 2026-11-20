@@ -144,6 +144,7 @@ services:
       VT_API_KEY: ${VT_API_KEY:-}
       ABUSECH_AUTH_KEY: ${ABUSECH_AUTH_KEY:-}
       ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      TRIAGE_API_KEY: ${TRIAGE_API_KEY:-}
       # Enriquecimento de links: registro (RDAP) e certificados (crt.sh) sem chave, so por opcao;
       # DNS passivo com a chave do VirusTotal.
       RDAP_ENABLED: ${RDAP_ENABLED:-false}

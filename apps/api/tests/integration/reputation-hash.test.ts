@@ -96,6 +96,33 @@ async function main() {
         });
       }
       if (p.startsWith('/vt/files/')) return json(404, {});
+      // Triage (item 5), no formato da documentacao (tria.ge/docs/cloud-api): busca e overview.
+      if (p === '/tr/search') {
+        const auth = req.headers.authorization;
+        const q = new URL(req.url ?? '/', 'http://local').searchParams.get('query');
+        if (auth !== 'Bearer chave-triage') return json(401, { error: 'UNAUTHORIZED' });
+        if (q !== `sha256:${BAD}`) return json(200, { data: [] });
+        return json(200, {
+          data: [
+            { id: '261120-abc', status: 'reported', kind: 'file', filename: 'fatura.exe' },
+            { id: '261119-old', status: 'reported', kind: 'file', filename: 'x.exe' },
+          ],
+          next: '2026-11-19T00:00:00Z',
+        });
+      }
+      if (p === '/tr/samples/261120-abc/overview.json') {
+        return json(200, {
+          version: '0.2.2',
+          analysis: { score: 10 },
+          targets: [
+            {
+              family: ['agenttesla'],
+              tags: ['family:agenttesla', 'spyware', 'stealer'],
+              score: 10,
+            },
+          ],
+        });
+      }
       json(404, {});
     });
   });
@@ -106,7 +133,9 @@ async function main() {
     yaraify: `${base}/yf/`,
     internetdb: `${base}/idb`,
     virustotal: `${base}/vt`,
+    triage: `${base}/tr`,
   });
+  env.TRIAGE_API_KEY = 'chave-triage';
   for (const key of Object.keys(MIN_INTERVAL_MS))
     MIN_INTERVAL_MS[key as keyof typeof MIN_INTERVAL_MS] = 0;
 
@@ -213,6 +242,20 @@ async function main() {
     (await results(quiet.id)).internetdb?.summary === 'sem informação',
   );
 
+  // Triage (item 5): nota, familia e tags da analise; o arquivo conhecido nao esta la.
+  const tr = (await results(bad.id)).triage;
+  const trKnown = (await results(known.id)).triage;
+  ok(
+    'Triage: nota 10, família e tags, com o link da análise; o desconhecido fica como não encontrado',
+    tr?.status === 'FOUND' &&
+      tr.verdict === 'MALICIOUS' &&
+      tr.summary === 'nota 10/10 · família agenttesla · 2 análise(s)' &&
+      tr.link === 'https://tria.ge/261120-abc' &&
+      (tr.details as any)?.tags?.includes('stealer') &&
+      !(tr.details as any)?.tags?.includes('family:agenttesla') &&
+      trKnown?.status === 'NOT_FOUND',
+    { tr, trKnown },
+  );
   server.close();
   await prisma.$disconnect();
   console.log(fails ? `\n${fails} falha(s)` : '\ntudo ok');

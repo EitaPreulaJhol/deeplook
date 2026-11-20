@@ -45,6 +45,7 @@ export const SECRET_NAMES = [
   'VT_API_KEY',
   'ABUSECH_AUTH_KEY',
   'ABUSEIPDB_API_KEY',
+  'TRIAGE_API_KEY',
 ] as const;
 
 export class SecretFileError extends Error {}

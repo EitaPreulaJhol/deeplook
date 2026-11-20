@@ -172,6 +172,8 @@ const EnvSchema = z
      * ligam por opcao explicita. O YARAify usa a ABUSECH_AUTH_KEY.
      */
     HASHLOOKUP_ENABLED: z.enum(['true', 'false']).default('false'),
+    /** Triage (Recorded Future; item 5): a amostra no sandbox publico deles, pelo SHA-256. */
+    TRIAGE_API_KEY: z.string().default(''),
     INTERNETDB_ENABLED: z.enum(['true', 'false']).default('false'),
     /** Antivirus ClamAV (contenor clamav, protocolo clamd). Vazio = desligado. */
     CLAMAV_HOST: z.string().default(''),

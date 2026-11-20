@@ -25,7 +25,9 @@ export type ServiceId =
   // Reputacao por hash e por IP (plans/analise-estatica-ampliada, item 5).
   | 'hashlookup'
   | 'yaraify'
-  | 'internetdb';
+  | 'internetdb'
+  // Sandbox publico do Triage (Recorded Future), pela chave (item 5).
+  | 'triage';
 
 export const SERVICE_NAMES: Record<ServiceId, string> = {
   virustotal: 'VirusTotal',
@@ -39,6 +41,7 @@ export const SERVICE_NAMES: Record<ServiceId, string> = {
   hashlookup: 'Arquivo conhecido (CIRCL hashlookup)',
   yaraify: 'YARAify',
   internetdb: 'Shodan InternetDB',
+  triage: 'Triage (Recorded Future)',
 };
 
 /** Enderecos das APIs (o teste de integracao aponta para um servidor local). */
@@ -51,6 +54,7 @@ export const ENDPOINTS = {
   hashlookup: 'https://hashlookup.circl.lu',
   yaraify: 'https://yaraify-api.abuse.ch/api/v1/',
   internetdb: 'https://internetdb.shodan.io',
+  triage: 'https://tria.ge/api/v0',
 };
 
 /** Intervalo minimo entre chamadas por servico (VirusTotal gratuito: 4/min). */
@@ -68,6 +72,7 @@ export const MIN_INTERVAL_MS: Record<ServiceId, number> = {
   hashlookup: 1_000,
   yaraify: 1_000,
   internetdb: 1_000,
+  triage: 2_000,
 };
 
 /** Servicos que dividem a cota (e a fila) de outro. */
@@ -77,7 +82,7 @@ const TIMEOUT_MS = 15_000;
 
 /** Quais servicos consultam cada tipo de indicador. */
 const BY_KIND: Record<ReputationKind, ServiceId[]> = {
-  HASH: ['virustotal', 'malwarebazaar', 'threatfox', 'yaraify', 'hashlookup'],
+  HASH: ['virustotal', 'malwarebazaar', 'threatfox', 'yaraify', 'hashlookup', 'triage'],
   DOMAIN: ['virustotal', 'urlhaus', 'threatfox', 'rdap', 'crtsh', 'vtdns'],
   IP: ['virustotal', 'urlhaus', 'threatfox', 'abuseipdb', 'rdap', 'vtdns', 'internetdb'],
 };
@@ -91,6 +96,7 @@ function keyOf(service: ServiceId): string {
   if (service === 'abuseipdb') return env.ABUSEIPDB_API_KEY;
   if (service === 'hashlookup') return env.HASHLOOKUP_ENABLED === 'true' ? 'on' : '';
   if (service === 'internetdb') return env.INTERNETDB_ENABLED === 'true' ? 'on' : '';
+  if (service === 'triage') return env.TRIAGE_API_KEY;
   return env.ABUSECH_AUTH_KEY;
 }
 
@@ -406,6 +412,64 @@ async function yaraify(_kind: ReputationKind, value: string): Promise<Lookup> {
   };
 }
 
+/**
+ * Triage (Recorded Future; plans/analise-estatica-ampliada, item 5): a amostra ja analisada no
+ * sandbox publico deles. A busca pelo SHA-256 da as analises; a mais recente da a nota (1 a 10), a
+ * familia e as tags pelo overview.json (formato da documentacao em tria.ge/docs/cloud-api).
+ */
+async function triage(_kind: ReputationKind, value: string): Promise<Lookup> {
+  const headers = { authorization: `Bearer ${env.TRIAGE_API_KEY}`, accept: 'application/json' };
+  const found = (await call(
+    `${ENDPOINTS.triage}/search?query=${encodeURIComponent(`sha256:${value}`)}`,
+    { headers },
+  )) as { data?: { id?: string; status?: string; completed?: string }[] };
+  const samples = (found.data ?? []).filter((s) => typeof s.id === 'string');
+  if (!samples.length) return notFound();
+  const reported = samples.find((s) => s.status === 'reported') ?? samples[0];
+  const id = reported.id!;
+  let overview: {
+    analysis?: { score?: number };
+    targets?: { family?: string[]; tags?: string[] }[];
+  } = {};
+  try {
+    overview = (await call(`${ENDPOINTS.triage}/samples/${encodeURIComponent(id)}/overview.json`, {
+      headers,
+    })) as typeof overview;
+  } catch (err) {
+    // Analise ainda rodando (ou apagada): fica a existencia.
+    if (!(err instanceof HttpError && err.status === 404)) throw err;
+  }
+  const score = typeof overview.analysis?.score === 'number' ? overview.analysis.score : null;
+  const families = [...new Set((overview.targets ?? []).flatMap((t) => t.family ?? []))];
+  const tags = [
+    ...new Set(
+      (overview.targets ?? []).flatMap((t) => t.tags ?? []).filter((t) => !t.startsWith('family:')),
+    ),
+  ];
+  // A escala do Triage: 10 conhecido como malicioso, 8-9 provavel, 6-7 suspeito, ate 5 provavel limpo.
+  const verdict: Verdict =
+    score === null ? 'UNKNOWN' : score >= 8 ? 'MALICIOUS' : score >= 6 ? 'SUSPICIOUS' : 'UNKNOWN';
+  return {
+    status: 'FOUND',
+    verdict,
+    summary: [
+      score !== null ? `nota ${score}/10` : 'analisado',
+      families.length && `família ${families.slice(0, 3).join(', ')}`,
+      `${samples.length} análise(s)`,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    link: `https://tria.ge/${id}`,
+    details: {
+      id,
+      score,
+      families: families.slice(0, 10),
+      tags: tags.slice(0, 30),
+      analyses: samples.length,
+    },
+  };
+}
+
 /** Shodan InternetDB: portas abertas, CPEs, tags e CVEs do IP (sem chave, atualizado por semana). */
 async function internetdb(_kind: ReputationKind, value: string): Promise<Lookup> {
   let body: {
@@ -460,6 +524,7 @@ const CLIENTS: Record<ServiceId, (kind: ReputationKind, value: string) => Promis
   hashlookup,
   yaraify,
   internetdb,
+  triage,
 };
 
 // ---- Fila por servico (respeita o intervalo minimo) ----

@@ -1372,7 +1372,7 @@ externa** da ficha e num resumo no topo, por exemplo "malicioso em 2 de 3 servi�
 
 | Indicador | Serviços |
 |---|---|
-| Arquivo: **só o SHA-256** | VirusTotal, MalwareBazaar, ThreatFox, YARAify, hashlookup (CIRCL) |
+| Arquivo: **só o SHA-256** | VirusTotal, MalwareBazaar, ThreatFox, YARAify, hashlookup (CIRCL), Triage |
 | Link: **só o domínio** | VirusTotal, URLhaus, ThreatFox |
 | Link cujo host é um IP | VirusTotal, URLhaus, ThreatFox, AbuseIPDB, InternetDB (Shodan) |
 
@@ -1390,6 +1390,10 @@ externa** da ficha e num resumo no topo, por exemplo "malicioso em 2 de 3 servi�
   separa o arquivo legítimo que sai de um instalador.
 - **InternetDB** (Shodan, sem chave, liga com `INTERNETDB_ENABLED=true`): portas abertas, tags e CVEs do
   IP, atualizado por semana. É informação; a tag `c2` ou `malware` da Shodan vira suspeito.
+- **Triage** (Recorded Future, com a `TRIAGE_API_KEY`, gratuita em tria.ge): a amostra já analisada no
+  sandbox público deles, com a nota de 1 a 10 (8 ou mais é malicioso; 6 e 7, suspeito), a família e as
+  tags da análise mais recente, e o link para ela. O UnpacMe e o InQuest Labs ficaram de fora: não deu
+  para conferir o formato das respostas deles (documentação inacessível e sem cliente oficial atual).
 
 - **O que sai do servidor:** só o indicador. O arquivo nunca sai, nem a URL completa (com
   caminho, e-mail ou token da vítima).
