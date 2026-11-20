@@ -1,6 +1,7 @@
 import type { Priority, TriageCondition } from '../generated/prisma/client';
 import { capaRisky } from './capa-risk';
 import { recordEvent } from './events';
+import { xlmUrls } from './oletools';
 import { prisma } from './prisma';
 import { PRIORITIES } from './sla';
 
@@ -195,7 +196,7 @@ export async function loadFacts(entryId: string) {
       lookalikeHits: { select: { companyDomain: true } },
       capaAnalysis: { select: { status: true, capa: true, attack: true, iocCandidates: true } },
       unpackJob: { select: { detections: true, magika: true, decoded: true } },
-      officeAnalysis: { select: { status: true, alerts: true } },
+      officeAnalysis: { select: { status: true, alerts: true, result: true } },
     },
   });
   if (!entry) return null;
@@ -249,6 +250,10 @@ export async function loadFacts(entryId: string) {
     hiddenIocs: [
       ...((capa?.iocCandidates ?? []) as { value: string }[]).map((i) => i.value),
       ...((entry.unpackJob?.decoded ?? []) as { text: string }[]).map((d) => d.text),
+      // As URLs das formulas XLM resolvidas (item 21).
+      ...(entry.officeAnalysis?.status === 'DONE'
+        ? xlmUrls((entry.officeAnalysis.result ?? {}) as Parameters<typeof xlmUrls>[0])
+        : []),
     ],
     die: ((entry.unpackJob?.detections ?? []) as { type: string; string: string }[]).map((d) => ({
       type: d.type,

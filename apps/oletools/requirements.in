@@ -7,3 +7,8 @@ oletools==0.60.2
 zxing-cpp==3.1.1
 pypdfium2==5.15.2
 pillow==13.0.0
+# XLM 4.0 resolvido (plans/analise-estatica-ampliada, item 21): XLMMacroDeobfuscator (Apache-2.0),
+# de DissectMalware, que emula as formulas na ordem de execucao. Ele ainda importa distutils: o
+# setuptools antes da 81 o traz de volta.
+XLMMacroDeobfuscator==0.2.7
+setuptools==80.9.0

@@ -36,6 +36,15 @@ export const oletoolsTiming = {
   retryAfterMs: RETRY_AFTER_MS,
 };
 
+/** URLs nas formulas XLM resolvidas (item 21): vao para os alertas e para a triagem. */
+export function xlmUrls(result: { vba?: { xlmResolved?: { formula: string | null }[] } | null }) {
+  const found = new Set<string>();
+  for (const r of result.vba?.xlmResolved ?? []) {
+    for (const m of (r.formula ?? '').matchAll(/\bhttps?:\/\/[^\s"'<>)]{4,300}/gi)) found.add(m[0]);
+  }
+  return [...found].slice(0, 50);
+}
+
 export function oletoolsEnabled(): boolean {
   return Boolean(env.OLETOOLS_URL && env.OLETOOLS_TOKEN);
 }
@@ -86,6 +95,11 @@ const resultSchema = z.object({
         )
         .max(250),
       xlmLines: z.array(text(500).nullable()).max(400),
+      // XLM 4.0 resolvido pelo XLMMacroDeobfuscator (item 21), na ordem de execucao.
+      xlmResolved: z
+        .array(z.object({ cell: text(40), status: text(40), formula: text(500).nullable() }))
+        .max(400)
+        .optional(),
       mraptor: z
         .object({
           suspicious: z.boolean(),
@@ -176,6 +190,26 @@ export function officeAlerts(result: OletoolsResult): OfficeAlert[] {
     alerts.push({
       level: 'high',
       text: 'Contém macros XLM 4.0 (Excel 4), muito usadas por malware.',
+    });
+  }
+  // XLM resolvido (item 21): o que executa e de onde baixa, ja sem a ofuscacao.
+  const resolved = vba?.xlmResolved ?? [];
+  const runs = new Map<string, string>();
+  for (const r of resolved) {
+    const fn = /^=?\s*(EXEC|CALL|REGISTER|RUN|SHELL|FOPEN|FWRITE)\s*\(/i.exec(r.formula ?? '')?.[1];
+    if (fn && !runs.has(fn.toUpperCase())) runs.set(fn.toUpperCase(), r.formula ?? '');
+  }
+  for (const formula of [...runs.values()].slice(0, 5)) {
+    alerts.push({
+      level: 'high',
+      text: `XLM resolvido executa: ${formula.replace(/^=/, '').slice(0, 200)}`,
+    });
+  }
+  const urls = xlmUrls(result);
+  if (urls.length) {
+    alerts.push({
+      level: 'high',
+      text: `URL nas fórmulas XLM resolvidas: ${urls.slice(0, 3).join(', ')}`,
     });
   }
   if (vba?.stomping) {

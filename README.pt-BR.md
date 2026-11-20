@@ -779,7 +779,11 @@ análise de documentos que já existia (em TypeScript, no envio), e traz o que a
 - o veredito do **MacroRaptor**: macro suspeita quando executa ao abrir **e** grava arquivos ou
   executa programas;
 - **macros XLM 4.0** (Excel 4), que muito malware usa justamente porque escapam de quem só olha VBA,
-  e **VBA stomping** (o código-fonte não bate com o compilado);
+  e **VBA stomping** (o código-fonte não bate com o compilado). O XLM vem **resolvido** pelo
+  XLMMacroDeobfuscator (Apache-2.0): as fórmulas emuladas a partir do `Auto_Open`, na ordem de
+  execução, com `CHAR`, concatenações e células referenciadas já trocadas pelo valor (no `.xls` e no
+  `.xlsm`). `EXEC`, `CALL`, `REGISTER` e as URLs resolvidas viram alertas, e as URLs chegam à
+  condição de triagem **indicador em string escondida**;
 - **campos DDE**, que executam comandos sem macro;
 - **objetos de um RTF**, com destaque para o Equation Editor (CVE-2017-11882);
 - os indicadores do **oleid** (cifrado, macros, objetos externos).

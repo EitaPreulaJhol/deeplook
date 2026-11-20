@@ -442,6 +442,8 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     'Contém macros XLM 4.0 (Excel 4), muito usadas por malware.',
     'Contains XLM 4.0 macros (Excel 4), widely used by malware.',
   ],
+  ['XLM resolvido executa: {0}', 'Resolved XLM runs: {0}'],
+  ['URL nas fórmulas XLM resolvidas: {0}', 'URL in the resolved XLM formulas: {0}'],
   [
     'VBA stomping: o código-fonte não bate com o compilado (o que roda não é o que se vê).',
     'VBA stomping: the source code does not match the compiled code (what runs is not what you see).',

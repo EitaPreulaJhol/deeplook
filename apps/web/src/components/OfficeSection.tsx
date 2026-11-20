@@ -191,6 +191,14 @@ export function OfficeSection({ entryId, canTriage }: { entryId: string; canTria
           </tbody>
         </table>
       )}
+      {(vba?.xlmResolved ?? []).length > 0 && (
+        <details className="dl-office__code" open>
+          <summary>{t('xlmResolved', { n: vba!.xlmResolved!.length })}</summary>
+          <pre>
+            {vba!.xlmResolved!.map((r) => `${r.cell.padEnd(12)} ${r.formula ?? ''}`).join('\n')}
+          </pre>
+        </details>
+      )}
       {(vba?.xlmLines ?? []).length > 0 && (
         <details className="dl-office__code">
           <summary>{t('xlmMacros', { n: vba!.xlmLines.length })}</summary>

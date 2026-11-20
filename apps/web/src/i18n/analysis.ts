@@ -960,6 +960,10 @@ export const messages = {
   macroKeywordsAria: ['Palavras-chave das macros', 'Macro keywords'],
   keyword: ['Palavra-chave', 'Keyword'],
   xlmMacros: ['Macros XLM 4.0 ({n} linha(s))', 'XLM 4.0 macros ({n} line(s))'],
+  xlmResolved: [
+    'XLM 4.0 resolvido, na ordem de execução ({n} célula(s))',
+    'Resolved XLM 4.0, in execution order ({n} cell(s))',
+  ],
   moduleN: ['Módulo {n}', 'Module {n}'],
   showingStart: ['(mostrando o começo)', '(showing the beginning)'],
   riskTitle: ['Pontuação de risco', 'Risk score'],

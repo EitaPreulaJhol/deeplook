@@ -1435,6 +1435,8 @@ export interface OfficeInfo {
         modules: { name: string | null; lines: number; code: string; truncated: boolean }[];
         keywords: { type: string | null; keyword: string | null; description: string | null }[];
         xlmLines: string[];
+        /** XLM 4.0 resolvido pelo XLMMacroDeobfuscator (item 21), na ordem de execucao. */
+        xlmResolved?: { cell: string; status: string; formula: string | null }[];
         mraptor: {
           suspicious: boolean;
           autoexec: boolean;

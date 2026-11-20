@@ -14,6 +14,7 @@ import {
 import { prisma } from '../../src/lib/prisma';
 import { ensureBucket } from '../../src/lib/s3';
 import { sampleZipBuffer } from '../../src/lib/sample-zip';
+import { loadFacts } from '../../src/lib/triage-rules';
 
 // Senhas candidatas e Office cifrado (plans/analise-estatica-ampliada, item 9), com o servico
 // oletools de verdade e os documentos cifrados pelo Office que o msoffcrypto-tool usa nos testes dele
@@ -152,6 +153,37 @@ async function main() {
       aloneResult.decrypted.password === null &&
       (await prisma.entry.count({ where: { parentEntryId: alone } })) === 0,
     aloneResult?.decrypted,
+  );
+
+  // XLM 4.0 resolvido (plans/analise-estatica-ampliada, item 21): a URL montada com CHAR(104)
+  // so aparece inteira depois da emulacao, e o CALL e o EXEC viram alertas.
+  const xlm = await upload('planilha.xlsm', file('xlm.xlsm'));
+  await oletoolsIdle();
+  const xlmOffice = await prisma.officeAnalysis.findUnique({ where: { entryId: xlm } });
+  const resolved = ((xlmOffice?.result as any)?.vba?.xlmResolved ?? []) as {
+    cell: string;
+    formula: string;
+  }[];
+  const officeAlerts = (xlmOffice?.alerts ?? []) as { level: string; text: string }[];
+  ok(
+    'XLM: as fórmulas resolvidas na ordem de execução, com a URL que o CHAR escondia',
+    xlmOffice?.status === 'DONE' &&
+      JSON.stringify(resolved.map((r) => r.cell)) === JSON.stringify(['A1', 'A2', 'A3', 'A4']) &&
+      resolved[0].formula === '"https://c2.exemplo.invalid/x.dll"' &&
+      resolved[1].formula.includes('"https://c2.exemplo.invalid/x.dll"'),
+    xlmOffice,
+  );
+  ok(
+    'XLM: CALL, EXEC e a URL viram alertas, e a URL chega à triagem',
+    officeAlerts.some((x) => x.text.startsWith('XLM resolvido executa: CALL("urlmon"')) &&
+      officeAlerts.some((x) => x.text.startsWith('XLM resolvido executa: EXEC(')) &&
+      officeAlerts.some(
+        (x) => x.text === 'URL nas fórmulas XLM resolvidas: https://c2.exemplo.invalid/x.dll',
+      ) &&
+      Boolean(
+        (await loadFacts(xlm))?.facts.hiddenIocs.includes('https://c2.exemplo.invalid/x.dll'),
+      ),
+    officeAlerts,
   );
 
   await app.close();

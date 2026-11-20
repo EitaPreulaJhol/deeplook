@@ -776,7 +776,11 @@ does not see:
 - the **MacroRaptor** verdict: a macro is suspicious when it runs on open **and** writes files or runs
   programs;
 - **XLM 4.0 macros** (Excel 4), used by a lot of malware precisely because they escape whoever only looks
-  at VBA, and **VBA stomping** (the source code does not match the compiled one);
+  at VBA, and **VBA stomping** (the source code does not match the compiled one). XLM comes
+  **resolved** by XLMMacroDeobfuscator (Apache-2.0): the formulas emulated from `Auto_Open`, in
+  execution order, with `CHAR`, concatenations and referenced cells already replaced by their value
+  (in `.xls` and `.xlsm`). `EXEC`, `CALL`, `REGISTER` and the resolved URLs become alerts, and the URLs
+  reach the **indicator in a hidden string** triage condition;
 - **DDE fields**, which run commands without a macro;
 - **objects in an RTF**, highlighting the Equation Editor (CVE-2017-11882);
 - **oleid**'s indicators (encrypted, macros, external objects).

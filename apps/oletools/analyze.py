@@ -42,11 +42,51 @@ def run_quiet(fn, *args, **kwargs):
         return fn(*args, **kwargs)
 
 
+XLM_TIMEOUT = 60
+
+
+def xlm_resolved(path):
+    """XLM 4.0 resolvido (plans/analise-estatica-ampliada, item 21): o XLMMacroDeobfuscator emula as
+    formulas a partir do Auto_Open, na ordem de execucao, e devolve cada celula com a formula ja
+    resolvida (CHAR, concatenacao, celulas referenciadas). [{cell, status, formula}]."""
+    try:
+        from XLMMacroDeobfuscator.deobfuscator import process_file
+
+        lines = run_quiet(
+            process_file,
+            file=path,
+            noninteractive=True,
+            noindent=True,
+            output_formula_format="[[CELL-ADDR]]\t[[STATUS]]\t[[INT-FORMULA]]",
+            return_deobfuscated=True,
+            timeout=XLM_TIMEOUT,
+            silent=True,
+        ) or []
+    except Exception:  # noqa: BLE001 - formato que o emulador nao abre: fica a lista do olevba
+        return []
+    out = []
+    for line in lines[:MAX_XLM_LINES]:
+        parts = [p.strip() for p in str(line).split("\t", 2)]
+        if len(parts) == 3:
+            out.append({"cell": parts[0][:40], "status": parts[1][:40], "formula": text(parts[2], 400)})
+    return out
+
+
+def has_macrosheet(path):
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(path) as z:
+            return any(n.lower().startswith("xl/macrosheets/") for n in z.namelist())
+    except (zipfile.BadZipFile, OSError):
+        return False
+
+
 def vba_report(path, data):
     from oletools import mraptor, olevba
 
     out = {"macros": False, "xlm": False, "modules": [], "keywords": [], "xlmLines": [],
-           "stomping": False, "mraptor": None, "error": None}
+           "xlmResolved": [], "stomping": False, "mraptor": None, "error": None}
     parser = None
     try:
         parser = run_quiet(olevba.VBA_Parser, path, data=data)
@@ -55,9 +95,14 @@ def vba_report(path, data):
             out["xlm"] = bool(run_quiet(parser.detect_xlm_macros))
         except Exception:  # noqa: BLE001 - so parte dos formatos tem XLM
             out["xlm"] = False
+        # Com os bytes em data=, o olevba nao acha o XLM do OOXML (ele relê pelo caminho): a folha de
+        # macro do Excel 4 no ZIP (xl/macrosheets/) basta.
+        if not out["xlm"] and has_macrosheet(path):
+            out["xlm"] = True
         if out["xlm"]:
             lines = getattr(parser, "xlm_macros", []) or []
             out["xlmLines"] = [text(line, 400) for line in lines[:MAX_XLM_LINES]]
+            out["xlmResolved"] = xlm_resolved(path)
         if out["macros"]:
             total = 0
             code_all = []
@@ -229,6 +274,10 @@ def main():
             passwords = [p for p in f.read().split("\n") if p]
     with open(path, "rb") as f:
         data = f.read()
+    # O XLMMacroDeobfuscator (que o olevba importa) avisa no stdout, ao carregar, que falta o pywin32:
+    # importado aqui, com a saida desviada, o aviso nao se mistura com o JSON.
+    run_quiet(__import__, "oletools.olevba")
+    run_quiet(__import__, "XLMMacroDeobfuscator.deobfuscator")
     from oletools import olevba
 
     result = {
