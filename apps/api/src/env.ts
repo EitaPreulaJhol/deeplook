@@ -304,6 +304,14 @@ const EnvSchema = z
       .default(''),
     JAR_MAX_MB: z.coerce.number().int().min(1).max(200).default(30),
     JAR_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
+    /** Desofuscacao de JavaScript (item 20): servico jsdeob (webcrack, sem rede). */
+    JSDEOB_URL: z.string().default(''),
+    JSDEOB_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    JSDEOB_MAX_MB: z.coerce.number().int().min(1).max(50).default(5),
+    JSDEOB_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(180),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -422,6 +430,7 @@ const KNOWN_SECRETS = new Set([
   'troque-este-token-do-extract',
   'troque-este-token-do-dotnet',
   'troque-este-token-do-jar',
+  'troque-este-token-do-jsdeob',
 ]);
 /**
  * Senhas do banco e do MinIO que o compose e o .env.example trazem: publicas tambem. Com elas,
@@ -456,6 +465,7 @@ const refused = [
   env.EXTRACT_URL && KNOWN_SECRETS.has(env.EXTRACT_TOKEN) && 'EXTRACT_TOKEN',
   env.DOTNET_URL && KNOWN_SECRETS.has(env.DOTNET_TOKEN) && 'DOTNET_TOKEN',
   env.JAR_URL && KNOWN_SECRETS.has(env.JAR_TOKEN) && 'JAR_TOKEN',
+  env.JSDEOB_URL && KNOWN_SECRETS.has(env.JSDEOB_TOKEN) && 'JSDEOB_TOKEN',
   env.NETCAP_URL && KNOWN_SECRETS.has(env.NETCAP_TOKEN) && 'NETCAP_TOKEN',
   env.SURICATA_URL && KNOWN_SECRETS.has(env.SURICATA_TOKEN) && 'SURICATA_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',

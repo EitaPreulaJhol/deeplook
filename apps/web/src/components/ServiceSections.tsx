@@ -9,6 +9,7 @@ import type {
   DotnetResult,
   EmulationResult,
   JarResult,
+  JsdeobResult,
   ServiceAnalysisInfo,
   ServiceKindId,
 } from '../api/types';
@@ -720,6 +721,59 @@ export function JarSection({ entryId, canTriage }: { entryId: string; canTriage:
             )
           }
         />
+      )}
+    />
+  );
+}
+
+/** JavaScript desofuscado pelo webcrack (item 20); a camada tambem entra na analise de scripts. */
+export function JsdeobSection({ entryId, canTriage }: { entryId: string; canTriage: boolean }) {
+  return (
+    <ServiceSection<JsdeobResult>
+      kind="jsdeob"
+      entryId={entryId}
+      canTriage={canTriage}
+      title={t('jsdTitle')}
+      help={t('jsdHelp')}
+      notYet={t('jsdNotYet')}
+      off={t('jsdOff')}
+      body={(r) => (
+        <>
+          <HpsmForm columns={2}>
+            <HpsmField label={t('jsdResult')}>
+              <HpsmReadonly>
+                {r.changed
+                  ? t('jsdChanged', { from: r.inputChars, to: r.code.length })
+                  : t('jsdUnchanged')}
+                {r.scripts > 0 && ` · ${t('jsdScripts', { n: r.scripts })}`}
+              </HpsmReadonly>
+            </HpsmField>
+            {r.bundle && (
+              <HpsmField label={t('jsdBundle')}>
+                <HpsmReadonly>
+                  {r.bundle.type} · {t('jsdModules', { n: r.bundle.moduleCount })}
+                </HpsmReadonly>
+              </HpsmField>
+            )}
+          </HpsmForm>
+          {r.bundle && r.bundle.modules.length > 0 && (
+            <details className="dl-static-strings">
+              <summary>{t('jsdModules', { n: r.bundle.moduleCount })}</summary>
+              <TextList items={r.bundle.modules.map((m) => `${m.id} ${m.path} (${m.size})`)} />
+            </details>
+          )}
+          {r.changed && (
+            <details className="dl-static-strings" open>
+              <summary>
+                {t('jsdCode')}
+                {r.codeTruncated && ` ${t('jsdTruncated')}`}
+              </summary>
+              <pre className="dl-doc-macros__code" aria-label={t('jsdCode')}>
+                {r.code}
+              </pre>
+            </details>
+          )}
+        </>
       )}
     />
   );

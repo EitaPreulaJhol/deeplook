@@ -1019,6 +1019,22 @@ classes can be requested by an analyst in the record's **Java code (CFR)** secti
 - CFR is upgraded by hand (the Maven Central JAR, with the version and the SHA-256 in
   `apps/jarcfr/Dockerfile`).
 
+## Deobfuscated JavaScript (webcrack)
+
+The **`jsdeob`** service runs webcrack 2.16 (MIT) in a container with no network and no root, a
+read-only root and one container per analysis. Every `.js` (and every HTML or HTA with script) up to
+`JSDEOB_MAX_MB` joins the queue on its own.
+
+- **What it undoes:** obfuscator.io obfuscation (the hidden string array, with Base64 or RC4, the
+  flattened flow and split strings), wrapped `eval`, minification and webpack and browserify bundles
+  (with the module list).
+- **Nothing from the sample runs in Node:** only the string decoders, in a V8 isolate (isolated-vm),
+  with access to nothing and limited memory and time.
+- **Becomes a script analysis layer:** the deobfuscated code enters as a layer, and its findings and
+  URLs join those of the static analysis. Risk and IOCs now see what the obfuscation hid. Asking again
+  redoes the merge without stacking layers.
+- **System status:** the **JavaScript deobfuscation (webcrack)** row.
+
 ## Identify and unpack
 
 Every executable that arrives (Windows, Linux, macOS, APK and JAR, and CABs, up to `UNPACK_MAX_MB`) goes through the
@@ -1595,6 +1611,7 @@ COOKIE_SECURE=true
 | `DOTNET_URL` / `DOTNET_TOKEN` | .NET decompilation service (ILSpy); empty URL turns it off | `http://dotnet:3900` / — |
 | `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | largest assembly, ceiling of one analysis, ILSpy ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `JAR_URL` / `JAR_TOKEN` | Java decompilation service (CFR); empty URL turns it off | `http://jar:4000` / — |
+| `JSDEOB_URL` / `JSDEOB_TOKEN` | JavaScript deobfuscation service (webcrack); empty URL turns it off | `http://jsdeob:4100` / — |
 | `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | largest JAR, ceiling of one analysis, CFR ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | memory dump: cap per process (`0` turns it off), processes per capture, wait after the automatic run | `512` / `4` / `120` |
 | `LLM_PROVIDER` | AI report draft: `anthropic`, `openai` (compatible server) or empty (off) | — |

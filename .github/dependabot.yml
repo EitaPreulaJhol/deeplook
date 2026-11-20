@@ -123,6 +123,7 @@ updates:
       - /apps/android
       - /apps/dotnet
       - /apps/jarcfr
+      - /apps/jsdeob
     schedule:
       interval: weekly
       day: monday

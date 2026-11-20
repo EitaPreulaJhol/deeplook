@@ -1279,6 +1279,27 @@ export const messages = {
   ],
   netMore: ['e mais {n}', 'and {n} more'],
   // ---- Java (CFR)
+  jsdTitle: ['JavaScript desofuscado (webcrack)', 'Deobfuscated JavaScript (webcrack)'],
+  jsdHelp: [
+    'O webcrack desfaz a ofuscação do obfuscator.io (strings escondidas e fluxo embaralhado), o eval embrulhado, a minificação e os bundles do webpack e do browserify. O código da amostra não roda: só os decodificadores de strings, num isolate do V8 sem acesso a nada. O resultado também vira uma camada da análise de scripts.',
+    'webcrack undoes obfuscator.io obfuscation (hidden strings and scrambled flow), wrapped eval, minification and webpack and browserify bundles. The sample code does not run: only the string decoders, in a V8 isolate with access to nothing. The result also becomes a layer of the script analysis.',
+  ],
+  jsdNotYet: ['Ainda não desofuscado.', 'Not deobfuscated yet.'],
+  jsdOff: [
+    'A desofuscação de JavaScript está desligada (JSDEOB_URL vazio).',
+    'JavaScript deobfuscation is off (JSDEOB_URL empty).',
+  ],
+  jsdResult: ['Resultado', 'Result'],
+  jsdChanged: ['desofuscado ({from} → {to} caracteres)', 'deobfuscated ({from} → {to} characters)'],
+  jsdUnchanged: [
+    'nada a desfazer (o código já estava legível)',
+    'nothing to undo (the code was already readable)',
+  ],
+  jsdScripts: ['{n} script(s) do HTML', '{n} HTML script(s)'],
+  jsdBundle: ['Bundle', 'Bundle'],
+  jsdModules: ['{n} módulo(s)', '{n} module(s)'],
+  jsdCode: ['Código desofuscado', 'Deobfuscated code'],
+  jsdTruncated: ['(cortado)', '(cut)'],
   jarTitle: ['Código Java (CFR)', 'Java code (CFR)'],
   jarHelp: [
     'O CFR descompila o bytecode do JAR em Java, um arquivo por classe. Nada é executado; o código descompilado é texto da amostra.',

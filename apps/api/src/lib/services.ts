@@ -7,6 +7,7 @@ import './android';
 import './config-extract';
 import './dotnet';
 import './jar';
+import './jsdeob';
 
 export {
   enqueueService,

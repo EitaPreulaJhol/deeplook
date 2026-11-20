@@ -66,6 +66,7 @@ export interface StatusCheck {
     | 'extract'
     | 'dotnet'
     | 'jar'
+    | 'jsdeob'
     | 'ai'
     | 'backup'
     | 'config';
@@ -753,6 +754,12 @@ const SERVICE_CHECKS = {
     name: 'Descompilação de Java (CFR)',
     summary: 'desligada (JAR_URL vazio)',
   },
+  // Desofuscacao de JavaScript (item 20).
+  JSDEOB: {
+    id: 'jsdeob',
+    name: 'Desofuscação de JavaScript (webcrack)',
+    summary: 'desligada (JSDEOB_URL vazio)',
+  },
 } as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
 
 async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
@@ -1243,6 +1250,7 @@ export async function systemStatus() {
     serviceCheck('CONFIG'),
     serviceCheck('DOTNET'),
     serviceCheck('JAR'),
+    serviceCheck('JSDEOB'),
     aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),

@@ -18,6 +18,7 @@ const KINDS: Record<string, ServiceKind> = {
   config: 'CONFIG',
   dotnet: 'DOTNET',
   jar: 'JAR',
+  jsdeob: 'JSDEOB',
 };
 
 /** Opcoes do pedido: so a emulacao tem (shellcode e a arquitetura). */

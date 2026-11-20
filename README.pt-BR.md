@@ -1024,6 +1024,22 @@ analista na seção **Código Java (CFR)** da ficha.
 - O CFR é atualizado à mão (o JAR do Maven Central, com a versão e o SHA-256 em
   `apps/jarcfr/Dockerfile`).
 
+## JavaScript desofuscado (webcrack)
+
+O serviço **`jsdeob`** roda o webcrack 2.16 (MIT) num contêiner sem rede e sem root, com a raiz somente
+leitura e um contêiner por análise. Todo `.js` (e todo HTML ou HTA com script) de até `JSDEOB_MAX_MB`
+vai sozinho para a fila.
+
+- **O que desfaz:** a ofuscação do obfuscator.io (o vetor de strings escondidas, com Base64 ou RC4, o
+  fluxo achatado e as strings partidas), o `eval` embrulhado, a minificação e os bundles do webpack e
+  do browserify (com a lista de módulos).
+- **Nada da amostra roda no Node:** só os decodificadores de strings, num isolate do V8 (isolated-vm),
+  sem acesso a nada e com memória e tempo limitados.
+- **Vira camada da análise de scripts:** o código desofuscado entra como camada, e os achados e as URLs
+  dele se juntam aos da análise estática. O risco e os IOCs passam a ver o que a ofuscação escondia.
+  Pedir de novo refaz a junção, sem empilhar camadas.
+- **Status do sistema:** a linha **Desofuscação de JavaScript (webcrack)**.
+
 ## Identificar e desempacotar
 
 Todo executável que chega (Windows, Linux, macOS, APK e JAR, e os CABs, até `UNPACK_MAX_MB`) passa pelo
@@ -1607,6 +1623,7 @@ COOKIE_SECURE=true
 | `DOTNET_URL` / `DOTNET_TOKEN` | serviço de descompilação de .NET (ILSpy); URL vazia desliga | `http://dotnet:3900` / — |
 | `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | maior assembly, teto de uma análise, teto do ILSpy e memória do contêiner | `30` / `240` / `200` / `2g` |
 | `JAR_URL` / `JAR_TOKEN` | serviço de descompilação de Java (CFR); URL vazia desliga | `http://jar:4000` / — |
+| `JSDEOB_URL` / `JSDEOB_TOKEN` | serviço de desofuscação de JavaScript (webcrack); URL vazia desliga | `http://jsdeob:4100` / — |
 | `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | maior JAR, teto de uma análise, teto do CFR e memória do contêiner | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | dump de memória: teto por processo (`0` desliga), processos por captura, espera depois da execução automática | `512` / `4` / `120` |
 | `LLM_PROVIDER` | rascunho do relatório por IA: `anthropic`, `openai` (servidor compatível) ou vazio (desligado) | — |

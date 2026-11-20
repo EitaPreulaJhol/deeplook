@@ -1845,6 +1845,8 @@ enum ServiceKind {
   CONFIG
   DOTNET
   JAR
+  /// Desofuscacao de JavaScript com o webcrack (plans/analise-estatica-ampliada, item 20).
+  JSDEOB
 }
 
 enum ServiceAnalysisStatus {

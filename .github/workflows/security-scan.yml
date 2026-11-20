@@ -100,6 +100,8 @@ jobs:
           - { app: dotnet, dir: dotnet, dockerfile: Dockerfile }
           # Descompilacao de Java: CFR numa JRE headless.
           - { app: jar, dir: jarcfr, dockerfile: Dockerfile }
+          # Desofuscacao de JavaScript: webcrack (Node).
+          - { app: jsdeob, dir: jsdeob, dockerfile: Dockerfile }
           # Captura de rede do sandbox (plano pos-revisao, 5.4): netcap (Node) e Suricata (Debian).
           - { app: netcap, dir: netcap, dockerfile: Dockerfile }
           - { app: suricata, dir: suricata, dockerfile: Dockerfile }

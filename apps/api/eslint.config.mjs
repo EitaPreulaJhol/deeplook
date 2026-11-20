@@ -5,7 +5,8 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'src/generated/**'] },
+  // As amostras de JavaScript (tests/fixtures/js) sao entrada da analise, nao codigo do projeto.
+  { ignores: ['dist/**', 'node_modules/**', 'src/generated/**', 'tests/fixtures/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

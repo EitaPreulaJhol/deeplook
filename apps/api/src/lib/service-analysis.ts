@@ -83,8 +83,9 @@ export function serviceAutoEligible(
   typeId: string | null | undefined,
   size: number | null,
 ): boolean {
+  // '' em autoKinds = o arquivo sem tipo pela assinatura (o script solto; item 20).
   return Boolean(
-    typeId && def.autoKinds.has(typeId) && size && size > 0 && size <= def.maxMb() * 1024 * 1024,
+    def.autoKinds.has(typeId ?? '') && size && size > 0 && size <= def.maxMb() * 1024 * 1024,
   );
 }
 
@@ -346,7 +347,7 @@ export async function startServiceQueues(log: typeof logger): Promise<void> {
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
-  for (const kind of ['EMULATION', 'ANDROID', 'CONFIG', 'DOTNET', 'JAR'] as const) {
+  for (const kind of ['EMULATION', 'ANDROID', 'CONFIG', 'DOTNET', 'JAR', 'JSDEOB'] as const) {
     registerQueueWaker(serviceQueue(kind), () => wake(kind));
   }
   if (!timer) {

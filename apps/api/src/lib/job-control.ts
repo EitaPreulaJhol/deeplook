@@ -22,6 +22,7 @@ export const QUEUE_IDS = [
   'config',
   'dotnet',
   'jar',
+  'jsdeob',
   'suricata',
   'memdump',
 ] as const;
@@ -33,6 +34,7 @@ const SERVICE_QUEUES: Record<ServiceKind, QueueId> = {
   CONFIG: 'config',
   DOTNET: 'dotnet',
   JAR: 'jar',
+  JSDEOB: 'jsdeob',
 };
 /** A fila de um tipo de analise de servico (emulacao, Android, configuracao, .NET, Java). */
 export const serviceQueue = (kind: ServiceKind): QueueId => SERVICE_QUEUES[kind];

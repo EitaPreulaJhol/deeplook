@@ -103,6 +103,8 @@ export const STATUS_EN: readonly (readonly [pt: string, en: string])[] = [
   ['Descompilação de Java (CFR)', 'Java decompilation (CFR)'],
   ['desligada (DOTNET_URL vazio)', 'off (DOTNET_URL empty)'],
   ['desligada (JAR_URL vazio)', 'off (JAR_URL empty)'],
+  ['Desofuscação de JavaScript (webcrack)', 'JavaScript deobfuscation (webcrack)'],
+  ['desligada (JSDEOB_URL vazio)', 'off (JSDEOB_URL empty)'],
   ['Rascunho por IA', 'AI draft'],
   ['desligado (LLM_PROVIDER vazio)', 'off (LLM_PROVIDER empty)'],
   [

@@ -817,6 +817,7 @@ export const messages = {
   'q.config': ['Configuração de famílias', 'Family configuration'],
   'q.dotnet': ['.NET (ILSpy)', '.NET (ILSpy)'],
   'q.jar': ['Java (CFR)', 'Java (CFR)'],
+  'q.jsdeob': ['JavaScript (webcrack)', 'JavaScript (webcrack)'],
   'q.suricata': ['Suricata (pcap)', 'Suricata (pcap)'],
   'q.memdump': ['Dump de memória', 'Memory dump'],
 } as const satisfies Pairs;

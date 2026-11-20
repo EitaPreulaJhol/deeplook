@@ -1213,7 +1213,22 @@ export interface SandboxProcess {
 
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 /** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
-export type ServiceKindId = 'emulation' | 'android' | 'config' | 'dotnet' | 'jar';
+export type ServiceKindId = 'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob';
+
+/** Desofuscacao de JavaScript com o webcrack (item 20). */
+export interface JsdeobResult {
+  code: string;
+  codeTruncated: boolean;
+  changed: boolean;
+  inputChars: number;
+  scripts: number;
+  bundle: {
+    type: string;
+    entryId: string;
+    modules: { id: string; path: string; size: number }[];
+    moduleCount: number;
+  } | null;
+}
 
 export interface EmulationResult {
   kind: 'pe' | 'shellcode';
@@ -2064,6 +2079,7 @@ export type MonitorQueueId =
   | 'config'
   | 'dotnet'
   | 'jar'
+  | 'jsdeob'
   | 'suricata'
   | 'memdump';
 

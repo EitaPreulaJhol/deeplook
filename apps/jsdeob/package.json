@@ -1,0 +1,9 @@
+{
+  "name": "deeplook-jsdeob",
+  "private": true,
+  "type": "module",
+  "description": "Desofuscacao de JavaScript com o webcrack (plans/analise-estatica-ampliada, item 20).",
+  "dependencies": {
+    "webcrack": "2.16.0"
+  }
+}

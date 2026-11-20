@@ -19,3 +19,5 @@ apps/api/tests/.tmp
 apps/api/src/lib/lol/*.json
 # Dados do AVclass gerados por apps/api/scripts/vendor-avclass.mjs (uma linha so).
 apps/api/src/lib/avclass.json
+# Amostras de JavaScript da analise (item 20): entrada, nao codigo do projeto.
+apps/api/tests/fixtures/js/

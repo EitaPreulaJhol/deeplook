@@ -26,6 +26,7 @@ const ANDROID = 'dl-android';
 const EXTRACT = 'dl-extract';
 const DOTNET = 'dl-dotnet';
 const JAR = 'dl-jar';
+const JSDEOB = 'dl-jsdeob';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -330,6 +331,19 @@ const startDotnet = () =>
     tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
   });
 
+// Desofuscacao de JavaScript (webcrack no Node; item 20).
+const startJsdeob = () =>
+  startService({
+    name: JSDEOB,
+    dir: 'jsdeob',
+    port: 54200,
+    inner: 4100,
+    env: 'JSDEOB_TOKEN',
+    memory: '2g',
+    pids: 64,
+    tmpfs: '/tmp:size=128m,noexec,nosuid,nodev',
+  });
+
 // Descompilacao de Java (CFR numa JRE headless). A JVM usa mais threads que o Python: pids 128.
 const startJar = () =>
   startService({
@@ -462,6 +476,7 @@ if (files.some((f) => f.includes('android'))) await startAndroid();
 if (files.some((f) => f.includes('extract'))) await startExtract();
 if (files.some((f) => f.includes('dotnet'))) await startDotnet();
 if (files.some((f) => f.includes('jar'))) await startJar();
+if (files.some((f) => f.includes('jsdeob'))) await startJsdeob();
 
 let total = 0;
 const bad = [];
@@ -474,7 +489,7 @@ for (const file of files) {
 }
 if (clean) {
   quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA, DOTNET);
-  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR);
+  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR, JSDEOB);
 } else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(
   bad.length
