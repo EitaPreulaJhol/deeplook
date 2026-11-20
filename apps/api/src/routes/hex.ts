@@ -110,7 +110,7 @@ export async function searchStream(
 }
 
 /** A amostra de arquivo, ou a resposta de erro ja enviada (analistas; nada de link ou expurgada). */
-async function sampleFile(req: FastifyRequest, reply: FastifyReply) {
+export async function sampleFile(req: FastifyRequest, reply: FastifyReply) {
   const user = await requireUser(req, reply);
   if (!user) return null;
   if (!isAnalyst(user)) {

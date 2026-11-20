@@ -62,6 +62,7 @@ const FILES = [
   'pydec',
   'metadata',
   'jsdeob',
+  'ember',
   // Formatos pequenos de entrega (item 12).
   'small-formats',
 ].map((name) => `src/lib/${name}.ts`);

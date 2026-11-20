@@ -1048,6 +1048,21 @@ analista na seção **Código Java (CFR)** da ficha.
 - O CFR é atualizado à mão (o JAR do Maven Central, com a versão e o SHA-256 em
   `apps/jarcfr/Dockerfile`).
 
+## Strings e modelos de ML
+
+O serviço **`ml`** (sem rede, um contêiner por pedido) traz dois modelos, cada um no seu ambiente:
+
+- **Strings unificadas** (StringSifter, Apache-2.0, da Mandiant): na seção **Strings** da amostra
+  (só analistas), as strings do arquivo (ASCII e UTF-16, com a posição), as do FLOSS
+  (decodificadas, de pilha e "tight") e os literais do código descompilado (.NET, Java, Python),
+  com a origem e as categorias (URL, IP, e-mail, caminho, registro, comando, cripto, Base64), na
+  ordem do StringSifter: as úteis no alto, o lixo embaixo. Filtro, busca e exportação em texto. Sem
+  o serviço, a ordem sai das categorias.
+- **EMBER2024** (Apache-2.0): o modelo LightGBM de PE do benchmark, sobre os 2568 atributos do EMBER
+  v3, dá a cada PE a probabilidade de ser malicioso. É informativo e fica **fora da pontuação de
+  risco** até ser medido com falsos positivos conhecidos (os programas mínimos dos testes saem quase
+  todos acima de 95%). O modelo de família (458 MB) não vem.
+
 ## Código Python (pycdc)
 
 O serviço **`pydec`** roda o pycdc e o pycdas (Decompyle++, GPL-3.0, isolados num serviço próprio)
@@ -1683,6 +1698,7 @@ COOKIE_SECURE=true
 | `JAR_URL` / `JAR_TOKEN` | serviço de descompilação de Java (CFR); URL vazia desliga | `http://jar:4000` / — |
 | `JSDEOB_URL` / `JSDEOB_TOKEN` | serviço de desofuscação de JavaScript (webcrack); URL vazia desliga | `http://jsdeob:4100` / — |
 | `PYDEC_URL` / `PYDEC_TOKEN` | serviço de descompilação de Python (pycdc); URL vazia desliga | `http://pydec:4200` / — |
+| `ML_URL` / `ML_TOKEN` | serviço de modelos de ML (StringSifter e EMBER2024); URL vazia desliga | `http://ml:4300` / — |
 | `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | maior JAR, teto de uma análise, teto do CFR e memória do contêiner | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | dump de memória: teto por processo (`0` desliga), processos por captura, espera depois da execução automática | `512` / `4` / `120` |
 | `LLM_PROVIDER` | rascunho do relatório por IA: `anthropic`, `openai` (servidor compatível) ou vazio (desligado) | — |

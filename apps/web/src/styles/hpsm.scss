@@ -4573,6 +4573,27 @@ textarea.dl-code-input {
   font: inherit;
 }
 
+/* Aba de strings unificada (plans/analise-estatica-ampliada, item 26). */
+.dl-strings__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block: 0.5rem;
+}
+
+.dl-strings__bar input,
+.dl-strings__bar select {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--dl-field-border);
+  font: inherit;
+}
+
+.dl-strings__bar input {
+  flex: 1 1 16rem;
+  min-inline-size: 0;
+}
+
 .dl-dotnet__source {
   overflow: auto;
   max-block-size: 32rem;

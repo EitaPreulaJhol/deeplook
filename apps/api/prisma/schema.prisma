@@ -1854,6 +1854,8 @@ enum ServiceKind {
   METADATA
   /// Descompilacao de bytecode Python com o pycdc (item 15).
   PYDEC
+  /// Pontuacao do EMBER2024 no servico ml (item 29): informativa, fora do risco.
+  EMBER
 }
 
 enum ServiceAnalysisStatus {

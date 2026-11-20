@@ -75,6 +75,7 @@ import {
   AndroidSection,
   ConfigSection,
   DotnetSection,
+  EmberSection,
   EmulationSection,
   JarSection,
   JsdeobSection,
@@ -85,6 +86,7 @@ import {
 import { useDecoder } from '../components/shortcuts';
 import { AgeText } from '../components/sla';
 import { DisguisedFileWarning, StaticAnalysisSection } from '../components/StaticAnalysisSection';
+import { StringsSection } from '../components/StringsSection';
 import { PriorityTag, StatusTag, StatusText, TypeTag, VerdictTag } from '../components/tags';
 import { UnpackSection } from '../components/UnpackSection';
 import { useWorkspaceTitle } from '../components/workspace';
@@ -938,6 +940,9 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && canTriage && (
             <HexViewer entryId={entry.id} purged={Boolean(entry.filePurgedAt)} />
           )}
+          {entry.type === 'FILE' && canTriage && !entry.filePurgedAt && (
+            <StringsSection entryId={entry.id} />
+          )}
           {entry.type === 'FILE' && <ChannelsSection entryId={entry.id} />}
           {entry.type === 'FILE' && (
             <StaticAnalysisSection
@@ -967,6 +972,7 @@ export function EntryDetailPage() {
           {entry.type === 'FILE' && <JsdeobSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <MetadataSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <PydecSection entryId={entry.id} canTriage={canTriage} />}
+          {entry.type === 'FILE' && <EmberSection entryId={entry.id} canTriage={canTriage} />}
           {entry.type === 'FILE' && <DocumentSection info={entry.staticInfo} />}
           {/* OneNote, HTML smuggling e MSI (plans/caca-e-formatos, item 4). */}
           {entry.type === 'FILE' && <DeliverySection info={entry.staticInfo} />}

@@ -28,6 +28,7 @@ const DOTNET = 'dl-dotnet';
 const JAR = 'dl-jar';
 const JSDEOB = 'dl-jsdeob';
 const PYDEC = 'dl-pydec';
+const ML = 'dl-ml';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -349,6 +350,19 @@ const startDotnet = () =>
     tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
   });
 
+// Modelos de ML (StringSifter e EMBER2024; itens 26 e 29).
+const startMl = () =>
+  startService({
+    name: ML,
+    dir: 'ml',
+    port: 54400,
+    inner: 4300,
+    env: 'ML_TOKEN',
+    memory: '2g',
+    pids: 64,
+    tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
+  });
+
 // Descompilacao de Python (pycdc; item 15).
 const startPydec = () =>
   startService({
@@ -515,7 +529,7 @@ if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
 if (
   files.some((f) =>
-    /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar|eml-msg|oletools-decrypt|oletools-metadata/.test(
+    /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar|eml-msg|oletools-decrypt|oletools-metadata|^ml\./.test(
       f,
     ),
   )
@@ -532,6 +546,7 @@ if (files.some((f) => f.includes('android'))) await startAndroid();
 if (files.some((f) => f.includes('extract'))) await startExtract();
 if (files.some((f) => f.includes('dotnet'))) await startDotnet();
 if (files.some((f) => f.includes('jar'))) await startJar();
+if (files.some((f) => /(^|-)ml\./.test(f))) await startMl();
 if (files.some((f) => f.includes('pydec'))) {
   pyFixtures();
   await startPydec();
@@ -549,7 +564,7 @@ for (const file of files) {
 }
 if (clean) {
   quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA, DOTNET);
-  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR, JSDEOB, PYDEC);
+  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR, JSDEOB, PYDEC, ML);
 } else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(
   bad.length

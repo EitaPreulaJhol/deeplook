@@ -1235,7 +1235,14 @@ export interface SandboxProcess {
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 /** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
 export type ServiceKindId =
-  'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob' | 'metadata' | 'pydec';
+  'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob' | 'metadata' | 'pydec' | 'ember';
+
+/** Pontuacao do EMBER2024 (item 29). */
+export interface EmberResult {
+  model: string;
+  score: number;
+  features: number;
+}
 
 /** Bytecode Python descompilado pelo pycdc (item 15), no formato do Java. */
 export interface PydecResult extends Omit<JarResult, 'module'> {
@@ -2149,6 +2156,7 @@ export type MonitorQueueId =
   | 'jsdeob'
   | 'metadata'
   | 'pydec'
+  | 'ember'
   | 'suricata'
   | 'memdump';
 

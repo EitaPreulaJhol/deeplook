@@ -10,6 +10,7 @@ import './jar';
 import './jsdeob';
 import './metadata';
 import './pydec';
+import './ember';
 
 export {
   enqueueService,

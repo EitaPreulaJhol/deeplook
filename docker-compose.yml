@@ -222,6 +222,11 @@ services:
       PYDEC_TOKEN: ${PYDEC_TOKEN:-troque-este-token-do-pydec}
       PYDEC_MAX_MB: ${PYDEC_MAX_MB:-30}
       PYDEC_REQUEST_TIMEOUT_S: ${PYDEC_REQUEST_TIMEOUT_S:-300}
+      # Modelos de ML (itens 26 e 29): o servico ml abaixo; ML_URL= desliga.
+      ML_URL: ${ML_URL-http://ml:4300}
+      ML_TOKEN: ${ML_TOKEN:-troque-este-token-do-ml}
+      ML_MAX_MB: ${ML_MAX_MB:-64}
+      ML_REQUEST_TIMEOUT_S: ${ML_REQUEST_TIMEOUT_S:-120}
       # Dump de memoria dos processos da amostra no sandbox (item 3): teto por processo (0 desliga),
       # processos por captura e espera depois da execucao automatica.
       SANDBOX_MEMDUMP_MAX_MB: ${SANDBOX_MEMDUMP_MAX_MB:-512}
@@ -604,6 +609,30 @@ services:
       # O assembly e o projeto descompilado ficam aqui durante a analise.
       - /tmp:size=512m,noexec,nosuid,nodev
     mem_limit: ${DOTNET_MEM_LIMIT:-2g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # Modelos de ML (plans/analise-estatica-ampliada, itens 26 e 29): StringSifter e o modelo de PE do
+  # EMBER2024. So leem; nada da amostra e executado. Um container por pedido.
+  ml:
+    build:
+      context: ./apps/ml
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      ML_TOKEN: ${ML_TOKEN:-troque-este-token-do-ml}
+      ML_MAX_MB: ${ML_MAX_MB:-64}
+      ML_TIMEOUT_S: ${ML_TIMEOUT_S:-90}
+      ML_RECYCLE: ${ML_RECYCLE:-true}
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    mem_limit: ${ML_MEM_LIMIT:-2g}
     pids_limit: 64
     cap_drop:
       - ALL

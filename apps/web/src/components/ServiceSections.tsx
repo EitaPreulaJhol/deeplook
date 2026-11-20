@@ -7,6 +7,7 @@ import type {
   AndroidResult,
   ConfigResult,
   DotnetResult,
+  EmberResult,
   EmulationResult,
   JarResult,
   JsdeobResult,
@@ -889,6 +890,28 @@ export function PydecSection({ entryId, canTriage }: { entryId: string; canTriag
             .filter(Boolean)
             .join(' · ')}
         />
+      )}
+    />
+  );
+}
+
+/** EMBER2024 (item 29): informativo, fora do risco. */
+export function EmberSection({ entryId, canTriage }: { entryId: string; canTriage: boolean }) {
+  return (
+    <ServiceSection<EmberResult>
+      kind="ember"
+      entryId={entryId}
+      canTriage={canTriage}
+      title={t('emberTitle')}
+      help={t('emberHelp')}
+      notYet={t('emberNotYet')}
+      off={t('emberOff')}
+      body={(r) => (
+        <HpsmForm columns={2}>
+          <HpsmField label={r.model}>
+            <HpsmReadonly>{t('emberScore', { n: Math.round(r.score * 100) })}</HpsmReadonly>
+          </HpsmField>
+        </HpsmForm>
       )}
     />
   );

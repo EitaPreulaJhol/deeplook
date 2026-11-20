@@ -102,6 +102,7 @@ export const QUEUE_TABLES: Record<QueueId, QueueTable> = {
   jsdeob: service('jsdeob', 'JSDEOB', 'jsdeob'),
   metadata: service('metadata', 'METADATA', 'metadata'),
   pydec: service('pydec', 'PYDEC', 'pydec'),
+  ember: service('ember', 'EMBER', 'ember'),
   suricata: {
     id: 'suricata',
     table: 'NetworkCapture',

@@ -125,6 +125,7 @@ updates:
       - /apps/jarcfr
       - /apps/jsdeob
       - /apps/pydec
+      - /apps/ml
     schedule:
       interval: weekly
       day: monday

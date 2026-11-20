@@ -820,6 +820,7 @@ export const messages = {
   'q.jsdeob': ['JavaScript (webcrack)', 'JavaScript (webcrack)'],
   'q.metadata': ['Metadados (ExifTool)', 'Metadata (ExifTool)'],
   'q.pydec': ['Python (pycdc)', 'Python (pycdc)'],
+  'q.ember': ['ML (EMBER2024)', 'ML (EMBER2024)'],
   'q.suricata': ['Suricata (pcap)', 'Suricata (pcap)'],
   'q.memdump': ['Dump de memória', 'Memory dump'],
 } as const satisfies Pairs;

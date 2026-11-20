@@ -21,6 +21,7 @@ const KINDS: Record<string, ServiceKind> = {
   jsdeob: 'JSDEOB',
   metadata: 'METADATA',
   pydec: 'PYDEC',
+  ember: 'EMBER',
 };
 
 /** Opcoes do pedido: so a emulacao tem (shellcode e a arquitetura). */

@@ -1045,6 +1045,22 @@ classes can be requested by an analyst in the record's **Java code (CFR)** secti
 - CFR is upgraded by hand (the Maven Central JAR, with the version and the SHA-256 in
   `apps/jarcfr/Dockerfile`).
 
+## Strings and ML models
+
+The **`ml`** service (no network, one container per request) carries two models, each in its own
+environment:
+
+- **Unified strings** (StringSifter, Apache-2.0, by Mandiant): in the sample's **Strings** section
+  (analysts only), the strings from the file (ASCII and UTF-16, with the position), from FLOSS
+  (decoded, stack and "tight") and the literals of the decompiled code (.NET, Java, Python), with
+  source and categories (URL, IP, email, path, registry, command, crypto, Base64), in StringSifter
+  order: the useful ones on top, the noise at the bottom. Filter, search and text export. Without the
+  service, the order comes from the categories.
+- **EMBER2024** (Apache-2.0): the benchmark's PE LightGBM model, over the 2568 EMBER v3 attributes,
+  gives each PE the probability of being malicious. It is informational and stays **out of the risk
+  score** until measured against known false positives (the minimal test programs almost all score
+  above 95%). The family model (458 MB) is not included.
+
 ## Python code (pycdc)
 
 The **`pydec`** service runs pycdc and pycdas (Decompyle++, GPL-3.0, isolated in their own service)
@@ -1673,6 +1689,7 @@ COOKIE_SECURE=true
 | `JAR_URL` / `JAR_TOKEN` | Java decompilation service (CFR); empty URL turns it off | `http://jar:4000` / — |
 | `JSDEOB_URL` / `JSDEOB_TOKEN` | JavaScript deobfuscation service (webcrack); empty URL turns it off | `http://jsdeob:4100` / — |
 | `PYDEC_URL` / `PYDEC_TOKEN` | Python decompilation service (pycdc); empty URL turns it off | `http://pydec:4200` / — |
+| `ML_URL` / `ML_TOKEN` | ML models service (StringSifter and EMBER2024); empty URL turns it off | `http://ml:4300` / — |
 | `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | largest JAR, ceiling of one analysis, CFR ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | memory dump: cap per process (`0` turns it off), processes per capture, wait after the automatic run | `512` / `4` / `120` |
 | `LLM_PROVIDER` | AI report draft: `anthropic`, `openai` (compatible server) or empty (off) | — |

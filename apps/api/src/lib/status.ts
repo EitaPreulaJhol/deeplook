@@ -69,6 +69,7 @@ export interface StatusCheck {
     | 'jsdeob'
     | 'metadata'
     | 'pydec'
+    | 'ember'
     | 'ai'
     | 'backup'
     | 'config';
@@ -774,6 +775,12 @@ const SERVICE_CHECKS = {
     name: 'Descompilação de Python (pycdc)',
     summary: 'desligada (PYDEC_URL vazio)',
   },
+  // Modelos de ML (itens 26 e 29).
+  EMBER: {
+    id: 'ember',
+    name: 'Modelos de ML (StringSifter e EMBER2024)',
+    summary: 'desligada (ML_URL vazio)',
+  },
 } as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
 
 async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
@@ -1267,6 +1274,7 @@ export async function systemStatus() {
     serviceCheck('JSDEOB'),
     serviceCheck('METADATA'),
     serviceCheck('PYDEC'),
+    serviceCheck('EMBER'),
     aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),

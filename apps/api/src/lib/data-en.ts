@@ -467,6 +467,10 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
     '{0} module(s) were not fully decompiled: the disassembly comes along',
   ],
   ['No código Python: {0} ({1})', 'In the Python code: {0} ({1})'],
+  [
+    'Modelo de ML (EMBER2024): {0}% de chance de ser malicioso (informativo, fora do risco)',
+    'ML model (EMBER2024): {0}% chance of being malicious (informational, outside the risk)',
+  ],
   ['não foi possível gravar o BinExport no armazenamento', 'could not store the BinExport'],
   [
     'PE escrito na memória pelo próprio programa ({0}, {1}): desempacotado ou decifrado',

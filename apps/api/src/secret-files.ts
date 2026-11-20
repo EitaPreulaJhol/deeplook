@@ -38,6 +38,7 @@ export const SECRET_NAMES = [
   'JAR_TOKEN',
   'JSDEOB_TOKEN',
   'PYDEC_TOKEN',
+  'ML_TOKEN',
   'LLM_API_KEY',
   'NETCAP_TOKEN',
   'SURICATA_TOKEN',

@@ -62,6 +62,7 @@ import { sessionRoutes } from './routes/sessions';
 import { settingsRoutes } from './routes/settings';
 import { sigmaRoutes } from './routes/sigma';
 import { statusRoutes } from './routes/status';
+import { stringsRoutes } from './routes/strings';
 import { teamViewRoutes } from './routes/team-views';
 import { templateRoutes } from './routes/templates';
 import { trashRoutes } from './routes/trash';
@@ -154,6 +155,7 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   pydecRoutes,
   yaraRoutes,
   hexRoutes,
+  stringsRoutes,
   // Recursos do executavel, baixados separados (plans/analise-estatica-ampliada, item 30).
   resourceRoutes,
   // Canais de exfiltracao (plans/analise-estatica-ampliada, item 3).

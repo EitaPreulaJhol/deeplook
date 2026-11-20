@@ -109,6 +109,8 @@ export const STATUS_EN: readonly (readonly [pt: string, en: string])[] = [
   ['desligada (OLETOOLS_URL vazio)', 'off (OLETOOLS_URL empty)'],
   ['Descompilação de Python (pycdc)', 'Python decompilation (pycdc)'],
   ['desligada (PYDEC_URL vazio)', 'off (PYDEC_URL empty)'],
+  ['Modelos de ML (StringSifter e EMBER2024)', 'ML models (StringSifter and EMBER2024)'],
+  ['desligada (ML_URL vazio)', 'off (ML_URL empty)'],
   ['Rascunho por IA', 'AI draft'],
   ['desligado (LLM_PROVIDER vazio)', 'off (LLM_PROVIDER empty)'],
   [
