@@ -497,6 +497,13 @@ or run: the API reads only the requested range from MinIO.
   and returns up to 200 positions; each one opens its stretch, with the bytes highlighted.
 - **Go to position:** in hexadecimal (`0x1A30`) or decimal; "Show the previous 4 KB" and "Show 4 KB
   more" move on from there.
+- **Entropy map:** above the hex, the entropy per block of the whole file (up to 64 MB), with the
+  sections, overlay, ELF segments or ZIP entries marked below. A click opens the hex at that
+  position.
+- **Format structure:** PE, ELF, ZIP (and ZIP-based: Office, JAR, APK, XPI) and LNK are read by the
+  Kaitai Struct parsers (CC0-1.0 `.ksy`, generated in `apps/api/kaitai` by
+  `scripts/vendor-kaitai.mjs`). Hovering a byte shows its field and value
+  (`MicrosoftPe.pe.coffHdr.numberOfSections = 6`).
 
 ## Static analysis of Windows executables
 

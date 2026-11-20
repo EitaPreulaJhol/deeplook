@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // As amostras de JavaScript (tests/fixtures/js) sao entrada da analise, nao codigo do projeto.
-  { ignores: ['dist/**', 'node_modules/**', 'src/generated/**', 'tests/fixtures/**'] },
+  { ignores: ['dist/**', 'node_modules/**', 'src/generated/**', 'tests/fixtures/**', 'kaitai/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

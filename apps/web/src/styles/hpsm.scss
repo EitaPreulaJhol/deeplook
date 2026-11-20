@@ -4573,6 +4573,39 @@ textarea.dl-code-input {
   font: inherit;
 }
 
+/* Mapa do arquivo e estrutura no hex (plans/analise-estatica-ampliada, item 27). */
+.dl-entropy {
+  margin: 0.5rem 0;
+}
+
+.dl-entropy svg {
+  inline-size: 100%;
+  block-size: 5rem;
+  cursor: pointer;
+}
+
+.dl-entropy__bar {
+  fill: var(--dl-link, #0f62fe);
+}
+
+.dl-entropy__bar.is-high {
+  fill: #ff832b;
+}
+
+.dl-entropy__mark {
+  fill: #8a3ffc;
+  opacity: 0.6;
+}
+
+.dl-entropy__mark--overlay {
+  fill: #da1e28;
+}
+
+.dl-hex__field {
+  font-family: var(--dl-mono, monospace);
+  min-block-size: 1.4em;
+}
+
 /* Aba de strings unificada (plans/analise-estatica-ampliada, item 26). */
 .dl-strings__bar {
   display: flex;

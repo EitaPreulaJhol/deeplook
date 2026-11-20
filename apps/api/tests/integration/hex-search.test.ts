@@ -13,6 +13,7 @@ async function main() {
   const { env } = await import('../../src/env');
   const { hashPassword } = await import('../../src/lib/crypto');
   const { prisma } = await import('../../src/lib/prisma');
+  const { sampleZipBuffer } = await import('../../src/lib/sample-zip');
   const { ensureBucket, s3 } = await import('../../src/lib/s3');
   const { buildApp } = await import('../../src/app');
   await ensureBucket(3, 500);
@@ -100,6 +101,51 @@ async function main() {
     (await get(base, bob)).statusCode === 403 &&
       (await get(`${base}/search?q=http`, bob)).statusCode === 403,
   );
+  // ---- Mapa do arquivo (plans/analise-estatica-ampliada, item 27).
+  const flat = (await get(`/api/entries/${entry.id}/layout`)).json();
+  ok(
+    'mapa: entropia por bloco do arquivo inteiro (só "A", perto de zero), sem estrutura conhecida',
+    flat.size === file.length &&
+      flat.entropy.length * flat.blockSize >= file.length &&
+      flat.entropy.every((h: number) => h < 1) &&
+      flat.format === null,
+    { ...flat, entropy: flat.entropy?.slice(0, 5) },
+  );
+  const zip = sampleZipBuffer([
+    { name: 'leia.txt', data: Buffer.from('conteúdo de teste '.repeat(20)) },
+    { name: 'carga.bin', data: Buffer.from([...Array(4096)].map((_, i) => (i * 97) & 255)) },
+  ]);
+  const zipKey = `samples/hex-zip-${Date.now()}.zip`;
+  await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: zipKey, Body: zip }));
+  const zipEntry = await prisma.entry.create({
+    data: {
+      type: 'FILE',
+      title: 'pacote.zip',
+      ownerId: owner.id,
+      storageKey: zipKey,
+      bucket: env.S3_BUCKET,
+      originalFilename: 'pacote.zip',
+      fileSize: zip.length,
+      staticInfo: { detectedType: { id: 'zip' } },
+    },
+  });
+  const zl = (await get(`/api/entries/${zipEntry.id}/layout`)).json();
+  const at0 = zl.fields
+    ?.filter((f: { start: number; end: number }) => f.start <= 0 && 0 < f.end)
+    .sort((x: any, y: any) => x.end - x.start - (y.end - y.start))[0];
+  ok(
+    'mapa do ZIP: a estrutura pelo Kaitai, os arquivos marcados e o campo de cada byte',
+    zl.format === 'Zip' &&
+      zl.marks.filter((m: { kind: string }) => m.kind === 'entry').length >= 3 &&
+      at0?.path === 'Zip.sections[0].magic' &&
+      zip.toString('latin1', 0, 2) === 'PK',
+    { format: zl.format, marks: zl.marks, at0, error: zl.structureError },
+  );
+  ok(
+    'mapa: usuário comum não vê',
+    (await get(`/api/entries/${entry.id}/layout`, bob)).statusCode === 403,
+  );
+
   await prisma.entry.update({ where: { id: entry.id }, data: { filePurgedAt: new Date() } });
   ok('arquivo expurgado: 410', (await get(`${base}/search?q=http`)).statusCode === 410);
 

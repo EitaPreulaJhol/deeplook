@@ -80,6 +80,75 @@ const ENCODING_LABEL = { utf8: 'encUtf8', utf16: 'encUtf16', bytes: 'encBytes' }
  * API; cada posicao achada, ou digitada em "Ir para", abre o trecho dela com os bytes destacados.
  * Nada e baixado nem executado.
  */
+interface LayoutField {
+  path: string;
+  start: number;
+  end: number;
+  value: string;
+}
+
+interface Layout {
+  size: number;
+  read: number;
+  blockSize: number;
+  entropy: number[];
+  marks: { kind: string; label: string; start: number; end: number }[];
+  format: string | null;
+  fields: LayoutField[];
+}
+
+const MAP_W = 800;
+const MAP_H = 60;
+const MARK_H = 14;
+
+/**
+ * Entropia por bloco do arquivo inteiro (item 27), com as secoes, o overlay, os segmentos ou os
+ * arquivos do ZIP marcados embaixo. O clique abre o hex na posicao.
+ */
+function EntropyMap({ layout, onPick }: { layout: Layout; onPick: (offset: number) => void }) {
+  const n = layout.entropy.length;
+  const w = MAP_W / n;
+  const x = (offset: number) => (offset / Math.max(1, layout.read)) * MAP_W;
+  return (
+    <figure className="dl-entropy">
+      <svg
+        viewBox={`0 0 ${MAP_W} ${MAP_H + MARK_H}`}
+        role="img"
+        aria-label={t('entropyAria')}
+        preserveAspectRatio="none"
+      >
+        {layout.entropy.map((h, i) => (
+          <rect
+            key={i}
+            className={h >= 7.2 ? 'dl-entropy__bar is-high' : 'dl-entropy__bar'}
+            x={i * w}
+            y={MAP_H - (h / 8) * MAP_H}
+            width={Math.max(w, 1)}
+            height={(h / 8) * MAP_H}
+            onClick={() => onPick(i * layout.blockSize)}
+          >
+            <title>{`0x${(i * layout.blockSize).toString(16)} · ${t('entropyValue', { n: h })}`}</title>
+          </rect>
+        ))}
+        {layout.marks.map((m, i) => (
+          <rect
+            key={`${m.label}-${i}`}
+            className={`dl-entropy__mark dl-entropy__mark--${m.kind}`}
+            x={x(m.start)}
+            y={MAP_H + 2}
+            width={Math.max(x(m.end) - x(m.start), 1)}
+            height={MARK_H - 4}
+            onClick={() => onPick(m.start)}
+          >
+            <title>{`${m.label} · 0x${m.start.toString(16)}–0x${m.end.toString(16)}`}</title>
+          </rect>
+        ))}
+      </svg>
+      <figcaption className="dl-hint-muted">{t('entropyCaption')}</figcaption>
+    </figure>
+  );
+}
+
 export function HexViewer({ entryId, purged }: { entryId: string; purged: boolean }) {
   const id = useId();
   const [view, setView] = useState<View | null>(null);
@@ -92,6 +161,9 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
   const [searching, setSearching] = useState(false);
   const [gotoError, setGotoError] = useState<string | null>(null);
   const preRef = useRef<HTMLPreElement>(null);
+  // Mapa do arquivo (item 27): entropia, marcas e estrutura, lidos quando o conteudo abre.
+  const [layout, setLayout] = useState<Layout | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
   const markRef = useRef<HTMLDivElement>(null);
 
   const fetchBlock = async (offset: number, length = BLOCK) => {
@@ -126,6 +198,30 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadLayout = async () => {
+    if (layout) return;
+    try {
+      setLayout(await api.get<Layout>(`/entries/${entryId}/layout`));
+    } catch {
+      // Sem o mapa, o hex funciona do mesmo jeito.
+    }
+  };
+
+  /** O campo mais interno da estrutura que cobre a posicao. */
+  const fieldAt = (offset: number) => {
+    let best: LayoutField | null = null;
+    for (const f of layout?.fields ?? []) {
+      if (
+        f.start <= offset &&
+        offset < f.end &&
+        (!best || f.end - f.start <= best.end - best.start)
+      ) {
+        best = f;
+      }
+    }
+    return best;
   };
 
   /** Abre o trecho da posicao, com algumas linhas antes, e destaca os bytes dela. */
@@ -295,7 +391,10 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
             type="button"
             className="dl-link-button"
             disabled={loading}
-            onClick={() => void load(0)}
+            onClick={() => {
+              void load(0);
+              void loadLayout();
+            }}
           >
             {loading ? t('loadingDots') : t('showContent')}
           </button>
@@ -326,7 +425,18 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
               {t('showPrev4k')}
             </button>
           )}
-          <pre className="dl-hex" aria-label={t('hexAria')} ref={preRef}>
+          {layout && layout.entropy.length > 0 && (
+            <EntropyMap layout={layout} onPick={(offset) => void jump(offset)} />
+          )}
+          <pre
+            className="dl-hex"
+            aria-label={t('hexAria')}
+            ref={preRef}
+            onMouseOver={(e) => {
+              const off = (e.target as HTMLElement).dataset?.off;
+              setHovered(off === undefined ? null : Number(off));
+            }}
+          >
             {lines.map((rel) => {
               const start = base + rel;
               const row = Array.from(bytes.subarray(rel, rel + PER_LINE));
@@ -347,7 +457,7 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
                       if (start + i < magicLen) cls += ' is-magic';
                       if (marked(start + i)) cls += ' is-match';
                       return (
-                        <span key={i} className={cls}>
+                        <span key={i} className={cls} data-off={start + i}>
                           {b === undefined ? '  ' : hex(b, 2)}
                           {i === 7 ? '  ' : ' '}
                         </span>
@@ -367,6 +477,16 @@ export function HexViewer({ entryId, purged }: { entryId: string; purged: boolea
               );
             })}
           </pre>
+          {layout && layout.fields.length > 0 && (
+            <p className="dl-hex__field" role="status">
+              {(() => {
+                const f = hovered === null ? null : fieldAt(hovered);
+                return f
+                  ? `0x${hex(hovered!, 8)} · ${f.path}${f.value ? ` = ${f.value}` : ''}`
+                  : t('hexFieldHint', { format: layout.format ?? '' });
+              })()}
+            </p>
+          )}
           {more && (
             <button
               type="button"

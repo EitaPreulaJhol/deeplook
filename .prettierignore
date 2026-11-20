@@ -21,3 +21,5 @@ apps/api/src/lib/lol/*.json
 apps/api/src/lib/avclass.json
 # Amostras de JavaScript da analise (item 20): entrada, nao codigo do projeto.
 apps/api/tests/fixtures/js/
+# Leitores do Kaitai Struct gerados por apps/api/scripts/vendor-kaitai.mjs (item 27).
+apps/api/kaitai/

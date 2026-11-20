@@ -497,6 +497,13 @@ executado: a API lê do MinIO só a faixa pedida.
   inteiro em fluxo e devolve até 200 posições; cada uma abre o trecho dela, com os bytes destacados.
 - **Ir para a posição:** em hexadecimal (`0x1A30`) ou decimal; "Mostrar os 4 KB anteriores" e
   "Mostrar mais 4 KB" andam a partir dali.
+- **Mapa de entropia:** acima do hex, a entropia por bloco do arquivo inteiro (até 64 MB), com as
+  seções, o overlay, os segmentos do ELF ou os arquivos do ZIP marcados embaixo. O clique abre o hex
+  na posição.
+- **Estrutura do formato:** PE, ELF, ZIP (e o que é ZIP: Office, JAR, APK, XPI) e LNK são lidos pelos
+  leitores do Kaitai Struct (`.ksy` CC0-1.0, gerados em `apps/api/kaitai` por
+  `scripts/vendor-kaitai.mjs`). Ao passar o mouse sobre um byte, aparece o campo e o valor
+  (`MicrosoftPe.pe.coffHdr.numberOfSections = 6`).
 
 ## Análise estática de executáveis do Windows
 

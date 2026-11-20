@@ -54,6 +54,8 @@ COPY prisma ./prisma
 COPY rules ./rules
 # Regras Sigma vendorizadas (plans/novas-analises, item 1).
 COPY sigma ./sigma
+# Leitores do Kaitai Struct (plans/analise-estatica-ampliada, item 27): scripts/vendor-kaitai.mjs.
+COPY kaitai ./kaitai
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 

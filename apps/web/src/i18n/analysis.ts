@@ -521,6 +521,16 @@ export const messages = {
     'Em binários grandes, o analisador de switch do Ghidra dobra o tempo da análise e a leva para perto do teto. Sem ele, o código alcançado só por tabelas de salto (os casos de alguns switch) pode ficar sem função e sem pseudo-C: de 2% a 3% das funções nos medidos. O projeto (.gzf) pode ser reanalisado com ele no Ghidra local.',
     "On large binaries, Ghidra's switch analyzer doubles the analysis time and takes it close to the cap. Without it, code reached only through jump tables (the cases of some switches) may have no function and no pseudo-C: 2% to 3% of the functions in the ones measured. The project (.gzf) can be reanalyzed with it in a local Ghidra.",
   ],
+  entropyAria: ['Entropia por bloco do arquivo', 'Entropy per block of the file'],
+  entropyValue: ['entropia {n}', 'entropy {n}'],
+  entropyCaption: [
+    'Entropia por bloco (barras mais altas e laranja: dado comprimido ou cifrado) e, embaixo, as seções, o overlay, os segmentos ou os arquivos do ZIP. O clique abre o hex na posição.',
+    'Entropy per block (taller, orange bars: compressed or encrypted data) and, below, the sections, overlay, segments or ZIP entries. A click opens the hex at that position.',
+  ],
+  hexFieldHint: [
+    'Passe o mouse sobre um byte para ver o campo do formato ({format}).',
+    'Hover a byte to see the format field ({format}).',
+  ],
   strTitle: ['Strings', 'Strings'],
   strIntro: [
     'As strings do arquivo (ASCII e UTF-16), do FLOSS e do código descompilado, juntas, com a origem, a posição e as categorias, na ordem do StringSifter (as mais úteis primeiro).',

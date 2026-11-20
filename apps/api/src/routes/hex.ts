@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { env } from '../env';
 import { isAnalyst, requireUser } from '../lib/auth';
+import { entropyBlocks, marksOf, structure } from '../lib/file-layout';
 import { prisma } from '../lib/prisma';
 import { s3 } from '../lib/s3';
 import { sendValidationError } from '../lib/validation';
@@ -14,6 +15,9 @@ import { sendValidationError } from '../lib/validation';
 const HEX_BLOCK = 4 * 1024;
 /** Busca (plans/ajustes-usabilidade, item 7): posicoes devolvidas e tamanho do padrao. */
 export const HEX_SEARCH_MAX_HITS = 200;
+/** O mapa le ate isto do arquivo; a estrutura, ate STRUCTURE_MAX (item 27). */
+const LAYOUT_MAX = 64 * 1024 * 1024;
+const STRUCTURE_MAX = 16 * 1024 * 1024;
 const HEX_SEARCH_MAX_PATTERN = 256;
 
 const HexQuery = z.object({
@@ -171,6 +175,59 @@ export async function hexRoutes(app: FastifyInstance) {
       req.log.error({ err }, 'Falha ao ler a amostra no MinIO');
       return reply.code(502).send({ error: 'Nao foi possivel ler o arquivo no armazenamento.' });
     }
+  });
+
+  // ---- Mapa do arquivo (plans/analise-estatica-ampliada, item 27) ----
+  // A entropia por bloco do arquivo inteiro, as marcas (secoes, overlay, segmentos, arquivos do ZIP)
+  // e a estrutura do formato pelo Kaitai Struct, para o hex mostrar o campo ao passar o mouse.
+  app.get('/api/entries/:id/layout', async (req, reply) => {
+    const entry = await sampleFile(req, reply);
+    if (!entry) return;
+    const { id } = req.params as { id: string };
+    const read = Math.min(entry.size, LAYOUT_MAX);
+    if (read <= 0) {
+      return reply.send({ size: 0, read: 0, blockSize: 0, entropy: [], marks: [], fields: [] });
+    }
+    let buf: Buffer;
+    try {
+      const obj = await s3.send(
+        new GetObjectCommand({
+          Bucket: entry.bucket || env.S3_BUCKET,
+          Key: entry.storageKey,
+          Range: `bytes=0-${read - 1}`,
+        }),
+      );
+      buf = Buffer.from(await obj.Body!.transformToByteArray());
+    } catch (err) {
+      req.log.error({ err }, 'Falha ao ler a amostra no MinIO');
+      return reply.code(502).send({ error: 'Nao foi possivel ler o arquivo no armazenamento.' });
+    }
+    const typeId = (
+      (await prisma.entry.findUnique({ where: { id }, select: { staticInfo: true } }))
+        ?.staticInfo as { detectedType?: { id?: string } | null } | null
+    )?.detectedType?.id;
+    const { blockSize, values } = entropyBlocks(buf);
+    let parsed: ReturnType<typeof structure> = {
+      format: null,
+      fields: [],
+      error: null,
+      root: null,
+    };
+    try {
+      parsed = structure(buf.subarray(0, STRUCTURE_MAX), typeId);
+    } catch (err) {
+      parsed.error = String((err as Error).message ?? err).slice(0, 200);
+    }
+    return reply.send({
+      size: entry.size,
+      read,
+      blockSize,
+      entropy: values,
+      marks: marksOf(parsed.format, parsed.root, read, parsed.fields),
+      format: parsed.format,
+      structureError: parsed.error,
+      fields: parsed.fields,
+    });
   });
 
   // ---- Busca no arquivo (plans/ajustes-usabilidade, item 7) ----
