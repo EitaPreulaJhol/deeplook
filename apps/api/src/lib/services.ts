@@ -8,6 +8,7 @@ import './config-extract';
 import './dotnet';
 import './jar';
 import './jsdeob';
+import './metadata';
 
 export {
   enqueueService,

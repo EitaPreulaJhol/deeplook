@@ -1847,6 +1847,8 @@ enum ServiceKind {
   JAR
   /// Desofuscacao de JavaScript com o webcrack (plans/analise-estatica-ampliada, item 20).
   JSDEOB
+  /// Metadados com o ExifTool, pela rota /metadata do oletools (item 19).
+  METADATA
 }
 
 enum ServiceAnalysisStatus {

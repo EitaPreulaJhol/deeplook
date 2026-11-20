@@ -10,6 +10,7 @@ import type {
   EmulationResult,
   JarResult,
   JsdeobResult,
+  MetadataResult,
   ServiceAnalysisInfo,
   ServiceKindId,
 } from '../api/types';
@@ -773,6 +774,52 @@ export function JsdeobSection({ entryId, canTriage }: { entryId: string; canTria
               </pre>
             </details>
           )}
+        </>
+      )}
+    />
+  );
+}
+
+/** Metadados com o ExifTool (item 19): os campos que ligam documentos e os grupos inteiros. */
+export function MetadataSection({ entryId, canTriage }: { entryId: string; canTriage: boolean }) {
+  return (
+    <ServiceSection<MetadataResult>
+      kind="metadata"
+      entryId={entryId}
+      canTriage={canTriage}
+      title={t('metaTitle')}
+      help={t('metaHelp')}
+      notYet={t('metaNotYet')}
+      off={t('metaOff')}
+      body={(r) => (
+        <>
+          <HpsmForm columns={2}>
+            <HpsmField label={t('metaAuthors')}>
+              <HpsmReadonly>{r.fields.authors.join(' · ') || '—'}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('metaTools')}>
+              <HpsmReadonly>{r.fields.tools.join(' · ') || '—'}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('metaCreated')}>
+              <HpsmReadonly>{r.fields.created.join(' · ') || '—'}</HpsmReadonly>
+            </HpsmField>
+            <HpsmField label={t('metaModified')}>
+              <HpsmReadonly>{r.fields.modified.join(' · ') || '—'}</HpsmReadonly>
+            </HpsmField>
+            {r.fields.xmpIds.length > 0 && (
+              <HpsmField label={t('metaXmp')} wide>
+                <TextList items={r.fields.xmpIds} />
+              </HpsmField>
+            )}
+          </HpsmForm>
+          {Object.entries(r.groups).map(([group, values]) => (
+            <details key={group} className="dl-static-strings">
+              <summary>
+                {group} ({Object.keys(values).length})
+              </summary>
+              <TextList items={Object.entries(values).map(([k, v]) => `${k}: ${v}`)} />
+            </details>
+          ))}
         </>
       )}
     />

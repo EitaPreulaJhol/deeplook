@@ -568,6 +568,12 @@ export const messages = {
     'Mesmas funções do ELF (telfhash, distância {n})',
     'Same ELF functions (telfhash, distance {n})',
   ],
+  rDocAuthor: ['Mesmo autor do documento ({value})', 'Same document author ({value})'],
+  rDocTool: ['Mesma ferramenta do documento ({value})', 'Same document tool ({value})'],
+  rXmpId: [
+    'Mesmo modelo de documento, pelo XMP ({value})',
+    'Same document template, by XMP ({value})',
+  ],
   rGoModule: ['Mesmo projeto Go ({value})', 'Same Go project ({value})'],
   rSymhash: [
     'Mesmos símbolos do Mach-O (symhash {value}…)',

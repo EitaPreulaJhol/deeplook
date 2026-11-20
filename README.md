@@ -1019,6 +1019,21 @@ classes can be requested by an analyst in the record's **Java code (CFR)** secti
 - CFR is upgraded by hand (the Maven Central JAR, with the version and the SHA-256 in
   `apps/jarcfr/Dockerfile`).
 
+## Metadata (ExifTool)
+
+The `oletools` service's `/metadata` route runs ExifTool (Debian's, with `Archive::Zip` for modern
+Office) on every document (Office, RTF, PDF, OneNote), image, shortcut and ISO that arrives.
+
+- **The record shows** the full groups (EXIF, XMP, PDF, Office properties, LNK), up to 400 keys, and on
+  top what matters: authors and company, tools, creation and modification dates and the XMP IDs.
+- **Pivots in the Related tab:** the author (and "last modified by" and company), the tool (PDF
+  `Producer`/`CreatorTool`, Office `Application`) and the XMP `DocumentID`/`InstanceID`/
+  `OriginalDocumentID`, which links documents made from the same template even with other content.
+  Default install names (Administrator, User) link nothing.
+- **Informational warning** when the modification predates the creation (dates edited or copied from
+  a template) or when a date is in the future.
+- Executables are left out: their version and dates are already in the static analysis.
+
 ## Deobfuscated JavaScript (webcrack)
 
 The **`jsdeob`** service runs webcrack 2.16 (MIT) in a container with no network and no root, a

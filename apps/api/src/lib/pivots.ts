@@ -28,6 +28,12 @@ export const PIVOT_KINDS = {
   SYMHASH: { weight: 30, match: 'exact' },
   /** Modulo principal de um executavel Go, pelo GoReSym (item 14): o caminho do projeto. */
   GO_MODULE: { weight: 50, match: 'exact' },
+  /** Autor, "modificado por" e empresa do documento, pelo ExifTool (item 19). */
+  DOC_AUTHOR: { weight: 20, match: 'exact' },
+  /** Ferramenta que gerou o documento (Producer/CreatorTool do PDF, Application do Office). */
+  DOC_TOOL: { weight: 10, match: 'exact' },
+  /** DocumentID/InstanceID/OriginalDocumentID do XMP: o mesmo modelo, ainda que o conteudo mude. */
+  XMP_ID: { weight: 60, match: 'exact' },
 } as const satisfies Record<
   string,
   { weight: number; match: 'exact' | 'hamming' | 'tlsh'; max?: number }
@@ -38,7 +44,7 @@ export interface Pivot {
   kind: PivotKind;
   value: string;
 }
-export type PivotSource = 'static' | 'unpack';
+export type PivotSource = 'static' | 'unpack' | 'metadata';
 
 /** Exportacoes com nome abaixo disto: tabela generica demais (DllMain, uma funcao so). */
 const MIN_EXPORTS = 3;

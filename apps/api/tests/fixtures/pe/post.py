@@ -221,3 +221,69 @@ open(f'{W}/extensao.xpi', 'wb').write(zip_of([
     ('bg.js', b'browser.webRequest.onBeforeRequest.addListener(() => {}, { urls: ["<all_urls>"] });\n'),
 ]))
 
+
+# Metadados (item 19): um DOCX com autor, "modificado por" e datas trocadas (modificado antes de
+# criado), e dois PDFs diferentes com o mesmo DocumentID do XMP (o mesmo modelo).
+CORE = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+ xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<dc:creator>Joao Golpista</dc:creator><cp:lastModifiedBy>Operador 7</cp:lastModifiedBy>
+<dcterms:created xsi:type="dcterms:W3CDTF">2026-05-10T10:00:00Z</dcterms:created>
+<dcterms:modified xsi:type="dcterms:W3CDTF">2026-01-01T08:00:00Z</dcterms:modified>
+</cp:coreProperties>"""
+APP = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+<Application>Microsoft Office Word</Application><Company>Fatura Facil Ltda</Company></Properties>"""
+TYPES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>"""
+RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>"""
+DOC = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Fatura</w:t></w:r></w:p></w:body></w:document>"""
+with zipfile.ZipFile(f'{W}/metadados.docx', 'w', zipfile.ZIP_DEFLATED) as z:
+    for name, body in [('[Content_Types].xml', TYPES), ('_rels/.rels', RELS), ('word/document.xml', DOC),
+                       ('docProps/core.xml', CORE), ('docProps/app.xml', APP)]:
+        z.writestr(name, body)
+
+
+def pdf_with_xmp(title):
+    xmp = f"""<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about="" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+<xmpMM:DocumentID>uuid:6f1c2a9e-0b7d-4c55-9f3e-2d8a7b1c0e44</xmpMM:DocumentID>
+<xmpMM:InstanceID>uuid:{hashlib.sha256(title.encode()).hexdigest()[:32]}</xmpMM:InstanceID>
+<xmp:CreatorTool>FabricaDeFaturas 3.1</xmp:CreatorTool>
+</rdf:Description></rdf:RDF></x:xmpmeta>
+<?xpacket end="w"?>""".encode()
+    objs = [
+        b'<< /Type /Catalog /Pages 2 0 R /Metadata 4 0 R >>',
+        b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>',
+        b'<< /Type /Metadata /Subtype /XML /Length ' + str(len(xmp)).encode() + b' >>\nstream\n' + xmp + b'\nendstream',
+        b'<< /Title (' + title.encode() + b') /Producer (FabricaDeFaturas 3.1) /Author (Setor Financeiro) >>',
+    ]
+    out, offsets = b'%PDF-1.7\n', []
+    for i, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += f'{i} 0 obj\n'.encode() + body + b'\nendobj\n'
+    xref = len(out)
+    out += f'xref\n0 {len(objs) + 1}\n0000000000 65535 f \n'.encode()
+    out += b''.join(f'{o:010d} 00000 n \n'.encode() for o in offsets)
+    out += f'trailer\n<< /Size {len(objs) + 1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n{xref}\n%%EOF\n'.encode()
+    return out
+
+
+open(f'{W}/modelo-a.pdf', 'wb').write(pdf_with_xmp('Fatura 001'))
+open(f'{W}/modelo-b.pdf', 'wb').write(pdf_with_xmp('Fatura 002'))
+

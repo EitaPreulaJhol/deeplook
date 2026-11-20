@@ -493,6 +493,9 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
   ['mesmas funções do ELF (telfhash)', 'same ELF functions (telfhash)'],
   ['mesmos símbolos do Mach-O', 'same Mach-O symbols'],
   ['mesmo projeto em Go', 'same Go project'],
+  ['mesmo autor do documento', 'same document author'],
+  ['mesma ferramenta do documento', 'same document tool'],
+  ['mesmo modelo de documento (XMP)', 'same document template (XMP)'],
   [
     'Este pacote é atualizado no servidor, pelo script scripts/vendor-yara-forge.mjs.',
     'This pack is updated on the server, by the scripts/vendor-yara-forge.mjs script.',

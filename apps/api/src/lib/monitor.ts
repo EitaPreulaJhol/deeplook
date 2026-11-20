@@ -100,6 +100,7 @@ export const QUEUE_TABLES: Record<QueueId, QueueTable> = {
   dotnet: service('dotnet', 'DOTNET', 'dotnet'),
   jar: service('jar', 'JAR', 'jar'),
   jsdeob: service('jsdeob', 'JSDEOB', 'jsdeob'),
+  metadata: service('metadata', 'METADATA', 'metadata'),
   suricata: {
     id: 'suricata',
     table: 'NetworkCapture',

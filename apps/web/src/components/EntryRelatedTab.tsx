@@ -84,6 +84,12 @@ function describePivot(pivot: PivotKind, value: string, distance?: number): stri
       return t('rSymhash', { value: value.slice(0, 12) });
     case 'GO_MODULE':
       return t('rGoModule', { value });
+    case 'DOC_AUTHOR':
+      return t('rDocAuthor', { value });
+    case 'DOC_TOOL':
+      return t('rDocTool', { value });
+    case 'XMP_ID':
+      return t('rXmpId', { value });
   }
 }
 

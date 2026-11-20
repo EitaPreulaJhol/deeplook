@@ -1024,6 +1024,22 @@ analista na seção **Código Java (CFR)** da ficha.
 - O CFR é atualizado à mão (o JAR do Maven Central, com a versão e o SHA-256 em
   `apps/jarcfr/Dockerfile`).
 
+## Metadados (ExifTool)
+
+A rota `/metadata` do serviço `oletools` roda o ExifTool (o do Debian, com o `Archive::Zip` para o
+Office moderno) em cada documento (Office, RTF, PDF, OneNote), imagem, atalho e ISO que chega.
+
+- **A ficha mostra** os grupos inteiros (EXIF, XMP, PDF, as propriedades do Office, LNK), até 400
+  chaves, e no alto o que importa: autores e empresa, ferramentas, datas de criação e de modificação
+  e os IDs do XMP.
+- **Pivôs na aba Relacionadas:** o autor (e o "modificado por" e a empresa), a ferramenta
+  (`Producer`/`CreatorTool` do PDF, `Application` do Office) e o `DocumentID`/`InstanceID`/
+  `OriginalDocumentID` do XMP, que liga documentos feitos do mesmo modelo mesmo com outro conteúdo.
+  Nomes de instalação padrão (Administrator, Usuário) não ligam nada.
+- **Aviso informativo** quando a modificação é anterior à criação (datas editadas ou copiadas de um
+  modelo) ou quando há data no futuro.
+- O executável fica de fora: a versão e as datas dele já estão na análise estática.
+
 ## JavaScript desofuscado (webcrack)
 
 O serviço **`jsdeob`** roda o webcrack 2.16 (MIT) num contêiner sem rede e sem root, com a raiz somente

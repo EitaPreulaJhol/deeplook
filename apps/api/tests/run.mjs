@@ -461,7 +461,9 @@ if (files.some((f) => f.includes('ldap'))) await startLdap();
 if (files.some((f) => f.includes('disk'))) diskFixtures();
 if (
   files.some((f) =>
-    /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar|eml-msg|oletools-decrypt/.test(f),
+    /^pe-|capa|ghidra|unpack|emulate|extract|delivery|dotnet|jar|eml-msg|oletools-decrypt|oletools-metadata/.test(
+      f,
+    ),
   )
 ) {
   peFixtures();

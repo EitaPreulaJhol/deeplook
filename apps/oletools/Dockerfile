@@ -6,9 +6,12 @@ COPY requirements.txt /tmp/
 RUN pip wheel --no-cache-dir --require-hashes --wheel-dir /wheels -r /tmp/requirements.txt
 
 FROM python:3.14-slim
-# As correcoes de seguranca que o Debian ja publicou e a imagem do Python ainda nao tem.
+# As correcoes de seguranca que o Debian ja publicou e a imagem do Python ainda nao tem. O ExifTool
+# (Perl, GPL/Artistic; item 19) e o do Debian, atualizado pelo mesmo upgrade; o Archive::Zip abre o
+# Office moderno (OOXML) por dentro.
 RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
+  && apt-get install -y --no-install-recommends libimage-exiftool-perl libarchive-zip-perl \
   && rm -rf /var/lib/apt/lists/* \
   && useradd --system --uid 10004 --no-create-home --shell /usr/sbin/nologin oletools
 COPY --from=build /wheels /wheels
@@ -20,7 +23,7 @@ ENV HOME=/tmp \
   PYTHONDONTWRITEBYTECODE=1 \
   PYTHONUNBUFFERED=1 \
   PORT=3500
-COPY server.py analyze.py qr.py /app/
+COPY server.py analyze.py qr.py meta.py /app/
 
 USER oletools
 EXPOSE 3500

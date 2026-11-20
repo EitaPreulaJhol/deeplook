@@ -1213,7 +1213,21 @@ export interface SandboxProcess {
 
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 /** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
-export type ServiceKindId = 'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob';
+export type ServiceKindId =
+  'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob' | 'metadata';
+
+/** Metadados com o ExifTool (item 19). */
+export interface MetadataResult {
+  groups: Record<string, Record<string, string>>;
+  keys: number;
+  fields: {
+    authors: string[];
+    tools: string[];
+    xmpIds: string[];
+    created: string[];
+    modified: string[];
+  };
+}
 
 /** Desofuscacao de JavaScript com o webcrack (item 20). */
 export interface JsdeobResult {
@@ -1647,7 +1661,10 @@ export type PivotKind =
   | 'ICON_DHASH'
   | 'TELFHASH'
   | 'SYMHASH'
-  | 'GO_MODULE';
+  | 'GO_MODULE'
+  | 'DOC_AUTHOR'
+  | 'DOC_TOOL'
+  | 'XMP_ID';
 
 /** Linha de GET /api/entries/:id/related (da mais relevante para a menos). */
 export interface RelatedEntry {
@@ -2080,6 +2097,7 @@ export type MonitorQueueId =
   | 'dotnet'
   | 'jar'
   | 'jsdeob'
+  | 'metadata'
   | 'suricata'
   | 'memdump';
 

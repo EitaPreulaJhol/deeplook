@@ -96,6 +96,12 @@ function reasonLabel(reason: RelatedReason): string | null {
           return 'mesmos símbolos do Mach-O';
         case 'GO_MODULE':
           return 'mesmo projeto em Go';
+        case 'DOC_AUTHOR':
+          return 'mesmo autor do documento';
+        case 'DOC_TOOL':
+          return 'mesma ferramenta do documento';
+        case 'XMP_ID':
+          return 'mesmo modelo de documento (XMP)';
       }
       return null;
     case 'SHARED_TAGS':

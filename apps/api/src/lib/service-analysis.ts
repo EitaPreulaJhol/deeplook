@@ -347,7 +347,15 @@ export async function startServiceQueues(log: typeof logger): Promise<void> {
     where: { status: 'RUNNING' },
     data: { status: 'PENDING', nextAttemptAt: new Date() },
   });
-  for (const kind of ['EMULATION', 'ANDROID', 'CONFIG', 'DOTNET', 'JAR', 'JSDEOB'] as const) {
+  for (const kind of [
+    'EMULATION',
+    'ANDROID',
+    'CONFIG',
+    'DOTNET',
+    'JAR',
+    'JSDEOB',
+    'METADATA',
+  ] as const) {
     registerQueueWaker(serviceQueue(kind), () => wake(kind));
   }
   if (!timer) {

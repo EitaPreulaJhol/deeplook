@@ -1279,6 +1279,21 @@ export const messages = {
   ],
   netMore: ['e mais {n}', 'and {n} more'],
   // ---- Java (CFR)
+  metaTitle: ['Metadados (ExifTool)', 'Metadata (ExifTool)'],
+  metaHelp: [
+    'O que o ExifTool lê do arquivo: EXIF, XMP, PDF, propriedades do Office, atalho. O autor, a ferramenta e os IDs do XMP ligam documentos feitos do mesmo modelo na aba Relacionadas; datas de modificação anteriores à criação viram aviso.',
+    'What ExifTool reads from the file: EXIF, XMP, PDF, Office properties, shortcut. The author, the tool and the XMP IDs link documents made from the same template in the Related tab; modification dates before creation become a warning.',
+  ],
+  metaNotYet: ['Metadados ainda não lidos.', 'Metadata not read yet.'],
+  metaOff: [
+    'A leitura de metadados está desligada (OLETOOLS_URL vazio).',
+    'Metadata reading is off (OLETOOLS_URL empty).',
+  ],
+  metaAuthors: ['Autores e empresa', 'Authors and company'],
+  metaTools: ['Ferramentas', 'Tools'],
+  metaCreated: ['Criado', 'Created'],
+  metaModified: ['Modificado', 'Modified'],
+  metaXmp: ['IDs do XMP', 'XMP IDs'],
   jsdTitle: ['JavaScript desofuscado (webcrack)', 'Deobfuscated JavaScript (webcrack)'],
   jsdHelp: [
     'O webcrack desfaz a ofuscação do obfuscator.io (strings escondidas e fluxo embaralhado), o eval embrulhado, a minificação e os bundles do webpack e do browserify. O código da amostra não roda: só os decodificadores de strings, num isolate do V8 sem acesso a nada. O resultado também vira uma camada da análise de scripts.',

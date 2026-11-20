@@ -88,7 +88,9 @@ TIMEOUT = int(os.environ.get("OLETOOLS_TIMEOUT_S", "120"))
 ANALYZER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "analyze.py")
 # QR code em imagens e PDFs (plano pos-revisao, item 2.2): POST /qr, no mesmo esquema.
 QR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr.py")
-SCRIPTS = {"/analyze": ANALYZER, "/qr": QR}
+# Metadados com o ExifTool (plans/analise-estatica-ampliada, item 19): POST /metadata.
+META = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta.py")
+SCRIPTS = {"/analyze": ANALYZER, "/qr": QR, "/metadata": META}
 MIN_UPTIME_S = 10.5
 
 STARTED = time.monotonic()

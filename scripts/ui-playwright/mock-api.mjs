@@ -2305,7 +2305,7 @@ export async function setupMock(context, state) {
           : json(route, 200, { path, source });
       }
       m = p.match(
-        /^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config|dotnet|jar|jsdeob)$/,
+        /^\/api\/entries\/(\w+)\/analyses\/(emulation|android|config|dotnet|jar|jsdeob|metadata)$/,
       );
       if (m && req.method() === 'POST') {
         (state.serviceRequests ??= []).push({ entryId: m[1], kind: m[2], body });

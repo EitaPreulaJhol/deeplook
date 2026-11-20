@@ -67,6 +67,7 @@ export interface StatusCheck {
     | 'dotnet'
     | 'jar'
     | 'jsdeob'
+    | 'metadata'
     | 'ai'
     | 'backup'
     | 'config';
@@ -760,6 +761,12 @@ const SERVICE_CHECKS = {
     name: 'Desofuscação de JavaScript (webcrack)',
     summary: 'desligada (JSDEOB_URL vazio)',
   },
+  // Metadados com o ExifTool (item 19), no servico oletools.
+  METADATA: {
+    id: 'metadata',
+    name: 'Metadados (ExifTool)',
+    summary: 'desligada (OLETOOLS_URL vazio)',
+  },
 } as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
 
 async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
@@ -1251,6 +1258,7 @@ export async function systemStatus() {
     serviceCheck('DOTNET'),
     serviceCheck('JAR'),
     serviceCheck('JSDEOB'),
+    serviceCheck('METADATA'),
     aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),
