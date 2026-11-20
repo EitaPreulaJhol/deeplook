@@ -63,6 +63,7 @@ const FILES = [
   'metadata',
   'jsdeob',
   'ember',
+  'document-icons',
   // Formatos pequenos de entrega (item 12).
   'small-formats',
 ].map((name) => `src/lib/${name}.ts`);

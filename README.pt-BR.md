@@ -525,7 +525,11 @@ mostra, além de seções, imports e empacotador:
   - **exphash**: o MD5 dos nomes exportados, igual ao do `pefile` (só com 3 nomes ou mais);
   - **ícone principal**: um dHash de 64 bits da maior imagem do primeiro ícone. Liga o ícone igual ou
     quase igual (até 4 bits de diferença); um ícone que mais de 50 amostras usam (o padrão do Visual
-    Studio, o de um instalador) não liga;
+    Studio, o de um instalador) não liga. **Ícone de documento:** o admin marca o ícone de uma
+    amostra (o do Word, o de um PDF de campanha) como "ícone de documento", pelo botão ao lado do
+    hash, e todo executável com ícone parecido ganha o alerta alto de isca, inclusive os que já
+    estão na base; a lista fica em Administração > Configurações e nasce vazia (os ícones são de
+    terceiros e não vêm no repositório);
   - nos executáveis Linux, o **telfhash** da Trend Micro (o TLSH das funções globais, distância até 50),
     e nos de macOS, o **symhash** de cada arquitetura (o MD5 dos símbolos importados, como o do
     VirusTotal).

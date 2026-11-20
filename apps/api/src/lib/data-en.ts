@@ -468,6 +468,10 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['No código Python: {0} ({1})', 'In the Python code: {0} ({1})'],
   [
+    'Ícone de documento ({0}) num executável: isca para abrir achando que é um documento.',
+    'Document icon ({0}) in an executable: a lure to be opened as if it were a document.',
+  ],
+  [
     'Modelo de ML (EMBER2024): {0}% de chance de ser malicioso (informativo, fora do risco)',
     'ML model (EMBER2024): {0}% chance of being malicious (informational, outside the risk)',
   ],

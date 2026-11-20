@@ -33,6 +33,10 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['pseudo-C do Ghidra (.c)', 'Ghidra pseudo-C (.c)'],
   ['código .NET descompilado (.zip)', 'decompiled .NET code (.zip)'],
   ['código Java descompilado (.zip)', 'decompiled Java code (.zip)'],
+  // Icones de documento (plans/analise-estatica-ampliada, item 2).
+  ['ícones de documento', 'document icons'],
+  ['adicionado: {0} ({1})', 'added: {0} ({1})'],
+  ['removido: {0} ({1})', 'removed: {0} ({1})'],
   ['código Python descompilado (.zip)', 'decompiled Python code (.zip)'],
   ['sessões encerradas', 'sessions closed'],
   ['troca obrigatória no próximo login', 'change required at the next sign-in'],

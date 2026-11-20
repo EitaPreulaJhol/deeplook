@@ -765,6 +765,67 @@ async function main() {
     ),
     iconRel?.reasons,
   );
+  // Item 2: o admin marca o icone como "de documento"; as copias ja na base e as novas ganham o
+  // alerta de isca, e tirar da lista tira o alerta.
+  await prisma.user.create({
+    data: {
+      email: 'adm@x.io',
+      displayName: 'adm',
+      role: 'ADMIN',
+      passwordHash: await hashPassword('senha-123!'),
+    },
+  });
+  const adm = String(
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { email: 'adm@x.io', password: 'senha-123!' },
+      })
+    ).headers['set-cookie'],
+  ).split(';')[0];
+  const lure = (id: string) =>
+    prisma.entry
+      .findUnique({ where: { id }, select: { staticInfo: true } })
+      .then((e) =>
+        ((e?.staticInfo as any)?.pe?.alerts ?? []).some((x: { text: string }) =>
+          x.text.startsWith('Ícone de documento (Fatura falsa)'),
+        ),
+      );
+  const byAnalyst = await app.inject({
+    method: 'POST',
+    url: '/api/document-icons',
+    headers: { cookie: c },
+    payload: { entryId: iconA, label: 'Fatura falsa' },
+  });
+  const marked = await app.inject({
+    method: 'POST',
+    url: '/api/document-icons',
+    headers: { cookie: adm },
+    payload: { entryId: iconA, label: 'Fatura falsa' },
+  });
+  const fresh = await upload('icone3.exe', Buffer.concat([file('icone.exe'), Buffer.from([1, 2])]));
+  ok(
+    'ícone de documento: só o admin marca; as fichas que já estavam e as novas ganham o alerta',
+    byAnalyst.statusCode === 403 &&
+      marked.statusCode === 201 &&
+      marked.json().changed >= 2 &&
+      (await lure(iconA)) &&
+      (await lure(iconB)) &&
+      (await lure(fresh)),
+    { analyst: byAnalyst.statusCode, marked: marked.json() },
+  );
+  const removed = await app.inject({
+    method: 'DELETE',
+    url: `/api/document-icons/${marked.json().hash}`,
+    headers: { cookie: adm },
+  });
+  ok(
+    'ícone de documento: removido da lista, o alerta sai das fichas',
+    removed.statusCode === 200 && !(await lure(iconA)) && !(await lure(fresh)),
+    removed.json(),
+  );
+
   const pdbRel = (await related(pdbA)).find((i) => i.entry.id === pdbB);
   const pivotKinds = (pdbRel?.reasons ?? [])
     .filter((r) => r.kind === 'SAME_PIVOT')

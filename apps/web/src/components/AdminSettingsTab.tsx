@@ -6,6 +6,7 @@ import { api } from '../api/client';
 import type { YaraPack } from '../api/types';
 import { t } from '../i18n/admin';
 import { AdminYaraUpdates } from './AdminYaraUpdates';
+import { DocumentIconsSettings } from './DocumentIcons';
 import { useConfirm } from './HpsmConfirm';
 import { HpsmForm, HpsmSection } from './HpsmForm';
 import { HpsmLoading, HpsmMessage } from './messages';
@@ -138,6 +139,7 @@ export function AdminSettingsTab() {
         </HpsmSection>
       )}
       <AdminYaraUpdates />
+      <DocumentIconsSettings />
     </>
   );
 }

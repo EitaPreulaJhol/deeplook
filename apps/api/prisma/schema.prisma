@@ -1925,3 +1925,13 @@ model BsimDeletion {
   createdAt DateTime @default(now())
 }
 
+
+/// Icone de documento (plans/analise-estatica-ampliada, item 2): o admin marca o icone de uma amostra
+/// ja vista (o Word, o PDF de uma campanha) e todo executavel com icone parecido (dHash a ate 4 bits)
+/// ganha o alerta de isca. A lista nasce vazia: os icones sao de terceiros e nao vem no repositorio.
+model DocumentIcon {
+  hash        String   @id
+  label       String
+  createdAt   DateTime @default(now())
+  createdById String?
+}

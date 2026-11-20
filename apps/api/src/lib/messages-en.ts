@@ -502,6 +502,9 @@ export const MESSAGES_EN: readonly (readonly [pt: string, en: string])[] = [
     'Both samples need a finished Ghidra analysis (with the BinExport).',
   ],
   ['O Ghidra está desligado.', 'Ghidra is off.'],
+  ['Esta amostra não tem ícone.', 'This sample has no icon.'],
+  ['Ícone não encontrado.', 'Icon not found.'],
+  ['Somente analistas veem os ícones de documento.', 'Only analysts see the document icons.'],
   [
     'Este pacote é atualizado no servidor, pelo script scripts/vendor-yara-forge.mjs.',
     'This pack is updated on the server, by the scripts/vendor-yara-forge.mjs script.',

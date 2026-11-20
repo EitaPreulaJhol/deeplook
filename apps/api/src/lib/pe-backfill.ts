@@ -2,6 +2,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 import { env } from '../env';
 import type { Prisma } from '../generated/prisma/client';
+import { documentIcons, withDocumentIconAlert } from './document-icons';
 import { PE_REVISION, relationHashes } from './pe-analysis';
 import { replacePivots, staticPivots } from './pivots';
 import { prisma } from './prisma';
@@ -65,7 +66,9 @@ export async function backfillPeAnalysis(log: {
             const pe = staticInfo.pe
               ? { ...staticInfo.pe, imphash: staticInfo.pe.imphash ?? null }
               : null;
-            const fresh = { ...staticInfo, pe };
+            const reread = { ...staticInfo, pe };
+            // O alerta de icone de documento (item 2) depende da lista do admin, nao do arquivo.
+            const fresh = withDocumentIconAlert(reread, await documentIcons()) ?? reread;
             await prisma.entry.update({
               where: { id: entry.id },
               data: {

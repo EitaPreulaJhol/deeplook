@@ -10,6 +10,7 @@ import { enqueueCapaIfEligible } from './capa';
 import { scanInBackground } from './clamav';
 import { sha256Hex } from './crypto';
 import { analyzeDelivery, CHILD_FAILED } from './delivery-formats';
+import { documentIcons, withDocumentIconAlert } from './document-icons';
 import { isEmailFile, isOutlookFile, parseEmail } from './eml';
 import { recordEvent } from './events';
 import { normalizeUrl, urlKey } from './ioc-normalize';
@@ -94,6 +95,11 @@ export async function createFileEntry(
   let staticInfo: StaticInfo | undefined;
   try {
     staticInfo = await analyzeInThread(buffer, filename);
+    // Icone de documento marcado pelo admin (plans/analise-estatica-ampliada, item 2).
+    if (staticInfo?.pe?.icon) {
+      const icons = await documentIcons();
+      if (icons.length) staticInfo = withDocumentIconAlert(staticInfo, icons) ?? staticInfo;
+    }
     // URLs sugeridas abrem a ficha pela chave (item 166).
     await rememberUrls(prisma, staticInfo.iocCandidates);
   } catch (err) {

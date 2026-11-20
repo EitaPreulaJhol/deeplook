@@ -349,7 +349,7 @@ export function StaticAnalysisSection({
                 )}
               </HpsmReadonly>
             </HpsmField>
-            <PeHeaderFields pe={pe} />
+            <PeHeaderFields pe={pe} entryId={entryId} />
           </HpsmForm>
           <div className="dl-static-tables">
             <TableContainer>

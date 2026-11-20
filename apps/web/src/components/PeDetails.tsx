@@ -12,6 +12,7 @@ import type { PeAlert, PeInfo } from '../api/types';
 import { intlLocale, localized } from '../i18n';
 import { t } from '../i18n/analysis';
 import { CopyButton } from './CopyButton';
+import { MarkDocumentIcon } from './DocumentIcons';
 import { formatFileSize } from './HpsmFileDrop';
 import { HpsmField, HpsmForm, HpsmReadonly } from './HpsmForm';
 import type { StatusTone } from './tags';
@@ -91,7 +92,7 @@ export function PeAlerts({ alerts }: { alerts?: PeAlert[] }) {
 }
 
 /** Campos novos do cabecalho, no mesmo formulario do PE. */
-export function PeHeaderFields({ pe }: { pe: PeInfo }) {
+export function PeHeaderFields({ pe, entryId }: { pe: PeInfo; entryId?: string }) {
   if (pe.imphash === undefined) return null;
   const level = pe.manifest?.executionLevel ? EXECUTION_LEVELS[pe.manifest.executionLevel] : null;
   return (
@@ -151,6 +152,7 @@ export function PeHeaderFields({ pe }: { pe: PeInfo }) {
             {pe.icon ? (
               <>
                 <code>{pe.icon.hash}</code> · {pe.icon.width}×{pe.icon.height}
+                {entryId && <MarkDocumentIcon entryId={entryId} hash={pe.icon.hash} />}
               </>
             ) : (
               t('noneM')

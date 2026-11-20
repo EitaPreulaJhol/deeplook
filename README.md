@@ -525,7 +525,10 @@ addition to sections, imports and packer:
   - **exphash**: the MD5 of the exported names, the same as `pefile`'s (only with 3 names or more);
   - **main icon**: a 64-bit dHash of the largest image of the first icon. It links the same or nearly the
     same icon (up to 4 bits apart); an icon used by more than 50 samples (Visual Studio's default, an
-    installer's) does not link;
+    installer's) does not link. **Document icon:** the admin marks a sample's icon (Word's, a
+    campaign PDF's) as a "document icon" with the button next to the hash, and every executable with a
+    similar icon gets the high lure alert, including those already stored; the list lives in
+    Administration > Settings and starts empty (the icons belong to third parties and are not shipped);
   - in Linux executables, Trend Micro's **telfhash** (the TLSH of the global functions, distance up to 50),
     and in macOS ones, the **symhash** of each architecture (the MD5 of the imported symbols, as
     VirusTotal computes it).

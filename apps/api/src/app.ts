@@ -29,6 +29,7 @@ import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
 import { dotnetRoutes, jarRoutes, pydecRoutes } from './routes/decompiled-source';
+import { documentIconRoutes } from './routes/document-icons';
 import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
@@ -156,6 +157,7 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   yaraRoutes,
   hexRoutes,
   stringsRoutes,
+  documentIconRoutes,
   // Recursos do executavel, baixados separados (plans/analise-estatica-ampliada, item 30).
   resourceRoutes,
   // Canais de exfiltracao (plans/analise-estatica-ampliada, item 3).

@@ -531,6 +531,17 @@ export const messages = {
     'Passe o mouse sobre um byte para ver o campo do formato ({format}).',
     'Hover a byte to see the format field ({format}).',
   ],
+  docIconTitle: ['Ícones de documento', 'Document icons'],
+  docIconHelp: [
+    'Executável com um destes ícones (ou parecido, a até 4 bits do dHash) ganha o alerta de isca: o ícone do Word ou do PDF num .exe. Para incluir, abra uma amostra com o ícone e use "Marcar como ícone de documento" ao lado do hash do ícone.',
+    'An executable with one of these icons (or a similar one, within 4 dHash bits) gets the lure alert: the Word or PDF icon on an .exe. To add one, open a sample with the icon and use "Mark as document icon" next to the icon hash.',
+  ],
+  docIconNone: ['Nenhum ícone marcado.', 'No icon marked.'],
+  docIconRemove: ['Remover', 'Remove'],
+  docIconLabel: ['Nome (ex.: Word)', 'Name (e.g. Word)'],
+  docIconMark: ['Marcar como ícone de documento', 'Mark as document icon'],
+  docIconMarked: ['ícone de documento ({label})', 'document icon ({label})'],
+  docIconSaved: ['Marcado; {n} ficha(s) atualizada(s).', 'Marked; {n} record(s) updated.'],
   strTitle: ['Strings', 'Strings'],
   strIntro: [
     'As strings do arquivo (ASCII e UTF-16), do FLOSS e do código descompilado, juntas, com a origem, a posição e as categorias, na ordem do StringSifter (as mais úteis primeiro).',
