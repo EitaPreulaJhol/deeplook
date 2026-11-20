@@ -281,6 +281,38 @@ function EmulationBody({ r }: { r: EmulationResult }) {
         t('emuStrings'),
         r.strings.filter((x): x is string => Boolean(x)),
       )}
+      {r.memory && r.memory.regions.length > 0 && (
+        <HpsmField
+          label={t('emuMemory', { n: r.memory.regions.length })}
+          wide
+          top
+          help={t('emuMemoryHelp')}
+        >
+          <ul className="dl-die-list">
+            {r.memory.regions.map((m) => {
+              const child = r.memory!.carved.find((c) => c.sha256 === m.carved)?.entryId;
+              return (
+                <li key={`${m.base}-${m.sha256}`}>
+                  <code>
+                    {m.base} · {m.tag} · {m.size} B · {t('emuEntropy', { n: m.entropy })}
+                  </code>{' '}
+                  {m.kind === 'pe' ? (
+                    child ? (
+                      <Link to={`/entries/${child}`}>
+                        <StatusText tone="orange">{t('emuMemoryPe')}</StatusText>
+                      </Link>
+                    ) : (
+                      <StatusText tone="orange">{t('emuMemoryPe')}</StatusText>
+                    )
+                  ) : (
+                    <code className="dl-hint-muted">{m.head.slice(0, 32)}</code>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </HpsmField>
+      )}
       {field(
         t('emuErrors'),
         r.errors.map(

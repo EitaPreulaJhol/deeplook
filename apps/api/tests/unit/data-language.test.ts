@@ -160,6 +160,8 @@ const USER_TEXT = new Set([
   // Titulo e descricao do PE achado na memoria do sandbox (plans/novas-analises, item 3).
   '{0} (memória, {1})',
   'PE achado na memória do processo {0} (PID {1}), região {2}, no sandbox de "{3}".',
+  // Descricao do PE achado na memoria da emulacao (plans/analise-estatica-ampliada, item 16).
+  'PE achado na memória da emulação de "{0}", região {1} ({2}).',
 ]);
 
 const phrase = (text: string) =>

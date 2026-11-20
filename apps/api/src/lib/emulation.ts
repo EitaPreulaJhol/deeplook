@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 import { env } from '../env';
+import { createResourceChildren } from './decompiled-store';
 import { extractIocs } from './iocs';
+import { prisma } from './prisma';
 import { registerService, type ServiceAlert } from './service-analysis';
 
 /**
@@ -89,8 +91,79 @@ export const emulationSchema = z.object({
       }),
     )
     .max(50),
+  // A memoria que o programa alocou e escreveu, ao fim (plans/analise-estatica-ampliada, item 16).
+  memory: z
+    .object({
+      regions: z
+        .array(
+          z.object({
+            tag: text(120),
+            base: text(20),
+            size: z.number().int().nonnegative(),
+            freed: z.boolean(),
+            kind: z.enum(['pe', 'data']),
+            entropy: z.number(),
+            head: text(64),
+            sha256: text(64),
+            carved: text(64).optional(),
+          }),
+        )
+        .max(30),
+      carved: z
+        .array(
+          z.object({
+            base: text(20),
+            tag: text(120),
+            sha256: text(64),
+            size: z.number().int().nonnegative(),
+            data: z.string().optional(),
+            entryId: z.string().optional(),
+          }),
+        )
+        .max(10),
+    })
+    .optional(),
 });
 export type EmulationResult = z.infer<typeof emulationSchema>;
+
+/**
+ * Os PEs achados na memoria da emulacao viram amostras filhas (item 16), como os do dump do sandbox.
+ * A filha que ja saiu de uma emulacao nao gera netas: um carregador que se copia na memoria criaria
+ * copias sem fim.
+ */
+async function persistEmulation(entryId: string, r: EmulationResult): Promise<EmulationResult> {
+  if (!r.memory?.carved.length) return r;
+  const self = await prisma.entry.findUnique({
+    where: { id: entryId },
+    select: { sha256: true, parentEntryId: true },
+  });
+  // A fila da emulacao roda um trabalho por vez: o resultado da mae ja esta gravado aqui.
+  const parentRun = self?.parentEntryId
+    ? await prisma.serviceAnalysis.findUnique({
+        where: { entryId_kind: { entryId: self.parentEntryId, kind: 'EMULATION' } },
+        select: { result: true },
+      })
+    : null;
+  const fromEmulation = ((parentRun?.result as EmulationResult | null)?.memory?.carved ?? []).some(
+    (c) => c.entryId === entryId,
+  );
+  const carved = await createResourceChildren(
+    entryId,
+    r.memory.carved
+      .filter((c) => c.sha256 !== self?.sha256)
+      .map((c) => ({
+        ...c,
+        name: `memoria-${c.base}.exe`,
+        data: fromEmulation ? undefined : c.data,
+      })),
+    (title, c) => `PE achado na memória da emulação de "${title}", região ${c.base} (${c.tag}).`,
+    'emulate',
+  );
+  return {
+    ...r,
+    memory: { ...r.memory, carved: carved.map(({ name: _name, ...c }) => c) },
+  };
+}
 
 const ANTI_DEBUG =
   /\.(IsDebuggerPresent|CheckRemoteDebuggerPresent|NtQueryInformationProcess|OutputDebugString[AW]?)$/i;
@@ -164,6 +237,13 @@ export function emulationAlerts(r: EmulationResult): ServiceAlert[] {
       text: `A emulação parou antes do fim: ${short(`${stopped.type}${stopped.api ? ` (${stopped.api})` : ''}`)}`,
     });
   }
+  // Item 16: o PE que so existe na memoria (decifrado ou desempacotado pelo proprio programa).
+  for (const c of (r.memory?.carved ?? []).slice(0, 3)) {
+    alerts.push({
+      level: 'high',
+      text: `PE escrito na memória pelo próprio programa (${c.tag}, ${c.base}): desempacotado ou decifrado`,
+    });
+  }
   return alerts;
 }
 
@@ -196,4 +276,5 @@ export const emulationService = registerService({
   schema: emulationSchema,
   alerts: emulationAlerts,
   iocs: emulationIocs,
+  persist: persistEmulation,
 });

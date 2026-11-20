@@ -468,6 +468,10 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['No código Python: {0} ({1})', 'In the Python code: {0} ({1})'],
   [
+    'PE escrito na memória pelo próprio programa ({0}, {1}): desempacotado ou decifrado',
+    'PE written into memory by the program itself ({0}, {1}): unpacked or decrypted',
+  ],
+  [
     'Compilado com Nuitka: o Python vira C, não há bytecode para descompilar.',
     'Compiled with Nuitka: the Python becomes C, there is no bytecode to decompile.',
   ],

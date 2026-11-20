@@ -8,9 +8,13 @@ stdout um resumo em JSON com tetos: a API guarda e mostra esse resumo, nunca o r
 """
 
 import argparse
+import base64
 import hashlib
 import json
+import math
 import os
+import re
+import struct
 import sys
 
 import speakeasy
@@ -28,6 +32,104 @@ def text(value, limit=MAX_TEXT):
         return None
     value = str(value).replace("\x00", "")
     return value[:limit]
+
+
+# ------------------------------------------------------------------ memoria ao fim (item 16)
+
+# Blocos que o programa alocou (os da emulacao, PEB, TEB, pilha, modulos carregados, ficam de fora).
+ALLOC_TAG = re.compile(
+    r"^api\.(?:VirtualAlloc(?:Ex)?|NtAllocateVirtualMemory|ZwAllocateVirtualMemory|heap\.HeapAlloc|"
+    r"RtlAllocateHeap|LocalAlloc|GlobalAlloc|MapViewOfFile(?:Ex)?|NtMapViewOfSection)",
+    re.I,
+)
+MIN_REGION = 256
+MAX_REGIONS = 30
+MAX_REGION = 16 * 1024 * 1024
+MAX_CARVED = 10
+MAX_CARVED_BYTES = 32 * 1024 * 1024
+
+
+def entropy(data):
+    if not data:
+        return 0.0
+    counts = [0] * 256
+    for b in data:
+        counts[b] += 1
+    n = len(data)
+    return round(-sum(c / n * math.log2(c / n) for c in counts if c), 2)
+
+
+def pe_carve(data):
+    """O PE no inicio da regiao, em formato de arquivo. O programa pode ter copiado o arquivo cru
+    (secoes onde o arquivo as tem) ou mapeado a mao (secoes onde a memoria as tem): o lado com os
+    dados decide. Mesma ideia do apps/extract/memdump.py (realign), que le o dump do sandbox."""
+    try:
+        if data[:2] != b"MZ":
+            return None
+        e_lfanew = struct.unpack_from("<I", data, 0x3C)[0]
+        if e_lfanew > 0x1000 or data[e_lfanew:e_lfanew + 4] != b"PE\0\0":
+            return None
+        count = struct.unpack_from("<H", data, e_lfanew + 6)[0]
+        opt_size = struct.unpack_from("<H", data, e_lfanew + 20)[0]
+        table = e_lfanew + 24 + opt_size
+        sections = []
+        for i in range(min(count, 96)):
+            off = table + i * 40
+            vsize, va, raw_size, raw_ptr = struct.unpack_from("<IIII", data, off + 8)
+            sections.append((off, vsize, va, raw_size, raw_ptr))
+        filled = lambda at: bool(data[at:at + 64].strip(b"\0"))  # noqa: E731
+        file_layout = any(
+            raw_size and raw_ptr != va and filled(raw_ptr) and not filled(va)
+            for _, _, va, raw_size, raw_ptr in sections
+        )
+        if file_layout:
+            end = max([raw_ptr + raw_size for _, _, _, raw_size, raw_ptr in sections] + [0x400])
+            return bytes(data[:end]) if end <= len(data) else None
+        out = bytearray(data)
+        end = 0
+        for off, vsize, va, raw_size, _ in sections:
+            size = max(vsize, raw_size)
+            struct.pack_into("<II", out, off + 16, size, va)
+            end = max(end, va + size)
+        return bytes(out[:max(end, 0x400)])
+    except struct.error:
+        return None
+
+
+def memory_report(se):
+    """As regioes que o programa alocou e escreveu, ao fim da emulacao: o resumo de cada uma e os
+    PEs achados nelas (em Base64, para virar amostras filhas)."""
+    regions, carved, carved_bytes = [], [], 0
+    try:
+        blocks = se.get_memory_dumps()
+    except Exception:  # noqa: BLE001 - versao do Speakeasy sem o dump
+        return {"regions": [], "carved": []}
+    for tag, base, size, is_free, _proc, data in blocks:
+        if not tag or not ALLOC_TAG.match(tag) or not data:
+            continue
+        if size < MIN_REGION or size > MAX_REGION or not data.strip(b"\0"):
+            continue
+        if len(regions) >= MAX_REGIONS:
+            break
+        pe = pe_carve(data)
+        item = {
+            "tag": text(re.sub(r"\.0x[0-9a-f]+$", "", tag), 120),
+            "base": hex(base),
+            "size": size,
+            "freed": bool(is_free),
+            "kind": "pe" if pe else "data",
+            "entropy": entropy(data[:65536]),
+            "head": data[:32].hex(),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        }
+        if pe and len(carved) < MAX_CARVED and carved_bytes + len(pe) <= MAX_CARVED_BYTES:
+            carved_bytes += len(pe)
+            sha = hashlib.sha256(pe).hexdigest()
+            item["carved"] = sha
+            carved.append({"base": hex(base), "tag": item["tag"], "sha256": sha, "size": len(pe),
+                           "data": base64.b64encode(pe).decode()})
+        regions.append(item)
+    return {"regions": regions, "carved": carved}
 
 
 def config():
@@ -209,6 +311,7 @@ def main():
         sha = hashlib.sha256(f.read()).hexdigest()
     out = summarize(report, args.kind, args.arch)
     out["sha256"] = sha
+    out["memory"] = memory_report(se)
     sys.stdout.write(json.dumps(out))
 
 

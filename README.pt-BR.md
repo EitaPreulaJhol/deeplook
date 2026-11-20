@@ -928,6 +928,11 @@ Os alertas (injeção, rede seguida de outro programa, chaves de inicialização
 gerado em memória) somam na pontuação de risco, e os destinos vão para os IOCs sugeridos. Um
 analista também pode emular **qualquer arquivo como shellcode**, escolhendo x86 ou x64. Um programa
 que percebe o emulador pode parar cedo: a emulação complementa o sandbox, não o substitui.
+- **Memória ao fim da emulação:** as regiões que o programa alocou e escreveu (VirtualAlloc, heap,
+  seções mapeadas) são lidas no fim, até 30. Um PE nelas (decifrado ou desempacotado pelo próprio
+  programa, copiado cru ou mapeado à mão) é recortado e vira amostra filha, que passa pelo YARA,
+  pelo capa e pela extração de configuração do CAPE como qualquer envio. A filha que saiu de uma
+  emulação não gera netas.
 
 ## Android (APK)
 

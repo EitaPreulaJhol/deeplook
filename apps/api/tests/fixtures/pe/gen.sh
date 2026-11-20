@@ -28,6 +28,9 @@ $X64-gcc -O1 -s -shared -o teste.dll lib.c lib.def
 # um ELF de verdade para o capa.
 # Emulacao (plans/novas-analises, item 4): o comportamento que o Speakeasy deve ver.
 $X86-gcc -O1 -s -o emulado32.exe emulado.c -lwininet
+# Dump de memoria ao fim da emulacao (item 16): o payload.bin cifrado com XOR 0x5a dentro do programa.
+python3 -c "import sys; d = open('payload.bin', 'rb').read(); print('static const unsigned char carga[] = {' + ','.join(str(b ^ 0x5a) for b in d) + '};')" > carga.h
+$X86-gcc -O1 -s -I. -o carga-memoria.exe carga-memoria.c
 $X64-gcc -O1 -s -o ofuscado64.exe ofuscado.c
 $X86-gcc -O1 -s -o ofuscado32.exe ofuscado.c
 cp /usr/bin/true linux.elf
@@ -174,7 +177,7 @@ python3 reference.py "$W" > reference.json
 mkdir -p /out
 cp prog64.exe prog32.exe teste.dll dotnet.exe upx64.exe upx32.exe upx-disfarcado.exe upx32-disfarcado.exe xor-solto.bin xor4-dropper.exe embutido.bin app.asar extensao.crx extensao.xpi metadados.docx modelo-a.pdf modelo-b.pdf xlm.xlsm rich.exe \
   rich-forjado.exe checksum-ok.exe checksum-errado.exe overlay.exe assinado.exe adulterado.exe \
-  autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe linux.elf nsis.exe \
+  autoassinado.exe upx-dll.dll ofuscado64.exe ofuscado32.exe emulado32.exe carga-memoria.exe linux.elf nsis.exe \
   pyinst.bin autoit.exe autoit-upx.exe payload.bin teste.msi dotnet-loader.exe \
   inno-6.2.2.exe inno-6.4.3.exe malvado.jar limpo.jar solto.class pdb.exe pdb-timestomp.exe \
   pdb-repro.exe icone.exe teste.ico teste.cur teste.bmp anexo.pdf anexo-rc4.pdf \

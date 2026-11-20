@@ -1295,6 +1295,21 @@ export interface EmulationResult {
   }[];
   dropped: { path: string; size?: number | null; sha256?: string | null }[];
   dynamicCode: number;
+  /** A memoria que o programa alocou e escreveu, ao fim (item 16). */
+  memory?: {
+    regions: {
+      tag: string;
+      base: string;
+      size: number;
+      freed: boolean;
+      kind: 'pe' | 'data';
+      entropy: number;
+      head: string;
+      sha256: string;
+      carved?: string;
+    }[];
+    carved: { base: string; tag: string; sha256: string; size: number; entryId?: string }[];
+  };
   strings: (string | null)[];
   errors: {
     entry?: string | null;

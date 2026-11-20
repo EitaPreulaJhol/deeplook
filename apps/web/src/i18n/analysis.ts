@@ -1204,6 +1204,13 @@ export const messages = {
   emuProcesses: ['Processos e injeção', 'Processes and injection'],
   emuDropped: ['Arquivos gravados', 'Files written'],
   emuStrings: ['Strings montadas em memória', 'Strings built in memory'],
+  emuMemory: ['Memória alocada pelo programa ({n})', 'Memory allocated by the program ({n})'],
+  emuMemoryHelp: [
+    'As regiões que o programa alocou e escreveu (VirtualAlloc, heap, seções mapeadas), lidas ao fim da emulação. Um PE nelas foi desempacotado ou decifrado pelo próprio programa e vira amostra filha, que passa pelo YARA, pelo capa e pela extração de configuração.',
+    'The regions the program allocated and wrote (VirtualAlloc, heap, mapped sections), read at the end of the emulation. A PE in them was unpacked or decrypted by the program itself and becomes a child sample, which goes through YARA, capa and configuration extraction.',
+  ],
+  emuMemoryPe: ['PE (amostra filha)', 'PE (child sample)'],
+  emuEntropy: ['entropia {n}', 'entropy {n}'],
   emuErrors: ['Onde a emulação parou', 'Where the emulation stopped'],
   emuDynamic: [
     'Código gerado em memória: {n} região(ões)',

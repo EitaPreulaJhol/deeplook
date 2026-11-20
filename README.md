@@ -924,6 +924,11 @@ Alerts (injection, network followed by a new program, startup keys, anti-debuggi
 in memory) feed the risk score, and the destinations go to the suggested IOCs. An analyst can also
 emulate **any file as shellcode**, choosing x86 or x64. A program that notices the emulator may stop
 early: the emulation complements the sandbox, it does not replace it.
+- **Memory at the end of the emulation:** the regions the program allocated and wrote
+  (VirtualAlloc, heap, mapped sections) are read at the end, up to 30. A PE in them (decrypted or
+  unpacked by the program itself, copied raw or mapped by hand) is carved out and becomes a child
+  sample, which goes through YARA, capa and CAPE configuration extraction like any upload. A child
+  that came out of an emulation spawns no grandchildren.
 
 ## Android (APK)
 

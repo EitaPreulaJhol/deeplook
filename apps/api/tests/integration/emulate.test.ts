@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -153,6 +154,39 @@ async function main() {
   ok('usuário comum vê a análise', (await get(pe, cUser)).analysis?.status === 'DONE');
 
   // ---- 2. Shellcode: pedido por um analista, com a arquitetura.
+  // Item 16: a memoria ao fim. O programa decifra um PE (XOR) numa regiao do VirtualAlloc; o PE
+  // so existe na memoria emulada e vira amostra filha, igual ao payload.bin original.
+  const loader = await upload('carga-memoria.exe', readFileSync(join(PE, 'carga-memoria.exe')));
+  await servicesIdle();
+  const mem = (await get(loader)).analysis;
+  const payloadSha = createHash('sha256')
+    .update(readFileSync(join(PE, 'payload.bin')))
+    .digest('hex');
+  const region = (mem?.result?.memory?.regions ?? []).find(
+    (x: { kind: string }) => x.kind === 'pe',
+  );
+  const memChild = await prisma.entry.findFirst({
+    where: { parentEntryId: loader },
+    select: { id: true, sha256: true, originalFilename: true, description: true },
+  });
+  ok(
+    'memória ao fim: o PE decifrado no VirtualAlloc vira filha, igual ao original',
+    mem?.status === 'DONE' &&
+      /^api\.VirtualAlloc/.test(region?.tag ?? '') &&
+      region.carved === payloadSha &&
+      memChild?.sha256 === payloadSha &&
+      Boolean(memChild.originalFilename?.startsWith('memoria-0x')) &&
+      mem.result.memory.carved[0]?.entryId === memChild.id &&
+      mem.result.memory.carved[0]?.data === undefined &&
+      mem.alerts.some((x: { text: string }) => x.text.startsWith('PE escrito na memória')),
+    { mem: mem?.result?.memory, alerts: mem?.alerts, memChild },
+  );
+  // A filha (o payload, que nao aloca nada) nao gera netas.
+  ok(
+    'a filha da memória não gera netas',
+    (await prisma.entry.count({ where: { parentEntryId: memChild?.id } })) === 0,
+  );
+
   const sc = await upload('payload.bin', Buffer.from([0x90, 0x90, 0x31, 0xc0, 0xc3]));
   await servicesIdle();
   ok('binário qualquer não vai sozinho', (await get(sc)).analysis === null);
