@@ -714,6 +714,8 @@ Detalhes:
   MinGW-w64 (runtime, libgcc e zlib, de 32 e de 64 bits, dos pacotes do Debian). As funções dessas
   bibliotecas ganham o nome certo e somem quando você oculta as de biblioteca; a ficha mostra quantas
   foram reconhecidas e de quais bibliotecas. O build das bases leva uns 10 minutos e fica no cache.
+  Não há base de OpenSSL nem de Delphi: o Debian não tem o OpenSSL para MinGW, e a RTL do Delphi é
+  proprietária; os nomes do runtime do Go vêm do analisador de Go do Ghidra e do GoReSym.
 - **BSim (código parecido em outras amostras):** cada análise grava as assinaturas das funções do
   autor (sem as de biblioteca) numa base H2 no volume `ghidra-bsim` e, antes, consulta as de todas
   as amostras já analisadas. A ficha mostra as funções parecidas (com a similaridade), e a aba
@@ -1070,7 +1072,8 @@ O serviço **`ml`** (sem rede, um contêiner por pedido) traz dois modelos, cada
 - **EMBER2024** (Apache-2.0): o modelo LightGBM de PE do benchmark, sobre os 2568 atributos do EMBER
   v3, dá a cada PE a probabilidade de ser malicioso. É informativo e fica **fora da pontuação de
   risco** até ser medido com falsos positivos conhecidos (os programas mínimos dos testes saem quase
-  todos acima de 95%). O modelo de família (458 MB) não vem.
+  todos acima de 95%). O modelo de família não vem: ele só devolve o número da classe, e o mapa
+  número → nome da família não é publicado (o EMBER2024 o monta lendo o conjunto de treino inteiro).
 
 ## Código Python (pycdc)
 

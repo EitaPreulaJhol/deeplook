@@ -711,7 +711,8 @@ Details:
   MinGW-w64 ones (runtime, libgcc and zlib, 32 and 64 bits, from the Debian packages). Functions from
   these libraries get the right name and disappear when you hide library functions; the record shows
   how many were recognized and from which libraries. Building the databases takes about 10 minutes
-  and stays in the cache.
+  and stays in the cache. There is no OpenSSL or Delphi database: Debian has no OpenSSL for MinGW and
+  the Delphi RTL is proprietary; Go runtime names come from Ghidra's Go analyzer and GoReSym.
 - **BSim (similar code in other samples):** each analysis stores the signatures of the author's
   functions (without library ones) in an H2 database on the `ghidra-bsim` volume and, before that,
   queries those of every sample already analyzed. The record shows the similar functions (with the
@@ -1067,7 +1068,8 @@ environment:
 - **EMBER2024** (Apache-2.0): the benchmark's PE LightGBM model, over the 2568 EMBER v3 attributes,
   gives each PE the probability of being malicious. It is informational and stays **out of the risk
   score** until measured against known false positives (the minimal test programs almost all score
-  above 95%). The family model (458 MB) is not included.
+  above 95%). The family model is not included: it only returns the class number, and the number →
+  family name map is not published (EMBER2024 builds it by reading the whole training set).
 
 ## Python code (pycdc)
 
