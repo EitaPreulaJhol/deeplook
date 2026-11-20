@@ -33,7 +33,9 @@ def main():
     model = os.path.join(util.package_base(), "model")
     featurizer = joblib.load(os.path.join(model, "featurizer.pkl"))
     ranker = joblib.load(os.path.join(model, "ranker.pkl"))
-    scores = ranker.predict(featurizer.transform(numpy.array(strings, dtype=object)))
+    # O Booster direto: o modelo foi salvo com o lightgbm 3, e o predict do LGBMRanker do 4 pede
+    # atributos que o objeto antigo nao tem. As notas sao as mesmas.
+    scores = ranker._Booster.predict(featurizer.transform(numpy.array(strings, dtype=object)))
     print(json.dumps({"ok": True, "scores": [round(float(s), 3) for s in scores]}))
 
 

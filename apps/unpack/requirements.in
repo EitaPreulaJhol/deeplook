@@ -1,8 +1,8 @@
 # Desempacotar por emulacao (plans/analise-estatica-ampliada, item 17): unipacker (GPL-2.0), que emula
 # o stub do empacotador no unicorn e despeja o programa com a tabela de importacao refeita. Instalado a
 # parte (PYTHONPATH so do processo que o roda). O unicorn dele ainda importa distutils e pkg_resources:
-# o setuptools antes da 81 traz os dois para o Python 3.13. Versoes travadas com hash em
+# o setuptools traz o distutils; o pkg_resources (fora do setuptools desde a 81) e o shim/ daqui. Versoes travadas com hash em
 # requirements.txt:
 #   docker run --rm -v "$PWD:/w" -w /w debian:trixie-slim sh -c "apt-get update -qq && apt-get install -y -qq python3-pip python3-venv >/dev/null && python3 -m venv /v && /v/bin/pip install -q pip-tools && /v/bin/pip-compile -q --generate-hashes --strip-extras --allow-unsafe requirements.in"
 unipacker==1.0.8
-setuptools==80.9.0
+setuptools==84.2.1

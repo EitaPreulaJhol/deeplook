@@ -17,11 +17,6 @@ ADD --checksum=sha256:e43fddb7d8eb2e985dffb7952bd1102b77d85a9a4467c1821ecefd8f41
 ADD --checksum=sha256:47ed1299fe0fcdf3549e4077573db9651c228144b22a372729eb014548332fcd \
   https://github.com/horsicq/DIE-engine/releases/download/3.21/die_3.21_Debian_13_amd64.deb \
   /tmp/die.deb
-# GoReSym 3.4.1 (MIT, Mandiant; plans/analise-estatica-ampliada, item 14): le o pclntab do Go, mesmo
-# sem simbolos. Binario estatico; o zip oficial conferido pelo SHA-256.
-ADD --checksum=sha256:a557124857f95a589f8ce3525119c2d18c7c7fc7c4225c92ff94e3effb38748d \
-  https://github.com/mandiant/GoReSym/releases/download/v3.4.1/GoReSym-linux.zip \
-  /opt/goresym.zip
 # Magika 1.1.0 (Apache-2.0, Google; item 22): tipo do arquivo por aprendizado de maquina, bom no que
 # nao tem magica (scripts, texto, codigo). O CLI em Rust traz o modelo embutido.
 ADD --checksum=sha256:6b4c1010c84d1f4f06205ccef4597f1690bcd7744f46d841eee26426bc100485 \
@@ -43,15 +38,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libf
     liblzma-dev libbz2-dev zlib1g-dev \
   && cargo install binwalk --version 3.1.0 --locked --root /opt/binwalk
 
+# GoReSym 3.4.1 (MIT, Mandiant; plans/analise-estatica-ampliada, item 14): le o pclntab do Go, mesmo
+# sem simbolos. Compilado do commit da tag v3.4.1 (o git confere o conteudo; o go.sum, as dependencias)
+# com o Go corrigido: o binario oficial vem do Go 1.26.8, com CVE na biblioteca padrao.
+FROM golang:1.26.10-trixie AS goresym
+ARG GORESYM_COMMIT=722897e0a80da0a06c00c5e40591a253a551f04e
+RUN git clone --filter=blob:none https://github.com/mandiant/GoReSym.git /src \
+  && cd /src && git checkout --quiet "$GORESYM_COMMIT" \
+  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=v3.4.1" -o /out/GoReSym .
+
 # unipacker (item 17): wheels conferidos pelo hash do lockfile, instalados numa pasta propria (so o
 # processo do unipacker a ve). O mesmo Debian da imagem final: o mesmo Python 3.13.
 FROM debian:trixie-slim AS unipacker
 RUN apt-get update && apt-get install -y --no-install-recommends python3-pip
 COPY requirements.txt /tmp/
+COPY shim/pkg_resources.py /tmp/shim/
 RUN pip wheel --no-cache-dir --require-hashes --wheel-dir /wheels \
     -r /tmp/requirements.txt \
   && pip install --break-system-packages --no-cache-dir --no-index --no-deps \
     --target /opt/unipacker /wheels/*.whl \
+  && cp /tmp/shim/pkg_resources.py /opt/unipacker/ \
   && chmod -R a+rX /opt/unipacker
 
 FROM debian:trixie-slim
@@ -67,13 +73,11 @@ RUN apt-get update \
 COPY --from=fetch --chmod=755 /opt/pyinstxtractor /opt/pyinstxtractor
 COPY --from=fetch /opt/die/ /
 COPY --from=fetch /opt/autoit-ripper.whl /tmp/autoit-ripper.whl
-COPY --from=fetch /opt/goresym.zip /tmp/goresym.zip
+COPY --from=goresym /out/GoReSym /opt/goresym/GoReSym
 COPY --from=fetch /opt/magika/magika /opt/magika/magika
 COPY --from=unipacker /opt/unipacker /opt/unipacker
 COPY --from=binwalk /opt/binwalk/bin/binwalk /usr/local/bin/binwalk
-RUN python3 -m zipfile -e /tmp/goresym.zip /opt/goresym \
-  && rm /tmp/goresym.zip \
-  && chmod 755 /opt/goresym /opt/goresym/GoReSym
+RUN chmod 755 /opt/goresym /opt/goresym/GoReSym
 RUN python3 -m zipfile -e /tmp/autoit-ripper.whl /opt/autoit-ripper \
   && rm /tmp/autoit-ripper.whl \
   && chmod -R a+rX /opt/autoit-ripper

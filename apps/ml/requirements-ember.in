@@ -1,9 +1,10 @@
 # Pontuacao do EMBER2024 (plans/analise-estatica-ampliada, item 29): os atributos do thrember (o
-# features.py, instalado do commit fixo, sem as dependencias de treino) e o LightGBM. Versoes
+# features.py, instalado do commit fixo, sem as dependencias de treino) e o LightGBM. O signify 0.9.2
+# (antes dele, CVE-2025-70887) mudou a API; o Dockerfile ajusta o features.py. Versoes
 # travadas com hash em requirements-ember.txt:
 #   docker run --rm -v "$PWD:/w" -w /w python:3.11-slim sh -c "pip install -q pip-tools && pip-compile -q --generate-hashes --strip-extras --allow-unsafe -o requirements-ember.txt requirements-ember.in"
 lightgbm==4.6.0
 numpy==2.3.5
 pefile==2024.8.26
 scikit-learn==1.6.1
-signify==0.7.1
+signify==0.9.2
