@@ -116,6 +116,24 @@ public class ExportDeepLook extends GhidraScript {
 		return target == null || target.isExternal() || target.isThunk() ? null : target;
 	}
 
+	/** Funcoes reconhecidas pelo Function ID e de que biblioteca (item 25). */
+	private int libraryFunctions = 0;
+	private final Map<String, Integer> libraries = new HashMap<>();
+	private static final Pattern FID_LIBRARY = Pattern.compile("Library: ([^\\r\\n]{1,120})");
+
+	/** A biblioteca que o Function ID anotou no comentario da funcao ("Library: zlib 1.3.1 ..."). */
+	private String libraryOf(Function f) {
+		String plate = f.getComment();
+		if (plate == null) {
+			plate = currentProgram.getListing().getComment(ghidra.program.model.listing.CodeUnit.PLATE_COMMENT, f.getEntryPoint());
+		}
+		if (plate == null) {
+			return null;
+		}
+		Matcher m = FID_LIBRARY.matcher(plate);
+		return m.find() ? m.group(1).trim() : null;
+	}
+
 	private boolean isLibrary(Function f) {
 		var bookmarks = currentProgram.getBookmarkManager();
 		Address a = f.getEntryPoint();
@@ -216,6 +234,13 @@ public class ExportDeepLook extends GhidraScript {
 				info.complexity = -1;
 			}
 			info.library = isLibrary(f);
+			if (info.library) {
+				libraryFunctions++;
+				String lib = libraryOf(f);
+				if (lib != null) {
+					libraries.merge(lib, 1, Integer::sum);
+				}
+			}
 			infos.add(info);
 		}
 		Map<Function, Info> byFn = new HashMap<>();
@@ -396,6 +421,18 @@ public class ExportDeepLook extends GhidraScript {
 		result.put("entryPoint", entry != null ? hex(entry) : null);
 		result.put("functions", infos.size());
 		result.put("thunks", thunks);
+		result.put("libraryFunctions", libraryFunctions);
+		List<Map<String, Object>> libs = new ArrayList<>();
+		libraries.entrySet().stream()
+			.sorted((a, b) -> b.getValue() - a.getValue())
+			.limit(30)
+			.forEach(e -> {
+				Map<String, Object> row = new LinkedHashMap<>();
+				row.put("name", cut(e.getKey(), 120));
+				row.put("functions", e.getValue());
+				libs.add(row);
+			});
+		result.put("libraries", libs);
 		result.put("sensitiveFunctions", bySensitive.size());
 		result.put("largest", all.size() > MAX_FUNCTIONS ? all.subList(0, MAX_FUNCTIONS) : all);
 		result.put("decompiled", decompiled);

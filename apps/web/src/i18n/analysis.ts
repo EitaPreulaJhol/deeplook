@@ -521,6 +521,12 @@ export const messages = {
     'Em binários grandes, o analisador de switch do Ghidra dobra o tempo da análise e a leva para perto do teto. Sem ele, o código alcançado só por tabelas de salto (os casos de alguns switch) pode ficar sem função e sem pseudo-C: de 2% a 3% das funções nos medidos. O projeto (.gzf) pode ser reanalisado com ele no Ghidra local.',
     "On large binaries, Ghidra's switch analyzer doubles the analysis time and takes it close to the cap. Without it, code reached only through jump tables (the cases of some switches) may have no function and no pseudo-C: 2% to 3% of the functions in the ones measured. The project (.gzf) can be reanalyzed with it in a local Ghidra.",
   ],
+  fidLabel: ['Funções de biblioteca', 'Library functions'],
+  fidCount: ['{n} reconhecida(s) pelo Function ID', '{n} recognized by Function ID'],
+  fidHelp: [
+    'O Function ID do Ghidra reconhece funções de bibliotecas conhecidas pelo hash do código: o runtime do Visual Studio (as bases que vêm no Ghidra) e o do MinGW-w64, o libgcc e a zlib (bases montadas no build). Elas ganham o nome certo e somem quando você oculta as funções de biblioteca.',
+    "Ghidra's Function ID recognizes functions from known libraries by the hash of their code: the Visual Studio runtime (the databases that come with Ghidra) and MinGW-w64's, libgcc and zlib (databases built at image build). They get the right name and disappear when you hide library functions.",
+  ],
   fnCount: [
     '{functions} função(ões), {thunks} thunk(s) ·',
     '{functions} function(s), {thunks} thunk(s) ·',

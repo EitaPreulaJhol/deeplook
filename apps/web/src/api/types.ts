@@ -242,6 +242,9 @@ export interface GhidraInfo {
       entryPoint: string | null;
       functions: number;
       thunks: number;
+      /** Function ID (item 25). */
+      libraryFunctions?: number;
+      libraries?: { name: string; functions: number }[];
       sensitiveFunctions: number;
       largest: {
         name: string;

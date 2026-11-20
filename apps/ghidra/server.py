@@ -86,6 +86,7 @@ PACK_TIMEOUT = 300
 # de funcoes. 0 desliga.
 LIGHT_BYTES = int(os.environ.get("GHIDRA_LIGHT_MB", "5")) * 1024 * 1024
 LIGHT_ANALYZERS = ["Decompiler Switch Analysis"]
+FID_DIR = os.environ.get("GHIDRA_FID_DIR", "/opt/fid")
 
 STARTED = time.monotonic()
 _busy = threading.Lock()
@@ -185,6 +186,8 @@ def first_pass(work, budget, light):
             os.path.join(work, "amostra"),
             "-analysisTimeoutPerFile",
             str(analysis_timeout),
+            # As bases do Function ID do MinGW-w64, montadas no build (item 25).
+            *(["-preScript", "AttachFid.java", FID_DIR] if os.path.isdir(FID_DIR) else []),
             *(["-preScript", "LightAnalysis.java", *LIGHT_ANALYZERS] if light else []),
             "-postScript",
             "ExportDeepLook.java",

@@ -703,6 +703,10 @@ Detalhes:
   executáveis de teste; de 1,1 a 1,5 GB em executáveis de 1 a 4 MB, com o pseudo-C de todas as
   funções).
 - **Desligar:** `GHIDRA_URL=` (vazio) no `.env`; o serviço `ghidra` pode sair do compose.
+- **Function ID:** além das bases do Visual Studio que vêm no Ghidra, a imagem monta no build as do
+  MinGW-w64 (runtime, libgcc e zlib, de 32 e de 64 bits, dos pacotes do Debian). As funções dessas
+  bibliotecas ganham o nome certo e somem quando você oculta as de biblioteca; a ficha mostra quantas
+  foram reconhecidas e de quais bibliotecas. O build das bases leva uns 10 minutos e fica no cache.
 
 ## Regras YARA
 

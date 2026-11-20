@@ -32,6 +32,19 @@ RUN unzip -q /tmp/ghidra.zip -d /opt \
   && sed -i 's/guava-32.1.3-jre.jar/guava-33.7.2-jre.jar/; s/failureaccess-1.0.1.jar/failureaccess-1.0.3.jar/' \
     Ghidra/Framework/Generic/Module.manifest
 
+# Bases do Function ID do MinGW-w64 (plans/analise-estatica-ampliada, item 25): o runtime, o libgcc e
+# a zlib, de 32 e de 64 bits, dos pacotes do Debian, montadas pelo proprio Ghidra (fid/build.sh). Leva
+# alguns minutos; fica no cache do Docker ate trocar o Ghidra ou os scripts.
+FROM debian:trixie-slim AS fid
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openjdk-25-jdk-headless binutils \
+    mingw-w64-x86-64-dev mingw-w64-i686-dev gcc-mingw-w64-x86-64-win32 gcc-mingw-w64-i686-win32 \
+    libz-mingw-w64-dev
+COPY --from=fetch /opt/ghidra /opt/ghidra
+COPY fid /fid
+ENV HOME=/tmp GHIDRA_HEADLESS_MAXMEM=3G
+RUN sh /fid/build.sh /opt/fid && chmod -R a+rX /opt/fid
+
 FROM debian:trixie-slim
 # JDK, nao JRE: o Ghidra compila os scripts. Os jmods (337 MB) so servem ao jlink e saem. As
 # correcoes de seguranca que o Debian ja publicou entram pelo upgrade.
@@ -41,6 +54,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* /usr/lib/jvm/java-25-openjdk-amd64/jmods \
   && useradd --system --uid 10002 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin ghidra
 COPY --from=fetch /opt/ghidra /opt/ghidra
+COPY --from=fid /opt/fid /opt/fid
 # O descompilador nativo com teto de memoria por processo (decompile-limit.sh).
 COPY decompile-limit.sh /tmp/
 RUN d=/opt/ghidra/Ghidra/Features/Decompiler/os/linux_x86_64 \

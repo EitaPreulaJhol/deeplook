@@ -700,6 +700,11 @@ Details:
 - **Memory:** the container has a 6 GB ceiling, but it only uses it during an analysis (700 MB on the test
   executables; 1.1 to 1.5 GB on 1 to 4 MB executables, with the pseudo-C of every function).
 - **Turn off:** `GHIDRA_URL=` (empty) in `.env`; the `ghidra` service can be removed from compose.
+- **Function ID:** besides the Visual Studio databases that come with Ghidra, the image builds the
+  MinGW-w64 ones (runtime, libgcc and zlib, 32 and 64 bits, from the Debian packages). Functions from
+  these libraries get the right name and disappear when you hide library functions; the record shows
+  how many were recognized and from which libraries. Building the databases takes about 10 minutes
+  and stays in the cache.
 
 ## YARA rules
 

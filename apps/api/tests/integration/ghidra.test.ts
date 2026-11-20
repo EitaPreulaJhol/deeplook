@@ -238,6 +238,13 @@ async function main() {
       s.sensitiveFunctions >= 1,
     { status: r?.status, error: r?.error },
   );
+  // Item 25: o runtime do MinGW-w64 reconhecido pelas bases do Function ID montadas no build.
+  ok(
+    'Function ID: funções do runtime do MinGW-w64 reconhecidas, com a biblioteca',
+    (s?.libraryFunctions ?? 0) >= 5 &&
+      (s.libraries ?? []).some((l: { name: string }) => /^lib(mingwex|mingw32|gcc)\b/.test(l.name)),
+    { libraryFunctions: s?.libraryFunctions, libraries: s?.libraries },
+  );
   ok(
     'pseudo-C da função de injeção, com as chamadas e a URL',
     Boolean(main) &&

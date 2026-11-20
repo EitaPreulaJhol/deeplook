@@ -183,6 +183,18 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
                 )}
               </HpsmReadonly>
             </HpsmField>
+            {s.libraryFunctions !== undefined && (
+              <HpsmField label={t('fidLabel')} help={t('fidHelp')}>
+                <HpsmReadonly>
+                  {t('fidCount', { n: s.libraryFunctions })}
+                  {(s.libraries ?? []).length > 0 &&
+                    ` · ${s
+                      .libraries!.slice(0, 4)
+                      .map((l) => `${l.name} (${l.functions})`)
+                      .join(', ')}`}
+                </HpsmReadonly>
+              </HpsmField>
+            )}
             <HpsmField label={t('baseEntry')}>
               <HpsmReadonly>
                 <code>{s.imageBase ?? '—'}</code> {t('entryLower')}{' '}

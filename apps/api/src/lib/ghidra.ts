@@ -93,6 +93,12 @@ const summarySchema = z.object({
   entryPoint: address.nullable(),
   functions: z.number().int().nonnegative(),
   thunks: z.number().int().nonnegative(),
+  // Function ID (item 25): as funcoes de biblioteca reconhecidas e de quais bibliotecas.
+  libraryFunctions: z.number().int().nonnegative().optional(),
+  libraries: z
+    .array(z.object({ name: z.string().max(120), functions: z.number().int().nonnegative() }))
+    .max(30)
+    .optional(),
   sensitiveFunctions: z.number().int().nonnegative(),
   largest: z
     .array(
