@@ -574,6 +574,7 @@ export const messages = {
     'Mesmo modelo de documento, pelo XMP ({value})',
     'Same document template, by XMP ({value})',
   ],
+  rSharedCode: ['Código em comum ({n} função(ões), BSim)', 'Shared code ({n} function(s), BSim)'],
   rGoModule: ['Mesmo projeto Go ({value})', 'Same Go project ({value})'],
   rSymhash: [
     'Mesmos símbolos do Mach-O (symhash {value}…)',

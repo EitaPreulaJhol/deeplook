@@ -52,7 +52,8 @@ RUN apt-get update \
   && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends openjdk-25-jdk-headless python3 \
   && rm -rf /var/lib/apt/lists/* /usr/lib/jvm/java-25-openjdk-amd64/jmods \
-  && useradd --system --uid 10002 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin ghidra
+  && useradd --system --uid 10002 --no-create-home --home-dir /tmp --shell /usr/sbin/nologin ghidra \
+  && install -d -o ghidra -g ghidra -m 700 /bsim
 COPY --from=fetch /opt/ghidra /opt/ghidra
 COPY --from=fid /opt/fid /opt/fid
 # O descompilador nativo com teto de memoria por processo (decompile-limit.sh).

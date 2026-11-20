@@ -521,6 +521,14 @@ export const messages = {
     'Em binários grandes, o analisador de switch do Ghidra dobra o tempo da análise e a leva para perto do teto. Sem ele, o código alcançado só por tabelas de salto (os casos de alguns switch) pode ficar sem função e sem pseudo-C: de 2% a 3% das funções nos medidos. O projeto (.gzf) pode ser reanalisado com ele no Ghidra local.',
     "On large binaries, Ghidra's switch analyzer doubles the analysis time and takes it close to the cap. Without it, code reached only through jump tables (the cases of some switches) may have no function and no pseudo-C: 2% to 3% of the functions in the ones measured. The project (.gzf) can be reanalyzed with it in a local Ghidra.",
   ],
+  bsimLabel: [
+    'Funções parecidas em outras amostras (BSim)',
+    'Similar functions in other samples (BSim)',
+  ],
+  bsimHelp: [
+    'O BSim do Ghidra compara as funções do autor (sem as de biblioteca) com as de todas as amostras já analisadas, pelo comportamento do código descompilado: acha a mesma função mesmo recompilada, em outra versão ou em outra arquitetura. A aba Relacionadas mostra as amostras com código em comum.',
+    "Ghidra's BSim compares the author's functions (without library ones) with those of every sample already analyzed, by the behavior of the decompiled code: it finds the same function even recompiled, in another version or another architecture. The Related tab shows the samples with shared code.",
+  ],
   fidLabel: ['Funções de biblioteca', 'Library functions'],
   fidCount: ['{n} reconhecida(s) pelo Function ID', '{n} recognized by Function ID'],
   fidHelp: [

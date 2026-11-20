@@ -95,6 +95,38 @@ const summarySchema = z.object({
   thunks: z.number().int().nonnegative(),
   // Function ID (item 25): as funcoes de biblioteca reconhecidas e de quais bibliotecas.
   libraryFunctions: z.number().int().nonnegative().optional(),
+  // BSim (item 23): funcoes parecidas em outras amostras, pelo SHA-256 delas.
+  bsim: z
+    .object({
+      queried: z.number().int().nonnegative().optional(),
+      inserted: z.number().int().nonnegative().optional(),
+      shared: z
+        .array(z.object({ sha256: z.string().max(64), functions: z.number().int().nonnegative() }))
+        .max(50)
+        .optional(),
+      matches: z
+        .array(
+          z.object({
+            function: z.string().max(300),
+            address: z.string().max(40),
+            matches: z
+              .array(
+                z.object({
+                  sha256: z.string().max(64),
+                  function: z.string().max(300),
+                  address: z.string().max(40),
+                  similarity: z.number(),
+                  significance: z.number(),
+                }),
+              )
+              .max(10),
+          }),
+        )
+        .max(300)
+        .optional(),
+      error: z.string().max(300).optional(),
+    })
+    .optional(),
   libraries: z
     .array(z.object({ name: z.string().max(120), functions: z.number().int().nonnegative() }))
     .max(30)

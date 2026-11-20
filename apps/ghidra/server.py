@@ -15,6 +15,7 @@ container): mudou um, confira o outro.
 import base64
 import gzip
 import hmac
+import hashlib
 import json
 import os
 import select
@@ -87,6 +88,32 @@ PACK_TIMEOUT = 300
 LIGHT_BYTES = int(os.environ.get("GHIDRA_LIGHT_MB", "5")) * 1024 * 1024
 LIGHT_ANALYZERS = ["Decompiler Switch Analysis"]
 FID_DIR = os.environ.get("GHIDRA_FID_DIR", "/opt/fid")
+# BSim (item 23): a base H2 fica no volume /bsim, que sobrevive a troca de container.
+BSIM_DIR = os.environ.get("GHIDRA_BSIM_DIR", "/bsim")
+BSIM_TIMEOUT = int(os.environ.get("GHIDRA_BSIM_TIMEOUT_S", "300"))
+
+
+def bsim_pass(project, work, data):
+    """Funcoes parecidas em outras amostras e as assinaturas desta (BSimDeepLook.java). Um passo a
+    parte: falhar aqui nao derruba a analise. None quando o volume nao existe."""
+    if not os.path.isdir(BSIM_DIR) or not os.access(BSIM_DIR, os.W_OK):
+        return None
+    out = os.path.join(work, "bsim.json")
+    logfile = os.path.join(work, "passo3.log")
+    deadline_ms = int((time.time() + BSIM_TIMEOUT - 30) * 1000)
+    error = run(
+        headless(
+            project, "-process", "amostra", "-noanalysis", "-postScript", "BSimDeepLook.java",
+            os.path.join(BSIM_DIR, "deeplook"), out, hashlib.sha256(data).hexdigest(), str(deadline_ms),
+        ),
+        BSIM_TIMEOUT,
+        logfile,
+    ) or script_error(logfile)
+    if error or not os.path.exists(out):
+        log(f"BSim: {error or 'sem resultado'}")
+        return {"error": (error or "o BSim não produziu o resultado")[:300]}
+    with open(out, encoding="utf-8") as f:
+        return json.load(f)
 
 STARTED = time.monotonic()
 _busy = threading.Lock()
@@ -245,6 +272,9 @@ def analyze(data):
             else:
                 with open(gzf, "rb") as f:
                     gzf_b64 = base64.b64encode(f.read()).decode()
+        bsim = bsim_pass(project, work, data)
+        if bsim is not None:
+            summary["bsim"] = bsim
         # Depois da segunda passada, com o Java fora da memoria.
         pseudo_b64, pseudo_error = pack_pseudo(pseudo)
         return {

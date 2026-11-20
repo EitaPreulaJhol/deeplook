@@ -59,6 +59,8 @@ export function describeReason(reason: RelatedReason): string {
       return t('rRich', { hash: reason.detail.slice(0, 12) });
     case 'SIMILAR_PAGE':
       return t('rSimilarPage', { score: reason.detail });
+    case 'SHARED_CODE':
+      return t('rSharedCode', { n: reason.detail });
     case 'SAME_PIVOT':
       return describePivot(reason.detail.pivot, reason.detail.value, reason.detail.distance);
   }

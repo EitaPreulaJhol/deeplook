@@ -242,6 +242,24 @@ export interface GhidraInfo {
       entryPoint: string | null;
       functions: number;
       thunks: number;
+      /** BSim (item 23): funcoes parecidas em outras amostras, pelo SHA-256 delas. */
+      bsim?: {
+        queried?: number;
+        inserted?: number;
+        shared?: { sha256: string; functions: number }[];
+        matches?: {
+          function: string;
+          address: string;
+          matches: {
+            sha256: string;
+            function: string;
+            address: string;
+            similarity: number;
+            significance: number;
+          }[];
+        }[];
+        error?: string;
+      };
       /** Function ID (item 25). */
       libraryFunctions?: number;
       libraries?: { name: string; functions: number }[];
@@ -1679,6 +1697,8 @@ export type RelatedReason =
   /** Mesmo Rich header (item 7.1). */
   | { kind: 'SAME_RICH'; detail: string }
   | { kind: 'SIMILAR_PAGE'; detail: number }
+  /** Funcoes parecidas pelo BSim do Ghidra (item 23). */
+  | { kind: 'SHARED_CODE'; detail: number }
   /** Mesmo pivo: PDB, authentihash... (plans/analise-estatica-ampliada). */
   | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string; distance?: number } };
 

@@ -707,6 +707,12 @@ Detalhes:
   MinGW-w64 (runtime, libgcc e zlib, de 32 e de 64 bits, dos pacotes do Debian). As funções dessas
   bibliotecas ganham o nome certo e somem quando você oculta as de biblioteca; a ficha mostra quantas
   foram reconhecidas e de quais bibliotecas. O build das bases leva uns 10 minutos e fica no cache.
+- **BSim (código parecido em outras amostras):** cada análise grava as assinaturas das funções do
+  autor (sem as de biblioteca) numa base H2 no volume `ghidra-bsim` e, antes, consulta as de todas
+  as amostras já analisadas. A ficha mostra as funções parecidas (com a similaridade), e a aba
+  Relacionadas ganha **Código em comum** (N funções), nos dois sentidos. Acha a mesma função
+  recompilada, em outra versão ou em outra arquitetura. Reanalisar troca as assinaturas da amostra;
+  as de amostras apagadas ficam na base (são só assinaturas de funções), mas não aparecem.
 
 ## Regras YARA
 

@@ -439,6 +439,10 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=1g,noexec,nosuid,nodev
+    # A base do BSim (item 23): as assinaturas das funcoes de cada amostra analisada, para achar
+    # codigo parecido nas outras. Sobrevive a troca de container a cada analise.
+    volumes:
+      - ghidra-bsim:/bsim
     # Medido: 700 MB num executavel pequeno. O teto cobre o heap (3 GB), o descompilador e o /tmp.
     mem_limit: ${GHIDRA_MEM_LIMIT:-6g}
     # O Java usa muitas threads (cada uma conta como processo).
@@ -818,6 +822,8 @@ volumes:
   api-tmp:
   # Regras do Suricata (ET Open): sobrevivem a troca de container a cada analise.
   suricata-rules:
+  # Base do BSim do Ghidra (item 23).
+  ghidra-bsim:
 
 networks:
   deeplook:

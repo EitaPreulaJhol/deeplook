@@ -705,6 +705,13 @@ Details:
   these libraries get the right name and disappear when you hide library functions; the record shows
   how many were recognized and from which libraries. Building the databases takes about 10 minutes
   and stays in the cache.
+- **BSim (similar code in other samples):** each analysis stores the signatures of the author's
+  functions (without library ones) in an H2 database on the `ghidra-bsim` volume and, before that,
+  queries those of every sample already analyzed. The record shows the similar functions (with the
+  similarity), and the Related tab gains **Shared code** (N functions), both ways. It finds the same
+  function recompiled, in another version or another architecture. Reanalyzing replaces the sample's
+  signatures; those of deleted samples stay in the database (only function signatures) but are not
+  shown.
 
 ## YARA rules
 

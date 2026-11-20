@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -238,6 +239,41 @@ async function main() {
       s.sensitiveFunctions >= 1,
     { status: r?.status, error: r?.error },
   );
+  // Item 23: BSim. O mesmo programa assinado acha as funcoes do original, e as Relacionadas ligam
+  // os dois nos dois sentidos.
+  const signedId = await upload(ana, 'assinado.exe', file('assinado.exe'));
+  await ask(ana, signedId);
+  await ghidraIdle();
+  const signed = ((await row(signedId)) as any)?.summary?.bsim;
+  const prog64Sha = createHash('sha256').update(file('prog64.exe')).digest('hex');
+  const sharedFromSigned = (signed?.shared ?? []).find(
+    (x: { sha256: string }) => x.sha256 === prog64Sha,
+  );
+  ok(
+    'BSim: o assinado acha as funções do original, com similaridade 1',
+    s?.bsim?.inserted > 0 &&
+      (sharedFromSigned?.functions ?? 0) >= 3 &&
+      signed.matches.some((m: { matches: { similarity: number }[] }) =>
+        m.matches.some((o) => o.similarity >= 0.99),
+      ),
+    { first: s?.bsim && { ...s.bsim, matches: undefined }, signed },
+  );
+  const relatedOf = async (id: string) =>
+    (
+      await app.inject({
+        method: 'GET',
+        url: `/api/entries/${id}/related`,
+        headers: { cookie: ana },
+      })
+    ).json().items as { entry: { id: string }; reasons: { kind: string; detail: unknown }[] }[];
+  const sharedCode = (items: Awaited<ReturnType<typeof relatedOf>>, id: string) =>
+    items.find((i) => i.entry.id === id)?.reasons.find((r) => r.kind === 'SHARED_CODE')?.detail;
+  ok(
+    'Relacionadas: código em comum nos dois sentidos',
+    Number(sharedCode(await relatedOf(signedId), inj)) >= 3 &&
+      Number(sharedCode(await relatedOf(inj), signedId)) >= 3,
+  );
+
   // Item 25: o runtime do MinGW-w64 reconhecido pelas bases do Function ID montadas no build.
   ok(
     'Function ID: funções do runtime do MinGW-w64 reconhecidas, com a biblioteca',

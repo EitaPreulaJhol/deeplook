@@ -209,7 +209,18 @@ function peFixtures() {
  * restart que troca o container a cada analise. A primeira construcao demora (o capa compila o
  * binary2strings; o Ghidra baixa 570 MB); as seguintes vem do cache do Docker.
  */
-async function startService({ name, dir, port, inner, env, memory, pids, tmpfs, extra = [] }) {
+async function startService({
+  name,
+  dir,
+  port,
+  inner,
+  env,
+  memory,
+  pids,
+  tmpfs,
+  extra = [],
+  volumes = [],
+}) {
   docker('build', '-q', '-t', `dl-test-${dir}`, join(API, '..', dir));
   quiet('rm', '-f', name);
   docker(
@@ -233,6 +244,7 @@ async function startService({ name, dir, port, inner, env, memory, pids, tmpfs, 
     '-e',
     `${env}=0123456789abcdef01`,
     ...extra.flatMap((e) => ['-e', e]),
+    ...volumes.flatMap((v) => ['-v', v]),
     '-p',
     `127.0.0.1:${port}:${inner}`,
     `dl-test-${dir}`,
@@ -256,8 +268,10 @@ const startCapa = () =>
     pids: 64,
     tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
   });
-const startGhidra = () =>
-  startService({
+const startGhidra = () => {
+  quiet('rm', '-f', GHIDRA);
+  quiet('volume', 'rm', '-f', `${GHIDRA}-bsim`);
+  return startService({
     name: GHIDRA,
     dir: 'ghidra',
     port: 53300,
@@ -266,7 +280,10 @@ const startGhidra = () =>
     memory: '6g',
     pids: 256,
     tmpfs: '/tmp:size=1g,noexec,nosuid,nodev',
+    // A base do BSim (item 23): volume novo a cada rodada.
+    volumes: [`${GHIDRA}-bsim:/bsim`],
   });
+};
 
 const startOletools = () =>
   startService({

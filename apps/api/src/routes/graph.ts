@@ -78,6 +78,8 @@ function reasonLabel(reason: RelatedReason): string | null {
       return 'mesmo Rich header';
     case 'SIMILAR_PAGE':
       return `página parecida ${reason.detail}%`;
+    case 'SHARED_CODE':
+      return 'código em comum';
     case 'SAME_PIVOT':
       switch (reason.detail.pivot) {
         case 'PDB_PATH':

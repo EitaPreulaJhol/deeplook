@@ -42,7 +42,9 @@ export type RelatedReason =
    * Mesmo pivo (EntryPivot: PDB, authentihash...; plans/analise-estatica-ampliada). `distance` nos
    * que se comparam por proximidade (bits do icone, distancia do telfhash); 0 e igual.
    */
-  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string; distance?: number } };
+  | { kind: 'SAME_PIVOT'; detail: { pivot: PivotKind; value: string; distance?: number } }
+  /** Funcoes parecidas pelo BSim do Ghidra (plans/analise-estatica-ampliada, item 23). */
+  | { kind: 'SHARED_CODE'; detail: number };
 
 /** Peso de cada motivo na ordenacao (arquivo identico pesa mais que uma tag). */
 function weight(reason: RelatedReason): number {
@@ -69,6 +71,9 @@ function weight(reason: RelatedReason): number {
       // Mesma aparencia em outro dominio e indicio forte de mesmo kit; no mesmo dominio, o
       // motivo do dominio ja pesa por si.
       return Math.round(reason.detail * 0.6);
+    case 'SHARED_CODE':
+      // Cada funcao em comum conta; 10 ou mais valem quase o mesmo codigo.
+      return 30 + 6 * Math.min(reason.detail, 10);
     case 'SAME_PIVOT': {
       const spec = PIVOT_KINDS[reason.detail.pivot];
       if (!spec) return 20;
@@ -406,6 +411,44 @@ export async function findRelated(id: string, minSimilarity = 70): Promise<Relat
       for (const s of similar) {
         const item = known.get(s.id);
         if (item) add(item, { kind: 'SIMILAR', detail: s.similarity });
+      }
+    }
+  }
+
+  // Codigo compartilhado pelo BSim (item 23), nos dois sentidos: as amostras que a analise desta
+  // achou e as que, analisadas depois, acharam esta.
+  if (entry.sha256) {
+    const counts = new Map<string, number>();
+    const own = await prisma.ghidraAnalysis.findUnique({
+      where: { entryId: entry.id },
+      select: { summary: true },
+    });
+    const ownShared =
+      (own?.summary as { bsim?: { shared?: { sha256: string; functions: number }[] } } | null)?.bsim
+        ?.shared ?? [];
+    for (const s of ownShared)
+      counts.set(s.sha256, Math.max(counts.get(s.sha256) ?? 0, s.functions));
+    const reverse = await prisma.$queryRaw<{ sha256: string | null; functions: number }[]>`
+      SELECT e."sha256", (item->>'functions')::int AS functions
+      FROM "GhidraAnalysis" g
+      JOIN "Entry" e ON e."id" = g."entryId"
+      CROSS JOIN LATERAL jsonb_array_elements(g."summary"->'bsim'->'shared') AS item
+      WHERE g."summary"->'bsim'->'shared' @> ${JSON.stringify([{ sha256: entry.sha256 }])}::jsonb
+        AND item->>'sha256' = ${entry.sha256}
+      LIMIT ${CANDIDATES}`;
+    for (const r of reverse) {
+      if (r.sha256) counts.set(r.sha256, Math.max(counts.get(r.sha256) ?? 0, r.functions));
+    }
+    counts.delete(entry.sha256);
+    if (counts.size) {
+      const others = await prisma.entry.findMany({
+        where: { id: { not: entry.id }, deletedAt: null, sha256: { in: [...counts.keys()] } },
+        include: listInclude,
+        take: CANDIDATES,
+      });
+      for (const item of others) {
+        const n = counts.get(item.sha256 ?? '');
+        if (n) add(item, { kind: 'SHARED_CODE', detail: n });
       }
     }
   }

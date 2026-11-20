@@ -183,6 +183,24 @@ export function GhidraSection({ entryId, canTriage }: { entryId: string; canTria
                 )}
               </HpsmReadonly>
             </HpsmField>
+            {s.bsim?.matches && s.bsim.matches.length > 0 && (
+              <HpsmField label={t('bsimLabel')} wide help={t('bsimHelp')}>
+                <ul className="dl-die-list">
+                  {s.bsim.matches.slice(0, 20).map((m) => (
+                    <li key={m.address}>
+                      <code>{m.function}</code> →{' '}
+                      {m.matches
+                        .slice(0, 3)
+                        .map(
+                          (o) =>
+                            `${o.function} (${o.sha256.slice(0, 12)}…, ${Math.round(o.similarity * 100)}%)`,
+                        )
+                        .join(' · ')}
+                    </li>
+                  ))}
+                </ul>
+              </HpsmField>
+            )}
             {s.libraryFunctions !== undefined && (
               <HpsmField label={t('fidLabel')} help={t('fidHelp')}>
                 <HpsmReadonly>
