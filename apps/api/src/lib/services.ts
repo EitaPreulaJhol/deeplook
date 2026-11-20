@@ -9,6 +9,7 @@ import './dotnet';
 import './jar';
 import './jsdeob';
 import './metadata';
+import './pydec';
 
 export {
   enqueueService,

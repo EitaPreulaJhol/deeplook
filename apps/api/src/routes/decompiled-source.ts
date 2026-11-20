@@ -10,6 +10,7 @@ import { isAnalyst, requireUser } from '../lib/auth';
 import { dotnetSource, dotnetSources } from '../lib/dotnet';
 import { jarSource, jarSources } from '../lib/jar';
 import { prisma } from '../lib/prisma';
+import { pydecSource, pydecSources } from '../lib/pydec';
 import { ZipWriter } from '../lib/zip-writer';
 
 /**
@@ -18,7 +19,7 @@ import { ZipWriter } from '../lib/zip-writer';
  */
 interface SourceRoutes {
   /** Parte da URL: /api/entries/:id/<slug>/source. */
-  slug: 'dotnet' | 'jar';
+  slug: 'dotnet' | 'jar' | 'pydec';
   source: (entryId: string, path: string) => Promise<string | null>;
   sources: (entryId: string) => Promise<Record<string, string> | null>;
   /** O que a auditoria registra no download. */
@@ -113,4 +114,12 @@ export const jarRoutes = (app: FastifyInstance) =>
     source: jarSource,
     sources: jarSources,
     detail: 'código Java descompilado (.zip)',
+  });
+
+export const pydecRoutes = (app: FastifyInstance) =>
+  sourceRoutes(app, {
+    slug: 'pydec',
+    source: pydecSource,
+    sources: pydecSources,
+    detail: 'código Python descompilado (.zip)',
   });

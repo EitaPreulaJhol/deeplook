@@ -1028,6 +1028,24 @@ analista na seção **Código Java (CFR)** da ficha.
 - O CFR é atualizado à mão (o JAR do Maven Central, com a versão e o SHA-256 em
   `apps/jarcfr/Dockerfile`).
 
+## Código Python (pycdc)
+
+O serviço **`pydec`** roda o pycdc e o pycdas (Decompyle++, GPL-3.0, isolados num serviço próprio)
+num contêiner sem rede e sem root, com a raiz somente leitura e um contêiner por análise. Todo `.pyc`
+e todo PYZ do PyInstaller vão sozinhos para a fila; o desempacotador do PyInstaller entrega o script
+de entrada e o PYZ como filhas.
+
+- **PYZ:** os módulos do autor, sem a biblioteca padrão (até 150).
+- **O que o pycdc não segue** (comum do Python 3.11 em diante, e laços em algumas versões): o fonte
+  parcial vem com o disassembly do pycdas (`<módulo>.pycdas.txt`).
+- **PyArmor** é reconhecido e dito: o bytecode real vai cifrado e não descompila. O PYZ cifrado do
+  PyInstaller também.
+- **Nuitka, py2exe e cx_Freeze** aparecem como aviso na análise do executável: o Nuitka não tem
+  bytecode; o do py2exe está no recurso `PYTHONSCRIPT` (que a lista de recursos baixa); o do cx_Freeze
+  fica no `library.zip`.
+- O fonte fica no armazenamento, como o do .NET e o do Java (por módulo na tela e o projeto em ZIP),
+  e passa pela análise de scripts no sabor Python, que vira a análise de scripts da amostra.
+
 ## Metadados (ExifTool)
 
 A rota `/metadata` do serviço `oletools` roda o ExifTool (o do Debian, com o `Archive::Zip` para o
@@ -1644,6 +1662,7 @@ COOKIE_SECURE=true
 | `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | maior assembly, teto de uma análise, teto do ILSpy e memória do contêiner | `30` / `240` / `200` / `2g` |
 | `JAR_URL` / `JAR_TOKEN` | serviço de descompilação de Java (CFR); URL vazia desliga | `http://jar:4000` / — |
 | `JSDEOB_URL` / `JSDEOB_TOKEN` | serviço de desofuscação de JavaScript (webcrack); URL vazia desliga | `http://jsdeob:4100` / — |
+| `PYDEC_URL` / `PYDEC_TOKEN` | serviço de descompilação de Python (pycdc); URL vazia desliga | `http://pydec:4200` / — |
 | `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | maior JAR, teto de uma análise, teto do CFR e memória do contêiner | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | dump de memória: teto por processo (`0` desliga), processos por captura, espera depois da execução automática | `512` / `4` / `120` |
 | `LLM_PROVIDER` | rascunho do relatório por IA: `anthropic`, `openai` (servidor compatível) ou vazio (desligado) | — |

@@ -15,7 +15,10 @@ export async function channelsOf(entryId: string): Promise<Channel[] | null> {
       staticInfo: true,
       capaAnalysis: { select: { status: true, floss: true } },
       serviceAnalyses: {
-        where: { status: 'DONE', kind: { in: ['DOTNET', 'JAR', 'EMULATION', 'CONFIG'] } },
+        where: {
+          status: 'DONE',
+          kind: { in: ['DOTNET', 'JAR', 'PYDEC', 'EMULATION', 'CONFIG'] },
+        },
         select: { kind: true, result: true },
       },
     },
@@ -37,7 +40,7 @@ export async function channelsOf(entryId: string): Promise<Channel[] | null> {
   for (const a of entry.serviceAnalyses) {
     const result = a.result as Record<string, unknown> | null;
     if (!result) continue;
-    if (a.kind === 'DOTNET' || a.kind === 'JAR') {
+    if (a.kind === 'DOTNET' || a.kind === 'JAR' || a.kind === 'PYDEC') {
       lists.push((result.channels as Channel[] | undefined) ?? []);
     } else if (a.kind === 'EMULATION') {
       const strings = (result.strings as (string | null)[] | undefined) ?? [];

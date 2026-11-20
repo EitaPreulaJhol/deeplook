@@ -144,6 +144,7 @@ export const messages = {
   chFromScript: ['camada de script', 'script layer'],
   chFromDotnet: ['código .NET', '.NET code'],
   chFromJar: ['código Java', 'Java code'],
+  chFromPython: ['código Python', 'Python code'],
   chFromEmulation: ['emulação', 'emulation'],
   chFromConfig: ['configuração (CAPE)', 'configuration (CAPE)'],
   lolTitle: ['Abuso conhecido', 'Known abuse'],
@@ -1333,6 +1334,20 @@ export const messages = {
   jarClasses: ['{n} classe(s)', '{n} class(es)'],
   jarAgent: ['Agente Java', 'Java agent'],
   jarTypes: ['Classes ({n})', 'Classes ({n})'],
+  pyTitle: ['Código Python (pycdc)', 'Python code (pycdc)'],
+  pyHelp: [
+    'O pycdc descompila o bytecode Python (o .pyc solto ou os módulos do PYZ do PyInstaller, sem a biblioteca padrão). Onde ele para no meio (comum do Python 3.11 em diante), o fonte parcial vem com o disassembly do pycdas. O PyArmor é reconhecido: o bytecode real vai cifrado. Nada é executado.',
+    'pycdc decompiles Python bytecode (a loose .pyc or the modules of a PyInstaller PYZ, without the standard library). Where it stops midway (common from Python 3.11 on), the partial source comes with the pycdas disassembly. PyArmor is recognized: the real bytecode is encrypted. Nothing is executed.',
+  ],
+  pyNotYet: ['Ainda não descompilado.', 'Not decompiled yet.'],
+  pyOff: [
+    'A descompilação de Python está desligada (PYDEC_URL vazio).',
+    'Python decompilation is off (PYDEC_URL empty).',
+  ],
+  pyModule: ['Bytecode', 'Bytecode'],
+  pyModules: ['{n} módulo(s)', '{n} module(s)'],
+  pyTypes: ['Módulos ({n})', 'Modules ({n})'],
+  pyFilter: ['Filtrar módulos', 'Filter modules'],
   jarFilter: ['Filtrar classes', 'Filter classes'],
   jarPick: ['Escolha uma classe para ver o código.', 'Pick a class to see the code.'],
   // ---- Formatos de entrega (plans/caca-e-formatos, item 4)

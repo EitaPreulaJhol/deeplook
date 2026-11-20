@@ -24,6 +24,7 @@ export const QUEUE_IDS = [
   'jar',
   'jsdeob',
   'metadata',
+  'pydec',
   'suricata',
   'memdump',
 ] as const;
@@ -37,6 +38,7 @@ const SERVICE_QUEUES: Record<ServiceKind, QueueId> = {
   JAR: 'jar',
   JSDEOB: 'jsdeob',
   METADATA: 'metadata',
+  PYDEC: 'pydec',
 };
 /** A fila de um tipo de analise de servico (emulacao, Android, configuracao, .NET, Java). */
 export const serviceQueue = (kind: ServiceKind): QueueId => SERVICE_QUEUES[kind];

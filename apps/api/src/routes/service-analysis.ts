@@ -20,6 +20,7 @@ const KINDS: Record<string, ServiceKind> = {
   jar: 'JAR',
   jsdeob: 'JSDEOB',
   metadata: 'METADATA',
+  pydec: 'PYDEC',
 };
 
 /** Opcoes do pedido: so a emulacao tem (shellcode e a arquitetura). */

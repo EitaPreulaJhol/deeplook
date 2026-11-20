@@ -355,6 +355,7 @@ export async function startServiceQueues(log: typeof logger): Promise<void> {
     'JAR',
     'JSDEOB',
     'METADATA',
+    'PYDEC',
   ] as const) {
     registerQueueWaker(serviceQueue(kind), () => wake(kind));
   }

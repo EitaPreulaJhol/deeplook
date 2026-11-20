@@ -47,7 +47,10 @@ export async function getSources(key: string): Promise<Record<string, string> | 
 }
 
 /** O objeto do fonte de uma analise de servico (a lixeira apaga junto com a amostra). */
-export async function sourceKeysOf(entryId: string, kind: 'DOTNET' | 'JAR'): Promise<string[]> {
+export async function sourceKeysOf(
+  entryId: string,
+  kind: 'DOTNET' | 'JAR' | 'PYDEC',
+): Promise<string[]> {
   const row = await prisma.serviceAnalysis.findUnique({
     where: { entryId_kind: { entryId, kind } },
     select: { result: true },

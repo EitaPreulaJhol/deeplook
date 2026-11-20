@@ -1023,6 +1023,25 @@ classes can be requested by an analyst in the record's **Java code (CFR)** secti
 - CFR is upgraded by hand (the Maven Central JAR, with the version and the SHA-256 in
   `apps/jarcfr/Dockerfile`).
 
+## Python code (pycdc)
+
+The **`pydec`** service runs pycdc and pycdas (Decompyle++, GPL-3.0, isolated in their own service)
+in a container with no network and no root, a read-only root and one container per analysis. Every
+`.pyc` and every PyInstaller PYZ joins the queue on its own; the PyInstaller unpacker delivers the
+entry script and the PYZ as children.
+
+- **PYZ:** the author's modules, without the standard library (up to 150).
+- **What pycdc cannot follow** (common from Python 3.11 on, and loops in some versions): the partial
+  source comes with the pycdas disassembly (`<module>.pycdas.txt`).
+- **PyArmor** is recognized and stated: the real bytecode is encrypted and does not decompile. So is
+  PyInstaller's encrypted PYZ.
+- **Nuitka, py2exe and cx_Freeze** show up as a warning in the executable analysis: Nuitka has no
+  bytecode; py2exe's is in the `PYTHONSCRIPT` resource (which the resource list downloads);
+  cx_Freeze's is in `library.zip`.
+- The source is kept in storage, like .NET and Java (per module on screen and the project as a ZIP),
+  and goes through the Python flavor of the script analysis, which becomes the sample's script
+  analysis.
+
 ## Metadata (ExifTool)
 
 The `oletools` service's `/metadata` route runs ExifTool (Debian's, with `Archive::Zip` for modern
@@ -1631,6 +1650,7 @@ COOKIE_SECURE=true
 | `DOTNET_MAX_MB` / `DOTNET_TIMEOUT_S` / `DOTNET_DECOMPILE_S` / `DOTNET_MEM_LIMIT` | largest assembly, ceiling of one analysis, ILSpy ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `JAR_URL` / `JAR_TOKEN` | Java decompilation service (CFR); empty URL turns it off | `http://jar:4000` / — |
 | `JSDEOB_URL` / `JSDEOB_TOKEN` | JavaScript deobfuscation service (webcrack); empty URL turns it off | `http://jsdeob:4100` / — |
+| `PYDEC_URL` / `PYDEC_TOKEN` | Python decompilation service (pycdc); empty URL turns it off | `http://pydec:4200` / — |
 | `JAR_MAX_MB` / `JAR_TIMEOUT_S` / `JAR_DECOMPILE_S` / `JAR_MEM_LIMIT` | largest JAR, ceiling of one analysis, CFR ceiling and container memory | `30` / `240` / `200` / `2g` |
 | `SANDBOX_MEMDUMP_MAX_MB` / `SANDBOX_MEMDUMP_MAX_PROCESSES` / `SANDBOX_MEMDUMP_DELAY_S` | memory dump: cap per process (`0` turns it off), processes per capture, wait after the automatic run | `512` / `4` / `120` |
 | `LLM_PROVIDER` | AI report draft: `anthropic`, `openai` (compatible server) or empty (off) | — |

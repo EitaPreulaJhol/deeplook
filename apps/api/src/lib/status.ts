@@ -68,6 +68,7 @@ export interface StatusCheck {
     | 'jar'
     | 'jsdeob'
     | 'metadata'
+    | 'pydec'
     | 'ai'
     | 'backup'
     | 'config';
@@ -767,6 +768,12 @@ const SERVICE_CHECKS = {
     name: 'Metadados (ExifTool)',
     summary: 'desligada (OLETOOLS_URL vazio)',
   },
+  // Descompilacao de bytecode Python (item 15).
+  PYDEC: {
+    id: 'pydec',
+    name: 'Descompilação de Python (pycdc)',
+    summary: 'desligada (PYDEC_URL vazio)',
+  },
 } as const satisfies Record<ServiceKind, { id: StatusCheck['id']; name: string; summary: string }>;
 
 async function serviceCheck(kind: ServiceKind): Promise<StatusCheck> {
@@ -1259,6 +1266,7 @@ export async function systemStatus() {
     serviceCheck('JAR'),
     serviceCheck('JSDEOB'),
     serviceCheck('METADATA'),
+    serviceCheck('PYDEC'),
     aiCheck(),
     networkCaptureCheck(),
     suricataCheck(),

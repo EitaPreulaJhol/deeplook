@@ -1849,6 +1849,8 @@ enum ServiceKind {
   JSDEOB
   /// Metadados com o ExifTool, pela rota /metadata do oletools (item 19).
   METADATA
+  /// Descompilacao de bytecode Python com o pycdc (item 15).
+  PYDEC
 }
 
 enum ServiceAnalysisStatus {

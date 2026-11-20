@@ -22,9 +22,9 @@ import { analyzeResources, type PeResource } from './pe-resources';
  * Versao da analise de PE gravada em `pe.rev`: o pe-backfill reanalisa em segundo plano o que foi
  * analisado numa versao anterior (1: item 7.1; 2: diretorio de debug e ferramentas do Rich header,
  * plans/analise-estatica-ampliada, item 1; 3: recursos .NET, item 30; 4: authentihash, exphash e
- * hash do icone, item 2).
+ * hash do icone, item 2; 5: Nuitka, py2exe e cx_Freeze, item 15).
  */
-export const PE_REVISION = 4;
+export const PE_REVISION = 5;
 
 const MAX_DLLS = 64;
 const MAX_FUNCTIONS = 4096;
@@ -257,6 +257,25 @@ function ordinalName(dll: string, ordinal: number): string {
 }
 
 /** imphash: `dll.funcao` em minusculas, na ordem do arquivo, como o `get_imphash` do pefile. */
+/**
+ * Executavel feito de um programa Python (plans/analise-estatica-ampliada, item 15) por ferramenta
+ * que o desempacotador nao abre: o analista sabe onde esta o codigo (ou que nao ha bytecode).
+ */
+export const PYTHON_PACKERS = {
+  nuitka: 'Compilado com Nuitka: o Python vira C, não há bytecode para descompilar.',
+  py2exe:
+    'Empacotado com py2exe: o bytecode fica no recurso PYTHONSCRIPT (baixe-o pela lista de recursos).',
+  cxfreeze: 'Empacotado com cx_Freeze: os módulos ficam no library.zip, ao lado do executável.',
+} as const;
+
+export function pythonPacker(buf: Buffer): keyof typeof PYTHON_PACKERS | null {
+  const has = (s: string) => buf.includes(s, 0, 'latin1');
+  if (has('NUITKA_ONEFILE_PARENT') || has('__nuitka_') || has('Nuitka')) return 'nuitka';
+  if (has('PYTHONSCRIPT') && (has('PY2EXE_VERBOSE') || has('py2exe'))) return 'py2exe';
+  if (has('cx_Freeze') || (has('__startup__') && has('cx_'))) return 'cxfreeze';
+  return null;
+}
+
 export function imphash(imports: { dll: string; names: string[] }[]): string | null {
   const parts: string[] = [];
   for (const { dll, names } of imports) {
@@ -725,6 +744,8 @@ export function parsePe(buf: Buffer, filename?: string | null): PeInfo | null {
   }
 
   const alerts: PeAlert[] = [];
+  const python = pythonPacker(buf);
+  if (python) alerts.push({ level: 'info', text: PYTHON_PACKERS[python] });
   if (signature?.error) {
     alerts.push({
       level: 'medium',

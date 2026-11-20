@@ -11,6 +11,7 @@ import type {
   JarResult,
   JsdeobResult,
   MetadataResult,
+  PydecResult,
   ServiceAnalysisInfo,
   ServiceKindId,
 } from '../api/types';
@@ -484,7 +485,7 @@ export function ConfigSection({ entryId, canTriage }: { entryId: string; canTria
 const TYPES_SHOWN = 300;
 
 /** Os dois servicos de descompilacao (.NET e Java) mostram o fonte do mesmo jeito. */
-type DecompiledSlug = 'dotnet' | 'jar';
+type DecompiledSlug = 'dotnet' | 'jar' | 'pydec';
 type Decompiled = Pick<
   DotnetResult,
   'types' | 'findings' | 'obfuscators' | 'resources' | 'truncated'
@@ -550,6 +551,7 @@ function DecompiledBody({
   extra?: ReactNode;
 }) {
   const jar = slug === 'jar';
+  const py = slug === 'pydec';
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState<string | null>(
     () =>
@@ -617,15 +619,19 @@ function DecompiledBody({
           </ul>
         </HpsmField>
       )}
-      <HpsmField label={t(jar ? 'jarTypes' : 'netTypes', { n: r.types.length })} wide top>
+      <HpsmField
+        label={t(py ? 'pyTypes' : jar ? 'jarTypes' : 'netTypes', { n: r.types.length })}
+        wide
+        top
+      >
         {r.truncated && <HpsmMessage kind="warning">{t('netTruncated')}</HpsmMessage>}
         <div className="dl-dotnet">
           <div className="dl-dotnet__types">
             <input
               type="search"
               className="dl-dotnet__filter"
-              aria-label={t(jar ? 'jarFilter' : 'netFilter')}
-              placeholder={t(jar ? 'jarFilter' : 'netFilter')}
+              aria-label={t(py ? 'pyFilter' : jar ? 'jarFilter' : 'netFilter')}
+              placeholder={t(py ? 'pyFilter' : jar ? 'jarFilter' : 'netFilter')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
@@ -821,6 +827,36 @@ export function MetadataSection({ entryId, canTriage }: { entryId: string; canTr
             </details>
           ))}
         </>
+      )}
+    />
+  );
+}
+
+/** Bytecode Python descompilado pelo pycdc (item 15); o que nao descompila vem com o pycdas. */
+export function PydecSection({ entryId, canTriage }: { entryId: string; canTriage: boolean }) {
+  return (
+    <ServiceSection<PydecResult>
+      kind="pydec"
+      entryId={entryId}
+      canTriage={canTriage}
+      title={t('pyTitle')}
+      help={t('pyHelp')}
+      notYet={t('pyNotYet')}
+      off={t('pyOff')}
+      body={(r) => (
+        <DecompiledBody
+          r={r}
+          entryId={entryId}
+          slug="pydec"
+          moduleLabel={t('pyModule')}
+          module={[
+            r.module.kind === 'pyz' ? 'PYZ' : '.pyc',
+            r.module.pythonVersion && `Python ${r.module.pythonVersion}`,
+            t('pyModules', { n: r.module.modules }),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        />
       )}
     />
   );

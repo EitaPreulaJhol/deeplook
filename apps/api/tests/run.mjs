@@ -27,6 +27,7 @@ const EXTRACT = 'dl-extract';
 const DOTNET = 'dl-dotnet';
 const JAR = 'dl-jar';
 const JSDEOB = 'dl-jsdeob';
+const PYDEC = 'dl-pydec';
 
 const docker = (...args) => execFileSync('docker', args, { encoding: 'utf8', stdio: 'pipe' });
 const quiet = (...args) => spawnSync('docker', args, { encoding: 'utf8' });
@@ -331,6 +332,42 @@ const startDotnet = () =>
     tmpfs: '/tmp:size=512m,noexec,nosuid,nodev',
   });
 
+// Descompilacao de Python (pycdc; item 15).
+const startPydec = () =>
+  startService({
+    name: PYDEC,
+    dir: 'pydec',
+    port: 54300,
+    inner: 4200,
+    env: 'PYDEC_TOKEN',
+    memory: '1g',
+    pids: 64,
+    tmpfs: '/tmp:size=256m,noexec,nosuid,nodev',
+  });
+
+/**
+ * Bytecode Python de teste (item 15): os .pyc e o PYZ compilados das fontes de fixtures/py pelo
+ * Python 3.9, a versao que o pycdc le melhor (os de 3.11 em diante saem parciais). Em .tmp/py.
+ */
+function pyFixtures() {
+  const dir = join(TMP, 'py');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  docker(
+    'run',
+    '--rm',
+    '-u',
+    `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`,
+    '-v',
+    `${dir}:/out`,
+    '-v',
+    `${join(HERE, 'fixtures', 'py')}:/f:ro`,
+    'python:3.9-slim',
+    'python',
+    '/f/gen.py',
+  );
+}
+
 // Desofuscacao de JavaScript (webcrack no Node; item 20).
 const startJsdeob = () =>
   startService({
@@ -478,6 +515,10 @@ if (files.some((f) => f.includes('android'))) await startAndroid();
 if (files.some((f) => f.includes('extract'))) await startExtract();
 if (files.some((f) => f.includes('dotnet'))) await startDotnet();
 if (files.some((f) => f.includes('jar'))) await startJar();
+if (files.some((f) => f.includes('pydec'))) {
+  pyFixtures();
+  await startPydec();
+}
 if (files.some((f) => f.includes('jsdeob'))) await startJsdeob();
 
 let total = 0;
@@ -491,7 +532,7 @@ for (const file of files) {
 }
 if (clean) {
   quiet('rm', '-f', PG, MINIO, LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA, DOTNET);
-  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR, JSDEOB);
+  quiet('rm', '-f', EMULATE, ANDROID, EXTRACT, JAR, JSDEOB, PYDEC);
 } else quiet('rm', '-f', LDAP, CAPA, GHIDRA, UNPACK, OLETOOLS, SURICATA);
 console.log(
   bad.length

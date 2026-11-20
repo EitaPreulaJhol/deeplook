@@ -23,7 +23,7 @@ export type ChannelKind =
   | 'cloud-key';
 
 export type ChannelSource =
-  'strings' | 'script' | 'floss' | 'dotnet' | 'jar' | 'emulation' | 'config';
+  'strings' | 'script' | 'floss' | 'dotnet' | 'jar' | 'python' | 'emulation' | 'config';
 
 export interface Channel {
   kind: ChannelKind;

@@ -655,6 +655,14 @@ const AUTOIT_PE = 'PE em binário 0x';
 
 const URL_RE = /\bh(?:tt|xx)ps?:\/\/[^\s"'<>`)]{4,300}/gi;
 
+/**
+ * O resultado sem \u0000 (o Postgres recusa NUL em JSON): as camadas decodificadas trazem os bytes
+ * da amostra, e o carregador do PyArmor, por exemplo, decodifica para um texto com NUL.
+ */
+export function scriptForDb(info: ScriptInfo): ScriptInfo {
+  return JSON.parse(JSON.stringify(info).replaceAll('\\u0000', '')) as ScriptInfo;
+}
+
 /** Analisa o arquivo como script; null se nao for um script reconhecido. */
 export function analyzeScript(buf: Buffer, filename?: string | null): ScriptInfo | null {
   const text = asText(buf);

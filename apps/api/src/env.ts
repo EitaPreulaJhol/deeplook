@@ -312,6 +312,14 @@ const EnvSchema = z
       .default(''),
     JSDEOB_MAX_MB: z.coerce.number().int().min(1).max(50).default(5),
     JSDEOB_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(180),
+    /** Descompilacao de bytecode Python (item 15): servico pydec (pycdc, sem rede). */
+    PYDEC_URL: z.string().default(''),
+    PYDEC_TOKEN: z
+      .string()
+      .refine((t) => t === '' || t.length >= 16, 'use 16 caracteres ou mais')
+      .default(''),
+    PYDEC_MAX_MB: z.coerce.number().int().min(1).max(200).default(30),
+    PYDEC_REQUEST_TIMEOUT_S: z.coerce.number().int().min(30).default(300),
     /** Relatorio so e publicado com a aprovacao de outro analista (quatro olhos). */
     REPORT_REVIEW_REQUIRED: z.enum(['true', 'false']).default('false'),
     SANDBOX_CONSOLE_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -431,6 +439,7 @@ const KNOWN_SECRETS = new Set([
   'troque-este-token-do-dotnet',
   'troque-este-token-do-jar',
   'troque-este-token-do-jsdeob',
+  'troque-este-token-do-pydec',
 ]);
 /**
  * Senhas do banco e do MinIO que o compose e o .env.example trazem: publicas tambem. Com elas,
@@ -466,6 +475,7 @@ const refused = [
   env.DOTNET_URL && KNOWN_SECRETS.has(env.DOTNET_TOKEN) && 'DOTNET_TOKEN',
   env.JAR_URL && KNOWN_SECRETS.has(env.JAR_TOKEN) && 'JAR_TOKEN',
   env.JSDEOB_URL && KNOWN_SECRETS.has(env.JSDEOB_TOKEN) && 'JSDEOB_TOKEN',
+  env.PYDEC_URL && KNOWN_SECRETS.has(env.PYDEC_TOKEN) && 'PYDEC_TOKEN',
   env.NETCAP_URL && KNOWN_SECRETS.has(env.NETCAP_TOKEN) && 'NETCAP_TOKEN',
   env.SURICATA_URL && KNOWN_SECRETS.has(env.SURICATA_TOKEN) && 'SURICATA_TOKEN',
   PUBLIC_DB_PASSWORDS.includes(databasePassword()) && 'POSTGRES_PASSWORD',

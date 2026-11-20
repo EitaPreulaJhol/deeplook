@@ -10,6 +10,7 @@ import { deleteGhidraProject, deleteGhidraPseudo } from '../lib/ghidra';
 import { jarKeysOf } from '../lib/jar';
 import { captureKeysOf } from '../lib/network-capture';
 import { prisma } from '../lib/prisma';
+import { pydecKeysOf } from '../lib/pydec';
 import { deleteStoredFile } from '../lib/retention';
 import { activeSessionForEntry } from '../lib/sandbox';
 import { artifactKeysOf } from '../lib/sandbox-artifacts';
@@ -157,6 +158,8 @@ export async function trashRoutes(app: FastifyInstance) {
         ...(await dotnetKeysOf(id)),
         // O fonte Java descompilado (CFR).
         ...(await jarKeysOf(id)),
+        // O fonte Python descompilado (pycdc).
+        ...(await pydecKeysOf(id)),
         ...(await captureKeysOf(id)),
         ...captures
           .flatMap((c) => [c.screenshotKey, c.htmlKey])

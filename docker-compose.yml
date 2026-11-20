@@ -217,6 +217,11 @@ services:
       JSDEOB_TOKEN: ${JSDEOB_TOKEN:-troque-este-token-do-jsdeob}
       JSDEOB_MAX_MB: ${JSDEOB_MAX_MB:-5}
       JSDEOB_REQUEST_TIMEOUT_S: ${JSDEOB_REQUEST_TIMEOUT_S:-180}
+      # Descompilacao de Python (item 15): o servico pydec abaixo; PYDEC_URL= desliga.
+      PYDEC_URL: ${PYDEC_URL-http://pydec:4200}
+      PYDEC_TOKEN: ${PYDEC_TOKEN:-troque-este-token-do-pydec}
+      PYDEC_MAX_MB: ${PYDEC_MAX_MB:-30}
+      PYDEC_REQUEST_TIMEOUT_S: ${PYDEC_REQUEST_TIMEOUT_S:-300}
       # Dump de memoria dos processos da amostra no sandbox (item 3): teto por processo (0 desliga),
       # processos por captura e espera depois da execucao automatica.
       SANDBOX_MEMDUMP_MAX_MB: ${SANDBOX_MEMDUMP_MAX_MB:-512}
@@ -595,6 +600,30 @@ services:
       # O assembly e o projeto descompilado ficam aqui durante a analise.
       - /tmp:size=512m,noexec,nosuid,nodev
     mem_limit: ${DOTNET_MEM_LIMIT:-2g}
+    pids_limit: 64
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - analysis
+
+  # Descompilacao de Python (plans/analise-estatica-ampliada, item 15): pycdc e pycdas (GPL-3.0), num
+  # servico proprio. So le o bytecode; nada e executado. Um container por analise.
+  pydec:
+    build:
+      context: ./apps/pydec
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      PYDEC_TOKEN: ${PYDEC_TOKEN:-troque-este-token-do-pydec}
+      PYDEC_MAX_MB: ${PYDEC_MAX_MB:-30}
+      PYDEC_TIMEOUT_S: ${PYDEC_TIMEOUT_S:-240}
+      PYDEC_RECYCLE: ${PYDEC_RECYCLE:-true}
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    mem_limit: ${PYDEC_MEM_LIMIT:-1g}
     pids_limit: 64
     cap_drop:
       - ALL

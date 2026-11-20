@@ -1214,7 +1214,17 @@ export interface SandboxProcess {
 /** Analise do oletools (GET /api/entries/:id/office; item 7.14). */
 /** Servicos novos (plans/novas-analises): GET /api/entries/:id/analyses/:kind. */
 export type ServiceKindId =
-  'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob' | 'metadata';
+  'emulation' | 'android' | 'config' | 'dotnet' | 'jar' | 'jsdeob' | 'metadata' | 'pydec';
+
+/** Bytecode Python descompilado pelo pycdc (item 15), no formato do Java. */
+export interface PydecResult extends Omit<JarResult, 'module'> {
+  module: {
+    kind: 'pyc' | 'pyz';
+    pythonVersion: string | null;
+    modules: number;
+    encrypted: number;
+  };
+}
 
 /** Metadados com o ExifTool (item 19). */
 export interface MetadataResult {
@@ -2100,6 +2110,7 @@ export type MonitorQueueId =
   | 'jar'
   | 'jsdeob'
   | 'metadata'
+  | 'pydec'
   | 'suricata'
   | 'memdump';
 

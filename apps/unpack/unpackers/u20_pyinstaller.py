@@ -1,5 +1,6 @@
-"""PyInstaller (pyinstxtractor, 2026.07): o script de entrada (.pyc) do programa empacotado. Os
-modulos da biblioteca padrao (centenas) ficam de fora: so o que o autor escreveu interessa."""
+"""PyInstaller (pyinstxtractor, 2026.07): o script de entrada (.pyc) do programa empacotado e o PYZ
+com os outros modulos (o pydec descompila os do autor; item 15). Os modulos da biblioteca padrao
+extraidos soltos (centenas) ficam de fora: so o que o autor escreveu interessa."""
 
 import os
 import re
@@ -44,6 +45,10 @@ def unpack(path, outdir, timeout):
             for p in files_under(extracted)
             if os.path.dirname(p) == extracted and p.endswith(".pyc")
         ]
+    # O PYZ (os outros modulos do programa, item 15): o servico pydec descompila o que nao for da
+    # biblioteca padrao.
+    for pyz in sorted(p for p in files_under(extracted) if p.endswith(".pyz") and os.path.dirname(p) == extracted):
+        files.append((os.path.relpath(pyz, extracted), pyz))
     if code != 0 and not files:
         raise UnpackError("o pyinstxtractor não extraiu o programa")
     note = f"Python {version.group(1)}" if version else None

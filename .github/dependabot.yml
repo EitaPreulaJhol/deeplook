@@ -124,6 +124,7 @@ updates:
       - /apps/dotnet
       - /apps/jarcfr
       - /apps/jsdeob
+      - /apps/pydec
     schedule:
       interval: weekly
       day: monday

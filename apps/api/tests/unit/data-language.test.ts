@@ -58,6 +58,10 @@ const FILES = [
   // Listas de abuso (item 4).
   'lol/index',
   'lol/lolbins',
+  // Servicos novos (itens 15, 19 e 20): pydec, metadados e jsdeob.
+  'pydec',
+  'metadata',
+  'jsdeob',
   // Formatos pequenos de entrega (item 12).
   'small-formats',
 ].map((name) => `src/lib/${name}.ts`);

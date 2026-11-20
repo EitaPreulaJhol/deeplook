@@ -33,6 +33,7 @@ export const HISTORY_EN: readonly (readonly [pt: string, en: string])[] = [
   ['pseudo-C do Ghidra (.c)', 'Ghidra pseudo-C (.c)'],
   ['código .NET descompilado (.zip)', 'decompiled .NET code (.zip)'],
   ['código Java descompilado (.zip)', 'decompiled Java code (.zip)'],
+  ['código Python descompilado (.zip)', 'decompiled Python code (.zip)'],
   ['sessões encerradas', 'sessions closed'],
   ['troca obrigatória no próximo login', 'change required at the next sign-in'],
   ['troca obrigatória (senha expirada)', 'change required (password expired)'],

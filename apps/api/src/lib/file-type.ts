@@ -54,6 +54,9 @@ export function detectType(buf: Buffer): DetectedType | null {
     if ((v >= 3000 && v < 4000) || (v >= 62000 && v < 62300))
       return t('pyc', 'Bytecode Python (.pyc)', ['pyc', 'pyo'], true);
   }
+  // PYZ do PyInstaller (item 15): "PYZ\0" + o magic do Python; os modulos do programa.
+  if (ascii(buf, 'PYZ\0') && buf.length >= 12 && buf[6] === 0x0d && buf[7] === 0x0a)
+    return t('pyz', 'Arquivo PYZ do PyInstaller', ['pyz'], true);
   if (ascii(buf, '%PDF-')) return t('pdf', 'Documento PDF', ['pdf']);
   if (startsWith(buf, [0x50, 0x4b, 0x03, 0x04])) {
     // ZIP: Office moderno e Java se reconhecem pelos nomes internos (sem descompactar).

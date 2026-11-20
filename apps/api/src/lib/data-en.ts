@@ -444,6 +444,41 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ],
   ['XLM resolvido executa: {0}', 'Resolved XLM runs: {0}'],
   ['URL nas fórmulas XLM resolvidas: {0}', 'URL in the resolved XLM formulas: {0}'],
+  // Servicos novos (plans/analise-estatica-ampliada, itens 15, 19 e 20).
+  ['Bundle do {0} com {1} módulo(s)', '{0} bundle with {1} module(s)'],
+  ['No código desofuscado: {0} ({1})', 'In the deobfuscated code: {0} ({1})'],
+  ['webcrack (JavaScript desofuscado)', 'webcrack (deobfuscated JavaScript)'],
+  [
+    'Modificado ({0}) antes de criado ({1}): datas editadas ou copiadas de um modelo',
+    'Modified ({0}) before created ({1}): dates edited or copied from a template',
+  ],
+  ['Data no futuro nos metadados: {0}', 'Future date in the metadata: {0}'],
+  [
+    'Protegido pelo PyArmor: o bytecode real vai cifrado e não descompila (só o carregador aparece)',
+    'Protected by PyArmor: the real bytecode is encrypted and does not decompile (only the loader shows)',
+  ],
+  ['PyInstaller (PYZ cifrado)', 'PyInstaller (encrypted PYZ)'],
+  [
+    'PYZ cifrado pelo PyInstaller: {0} módulo(s) não abriram',
+    'PYZ encrypted by PyInstaller: {0} module(s) did not open',
+  ],
+  [
+    '{0} módulo(s) não foram descompilados por completo: o disassembly vai junto',
+    '{0} module(s) were not fully decompiled: the disassembly comes along',
+  ],
+  ['No código Python: {0} ({1})', 'In the Python code: {0} ({1})'],
+  [
+    'Compilado com Nuitka: o Python vira C, não há bytecode para descompilar.',
+    'Compiled with Nuitka: the Python becomes C, there is no bytecode to decompile.',
+  ],
+  [
+    'Empacotado com py2exe: o bytecode fica no recurso PYTHONSCRIPT (baixe-o pela lista de recursos).',
+    'Packed with py2exe: the bytecode is in the PYTHONSCRIPT resource (download it from the resource list).',
+  ],
+  [
+    'Empacotado com cx_Freeze: os módulos ficam no library.zip, ao lado do executável.',
+    'Packed with cx_Freeze: the modules are in library.zip, next to the executable.',
+  ],
   [
     'VBA stomping: o código-fonte não bate com o compilado (o que roda não é o que se vê).',
     'VBA stomping: the source code does not match the compiled code (what runs is not what you see).',
@@ -705,6 +740,7 @@ export const DATA_EN: readonly (readonly [pt: string, en: string])[] = [
   ['Pacote Java (JAR)', 'Java package (JAR)'],
   ['Classe Java (.class)', 'Java class (.class)'],
   ['Extensão do Chrome (CRX)', 'Chrome extension (CRX)'],
+  ['Arquivo PYZ do PyInstaller', 'PyInstaller PYZ archive'],
   ['Pacote Electron (ASAR)', 'Electron package (ASAR)'],
   ['Bytecode Python (.pyc)', 'Python bytecode (.pyc)'],
   ['Pacote MSIX/AppX', 'MSIX/AppX package'],

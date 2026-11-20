@@ -18,7 +18,7 @@ import {
 import { type Pivot, replacePivots } from './pivots';
 import { prisma } from './prisma';
 import { s3 } from './s3';
-import { analyzeScript } from './script-analysis';
+import { analyzeScript, scriptForDb } from './script-analysis';
 import { applyTriageRulesQuietly } from './triage-rules';
 import { extractZipEntry, listZip, ZipError } from './zip';
 
@@ -270,7 +270,7 @@ async function recordMagika(
         data: {
           staticInfo: {
             ...(staticInfo as object),
-            script,
+            script: scriptForDb(script),
             scriptBy: 'magika',
           } as unknown as Prisma.InputJsonValue,
         },

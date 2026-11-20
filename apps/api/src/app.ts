@@ -28,7 +28,7 @@ import { channelRoutes } from './routes/channels';
 import { companyDomainRoutes } from './routes/company-domains';
 import { compareRoutes } from './routes/compare';
 import { dashboardRoutes } from './routes/dashboard';
-import { dotnetRoutes, jarRoutes } from './routes/decompiled-source';
+import { dotnetRoutes, jarRoutes, pydecRoutes } from './routes/decompiled-source';
 import { duplicateRoutes } from './routes/duplicates';
 import { entryRoutes } from './routes/entries';
 import { evidenceRoutes } from './routes/evidence';
@@ -151,6 +151,7 @@ export const ROUTES: ((app: FastifyInstance) => Promise<void>)[] = [
   sandboxHuntRoutes,
   dotnetRoutes,
   jarRoutes,
+  pydecRoutes,
   yaraRoutes,
   hexRoutes,
   // Recursos do executavel, baixados separados (plans/analise-estatica-ampliada, item 30).

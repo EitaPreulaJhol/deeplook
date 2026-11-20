@@ -566,6 +566,7 @@ export async function riskOf(entryId: string, lang: Lang = 'pt-BR'): Promise<Ris
     servicePending('DOTNET') && (en ? '.NET decompilation' : 'descompilação do .NET'),
     servicePending('JAR') && (en ? 'Java decompilation' : 'descompilação do Java'),
     // O webcrack entra no risco pela analise de scripts (a camada desofuscada), nao a parte.
+    servicePending('PYDEC') && (en ? 'Python decompilation' : 'descompilação do Python'),
     servicePending('JSDEOB') && (en ? 'JavaScript deobfuscation' : 'desofuscação do JavaScript'),
   ].filter((name): name is string => Boolean(name));
   return scoreRisk(

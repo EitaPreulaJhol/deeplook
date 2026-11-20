@@ -819,6 +819,7 @@ export const messages = {
   'q.jar': ['Java (CFR)', 'Java (CFR)'],
   'q.jsdeob': ['JavaScript (webcrack)', 'JavaScript (webcrack)'],
   'q.metadata': ['Metadados (ExifTool)', 'Metadata (ExifTool)'],
+  'q.pydec': ['Python (pycdc)', 'Python (pycdc)'],
   'q.suricata': ['Suricata (pcap)', 'Suricata (pcap)'],
   'q.memdump': ['Dump de memória', 'Memory dump'],
 } as const satisfies Pairs;

@@ -4,7 +4,7 @@ import { env } from '../env';
 import { Prisma } from '../generated/prisma/client';
 import { extractIocs } from './iocs';
 import { prisma } from './prisma';
-import { analyzeScript, type ScriptInfo } from './script-analysis';
+import { analyzeScript, scriptForDb, type ScriptInfo } from './script-analysis';
 import { registerService, type ServiceAlert } from './service-analysis';
 
 /**
@@ -107,7 +107,7 @@ async function persistJsdeob(entryId: string, r: JsdeobResult): Promise<JsdeobSt
       data: {
         staticInfo: {
           ...(entry?.staticInfo as object),
-          script: merged,
+          script: scriptForDb(merged),
           scriptBeforeWebcrack: before,
         } as unknown as Prisma.InputJsonValue,
       },

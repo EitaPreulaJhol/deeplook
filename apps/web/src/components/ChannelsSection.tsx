@@ -45,6 +45,7 @@ const SOURCES: Record<string, string> = localized(() => ({
   floss: 'FLOSS',
   dotnet: t('chFromDotnet'),
   jar: t('chFromJar'),
+  python: t('chFromPython'),
   emulation: t('chFromEmulation'),
   config: t('chFromConfig'),
 }));
