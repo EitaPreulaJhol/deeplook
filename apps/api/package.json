@@ -23,8 +23,8 @@
     "format:check": "prettier --check . --ignore-path ../../.prettierignore"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.9.0",
-    "@aws-sdk/client-s3": "^3.1170.0",
+    "@anthropic-ai/sdk": "^1.11.0",
+    "@aws-sdk/client-s3": "^3.1173.0",
     "@fastify/cookie": "^11.1.5",
     "@fastify/multipart": "^10.1.9",
     "@fastify/rate-limit": "^11.2.2",
@@ -36,7 +36,7 @@
     "bcryptjs": "^3.0.3",
     "fastify": "^5.12.8",
     "kaitai-struct": "0.11.0",
-    "ldapts": "9.2.0",
+    "ldapts": "9.3.1",
     "postal-mime": "^4.2.1",
     "prisma": "7.10.1",
     "qrcode": "^1.5.4",
