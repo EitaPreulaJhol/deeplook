@@ -6,4 +6,4 @@ speakeasy-emulator==2.1.0
 # O setuptools 81 corrige o jaraco.context 5.3.0 e o wheel 0.45.1 que a imagem base (79) traz
 # vendorizados (CVE-2026-23949 e CVE-2026-24049). O unicorn 2.x nao usa mais o pkg_resources,
 # entao o 82+ pode entrar quando o Dependabot o propuser.
-setuptools==81.0.0
+setuptools==84.2.1
