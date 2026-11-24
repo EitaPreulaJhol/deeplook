@@ -10,7 +10,11 @@ x-logging: &default-logging
 
 services:
   db:
-    image: postgres:16-alpine@sha256:f377d590e5474681d4d7838635031a2b50647923b7abfa803ce9b5ff35d5c663
+    # Base oficial pinada por digest + apk upgrade na montagem (apps/db): o libxml2 2.13.9-r3
+    # saiu no Alpine 3.24 em 20/11, e o rebuild oficial do Postgres de 22/11 ainda trazia o r2.
+    # Esperar o upstream deixaria o Trivy semanal vermelho sem acao possivel do repositorio.
+    build:
+      context: ./apps/db
     restart: unless-stopped
     logging: *default-logging
     # So o que o entrypoint precisa (medido, item 6.20): ajustar a posse da pasta de dados e trocar
@@ -312,7 +316,7 @@ services:
   # Antivirus ClamAV: clamd na rede interna (porta 3310, sem expor para fora) e o
   # freshclam atualizando as assinaturas. Usa ~1,5-3 GB de RAM por causa da base.
   clamav:
-    image: ${CLAMAV_IMAGE:-clamav/clamav:1.5@sha256:45fe5149fbee5a46509c9848ef20d0c354b7b2323c9369f285939a37cf33422a}
+    image: ${CLAMAV_IMAGE:-clamav/clamav:1.5@sha256:64e30c0bf976198024deb3dc6d5cfe2485fb969c0f73549ba0fdb364b9469614}
     restart: unless-stopped
     logging: *default-logging
     # Le arquivo malicioso: so o que o /init precisa (medido, item 6.20) para entregar a base e

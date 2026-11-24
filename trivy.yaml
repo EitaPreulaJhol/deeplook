@@ -26,3 +26,8 @@ scan:
     # stdlib do Go com que o binario foi compilado (1.24.6), e so a imagem oficial os corrige,
     # quando for refeita. Revise ao trocar a versao do postgres.
     - /usr/local/bin/gosu
+    # O Dockerfile do banco: o unico teste que ele reprova e o DS-0002 (root), e o root e do
+    # entrypoint oficial (chown da pasta de dados antes de largar com o gosu); um USER aqui
+    # quebraria o primeiro boot com a pasta do host. A imagem em si continua na varredura
+    # (deeplook-db, no job construidas).
+    - apps/db/Dockerfile
