@@ -70,8 +70,7 @@ updates:
         update-types: [minor, patch]
 
   # Novas analises (emulacao, APK e configuracao/memoria): os lockfiles com hash do pip-compile.
-  # O unicorn do emulate fica no 1.0.2 (o Speakeasy o fixa); o CAPE-parsers sobe a mao, junto com
-  # as regras do CAPEv2 em apps/extract/rules (mesma epoca).
+  # O CAPE-parsers sobe a mao, junto com as regras do CAPEv2 em apps/extract/rules (mesma epoca).
   - package-ecosystem: pip
     directories:
       - /apps/emulate
@@ -85,11 +84,7 @@ updates:
       patches:
         update-types: [minor, patch]
     ignore:
-      - dependency-name: unicorn
       - dependency-name: cape-parsers
-      # O unicorn 1.0.2 do emulate importa o pkg_resources, que saiu no setuptools 82.
-      - dependency-name: setuptools
-        versions: ['>= 82']
 
   # Analise de funcoes (item 7.2): o lockfile com hash do pip-compile (requirements.in). O capa
   # e o FLOSS sobem a mao: as regras e as assinaturas baixadas no Dockerfile (URL, hash e
@@ -148,17 +143,14 @@ updates:
       - dependency-name: python
         versions: ['>= 3.15']
 
-  # Emulacao (Speakeasy): fica no Python 3.11, porque o unicorn 1.0.2 importa o distutils, que saiu
-  # no 3.12. So os patches do 3.11.
+  # Emulacao (Speakeasy 2.x): o Python 3.11 fica nesta migracao; o 2.x suporta 3.10 a 3.15, entao
+  # as proximas versoes podem chegar quando o Dependabot as propuser.
   - package-ecosystem: docker
     directory: /apps/emulate
     schedule:
       interval: weekly
       day: monday
     open-pull-requests-limit: 1
-    ignore:
-      - dependency-name: python
-        versions: ['>= 3.12']
 
   # Configuracao de familias (CAPE-parsers): fica no Python 3.13, porque o yara-python 4.5.4 nao tem
   # wheel para o 3.14 (o build compila e falha sem gcc). Liberar quando sair o wheel cp314.

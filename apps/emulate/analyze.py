@@ -34,6 +34,15 @@ def text(value, limit=MAX_TEXT):
     return value[:limit]
 
 
+def api_text(value):
+    """A 1.x escrevia o modulo em maiusculas (KERNEL32.CreateFileA); o 2.x usa minusculas."""
+    name = text(value, 200)
+    if not name:
+        return name
+    module, dot, rest = name.partition(".")
+    return f"{module.upper()}.{rest}" if dot else name
+
+
 # ------------------------------------------------------------------ memoria ao fim (item 16)
 
 # Blocos que o programa alocou (os da emulacao, PEB, TEB, pilha, modulos carregados, ficam de fora).
@@ -133,14 +142,46 @@ def memory_report(se):
 
 
 def config():
-    """O perfil padrao do Speakeasy, com o tempo e o teto de chamadas daqui."""
-    path = os.path.join(os.path.dirname(speakeasy.__file__), "configs", "default.json")
-    with open(path, encoding="utf-8") as f:
-        cfg = json.load(f)
-    cfg["timeout"] = RUN_S
-    cfg["max_api_count"] = MAX_API_CALLS
-    cfg.setdefault("analysis", {})["strings"] = True
-    return cfg
+    """O perfil do Speakeasy 2.x, com o tempo e o teto de chamadas daqui."""
+    return {
+        "config_version": "2.0",
+        "limits": {
+            "per_run_time": RUN_S,
+            "api_calls": MAX_API_CALLS,
+        },
+        "memory": {"strings": True},
+    }
+
+
+# Eventos do relatorio 2.x que viram as listas do resumo. Os nomes a esquerda sao os do
+# EventType; os da direita sao os que a API e a tela ja mostravam na 1.x.
+FILE_EVENTS = {
+    "file_create": "create",
+    "file_open": "open",
+    "file_read": "read",
+    "file_write": "write",
+    "file_delete": "delete",
+    "directory_create": "directory_create",
+    "directory_delete": "directory_delete",
+}
+REG_EVENTS = {
+    "reg_open_key": "open_key",
+    "reg_create_key": "create_key",
+    "reg_read_value": "read_value",
+    "reg_write_value": "write_value",
+    "reg_list_subkeys": "list_subkeys",
+    "reg_delete_key": "delete_key",
+    "reg_delete_value": "delete_value",
+}
+PROC_EVENTS = {
+    "process_create": "create",
+    "thread_create": "thread_create",
+    "thread_inject": "thread_inject",
+    "mem_alloc": "mem_alloc",
+    "mem_write": "mem_write",
+    "mem_read": "mem_read",
+    "mem_protect": "mem_protect",
+}
 
 
 def summarize(report, kind, arch):
@@ -158,118 +199,138 @@ def summarize(report, kind, arch):
         seen.add(key)
         return True
 
-    for ep in report.get("entry_points") or []:
-        calls = ep.get("apis") or []
-        total += len(calls)
-        err = ep.get("error") or {}
+    for run in report.get("runs") or []:
+        calls = run.get("api_call_count")
+        calls = calls if isinstance(calls, int) else 0
+        total += calls
+        err = run.get("error") or {}
         entry_points.append(
             {
-                "type": text(ep.get("ep_type"), 120),
-                "start": text(ep.get("start_addr"), 40),
-                "apis": len(calls),
+                "type": text(run.get("type"), 120),
+                "start": text(run.get("start_address"), 40),
+                "apis": calls,
                 "error": text(err.get("type"), 120) if err else None,
             }
         )
         if err:
             errors.append(
                 {
-                    "entry": text(ep.get("ep_type"), 120),
+                    "entry": text(run.get("type"), 120),
                     "type": text(err.get("type"), 120),
-                    "api": text((err.get("api") or {}).get("name") if isinstance(err.get("api"), dict) else err.get("api_name"), 200),
+                    "api": api_text(err.get("api_name")),
                     "pc": text(err.get("pc"), 40),
-                    "instr": text(err.get("instr"), 200),
+                    "instr": text(err.get("instruction"), 200),
                 }
             )
-        for call in calls:
-            name = text(call.get("api_name"), 200) or "?"
-            found = apis.get(name)
-            if found:
-                found["count"] += 1
-            elif len(apis) < MAX_APIS:
-                apis[name] = {
-                    "name": name,
-                    "count": 1,
-                    "order": order,
-                    "args": [text(a, 200) for a in (call.get("args") or [])[:6]],
-                    "ret": text(call.get("ret_val"), 60),
-                }
-                order += 1
-        for f in ep.get("file_access") or []:
-            path = text(f.get("path"))
-            event = text(f.get("event"), 40)
-            if path and len(files) < MAX_ITEMS and once(("file", event, path)):
-                files.append({"event": event, "path": path})
-        for r in ep.get("registry_access") or []:
-            path = text(r.get("path"))
-            event = text(r.get("event"), 40)
-            value = text(r.get("value_name") or r.get("value"), 200)
-            if path and len(registry) < MAX_ITEMS and once(("reg", event, path, value)):
-                registry.append({"event": event, "path": path, "value": value})
-        net = ep.get("network_events") or {}
-        for d in net.get("dns") or []:
-            query = text(d.get("query"), 300)
-            if query and len(dns) < MAX_ITEMS and once(("dns", query)):
-                dns.append({"query": query, "response": text(d.get("response"), 300)})
-        for t in net.get("traffic") or []:
-            server = text(t.get("server"), 300)
-            key = ("net", server, t.get("port"), t.get("proto"), t.get("url"))
-            if len(traffic) < MAX_ITEMS and once(key):
-                traffic.append(
-                    {
-                        "server": server,
-                        "port": t.get("port") if isinstance(t.get("port"), int) else None,
-                        "proto": text(t.get("proto"), 40),
-                        "method": text(t.get("method"), 20),
-                        "url": text(t.get("url") or t.get("uri"), 500),
+        for event in run.get("events") or []:
+            name = event.get("event")
+            if name == "api":
+                api = api_text(event.get("api_name")) or "?"
+                count = event.get("calls")
+                count = count if isinstance(count, int) and count > 0 else 1
+                found = apis.get(api)
+                if found:
+                    found["count"] += count
+                elif len(apis) < MAX_APIS:
+                    apis[api] = {
+                        "name": api,
+                        "count": count,
+                        "order": order,
+                        "args": [
+                            text((arg or {}).get("display") or (arg or {}).get("value"), 200)
+                            for arg in (event.get("args") or [])[:6]
+                        ],
+                        "ret": text(event.get("return_value"), 60),
                     }
-                )
-        for p in ep.get("process_events") or []:
-            if len(processes) >= MAX_ITEMS:
-                break
-            event = text(p.get("event"), 40)
-            item = {
-                "event": event,
-                "pid": p.get("pid") if isinstance(p.get("pid"), int) else None,
-                "path": text(p.get("path")),
-                "cmdline": text(p.get("cmdline")),
-                "protect": text(p.get("protect"), 60),
-                "size": p.get("size") if isinstance(p.get("size"), int) else None,
-            }
-            if once(("proc", json.dumps(item, sort_keys=True))):
-                processes.append(item)
-        for d in ep.get("dropped_files") or []:
-            path = text(d.get("path"))
-            sha = text(d.get("sha256"), 64)
+                    order += 1
+            elif name in FILE_EVENTS:
+                path = text(event.get("path"))
+                mapped = FILE_EVENTS[name]
+                if path and len(files) < MAX_ITEMS and once(("file", mapped, path)):
+                    files.append({"event": mapped, "path": path})
+            elif name in REG_EVENTS:
+                path = text(event.get("path"))
+                mapped = REG_EVENTS[name]
+                value = text(event.get("value_name"), 200)
+                if path and len(registry) < MAX_ITEMS and once(("reg", mapped, path, value)):
+                    registry.append({"event": mapped, "path": path, "value": value})
+            elif name == "net_dns":
+                query = text(event.get("query"), 300)
+                if query and len(dns) < MAX_ITEMS and once(("dns", query)):
+                    dns.append({"query": query, "response": text(event.get("response"), 300)})
+            elif name in ("net_traffic", "net_http"):
+                server = text(event.get("server"), 300)
+                port = event.get("port")
+                if len(traffic) < MAX_ITEMS and once(("net", server, port, event.get("proto"))):
+                    traffic.append(
+                        {
+                            "server": server,
+                            "port": port if isinstance(port, int) else None,
+                            "proto": text(event.get("proto"), 40),
+                            "method": text(event.get("method"), 20),
+                            "url": None,
+                        }
+                    )
+            elif name in PROC_EVENTS:
+                if len(processes) >= MAX_ITEMS:
+                    continue
+                item = {
+                    "event": PROC_EVENTS[name],
+                    "pid": event.get("pid") if isinstance(event.get("pid"), int) else None,
+                    "path": text(event.get("path")),
+                    "cmdline": text(event.get("command_line")),
+                    "protect": text(event.get("permissions"), 60),
+                    "size": event.get("size") if isinstance(event.get("size"), int) else None,
+                }
+                if once(("proc", json.dumps(item, sort_keys=True))):
+                    processes.append(item)
+        for dropped_file in run.get("dropped_files") or []:
+            path = text(dropped_file.get("path"))
+            sha = text(dropped_file.get("sha256"), 64)
             if path and len(dropped) < MAX_ITEMS and once(("drop", path, sha)):
-                dropped.append({"path": path, "size": d.get("size"), "sha256": sha})
-        dynamic += len(ep.get("dynamic_code_segments") or [])
+                dropped.append({"path": path, "size": dropped_file.get("size"), "sha256": sha})
+        dynamic += len(run.get("dynamic_code") or [])
+
+    # Erros que nao pertencem a uma execucao (imagem invalida, por exemplo).
+    for err in report.get("errors") or []:
+        if len(errors) >= 50:
+            break
+        errors.append(
+            {
+                "entry": None,
+                "type": text(err.get("type"), 120),
+                "api": api_text(err.get("api_name")),
+                "pc": text(err.get("pc"), 40),
+                "instr": text(err.get("instruction"), 200),
+            }
+        )
 
     # O tamanho do arquivo largado e o da escrita; o mesmo caminho pode aparecer com 0 numa thread.
     best = {}
-    for d in dropped:
-        prev = best.get(d["path"])
-        if not prev or (d.get("size") or 0) > (prev.get("size") or 0):
-            best[d["path"]] = d
+    for item in dropped:
+        prev = best.get(item["path"])
+        if not prev or (item.get("size") or 0) > (prev.get("size") or 0):
+            best[item["path"]] = item
     dropped = list(best.values())
 
     strings = []
     memory = (report.get("strings") or {}).get("in_memory") or {}
     static = (report.get("strings") or {}).get("static") or {}
     known = set(static.get("ansi") or []) | set(static.get("unicode") or [])
-    for s in (memory.get("ansi") or []) + (memory.get("unicode") or []):
+    for value in (memory.get("ansi") or []) + (memory.get("unicode") or []):
         if len(strings) >= MAX_STRINGS:
             break
-        if isinstance(s, str) and len(s) >= 6 and s not in known and once(("str", s)):
-            strings.append(text(s))
+        if isinstance(value, str) and len(value) >= 6 and value not in known and once(("str", value)):
+            strings.append(text(value))
 
     return {
         "ok": True,
         "kind": kind,
         "arch": text(report.get("arch"), 20) or arch,
-        "filetype": text(report.get("filetype"), 40),
+        "filetype": text(report.get("file_type"), 40),
         "runtimeS": round(float(report.get("emulation_total_runtime") or 0), 2),
         "apiTotal": total,
-        "apis": sorted(apis.values(), key=lambda a: a["order"]),
+        "apis": sorted(apis.values(), key=lambda item: item["order"]),
         "entryPoints": entry_points[:50],
         "files": files,
         "registry": registry,
@@ -296,21 +357,21 @@ def main():
             se.run_shellcode(addr, offset=0)
         else:
             module = se.load_module(args.sample)
-            se.run_module(module, all_entrypoints=True)
+            se.run_module(module)
     except Exception as exc:  # noqa: BLE001 - PE que o Speakeasy nao carrega vira resposta legivel
         # O que ja rodou antes da falha (um ponto de entrada que quebrou no meio) ainda vale.
         try:
-            report = se.get_report()
+            report = se.get_report().model_dump(mode="json")
         except Exception:  # noqa: BLE001 - nem carregou
             report = {}
-        if not (report or {}).get("entry_points"):
+        if not report.get("runs"):
             print(json.dumps({"ok": False, "error": f"o Speakeasy não emulou o arquivo: {text(exc, 200)}"}))
             return
-    report = se.get_report()
+    report = se.get_report().model_dump(mode="json")
     with open(args.sample, "rb") as f:
         sha = hashlib.sha256(f.read()).hexdigest()
     out = summarize(report, args.kind, args.arch)
-    out["sha256"] = sha
+    out["sha256"] = report.get("sha256") or sha
     out["memory"] = memory_report(se)
     sys.stdout.write(json.dumps(out))
 

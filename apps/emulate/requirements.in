@@ -1,8 +1,9 @@
-# Emulacao de PE e shellcode (plans/novas-analises, item 4): Speakeasy, da Mandiant (MIT). Fixa o
-# unicorn 1.0.2, por isso fica num servico so dele. Versoes travadas com hash em requirements.txt:
+# Emulacao de PE e shellcode (plans/novas-analises, item 4): Speakeasy 2.x, da Mandiant (MIT), com
+# o unicorn 2.1.4 que ele mesmo fixa. Fica num servico so dele por causa da RAM/CPU; versoes
+# travadas com hash em requirements.txt:
 #   docker run --rm -v "$PWD:/w" -w /w python:3.11-slim sh -c "pip install -q pip-tools && pip-compile -q --generate-hashes --strip-extras --allow-unsafe requirements.in"
-speakeasy-emulator==1.5.11
-# O unicorn 1.0.2 importa o pkg_resources: o setuptools da imagem base (79) traz o jaraco.context
-# 5.3.0 e o wheel 0.45.1 vendorizados (CVE-2026-23949 e CVE-2026-24049). O 81 e o ultimo com o
-# pkg_resources e ja vem com os dois corrigidos.
+speakeasy-emulator==2.1.0
+# O setuptools 81 corrige o jaraco.context 5.3.0 e o wheel 0.45.1 que a imagem base (79) traz
+# vendorizados (CVE-2026-23949 e CVE-2026-24049). O unicorn 2.x nao usa mais o pkg_resources,
+# entao o 82+ pode entrar quando o Dependabot o propuser.
 setuptools==81.0.0

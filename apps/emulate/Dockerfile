@@ -1,5 +1,5 @@
-# Emulacao de PE e shellcode (plans/novas-analises, item 4): Speakeasy (MIT), da Mandiant. Python 3.11:
-# o Speakeasy fixa o unicorn 1.0.2, que importa o distutils (fora do Python 3.12).
+# Emulacao de PE e shellcode (plans/novas-analises, item 4): Speakeasy 2.x (MIT), da Mandiant.
+# Python 3.11: o 2.x suporta 3.10 a 3.15; a troca de versao fica para outra rodada.
 # Sem rede, sem root e com a raiz somente leitura no compose; um container por analise (server.py).
 FROM python:3.11-slim AS build
 COPY requirements.txt /tmp/
@@ -17,9 +17,8 @@ COPY --from=build /wheels /wheels
 RUN pip install --no-cache-dir --no-index --no-deps /wheels/*.whl \
   && rm -rf /wheels \
   && python -m pip uninstall -y -q pip
-# O setuptools 81 (fixado pelo pkg_resources do unicorn; ver requirements.in) avisa a cada import.
+# O HOME e o /tmp (raiz somente leitura); o setuptools 81 vem do lockfile (ver requirements.in).
 ENV HOME=/tmp \
-  PYTHONWARNINGS="ignore:pkg_resources is deprecated:UserWarning" \
   PYTHONDONTWRITEBYTECODE=1 \
   PYTHONUNBUFFERED=1 \
   PORT=3600
