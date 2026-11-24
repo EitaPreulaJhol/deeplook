@@ -1,6 +1,6 @@
-// Digest das imagens de terceiros do docker-compose.yml (Postgres e ClamAV).
+// Digest das imagens de terceiros do docker-compose.yml (hoje so o ClamAV).
 //
-// A tag (postgres:16-alpine) muda de conteudo sem aviso: dois `docker compose pull` em dias
+// A tag (clamav/clamav:1.5) muda de conteudo sem aviso: dois `docker compose pull` em dias
 // diferentes trazem imagens diferentes com o mesmo nome. Com o digest ao lado da tag, o compose
 // sobe exatamente a imagem que foi testada, e a troca vira uma linha no diff. O preco: a correcao
 // de seguranca da imagem so chega quando alguem roda este script (o Dependabot faz o mesmo, mas so
@@ -10,14 +10,16 @@
 //   node scripts/pin-images.mjs --write  regrava o docker-compose.yml com o digest de agora
 //
 // Depois do --write: docker compose pull && docker compose up -d, e a bateria de testes.
-// O MinIO (MINIO_IMAGE) fica de fora: e uma imagem escolhida por digest, sem tag para seguir.
+// O Postgres saiu daqui: o compose o monta de apps/db/Dockerfile (base pinada + apk upgrade), e o
+// digest do FROM e acompanhado pelo Dependabot (ecossistema docker). O MinIO (MINIO_IMAGE) fica
+// de fora: e uma imagem escolhida por digest, sem tag para seguir.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FILE = join(dirname(fileURLToPath(import.meta.url)), '..', 'docker-compose.yml');
-const IMAGES = ['postgres:16-alpine', 'clamav/clamav:1.5'];
+const IMAGES = ['clamav/clamav:1.5'];
 const write = process.argv.includes('--write');
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
