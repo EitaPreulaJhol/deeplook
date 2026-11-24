@@ -4,5 +4,6 @@
 #   # por que o risco e aceito e quem decidiu
 #   CVE-AAAA-NNNN exp:2027-01-31
 #
-# Vazio de proposito: hoje as seis imagens fecham em zero. A unica excecao, o gosu do
-# postgres, esta no trivy.yaml, porque e um arquivo e nao um CVE.
+# Vazio de proposito: hoje as imagens fecham em zero no limite do trivy.yaml (ALTA/CRITICA com
+# correcao). A unica excecao, o gosu do postgres, esta no trivy.yaml, porque e um arquivo e nao
+# um CVE.

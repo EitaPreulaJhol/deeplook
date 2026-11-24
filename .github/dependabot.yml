@@ -111,6 +111,8 @@ updates:
   # O Ghidra em si (pacote, hash, Java e a troca do guava no Dockerfile) sobe a mao.
   - package-ecosystem: docker
     directories:
+      # Banco do compose: o FROM pinado por digest, com o apk upgrade por cima (apps/db).
+      - /apps/db
       - /apps/api
       - /apps/web
       - /apps/capture
@@ -170,9 +172,10 @@ updates:
       - dependency-name: python
         versions: ['>= 3.14']
 
-  # As imagens de terceiros do docker-compose.yml (Postgres e ClamAV), fixadas por tag e digest:
+  # As imagens de terceiros do docker-compose.yml (hoje so o ClamAV), fixadas por tag e digest:
   # o Dependabot abre o PR quando a tag ganha uma imagem nova; a mao, node scripts/pin-images.mjs
-  # --write faz o mesmo. O MinIO (pgsty/silo) fica fora: o compose o le de ${MINIO_IMAGE:-...},
+  # --write faz o mesmo. O Postgres sai de apps/db, entao o FROM dele e acompanhado pelo
+  # ecossistema docker (acima). O MinIO (pgsty/silo) fica fora: o compose o le de ${MINIO_IMAGE:-...},
   # que o Dependabot nao entende, e o digest sobe a mao (o Trivy semanal avisa).
   - package-ecosystem: docker-compose
     directory: /
@@ -180,9 +183,6 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 2
-    ignore:
-      - dependency-name: postgres
-        update-types: ['version-update:semver-major']
 
   # As acoes usadas nos workflows (checkout, setup-node, upload-artifact).
   - package-ecosystem: github-actions

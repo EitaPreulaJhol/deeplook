@@ -1,9 +1,10 @@
 # Varredura de CVE nas imagens (item 6.4 do plano de melhorias).
 #
-# O item 2.3 nasceu de um CVE do MinIO descoberto por acaso, e o Dependabot nao enxerga as
-# imagens do docker-compose.yml (postgres, clamav, minio) nem o que as imagens ja montadas
-# trazem por baixo (o Alpine do nginx, o Debian do node). Esta esteira varre:
-#   - as tres imagens do projeto, montadas aqui;
+# O item 2.3 nasceu de um CVE do MinIO descoberto por acaso. O Dependabot cobre as tags do
+# compose e dos Dockerfiles, mas nao o que as imagens ja montadas trazem por baixo (o Alpine do
+# nginx, o Debian do node) nem a correcao que o Alpine publicou e a imagem oficial ainda nao
+# incorporou. Esta esteira varre:
+#   - as imagens do projeto, montadas aqui (inclusive o banco, de apps/db);
 #   - as de terceiros, como o compose as resolve (docker compose config --images);
 #   - os Dockerfiles (trivy config).
 # Cada imagem do projeto tambem gera um SBOM em CycloneDX, guardado como artefato do job
@@ -71,7 +72,7 @@ jobs:
         run: node scripts/trivy.mjs image "$IMAGE"
 
   # ---------------------------------------------------------------------------
-  # As tres imagens do projeto, montadas como em producao.
+  # As imagens do projeto, montadas como em producao.
   # ---------------------------------------------------------------------------
   construidas:
     name: Trivy (imagem ${{ matrix.app }})
@@ -81,6 +82,9 @@ jobs:
       matrix:
         # O egress (item 6.19) sai da pasta do capture, com Dockerfile proprio.
         include:
+          # Banco do compose (item 6.4): base oficial pinada + apk upgrade, porque a imagem
+          # oficial demora a ser refeita depois de uma correcao do Alpine.
+          - { app: db, dir: db, dockerfile: Dockerfile }
           - { app: api, dir: api, dockerfile: Dockerfile }
           - { app: web, dir: web, dockerfile: Dockerfile }
           - { app: capture, dir: capture, dockerfile: Dockerfile }
@@ -147,3 +151,34 @@ jobs:
 
       - name: Varredura de configuracao
         run: node scripts/trivy.mjs config apps
+
+  # ---------------------------------------------------------------------------
+  # Aviso do schedule: um X vermelho so notifica o ultimo autor de commit. Abre (ou
+  # comenta) uma issue com os jobs que falharam, para o achado nao morrer no log.
+  # ---------------------------------------------------------------------------
+  alerta:
+    name: Aviso da varredura semanal
+    needs: [terceiros, construidas, dockerfiles]
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - name: Abrir ou atualizar a issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          jobs=$(gh run view "$GITHUB_RUN_ID" --json jobs \
+            --jq '[.jobs[] | select(.conclusion == "failure") | "- `\(.name)`"] | join("\n")')
+          body=$(printf 'Run: %s/%s/actions/runs/%s\n\nJobs com falha:\n%s\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$jobs")
+          existing=$(gh issue list --state open \
+            --search 'Varredura semanal de imagens reprovou in:title' \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title 'Varredura semanal de imagens reprovou' --body "$body"
+          fi
