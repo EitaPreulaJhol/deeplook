@@ -16,7 +16,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const TRIVY_IMAGE = process.env.TRIVY_IMAGE ?? 'aquasec/trivy:0.76.1';
+const TRIVY_IMAGE = process.env.TRIVY_IMAGE ?? 'aquasec/trivy:0.76.2';
 const CACHE = process.env.TRIVY_CACHE_DIR ?? join(homedir(), '.cache', 'trivy');
 // Espelho do banco primeiro: o ghcr.io limita as consultas anonimas dos runners do GitHub.
 const DB_REPOSITORY =
