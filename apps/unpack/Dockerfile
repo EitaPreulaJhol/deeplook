@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libf
 # GoReSym 3.4.1 (MIT, Mandiant; plans/analise-estatica-ampliada, item 14): le o pclntab do Go, mesmo
 # sem simbolos. Compilado do commit da tag v3.4.1 (o git confere o conteudo; o go.sum, as dependencias)
 # com o Go corrigido: o binario oficial vem do Go 1.26.8, com CVE na biblioteca padrao.
-FROM golang:1.26.10-trixie AS goresym
+FROM golang:1.27.3-trixie AS goresym
 ARG GORESYM_COMMIT=722897e0a80da0a06c00c5e40591a253a551f04e
 RUN git clone --filter=blob:none https://github.com/mandiant/GoReSym.git /src \
   && cd /src && git checkout --quiet "$GORESYM_COMMIT" \
