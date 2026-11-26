@@ -380,7 +380,9 @@ async function drain(): Promise<void> {
     }
     try {
       const job = await claim();
-      if (!job) return;
+      // Outro trabalhador pegou a mesma analise antes: o updateMany volta 0. Tenta a proxima em
+      // vez de encerrar e deixar a fila com um trabalhador a menos ate o proximo tique.
+      if (!job) continue;
       const run = startJob('capa', job.id);
       try {
         await analyzeJob(job.id, job.entryId, job.attempts, slot, run.signal);
